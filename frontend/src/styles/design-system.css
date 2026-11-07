@@ -170,3 +170,182 @@
     --ir-color-muted: #d6dbe2;
   }
 }
+
+
+/* Phase 2 · station profile and persistent live radio player */
+@layer components {
+  .ir-station-page {
+    background: radial-gradient(ellipse at 48% 2%, rgba(77, 113, 43, 0.14), transparent 44%), var(--ir-color-bg);
+  }
+
+  .ir-station-hero {
+    background: linear-gradient(145deg, rgba(24, 32, 40, 0.88), rgba(10, 13, 18, 0.96));
+    border: 1px solid var(--ir-glass-border);
+    border-radius: clamp(1.5rem, 4vw, 2.75rem);
+    box-shadow: var(--ir-elevation);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+  }
+
+  .ir-station-hero-art {
+    background: #151a21;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 1.75rem;
+    box-shadow: 0 26px 65px rgba(0, 0, 0, 0.52);
+  }
+
+  .ir-station-now {
+    background: rgba(204, 255, 0, 0.055);
+    border: 1px solid rgba(204, 255, 0, 0.19);
+    border-radius: 1.25rem;
+    padding: 1rem 1.25rem;
+  }
+
+  .ir-live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    background: var(--ir-color-accent);
+    color: #121700;
+    font-size: 0.65rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    padding: 0.55rem 0.8rem;
+  }
+
+  .ir-live-indicator::before {
+    content: "";
+    display: block;
+    height: 0.42rem;
+    width: 0.42rem;
+    border-radius: 50%;
+    background: #263200;
+  }
+
+  .ir-full-player {
+    background: radial-gradient(ellipse 70% 46% at 50% 18%, rgba(204, 255, 0, 0.09), transparent 100%),
+      linear-gradient(180deg, #121920 0%, #090d12 52%, #06090e 100%);
+    color: var(--ir-color-text);
+  }
+
+  .ir-full-player-art {
+    border: 1px solid rgba(218, 236, 247, 0.16);
+    border-radius: 2rem;
+    box-shadow: 0 24px 65px rgba(0, 0, 0, 0.6), 0 0 34px rgba(204, 255, 0, 0.08);
+  }
+
+  .ir-player-transport {
+    border: 1px solid var(--ir-color-accent);
+    background: var(--ir-color-accent);
+    color: #111600;
+    box-shadow: 0 12px 32px rgba(204, 255, 0, 0.22);
+  }
+
+  .ir-player-transport:disabled {
+    background: #2a3239;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #929da7;
+    box-shadow: none;
+  }
+
+  .ir-recognize-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    min-height: 44px;
+    border: 1px solid rgba(204, 255, 0, 0.58);
+    border-radius: 999px;
+    padding: 0.6rem 1.5rem;
+    background: rgba(204, 255, 0, 0.07);
+    color: var(--ir-color-accent);
+    font-size: 0.85rem;
+    font-weight: 750;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .ir-recognize-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .ir-recognize-button:not(:disabled):hover {
+    background: rgba(204, 255, 0, 0.16);
+  }
+
+  .ir-live-visualizer {
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .ir-live-visualizer span {
+    width: 4px;
+    height: 19px;
+    border-radius: 999px;
+    background: var(--ir-color-accent);
+    box-shadow: 0 0 9px rgba(204, 255, 0, 0.3);
+    animation: ir-live-bar 920ms ease-in-out infinite alternate;
+    animation-delay: calc(var(--i) * -110ms);
+    transform-origin: center;
+  }
+
+  .ir-live-visualizer--paused span {
+    animation-play-state: paused;
+    opacity: 0.35;
+    transform: scaleY(0.55);
+  }
+
+  .ir-mini-player {
+    background: rgba(20, 28, 34, 0.97);
+    border: 1px solid rgba(204, 255, 0, 0.21);
+    border-radius: 1.15rem;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.46);
+    -webkit-backdrop-filter: blur(22px);
+    backdrop-filter: blur(22px);
+  }
+
+  .ir-mini-player-logo {
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .ir-mobile-bottom-dock {
+    border-top: 1px solid rgba(204, 255, 0, 0.15);
+    background: rgba(10, 14, 19, 0.97);
+    -webkit-backdrop-filter: blur(22px);
+    backdrop-filter: blur(22px);
+  }
+
+  .ir-mobile-bottom-dock [aria-current="page"] {
+    color: var(--ir-color-accent);
+  }
+
+  @keyframes ir-live-bar {
+    from { transform: scaleY(0.45); }
+    to { transform: scaleY(1.7); }
+  }
+
+  @media (max-height: 730px) {
+    .ir-full-player .ir-full-player-art {
+      max-width: min(50vh, 260px);
+      max-height: min(50vh, 260px);
+    }
+    .ir-full-player .ir-full-player-actions {
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ir-live-visualizer span { animation: none; }
+  }
+
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .ir-station-hero { background: #10151b; }
+    .ir-mini-player, .ir-mobile-bottom-dock { background: #131a20; }
+  }
+}

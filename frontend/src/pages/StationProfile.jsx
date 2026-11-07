@@ -45,7 +45,7 @@ export default function StationProfile({
     "ΠΑΙΖΕΙ ΤΩΡΑ"
   ];
 
-  const effectiveNowPlaying = (isThisPlaying && isPlaying) 
+  const effectiveNowPlaying = (currentUser && isThisPlaying && isPlaying) 
     ? ((globalNowPlaying && globalNowPlaying !== "ΠΑΙΖΕΙ ΤΩΡΑ") ? globalNowPlaying : localNowPlaying)
     : null;
 
@@ -333,11 +333,11 @@ export default function StationProfile({
   };
 
   // 🟢 Απλή λογική: Αν παίζει ο σταθμός ΚΑΙ υπάρχει CoverArt από το App.jsx, το δείχνουμε. Αλλιώς, το Logo.
-  const showCoverArt = (isThisPlaying && isPlaying && globalCoverArt && !isCurrentlyLoadingMeta);
+  const showCoverArt = Boolean(currentUser && isThisPlaying && isPlaying && globalCoverArt && !isCurrentlyLoadingMeta);
   const currentImage = showCoverArt ? globalCoverArt : station.logo;
 
   return (
-    <div className="relative flex flex-col pb-40 w-full bg-black min-h-screen">
+    <div className="ir-station-page relative flex flex-col pb-40 w-full min-h-screen">
       
       <Helmet>
         <title>{`${station.name} στο iRadios. ${currentShow ? 'ON Air: ' + currentShow.title : ''} ${station.slogan ? ' | ' + station.slogan : ''}`}</title>
@@ -352,7 +352,7 @@ export default function StationProfile({
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/80 to-black"></div>
       </div>
 
-      <div className="relative z-10 flex-1 px-4 sm:px-6 lg:px-12 py-8 lg:py-16 max-w-[1400px] mx-auto w-full">
+      <div className="relative z-10 flex-1 px-4 sm:px-6 lg:px-12 py-6 lg:py-12 max-w-[1400px] mx-auto w-full">
         
         {/* BACK BUTTON */}
         <button 
@@ -362,14 +362,14 @@ export default function StationProfile({
           <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
             <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" /> 
           </div>
-          <span className="text-[10px] font-black tracking-[0.2em] uppercase">Back</span>
+          <span className="text-[10px] font-black tracking-[0.2em] uppercase">Πίσω</span>
         </button>
 
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-16 items-center lg:items-start text-center lg:text-left mb-16">
+        <div className="ir-station-hero flex flex-col lg:flex-row gap-8 lg:gap-12 items-center lg:items-start text-center lg:text-left mb-12 px-5 py-7 sm:p-8 lg:p-12">
           
           {/* 🟢 DYNAMIC LOGO / COVER ART AREA */}
           <div className="flex flex-col items-center lg:items-start gap-4 shrink-0">
-            <div className="w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72 rounded-[10px] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.6)] bg-zinc-900 border border-white/5 group relative z-10 transition-all duration-500">
+            <div className="ir-station-hero-art w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72 overflow-hidden group relative z-10 transition-all duration-500">
               
               <img 
                 src={currentImage} 
@@ -442,7 +442,7 @@ export default function StationProfile({
           <div className="flex flex-col flex-1 max-w-3xl w-full relative z-10">
             
             <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-3 justify-center lg:justify-start">
-              <h1 className="text-4xl lg:text-6xl font-black tracking-tighter text-white drop-shadow-2xl">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white drop-shadow-2xl">
                 {station.name}{station.boostStatus && new Date(station.boostExpiresAt) > new Date() && (<Zap size={14} className="inline ml-2 text-black bg-[#ccff00] rounded-full p-0.5 mb-0.5" />)}
               </h1>
               
@@ -465,8 +465,8 @@ export default function StationProfile({
               </div>
             </div>
             
-            {/* 🟢 DYNAMIC NOW PLAYING TEXT */}
-            <div className="mb-6 min-h-[60px]">
+            {/* Real authenticated station metadata (no fabricated song history). */}
+            <div className="ir-station-now mb-6 min-h-[60px] w-full max-w-2xl">
               {effectiveNowPlaying ? (
                 <div className="animate-fade-in flex flex-col items-center lg:items-start">
                   <div className="inline-flex items-center gap-2 mb-2">
@@ -476,7 +476,7 @@ export default function StationProfile({
                        <Loader2 size={14} className="text-[#ccff00] animate-spin" />
                     )}
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ccff00]">
-                      {isCurrentlyLoadingMeta ? 'AI RADAR' : 'Playing Now'}
+                      {isCurrentlyLoadingMeta ? 'ΑΝΑΓΝΩΡΙΣΗ' : 'ΤΩΡΑ ΠΑΙΖΕΙ'}
                     </span>
                   </div>
                   <h2 className="text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug drop-shadow-md">
@@ -526,7 +526,8 @@ export default function StationProfile({
                   
                   <button 
                     onClick={handlePlayClick}
-                    className="relative z-10 w-full h-full bg-white text-black rounded-full flex items-center justify-center hover:scale-105 transition-transform shadow-[0_10px_30px_rgba(255,255,255,0.2)] active:scale-95"
+                    aria-label={isThisPlaying && isPlaying ? 'Παύση σταθμού' : 'Αναπαραγωγή σταθμού'}
+                    className="ir-player-transport relative z-10 w-full h-full rounded-full flex items-center justify-center hover:scale-105 transition-transform active:scale-95"
                   >
                     {isThisPlaying && isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1.5" />}
                   </button>

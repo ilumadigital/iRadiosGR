@@ -97,13 +97,19 @@ export default function MobileMiniPlayer({
   const currentPreset = (currentStation && userOverrides?.[currentStation._id]) || 'Station Default';
 
   const isActualSong = 
-    !isRecognizing &&
+    Boolean(currentUser) && !isRecognizing &&
     nowPlaying && typeof nowPlaying === 'string' &&
     nowPlaying !== "LIVE NOW" && 
     nowPlaying !== "ΠΑΙΖΕΙ ΤΩΡΑ" && 
     !nowPlaying.toLowerCase().includes("αναζήτηση") && 
     !nowPlaying.toLowerCase().includes("ακούω") &&
     !nowPlaying.toLowerCase().includes("scanning");
+
+  // Show factual stream metadata as a track label, never as a seekable duration.
+  const trackParts = isActualSong ? nowPlaying.split(/\s+[-–—]\s+/) : [];
+  const displayTrackTitle = trackParts.length > 1 ? trackParts.slice(1).join(' — ')
+    : (isActualSong ? nowPlaying : currentStation.name);
+  const displayTrackArtist = trackParts.length > 1 ? trackParts[0] : '';
 
   const finalSpotifyUrl = spotifyUrl || (isActualSong && nowPlaying ? `https://open.spotify.com/search/${encodeURIComponent(nowPlaying)}` : null);
 
@@ -270,7 +276,7 @@ export default function MobileMiniPlayer({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMoveMaximized}
         onTouchEnd={handleTouchEndMaximized}
-        className={`fixed inset-0 z-[100] flex flex-col bg-[#0a0a0a] transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
+        className={`ir-full-player fixed inset-0 z-[100] flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
           isMaximized ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
@@ -282,11 +288,11 @@ export default function MobileMiniPlayer({
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/90 to-transparent" />
         </div>
 
-        <div className="relative z-10 flex flex-col h-full px-6 pt-12 pb-8 overflow-hidden">
+        <div className="relative z-10 flex h-full flex-col overflow-x-hidden overflow-y-auto px-5 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8">
           
           <div className="relative flex items-center justify-between mb-8 min-h-[36px]">
             <div className="flex-1 flex justify-start z-10 relative">
-              <button onClick={() => setIsMaximized(false)} className="p-2 -ml-2 text-white/70 hover:text-white transition-colors active:scale-90">
+              <button onClick={() => setIsMaximized(false)} aria-label="Ελαχιστοποίηση player" className="p-2 -ml-2 text-white/70 hover:text-white transition-colors active:scale-90">
                 <ChevronDown size={28} />
               </button>
               
@@ -302,7 +308,7 @@ export default function MobileMiniPlayer({
             </div>
 
             <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center z-0 w-3/5 pointer-events-none">
-              <span className="text-[9px] font-black text-white/50 tracking-[0.25em] uppercase mb-0.5">Now Playing</span>
+              <span className="text-[9px] font-black text-white/50 tracking-[0.25em] uppercase mb-0.5">ΖΩΝΤΑΝΑ ΣΤΟ iRadios</span>
               <span className="text-sm font-bold text-white tracking-wide truncate w-full text-center">{currentStation.name}</span>
             </div>
 
@@ -329,12 +335,12 @@ export default function MobileMiniPlayer({
               transition: isAnimatingX ? 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)' : 'none'
             }}
           >
-            <div className="relative w-full max-w-[280px] sm:max-w-[320px] aspect-square flex justify-center mb-6">
+            <div className="relative mb-5 flex aspect-square w-full max-w-[min(68vw,310px)] justify-center sm:max-w-[340px]">
               <img 
                 onClick={handleAdClick}
                 src={maximizedImage} 
                 alt={currentStation.name}
-                className={`w-full h-full rounded-[32px] border border-white/10 transition-all duration-500 mx-auto ${
+                className={`ir-full-player-art w-full h-full transition-all duration-500 mx-auto ${
                   showCoverArt ? 'object-cover shadow-2xl' : 'bg-white object-contain p-4'
                 } ${isPlayingAd ? 'cursor-pointer' : 'pointer-events-none'} ${
                   isPlaying && !isBuffering ? 'scale-100 shadow-[0_30px_60px_rgba(0,0,0,0.6)]' : 'scale-95 grayscale-[30%] opacity-80'
@@ -359,19 +365,32 @@ export default function MobileMiniPlayer({
             
             <div className="flex flex-col items-center text-center gap-1 w-full max-w-sm px-2">
               <h2 onClick={handleAdClick} className="text-2xl sm:text-3xl font-black text-white truncate tracking-tight w-full">
-                {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : currentStation.name}
+                {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : displayTrackTitle}
               </h2>
               <p className={`text-base sm:text-lg font-medium truncate w-full ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                {isPlayingAd ? `${currentAdInfo?.title || 'Sponsored Ad'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (nowPlaying || 'Live Stream'))}
+                {isPlayingAd ? `${currentAdInfo?.title || 'Sponsored Ad'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (displayTrackArtist || currentStation.name) : 'Ζωντανό ραδιόφωνο'))}
               </p>
+              {!isPlayingAd && (
+                <div className="mt-3 flex items-center gap-3">
+                  <span className="ir-live-indicator">LIVE RADIO</span>
+                  <span className="max-w-[150px] truncate text-xs text-zinc-400">{currentStation.name}</span>
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Decorative motion only; live radio has no track progress bar. */}
+          {!isPlayingAd && (
+            <div className={`ir-live-visualizer mb-3 ${(!isPlaying || isBuffering) ? 'ir-live-visualizer--paused' : ''}`} aria-hidden="true">
+              {Array.from({ length: 23 }, (_, i) => <span key={i} style={{ '--i': i }} />)}
+            </div>
+          )}
+
           {/* MAIN CONTROLS - MAXIMIZED PLAYER */}
-          <div className="grid grid-cols-3 items-center justify-between mb-8 px-4 w-full">
+          <div className="ir-full-player-actions grid grid-cols-3 items-center justify-between mb-4 px-2 w-full">
             <div className="flex justify-start">
               {!isPlayingAd && (
-                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} className={`p-2 rounded-full transition-all active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-white/40 hover:text-white'}`}>
+                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} aria-label={isCurrentlyFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"} className={`p-2 rounded-full transition-all active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-white/40 hover:text-white'}`}>
                   <Heart size={28} fill={isCurrentlyFavorite ? "currentColor" : "none"} />
                 </button>
               )}
@@ -379,7 +398,7 @@ export default function MobileMiniPlayer({
 
             <div className="flex items-center justify-center gap-2 sm:gap-6 w-full">
               <button 
-                onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} 
+                onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} aria-label="Προηγούμενος σταθμός" 
                 onTouchStart={(e) => e.stopPropagation()} 
                 disabled={isPlayingAd || adWarning || !isPremium} 
                 className={`p-4 transition-all ${(!isPremium || isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
@@ -391,7 +410,8 @@ export default function MobileMiniPlayer({
                 onClick={(e) => { e.stopPropagation(); togglePlayPause(); }} 
                 onTouchStart={(e) => e.stopPropagation()} 
                 disabled={isPlayingAd} 
-                className={`w-20 h-20 mx-2 shrink-0 rounded-full flex items-center justify-center transition-all shadow-[0_10px_30px_rgba(0,0,0,0.3)] ${isPlayingAd ? 'bg-white/10 text-white/30' : 'bg-white text-black active:scale-95'}`}
+                aria-label={isPlaying ? 'Παύση ραδιοφώνου' : 'Αναπαραγωγή ραδιοφώνου'}
+                className={`ir-player-transport w-[72px] h-[72px] sm:w-20 sm:h-20 mx-1 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-95 ${isPlayingAd ? 'opacity-50' : ''}`}
               >
                 {isBuffering ? (
                   <div className="flex items-center justify-center gap-1.5">
@@ -407,7 +427,7 @@ export default function MobileMiniPlayer({
               </button>
 
               <button 
-                onClick={(e) => { e.stopPropagation(); handleNextStation(); }} 
+                onClick={(e) => { e.stopPropagation(); handleNextStation(); }} aria-label="Επόμενος σταθμός" 
                 onTouchStart={(e) => e.stopPropagation()} 
                 disabled={isPlayingAd || adWarning} 
                 className={`p-4 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
@@ -455,7 +475,16 @@ export default function MobileMiniPlayer({
             </div>
           </div>
 
-          <div className="flex items-center justify-evenly bg-white/5 border border-white/10 rounded-3xl py-4 px-2">
+          {!isPlayingAd && (
+            <div className="mb-4 flex justify-center">
+              <button type="button" onClick={handleRadarClick} disabled={isRecognizing || !isPlaying}
+                className="ir-recognize-button" aria-label="Αναγνώριση τραγουδιού με ACRCloud">
+                {isRecognizing ? <Loader2 size={17} className="animate-spin" /> : <ScanSearch size={17} />}
+                {isRecognizing ? 'Γίνεται αναγνώριση...' : 'Αναγνώριση τραγουδιού'}
+              </button>
+            </div>
+          )}
+          <div className="flex items-center justify-evenly bg-white/5 border border-white/10 rounded-3xl py-3 px-2">
             {isPremium && !isPlayingAd && <button onClick={() => { setIsMaximized(false); navigate(`/station/${currentStation.slug || currentStation._id}`); }} className="p-3 text-white/80 hover:text-white rounded-full active:scale-90 transition-all"><CalendarDays size={24} /></button>}
             
             {!isPlayingAd && (!isActualSong ? (
@@ -513,7 +542,9 @@ export default function MobileMiniPlayer({
         onTouchMove={handleTouchMoveMinified}
         onTouchEnd={handleTouchEndMinified}
         onClick={() => setIsMaximized(true)} 
-        className={`fixed bottom-[84px] left-2 right-2 h-[68px] bg-[#1a1a1a] rounded-2xl border border-white/10 flex items-center justify-between px-3 lg:hidden z-[90] shadow-[0_20px_50px_rgba(0,0,0,0.9)] cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
+        role="button" tabIndex={0} aria-label={`Άνοιγμα player: ${currentStation.name}`}
+        onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setIsMaximized(true); } }}
+        className={`ir-mini-player fixed bottom-[84px] left-2 right-2 h-[68px] flex items-center justify-between px-3 lg:hidden z-[90] cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
           isMaximized ? 'translate-y-[150%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}
       >
@@ -521,7 +552,7 @@ export default function MobileMiniPlayer({
           <div className="relative shrink-0">
             <img 
                src={minifiedImage} 
-               className={`w-12 h-12 rounded-xl shadow-lg border border-white/5 bg-white object-contain p-1 transition-all duration-500 ${!isPlaying && !isBuffering ? 'scale-95 grayscale-[30%]' : ''}`} 
+               className={`ir-mini-player-logo w-12 h-12 shadow-lg bg-white object-contain p-1 transition-all duration-500 ${!isPlaying && !isBuffering ? 'scale-95 grayscale-[30%]' : ''}`} 
                alt="" 
             />
           </div>
@@ -535,7 +566,7 @@ export default function MobileMiniPlayer({
               <>
                 <div className="text-sm font-bold text-white truncate tracking-tight">{currentStation.name}</div>
                 <div className={`text-[11px] font-medium truncate max-w-[140px] mt-0.5 ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                  {isRecognizing ? nowPlaying : (nowPlaying && nowPlaying !== "ΠΑΙΖΕΙ ΤΩΡΑ" ? nowPlaying : "LIVE NOW")}
+                  {isRecognizing ? "Αναγνώριση..." : (isActualSong ? nowPlaying : "Ζωντανό ραδιόφωνο")}
                 </div>
               </>
             )}
@@ -544,18 +575,19 @@ export default function MobileMiniPlayer({
         
         <div className="flex items-center shrink-0">
           {!isPlayingAd && (
-            <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} className={`p-2 transition-all active:scale-90 mr-1 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-zinc-400'}`}>
+            <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} aria-label={isCurrentlyFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"} className={`p-2 transition-all active:scale-90 mr-1 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-zinc-400'}`}>
               <Heart size={20} fill={isCurrentlyFavorite ? "currentColor" : "none"} />
             </button>
           )}
 
           {isPremium && (
-            <button onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} disabled={isPlayingAd || adWarning} className={`p-2 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}>
+            <button onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} aria-label="Προηγούμενος σταθμός" disabled={isPlayingAd || adWarning} className={`p-2 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}>
               <SkipBack size={20} fill="currentColor" />
             </button>
           )}
 
-          <button onClick={(e) => { e.stopPropagation(); togglePlayPause(); }} disabled={isPlayingAd} className={`w-10 h-10 mx-1 rounded-full flex items-center justify-center transition-all shadow-md ${isPlayingAd ? 'bg-zinc-800 text-zinc-600' : 'bg-white text-black active:scale-95'}`}>
+          <button onClick={(e) => { e.stopPropagation(); togglePlayPause(); }} disabled={isPlayingAd} aria-label={isPlaying ? 'Παύση ραδιοφώνου' : 'Αναπαραγωγή ραδιοφώνου'}
+            className={`ir-player-transport w-11 h-11 mx-1 rounded-full flex items-center justify-center transition-all active:scale-95 ${isPlayingAd ? 'opacity-50' : ''}`}>
             {isBuffering ? (
               <div className="flex items-center justify-center gap-0.5">
                 <div className="w-1.5 h-1.5 bg-black rounded-full dot-1"></div>
@@ -569,7 +601,7 @@ export default function MobileMiniPlayer({
             )}
           </button>
 
-          <button onClick={(e) => { e.stopPropagation(); handleNextStation(); }} disabled={isPlayingAd || adWarning} className={`p-2 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}>
+          <button onClick={(e) => { e.stopPropagation(); handleNextStation(); }} aria-label="Επόμενος σταθμός" disabled={isPlayingAd || adWarning} className={`p-2 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}>
             <SkipForward size={20} fill="currentColor" />
           </button>
 

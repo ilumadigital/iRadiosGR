@@ -102,10 +102,12 @@ export default function PlayingNow({ stations, API_URL, currentUser }) {
           const hasCustomCover = item.coverArt !== item.logo;
 
           return (
-            <div 
+            <button 
               key={`${item._id}-${index}`}
+              type="button"
               onClick={() => navigate(`/station/${item.slug || item._id || item.id}`)}
-              className="ir-now-playing-card relative w-56 h-56 md:w-64 md:h-64 rounded-2xl overflow-hidden shrink-0 group snap-start cursor-pointer transition-all duration-500 hover:-translate-y-1"
+              aria-label={`Άνοιγμα σταθμού ${item.name}: ${item.nowPlaying}`}
+              className="ir-now-playing-card relative w-56 h-56 md:w-64 md:h-64 rounded-2xl overflow-hidden shrink-0 group snap-start cursor-pointer transition-all duration-500 hover:-translate-y-1 text-left"
             >
               
               <img 
@@ -131,17 +133,18 @@ export default function PlayingNow({ stations, API_URL, currentUser }) {
 
               {/* Πληροφορίες Κάτω */}
               <div className="absolute bottom-4 left-4 right-4 flex flex-col items-start z-10 pointer-events-none">
-                <div className="bg-[#ccff00] text-black text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-sm shadow-md mb-2">
-                  LIVE NOW
+                <div className="ir-live-indicator mb-2">
+                  ΤΩΡΑ ΠΑΙΖΕΙ
                 </div>
-                <h3 className="text-white/95 font-medium text-sm md:text-[15px] leading-snug drop-shadow-md line-clamp-2">
+                <h3 className="text-white/95 font-semibold text-sm md:text-[15px] leading-snug drop-shadow-md line-clamp-2">
                   {item.nowPlaying}
                 </h3>
+                <p className="mt-1 text-[11px] font-semibold text-zinc-200/85 truncate w-full">{item.name}</p>
               </div>
 
-              {/* Γραμμή προόδου στο κάτω μέρος (Μπλε που γίνεται Λαχανί) */}
-              <div className="absolute bottom-0 left-0 h-1.5 w-[75%] rounded-r-full transition-all duration-500 ease-in-out z-10 bg-gradient-to-r from-[#ccff00] to-[#a3cc00] shadow-[0_0_10px_#ccff0060] group-hover:w-full group-hover:shadow-[0_0_10px_#ccff00]"></div>
-            </div>
+              {/* Live radio is not a seekable track: no fabricated progress indicator. */}
+              <div aria-hidden="true" className="absolute bottom-0 left-0 h-1 w-full bg-[#ccff00]/75" />
+            </button>
           );
         })}
         
