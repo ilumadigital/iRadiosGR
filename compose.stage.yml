@@ -41,7 +41,7 @@ services:
     env_file:
       - /etc/iradios/staging/backend.env
     environment:
-      MONGO_URI: 'mongodb://root:${STAGE_MONGO_PASSWORD:?missing}@mongo:27017/iradios_stage?authSource=admin'
+      MONGO_URI: 'mongodb://iradios_stage_app:${STAGE_MONGO_APP_PASSWORD:?run prepare-stage-mongo-user.sh}@mongo:27017/iradios_stage?authSource=iradios_stage'
       APP_ENV: staging
       FRONTEND_URL: https://stage.iradios.gr
     depends_on:
