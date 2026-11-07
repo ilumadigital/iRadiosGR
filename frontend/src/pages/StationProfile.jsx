@@ -749,6 +749,7 @@ export default function StationProfile({
                   onPlayStation={setCurrentStation}/>
               ))}
             </div>
+          </div>
         )}
 
       </div>
