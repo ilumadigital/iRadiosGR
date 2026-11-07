@@ -4,7 +4,8 @@
 set -euo pipefail
 HOST=stage.iradios.gr
 BASE="https://$HOST"
-OPT=(--resolve "$HOST:443:127.0.0.1" -sS --connect-timeout 4 --max-time 15)
+# Always hit the local origin even if HTTPS_PROXY is set on the VPS.
+OPT=(--noproxy '*' --resolve "$HOST:443:127.0.0.1" -sS --connect-timeout 4 --max-time 15)
 check() {
   local label="$1" expected="$2" method="$3" url="$4" status
   status=$(curl "${OPT[@]}" -o /dev/null -w '%{http_code}' -X "$method" "$BASE$url")
