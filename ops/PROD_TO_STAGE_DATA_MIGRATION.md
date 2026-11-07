@@ -1,93 +1,83 @@
-# iRadiosGR · Production → Staging database copy (2026-11-07)
+# iRadiosGR — Production MongoDB export to staging (2026-11-07)
 
-## Scope and safety
-- Source: Hetzner production MongoDB **4.4**, container `iradios-mongodb`. Target: Hostinger stage MongoDB **9.0.4**, network `iradios_stage_internal`.
-- Export **only the application database**, assumed `iradios` once verified, plus `/var/www/iradios-app/uploads`. Do not export the `admin`/`local` databases or production service configuration, JWT, SMTP, Stripe, or Mongo server credentials.
-- User account password fields are bcrypt **hashes**, not plaintext passwords; these come with the users collection and do not need exporting separately.
-- **Never** run `mongorestore` against Hetzner, and never run `docker compose down -v`. Neither archive nor uploads should be committed to GitHub, emailed, or pasted into ChatGPT.
-- MongoDB documentation guarantees raw BSON documents into same or newer MongoDB versions, but **not** metadata, indexes, or archive/oplog replay across this version gap. Keep the full original dump; the trial restore below deliberately skips old options and indexes, which need separate review.
-- If production is a standalone MongoDB, `mongodump` without `--oplog` is not point-in-time consistent during concurrent writes. Run during a low-traffic/write-quiescent window. A definitive no-data-loss production migration needs a separately coordinated approach.
+## Verified snapshot
+Production Hetzner: `iradios-mongodb`, source database `iradios`, MongoDB 4.4.
+Export verified by operator at 2026-11-07 16:34 UTC:
+- `/root/iradios-stage-transfer-20261107/iradios-prod.archive.gz` — `mongodump --db iradios --archive --gzip`, 117 KB.
+- `/root/iradios-stage-transfer-20261107/iradios-prod-uploads.tar.gz` — uploads from `/var/www/iradios-app/uploads`, 21 MB.
+- `/root/iradios-stage-transfer-20261107/SHA256SUMS`.
+- 520 documents in nine collections: 68 stations, 240 users, 96 subscriptions, 88 analytics, 17 email histories, 5 transactions, 4 ads, 2 bannerads, 0 chatmessages.
+- This is a logical dump, NOT a write-consistent replica-set snapshot. Do not assume writes during dump were atomic.
 
-## A. Preflight on Hetzner (root SSH; read-only)
-```bash
-docker inspect iradios-mongodb --format '{{.Config.Image}}'
-docker exec iradios-mongodb mongo --quiet --eval 'db.adminCommand({listDatabases:1}).databases.forEach(x=>print(x.name+" "+x.sizeOnDisk))'
-docker exec iradios-mongodb mongodump --version
-df -h /root
-du -sh /var/www/iradios-app/uploads
-```
-Confirm the application DB name is exactly `iradios`. If an auth error appears, stop: arrange credentials securely without placing them in chat or shell history. Check available disk space for a full export.
+Stage Hostinger: `mongo:9.0.4-resolute`, network `iradios_stage_internal`, stage DB `iradios_stage`, target review DB `iradios_import_review`.
 
-## B. Read-only export from production (Hetzner)
-```bash
-set -euo pipefail
-umask 077
-BACKUP=/root/iradios-stage-transfer-20261107
-test ! -e "$BACKUP" || { echo "Backup directory already exists; stop."; exit 1; }
-install -d -m 700 "$BACKUP"
-docker run --rm --network container:iradios-mongodb \
-  -v "$BACKUP:/backup" mongo:4.4 \
-  mongodump --host 127.0.0.1 --port 27017 \
-  --db iradios --numParallelCollections 2 --gzip --out /backup/dump
-test -d "$BACKUP/dump/iradios" || { echo "Missing app DB dump"; exit 1; }
-tar -C "$BACKUP" -cf "$BACKUP/iradios-prod-bson.tar" dump
-tar -C /var/www/iradios-app -czf "$BACKUP/iradios-prod-uploads.tar.gz" uploads
-( cd "$BACKUP"; sha256sum iradios-prod-bson.tar iradios-prod-uploads.tar.gz > SHA256SUMS )
-ls -lh "$BACKUP"/iradios-prod* "$BACKUP"/SHA256SUMS
-```
-These commands read production databases and files. Production keeps operating. Never delete the prod backup before verifying the stage copy.
+## Critical security
+- Production MongoDB is published to `0.0.0.0:4545` / `[::]:4545`; database listing succeeded without Mongo credentials. Assess and restrict external access immediately, confirming legitimate dependencies before changes. Docker can bypass UFW for published ports.
+- Never copy production `.env`, Mongo root credentials, Stripe, Nexi, JWT, VAPID, SMTP keys, or tokens into stage or GitHub.
+- Data dump includes personal information, password HASHES (not plaintext), potentially password-reset/OTP tokens, subscription/payment references. Only handle on trusted machines with encrypted storage, owner-only directories, secure SSH transfer. No public downloads, third-party uploads, or Git commits.
+- Restore into the review database only; not into `iradios_stage` yet. Stage Nginx Basic Auth is not enough for unfettered production PII on a long-lived stage.
+- Do not use `docker compose down -v` or `mongorestore --drop`.
 
-## C. Transfer over SSH (on the trusted Ubuntu laptop)
-```bash
-mkdir -p ~/iradios-private-transfer
-chmod 700 ~/iradios-private-transfer
-scp root@HETZNER_HOST:/root/iradios-stage-transfer-20261107/iradios-prod-bson.tar ~/iradios-private-transfer/
-scp root@HETZNER_HOST:/root/iradios-stage-transfer-20261107/iradios-prod-uploads.tar.gz ~/iradios-private-transfer/
-scp root@HETZNER_HOST:/root/iradios-stage-transfer-20261107/SHA256SUMS ~/iradios-private-transfer/
-scp ~/iradios-private-transfer/{iradios-prod-bson.tar,iradios-prod-uploads.tar.gz,SHA256SUMS} root@185.230.64.89:/srv/iradios/staging/backups/
-```
-Replace `HETZNER_HOST` with the known production SSH hostname/IP, **not** a MongoDB TCP port. Files contain sensitive user data; delete laptop copies securely after approved backup retention.
-
-## D. Stage: verify transfer, take a local baseline backup, import into a non-live review DB
-First pull the staged scheduler safety fix and rebuild backend:
+## 1. Stage: update scheduler guard
 ```bash
 cd /srv/iradios/staging/app
 sudo -u iradios git pull --ff-only origin staging
 sudo bash ops/deploy-stage.sh
 ```
-The stage app includes a guard to disable the hourly expired-ad deletion job in `APP_ENV=staging`.
+The stage backend does not run its hourly destructive ad cleanup when `APP_ENV=staging`.
 
+## 2. Stage: prepare secure destination (on Hostinger as root)
+```bash
+install -d -o root -g root -m 700 /srv/iradios/staging/backups/transfer-20261107
+```
+
+## 3. SSH transfer via trusted Ubuntu laptop
+Replace `HETZNER_HOST` with the operator's existing Hetzner SSH address.
+```bash
+install -d -m 700 "$HOME/iradios-private-transfer"
+scp root@HETZNER_HOST:/root/iradios-stage-transfer-20261107/iradios-prod.archive.gz "$HOME/iradios-private-transfer/"
+scp root@HETZNER_HOST:/root/iradios-stage-transfer-20261107/iradios-prod-uploads.tar.gz "$HOME/iradios-private-transfer/"
+scp root@HETZNER_HOST:/root/iradios-stage-transfer-20261107/SHA256SUMS "$HOME/iradios-private-transfer/"
+scp "$HOME/iradios-private-transfer/"{iradios-prod.archive.gz,iradios-prod-uploads.tar.gz,SHA256SUMS} root@185.230.64.89:/srv/iradios/staging/backups/transfer-20261107/
+```
+
+## 4. Stage: verify exact checksums and back up existing stage database
 ```bash
 set -euo pipefail
 umask 077
-BASE=/srv/iradios/staging/backups
-cd "$BASE"
+BACKUP=/srv/iradios/staging/backups/transfer-20261107
+cd "$BACKUP"
 sha256sum -c SHA256SUMS
-test ! -e "$BASE/import-review" || { echo "Existing review folder; stop."; exit 1; }
-install -d -m 700 "$BASE/import-review"
-tar -xf iradios-prod-bson.tar -C "$BASE/import-review"
-test -d "$BASE/import-review/dump/iradios"
-docker exec iradios_stage-mongo-1 sh -ec \
-  'mongodump --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --db iradios_stage --archive --gzip' \
-  > "$BASE/pre-prod-import-iradios-stage.archive.gz"
+test ! -e /srv/iradios/staging/backups/stage-preimport-20261107.archive.gz || { echo "Stage backup exists, stop"; exit 1; }
+docker exec iradios_stage-mongo-1 sh -ec 'mongodump --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --db iradios_stage --archive --gzip' > /srv/iradios/staging/backups/stage-preimport-20261107.archive.gz
+test -s /srv/iradios/staging/backups/stage-preimport-20261107.archive.gz
+```
+The stage baseline is preserved even though the initial restore only targets the review namespace.
+
+## 5. Stage: trial restore compressed archive into isolated review DB
+```bash
+set -euo pipefail
+BACKUP=/srv/iradios/staging/backups/transfer-20261107
 docker run --rm --network iradios_stage_internal \
   --env-file /etc/iradios/staging/compose.env \
-  -v "$BASE/import-review/dump:/backup:ro" mongo:9.0.4-resolute \
-  sh -ec 'mongorestore --host mongo --port 27017 --username root \
-    --password "$STAGE_MONGO_PASSWORD" --authenticationDatabase admin \
-    --gzip --noOptionsRestore --noIndexRestore --stopOnError \
-    --nsInclude "iradios.*" --nsFrom "iradios.*" \
-    --nsTo "iradios_import_review.*" /backup'
+  -v "$BACKUP:/backup:ro" mongo:9.0.4-resolute \
+  sh -ec 'mongorestore --host mongo --port 27017 \
+    --username root --password "$STAGE_MONGO_PASSWORD" --authenticationDatabase admin \
+    --archive=/backup/iradios-prod.archive.gz --gzip \
+    --noIndexRestore --noOptionsRestore --stopOnError \
+    --nsInclude "iradios.*" --nsFrom "iradios.*" --nsTo "iradios_import_review.*"'
 ```
-Import is into **`iradios_import_review`**, not `iradios_stage`, so the live stage site is unaffected. On errors, **stop**, keep the files, and investigate version/metadata compatibility. Do not force/drop any MongoDB database.
+This is a **compatibility trial**, not a supported/validated direct MongoDB 4.4 → 9.0 upgrade. MongoDB docs say restore is supported when source/destination have the same major version or FCV; BSON documents can sometimes restore into newer versions, but options/indexes may need migration. The source archive remains untouched.
 
-## E. Validate before promoting review data
+## 6. Stage: count verification without exposing document contents
 ```bash
-docker exec iradios_stage-mongo-1 sh -ec \
-  'mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" \
-   --authenticationDatabase admin --eval '\''const d=db.getSiblingDB("iradios_import_review"); printjson({collections:d.getCollectionNames().length, stats:d.stats()});'\'''
+docker exec iradios_stage-mongo-1 sh -ec 'mongosh --quiet --username root \
+  --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin \
+  --eval '\''const d=db.getSiblingDB("iradios_import_review"); d.getCollectionNames().sort().forEach(n=>print(n+" "+d.getCollection(n).countDocuments({})));'\'''
 ```
-Compare per-collection counts to production, check representative station/user documents **without printing their personal data**, then review indexes and any views that did not transfer. Full imported user data includes password hashes, OTP/reset tokens, payment IDs, emails and other personal data: private Basic Auth is necessary but not sufficient for long-term staging handling.
+Expected counts from snapshot: `stationanalytics 88, users 240, stations 68, subscriptions 96, emailhistories 17, transactions 5, ads 4, bannerads 2, chatmessages 0`. Empty collections may not materialize, depending on dump behavior.
 
-## F. Next controlled promotion (not automatic)
-After validating the shadow import, stop only stage backend/frontend, capture another snapshot, restore validated documents into `iradios_stage`, rebuild/verify indexes, neutralize ephemeral reset/OTP/push tokens in **stage only** (preserving password hashes), copy the uploads, restart stage, and verify station/player/login flows. Do not turn on payment/push/live webhooks or real email delivery. Keep the canonical production dump encrypted and outside GitHub.
+## 7. Promotion to live stage: NOT AUTOMATIC
+Before redirecting the stage app to this data, validate counts/types/references, rebuild indexes and unique constraints, create sanitized stage-only copies (remove reset tokens/OTP secrets, invalidate push device subscriptions, review payment/customer identifiers and emails), test stage-only authentication using a dedicated test account, restore uploads with correct permissions, and confirm payment/notifications/live-email external side effects are blocked. A separate confirmed, reversible procedure is required.
+
+The stage backend never receives production server credentials. The production MongoDB container and data remain untouched.
