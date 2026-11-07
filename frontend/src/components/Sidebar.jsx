@@ -10,7 +10,7 @@ function SidebarItem({ icon, label, to, currentPath, onClick, className = "", is
       to={to} 
       onClick={onClick}
       title={isCollapsed ? label : ""} 
-      className={`relative flex items-center rounded-xl cursor-pointer transition-all duration-300 overflow-hidden ${
+      className={`ir-nav-item ${active ? 'ir-nav-item--active' : ''} relative flex items-center rounded-xl cursor-pointer transition-all duration-300 overflow-hidden ${
         active ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-zinc-900/50'
       } ${isCollapsed ? 'lg:justify-center lg:px-0 lg:py-3 px-4 py-3' : 'px-4 py-3 gap-4'} ${className}`}
     >
@@ -88,7 +88,7 @@ export default function Sidebar({
         `}
       </style>
 
-      <aside className={`fixed inset-y-0 left-0 z-[100] lg:sticky lg:top-0 lg:h-screen shrink-0 bg-black border-r border-white/5 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+      <aside className={`ir-app-sidebar fixed inset-y-0 left-0 z-[100] lg:sticky lg:top-0 lg:h-screen shrink-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       } ${isCollapsed ? 'lg:w-[88px] w-[280px]' : 'w-[280px]'}`}>
         
