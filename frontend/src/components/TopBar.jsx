@@ -175,12 +175,15 @@ export default function TopBar({
               </Link>
 
               {/* USER INFO */}
-              <Link to="/profile" className="flex flex-col items-end mr-2 group cursor-pointer">
-                <span className="text-[10px] text-zinc-500 font-black uppercase tracking-widest leading-none mb-1 group-hover:text-zinc-400 transition-colors">
-                  Το Προφιλ σου,
-                </span>
-                <span className="text-sm font-bold text-white leading-none group-hover:text-[#ccff00] transition-colors">
-                  {currentUser?.fname || currentUser?.username || 'User'}
+              <Link to="/profile" aria-label="Το προφίλ μου" className="group flex items-center gap-3">
+                <div className="hidden flex-col items-end sm:flex">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500">Το προφίλ σου</span>
+                  <span className="max-w-[120px] truncate text-sm font-bold text-white group-hover:text-[#ccff00]">
+                    {currentUser?.fname || currentUser?.username || 'User'}
+                  </span>
+                </div>
+                <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/25 bg-gradient-to-br from-[#272e31] to-[#13191d] text-sm font-black text-white group-hover:border-[#ccff00]/55">
+                  {String(currentUser?.fname||currentUser?.username||'U').charAt(0).toLocaleUpperCase('el-GR')}
                 </span>
               </Link>
 
