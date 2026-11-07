@@ -233,7 +233,11 @@ const cleanupExpiredItems = async () => {
   }
 };
 
-cron.schedule('0 * * * *', cleanupExpiredItems);
+if (process.env.APP_ENV !== 'staging') {
+  cron.schedule('0 * * * *', cleanupExpiredItems);
+} else {
+  console.log('[STAGING] Expired-item cleanup is disabled to preserve imported snapshot data.');
+}
 
 
 // ==============================================================
