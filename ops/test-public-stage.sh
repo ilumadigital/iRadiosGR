@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Verify public staging through local HTTPS origin (bypasses Cloudflare DNS).
+# Must be run on Hostinger VPS. Does not print user/station data or secrets.
+set -euo pipefail
+HOST=stage.iradios.gr
+BASE="https://$HOST"
+OPT=(--resolve "$HOST:443:127.0.0.1" -sS --connect-timeout 4 --max-time 15)
+check() {
+  local label="$1" expected="$2" method="$3" url="$4" status
+  status=$(curl "${OPT[@]}" -o /dev/null -w '%{http_code}' -X "$method" "$BASE$url")
+  echo "$label: HTTP $status (expected $expected)"
+  [[ "$status" == "$expected" ]] || return 1
+}
+check "Public frontend" 200 GET /
+check "Public station listing" 200 GET /api/stations
+check "No anonymous admin records" 401 GET /api/admin/users
+check "No anonymous all-stations admin" 401 GET /api/stations/all
+check "Mailpit closed to public" 403 GET /dev/mail/
+check "Legacy websockets denied" 403 GET /api/socket.io/
+check "Private stream SSRF guard" 400 GET '/api/proxy-stream?url=http%3A%2F%2F127.0.0.1%3A27017'
+check "Unapproved stream forbidden" 403 GET '/api/proxy-stream?url=https%3A%2F%2Fexample.com%2Fstream'
+check "Imported private user record blocked" 401 GET /api/auth/me
+curl "${OPT[@]}" -fsS "$BASE/api/stations" |
+  python3 -c 'import json,sys; a=json.load(sys.stdin); assert isinstance(a,list); assert len(a)>=1; assert all("email" not in x and "phone" not in x and "pendingEdits" not in x for x in a); print("Public stations: "+str(len(a))+"; personal fields excluded")'
+echo "PUBLIC STAGE HTTPS SECURITY SMOKE CHECKS PASSED"
