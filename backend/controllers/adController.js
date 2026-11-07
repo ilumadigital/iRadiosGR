@@ -22,6 +22,8 @@ const deleteMediaFile = async (fileUrl) => {
 };
 
 exports.getPublicAds = async (req, res) => {
+  // Never deliver imported production campaigns on a public test domain.
+  if (process.env.APP_ENV === 'staging') return res.json([]);
   try {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private'); 
     
