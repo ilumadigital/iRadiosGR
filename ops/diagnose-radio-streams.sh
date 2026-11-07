@@ -18,12 +18,13 @@ async function test(s) {
     const req = http.get(u, res => {
       const status = res.statusCode;
       const type = String(res.headers['content-type'] || '');
+      const diagnostic = String(res.headers['x-iradios-stream-diagnostic'] || '');
       res.once('data', chunk => {
-        finish({status,type,bytes:chunk.length});
+        finish({status,type,bytes:chunk.length,diagnostic});
         res.destroy();
       });
-      res.once('end',() => finish({status,type,bytes:0}));
-      res.once('error',e => finish({status,type,error:e.code||e.message}));
+      res.once('end',() => finish({status,type,bytes:0,diagnostic}));
+      res.once('error',e => finish({status,type,error:e.code||e.message,diagnostic}));
     });
     req.setTimeout(10000, () => req.destroy(new Error('timeout')));
     req.once('error',e => finish({status:0,error:e.code||e.message}));
@@ -43,6 +44,7 @@ async function test(s) {
     if (good) passed++;
     console.log(String(i+1).padStart(2,'0')+' '+String(s.name).slice(0,48)+': HTTP '+r.status+
       ' '+(r.type||'-')+' '+(r.bytes||0)+' bytes'+(good?' PLAYABLE':' NOT READY')+
+      (r.diagnostic?' reason='+r.diagnostic:'')+
       (r.error?' '+r.error:''));
   }
   console.log('Audio headers with bytes: '+passed+'/'+radios.length);
