@@ -3,7 +3,7 @@
 // Client-supplied stream/customMeta URLs are never directly fetched.
 const Station = require('../models/Station');
 const { recordStationTrack } = require('./recordStationTrack');
-const {statusFromNative,resolvedNowPlaying,getSharedAI} = require('./stageSmartTracks');
+const {statusFromNative,resolvedNowPlaying,hydrateSharedAI} = require('./stageSmartTracks');
 const { readPublicUrl } = require('./stageSafeRadioFetch');
 
 const cache = new Map();
@@ -140,7 +140,7 @@ async function readCachedNativeMetadata(station) {
   const promise=readStationMetadata(station).then(async raw=>{
     // During a 4-minute manual recognition the AI result is explicitly the
     // on-air song; never move unrelated native metadata ahead of it in history.
-    const manual=getSharedAI(station._id);
+    const manual=await hydrateSharedAI(station._id);
     if(statusFromNative(raw,station.name)==='valid'&&manual?.kind!=='manual'){
       await recordStationTrack(station,raw,{source:'station'});
     }
@@ -163,6 +163,9 @@ async function stageMetadata(req,res){
       ...(validId?{_id:stationId}:{stream})
     }).select('_id name stream metadata status').lean();
     if(!station)return res.status(404).json({title:'',source:'none',foundWithAI:false});
+    // Refresh from durable station-wide recognition before resolving native metadata.
+    // Every listener sees the same four/five-minute AI result after a restart.
+    await hydrateSharedAI(station._id);
     const native=await readCachedNativeMetadata(station);
     return res.json(resolvedNowPlaying(native,station));
   }catch{
