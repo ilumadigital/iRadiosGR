@@ -1,0 +1,67 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "items": [
+            {
+              "type": "Image",
+              "url": "${logoUrl}",
+              "size": "Medium",
+              "style": "Default"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "${stationName}",
+              "weight": "Bolder",
+              "size": "Large",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "${nowPlaying}",
+              "isSubtle": true,
+              "spacing": "None",
+              "wrap": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ActionSet",
+      "horizontalAlignment": "Center",
+      "spacing": "Large",
+      "actions": [
+        {
+          "type": "Action.Execute",
+          "title": "⏮",
+          "verb": "prev-station"
+        },
+        {
+          "type": "Action.Execute",
+          "title": "${playPauseIcon}",
+          "verb": "toggle-play"
+        },
+        {
+          "type": "Action.Execute",
+          "title": "⏭",
+          "verb": "next-station"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "source_files": 161,
+  "prod_domain_replacements": 93,
+  "files_changed": 25,
+  "stripe_frontend_replaced_files": [
+    "frontend/src/pages/GoPremiumBroadcast.jsx",
+    "frontend/src/pages/AgencyDashboard.jsx",
+    "frontend/src/pages/GoPremium.jsx",
+    "frontend/src/pages/BoostStation.jsx",
+    "frontend/src/pages/GoAds.jsx"
+  ],
+  "scan_remaining": {
+    "https://play.iradios.gr": 0,
+    "sk_live_": 0,
+    "pk_live_": 0,
+    "whsec_": 0,
+    "-----BEGIN PRIVATE KEY-----": 0
+  }
+}

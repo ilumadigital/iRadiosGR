@@ -1,0 +1,162 @@
+@import "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 🌟 GLOBAL SMOOTH FEELING 🌟 */
+@layer base {
+  /* Εφαρμόζουμε ομαλή μετάβαση σε όλα τα στοιχεία, αλλά ΜΟΝΟ στα properties που δεν ρίχνουν το performance */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); /* Πιο "γλυκό" ease από το απλό ease-in-out */
+    transition-duration: 300ms;
+  }
+
+  /* 💡 ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ: Ακυρώνουμε το delay στα inputs για να μην καθυστερεί ο κέρσορας όταν γράφει ο χρήστης! */
+  input, textarea, select {
+    transition-property: border-color, background-color, box-shadow; /* Αφήνουμε μόνο το χρώμα να κάνει transition */
+  }
+
+  /* Ομαλό σκρολάρισμα σε όλη τη σελίδα */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+#root {
+  color-scheme: dark;
+}
+
+/* Απαγόρευση επιλογής κειμένου (Native App Feel) */
+body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Εξαίρεση για φόρμες (Login, Register, Chat, Search) */
+input, textarea {
+  -webkit-user-select: auto;
+  -moz-user-select: auto;
+  -ms-user-select: auto;
+  user-select: auto;
+}
+
+html, body {
+  background-color: #000000 !important;
+  color: #ffffff;
+  overscroll-behavior-y: none; 
+}
+
+
+@keyframes slide-in-right {
+  0% { transform: translateX(120%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bounce-in {
+  0% { transform: translate(-50%, 100px); opacity: 0; }
+  60% { transform: translate(-50%, -10px); opacity: 1; }
+  100% { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes progress-5s {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+.animate-progress-5s {
+  animation: progress-5s 5s linear forwards;
+}
+
+/* =========================================
+   ILUMA CUSTOM NEON SCROLLBAR
+   ========================================= */
+
+/* 1. Global Scrollbar (Για Firefox) */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #ccff00 #000000;
+}
+
+/* 2. Global Scrollbar (Για Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;  /* Πάχος κάθετης μπάρας */
+  height: 8px; /* Πάχος οριζόντιας μπάρας (αν υπάρξει) */
+}
+
+::-webkit-scrollbar-track {
+  background: #09090b; /* Πολύ σκούρο μαύρο (zinc-950) για να δένει με το background */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ccff00; /* Το neon χρώμα σου */
+  border-radius: 10px; /* Στρογγυλεμένες άκρες */
+  border: 2px solid #09090b; /* Δημιουργεί ένα μικρό "κενό" γύρω από το χρώμα για πιο premium αίσθηση */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #e6ff66; /* Ελαφρώς πιο φωτεινό όταν περνάει το ποντίκι από πάνω */
+}
+
+/* =========================================
+   ΕΙΔΙΚΟ SCROLLBAR ΓΙΑ ΕΣΩΤΕΡΙΚΑ DIVS 
+   (π.χ. Sidebar, Dropdowns, Modals)
+   ========================================= */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(204, 255, 0, 0.5) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px; /* Ακόμα πιο λεπτό, μίνιμαλ, για να μην πιάνει χώρο στα μενού */
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent; /* Διάφανο background για να φαίνεται ομαλό στο blur */
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(204, 255, 0, 0.3); /* Ημιδιάφανο neon green κανονικά */
+  border-radius: 10px;
+  border: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(204, 255, 0, 1); /* Γίνεται έντονο neon green όταν κάνεις hover */
+}
+
+/* Απενεργοποιεί το double-tap-to-zoom σε κινητά */
+* {
+  touch-action: manipulation;
+}
+
+/* Αποτρέπει την επιλογή κειμένου κατά λάθος όταν πατάνε κουμπιά */
+button, a, img {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+@keyframes low-pulse {
+  0%, 100% {
+    transform: scale(1.00);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.animate-audio-pulse {
+  animation: low-pulse 3s infinite ease-in-out;
+}

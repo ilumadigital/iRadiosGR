@@ -1,0 +1,38 @@
+{
+  "short_name": "iRadios GR",
+  "name": "iRadios GR",
+  "description": "Powered by: ILUMA Digital Agency",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "orientation": "portrait",
+  "widgets": [
+    {
+      "name": "iRadios Player",
+      "description": "Γρήγορος έλεγχος του iRadios.",
+      "tag": "iradios-player",
+      "ms_ac_template": "/widgets/player-template.json",
+      "data": "/widgets/player-data.json",
+      "type": "application/json",
+      "icons": [
+        {
+          "src": "/favicon.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

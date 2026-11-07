@@ -1,0 +1,27 @@
+name: Staging source validation
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [staging]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check known live references and .env files
+        run: bash ops/check-stage-source.sh
+      - name: Validate backend JavaScript syntax
+        run: find backend -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check
+      - name: Validate stage Compose YAML
+        run: |
+          python3 -m pip install --quiet PyYAML
+          python3 - <<'PYCODE'
+          import yaml
+          with open('compose.stage.yml', encoding='utf-8') as f:
+              obj = yaml.safe_load(f)
+          assert set(obj['services']) == {'mongo','mailpit','backend','frontend'}
+          print('Stage services validated')
+          PYCODE
