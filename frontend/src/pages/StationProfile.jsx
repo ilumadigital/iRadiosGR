@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { formatFMFrequency } from '../utils/stationFrequency';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Play, Pause, Heart, ArrowLeft, Disc3, Globe, Zap, Facebook, Instagram, Twitter, 
@@ -455,7 +456,7 @@ export default function StationProfile({
                   'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                 }`}>
                   <SignalHigh size={12} />
-                  {station.transmissionType || 'Web Radio'} {station.frequency && `• ${station.frequency}`}
+                  {station.transmissionType || 'Web Radio'} {station.frequency && `• ${formatFMFrequency(station.frequency)}`}
                 </span>
 
                 {station.explicit && (
