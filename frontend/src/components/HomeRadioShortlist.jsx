@@ -31,7 +31,7 @@ export default function HomeRadioShortlist({ kind='recent', stations=[], current
           </button>
           <button type="button" onClick={()=>onPlayStation(item)} aria-label={'Άκου '+item.name}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-zinc-200 transition-colors hover:bg-[#ccff00] hover:text-black">
-            {isFavorite?<Heart size={15} fill="currentColor"/>:<Play size={15} fill="currentColor"/>}
+            <Play size={15} fill="currentColor"/>
           </button>
         </div>)}
         {!listed.length&&<div className="flex min-h-[172px] flex-col items-center justify-center gap-2 p-4 text-center">
