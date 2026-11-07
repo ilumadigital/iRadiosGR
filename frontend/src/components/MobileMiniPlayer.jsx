@@ -411,7 +411,7 @@ export default function MobileMiniPlayer({
                 onTouchStart={(e) => e.stopPropagation()} 
                 disabled={isPlayingAd} 
                 aria-label={isPlaying ? 'Παύση ραδιοφώνου' : 'Αναπαραγωγή ραδιοφώνου'}
-                className={`ir-player-transport w-[72px] h-[72px] sm:w-20 sm:h-20 mx-1 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-95 ${isPlayingAd ? 'opacity-50' : ''}`
+                className={`ir-player-transport w-[72px] h-[72px] sm:w-20 sm:h-20 mx-1 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-95 ${isPlayingAd ? 'opacity-50' : ''}`}
               >
                 {isBuffering ? (
                   <div className="flex items-center justify-center gap-1.5">
@@ -587,7 +587,7 @@ export default function MobileMiniPlayer({
           )}
 
           <button onClick={(e) => { e.stopPropagation(); togglePlayPause(); }} disabled={isPlayingAd} aria-label={isPlaying ? 'Παύση ραδιοφώνου' : 'Αναπαραγωγή ραδιοφώνου'}
-            className={`ir-player-transport w-11 h-11 mx-1 rounded-full flex items-center justify-center transition-all active:scale-95 ${isPlayingAd ? 'opacity-50' : ''}`>
+            className={`ir-player-transport w-11 h-11 mx-1 rounded-full flex items-center justify-center transition-all active:scale-95 ${isPlayingAd ? 'opacity-50' : ''}`}>
             {isBuffering ? (
               <div className="flex items-center justify-center gap-0.5">
                 <div className="w-1.5 h-1.5 bg-black rounded-full dot-1"></div>
