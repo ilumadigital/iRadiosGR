@@ -10,7 +10,7 @@ Module._load = function(name, parent, isMain) {
     return { exists: async () => false };
   return originalLoad.call(this, name, parent, isMain);
 };
-const { isPublicIPv4, parseRadioUrl } = require('../backend/utils/stageStreamProxy');
+const { isPublicIPv4, parseRadioUrl, createPinnedLookup } = require('../backend/utils/stageStreamProxy');
 Module._load = originalLoad;
 
 for (const address of [
@@ -31,4 +31,17 @@ for (const url of [
 ]) assert.throws(() => parseRadioUrl(url), undefined, 'block '+url);
 assert.equal(parseRadioUrl('http://radio.example:8000/stream').port, '8000');
 assert.equal(parseRadioUrl('https://radio.example/live').protocol, 'https:');
+// Node 22 autoSelectFamily asks for lookup({all:true}); this must be an array.
+// Returning a lone string there triggered ERR_INVALID_IP_ADDRESS on every radio.
+const lookup = createPinnedLookup('8.8.8.8');
+lookup('station.example',{all:true},(err,addrs)=>{
+  assert.equal(err,null);
+  assert.deepEqual(addrs,[{address:'8.8.8.8',family:4}]);
+});
+lookup('station.example',{},(err,ip,family)=>{
+  assert.equal(err,null);
+  assert.equal(ip,'8.8.8.8');
+  assert.equal(family,4);
+});
+assert.throws(()=>createPinnedLookup('127.0.0.1'));
 console.log('Safe staging stream proxy URL checks passed.');
