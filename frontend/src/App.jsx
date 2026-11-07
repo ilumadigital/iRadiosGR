@@ -1622,6 +1622,10 @@ function MainApp() {
 
         onError={(e) => {
           console.warn("⚠️ Το stream του ραδιοφώνου διακόπηκε από τον server του σταθμού:", e);
+          // A failed HTTP/stream request must not leave the UI spinning indefinitely.
+          setIsBuffering(false);
+          setIsPlaying(false);
+          if (!isPlayingAd) showAlert("Ο σταθμός δεν ανταποκρίνεται αυτή τη στιγμή. Δοκίμασε έναν άλλο σταθμό.");
         }}
       />
 
