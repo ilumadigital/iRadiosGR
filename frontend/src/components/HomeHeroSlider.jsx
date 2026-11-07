@@ -41,7 +41,7 @@ export default function HomeHeroSlider({
     : stationFallback;
   const displayLogo=(!slide||slide.targetType==='station')?featuredStation?.logo:null;
   const brandRgb=useStationAmbient(displayLogo);
-  useEffect(()=>{onFeaturedStationChange?.(featuredStation?._id||null);},[featuredStation?._id,onFeaturedStationChange]);
+  useEffect(()=>{onFeaturedStationChange?.(featuredStation?._id || null);},[featuredStation?._id,onFeaturedStationChange]);
   useEffect(()=>{
     if(visible.length<=1||hover)return;
     if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
