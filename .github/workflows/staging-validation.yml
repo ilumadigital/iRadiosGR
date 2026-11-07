@@ -30,7 +30,9 @@ jobs:
       - name: Verify versioned broadcaster consent behavior
         run: node ops/check-phase1-broadcaster-consent.cjs
       - name: Validate frontend production build
-        run: npm --prefix frontend ci && npm --prefix frontend run build
+        # Existing react-simple-maps@1.0.0 declares React 16 peers despite the React 19 app.
+        # Use the same legacy resolution needed by the current project; track upgrade separately.
+        run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
       - name: Validate stage Compose YAML
         run: |
           python3 -m pip install --quiet PyYAML
