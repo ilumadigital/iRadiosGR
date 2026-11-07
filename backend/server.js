@@ -46,7 +46,7 @@ if (process.env.APP_ENV === 'staging') {
       /^\/api\/payments(?:\/|$)/,
       /^\/api\/notifications\/(?:send|subscribe)(?:\/|$)/,
       /^\/api\/recognize(?:-proxy)?(?:\/|$)/,
-      /^\/api\/(?:proxy-stream|metadata)(?:\/|$)/
+      /^\/api\/metadata(?:\/|$)/
     ];
     if (blocked.some(regex => regex.test(req.path))) {
       return res.status(503).json({ error: 'Disabled in isolated staging environment' });
@@ -140,7 +140,9 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/stats', statsRoutes);
 
 app.get('/sitemap.xml', miscController.getSitemap);
-app.get('/api/proxy-stream', miscController.proxyStream);
+app.get('/api/proxy-stream', process.env.APP_ENV === 'staging'
+  ? require('./utils/stageStreamProxy').stageStreamProxy
+  : miscController.proxyStream);
 app.get('/api/cover-art', miscController.getCoverArt);
 
 // ==============================================================
