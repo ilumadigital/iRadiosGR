@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { User, Search as SearchIcon, X, Menu, Bell, BellOff, Sun, Cloud, CloudRain, Snowflake } from 'lucide-react';
 
@@ -15,7 +15,33 @@ export default function TopBar({
   onLogout
 }) {
   // --- NOTIFICATION STATUS LOGIC ---
-  const [notifStatus, setNotifStatus] = useState("Notification" in window ? Notification.permission : 'default');
+  const [notifStatus, setNotifStatus] = useState(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+  );
+  const searchRef = useRef(null);
+  const [activeResult,setActiveResult]=useState(-1);
+  const closeSearch=()=>{setShowSearchResults(false);setActiveResult(-1);};
+  const chooseStation=id=>{
+    closeSearch();
+    setSearchTerm('');
+    handleSearchResultClick(id);
+  };
+  useEffect(()=>{
+    const outside=e=>{if(searchRef.current&&!searchRef.current.contains(e.target))closeSearch();};
+    document.addEventListener('pointerdown',outside);
+    return ()=>document.removeEventListener('pointerdown',outside);
+  },[setShowSearchResults]);
+  const searchKeyDown=e=>{
+    if(e.key==='Escape'){closeSearch();e.currentTarget.blur();}
+    else if(e.key==='ArrowDown'&&filteredSearch.length){
+      e.preventDefault();setShowSearchResults(true);setActiveResult(i=>(i+1)%filteredSearch.length);
+    }else if(e.key==='ArrowUp'&&filteredSearch.length){
+      e.preventDefault();setShowSearchResults(true);
+      setActiveResult(i=>i<=0?filteredSearch.length-1:i-1);
+    }else if(e.key==='Enter'&&showSearchResults&&filteredSearch.length){
+      e.preventDefault();chooseStation(filteredSearch[activeResult>=0?activeResult:0]._id);
+    }
+  };
 
   useEffect(() => {
     if (!("Notification" in window)) return;
@@ -53,7 +79,7 @@ export default function TopBar({
     Cloud: Cloud,
     CloudRain: CloudRain,
     Snowflake: Snowflake
-  }[weather.icon];
+  }[weather?.icon] || Sun;
 
   return (
     <>
@@ -77,7 +103,7 @@ export default function TopBar({
         
         {/* LEFT: MOBILE MENU & LOGO */}
         <div className="flex items-center gap-4">
-          <button type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Άνοιγμα μενού πλοήγησης" className="lg:hidden text-white">
+          <button type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Άνοιγμα μενού πλοήγησης" className="lg:hidden rounded-xl p-2 text-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ccff00]">
             <Menu size={24} />
           </button>
 
@@ -98,36 +124,45 @@ export default function TopBar({
         </div>
         
         {/* CENTER: SEARCH BAR */}
-        <div className="relative ml-3 w-full min-w-0 max-w-[200px] sm:max-w-[370px] lg:ml-0 lg:max-w-[510px] 2xl:max-w-[580px]">
+        <div ref={searchRef} className="relative ml-1 w-full min-w-0 max-w-[240px] sm:max-w-[370px] lg:ml-0 lg:max-w-[510px] 2xl:max-w-[580px]">
           <div className="relative group">
             <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#ccff00]" />
             <input 
-              type="text" 
-              placeholder="Αναζήτηση σταθμού ή είδους μουσικής…" 
-              value={searchTerm} 
-              onFocus={() => setShowSearchResults(true)} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
+              type="search"
+              autoComplete="off"
+              aria-label="Αναζήτηση ραδιοφωνικού σταθμού"
+              aria-autocomplete="list"
+              aria-controls="ir-topbar-search-list"
+              aria-expanded={Boolean(showSearchResults && searchTerm.trim())}
+              placeholder="Βρες έναν σταθμό…"
+              value={searchTerm}
+              onFocus={() => setShowSearchResults(true)}
+              onKeyDown={searchKeyDown}
+              onChange={(e) => {setSearchTerm(e.target.value);setActiveResult(-1);setShowSearchResults(true);}} 
               className="ir-search-field w-full h-11 pl-12 pr-10 text-sm transition-all text-white" 
             />
             {searchTerm && (
-              <button type="button" onClick={() => setSearchTerm('')} aria-label="Καθαρισμός αναζήτησης"
+              <button type="button" onClick={() => {setSearchTerm('');closeSearch();}} aria-label="Καθαρισμός αναζήτησης"
                 className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-500 hover:text-white">
                 <X size={16}/>
               </button>
             )}
           </div>
 
-          {showSearchResults && searchTerm && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-50 max-h-[300px] overflow-y-auto custom-scrollbar">
-              {filteredSearch.map(s => (
-                <button type="button" key={s._id} onClick={() => handleSearchResultClick(s._id)} className="flex w-full items-center gap-4 border-b border-white/5 p-3 text-left transition-colors hover:bg-white/5 focus:bg-white/5 last:border-0">
+          {showSearchResults && searchTerm.trim() && (
+            <div id="ir-topbar-search-list" role="listbox" aria-label="Αποτελέσματα αναζήτησης" className="absolute top-full left-0 right-0 mt-2 overflow-y-auto rounded-2xl border border-[#ccff00]/25 bg-[#11171d] p-1 shadow-[0_24px_50px_rgba(0,0,0,.7)] z-[80] max-h-[min(350px,55dvh)] custom-scrollbar">
+              {filteredSearch.length ? filteredSearch.map((s,index) => (
+                <button role="option" aria-selected={index===activeResult} type="button" key={s._id} onClick={() => chooseStation(s._id)}
+                  className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-colors focus:bg-white/10 ${index===activeResult?'bg-[#ccff00]/10 text-[#ccff00]':'hover:bg-white/5'}`}>
                   <img src={s.logo} className="w-10 h-10 rounded-lg object-cover bg-white" alt="" />
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-white truncate">{s.name}</div>
                     <div className="text-[10px] text-zinc-500 font-bold tracking-wider">{s.genre}</div>
                   </div>
                 </button>
-              ))}
+              )) : (
+                <p className="px-3 py-5 text-center text-xs text-zinc-400">Δεν βρήκαμε σταθμό με αυτό το όνομα.</p>
+              )}
             </div>
           )}
         </div>
