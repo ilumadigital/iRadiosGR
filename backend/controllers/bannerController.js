@@ -20,6 +20,8 @@ const deleteMediaFile = async (fileUrl) => {
 
 // Φέρνει όλα τα ενεργά banners (Για το Public Frontend)
 exports.getActiveBanners = async (req, res) => {
+  // Do not serve advertisers' production creative to anonymous stage visitors.
+  if (process.env.APP_ENV === 'staging') return res.json([]);
   try {
     const banners = await BannerAd.find({
       $or: [{ status: 'active' }, { isActive: true }],
