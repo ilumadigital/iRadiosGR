@@ -84,9 +84,16 @@ async function openStream(target, res, redirects) {
   return new Promise((resolve,reject) => {
     const transport = url.protocol === 'https:' ? https : http;
     const upstream = transport.get(url, {
+      // Only one previously verified IPv4 address is ever connected.
+      // Node 22 auto-family probing causes failures with pinned custom lookups.
+      family: 4,
+      autoSelectFamily: false,
       lookup: createPinnedLookup(pinned),
-      headers: {'User-Agent':'iRadiosGR-Staging-Radio/1.0',
-                'Icy-MetaData':'0','Accept':'audio/*,application/ogg,*/*;q=0.5'}
+      headers: {
+        'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+        'Icy-MetaData':'0',
+        'Accept':'*/*'
+      }
     });
     const onClose = () => upstream.destroy();
     res.once('close',onClose);
@@ -158,6 +165,7 @@ async function stageStreamProxy(req,res) {
     const category = safeFailureCategory(err);
     console.warn('[STAGE_RADIO_PROXY] ' + category);
     if(res.headersSent) return res.destroy();
+    res.setHeader('X-Iradios-Stream-Diagnostic', category);
     const invalid = /Invalid stream|Unsupported stream|Private stream|Disallowed stream|IPv6 streams|Non-public stream|No public IPv4/.test(err.message);
     res.status(invalid?400:502).json({error:invalid?'Disallowed stream target':'Radio stream unavailable'});
   }
