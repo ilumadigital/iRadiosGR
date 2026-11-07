@@ -341,7 +341,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
             options={availableGenres} allLabel="Όλα τα είδη"/>
           <CatalogFilterPopover label="Μετάδοση" value={selectedTransmission} onChange={setSelectedTransmission}
             options={availableTransmissions} allLabel="Όλες οι μεταδόσεις"/>
-          <CatalogFilterPopover label="Ταξινόμηση" value={sortBy} onChange={setSortBy} searchable={false}
+          <CatalogFilterPopover label="Ταξινόμηση" value={sortBy} onChange={setSortBy} searchable={false} includeAll={false}
             options={[{value:'popularity',label:'Δημοτικότητα'},{value:'frequency',label:'Συχνότητα'},{value:'alphabetical',label:'Αλφαβητικά'}]}/>
           <div className="flex items-center bg-zinc-900 border border-white/10 rounded-xl p-1">
             {canShowMap && (
