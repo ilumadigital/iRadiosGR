@@ -105,6 +105,12 @@ export default function MobileMiniPlayer({
     !nowPlaying.toLowerCase().includes("ακούω") &&
     !nowPlaying.toLowerCase().includes("scanning");
 
+  // Show factual stream metadata as a track label, never as a seekable duration.
+  const trackParts = isActualSong ? nowPlaying.split(/\s+[-–—]\s+/) : [];
+  const displayTrackTitle = trackParts.length > 1 ? trackParts.slice(1).join(' — ')
+    : (isActualSong ? nowPlaying : currentStation.name);
+  const displayTrackArtist = trackParts.length > 1 ? trackParts[0] : '';
+
   const finalSpotifyUrl = spotifyUrl || (isActualSong && nowPlaying ? `https://open.spotify.com/search/${encodeURIComponent(nowPlaying)}` : null);
 
   const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
@@ -359,13 +365,26 @@ export default function MobileMiniPlayer({
             
             <div className="flex flex-col items-center text-center gap-1 w-full max-w-sm px-2">
               <h2 onClick={handleAdClick} className="text-2xl sm:text-3xl font-black text-white truncate tracking-tight w-full">
-                {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : currentStation.name}
+                {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : displayTrackTitle}
               </h2>
               <p className={`text-base sm:text-lg font-medium truncate w-full ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                {isPlayingAd ? `${currentAdInfo?.title || 'Sponsored Ad'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (nowPlaying || 'Live Stream'))}
+                {isPlayingAd ? `${currentAdInfo?.title || 'Sponsored Ad'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (displayTrackArtist || currentStation.name) : 'Ζωντανό ραδιόφωνο'))}
               </p>
+              {!isPlayingAd && (
+                <div className="mt-3 flex items-center gap-3">
+                  <span className="ir-live-indicator">LIVE RADIO</span>
+                  <span className="max-w-[150px] truncate text-xs text-zinc-400">{currentStation.name}</span>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Decorative motion only; live radio has no track progress bar. */}
+          {!isPlayingAd && (
+            <div className={`ir-live-visualizer mb-3 ${(!isPlaying || isBuffering) ? 'ir-live-visualizer--paused' : ''}`} aria-hidden="true">
+              {Array.from({ length: 23 }, (_, i) => <span key={i} style={{ '--i': i }} />)}
+            </div>
+          )}
 
           {/* MAIN CONTROLS - MAXIMIZED PLAYER */}
           <div className="ir-full-player-actions grid grid-cols-3 items-center justify-between mb-4 px-2 w-full">
@@ -456,7 +475,16 @@ export default function MobileMiniPlayer({
             </div>
           </div>
 
-          <div className="flex items-center justify-evenly bg-white/5 border border-white/10 rounded-3xl py-4 px-2">
+          {!isPlayingAd && (
+            <div className="mb-4 flex justify-center">
+              <button type="button" onClick={handleRadarClick} disabled={isRecognizing || !isPlaying}
+                className="ir-recognize-button" aria-label="Αναγνώριση τραγουδιού με ACRCloud">
+                {isRecognizing ? <Loader2 size={17} className="animate-spin" /> : <ScanSearch size={17} />}
+                {isRecognizing ? 'Γίνεται αναγνώριση...' : 'Αναγνώριση τραγουδιού'}
+              </button>
+            </div>
+          )}
+          <div className="flex items-center justify-evenly bg-white/5 border border-white/10 rounded-3xl py-3 px-2">
             {isPremium && !isPlayingAd && <button onClick={() => { setIsMaximized(false); navigate(`/station/${currentStation.slug || currentStation._id}`); }} className="p-3 text-white/80 hover:text-white rounded-full active:scale-90 transition-all"><CalendarDays size={24} /></button>}
             
             {!isPlayingAd && (!isActualSong ? (
