@@ -73,7 +73,14 @@ async function openStream(target, res, redirects) {
   return new Promise((resolve,reject) => {
     const transport = url.protocol === 'https:' ? https : http;
     const upstream = transport.get(url, {
-      lookup: (_host,_opts,cb) => cb(null,pinned,4),
+      // Node.js 22 (autoSelectFamily) asks lookup({all:true}) and REQUIRES
+      // [{address,family}]. Returning a string there causes ERR_INVALID_IP_ADDRESS
+      // for every upstream stream, even when DNS resolution succeeded.
+      lookup: (_host, opts, cb) => {
+        if (typeof opts === 'function') { cb = opts; opts = {}; }
+        if (opts && opts.all) cb(null, [{address:pinned, family:4}]);
+        else cb(null, pinned, 4);
+      },
       headers: {'User-Agent':'iRadiosGR-Staging-Radio/1.0',
                 'Icy-MetaData':'0','Accept':'audio/*,application/ogg,*/*;q=0.5'}
     });
