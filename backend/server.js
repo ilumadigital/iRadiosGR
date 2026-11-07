@@ -69,6 +69,13 @@ app.post('/api/payments/webhook', express.raw({ type: '*/*' }), paymentControlle
 app.use(cors());
 app.use(express.json());
 
+// PUBLIC STAGING: browsable radio UI; all sensitive APIs require an admin JWT.
+// This is installed after JSON parsing and before any API router.
+if (process.env.APP_ENV === 'staging') {
+  app.use('/api', require('./utils/stagePublicAccess').stagePublicAccess);
+}
+
+
 // ==============================================================
 // 🎨 ΔΥΝΑΜΙΚΗ ΠΑΡΑΓΩΓΗ OG IMAGE ΓΙΑ ΤΑ SOCIAL MEDIA BOTS
 // ==============================================================
@@ -259,7 +266,10 @@ if (process.env.APP_ENV !== 'staging') {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*', methods: ["GET", "POST"] },
-  path: '/api/socket.io'
+  path: '/api/socket.io',
+  // The socket handlers contain legacy unauthenticated broadcasts and user-room
+  // operations; do not expose them on a public clone of live user accounts.
+  allowRequest: (req, callback) => callback(null, process.env.APP_ENV !== 'staging')
 });
 
 const activeListeners = {}; 
