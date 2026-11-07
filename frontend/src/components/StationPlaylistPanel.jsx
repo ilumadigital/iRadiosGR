@@ -56,14 +56,14 @@ export default function StationPlaylistPanel({
       const data=await r.json();
       if(!r.ok)throw new Error(data.error||'Δεν μπορέσαμε να φορτώσουμε τα τραγούδια.');
       return data;
-    }).then(data=>setTracks(Array.isArray(data.tracks)?data.tracks.slice(0,12):[]))
+    }).then(data=>setTracks(Array.isArray(data.tracks)?data.tracks.slice(0,120):[]))
       .catch(e=>{if(e.name!=='AbortError'){setError(e.message);setTracks([]);}})
       .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return ()=>controller.abort();
   },[currentUser?._id,chosen?._id,refresh]);
   useEffect(()=>{
     if(!currentUser||!chosen?._id)return;
-    const timer=setInterval(()=>{if(!document.hidden)setRefresh(x=>x+1);},60000);
+    const timer=setInterval(()=>{if(!document.hidden)setRefresh(x=>x+1);},15000);
     return ()=>clearInterval(timer);
   },[currentUser?._id,chosen?._id]);
   return (
@@ -77,7 +77,7 @@ export default function StationPlaylistPanel({
         {chosen?.logo&&<img src={chosen.logo} alt="" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"/>}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-black text-white">{chosen?.name||'Δεν έχει επιλεγεί σταθμός'}</div>
-          <span className="mt-1 block text-[11px] text-zinc-400">Τα τελευταία Tracks του {chosen?.name||'σταθμού'}</span>
+          <span className="mt-1 block text-[11px] text-zinc-400">Τα τραγούδια των τελευταίων 30 λεπτών του {chosen?.name||'σταθμού'}</span>
         </div>
         {onPlayStation&&chosen&&<StationListenButton station={chosen} currentStation={currentStation} isPlaying={isPlaying}
           onPlayStation={onPlayStation} onPlayPause={onPlayPause} className="shrink-0"/>}
