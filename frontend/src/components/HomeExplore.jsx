@@ -34,7 +34,12 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
   const [region,setRegion]=useState('');
   const [showAll,setShowAll]=useState(false);
   const [showRegions,setShowRegions]=useState(false);
-  const genreList=useMemo(()=>unique(stations.map(x=>x.genre)),[stations]);
+  const [regionSearch,setRegionSearch]=useState('');
+  const genreList=useMemo(()=>{
+    const counts=new Map();
+    for(const station of stations)if(station.genre)counts.set(station.genre,(counts.get(station.genre)||0)+1);
+    return [...counts.keys()].sort((a,b)=>counts.get(b)-counts.get(a)||a.localeCompare(b,'el'));
+  },[stations]);
   const regionList=useMemo(()=>unique(stations.map(x=>x.region)),[stations]);
 
   // Sidebar shortcuts open this exact visual finder without introducing dropdowns/routes.
@@ -128,11 +133,19 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
           className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 text-xs font-bold ${showRegions?'border-[#ccff00]/50 bg-[#ccff00]/10 text-[#ccff00]':'border-white/15 bg-white/5 text-zinc-300'}`}>
           <MapPinned size={16}/> {region||'Περιοχές'} <ChevronRight size={14} className={showRegions?'rotate-90 transition-transform':'transition-transform'}/>
         </button>
-        {showRegions&&<div className="mt-3 flex max-h-44 flex-wrap gap-2 overflow-y-auto rounded-2xl border border-white/10 bg-[#080d12] p-3" aria-label="Επιλογή περιοχής">
+        {showRegions&&<div className="mt-3 rounded-2xl border border-white/10 bg-[#080d12] p-3" aria-label="Επιλογή περιοχής">
+          <label className="mb-3 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 focus-within:border-[#ccff00]/50">
+            <Search size={16} className="text-zinc-400"/>
+            <span className="sr-only">Αναζήτηση περιοχής</span>
+            <input type="search" placeholder="Βρες περιοχή…" value={regionSearch} onChange={e=>setRegionSearch(e.target.value)}
+              className="min-h-10 w-full bg-transparent text-xs text-white outline-none placeholder:text-zinc-500"/>
+          </label>
+          <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
           <button type="button" aria-pressed={!region} onClick={()=>setRegion('')}
             className={`rounded-full border px-3 py-2 text-xs font-semibold ${!region?'border-[#ccff00] bg-[#ccff00] text-black':'border-white/15 text-zinc-300'}`}>Όλες</button>
-          {regionList.map(r=><button type="button" key={r} aria-pressed={region===r} onClick={()=>{setRegion(region===r?'':r);setShowAll(false);}}
+          {regionList.filter(r=>normalize(r).includes(normalize(regionSearch))).map(r=><button type="button" key={r} aria-pressed={region===r} onClick={()=>{setRegion(region===r?'':r);setShowAll(false);}}
             className={`rounded-full border px-3 py-2 text-xs font-semibold ${region===r?'border-[#ccff00] bg-[#ccff00] text-black':'border-white/15 text-zinc-300 hover:border-[#ccff00]/40'}`}>{r}</button>)}
+          </div>
         </div>}
       </div>
 
