@@ -17,15 +17,15 @@ function artworkType(url){
 export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUser,
   isPlayingAd,currentAdInfo,globalCoverArt}){
   const name=currentStation?.name||'iRadios';
+  if(!currentUser)return {
+    title:'Login στο iRadios για NowPlaying',
+    artist:name,album:'iRadios',image:currentStation?.logo
+  };
   if(isPlayingAd)return {
     title:currentAdInfo?.title||'Διαφήμιση',
     artist:currentAdInfo?.client||'iRadios',
     album:'iRadios',
     image:currentAdInfo?.logoUrl||currentStation?.logo
-  };
-  if(!currentUser)return {
-    title:'Login στο iRadios για NowPlaying',
-    artist:name,album:'iRadios',image:currentStation?.logo
   };
   const parts=musicParts(nowPlaying);
   const ai=Boolean(parts&&nowPlayingInfo?.source==='acrcloud'&&nowPlayingInfo?.foundWithAI);
@@ -71,7 +71,7 @@ export default function useMediaSession({
     }catch{ /* mediaSession may be unavailable on some WebViews; radio still plays */ }
   };
   useEffect(()=>{
-    if(!currentStation)return;
+    if(!currentStation || (!isPlaying && last.current.key===null))return;
     const key=[currentStation._id,Boolean(currentUser),Boolean(isPlayingAd),currentAdInfo?._id].join(':');
     const fields=mediaFields(latest.current);
     const firstAI=Boolean(fields.foundWithAI)&&!last.current.ai;
