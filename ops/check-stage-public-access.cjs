@@ -36,8 +36,8 @@ for(const p of ['/admin/users','/stations/all','/auth/me','/agency/test','/payme
 const blocked=call('POST','/stations');
 assert.equal(blocked.res.code,401);
 (async()=>{
- const result=call('POST','/auth/login',{identifier:'not-an-admin'});
+ const result=call('POST','/auth/login',{identifier:'existing-user',password:'some-password'});
  await result.result;
- assert.equal(result.res.code,401);
+ assert.equal(result.reached,true,'normal existing users may reach credential validation');
  console.log('Public stage route authorization tests passed.');
 })().catch(e=>{console.error(e);process.exitCode=1});
