@@ -72,6 +72,9 @@ echo "[1/5] Pulling GitHub staging (fast-forward only)..."
 sudo -u iradios git pull --ff-only origin staging
 echo "Revision: $(sudo -u iradios git rev-parse --short HEAD)"
 
+echo "[ENV] Checking external stage secrets and preparing Git-ignored .env links..."
+bash ops/ensure-stage-env.sh
+
 echo "[2/5] Cleaning temporary staging build output..."
 # Do not run git clean -fdx: it would delete restored, untracked logo PNGs.
 # Do not delete node_modules, uploads, Docker volumes, backups or /etc secrets.
