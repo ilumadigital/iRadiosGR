@@ -12,15 +12,15 @@ const gradients=[
 export default function HomeRecommendationDeck({moodStations=[],topStations=[],currentStation,isPlaying,onPlayStation,onPlayPause}) {
   const navigate=useNavigate();
   const play=station=>{ if(stationIsPlaying(station,currentStation,isPlaying))return; if(String(station._id)===String(currentStation?._id)&&onPlayPause)onPlayPause(); else onPlayStation(station); };
-  const picks=moodStations.filter(Boolean).slice(0,4);
-  const top=topStations.filter(Boolean).slice(0,4);
+  const picks=moodStations.filter(Boolean).slice(0,8);
+  const top=topStations.filter(Boolean).slice(0,7);
   if(!picks.length&&!top.length)return null;
   return (
     <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.75fr)]">
       <div className="min-w-0">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div><h2 className="flex items-center gap-2 text-xl font-black text-white sm:text-2xl"><Sparkles className="text-[#ccff00]" size={23}/> Για σένα</h2>
-            <p className="mt-1 text-xs text-zinc-400">Σταθμοί που ταιριάζουν στις προτιμήσεις σου</p></div>
+            <p className="mt-1 text-xs text-zinc-400">Μουσική που μπορεί να σου αρέσει</p></div>
           <button type="button" onClick={()=>navigate('/?explore=for-you')} aria-label="Όλες οι προτάσεις"
             className="rounded-full border border-white/15 p-2 text-[#ccff00] hover:bg-white/10"><ChevronRight size={18}/></button>
         </div>
@@ -46,7 +46,7 @@ export default function HomeRecommendationDeck({moodStations=[],topStations=[],c
       <div className="min-w-0">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div><h2 className="flex items-center gap-2 text-xl font-black text-white sm:text-2xl"><Trophy className="text-[#ccff00]" size={22}/> Top σταθμοί</h2>
-            <p className="mt-1 text-xs text-zinc-400">Επιλεγμένοι από το iRadiosGR</p></div>
+            <p className="mt-1 text-xs text-zinc-400">Σταθμοί που ξεχωρίζουν</p></div>
           <button type="button" onClick={()=>navigate('/?explore=top')} aria-label="Προβολή Top σταθμών"
             className="rounded-full border border-white/15 p-2 text-[#ccff00] hover:bg-white/10"><ChevronRight size={18}/></button>
         </div>

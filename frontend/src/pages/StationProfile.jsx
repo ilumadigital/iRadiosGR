@@ -38,11 +38,11 @@ export default function StationProfile({
   const isThisPlaying = currentStation && (currentStation._id === station?._id);
 
   const LOADING_MESSAGES = [
-    "Ανάλυση ήχου...",
-    "Ψάχνω στο Cloud...",
-    "Επαλήθευση συχνοτήτων...",
-    "Σχεδόν έτοιμο...",
-    "Σύνδεση στο stream... 📡",
+    "Ακούμε τον σταθμό…",
+    "Ψάχνουμε το τραγούδι…",
+    "Λίγο ακόμη…",
+    "Σχεδόν έτοιμο…",
+    "Βρίσκουμε το τραγούδι…",
     "ΠΑΙΖΕΙ ΤΩΡΑ"
   ];
 
@@ -120,7 +120,7 @@ export default function StationProfile({
       return;
     }
     if (!currentUser) {
-      showAlert("Παρακαλούμε συνδεθείτε ή δημιουργήστε λογαριασμό εντελώς δωρεάν στο iRadios για να χρησιμοποιήσετε το AI Music Radar!");
+      showAlert("Συνδέσου στο iRadios για να βρεις ποιο τραγούδι παίζει.");
       return;
     }
     if (handleRecognizeTrack) handleRecognizeTrack();
@@ -386,13 +386,13 @@ export default function StationProfile({
                 <button 
                   onClick={onRadarClick}
                   disabled={isRecognizing}
-                  className={`group/radar bg-black/60 backdrop-blur-md h-8 rounded-full border border-white/10 flex items-center overflow-hidden transition-all duration-300 w-8 hover:w-[100px] text-white hover:text-[#ccff00] shadow-lg disabled:opacity-50`}
+                  className={`group/radar bg-black/60 backdrop-blur-md h-8 rounded-full border border-white/10 flex items-center overflow-hidden transition-all duration-300 w-8 hover:w-[180px] text-white hover:text-[#ccff00] shadow-lg disabled:opacity-50`}
                 >
                   <div className="w-8 h-8 flex items-center justify-center shrink-0">
                     {isRecognizing ? <Loader2 size={14} className="animate-spin text-[#ccff00]" /> : <ScanSearch size={14} />}
                   </div>
                   <span className="text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap opacity-0 group-hover/radar:opacity-100 transition-opacity duration-300">
-                    AI RADAR
+                    ΒΡΕΣ ΤΟ ΤΡΑΓΟΥΔΙ
                   </span>
                 </button>
               </div>
@@ -410,7 +410,7 @@ export default function StationProfile({
 
                    <div className="absolute top-4 left-4 z-20 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
                      <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]"></div>
-                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">NOW PLAYING</span>
+                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">ΤΩΡΑ ΠΑΙΖΕΙ</span>
                    </div>
                 </>
               )}
@@ -583,14 +583,14 @@ export default function StationProfile({
                           onClick={() => { onUserDSPChange(station._id, 'HomeTheater'); setShowEQMenu(false); }}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${currentPreset === 'HomeTheater' ? 'bg-[#ccff00]/10 text-[#ccff00]' : 'text-white hover:bg-white/5'}`}
                         >
-                          <MonitorSpeaker size={16} /> <span>Home Theater</span>
+                          <MonitorSpeaker size={16} /> <span>Κινηματογράφος</span>
                         </button>
 
                         <button 
                           onClick={() => { onUserDSPChange(station._id, 'HiRes'); setShowEQMenu(false); }}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${currentPreset === 'HiRes' ? 'bg-[#ccff00]/10 text-[#ccff00]' : 'text-white hover:bg-white/5'}`}
                         >
-                          <Headphones size={16} /> <span>Hi-Res Audio</span>
+                          <Headphones size={16} /> <span>Καθαρός ήχος</span>
                         </button>
 
                         <div className="my-1 border-t border-white/5"></div>
@@ -599,7 +599,7 @@ export default function StationProfile({
                           onClick={() => { onUserDSPChange(station._id, 'OFF'); setShowEQMenu(false); }}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${currentPreset === 'OFF' ? 'bg-red-500/10 text-red-500' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                         >
-                          <PowerOff size={16} /> <span>DSP Off (Bypass)</span>
+                          <PowerOff size={16} /> <span>Χωρίς εφέ</span>
                         </button>
                       </div>
                     )}

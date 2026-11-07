@@ -266,7 +266,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
     if (!weather || weather.temp === null) {
       return {
         title: isNight ? "Late Night Vibes 🌙" : "Ημερήσια Ενέργεια ⚡",
-        subtitle: "Το iRadios AI αναλύει τη στιγμή και ετοιμάζει τις προτάσεις σου...",
+        subtitle: "Διαλέγουμε σταθμούς για τη στιγμή σου.",
         genres: ["Διεθνή Mainstream", "Cosmopolitan", "Lounge"], 
         icon: <Sparkles size={28} className="text-zinc-400 animate-spin" />,
         gradient: "from-zinc-800/30 to-black",
@@ -324,7 +324,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         const genres = userProfile === 'greek' ? ["Ελληνικά Λαϊκά", "Έντεχνη"] : ["Lounge", "Cosmopolitan", "80s / 90s"];
         return {
           title: `Late Night Vibes 🌙`,
-          subtitle: "Χαλάρωσε, βάλε ένα ποτό και άσε τον αλγόριθμο να σε ταξιδέψει με τις ιδανικές νυχτερινές επιλογές.",
+          subtitle: "Χαλάρωσε και άκου μουσική για το βράδυ.",
           genres: genres,
           icon: <Moon size={28} className="text-indigo-400" />,
           gradient: "from-indigo-900/40 to-black",
@@ -387,11 +387,20 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
     let combined = [...localStations, ...discoveryStations].slice(0, 8);
 
     if (combined.length < 8) {
-      const fillIns = stations.filter(s => 
-        moodMatch.genres.includes(s.genre) && 
-        !combined.map(c => c._id).includes(s._id)
-      ).sort(() => 0.5 - Math.random());
-      combined = [...combined, ...fillIns].slice(0, 8);
+      const chosenIds = new Set(combined.map(s => String(s._id)));
+      const preferred = stations.filter(s =>
+        s._id && (s.status === 'approved' || !s.status) &&
+        !chosenIds.has(String(s._id)) && moodMatch.genres.includes(s.genre)
+      );
+      const others = stations.filter(s =>
+        s._id && (s.status === 'approved' || !s.status) &&
+        !chosenIds.has(String(s._id)) && !moodMatch.genres.includes(s.genre)
+      );
+      const fillIns = [...preferred, ...others]
+        .sort((a,b)=>Number(Boolean(b.isFeatured))-Number(Boolean(a.isFeatured)));
+      combined = [...combined, ...fillIns].filter((station,index,all) =>
+        all.findIndex(s => String(s._id) === String(station._id)) === index
+      ).slice(0, 8);
     }
 
     return combined;
@@ -435,7 +444,14 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
   const itemsPerPage = isMobile ? 2 : 4;
 
   const favoriteStations = currentUser?.favorites ? stations.filter(s => currentUser.favorites.includes(s._id || s.id)) : [];
-  const topStations = stations.filter(s => s.isFeatured === true || (s.boostStatus === true && s.position === 1));
+  const eligibleTopStations = stations.filter(s => s._id && (s.status === 'approved' || !s.status));
+  const featuredTopStations = eligibleTopStations.filter(s =>
+    s.isFeatured === true || (s.boostStatus === true && s.position === 1));
+  const topStations = [
+    ...featuredTopStations,
+    ...eligibleTopStations.filter(s => !featuredTopStations.includes(s))
+      .sort((a,b)=>Number(b.plays||0)-Number(a.plays||0))
+  ].slice(0,7);
   const homeDisplayStation = stations.find(s=>String(s._id)===String(heroStationId)) ||
     currentStation || recentlyPlayed[0] || topStations[0] || stations[0];
   const topRegions = ['Αττική', 'Αθήνα', 'Θεσσαλονίκη', 'WebRadios']; 
@@ -657,17 +673,17 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
             <div className="relative z-10 flex flex-col gap-4 max-w-3xl">
               <h2 className="text-3xl md:text-4xl font-black text-white tracking-tighter">Έχεις ραδιοφωνικό ή Web σταθμό;</h2>
               <p className="text-zinc-400 font-medium text-sm md:text-base leading-relaxed">
-                Έλα στο δίκτυο του iRadios και πάρε τον απόλυτο έλεγχο. Αναβάθμισε τον ήχο σου με την ενσωματωμένη <strong className="text-white">DSP Engine</strong> (7 FM & Web presets) και διαχειρίσου τα έσοδά σου μέσω του <strong className="text-white">AdControl</strong>. 
-                <br className="hidden md:block mt-2" />
-                Οργάνωσε το 24ωρο πρόγραμμά σου, δώσε πρόσβαση στους <strong className="text-white">Producers</strong> του σταθμού, παρακολούθησε την ακροαματικότητά σου με <strong className="text-white">LIVE Analytics</strong> και αλληλεπίδρασε με το κοινό σε πραγματικό χρόνο μέσω του <strong className="text-white">Live Chat</strong>!
-              </p>
+                Γίνε μέλος του iRadios και διαχειρίσου εύκολα τον σταθμό σου.
+                 <br className="hidden md:block mt-2" />
+                 Φτιάξε το πρόγραμμά σου, συνεργάσου με την ομάδα σου, δες πόσοι σε ακούν και μίλησε με το κοινό σου.
+               </p>
             </div>
             
             <button 
               onClick={() => navigate('/broadcast')}
               className="relative z-10 w-full md:w-auto px-10 py-5 bg-white text-black hover:bg-zinc-200 rounded-2xl font-black uppercase text-xs md:text-sm tracking-[0.15em] transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] group-hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] group-hover:scale-105 shrink-0"
             >
-              Ξεκινα δωρεαν
+              Ξεκίνα δωρεάν
             </button>
           </div>
         </section>

@@ -78,7 +78,7 @@ export default function DesktopFullPlayer({
             </div>
             {currentShow&&!isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">Στον αέρα: <strong className="text-white">{currentShow.title}</strong>{currentShow.host?' · '+currentShow.host:''}</p>}
             {isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-300">{currentAdInfo?.title||'Διαφημιστικό διάλειμμα'}{Number.isFinite(adTimeRemaining)?' · '+adTimeRemaining+'″':''}</p>}
-            {!isPlayingAd&&!validTitle&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">{currentUser?'Δεν υπάρχουν διαθέσιμα metadata για το τρέχον τραγούδι.':'Συνδέσου στο iRadios για NowPlaying'}</p>}
+            {!isPlayingAd&&!validTitle&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">{currentUser?'Δεν γνωρίζουμε ποιο τραγούδι παίζει αυτή τη στιγμή.':'Συνδέσου στο iRadios για NowPlaying'}</p>}
             <div className="mt-[clamp(0.5rem,2.2dvh,1.6rem)] flex shrink-0 flex-wrap items-center gap-[clamp(0.4rem,1.1vw,1.25rem)]">
               <button type="button" onClick={togglePlayPause} disabled={isPlayingAd} aria-label={isPlaying?'Παύση ραδιοφώνου':'Αναπαραγωγή ραδιοφώνου'}
                 className="ir-player-transport flex h-[clamp(48px,8dvh,80px)] w-[clamp(48px,8dvh,80px)] shrink-0 items-center justify-center rounded-full transition-transform hover:scale-105 disabled:opacity-40">
@@ -99,7 +99,7 @@ export default function DesktopFullPlayer({
                   className="w-[clamp(110px,12vw,176px)] accent-[#ccff00]"/>
               </label>
               {!isPlayingAd&&<button type="button" onClick={onRecognize} disabled={isRecognizing||!isPlaying}
-                className="ir-recognize-button"><ScanSearch size={18}/>{isRecognizing?'Αναγνώριση…':'Αναγνώριση τραγουδιού'}</button>}
+                className="ir-recognize-button"><ScanSearch size={18}/>{isRecognizing?'Ψάχνουμε το τραγούδι…':'Βρες το τραγούδι'}</button>}
             </div>
           </div>
           <div className="ir-desktop-player-artframe relative mx-auto flex h-full min-h-0 min-w-0 w-full max-w-[650px] items-center justify-center">

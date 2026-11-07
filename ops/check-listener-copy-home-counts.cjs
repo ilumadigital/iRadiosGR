@@ -1,0 +1,64 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = name => fs.readFileSync(path.join(root, name), 'utf8');
+
+const now=read('frontend/src/pages/PlayingNow.jsx');
+assert.ok(now.includes('liveStations.length===1?"σταθμός LIVE":"σταθμοί LIVE"'),
+  'Now Playing count must say N σταθμοί LIVE, not a technical metadata label');
+assert.ok(now.includes('(!isLoading || liveStations.length>0)'),
+  'do not flash an incorrect zero during the initial scan');
+assert.ok(!now.includes('0 με metadata') && !now.includes('με επιβεβαιωμένα μουσικά metadata'),
+  'remove engineering labels from Now Playing');
+assert.ok(!now.includes('Δεν εντοπίστηκαν σταθμοί με έγκυρα μουσικά metadata'),
+  'no verbose technical empty-state copy');
+assert.ok(now.includes('const music = parseMusicMetadata(data?.title)'),
+  'music list must still require true artist-title metadata');
+assert.ok(now.includes('if (!music) return null;'),
+  'never turn a failed check into a fake song');
+assert.ok(now.includes('if (!currentUser) return null'),
+  'guest song metadata stays hidden');
+assert.ok(now.includes('setLiveStations(detected)'), 'clear stale Now Playing stations');
+
+const deck=read('frontend/src/components/HomeRecommendationDeck.jsx');
+assert.ok(deck.includes('moodStations.filter(Boolean).slice(0,8)'),
+  'For You must display up to 8 real stations');
+assert.ok(deck.includes('topStations.filter(Boolean).slice(0,7)'),
+  'Top stations must display up to 7 real stations');
+assert.ok(deck.includes('grid grid-cols-2 gap-3 sm:grid-cols-4'),
+  'eight picks must create two balanced rows on desktop');
+assert.ok(deck.includes('stationIsPlaying'), 'radio playback state must remain intact');
+
+const home=read('frontend/src/pages/Home.jsx');
+assert.ok(home.includes('chosenIds') && home.includes('all.findIndex'),
+  'fill For You with real distinct stations if preferred genres are sparse');
+assert.ok(home.includes('featuredTopStations') && home.includes('.slice(0,7)'),
+  'fill Top with up to seven genuine approved radios');
+assert.ok(!home.includes('Το iRadios AI αναλύει'), 'do not claim AI recommendations');
+assert.ok(!home.includes('άσε τον αλγόριθμο'), 'do not use synthetic marketing copy');
+assert.ok(!home.includes('DSP Engine</strong>') && !home.includes('LIVE Analytics</strong>'),
+  'broadcaster promotion should speak to people rather than software engineers');
+
+const playlist=read('frontend/src/components/StationPlaylistPanel.jsx');
+assert.ok(playlist.includes("Τα τελευταία Tracks του {chosen?.name"),
+  'retain the explicitly approved station name in the playlist caption');
+assert.ok(!playlist.includes('έγκυρα metadata τραγουδιών'), 'history copy should be natural');
+
+const player=read('frontend/src/components/DesktopFullPlayer.jsx');
+assert.ok(!player.includes('διαθέσιμα metadata'), 'do not expose technical data labels');
+const profile=read('frontend/src/pages/StationProfile.jsx');
+assert.ok(!profile.includes('AI Music Radar!') && !profile.includes('>AI RADAR<'),
+  'recognition actions must use friendly Greek labels');
+assert.ok(profile.includes('ΒΡΕΣ ΤΟ ΤΡΑΓΟΥΔΙ'));
+
+const app=read('frontend/src/App.jsx');
+assert.ok(!app.includes('πρόβλημα επικοινωνίας με το Cloud'),
+  'errors must not describe backend services');
+assert.ok(app.includes('ref={audioRef}'), 'the central stream player must remain unchanged');
+assert.ok(app.includes('Συνδέσου στο iRadios για NowPlaying') ||
+          read('frontend/src/components/Footer.jsx').includes('Συνδέσου στο iRadios για NowPlaying'),
+  'guest messaging stays clear');
+
+console.log('Listener-facing language and 8 + 7 radio recommendation contracts passed.');

@@ -53,7 +53,7 @@ export default function StationPlaylistPanel({
       headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},signal:controller.signal
     }).then(async r=>{
       const data=await r.json();
-      if(!r.ok)throw new Error(data.error||'Σφάλμα φόρτωσης playlist.');
+      if(!r.ok)throw new Error(data.error||'Δεν μπορέσαμε να φορτώσουμε τα τραγούδια.');
       return data;
     }).then(data=>setTracks(Array.isArray(data.tracks)?data.tracks.slice(0,12):[]))
       .catch(e=>{if(e.name!=='AbortError'){setError(e.message);setTracks([]);}})
@@ -89,8 +89,8 @@ export default function StationPlaylistPanel({
       ):error?<p role="alert" className="mt-6 text-sm text-red-300">{error}</p>
       :!loading&&!tracks.length?<div className="py-9 text-center">
         <Music2 size={29} className="mx-auto mb-3 text-zinc-500"/>
-        <p className="text-sm text-zinc-300">Δεν έχει καταγραφεί ακόμα μουσική για αυτόν τον σταθμό.</p>
-        <p className="mt-2 text-xs text-zinc-500">Το ιστορικό συμπληρώνεται αυτόματα όταν λαμβάνουμε έγκυρα metadata τραγουδιών.</p>
+        <p className="text-sm text-zinc-300">Δεν υπάρχουν ακόμη τραγούδια στη λίστα.</p>
+        <p className="mt-2 text-xs text-zinc-500">Τα τραγούδια θα εμφανιστούν εδώ μόλις τα μάθουμε.</p>
       </div>:null}
       {tracks.length>0&&<div className={`mt-3 min-h-0 divide-y divide-white/5 overflow-y-auto pr-1 ${compact?'flex-1':'max-h-[560px]'}`} aria-live="polite">
         {tracks.map((track,i)=><div key={track.raw+'-'+track.playedAt+'-'+i}
@@ -104,7 +104,7 @@ export default function StationPlaylistPanel({
           {i===0&&<span className="sr-only">Πιο πρόσφατο τραγούδι</span>}
         </div>)}
       </div>}
-      {loading&&!tracks.length&&<p className="mt-6 text-sm text-zinc-400">Φόρτωση πραγματικού ιστορικού…</p>}
+      {loading&&!tracks.length&&<p className="mt-6 text-sm text-zinc-400">Φόρτωση τραγουδιών…</p>}
       {chosen&&<button type="button" onClick={()=>navigate('/station/'+(chosen.slug||chosen._id))}
         className="mt-3 w-full shrink-0 rounded-xl border border-white/10 p-2.5 text-xs font-semibold text-zinc-300 hover:border-[#ccff00]/30 hover:text-[#ccff00]">
         Δες τον σταθμό και το πρόγραμμά του

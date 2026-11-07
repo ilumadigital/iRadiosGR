@@ -122,7 +122,7 @@ export default function Footer({
   const handleRadarClick = (e) => {
     e.stopPropagation();
     if (!currentUser) {
-      showAlert("Παρακαλούμε συνδεθείτε ή δημιουργήστε λογαριασμό εντελώς δωρεάν στο iRadios για να χρησιμοποιήσετε την Αναγνώριση Μουσικής!");
+      showAlert("Συνδέσου στο iRadios για να βρεις ποιο τραγούδι παίζει.");
       return;
     }
     handleRecognizeTrack();
@@ -264,7 +264,7 @@ export default function Footer({
                         ))}
                         <div className="my-1 border-t border-white/5"></div>
                         <button onClick={() => { onUserDSPChange(currentStation._id, 'OFF'); setShowEQMenu(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${currentPreset === 'OFF' ? 'bg-red-500/10 text-red-500' : 'text-zinc-500 hover:text-white'}`}>
-                          <PowerOff size={14} /> <span>DSP Off (Bypass)</span>
+                          <PowerOff size={14} /> <span>Χωρίς εφέ</span>
                         </button>
                       </div>
                     )}
