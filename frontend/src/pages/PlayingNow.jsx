@@ -1,163 +1,132 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Radio, AudioLines } from 'lucide-react';
-import { cleanMetadata } from '../utils/cleanMetadata'; 
+import { AudioLines, ChevronRight, Loader2, Radio } from 'lucide-react';
+import { parseMusicMetadata } from '../utils/musicMetadata';
 
-export default function PlayingNow({ stations, API_URL, currentUser }) {
-  const navigate = useNavigate(); 
+const PER_PASS = 36;
+const BATCH = 6;
+
+export default function PlayingNow({ stations = [], API_URL, currentUser, onPlayStation }) {
+  const navigate = useNavigate();
   const [liveStations, setLiveStations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const mountedRef = useRef(true);
+  const cursor = useRef(0);
 
   useEffect(() => {
-    mountedRef.current = true;
-    
-    const fetchLiveData = async () => {
-      if (!stations || stations.length === 0) return;
-      if (liveStations.length === 0) setIsLoading(true);
-      
-      const shuffled = [...stations].sort(() => 0.5 - Math.random()).slice(0, 30);
-      const batchSize = 5; 
-      let freshResults = [];
+    // Song titles are a logged-in feature. A guest never attempts to fetch metadata.
+    if (!currentUser || !stations.length) {
+      setLiveStations([]);
+      setIsLoading(false);
+      return;
+    }
+    let alive = true;
+    let controller = new AbortController();
+    const eligible = stations.filter(s => (s.status === 'approved' || !s.status) && s._id && s.stream);
 
-      for (let i = 0; i < shuffled.length; i += batchSize) {
-        if (!mountedRef.current) break;
-        const batch = shuffled.slice(i, i + batchSize);
-        
-        const promises = batch.map(async (station) => {
+    const poll = async () => {
+      controller.abort();
+      controller = new AbortController();
+      const signal = controller.signal;
+      if (!eligible.length) { if (alive) { setLiveStations([]); setIsLoading(false); } return; }
+
+      // Rotate through the approved stations rather than selecting random stations.
+      const offset = cursor.current % eligible.length;
+      const sampled = Array.from({ length: Math.min(PER_PASS, eligible.length) }, (_,i) =>
+        eligible[(offset + i) % eligible.length]);
+      cursor.current = (offset + sampled.length) % eligible.length;
+      const token = localStorage.getItem('iluma_token');
+      if (!token) { if (alive) { setLiveStations([]); setIsLoading(false); } return; }
+      const detected = [];
+
+      for (let i=0; i<sampled.length && alive && !signal.aborted; i+=BATCH) {
+        const found = await Promise.all(sampled.slice(i,i+BATCH).map(async station => {
           try {
-            const metaRes = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(station.stream)}`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('iluma_token') || ''}` }
+            const res = await fetch(`${API_URL}/metadata?stationId=${encodeURIComponent(station._id)}`, {
+              headers:{Authorization:`Bearer ${token}`}, signal
             });
-            const metaData = await metaRes.json();
-            
-            if (metaData && metaData.title && metaData.title.trim() !== '') {
-              const cleanTitle = cleanMetadata(metaData.title);
-              let coverArt = station.logo; 
-
-              if (cleanTitle) {
-                try {
-                  const myRes = await fetch(`${API_URL}/cover-art?term=${encodeURIComponent(cleanTitle)}`);
-                  if (myRes.ok) {
-                    const myData = await myRes.json();
-                    if (myData && myData.artworkUrl) {
-                      coverArt = myData.artworkUrl;
-                    }
-                  }
-                } catch (e) {}
-              }
-
-              return {
-                ...station,
-                nowPlaying: cleanTitle || metaData.title,
-                coverArt: coverArt
-              };
-            }
-          } catch (err) {
-            return null;
-          }
-          return null;
-        });
-
-        const batchResults = await Promise.all(promises);
-        const validResults = batchResults.filter(Boolean);
-
-        if (validResults.length > 0) {
-          freshResults = [...freshResults, ...validResults];
-        }
+            if (!res.ok) return null;
+            const data = await res.json();
+            const music = parseMusicMetadata(data?.title);
+            if (!music) return null;
+            return { ...station, music, coverArt: station.logo };
+          } catch { return null; }
+        }));
+        detected.push(...found.filter(Boolean));
       }
 
-      if (mountedRef.current && freshResults.length > 0) {
-        setLiveStations(freshResults);
-      }
-      if (mountedRef.current) setIsLoading(false);
+      if (signal.aborted || !alive) return;
+      // A station disappears immediately when it no longer reports valid artist-title metadata.
+      // Do not keep stale songs in the list after a failed/empty refresh.
+      setLiveStations(detected);
+      setIsLoading(false);
+
+      // Artwork is optional and fetched only for a few visible cards, after music was verified.
+      await Promise.all(detected.slice(0,12).map(async item => {
+        try {
+          const res = await fetch(`${API_URL}/cover-art?term=${encodeURIComponent(item.music.raw)}`,{signal});
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data?.artworkUrl || !/^https:\/\//.test(data.artworkUrl) || !alive || signal.aborted) return;
+          setLiveStations(prev => prev.map(s => s._id===item._id && s.music.raw===item.music.raw ?
+            {...s,coverArt:data.artworkUrl} : s));
+        } catch { /* station logo is the honest fallback */ }
+      }));
     };
 
-    fetchLiveData();
-    const intervalId = setInterval(() => { fetchLiveData(); }, 90000); 
+    poll();
+    const timer = setInterval(() => { if (!document.hidden) poll(); }, 90000);
+    return () => { alive=false; controller.abort(); clearInterval(timer); };
+  }, [stations, API_URL, currentUser?._id]);
 
-    return () => {
-      mountedRef.current = false;
-      clearInterval(intervalId);
-    };
-  }, [stations, API_URL, currentUser]); 
-
-  // Do not hide the Home now-playing section if stations have no valid metadata.
-
+  if (!currentUser) return null;
   return (
-    <div className="w-full py-6 overflow-hidden animate-fade-in">
-      
-      <div className="flex items-end justify-between px-6 mb-8 border-t border-white/5 pt-12">
-        <h2 className="text-xl md:text-4xl font-black tracking-tighter text-white italic flex items-center gap-3">
-          <Radio className="text-[#ccff00]" size={28} /> ΤΩΡΑ ΠΑΙΖΟΥΝ
-          {isLoading && <Loader2 size={16} className="text-[#ccff00] animate-spin ml-2" />}
-        </h2>
+    <section className="ir-home-now-playing min-w-0" aria-label="Σταθμοί που μεταδίδουν τραγούδια με metadata">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-xl font-black text-white sm:text-2xl">
+            <AudioLines className="text-[#ccff00]" size={23}/> Τώρα παίζουν
+            {isLoading && <Loader2 size={16} className="animate-spin text-[#ccff00]"/>}
+          </h2>
+          <p className="mt-1 text-xs text-zinc-400">Μόνο σταθμοί με επιβεβαιωμένα μουσικά metadata</p>
+        </div>
+        <span className="rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-1.5 text-[11px] font-bold text-[#ccff00]">
+          {liveStations.length} με μουσικά στοιχεία
+        </span>
       </div>
-
-      {!isLoading && liveStations.length === 0 && (
-        <p className="px-6 pb-4 text-sm text-zinc-400">Δεν υπάρχουν διαθέσιμα μουσικά metadata αυτή τη στιγμή.</p>
-      )}
-      <div className="flex overflow-x-auto gap-4 px-6 pb-6 pt-2 custom-scrollbar snap-x snap-mandatory">
-        {liveStations.map((item, index) => {
-          const hasCustomCover = item.coverArt !== item.logo;
-
-          return (
-            <button 
-              key={`${item._id}-${index}`}
-              type="button"
-              onClick={() => navigate(`/station/${item.slug || item._id || item.id}`)}
-              aria-label={`Άνοιγμα σταθμού ${item.name}: ${item.nowPlaying}`}
-              className="ir-now-playing-card relative w-56 h-56 md:w-64 md:h-64 rounded-2xl overflow-hidden shrink-0 group snap-start cursor-pointer transition-all duration-500 hover:-translate-y-1 text-left"
-            >
-              
-              <img 
-                src={item.coverArt} 
-                alt={item.nowPlaying} 
-                className="absolute inset-0 w-full h-full object-cover bg-white transition-transform duration-700 group-hover:scale-105" 
-              />
-              
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent group-hover:bg-black/40 transition-colors duration-300"></div>
-              
-              {/* Εικονίδιο πάνω δεξιά (Μπλε που γίνεται Λαχανί) */}
-              <div className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 z-20 bg-black/50 backdrop-blur-md border border-[#ccff00]/40 text-[#ccff00] group-hover:border-[#ccff00] shadow-lg">
-                 <AudioLines size={18} className="animate-pulse" />
-              </div>
-
-              {hasCustomCover && (
-                <div className="absolute top-4 left-4 z-10 pointer-events-none">
-                  <div className="bg-white p-1 rounded-xl shadow-lg w-12 h-12 flex items-center justify-center border border-black/10 overflow-hidden">
-                    <img src={item.logo} alt={item.name} className="w-full h-full object-contain" />
-                  </div>
-                </div>
-              )}
-
-              {/* Πληροφορίες Κάτω */}
-              <div className="absolute bottom-4 left-4 right-4 flex flex-col items-start z-10 pointer-events-none">
-                <div className="ir-live-indicator mb-2">
-                  ΤΩΡΑ ΠΑΙΖΕΙ
-                </div>
-                <h3 className="text-white/95 font-semibold text-sm md:text-[15px] leading-snug drop-shadow-md line-clamp-2">
-                  {item.nowPlaying}
-                </h3>
-                <p className="mt-1 text-[11px] font-semibold text-zinc-200/85 truncate w-full">{item.name}</p>
-              </div>
-
-              {/* Live radio is not a seekable track: no fabricated progress indicator. */}
-              <div aria-hidden="true" className="absolute bottom-0 left-0 h-1 w-full bg-[#ccff00]/75" />
-            </button>
-          );
-        })}
-        
-        {/* Loading Skeletons */}
-        {isLoading && Array.from({ length: 4 }).map((_, i) => (
-          <div key={`skeleton-${i}`} className="w-56 md:w-64 shrink-0 snap-start flex flex-col">
-            <div className="relative aspect-square w-full rounded-2xl md:rounded-3xl overflow-hidden bg-zinc-900 border border-white/5 animate-pulse"></div>
-            <div className="mt-3 h-5 bg-zinc-800 rounded w-3/4 animate-pulse"></div>
-            <div className="mt-2 h-4 bg-zinc-800 rounded w-1/2 animate-pulse"></div>
-          </div>
-        ))}
-
-      </div>
-    </div>
+      {isLoading && !liveStations.length &&
+        <div className="flex gap-3 overflow-hidden" aria-label="Φόρτωση">
+          {Array.from({length:5},(_,i)=><div key={i} className="h-44 w-36 shrink-0 animate-pulse rounded-2xl bg-white/5"/>)}
+        </div>
+      }
+      {!isLoading && !liveStations.length &&
+        <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.025] p-6 text-center">
+          <Radio size={27} className="mx-auto text-[#ccff00]/60"/>
+          <p className="mt-3 text-sm text-zinc-300">Δεν εντοπίστηκαν σταθμοί με έγκυρα μουσικά metadata αυτή τη στιγμή.</p>
+          <p className="mt-1 text-xs text-zinc-500">Οι μεταδόσεις συνεχίζουν κανονικά. Η λίστα ενημερώνεται αυτόματα.</p>
+        </div>
+      }
+      {!!liveStations.length &&
+        <div className="ir-now-playing-scroll flex snap-x gap-3 overflow-x-auto pb-3" aria-live="polite">
+          {liveStations.map(item=>
+            <article key={item._id} className="group w-[132px] shrink-0 snap-start sm:w-[154px]">
+              <button type="button" onClick={() => navigate(`/station/${item.slug || item._id}`)}
+                aria-label={`${item.name}: ${item.music.artist} - ${item.music.title}`}
+                className="relative block aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-900 text-left transition-all hover:border-[#ccff00]/60 hover:shadow-[0_0_20px_rgba(204,255,0,0.13)]">
+                <img src={item.coverArt||item.logo} alt="" loading="lazy"
+                  onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src=item.logo||'/iradios-app-logo.png';}}
+                  className="h-full w-full bg-white object-cover transition-transform duration-500 group-hover:scale-105"/>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"/>
+                <span className="absolute bottom-2 left-2 rounded-full border border-black/20 bg-[#ccff00] px-2 py-1 text-[9px] font-black uppercase text-black">LIVE</span>
+                {item.coverArt!==item.logo&&item.logo&&
+                  <img src={item.logo} alt="" className="absolute right-2 top-2 h-9 w-9 rounded-lg border border-white/20 bg-white object-contain p-1"/>}
+              </button>
+              <p className="mt-2 truncate text-[11px] font-bold text-white">{item.name}</p>
+              <p className="truncate text-[11px] text-[#ccff00]">{item.music.title}</p>
+              <p className="truncate text-[10px] text-zinc-500">{item.music.artist}</p>
+            </article>
+          )}
+        </div>
+      }
+    </section>
   );
 }
