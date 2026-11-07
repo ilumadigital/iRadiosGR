@@ -45,7 +45,7 @@ export default function StationProfile({
     "ΠΑΙΖΕΙ ΤΩΡΑ"
   ];
 
-  const effectiveNowPlaying = (isThisPlaying && isPlaying) 
+  const effectiveNowPlaying = (currentUser && isThisPlaying && isPlaying) 
     ? ((globalNowPlaying && globalNowPlaying !== "ΠΑΙΖΕΙ ΤΩΡΑ") ? globalNowPlaying : localNowPlaying)
     : null;
 
@@ -333,7 +333,7 @@ export default function StationProfile({
   };
 
   // 🟢 Απλή λογική: Αν παίζει ο σταθμός ΚΑΙ υπάρχει CoverArt από το App.jsx, το δείχνουμε. Αλλιώς, το Logo.
-  const showCoverArt = (isThisPlaying && isPlaying && globalCoverArt && !isCurrentlyLoadingMeta);
+  const showCoverArt = Boolean(currentUser && isThisPlaying && isPlaying && globalCoverArt && !isCurrentlyLoadingMeta);
   const currentImage = showCoverArt ? globalCoverArt : station.logo;
 
   return (
