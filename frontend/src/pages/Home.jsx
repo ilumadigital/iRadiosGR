@@ -9,6 +9,9 @@ import {
 import CircularVU from '../components/CircularVU';
 import confetti from 'canvas-confetti';
 import PlayingNow from './PlayingNow';
+import HomeHeroSlider from '../components/HomeHeroSlider';
+import HomeExplore from '../components/HomeExplore';
+import StationPlaylistPanel from '../components/StationPlaylistPanel';
 
 // 🌍 Αλγόριθμος Haversine: Υπολογίζει την απόσταση μεταξύ 2 συντεταγμένων σε χιλιόμετρα
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
@@ -88,7 +91,6 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
   const navigate = useNavigate();
   const [historyIndex, setHistoryIndex] = useState(0);
   const [activeBanners, setActiveBanners] = useState([]);
-  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   
   // 📍 ΜΟΝΟ Συντεταγμένες πλέον, OXI καιρός (τον παίρνουμε από το App.jsx)
   const [userCoords, setUserCoords] = useState(null);
@@ -129,18 +131,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
     }
   }, [isFreeOrGuest, userLocation, checkGeoMatch]); 
 
-  const heroBanners = activeBanners.filter(b => b.placement.includes('hero'));
   const homeBanners = activeBanners.filter(b => b.placement.includes('home'));
-
-  // Αυτόματη εναλλαγή των Hero Banners
-  useEffect(() => {
-    if (heroBanners && heroBanners.length > 1) {
-      const interval = setInterval(() => {
-        setCurrentHeroIndex((prevIndex) => (prevIndex + 1) % heroBanners.length);
-      }, 12000);
-      return () => clearInterval(interval);
-    }
-  }, [heroBanners]);
 
   const handleBannerView = async (bannerId) => {
     try {
@@ -568,103 +559,39 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
   return (
     <div className="w-full px-4 md:px-8 py-6 md:py-10 space-y-10 md:space-y-16 pb-32">
       
-      {/* 👑 HERO GREETING SECTION */}
-      <div className="relative overflow-hidden rounded-[32px] md:rounded-[48px] border border-white/5 bg-zinc-900/20 min-h-[320px] flex items-center shadow-2xl">
-        <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
-          <img 
-            src={currentStation?.logo || '/iradios-app-logo.png'} 
-            className="w-full h-full object-cover scale-150 blur-[100px] transition-all duration-1000" 
-            alt="" 
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80"></div>
-        </div>
-
-        <div className="relative z-10 w-full flex flex-col lg:flex-row lg:items-center justify-between gap-12 p-8 md:p-12 lg:p-16">
-          
-          <div className="flex-1">
-            <h1 className={`text-3xl md:text-5xl font-black tracking-tighter italic leading-none mb-6 ${isBirthday ? 'text-[#ccff00] animate-pulse' : 'text-white'}`}>
-              {finalGreeting}
-            </h1>
-            
-            <div className="flex flex-col items-start gap-3">
-              <p className="text-zinc-400 font-bold tracking-[0.1em] text-base">
-                {currentUser ? (!isFreeOrGuest ? "Καλωσόρισες στο iRadios Premium" : "Καλωσόρισες στο iRadios") : "Το ραδιόφωνο, όπως πρέπει να είναι!"}
-              </p>
-              <span className={`text-sm font-black uppercase tracking-[0.1em] px-3 py-1 rounded-full ${!isFreeOrGuest ? 'bg-[#ccff00] text-black shadow-[0_0_20px_rgba(204,255,0,0.3)]' : 'bg-zinc-800 text-zinc-400'}`}>
-                {currentUser ? (!isFreeOrGuest ? 'PREMIUM Edition' : 'FREE Edition') : 'ΕΧΕΙΣ ΛΟΓΑΡΙΑΣΜΟ;'}
-              </span>
-            </div>
-
-            {!currentUser && (
-              <div className="flex flex-wrap items-center gap-3 mt-8 animate-fade-in">
-                <button onClick={() => navigate('/login')} className="flex-1 md:flex-none px-6 py-3 bg-[#ccff00] text-black rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-2">
-                  ΣΥΝΔΕΣΟΥ <LogIn size={16} />
-                </button>
-                <button onClick={handleRequestNotif} className="flex-1 md:flex-none px-6 py-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2">
-                  ΕΙΔΟΠΟΙΗΣΕΙΣ <BellRing size={16} className="text-[#ccff00]" />
-                </button>
-                <button onClick={() => navigate('/register')} className="w-full md:w-auto px-6 py-3 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2">
-                  ΞΕΚΙΝΑ ΔΩΡΕΑΝ <UserPlus size={16} />
-                </button>
-              </div>
-            )}
+      {/* Personalized greeting and admin-managed editorial carousel. */}
+      <div className="ir-home-heading relative overflow-hidden rounded-[28px] border border-white/5 bg-gradient-to-r from-[#171d1c] via-[#0e1419] to-[#080b10] px-6 py-7 sm:px-9 sm:py-8">
+        <div className="pointer-events-none absolute -right-8 -top-24 h-64 w-64 rounded-full bg-[#ccff00]/10 blur-[75px]"/>
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-5">
+          <div>
+            <p className="mb-2 flex items-center gap-2 text-xs font-black tracking-[0.16em] text-[#ccff00]"><Radio size={17}/> iRadiosGR · Η ΜΟΥΣΙΚΗ ΣΟΥ</p>
+            <h1 className={`text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl ${isBirthday?'text-[#ccff00]':'text-white'}`}>{finalGreeting}</h1>
+            <p className="mt-3 text-sm text-zinc-300 sm:text-base">
+              {recentlyPlayed.length ? 'Οι σταθμοί που αγαπάς και νέες προτάσεις, όλα σε ένα μέρος.' : 'Βρες τον επόμενο αγαπημένο σου σταθμό, με ένα κλικ.'}
+            </p>
           </div>
-
-          <div className="w-full lg:w-auto min-w-[320px] max-w-[700px]">
-            {(isFreeOrGuest && heroBanners.length > 0) ? (
-              <TrackableAd 
-                key={heroBanners[currentHeroIndex]._id}
-                banner={heroBanners[currentHeroIndex]}
-                onClick={() => handleBannerClick(heroBanners[currentHeroIndex])}
-                className="animate-fade-in group cursor-pointer relative overflow-hidden rounded-[32px] border border-blue-500/30 hover:border-blue-500 transition-all shadow-2xl flex flex-col justify-end w-full lg:min-w-[400px] xl:min-w-[500px] h-[280px] md:h-[320px]"
-              >
-                <div className="absolute inset-0 z-0">
-                  <img src={heroBanners[currentHeroIndex].imageUrl} alt="iRadios sponsor" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                </div>
-                <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/90 via-black/50 to-transparent"></div>
-                <div className="absolute top-4 right-4 bg-blue-500 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg z-20 shadow-lg flex items-center gap-1.5">
-                  <Megaphone size={12} /> SPONSORED
-                </div>
-                <div className="relative z-20 p-6 md:p-8 flex flex-col gap-4 w-full mt-auto">
-                  <div className="space-y-1">
-                    <h3 className="text-white font-black text-xl md:text-2xl tracking-tight leading-tight line-clamp-2">{heroBanners[currentHeroIndex].title}</h3>
-                    {heroBanners[currentHeroIndex].description && <p className="text-zinc-300 text-sm md:text-base font-medium line-clamp-2">{heroBanners[currentHeroIndex].description}</p>}
-                  </div>
-                  <button className="w-full sm:w-auto self-start text-xs md:text-sm bg-blue-500 hover:bg-blue-400 text-white px-6 py-3 md:py-4 rounded-xl font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-colors shadow-[0_0_20px_rgba(59,130,246,0.3)] group-hover:shadow-[0_0_30px_rgba(59,130,246,0.5)]">
-                    ΜΑΘΕ ΠΕΡΙΣΣΟΤΕΡΑ <ExternalLink size={16} />
-                  </button>
-                </div>
-                {heroBanners.length > 1 && (
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-30">
-                    {heroBanners.map((_, idx) => (
-                      <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentHeroIndex ? 'w-4 bg-blue-500' : 'w-1.5 bg-white/40'}`} />
-                    ))}
-                  </div>
-                )}
-              </TrackableAd>
-            ) : (currentUser && recentlyPlayed.length > 0) ? (
-              <div className="animate-fade-in">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2 text-zinc-400">
-                    <History size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Προσφατα ({recentlyPlayed.length})</span>
-                  </div>
-                  {recentlyPlayed.length > itemsPerPage && (
-                    <div className="flex gap-2">
-                      <button onClick={() => setHistoryIndex(Math.max(0, historyIndex - itemsPerPage))} className={`p-1 rounded-full transition-all ${historyIndex > 0 ? 'text-[#ccff00] bg-white/10 hover:scale-110' : 'text-zinc-700 cursor-not-allowed'}`}><ChevronLeft size={20}/></button>
-                      <button onClick={() => setHistoryIndex(Math.min(recentlyPlayed.length - itemsPerPage, historyIndex + itemsPerPage))} className={`p-1 rounded-full transition-all ${historyIndex + itemsPerPage < recentlyPlayed.length ? 'text-[#ccff00] bg-white/10 hover:scale-110' : 'text-zinc-700 cursor-not-allowed'}`}><ChevronRight size={20}/></button>
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white/5 backdrop-blur-xl p-5 rounded-[32px] border border-white/10 shadow-2xl">
-                  {recentlyPlayed.slice(historyIndex, historyIndex + itemsPerPage).map(station => (
-                    <StationCard key={`hist-${station._id}`} station={station} isSmall={true} showRegion={false} />
-                  ))}
-                </div>
-              </div>
-            ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            {currentUser&&<span className="rounded-full border border-[#ccff00]/25 bg-[#ccff00]/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-[#ccff00]">{isFreeOrGuest?'iRadios Member':'Premium Edition'}</span>}
+            {!currentUser&&<button onClick={()=>navigate('/login')} className="ir-action-primary px-5"><LogIn size={16}/> Σύνδεση</button>}
+            <button onClick={onOpenDiscovery} className="flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-bold text-white hover:border-[#ccff00]/50"><Compass size={17}/> Ανακάλυψη</button>
           </div>
         </div>
+      </div>
+      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.7fr)]">
+        <HomeHeroSlider
+          currentUser={currentUser}
+          currentStation={currentStation}
+          stations={stations}
+          onPlayStation={setCurrentStation}
+          onOpenDiscovery={onOpenDiscovery}
+        />
+        <StationPlaylistPanel
+          station={currentStation||recentlyPlayed[0]||topStations[0]||stations[0]}
+          stations={stations}
+          currentUser={currentUser}
+          onPlayStation={setCurrentStation}
+          compact
+        />
       </div>
 
       {/* 🚀 DISCOVERY BANNER (Mobile) */}
@@ -727,6 +654,16 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           </div>
         </div>
       )}
+
+      {/* One fast browsing surface replaces dozens of repetitive genre and region grids. */}
+      <HomeExplore
+        stations={stations}
+        currentUser={currentUser}
+        recentStations={recentlyPlayed}
+        favoriteStations={favoriteStations}
+        onPlayStation={setCurrentStation}
+        onOpenDiscovery={onOpenDiscovery}
+      />
 
       {/* --- FAVORITES --- */}
       {favoriteStations.length > 0 && (
@@ -802,62 +739,8 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         </section>
       )}
 
-      {/* --- TOP REGIONS --- */}
-      {topRegions.map(region => {
-        const regionStations = stations.filter(s => s.region === region);
-        if (regionStations.length === 0) return null;
-        
-        return (
-          <section key={region}>
-            <div className="flex items-center justify-between mb-8 border-t border-white/5 pt-12">
-              <h2 className="text-lg md:text-2xl font-black text-white tracking-widest italic">{region}</h2>
-              <button onClick={() => navigate(`/region/${encodeURIComponent(region)}`)} className="text-[12px] font-black uppercase tracking-widest text-zinc-500 hover:text-[#ccff00] flex items-center gap-1 group transition-colors">
-                ΟΛΑ ΤΑ ΡΑΔΙΟΦΩΝΑ <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
-              {regionStations.slice(0, 8).map((station) => (
-                <StationCard key={station._id} station={station} showRegion={true} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
-
-      {/* 🟢 1η ΣΦΗΝΑ HOME AD */}
-      {isFreeOrGuest && homeBanners.length > 0 && (
-        <HomeAdBanner banner={homeBanners[0]} />
-      )}
-
-      {/* --- GENRES --- */}
-      {genres.map((genre, index) => {
-        const genreStations = stations.filter(s => s.genre === genre);
-        if (genreStations.length === 0) return null;
-        
-        const showAdAfterThisGenre = (index + 1) % 2 === 0 && index !== genres.length - 1;
-        const bannerIndexToUse = 1 + Math.floor(index / 2); 
-        const activeBanner = homeBanners[bannerIndexToUse % homeBanners.length];
-        
-        return (
-          <React.Fragment key={genre}>
-            <section>
-              <div className="flex items-center justify-between mb-8 border-t border-white/5 pt-12">
-                <h2 className="text-lg md:text-2xl font-black text-white tracking-widest italic">{genre}</h2>
-                <button onClick={() => navigate(`/genre/${encodeURIComponent(genre)}`)} className="text-[12px] font-black uppercase tracking-widest text-zinc-500 hover:text-[#ccff00] flex items-center gap-1 group transition-colors">
-                  ΟΛΑ ΤΑ ΡΑΔΙΟΦΩΝΑ <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
-                {genreStations.slice(0, 8).map((station) => <StationCard key={station._id} station={station} showRegion={true} />)}
-              </div>
-            </section>
-            
-            {isFreeOrGuest && showAdAfterThisGenre && activeBanner && (
-              <HomeAdBanner banner={activeBanner} />
-            )}
-          </React.Fragment>
-        );
-      })}
+      {/* Existing paid home banners remain separate and clearly labelled as sponsored. */}
+      {isFreeOrGuest && homeBanners.length > 0 && <HomeAdBanner banner={homeBanners[0]} />}
 
       {/* 🟢 BROADCASTER PROMO BANNER (Bottom) */}
       {(!currentUser || currentUser?.role === 'user') && (
