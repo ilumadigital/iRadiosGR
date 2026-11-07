@@ -60,7 +60,7 @@ const backend=read('backend/server.js');
 assert.ok(backend.includes("require('./routes/homeSlideRoutes')"));
 assert.ok(backend.includes("require('./routes/stationPlaylistRoutes')"));
 const meta=read('backend/utils/stageMetadata.js');
-assert.ok(meta.includes('recordStationTrack(station, title)'), 'metadata history must be recorded from station reads');
+assert.ok(meta.includes("recordStationTrack(station,raw,{source:'station'})"), 'metadata history must be recorded from station reads');
 const app=read('frontend/src/App.jsx');
 assert.ok(app.includes('AdminHomeSlides'));
 assert.ok(app.includes('ref={audioRef}'), 'single original audio element');
