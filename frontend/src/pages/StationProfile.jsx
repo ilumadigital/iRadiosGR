@@ -120,7 +120,7 @@ export default function StationProfile({
       return;
     }
     if (!currentUser) {
-      showAlert("Παρακαλούμε συνδεθείτε ή δημιουργήστε λογαριασμό εντελώς δωρεάν στο iRadios για να χρησιμοποιήσετε το AI Music Radar!");
+      showAlert("Συνδέσου στο iRadios για να βρεις ποιο τραγούδι παίζει.");
       return;
     }
     if (handleRecognizeTrack) handleRecognizeTrack();
@@ -392,7 +392,7 @@ export default function StationProfile({
                     {isRecognizing ? <Loader2 size={14} className="animate-spin text-[#ccff00]" /> : <ScanSearch size={14} />}
                   </div>
                   <span className="text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap opacity-0 group-hover/radar:opacity-100 transition-opacity duration-300">
-                    AI RADAR
+                    ΒΡΕΣ ΤΟ ΤΡΑΓΟΥΔΙ
                   </span>
                 </button>
               </div>
@@ -599,7 +599,7 @@ export default function StationProfile({
                           onClick={() => { onUserDSPChange(station._id, 'OFF'); setShowEQMenu(false); }}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${currentPreset === 'OFF' ? 'bg-red-500/10 text-red-500' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
                         >
-                          <PowerOff size={16} /> <span>DSP Off (Bypass)</span>
+                          <PowerOff size={16} /> <span>Χωρίς εφέ</span>
                         </button>
                       </div>
                     )}
