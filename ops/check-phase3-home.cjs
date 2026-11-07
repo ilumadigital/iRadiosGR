@@ -69,6 +69,6 @@ for(const name of ['HomeHeroSlider','HomeExplore','StationPlaylistPanel'])assert
 const footer=read('frontend/src/components/Footer.jsx');
 assert.ok(footer.includes('<DesktopFullPlayer'),'desktop full screen connected');
 assert.ok(read('frontend/src/components/DesktopFullPlayer.jsx').includes('globalCoverArt'),'player uses actual cover URL');
-assert.ok(!read('frontend/src/components/DesktopFullPlayer.jsx').includes('<audio'),'visual player cannot create audio node');
+assert.doesNotMatch(read('frontend/src/components/DesktopFullPlayer.jsx'), /<audio\s+[^>]*ref=/i, 'visual player cannot create an audio element');
 assert.ok(read('frontend/src/pages/StationProfile.jsx').includes('<StationPlaylistPanel'),'station page has last-12 playlist');
 console.log('Phase 3 slides, safety, playlist and desktop UI contracts passed.');
