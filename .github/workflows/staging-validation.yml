@@ -24,6 +24,8 @@ jobs:
         run: node ops/check-stage-stream-proxy.cjs
       - name: Verify public staging API access boundaries
         run: node ops/check-stage-public-access.cjs
+      - name: Verify versioned broadcaster consent behavior
+        run: node ops/check-phase1-broadcaster-consent.cjs
       - name: Validate stage Compose YAML
         run: |
           python3 -m pip install --quiet PyYAML
