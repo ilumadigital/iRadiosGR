@@ -349,3 +349,86 @@
     .ir-mini-player, .ir-mobile-bottom-dock { background: #131a20; }
   }
 }
+
+
+/*
+ * Desktop radio fullscreen: viewport is the only vertical constraint.
+ * The playlist drawer can scroll independently, never the underlying player.
+ */
+@layer components {
+  .ir-desktop-player {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .ir-desktop-player-layout,
+  .ir-desktop-player-main,
+  .ir-desktop-player-copy,
+  .ir-desktop-player-artframe {
+    min-height: 0;
+  }
+
+  .ir-desktop-player-title {
+    font-size: clamp(1.5rem, min(4.4vw, 7.8dvh), 5.4rem);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+
+  .ir-desktop-player-art {
+    /* Scale BOTH axes; setting max-height only would distort a square artwork. */
+    width: min(100%, calc(100dvh - 170px), 610px);
+    aspect-ratio: 1 / 1;
+  }
+
+  @media (min-width: 1024px) and (max-height: 720px) {
+    .ir-desktop-player-layout {
+      row-gap: 0.4rem;
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .ir-desktop-player-title {
+      font-size: clamp(1.5rem, min(4vw, 7.6dvh), 4.5rem);
+    }
+
+    .ir-desktop-player-art {
+      width: min(100%, calc(100dvh - 150px), 520px);
+    }
+
+    .ir-desktop-player-footer {
+      padding-block: 0.35rem;
+    }
+
+    .ir-desktop-player-copy .ir-recognize-button {
+      min-height: 38px;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.72rem;
+    }
+  }
+
+  @media (min-width: 1024px) and (max-height: 580px) {
+    .ir-desktop-player-title {
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      font-size: clamp(1.4rem, min(3.7vw, 7.1dvh), 3.6rem);
+    }
+
+    .ir-desktop-player-art {
+      width: min(100%, calc(100dvh - 126px), 450px);
+    }
+
+    .ir-desktop-player-show {
+      display: none;
+    }
+
+    .ir-desktop-player-footer {
+      min-height: 48px;
+    }
+  }
+}
