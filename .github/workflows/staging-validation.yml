@@ -13,6 +13,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check known live references and .env files
         run: bash ops/check-stage-source.sh
+      - name: Validate deployment shell scripts
+        run: |
+          for script in ilumadev.sh ops/deploy-stage.sh ops/activate-public-stage.sh; do
+            bash -n "$script"
+          done
       - name: Validate backend JavaScript syntax
         run: find backend -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check
       - name: Check staging radio proxy URL safety
