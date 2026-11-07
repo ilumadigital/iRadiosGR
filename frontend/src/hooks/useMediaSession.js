@@ -102,8 +102,8 @@ export default function useMediaSession({
   useEffect(()=>{
     if(typeof navigator==='undefined'||!('mediaSession' in navigator))return;
     const handlers={
-      play:()=>latest.current.togglePlayPause?.(),
-      pause:()=>latest.current.togglePlayPause?.(),
+      play:()=>{if(!latest.current.isPlaying)latest.current.togglePlayPause?.();},
+      pause:()=>{if(latest.current.isPlaying)latest.current.togglePlayPause?.();},
       nexttrack:()=>latest.current.handleNextStation?.(),
       previoustrack:()=>latest.current.handlePrevStation?.(),
       stop:()=>{if(latest.current.isPlaying)latest.current.togglePlayPause?.();}
