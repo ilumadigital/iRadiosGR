@@ -31,7 +31,7 @@ try{
       if(name==='./stageSmartTracks')return {
         FIVE_MINUTES:300000,
         statusFromNative:(raw)=>!raw?'missing':raw==='LIVE SHOW'?'invalid':'valid',
-        getSharedAI:()=>null,clearAutomaticAI:()=>{},
+        hydrateSharedAI:async()=>null,clearAutomaticAI:async()=>{},
         publishAI:async()=>{published++;return {raw:'Artist - Hit',foundWithAI:true};}
       };
       if(name==='./stageAcrcloud')return {readyForAcr:()=>true,recognizeApprovedStation:async(s,opts)=>{
