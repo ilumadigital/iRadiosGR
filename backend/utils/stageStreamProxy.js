@@ -66,6 +66,17 @@ async function pinnedPublicIPv4(hostname) {
   return ipv4.address;
 }
 
+// The resolved upstream IP is pinned after DNS validation (prevents rebinding).
+// Must respect Node 22's "all" lookup request used by autoSelectFamily.
+function createPinnedLookup(ip) {
+  if (!isPublicIPv4(ip)) throw new Error('Non-public stream IP');
+  return (_host, opts, cb) => {
+    if (typeof opts === 'function') { cb = opts; opts = {}; }
+    if (opts && opts.all) cb(null, [{address:ip, family:4}]);
+    else cb(null, ip, 4);
+  };
+}
+
 async function openStream(target, res, redirects) {
   const url = parseRadioUrl(target);
   const pinned = await pinnedPublicIPv4(url.hostname);
@@ -73,14 +84,7 @@ async function openStream(target, res, redirects) {
   return new Promise((resolve,reject) => {
     const transport = url.protocol === 'https:' ? https : http;
     const upstream = transport.get(url, {
-      // Node.js 22 (autoSelectFamily) asks lookup({all:true}) and REQUIRES
-      // [{address,family}]. Returning a string there causes ERR_INVALID_IP_ADDRESS
-      // for every upstream stream, even when DNS resolution succeeded.
-      lookup: (_host, opts, cb) => {
-        if (typeof opts === 'function') { cb = opts; opts = {}; }
-        if (opts && opts.all) cb(null, [{address:pinned, family:4}]);
-        else cb(null, pinned, 4);
-      },
+      lookup: createPinnedLookup(pinned),
       headers: {'User-Agent':'iRadiosGR-Staging-Radio/1.0',
                 'Icy-MetaData':'0','Accept':'audio/*,application/ogg,*/*;q=0.5'}
     });
@@ -159,4 +163,4 @@ async function stageStreamProxy(req,res) {
   }
 }
 
-module.exports = {stageStreamProxy,isPublicIPv4,parseRadioUrl};
+module.exports = {stageStreamProxy,isPublicIPv4,parseRadioUrl,createPinnedLookup};
