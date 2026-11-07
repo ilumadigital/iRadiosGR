@@ -37,6 +37,12 @@ Module._load=function(name,parent,isMain){
       return {data:acrReply};
     }};
     if(name==='form-data')return FakeFormData;
+    if(name==='./stageSmartTracks')return {publishAI:async(station,payload,kind)=>{
+      assert.equal(station._id,fakeStation._id);
+      assert.equal(kind,'manual');
+      assert.equal(payload.status.code,0);
+      return {foundWithAI:true};
+    }};
   }
   return orig.call(this,name,parent,isMain);
 };
