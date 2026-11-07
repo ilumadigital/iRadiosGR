@@ -90,9 +90,9 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-1.5 text-[11px] font-bold text-[#ccff00] sm:inline">
+          {(!isLoading || liveStations.length>0)&&<span className="hidden rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-1.5 text-[11px] font-bold text-[#ccff00] sm:inline">
             {liveStations.length} {liveStations.length===1?"σταθμός LIVE":"σταθμοί LIVE"}
-          </span>
+          </span>}
           <button type="button" aria-label="Προηγούμενοι σταθμοί που παίζουν" disabled={!liveStations.length}
             onClick={()=>stripRef.current?.scrollBy({left:-330,behavior:'smooth'})}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:border-[#ccff00]/40 hover:text-[#ccff00] disabled:opacity-30">
