@@ -119,6 +119,21 @@ async function openStream(target, res, redirects) {
   });
 }
 
+// Log only diagnostic categories, never station URLs or credentials.
+function safeFailureCategory(err) {
+  const code = String(err && err.code || '');
+  if (/^[A-Z][A-Z0-9_]{2,60}$/.test(code)) return code;
+  const msg = String(err && err.message || '');
+  if (/^Upstream status [0-9]{3}$/.test(msg)) return 'UPSTREAM_HTTP_' + msg.slice(-3);
+  if (msg === 'Unexpected upstream content type') return 'UNSUPPORTED_CONTENT_TYPE';
+  if (msg === 'Too many redirects') return 'TOO_MANY_REDIRECTS';
+  if (msg === 'Invalid redirect') return 'INVALID_REDIRECT';
+  if (msg === 'Stream timeout' || msg === 'Stream stalled') return 'UPSTREAM_TIMEOUT';
+  if (/Non-public stream|Private stream|Disallowed stream|IPv6 streams/.test(msg)) return 'BLOCKED_PRIVATE_TARGET';
+  if (msg === 'No public IPv4 for stream') return 'DNS_NO_PUBLIC_IPV4';
+  return 'OTHER_UPSTREAM_FAILURE';
+}
+
 async function stageStreamProxy(req,res) {
   const raw = req.query.url;
   try {
@@ -129,6 +144,8 @@ async function stageStreamProxy(req,res) {
     if (!approved) return res.status(403).json({error:'Stream not assigned to an approved station'});
     await openStream(target.toString(),res,4);
   } catch(err) {
+    const category = safeFailureCategory(err);
+    console.warn('[STAGE_RADIO_PROXY] ' + category);
     if(res.headersSent) return res.destroy();
     const invalid = /Invalid stream|Unsupported stream|Private stream|Disallowed stream|IPv6 streams|Non-public stream|No public IPv4/.test(err.message);
     res.status(invalid?400:502).json({error:invalid?'Disallowed stream target':'Radio stream unavailable'});
