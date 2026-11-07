@@ -61,6 +61,8 @@ const userSchema = new mongoose.Schema({
 
   hasAcceptedTerms: { type: Boolean, default: false },
   termsAcceptedAt: { type: Date, default: null },
+  // Only broadcaster B2B consent is versioned. Null means a legacy acceptance.
+  termsAcceptedVersion: { type: String, default: null },
 
   resetPasswordToken: { type: String, default: null },
   resetPasswordExpires: { type: Date, default: null }
