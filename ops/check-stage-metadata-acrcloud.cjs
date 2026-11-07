@@ -26,7 +26,7 @@ Module._load = function(name, parent, isMain) {
     // Offline CI does not install MongoDB dependencies. Use a deterministic
     // parser in this legacy mock; full parser is covered by the Phase 3.3 test.
     return { parseTrack: raw => {
-      const m=String(raw||'').match(/^(.+?)\\s+-\\s+(.+)$/);
+      const m=String(raw||'').match(/^(.+?)\s+-\s+(.+)$/);
       return m ? {raw,artist:m[1],title:m[2]} : null;
     }, recordStationTrack:async()=>true };
   }
