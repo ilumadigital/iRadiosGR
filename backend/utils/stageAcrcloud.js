@@ -75,7 +75,7 @@ async function recognizeApprovedStation(station,{beforeVendorCall}={}){
     throw recognitionError('STREAM_FORMAT');
   }
   if(sample.buffer.length<16000)throw recognitionError('STREAM_SHORT');
-  if(beforeVendorCall&&!beforeVendorCall())throw recognitionError('ACR_RATE_LIMIT');
+  if(beforeVendorCall && !(await beforeVendorCall()))throw recognitionError('ACR_RATE_LIMIT');
   const endpoint='/v1/identify';
   const timestamp=Math.floor(Date.now()/1000);
   const signature=crypto.createHmac('sha1',secret)
