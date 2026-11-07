@@ -5,7 +5,7 @@ const mongoose=require('mongoose');
 const Station=require('../models/Station');
 const Budget=require('../models/StageAcrDailyBudget');
 const {readCachedNativeMetadata}=require('./stageMetadata');
-const {statusFromNative,getSharedAI,clearAutomaticAI,publishAI,FIVE_MINUTES}=require('./stageSmartTracks');
+const {statusFromNative,hydrateSharedAI,clearAutomaticAI,publishAI,FIVE_MINUTES}=require('./stageSmartTracks');
 const {recognizeApprovedStation,readyForAcr}=require('./stageAcrcloud');
 
 const listeners=new Map(); // session UUID -> station ID and expiry, no user data or IP addresses.
@@ -86,12 +86,13 @@ async function inspectAndMaybeIdentify(station,now=Date.now()){
     lastNativeProbe.set(id,probe);
   }
   const status=statusFromNative(probe.title,station.name);
+  const shared=await hydrateSharedAI(station._id);
   if(status==='valid'){
-    clearAutomaticAI(station._id);
+    await clearAutomaticAI(station._id);
     return;
   }
   if(status==='missing'&&!listenerPresent(station._id,Date.now()))return;
-  if(getSharedAI(station._id)?.kind==='manual')return;
+  if(shared?.kind==='manual')return;
 
   // Each station's clock starts BEFORE capture; even failures cannot spin.
   lastAutomatic.set(id,Date.now()+FIVE_MINUTES);
@@ -101,7 +102,7 @@ async function inspectAndMaybeIdentify(station,now=Date.now()){
       const published=await publishAI(station,result,'auto');
       if(published)console.info('[AUTO_ACR] recognized',id);
     }else{
-      clearAutomaticAI(id);
+      await clearAutomaticAI(id);
       console.info('[AUTO_ACR] no_song',id);
     }
   }catch(error){
