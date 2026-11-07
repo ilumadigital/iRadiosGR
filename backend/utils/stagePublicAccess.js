@@ -43,23 +43,47 @@ function stagePublicAccess(req, res, next) {
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
 
-  // Never allow real user registration, password resets, payment submission,
-  // invitations or push subscriptions on an internet-facing clone of live data.
+  // The normal login form sends {identifier,password}. Allow existing verified
+  // listeners/broadcasters/admins to sign in with their staging JWT; never
+  // offer unauthenticated access to user lists or account management.
   if (req.method === 'POST' && path === '/api/auth/login') {
     if (!loginRateLimit(req,res)) return;
     const identifier = req.body && req.body.identifier;
-    if (typeof identifier !== 'string' || identifier.length > 254 || identifier.length === 0)
-      return res.status(400).json({error:'Invalid login identifier'});
-    return User.exists({
-      role:'admin', $or:[{username:identifier},{email:identifier}]
-    }).then(isAdmin => {
-      if (!isAdmin) return res.status(401).json({error:'Λάθος στοιχεία σύνδεσης'});
-      next();
-    }).catch(() => res.status(503).json({error:'Authentication temporarily unavailable'}));
+    const password = req.body && req.body.password;
+    if (typeof identifier !== 'string' || !identifier.trim() ||
+        identifier.length > 254 || typeof password !== 'string' ||
+        password.length < 1 || password.length > 1024) {
+      return res.status(400).json({error:'Invalid login request'});
+    }
+    return next();
   }
 
-  // Additional API access is restricted to signed-in administrators only.
-  // Real user passwords and database details are not returned to anonymous clients.
+  // A user may read their own profile and favorites, never another user's.
+  if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
+
+  const favoriteMatch = req.method === 'POST' &&
+    /^\\/api\\/users\\/[0-9a-fA-F]{24}\\/favorites$/.exec(path);
+  if (favoriteMatch) {
+    return protect(req,res,()=>{
+      const userId = path.split('/')[3];
+      if (String(req.user._id) === userId || req.user.role === 'admin') return next();
+      return res.status(403).json({error:'Forbidden'});
+    });
+  }
+
+  // Existing signed-in station owners can view only their own stations and analytics.
+  const ownerRead = req.method === 'GET' &&
+    /^\\/api\\/broadcaster\\/[0-9a-fA-F]{24}\\/(?:stations|analytics|ads)$/.exec(path);
+  if (ownerRead) {
+    return protect(req,res,()=>{
+      const userId = path.split('/')[3];
+      if (String(req.user._id) === userId || req.user.role === 'admin') return next();
+      return res.status(403).json({error:'Forbidden'});
+    });
+  }
+
+  // Remaining private routes are restricted to signed-in admins until each
+  // production route has proper resource-level authorization.
   protect(req,res,() => authorizeRoles('admin')(req,res,next));
 }
 
