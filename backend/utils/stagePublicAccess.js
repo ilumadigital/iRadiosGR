@@ -8,6 +8,25 @@ const { protect } = require('./authMiddleware');
 const { authorizeRoles } = require('./roleMiddleware');
 const User = require('../models/User');
 
+// In-process IP limiter for the staging admin login. Cloudflare WAF rate limiting
+// should also be enabled when this hostname is proxied through Cloudflare.
+const attempts = new Map();
+function loginRateLimit(req,res) {
+  const ip = String(req.headers?.['x-real-ip'] || req.socket?.remoteAddress || 'local').slice(0,128);
+  const now = Date.now();
+  let state = attempts.get(ip);
+  if (!state || now-state.since > 15*60*1000) state = {since:now,hits:0};
+  state.hits++;
+  if(attempts.size > 4096) attempts.clear();
+  attempts.set(ip,state);
+  if(state.hits > 20) {
+    res.setHeader?.('Retry-After','900');
+    res.status(429).json({error:'Πάρα πολλές προσπάθειες. Δοκίμασε αργότερα.'});
+    return false;
+  }
+  return true;
+}
+
 const publicReads = new Set([
   '/api/health',
   '/api/stations',
@@ -27,13 +46,14 @@ function stagePublicAccess(req, res, next) {
   // Never allow real user registration, password resets, payment submission,
   // invitations or push subscriptions on an internet-facing clone of live data.
   if (req.method === 'POST' && path === '/api/auth/login') {
+    if (!loginRateLimit(req,res)) return;
     const identifier = req.body && req.body.identifier;
     if (typeof identifier !== 'string' || identifier.length > 254 || identifier.length === 0)
       return res.status(400).json({error:'Invalid login identifier'});
     return User.exists({
       role:'admin', $or:[{username:identifier},{email:identifier}]
     }).then(isAdmin => {
-      if (!isAdmin) return res.status(403).json({error:'Only staging admin accounts may sign in'});
+      if (!isAdmin) return res.status(401).json({error:'Λάθος στοιχεία σύνδεσης'});
       next();
     }).catch(() => res.status(503).json({error:'Authentication temporarily unavailable'}));
   }
