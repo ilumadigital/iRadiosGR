@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AudioLines, ChevronRight, Loader2, Radio } from 'lucide-react';
+import { AudioLines, ChevronLeft, ChevronRight, Loader2, Radio } from 'lucide-react';
 import { parseMusicMetadata } from '../utils/musicMetadata';
 
 const PER_PASS = 36;
@@ -11,6 +11,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
   const [liveStations, setLiveStations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const cursor = useRef(0);
+  const stripRef = useRef(null);
 
   useEffect(() => {
     // Song titles are a logged-in feature. A guest never attempts to fetch metadata.
@@ -89,9 +90,21 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
           </h2>
           <p className="mt-1 text-xs text-zinc-400">Μόνο σταθμοί με επιβεβαιωμένα μουσικά metadata</p>
         </div>
-        <span className="rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-1.5 text-[11px] font-bold text-[#ccff00]">
-          {liveStations.length} με μουσικά στοιχεία
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="hidden rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-1.5 text-[11px] font-bold text-[#ccff00] sm:inline">
+            {liveStations.length} με metadata
+          </span>
+          <button type="button" aria-label="Προηγούμενοι σταθμοί που παίζουν" disabled={!liveStations.length}
+            onClick={()=>stripRef.current?.scrollBy({left:-330,behavior:'smooth'})}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:border-[#ccff00]/40 hover:text-[#ccff00] disabled:opacity-30">
+            <ChevronLeft size={17}/>
+          </button>
+          <button type="button" aria-label="Επόμενοι σταθμοί που παίζουν" disabled={!liveStations.length}
+            onClick={()=>stripRef.current?.scrollBy({left:330,behavior:'smooth'})}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:border-[#ccff00]/40 hover:text-[#ccff00] disabled:opacity-30">
+            <ChevronRight size={17}/>
+          </button>
+        </div>
       </div>
       {isLoading && !liveStations.length &&
         <div className="flex gap-3 overflow-hidden" aria-label="Φόρτωση">
@@ -106,7 +119,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
         </div>
       }
       {!!liveStations.length &&
-        <div className="ir-now-playing-scroll flex snap-x gap-3 overflow-x-auto pb-3" aria-live="polite">
+        <div ref={stripRef} className="ir-now-playing-scroll flex snap-x gap-3 overflow-x-auto pb-3" aria-live="polite">
           {liveStations.map(item=>
             <article key={item._id} className="group w-[132px] shrink-0 snap-start sm:w-[154px]">
               <button type="button" onClick={() => navigate(`/station/${item.slug || item._id}`)}
