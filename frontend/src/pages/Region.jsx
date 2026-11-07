@@ -5,7 +5,11 @@ import { Helmet } from 'react-helmet-async';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import CircularVU from '../components/CircularVU'; 
+import CircularVU from '../components/CircularVU';
+import EditorialPlacement from '../components/EditorialPlacement';
+import CatalogFilterPopover from '../components/CatalogFilterPopover';
+import StationCatalogCard from '../components/StationCatalogCard';
+ 
 
 const REGIONS = [
   "Web Radio", "Αθήνα", "Θεσσαλονίκη",
@@ -332,47 +336,29 @@ export default function Region({ stations, currentStation, setCurrentStation, is
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          
-          {/* <select value={regionName} onChange={(e) => navigate(`/region/${e.target.value}`)} className="bg-zinc-900 border border-white/10 text-[#ccff00] text-xs font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer max-w-[150px]">
-            {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-          </select> */}
-
-          <select value={selectedGenre} onChange={(e) => setSelectedGenre(e.target.value)} className="bg-zinc-900 border border-white/10 text-white text-xs font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer max-w-[150px]">
-            <option value="all">Όλα τα Είδη</option>
-            {availableGenres.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
-
-          <div className="flex items-center gap-2">
-            <SignalHigh size={14} className="text-zinc-500 hidden sm:block" />
-            <select
-              value={selectedTransmission}
-              onChange={(e) => setSelectedTransmission(e.target.value)}
-              className="bg-zinc-900 border border-white/10 text-white text-xs font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer max-w-[160px]"
-            >
-              <option value="all">Όλες οι Μεταδόσεις</option>
-              {availableTransmissions.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="bg-zinc-900 border border-white/10 text-white text-xs font-bold rounded-xl px-4 py-2.5 outline-none cursor-pointer">
-            <option value="popularity">Δημοτικότητα</option>
-            <option value="frequency">Συχνότητα</option>
-            <option value="alphabetical">Αλφαβητικά</option>
-          </select>
-
+        <div className="flex flex-wrap items-center gap-2.5">
+          <CatalogFilterPopover label="Είδος" value={selectedGenre} onChange={setSelectedGenre}
+            options={availableGenres} allLabel="Όλα τα είδη"/>
+          <CatalogFilterPopover label="Μετάδοση" value={selectedTransmission} onChange={setSelectedTransmission}
+            options={availableTransmissions} allLabel="Όλες οι μεταδόσεις"/>
+          <CatalogFilterPopover label="Ταξινόμηση" value={sortBy} onChange={setSortBy} searchable={false}
+            options={[{value:'popularity',label:'Δημοτικότητα'},{value:'frequency',label:'Συχνότητα'},{value:'alphabetical',label:'Αλφαβητικά'}]}/>
           <div className="flex items-center bg-zinc-900 border border-white/10 rounded-xl p-1">
             {canShowMap && (
-              <button onClick={() => setViewMode('map')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'map' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><MapIcon size={16} /></button>
+              <button type="button" aria-label="Προβολή χάρτη" onClick={() => setViewMode('map')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'map' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><MapIcon size={16} /></button>
             )}
-            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><LayoutGrid size={16} /></button>
-            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><List size={16} /></button>
+            <button type="button" aria-label="Προβολή πλέγματος" onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><LayoutGrid size={16} /></button>
+            <button type="button" aria-label="Προβολή λίστας" onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><List size={16} /></button>
           </div>
         </div>
       </div>
 
+      <EditorialPlacement placement="region" value={regionName}
+        currentUser={currentUser} stations={stations} currentStation={currentStation} isPlaying={isPlaying}
+        onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
+
       {viewMode !== 'map' && filteredAndSorted.length > 0 && (
-        <div className={viewMode === 'grid' ? "grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3 md:gap-6" : "flex flex-col gap-3 max-w-4xl"}>
+        <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex flex-col gap-3 max-w-4xl"}>
           {filteredAndSorted.map((station, index) => {
             const isCurrent = currentStation && (currentStation._id === station._id);
             const isCurrentlyPlaying = isCurrent && isPlaying;
@@ -431,64 +417,9 @@ export default function Region({ stations, currentStation, setCurrentStation, is
                   )
                 )}
 
-                {/* 🟢 ΚΑΝΟΝΙΚΟΣ ΣΤΑΘΜΟΣ */}
-                {viewMode === 'grid' ? (
-                  <div className="group flex flex-col relative cursor-pointer h-full"
-                    onClick={() => isCurrentlyPlaying ? navigate(`/station/${station.slug || station._id}`) : setCurrentStation(station)}
-                  >
-                    <div className="relative aspect-square w-full rounded-2xl md:rounded-3xl overflow-hidden bg-white shadow-lg border border-[#000000] transition-all duration-500 group-hover:-translate-y-1 group-hover:border-[#ccff0088]">
-                      <img src={station.logo} alt={station.name} className="w-full h-full object-contain bg-white transition-transform duration-700 group-hover:scale-105" />
-                      <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${isCurrentlyPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}></div>
-                      <div className={`absolute transition-all duration-500 z-20 ${isCurrentlyPlaying ? 'inset-0 flex items-center justify-center md:inset-auto md:bottom-4 md:right-4 md:w-12 md:h-12' : 'bottom-2 right-2 md:bottom-4 md:right-4 w-9 h-9 md:w-12 md:h-12 opacity-0 group-hover:opacity-100'}`}>
-                        {isCurrentlyPlaying && <div className="absolute inset-0 scale-[1.2] z-0"><CircularVU analyser={analyser} isPlaying={isCurrentlyPlaying} /></div>}
-                        <button onClick={(e) => { e.stopPropagation(); if (isCurrent) onPlayPause(); else setCurrentStation(station); }} className={`relative z-10 bg-[#ccff00] rounded-full flex items-center justify-center shadow-xl text-black ${isCurrentlyPlaying ? 'w-14 h-14 md:w-full md:h-full' : 'w-full h-full'}`}>
-                          {isCurrentlyPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} className="ml-0.5" fill="currentColor" />}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-2 md:mt-4 px-1">
-                      <h3 className={`font-bold text-[14px] md:text-[18px] truncate transition-colors ${isCurrentlyPlaying ? 'text-[#ccff00]' : 'text-white'}`}>
-                        {station.name}{station.boostStatus && (<Zap size={14} className="inline ml-2 text-black bg-[#ccff00] rounded-full p-0.5 mb-0.5" />)}
-                      </h3>
-                      
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                        {station.transmissionType && station.transmissionType !== 'Web Radio' && (
-                           <span className={`shrink-0 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
-                             station.transmissionType === 'Επίγειο' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
-                           }`}>
-                             <SignalHigh size={8} /> {station.transmissionType === 'Επίγειο' && station.frequency ? station.frequency : station.transmissionType}
-                           </span>
-                        )}
-                        <span className="text-[9px] md:text-[12px] text-zinc-500 font-black tracking-widest truncate">{station.city || station.region}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div onClick={() => isCurrentlyPlaying ? navigate(`/station/${station.slug || station._id}`) : setCurrentStation(station)} className="flex items-center justify-between p-3 md:p-4 bg-zinc-900/40 border border-white/5 rounded-2xl hover:bg-zinc-900/80 transition-all cursor-pointer group">
-                    <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 relative bg-white border border-white/10 shadow-lg"><img src={station.logo} alt={station.name} className="w-full h-full object-contain bg-white" /></div>
-                      <div className="min-w-0">
-                        <h3 className={`font-bold text-base md:text-lg truncate ${isCurrentlyPlaying ? 'text-[#ccff00]' : 'text-white'}`}>{station.name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          {station.transmissionType && station.transmissionType !== 'Web Radio' && (
-                             <span className={`shrink-0 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
-                               station.transmissionType === 'Επίγειο' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
-                             }`}>
-                               <SignalHigh size={8} /> {station.transmissionType === 'Επίγειο' && station.frequency ? station.frequency : station.transmissionType}
-                             </span>
-                          )}
-                          <p className="text-[10px] text-zinc-500 font-black tracking-widest uppercase truncate">{station.city || station.region}</p>
-                        </div>
-                      </div>
-                    </div>
-                    {isCurrentlyPlaying && (
-                      <div className="flex items-center gap-1 shrink-0 px-4">
-                        <div className="w-1 h-4 bg-[#ccff00] animate-[bounce_1s_infinite]"></div>
-                        <div className="w-1 h-5 bg-[#ccff00] animate-[bounce_1s_infinite_0.4s]"></div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* Shared premium station card; profile navigation is separate from live playback. */}
+                <StationCatalogCard station={station} currentStation={currentStation} isPlaying={isPlaying}
+                  onPlayStation={setCurrentStation} onPlayPause={onPlayPause} mode={viewMode} />
               </React.Fragment>
             );
           })}
