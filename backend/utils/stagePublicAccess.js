@@ -34,6 +34,7 @@ const publicReads = new Set([
   '/api/stats/network',
   '/api/ads/public',
   '/api/banners/active',
+  '/api/home-slides',
   '/api/cover-art',
   '/api/proxy-stream'
 ]);
@@ -61,7 +62,8 @@ function stagePublicAccess(req, res, next) {
   // A user may read their own profile and favorites, never another user's.
   if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
 
-  // Listener-only song metadata and ACRCloud recognition.
+  // Listener-only song metadata, station playlist history and ACRCloud recognition.
+  if (req.method === 'GET' && /^\/api\/stations\/[0-9a-fA-F]{24}\/playlist$/.test(path)) return protect(req,res,next);
   if (req.method === 'GET' && path === '/api/metadata') return protect(req,res,next);
   if (req.method === 'POST' && path === '/api/recognize-proxy') return protect(req,res,next);
 

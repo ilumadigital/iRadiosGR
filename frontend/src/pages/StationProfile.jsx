@@ -7,7 +7,8 @@ import {
   MessageCircle, Loader2, ScanSearch
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
-import CircularVU from '../components/CircularVU'; 
+import CircularVU from '../components/CircularVU';
+import StationPlaylistPanel from '../components/StationPlaylistPanel'; 
 import { useAlert } from '../context/AlertContext';
 
 const DAYS_OF_WEEK = ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'];
@@ -644,6 +645,9 @@ export default function StationProfile({
 
           </div>
         </div>
+
+        {/* Real last 12 songs for this station, never demo/mock track rows. */}
+        <StationPlaylistPanel station={station} currentUser={currentUser} />
 
         {/* 3. ΑΝΑΛΥΤΙΚΟ ΠΡΟΓΡΑΜΜΑ (TIMELINE) */}
         {station.schedule && station.schedule.length > 0 && (

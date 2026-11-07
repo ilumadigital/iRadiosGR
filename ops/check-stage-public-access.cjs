@@ -24,7 +24,7 @@ function call(method,path,body) {
  const result=stagePublicAccess({method,baseUrl:'/api',path,body},res,()=>{reached=true;});
  return {res,reached,result};
 }
-for(const p of ['/stations','/stations/discovery','/proxy-stream','/health','/cover-art']) {
+for(const p of ['/stations','/stations/discovery','/proxy-stream','/health','/cover-art','/home-slides']) {
  const result=call('GET',p);
  assert.equal(result.reached,true,'allow public '+p);
 }
@@ -33,6 +33,12 @@ for(const p of ['/admin/users','/stations/all','/auth/me','/metadata','/agency/t
  assert.equal(result.reached,false,'block private '+p);
  assert.equal(result.res.code,401);
 }
+const playlistWithoutJwt=call('GET','/stations/0123456789abcdef01234567/playlist');
+assert.equal(playlistWithoutJwt.reached,false,'station music history requires login');
+assert.equal(playlistWithoutJwt.res.code,401);
+const adminSlidesWithoutJwt=call('GET','/admin/home-slides');
+assert.equal(adminSlidesWithoutJwt.reached,false,'slide editing requires admin token');
+assert.equal(adminSlidesWithoutJwt.res.code,401);
 const consentWithoutJwt=call('PUT','/users/me/accept-terms');
 assert.equal(consentWithoutJwt.reached,false,'terms acceptance requires JWT');
 assert.equal(consentWithoutJwt.res.code,401);

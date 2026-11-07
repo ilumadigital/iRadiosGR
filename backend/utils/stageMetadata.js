@@ -2,6 +2,7 @@
 // Metadata is derived exclusively from approved DB stations.
 // Client-supplied stream/customMeta URLs are never directly fetched.
 const Station = require('../models/Station');
+const { recordStationTrack } = require('./recordStationTrack');
 const { readPublicUrl } = require('./stageSafeRadioFetch');
 
 const cache = new Map();
@@ -138,19 +139,22 @@ async function stageMetadata(req, res) {
     const station = await Station.findOne({
       status: 'approved',
       ...(validId ? { _id: stationId } : { stream })
-    }).select('_id stream metadata status').lean();
+    }).select('_id name stream metadata status').lean();
     if (!station) return res.status(404).json({ title: '' });
 
     const key = String(station._id);
+    res.setHeader('Cache-Control', 'private, no-store');
     const existing = cache.get(key);
     if (existing && existing.until > Date.now()) {
       return res.json({ title: await existing.promise });
     }
 
-    const promise = readStationMetadata(station).catch(() => '');
+    const promise = readStationMetadata(station).then(async title => {
+      if (title) await recordStationTrack(station, title);
+      return title;
+    }).catch(() => '');
     if (cache.size > 300) cache.clear();
     cache.set(key, { promise, until: Date.now() + CACHE_MS });
-    res.setHeader('Cache-Control', 'private, no-store');
     return res.json({ title: await promise });
   } catch {
     return res.status(503).json({ title: '' });

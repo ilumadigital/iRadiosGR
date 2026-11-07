@@ -6,7 +6,8 @@ import {
   Loader2, Waves, Maximize2, Minimize2, Laptop, Smartphone, X 
 } from 'lucide-react';
 import ShareStory from './ShareStory';
-import LiveChat from './LiveChat'; 
+import LiveChat from './LiveChat';
+import DesktopFullPlayer from './DesktopFullPlayer'; 
 import { useAlert } from '../context/AlertContext';
 
 export default function Footer({ 
@@ -40,7 +41,7 @@ export default function Footer({
   const utmParams = "ref=iradiosapp&utm_campaign=ft_player_ir&utm_content=ft_player_ir&utm_medium=ilumadigitalagencyiradios&utm_source=iradios";
   
   const isRealSong = 
-    isPlaying && !isPlayingAd && !adWarning && 
+    Boolean(currentUser) && isPlaying && !isPlayingAd && !adWarning && 
     nowPlaying && typeof nowPlaying === 'string' &&
     nowPlaying !== "ΠΑΙΖΕΙ ΤΩΡΑ" && nowPlaying !== "Stopped" && 
     !isRecognizing && !nowPlaying.toLowerCase().includes("σύνδεση") &&
@@ -165,98 +166,33 @@ export default function Footer({
         `}
       </style>
       
-      {/* 🟢 FULL SCREEN (MAXIMIZED) PLAYER */}
-      <div className={`fixed inset-0 z-[150] bg-black flex flex-col items-center justify-center transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${isMaximized ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}>
-        
-        {/* Θολό Background - Παίρνει το maximizedImage */}
-        {currentStation && (
-          <div className="absolute inset-0 z-0 overflow-hidden">
-            <img 
-              src={maximizedImage} 
-              alt="bg" 
-              className="w-full h-full object-cover blur-[100px] scale-150 opacity-40 mix-blend-screen"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/80 to-[#050505]"></div>
-          </div>
-        )}
-
-        <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-center z-20">
-          <div className="text-zinc-500 font-black tracking-widest text-xs uppercase">
-            {isPlayingAd ? 'Advertisement' : 'Now Playing'}
-          </div>
-          <button onClick={() => setIsMaximized(false)} className="p-3 bg-white/5 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition-all active:scale-90 border border-white/10">
-            <Minimize2 size={24} />
-          </button>
-        </div>
-
-        {currentStation && (
-          <div className="relative z-10 flex flex-col items-center text-center w-full max-w-2xl px-6">
-            
-            {/* 🟢 DYNAMIC IMAGE CONTAINER */}
-            <div className="relative w-64 h-64 md:w-80 md:h-80 mb-10 flex items-center justify-center">
-              <img 
-                src={maximizedImage} 
-                alt={currentStation.name}
-                className={`w-full h-full rounded-[40px] shadow-[0_30px_60px_rgba(0,0,0,0.6)] border border-white/10 transition-all duration-700 ${
-                  showCoverArt ? 'object-cover' : 'object-contain bg-white p-4'
-                } ${isPlaying && !isBuffering ? 'scale-100' : 'scale-95 grayscale-[30%]'}`}
-              />
-
-              {showCoverArt && (
-                <>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none rounded-[40px]"></div>
-                  <div className="absolute bottom-4 left-4 z-20">
-                    <div className="bg-white p-1 rounded-2xl shadow-lg w-16 h-16 flex items-center justify-center border border-black/5 overflow-hidden">
-                      <img src={currentStation.logo} alt={currentStation.name} className="w-full h-full object-contain" />
-                    </div>
-                  </div>
-                  <div className="absolute top-4 left-4 z-20 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]"></div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">NOW PLAYING</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight w-full truncate">
-              {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : currentStation.name}
-            </h2>
-
-            {!isPlayingAd && currentShow && (
-              <div className="inline-flex items-center gap-2 bg-[#ccff00]/10 border border-[#ccff00]/20 px-4 py-2 rounded-xl mb-4">
-                <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse"></div>
-                <span className="text-sm font-black text-[#ccff00] tracking-widest">
-                  LIVE: {currentShow.title} {currentShow.host && `• ${currentShow.host}`}
-                </span>
-              </div>
-            )}
-
-            <p className={`text-xl md:text-2xl font-medium truncate w-full max-w-lg ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-              {isPlayingAd ? `${currentAdInfo?.title || 'Sponsored Ad'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (nowPlaying || 'Live Stream'))}
-            </p>
-
-            <div className="flex items-center gap-8 mt-12">
-              <button onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} disabled={isPlayingAd || adWarning} className="text-zinc-500 hover:text-white transition-all active:scale-90 disabled:opacity-20"><SkipBack size={36} fill="currentColor" /></button>
-              
-              <button onClick={(e) => { e.stopPropagation(); togglePlayPause(); }} disabled={isPlayingAd} className="w-24 h-24 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 shadow-[0_0_40px_rgba(255,255,255,0.2)] disabled:bg-zinc-800 disabled:text-zinc-600 transition-all">
-                {isBuffering ? (
-                  <div className="flex items-center justify-center gap-1.5">
-                    <div className="w-2.5 h-2.5 bg-black rounded-full dot-1"></div>
-                    <div className="w-2.5 h-2.5 bg-black rounded-full dot-2"></div>
-                    <div className="w-2.5 h-2.5 bg-black rounded-full dot-3"></div>
-                  </div>
-                ) : isPlaying && !isPlayingAd ? (
-                  <Pause size={40} fill="currentColor" />
-                ) : (
-                  <Play size={40} fill="currentColor" className="ml-2" />
-                )}
-              </button>
-
-              <button onClick={(e) => { e.stopPropagation(); handleNextStation(); }} disabled={isPlayingAd || adWarning} className="text-zinc-500 hover:text-white transition-all active:scale-90 disabled:opacity-20"><SkipForward size={36} fill="currentColor" /></button>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Cinematic desktop visual shell. The actual audio element remains in App.jsx. */}
+      {isMaximized && currentStation && (
+        <DesktopFullPlayer
+          station={currentStation}
+          currentUser={currentUser}
+          isPlaying={isPlaying}
+          isBuffering={isBuffering}
+          isPlayingAd={isPlayingAd}
+          adWarning={adWarning}
+          currentAdInfo={currentAdInfo}
+          adTimeRemaining={adTimeRemaining}
+          nowPlaying={nowPlaying}
+          globalCoverArt={globalCoverArt}
+          currentShow={currentShow}
+          volume={volume}
+          setVolume={setVolume}
+          togglePlayPause={togglePlayPause}
+          handlePrevStation={handlePrevStation}
+          handleNextStation={handleNextStation}
+          isFavorite={isCurrentlyFavorite}
+          onFavorite={() => currentUser ? toggleFavorite(currentStation._id) : navigate('/login')}
+          onRecognize={handleRadarClick}
+          isRecognizing={isRecognizing}
+          onOpenStation={() => { setIsMaximized(false); navigate('/station/'+(currentStation.slug||currentStation._id)); }}
+          onClose={() => setIsMaximized(false)}
+        />
+      )}
 
       {/* 🟢 FOOTER BAR (MINIFIED) - ΠΑΝΤΑ STATION LOGO */}
       <footer className="hidden lg:flex z-[100] fixed bottom-0 left-0 right-0 h-24 bg-black/80 backdrop-blur-3xl border-t border-white/5 px-8 items-center justify-between">

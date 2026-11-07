@@ -19,6 +19,9 @@ Module._load = function(name, parent, isMain) {
       select: () => ({ lean: async () => station })
     }), exists: async () => true };
   }
+  if (name === './recordStationTrack' && from.endsWith('stageMetadata.js')) {
+    return { recordStationTrack: async () => true };
+  }
   if (name === './stageSafeRadioFetch' && from.endsWith('stageMetadata.js')) {
     return { readPublicUrl: async url => {
       upstreamUrls.push(url);
