@@ -63,7 +63,7 @@ function stagePublicAccess(req, res, next) {
   if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
 
   const favoriteMatch = req.method === 'POST' &&
-    /^\\/api\\/users\\/[0-9a-fA-F]{24}\\/favorites$/.exec(path);
+    new RegExp('^/api/users/[0-9a-fA-F]{24}/favorites$').test(path);
   if (favoriteMatch) {
     return protect(req,res,()=>{
       const userId = path.split('/')[3];
@@ -74,7 +74,7 @@ function stagePublicAccess(req, res, next) {
 
   // Existing signed-in station owners can view only their own stations and analytics.
   const ownerRead = req.method === 'GET' &&
-    /^\\/api\\/broadcaster\\/[0-9a-fA-F]{24}\\/(?:stations|analytics|ads)$/.exec(path);
+    new RegExp('^/api/broadcaster/[0-9a-fA-F]{24}/(stations|analytics|ads)$').test(path);
   if (ownerRead) {
     return protect(req,res,()=>{
       const userId = path.split('/')[3];
