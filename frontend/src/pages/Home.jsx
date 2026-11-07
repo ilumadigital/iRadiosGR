@@ -603,6 +603,9 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         <StationPlaylistPanel
           station={homeDisplayStation}
           currentUser={currentUser}
+          currentStation={currentStation}
+          isPlaying={isPlaying}
+          onPlayPause={onPlayPause}
           onPlayStation={setCurrentStation}
           compact
         />
