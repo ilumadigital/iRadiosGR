@@ -390,7 +390,7 @@ export default function MobileMiniPlayer({
           <div className="ir-full-player-actions grid grid-cols-3 items-center justify-between mb-4 px-2 w-full">
             <div className="flex justify-start">
               {!isPlayingAd && (
-                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} className={`p-2 rounded-full transition-all active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-white/40 hover:text-white'}`}>
+                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} aria-label={isCurrentlyFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"} className={`p-2 rounded-full transition-all active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-white/40 hover:text-white'}`}>
                   <Heart size={28} fill={isCurrentlyFavorite ? "currentColor" : "none"} />
                 </button>
               )}
@@ -398,7 +398,7 @@ export default function MobileMiniPlayer({
 
             <div className="flex items-center justify-center gap-2 sm:gap-6 w-full">
               <button 
-                onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} 
+                onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} aria-label="Προηγούμενος σταθμός" 
                 onTouchStart={(e) => e.stopPropagation()} 
                 disabled={isPlayingAd || adWarning || !isPremium} 
                 className={`p-4 transition-all ${(!isPremium || isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
@@ -427,7 +427,7 @@ export default function MobileMiniPlayer({
               </button>
 
               <button 
-                onClick={(e) => { e.stopPropagation(); handleNextStation(); }} 
+                onClick={(e) => { e.stopPropagation(); handleNextStation(); }} aria-label="Επόμενος σταθμός" 
                 onTouchStart={(e) => e.stopPropagation()} 
                 disabled={isPlayingAd || adWarning} 
                 className={`p-4 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
@@ -575,13 +575,13 @@ export default function MobileMiniPlayer({
         
         <div className="flex items-center shrink-0">
           {!isPlayingAd && (
-            <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} className={`p-2 transition-all active:scale-90 mr-1 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-zinc-400'}`}>
+            <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} aria-label={isCurrentlyFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"} className={`p-2 transition-all active:scale-90 mr-1 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-zinc-400'}`}>
               <Heart size={20} fill={isCurrentlyFavorite ? "currentColor" : "none"} />
             </button>
           )}
 
           {isPremium && (
-            <button onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} disabled={isPlayingAd || adWarning} className={`p-2 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}>
+            <button onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} aria-label="Προηγούμενος σταθμός" disabled={isPlayingAd || adWarning} className={`p-2 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}>
               <SkipBack size={20} fill="currentColor" />
             </button>
           )}
@@ -601,7 +601,7 @@ export default function MobileMiniPlayer({
             )}
           </button>
 
-          <button onClick={(e) => { e.stopPropagation(); handleNextStation(); }} disabled={isPlayingAd || adWarning} className={`p-2 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}>
+          <button onClick={(e) => { e.stopPropagation(); handleNextStation(); }} aria-label="Επόμενος σταθμός" disabled={isPlayingAd || adWarning} className={`p-2 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}>
             <SkipForward size={20} fill="currentColor" />
           </button>
 
