@@ -91,6 +91,10 @@ echo "Restoring production media to stage-only uploads directory..."
 tar --extract --gzip --file "$TRANSFER/iradios-prod-uploads.tar.gz" \
   --directory /srv/iradios/staging --no-same-owner --no-same-permissions
 chown -R iradios:iradios /srv/iradios/staging/uploads
+# Uploads are public MEDIA behind stage Basic Auth; host Nginx must be able
+# to traverse directories and read media even though script uses umask 077.
+find /srv/iradios/staging/uploads -type d -exec chmod 755 {} +
+find /srv/iradios/staging/uploads -type f -exec chmod 644 {} +
 echo "Starting stage frontend/backend with restricted MongoDB account..."
 docker compose --env-file "$COMPOSE_ENV" -f compose.stage.yml up -d backend frontend
 curl -fsS http://127.0.0.1:5511/api/health
