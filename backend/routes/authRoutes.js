@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const User = require('../models/User'); // Ίσως χρειαστεί για το reminder route
+const { protect } = require('../utils/authMiddleware');
 
 // Auth & OTP
 router.get('/auth/verify-vat/:countryCode/:vat', authController.verifyVat);
@@ -10,14 +11,14 @@ router.post('/auth/register-broadcaster', authController.registerBroadcaster);
 router.post('/auth/register-agency', authController.registerAgency); 
 router.post('/auth/verify-otp', authController.verifyOtp);
 router.post('/auth/login', authController.login);
-router.get('/auth/me', authController.getMe);
+router.get('/auth/me', protect, authController.getMe);
 
 // 🟢 ΑΝΑΚΤΗΣΗ ΚΩΔΙΚΟΥ
 router.post('/auth/forgot-password', authController.forgotPassword);
 router.post('/auth/reset-password', authController.resetPassword);
 
 // 🟢 ΑΠΟΔΟΧΗ ΟΡΩΝ ΧΡΗΣΗΣ (Καλεί τον authController, όχι τον userController)
-router.put('/users/me/accept-terms', authController.acceptTerms);
+router.put('/users/me/accept-terms', protect, authController.acceptTerms);
 
 // Users Profiles
 router.put('/users/me', authController.updateMe);
