@@ -66,6 +66,7 @@ import GoPremiumBroadcast from './pages/GoPremiumBroadcast';
 import MyChat from './pages/MyChat';
 import BoostStation from './pages/BoostStation';
 import AdminBanners from './pages/AdminBanners';
+import AdminHomeSlides from './pages/AdminHomeSlides';
 import AcceptInvite from './pages/AcceptInvite';
 import GoAgency from './pages/GoAgency';
 import AgencyDashboard from './pages/AgencyDashboard';
@@ -1666,16 +1667,7 @@ function MainApp() {
                     onPlayPause={togglePlayPause} 
                     currentUser={currentUser} 
                     analyser={analyserRef.current} 
-                    onOpenDiscovery={() => { 
-                      if (isPlaying && audioRef.current) { 
-                        audioRef.current.pause(); 
-                        audioRef.current.removeAttribute('src'); 
-                        audioRef.current.load(); 
-                        setIsPlaying(false); 
-                        intendedPlayState.current = false; 
-                      } 
-                      setShowDiscovery(true); 
-                    }} 
+                    onOpenDiscovery={() => setShowDiscovery(true)} 
                   />
                 </SmartHomeRoute>
               } 
@@ -1740,6 +1732,7 @@ function MainApp() {
               </RequireTerms>
             } />
 
+            <Route path="/admin/home-slides" element={currentUser?.role === 'admin' ? <AdminHomeSlides /> : <Navigate to="/" />} />
             <Route path="/admin/banners" element={currentUser?.role === 'admin' ? <AdminBanners /> : <Navigate to="/" />} />
             <Route path="/admin" element={currentUser?.role === 'admin' ? <AdminDashboard API_URL={API_URL}/> : <Navigate to="/" />} />
             <Route path="/admin/radioset" element={currentUser?.role === 'admin' ? <AdminRadioSet API_URL={API_URL} /> : <Navigate to="/" />} />
