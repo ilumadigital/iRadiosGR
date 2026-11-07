@@ -1,7 +1,7 @@
 name: iradios_stage
 services:
   mongo:
-    image: mongo:8.0.30-noble
+    image: mongo:9.0.4-resolute
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
