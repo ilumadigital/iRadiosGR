@@ -14,7 +14,8 @@ const lastNativeProbe=new Map(); // one upstream metadata check per Top-10 stati
 const lastBeat=new Map();
 const LISTEN_TTL=155000;
 const TICK_MS=30000;
-let nextTopRefresh=0,top=[],inTick=false;
+const MAX_LISTENED_PER_TICK=20; // bound queries/vendor exposure beyond the Top 10
+let nextTopRefresh=0,top=[],inTick=false,listenedCursor=0;
 const excludeGenre=/(?:news|talk|speech|sport|ειδησ|ενημ[εέ]ρ|αθλητ|πολιτικ|θρησκ|ομιλ|οικονομικ|ενημερωτικ|δημοσιογραφ)/i;
 const excludeName=/(?:\bnews\b|\bsport(?:s)?\b|ειδησ|ενημερωτικ|αθλητικ)/i;
 function isMusicStation(station){
@@ -42,11 +43,9 @@ function heartbeat(req,res){
   const now=Date.now();
   cleanupListeners(now);
   if(playing===false){listeners.delete(sessionId);return res.status(204).end();}
-  // Public playback is free. Heartbeats are state-only and never trigger a call directly.
-  // Only current top-10 station IDs are retained for the scheduled background worker.
-  if(!top.some(s=>String(s._id)===stationId)){
-    listeners.delete(sessionId);return res.status(204).end();
-  }
+  // Public playback is free. Any station can report a heartbeat. The scheduled
+  // worker rechecks approval and music genre BEFORE any billable recognition.
+  // A heartbeat by itself never triggers an external request.
   const previous=lastBeat.get(sessionId)||0;
   if(previous && now-previous<20000)return res.status(204).end();
   lastBeat.set(sessionId,now);
@@ -118,11 +117,30 @@ async function tick(){
   inTick=true;
   try{
     await refreshTop();
-    // Concurrency=2, 10 eligible stations maximum, with a per-station 5 min clock.
+    cleanupListeners();
+    // Listened non-Top-10 music stations also qualify, even with no/invalid
+    // metadata. Top-10 music stations stay first and retain their no-listener
+    // invalid-metadata exception. Rotate the bounded remainder for fairness.
+    const topIds=new Set(top.map(s=>String(s._id)));
+    const activeIds=[...new Set([...listeners.values()]
+      .filter(item=>item.until>Date.now()).map(item=>item.stationId))]
+      .filter(id=>!topIds.has(id)).sort();
+    let chosen=[];
+    if(activeIds.length){
+      const start=listenedCursor%activeIds.length;
+      chosen=Array.from({length:Math.min(MAX_LISTENED_PER_TICK,activeIds.length)},
+        (_,i)=>activeIds[(start+i)%activeIds.length]);
+      listenedCursor=(start+chosen.length)%activeIds.length;
+    }
+    const extra=chosen.length?await Station.find({
+      _id:{$in:chosen},status:'approved'
+    }).select('_id name genre stream metadata plays status').lean():[];
+    const worklist=[...top,...extra.filter(isMusicStation)];
+    // Concurrency=2, at most 10 Top-10 + 20 actually listened stations.
     let index=0;
     const worker=async()=>{
-      while(index<top.length){
-        const station=top[index++];
+      while(index<worklist.length){
+        const station=worklist[index++];
         await inspectAndMaybeIdentify(station);
       }
     };
