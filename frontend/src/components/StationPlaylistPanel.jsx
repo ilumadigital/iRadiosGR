@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ListMusic, Radio, Play, RefreshCw, Music2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import StationListenButton from './StationListenButton';
 
 const resolveTime = date => {
   const d=new Date(date);
@@ -34,7 +35,7 @@ function TrackCover({track,fallback}) {
 }
 
 export default function StationPlaylistPanel({
-  station, currentUser, onPlayStation, compact=false
+  station, currentUser, currentStation, isPlaying, onPlayPause, onPlayStation, compact=false
 }) {
   const navigate=useNavigate();
   const [tracks,setTracks]=useState([]);
@@ -77,8 +78,8 @@ export default function StationPlaylistPanel({
           <div className="truncate text-sm font-black text-white">{chosen?.name||'Δεν έχει επιλεγεί σταθμός'}</div>
           <span className="mt-1 block text-[11px] text-zinc-400">Τελευταία 12 τραγούδια · από πραγματικά metadata</span>
         </div>
-        {onPlayStation&&chosen&&<button type="button" onClick={()=>onPlayStation(chosen)} aria-label={'Αναπαραγωγή '+chosen.name}
-          className="ir-player-transport flex h-10 w-10 shrink-0 items-center justify-center rounded-full"><Play fill="currentColor" size={18}/></button>}
+        {onPlayStation&&chosen&&<StationListenButton station={chosen} currentStation={currentStation} isPlaying={isPlaying}
+          onPlayStation={onPlayStation} onPlayPause={onPlayPause} className="shrink-0"/>}
       </div>
       {!currentUser?(
         <div className="py-10 text-center"><ListMusic size={30} className="mx-auto mb-3 text-[#ccff00]"/>
