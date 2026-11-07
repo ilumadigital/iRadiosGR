@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock3, ListMusic, Radio, ChevronDown, Play, RefreshCw, Music2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ListMusic, Radio, Play, RefreshCw, Music2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const resolveTime = date => {
@@ -34,26 +34,20 @@ function TrackCover({track,fallback}) {
 }
 
 export default function StationPlaylistPanel({
-  station, stations=[], currentUser, onPlayStation, compact=false
+  station, currentUser, onPlayStation, compact=false
 }) {
   const navigate=useNavigate();
-  const [selected,setSelected]=useState('');
   const [tracks,setTracks]=useState([]);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState('');
   const [refresh,setRefresh]=useState(0);
-  useEffect(()=>{if(station?._id)setSelected(String(station._id));},[station?._id]);
-  const allStations=useMemo(()=>{
-    const map=new Map();
-    if(station?._id)map.set(String(station._id),station);
-    stations.forEach(item=>{if(item._id)map.set(String(item._id),item);});
-    return [...map.values()];
-  },[stations,station]);
-  const chosen=allStations.find(s=>String(s._id)===selected)||station;
+  // The playlist always belongs to the station displayed in this panel.
+  // No independent station selector can drift away from the home hero or current station.
+  const chosen=station;
   useEffect(()=>{
     if(!currentUser||!chosen?._id){setTracks([]);setError('');return;}
     const controller=new AbortController();
-    setLoading(true);setError('');
+    setLoading(true);setTracks([]);setError('');
     fetch('/api/stations/'+encodeURIComponent(chosen._id)+'/playlist',{
       headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},signal:controller.signal
     }).then(async r=>{
@@ -77,17 +71,10 @@ export default function StationPlaylistPanel({
           <h2 className="mt-2 text-xl font-black text-white">Playlist σταθμού</h2></div>
         <button type="button" title="Ανανέωση playlist" aria-label="Ανανέωση playlist" onClick={()=>setRefresh(n=>n+1)} disabled={!currentUser||loading} className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-[#ccff00] disabled:opacity-40"><RefreshCw size={17} className={loading?'animate-spin':''}/></button>
       </div>
-      <div className="mt-5 flex items-center gap-3 rounded-xl bg-white/5 p-3">
+      <div className="mt-5 flex items-center gap-3 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/[0.045] p-3">
         {chosen?.logo&&<img src={chosen.logo} alt="" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"/>}
         <div className="min-w-0 flex-1">
-          {stations.length>1?(
-            <label className="relative block"><span className="sr-only">Σταθμός playlist</span>
-              <select value={chosen?._id||''} onChange={e=>setSelected(e.target.value)}
-                className="w-full appearance-none truncate bg-transparent pr-6 text-sm font-bold text-white outline-none">
-                {allStations.map(item=><option value={item._id} key={item._id} className="bg-zinc-950">{item.name}</option>)}
-              </select><ChevronDown size={14} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-zinc-400"/>
-            </label>
-          ):<div className="truncate text-sm font-bold text-white">{chosen?.name||'Επίλεξε σταθμό'}</div>}
+          <div className="truncate text-sm font-black text-white">{chosen?.name||'Δεν έχει επιλεγεί σταθμός'}</div>
           <span className="mt-1 block text-[11px] text-zinc-400">Τελευταία 12 τραγούδια · από πραγματικά metadata</span>
         </div>
         {onPlayStation&&chosen&&<button type="button" onClick={()=>onPlayStation(chosen)} aria-label={'Αναπαραγωγή '+chosen.name}
