@@ -18,9 +18,11 @@ jobs:
         run: bash ops/check-stage-source.sh
       - name: Validate deployment shell scripts
         run: |
-          for script in ilumadev.sh ops/deploy-stage.sh ops/activate-public-stage.sh; do
+          for script in ilumadev.sh ops/*.sh; do
             bash -n "$script"
           done
+      - name: Exercise stage backend .env guard without live secrets
+        run: node ops/check-stage-backend-env.cjs
       - name: Validate backend JavaScript syntax
         run: find backend -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check
       - name: Check staging radio proxy URL safety
