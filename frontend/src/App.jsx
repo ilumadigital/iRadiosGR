@@ -615,7 +615,7 @@ function MainApp() {
   // 🟢 1. ΨΑΧΝΕΙ ΤΟ ΕΞΩΦΥΛΛΟ ΜΕΣΩ ΤΟΥ PROXY ΜΑΣ (CORS FIX)
   useEffect(() => {
     let isMounted = true;
-    const LOADING_MESSAGES = ["Ανάλυση ήχου...", "Ψάχνω στο Cloud...", "Επαλήθευση συχνοτήτων...", "Σχεδόν έτοιμο...", "Σύνδεση στο stream... 📡", "ΠΑΙΖΕΙ ΤΩΡΑ", ""];
+    const LOADING_MESSAGES = ["Ακούμε τον σταθμό…", "Ψάχνουμε το τραγούδι…", "Λίγο ακόμη…", "Σχεδόν έτοιμο…", "Βρίσκουμε το τραγούδι…", "ΠΑΙΖΕΙ ΤΩΡΑ", ""];
     
     if (!nowPlaying || LOADING_MESSAGES.includes(nowPlaying)) {
       setGlobalCoverArt(null);
@@ -1216,7 +1216,7 @@ function MainApp() {
 
   const handleRecognizeTrack = async () => {
       if (!currentUser) {
-        showAlert("Παρακαλούμε συνδεθείτε ή δημιουργήστε λογαριασμό εντελώς δωρεάν στο iRadios για να χρησιμοποιήσετε το AI Music Radar!");
+        showAlert("Συνδέσου στο iRadios για να βρεις ποιο τραγούδι παίζει.");
         navigate('/login');
         return;
       }
@@ -1226,13 +1226,13 @@ function MainApp() {
       setIsRecognizing(true);
       const previousNowPlaying = nowPlaying;
       
-      setNowPlaying("Σύνδεση στο stream... 📡");
+      setNowPlaying("Βρίσκουμε το τραγούδι…");
 
       const loadingMessages = [
-        "Ανάλυση ήχου...",
-        "Ψάχνω στο Cloud...",
-        "Επαλήθευση συχνοτήτων...",
-        "Σχεδόν έτοιμο..."
+        "Ακούμε τον σταθμό…",
+        "Ψάχνουμε το τραγούδι…",
+        "Λίγο ακόμη…",
+        "Σχεδόν έτοιμο…"
       ];
       let messageIndex = 0;
 
@@ -1292,7 +1292,7 @@ function MainApp() {
         clearInterval(intervalId);
         console.error("Recognition API error:", err);
         setNowPlaying(previousNowPlaying);
-        showAlert("Υπήρξε πρόβλημα επικοινωνίας με το Cloud. Δοκίμασε ξανά σε λίγο!");
+        showAlert("Δεν μπορέσαμε να βρούμε το τραγούδι. Δοκίμασε ξανά σε λίγο.");
       } finally {
         clearInterval(intervalId); 
         setIsRecognizing(false);
@@ -1460,7 +1460,7 @@ function MainApp() {
                   <img src={currentStation.logo} alt="Station Logo" className="w-11 h-11 rounded-xl object-contain bg-white border border-white/10 shadow-lg" />
                   <div className="flex flex-col overflow-hidden">
                     <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#ccff00] mb-0.5 flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 bg-[#ccff00] rounded-full animate-pulse"></div> NOW PLAYING
+                      <div className="w-1.5 h-1.5 bg-[#ccff00] rounded-full animate-pulse"></div> ΑΚΟΥΣ ΤΩΡΑ
                     </span>
                     <span className="text-white text-sm font-bold truncate">{currentStation.name}</span>
                   </div>
