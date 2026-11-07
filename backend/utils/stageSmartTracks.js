@@ -44,6 +44,25 @@ async function publishAI(station,payload,kind='auto',now=Date.now()){
   await recordStationTrack(station,song.raw,{source:'acrcloud'});
   return item;
 }
+// Published AI songs are station-scoped, not client-scoped. This bounded feed
+// lets Home include every active recognized station immediately, even when its
+// normal rotating native-metadata scan has not reached that radio yet.
+function activeSharedAI(now=Date.now()){
+  const items=[];
+  for(const [stationId,item] of results){
+    if(item.expiresAt<=now){results.delete(stationId);continue;}
+    if(items.length>=512)break;
+    items.push({
+      stationId,title:item.raw,source:'acrcloud',foundWithAI:true,
+      recognizedAt:item.recognizedAt,expiresAt:new Date(item.expiresAt).toISOString()
+    });
+  }
+  return items.sort((a,b)=>b.recognizedAt.localeCompare(a.recognizedAt));
+}
+function stageLiveAI(req,res){
+  res.setHeader('Cache-Control','private, no-store');
+  return res.json({tracks:activeSharedAI()});
+}
 function clearAutomaticAI(stationId){
   const key=String(stationId||'');
   if(results.get(key)?.kind==='auto')results.delete(key);
@@ -67,4 +86,4 @@ function resolvedNowPlaying(raw,station,now=Date.now()){
   return {title:status==='valid'?raw:'',source:status==='valid'?'station':'none',foundWithAI:false};
 }
 module.exports={FOUR_MINUTES,FIVE_MINUTES,validTrackFromAcr,getSharedAI,publishAI,
-  clearAutomaticAI,statusFromNative,resolvedNowPlaying};
+  clearAutomaticAI,statusFromNative,resolvedNowPlaying,activeSharedAI,stageLiveAI};
