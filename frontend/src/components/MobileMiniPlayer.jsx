@@ -131,7 +131,7 @@ export default function MobileMiniPlayer({
   const handleRadarClick = (e) => {
     e.stopPropagation();
     if (!currentUser) {
-      showAlert("Παρακαλούμε συνδεθείτε ή δημιουργήστε λογαριασμό εντελώς δωρεάν στο iRadios για να χρησιμοποιήσετε την Αναγνώριση Μουσικής!");
+      showAlert("Συνδέσου στο iRadios για να βρεις ποιο τραγούδι παίζει.");
       return;
     }
     handleRecognizeTrack();
@@ -368,7 +368,7 @@ export default function MobileMiniPlayer({
                 {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : displayTrackTitle}
               </h2>
               <p className={`text-base sm:text-lg font-medium truncate w-full ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                {isPlayingAd ? `${currentAdInfo?.title || 'Sponsored Ad'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (displayTrackArtist || currentStation.name) : (currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
+                {isPlayingAd ? `${currentAdInfo?.title || 'Διαφήμιση'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (displayTrackArtist || currentStation.name) : (currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
               </p>
               {!isPlayingAd && (
                 <div className="mt-3 flex items-center gap-3">
@@ -478,9 +478,9 @@ export default function MobileMiniPlayer({
           {!isPlayingAd && (
             <div className="mb-4 flex justify-center">
               <button type="button" onClick={handleRadarClick} disabled={isRecognizing || !isPlaying}
-                className="ir-recognize-button" aria-label="Αναγνώριση τραγουδιού με ACRCloud">
+                className="ir-recognize-button" aria-label="Βρες ποιο τραγούδι παίζει">
                 {isRecognizing ? <Loader2 size={17} className="animate-spin" /> : <ScanSearch size={17} />}
-                {isRecognizing ? 'Γίνεται αναγνώριση...' : 'Αναγνώριση τραγουδιού'}
+                {isRecognizing ? 'Ψάχνουμε το τραγούδι…' : 'Βρες το τραγούδι'}
               </button>
             </div>
           )}
