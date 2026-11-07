@@ -141,8 +141,10 @@ async function stageRecognizeProxy(req,res){
       beforeVendorCall:()=>allowWithinWindow(attempts,userId,MAX_CALLS)
     });
     if(recognizedCode(result)===0){
-      try{await publishAI(station,result,'manual');}
-      catch(error){console.warn('[STAGE_ACRCLOUD] shared_track_persist_failed',error?.name||'persist');}
+      // Only report a match once the shared song and its history are saved.
+      // Otherwise other listeners would be shown a different track.
+      const published=await publishAI(station,result,'manual');
+      if(!published)return res.json({status:{code:1001}});
     }
     return res.json(result);
   }catch(error){
