@@ -740,7 +740,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       )}
 
       {/* Existing paid home banners remain separate and clearly labelled as sponsored. */}
-      {isFreeOrGuest && homeBanners.length > 0 && <HomeAdBanner banner={homeBanners[0]} />}
+      {isFreeOrGuest && homeBanners.map(banner => <HomeAdBanner key={banner._id} banner={banner} />)}
 
       {/* 🟢 BROADCASTER PROMO BANNER (Bottom) */}
       {(!currentUser || currentUser?.role === 'user') && (
