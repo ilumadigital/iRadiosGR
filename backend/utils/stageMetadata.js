@@ -3,6 +3,7 @@
 // Client-supplied stream/customMeta URLs are never directly fetched.
 const Station = require('../models/Station');
 const { recordStationTrack } = require('./recordStationTrack');
+const {statusFromNative,resolvedNowPlaying} = require('./stageSmartTracks');
 const { readPublicUrl } = require('./stageSafeRadioFetch');
 
 const cache = new Map();
@@ -128,39 +129,44 @@ async function readStationMetadata(station) {
   }
 }
 
-async function stageMetadata(req, res) {
-  try {
-    const stream = req.query.stream;
-    const stationId = req.query.stationId;
-    const validId = typeof stationId === 'string' && /^[a-f0-9]{24}$/i.test(stationId);
-    const validStream = typeof stream === 'string' && stream.length > 0 && stream.length <= 4096;
-    if (!validId && !validStream) return res.status(400).json({ error: 'Invalid station identifier' });
-
-    const station = await Station.findOne({
-      status: 'approved',
-      ...(validId ? { _id: stationId } : { stream })
-    }).select('_id name stream metadata status').lean();
-    if (!station) return res.status(404).json({ title: '' });
-
-    const key = String(station._id);
-    res.setHeader('Cache-Control', 'private, no-store');
-    const existing = cache.get(key);
-    if (existing && existing.until > Date.now()) {
-      return res.json({ title: await existing.promise });
+// Native metadata cache is shared by the API and the Top-10 background worker.
+// AI overrides are intentionally NOT cached here: a manual result must appear
+// to all listeners immediately and expire on its own four-minute timer.
+async function readCachedNativeMetadata(station) {
+  const key=String(station?._id||'');
+  if(!key)return '';
+  const now=Date.now(),existing=cache.get(key);
+  if(existing&&existing.until>now)return existing.promise;
+  const promise=readStationMetadata(station).then(async raw=>{
+    if(statusFromNative(raw,station.name)==='valid'){
+      await recordStationTrack(station,raw,{source:'station'});
     }
-
-    const promise = readStationMetadata(station).then(async title => {
-      if (title) await recordStationTrack(station, title);
-      return title;
-    }).catch(() => '');
-    if (cache.size > 300) cache.clear();
-    cache.set(key, { promise, until: Date.now() + CACHE_MS });
-    return res.json({ title: await promise });
-  } catch {
-    return res.status(503).json({ title: '' });
+    return raw;
+  }).catch(()=>'');
+  if(cache.size>300)cache.clear();
+  cache.set(key,{promise,until:now+CACHE_MS});
+  return promise;
+}
+async function stageMetadata(req,res){
+  res.setHeader('Cache-Control','private, no-store');
+  try{
+    const stream=req.query.stream;
+    const stationId=req.query.stationId;
+    const validId=typeof stationId==='string'&&/^[a-f0-9]{24}$/i.test(stationId);
+    const validStream=typeof stream==='string'&&stream.length>0&&stream.length<=4096;
+    if(!validId&&!validStream)return res.status(400).json({error:'Invalid station identifier'});
+    const station=await Station.findOne({
+      status:'approved',
+      ...(validId?{_id:stationId}:{stream})
+    }).select('_id name stream metadata status').lean();
+    if(!station)return res.status(404).json({title:'',source:'none',foundWithAI:false});
+    const native=await readCachedNativeMetadata(station);
+    return res.json(resolvedNowPlaying(native,station));
+  }catch{
+    return res.status(503).json({title:'',source:'none',foundWithAI:false});
   }
 }
 
 module.exports = {
-  stageMetadata, cleanTitle, titleFromObject, titleFromText, titleFromIcy, metadataUrls
+  stageMetadata, readCachedNativeMetadata, readStationMetadata, cleanTitle, titleFromObject, titleFromText, titleFromIcy, metadataUrls
 };
