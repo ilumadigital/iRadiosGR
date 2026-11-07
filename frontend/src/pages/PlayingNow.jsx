@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AudioLines, ChevronLeft, ChevronRight, Loader2, Radio } from 'lucide-react';
 import { parseMusicMetadata } from '../utils/musicMetadata';
@@ -10,6 +10,7 @@ const BATCH = 6;
 export default function PlayingNow({ stations = [], API_URL, currentUser, onPlayStation }) {
   const navigate = useNavigate();
   const [liveStations, setLiveStations] = useState([]);
+  const [sharedAIStations,setSharedAIStations]=useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const cursor = useRef(0);
   const stripRef = useRef(null);
@@ -50,7 +51,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
             const data = await res.json();
             const music = parseMusicMetadata(data?.title);
             if (!music) return null;
-            return { ...station, music, coverArt: station.logo, foundWithAI: data?.foundWithAI===true };
+            return { ...station, music, coverArt: station.logo, foundWithAI: data?.foundWithAI===true, expiresAt:data?.expiresAt||null };
           } catch { return null; }
         }));
         detected.push(...found.filter(Boolean));
@@ -80,6 +81,53 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
     return () => { alive=false; controller.abort(); clearInterval(timer); };
   }, [stations, API_URL, currentUser?._id]);
 
+  // Fetch EVERY active station-wide AI match, irrespective of which subset
+  // of native metadata stations is being scanned by this browser.
+  // All signed-in listeners see the same centrally recognized on-air songs.
+  useEffect(()=>{
+    if(!currentUser){setSharedAIStations([]);return;}
+    const controller=new AbortController();
+    let alive=true;
+    const lookup=new Map(stations.filter(s=>s._id && (s.status==='approved'||!s.status))
+      .map(s=>[String(s._id),s]));
+    const poll=async()=>{
+      const token=localStorage.getItem('iluma_token');
+      if(!token||controller.signal.aborted){if(alive)setSharedAIStations([]);return;}
+      try{
+        const response=await fetch(`${API_URL}/metadata/live`,{
+          headers:{Authorization:`Bearer ${token}`},signal:controller.signal
+        });
+        if(!response.ok)throw new Error('unavailable');
+        const data=await response.json();
+        const shared=(Array.isArray(data?.tracks)?data.tracks:[]).slice(0,512)
+          .map(entry=>{
+            const station=lookup.get(String(entry.stationId||''));
+            const music=entry?.foundWithAI===true?parseMusicMetadata(entry.title):null;
+            if(!station||!music||Date.parse(entry.expiresAt)<=Date.now())return null;
+            return {...station,music,coverArt:station.logo,foundWithAI:true,
+              expiresAt:entry.expiresAt};
+          }).filter(Boolean);
+        if(alive&&!controller.signal.aborted)setSharedAIStations(shared);
+      }catch{
+        if(alive&&!controller.signal.aborted)setSharedAIStations([]);
+      }
+    };
+    poll();
+    const timer=setInterval(()=>{if(!document.hidden)poll();},15000);
+    return ()=>{alive=false;controller.abort();clearInterval(timer);};
+  },[stations,API_URL,currentUser?._id]);
+
+  // A station appears ONCE. Centrally recognized results replace an older
+  // scanned entry and stay visible even if the native scan never sampled it.
+  const displayStations=useMemo(()=>{
+    const now=Date.now();
+    const ai=sharedAIStations.filter(s=>!s.expiresAt||Date.parse(s.expiresAt)>now);
+    const ids=new Set(ai.map(s=>String(s._id)));
+    const native=liveStations.filter(s=>!ids.has(String(s._id))&&
+      (!s.foundWithAI||!s.expiresAt||Date.parse(s.expiresAt)>now));
+    return [...ai,...native];
+  },[sharedAIStations,liveStations]);
+
   if (!currentUser) return null;
   return (
     <section className="ir-home-now-playing min-w-0" aria-label="Τραγούδια που παίζουν τώρα στο ραδιόφωνο">
@@ -91,36 +139,36 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          {(!isLoading || liveStations.length>0)&&<span className="hidden rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-1.5 text-[11px] font-bold text-[#ccff00] sm:inline">
-            {liveStations.length} {liveStations.length===1?"σταθμός LIVE":"σταθμοί LIVE"}
+          {(!isLoading || displayStations.length>0)&&<span className="hidden rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-1.5 text-[11px] font-bold text-[#ccff00] sm:inline">
+            {displayStations.length} {displayStations.length===1?"σταθμός LIVE":"σταθμοί LIVE"}
           </span>}
-          <button type="button" aria-label="Προηγούμενοι σταθμοί που παίζουν" disabled={!liveStations.length}
+          <button type="button" aria-label="Προηγούμενοι σταθμοί που παίζουν" disabled={!displayStations.length}
             onClick={()=>stripRef.current?.scrollBy({left:-330,behavior:'smooth'})}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:border-[#ccff00]/40 hover:text-[#ccff00] disabled:opacity-30">
             <ChevronLeft size={17}/>
           </button>
-          <button type="button" aria-label="Επόμενοι σταθμοί που παίζουν" disabled={!liveStations.length}
+          <button type="button" aria-label="Επόμενοι σταθμοί που παίζουν" disabled={!displayStations.length}
             onClick={()=>stripRef.current?.scrollBy({left:330,behavior:'smooth'})}
             className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-zinc-300 hover:border-[#ccff00]/40 hover:text-[#ccff00] disabled:opacity-30">
             <ChevronRight size={17}/>
           </button>
         </div>
       </div>
-      {isLoading && !liveStations.length &&
+      {isLoading && !displayStations.length &&
         <div className="flex gap-3 overflow-hidden" aria-label="Φόρτωση">
           {Array.from({length:5},(_,i)=><div key={i} className="h-44 w-36 shrink-0 animate-pulse rounded-2xl bg-white/5"/>)}
         </div>
       }
-      {!isLoading && !liveStations.length &&
+      {!isLoading && !displayStations.length &&
         <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.025] p-6 text-center">
           <Radio size={27} className="mx-auto text-[#ccff00]/60"/>
           <p className="mt-3 text-sm text-zinc-300">Δεν έχουμε τραγούδια να σου δείξουμε αυτή τη στιγμή.</p>
           <p className="mt-1 text-xs text-zinc-500">Δοκίμασε ξανά σε λίγο ή ανακάλυψε άλλους σταθμούς.</p>
         </div>
       }
-      {!!liveStations.length &&
+      {!!displayStations.length &&
         <div ref={stripRef} className="ir-now-playing-scroll flex snap-x gap-3 overflow-x-auto pb-3" aria-live="polite">
-          {liveStations.map(item=>
+          {displayStations.map(item=>
             <article key={item._id} className="group w-[132px] shrink-0 snap-start sm:w-[154px]">
               <button type="button" onClick={() => navigate(`/station/${item.slug || item._id}`)}
                 aria-label={`Άνοιγμα σταθμού ${item.name}: ${item.music.artist} - ${item.music.title}`}
