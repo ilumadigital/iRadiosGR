@@ -124,7 +124,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
             <article key={item._id} className="group w-[132px] shrink-0 snap-start sm:w-[154px]">
               <button type="button" onClick={() => navigate(`/station/${item.slug || item._id}`)}
                 aria-label={`${item.name}: ${item.music.artist} - ${item.music.title}`}
-                className="relative block aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-900 text-left transition-all hover:border-[#ccff00]/60 hover:shadow-[0_0_20px_rgba(204,255,0,0.13)]">
+                className="ir-now-playing-card relative block aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-900 text-left transition-all hover:border-[#ccff00]/60 hover:shadow-[0_0_20px_rgba(204,255,0,0.13)]">
                 <img src={item.coverArt||item.logo} alt="" loading="lazy"
                   onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src=item.logo||'/iradios-app-logo.png';}}
                   className="h-full w-full bg-white object-cover transition-transform duration-500 group-hover:scale-105"/>
