@@ -68,6 +68,7 @@ function stagePublicAccess(req, res, next) {
   // Listener-only song metadata, station playlist history and ACRCloud recognition.
   if (req.method === 'GET' && /^\/api\/stations\/[0-9a-fA-F]{24}\/playlist$/.test(path)) return protect(req,res,next);
   if (req.method === 'GET' && path === '/api/metadata') return protect(req,res,next);
+  if (req.method === 'GET' && path === '/api/metadata/live') return protect(req,res,next);
   if (req.method === 'POST' && path === '/api/recognize-proxy') return protect(req,res,next);
 
   // Signed-in users can accept terms for their own JWT identity only.
