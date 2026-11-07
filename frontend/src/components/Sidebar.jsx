@@ -107,13 +107,10 @@ export default function Sidebar({
                 <div className="w-[4px] bg-white rounded-full eq-bar-4" />
                 <div className="w-[4px] bg-[#ccff00] rounded-full eq-bar-5" />
               </div>
-              <img 
-                src="/noicon-iradios-app-logo.png" 
-                alt="iRadios Logo" 
-                className={`h-[20px] w-auto object-contain mt-1 group-hover:opacity-80 transition-all duration-300 ${
-                  isCollapsed ? 'lg:max-w-0 lg:opacity-0' : 'max-w-[100px] opacity-100'
-                }`} 
-              />
+              <span className={`flex min-w-0 flex-col justify-center transition-all duration-300 ${isCollapsed?'lg:max-w-0 lg:opacity-0':'opacity-100'}`}>
+                <span className="whitespace-nowrap text-lg font-black tracking-tight text-white">iRadios<span className="text-[#ccff00]">GR</span></span>
+                <span className="whitespace-nowrap text-[9px] font-medium text-zinc-500">Ελληνικό Ραδιόφωνο · Premium</span>
+              </span>
             </Link>
 
             <button 
@@ -358,20 +355,23 @@ export default function Sidebar({
             <div className="mt-8">
               {!['admin', 'broadcaster', 'producer', 'agency'].includes(currentUser?.role) && ( 
                 <div className={`px-4 shrink-0 transition-all duration-300 ${isCollapsed ? 'lg:opacity-0 lg:h-0 lg:overflow-hidden' : 'opacity-100 h-auto'}`}>
-                  <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-white/10 rounded-3xl p-5 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-[60px] transition-transform group-hover:scale-110"></div>
+                  <div className="relative overflow-hidden rounded-3xl border border-[#ccff00]/25 bg-gradient-to-br from-[#323a19]/95 via-[#1c2417] to-[#0b1011] p-4 shadow-[0_0_28px_rgba(204,255,0,0.07)]">
+                    <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#ccff00]/20 blur-[35px]"/>
                     <div className="relative z-10">
-                      <h4 className="text-white font-black mb-1">Έχεις σταθμό;</h4>
-                      <p className="text-[11px] text-zinc-400 font-medium leading-relaxed mb-4">
-                        Έλα στο δίκτυο του iRadios και πάρε τον έλεγχο των ακροατών και των διαφημίσεών σου.
-                      </p>
-                      <Link 
-                        to="/broadcast" 
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="w-full bg-white hover:bg-zinc-200 text-black text-[10px] font-black uppercase tracking-widest py-3 rounded-xl flex items-center justify-center transition-transform active:scale-95 shadow-lg"
-                      >
-                        Γινε Broadcaster
-                      </Link>
+                      <h4 className="flex items-center gap-2 text-sm font-black text-white"><Crown size={18} className="text-[#ccff00]"/> iRadiosGR Premium</h4>
+                      {isListenerPremium?(
+                        <p className="mt-3 text-xs leading-relaxed text-zinc-200">Απολαμβάνεις ήδη τα Premium προνόμιά σου.</p>
+                      ):(
+                        <>
+                          <p className="mt-3 text-[11px] leading-relaxed text-zinc-300">Premium λειτουργίες και ακρόαση χωρίς διαφημίσεις του iRadios.</p>
+                          <Link to="/premium" onClick={()=>setIsMobileMenuOpen(false)}
+                            className="mt-4 flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#ccff00] px-3 text-xs font-black text-black transition-colors hover:bg-[#e4ff83]">
+                            Αναβάθμιση σε Premium <Rocket size={15}/>
+                          </Link>
+                        </>
+                      )}
+                      <Link to="/broadcast" onClick={()=>setIsMobileMenuOpen(false)}
+                        className="mt-3 block text-center text-[10px] font-semibold text-zinc-300 underline decoration-white/20 underline-offset-4 hover:text-[#ccff00]">Έχεις ραδιοφωνικό σταθμό;</Link>
                     </div>
                   </div>
                 </div>
