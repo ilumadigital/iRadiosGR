@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { formatFMFrequency } from '../utils/stationFrequency';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Play, Pause, Heart, SkipBack, Car, SkipForward, MessageSquare, 
@@ -344,7 +345,7 @@ export default function MobileMiniPlayer({
             <div className="flex-1 flex flex-col items-end gap-1.5 z-10">
               <div className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-black tracking-[0.1em] border shadow-md bg-zinc-800/80 text-zinc-300 border-white/10">
                 {currentStation.transmissionType === 'Επίγειο' ? <Radio size={10} strokeWidth={3} /> : <SignalHigh size={10} strokeWidth={3} />}
-                <span>{currentStation.transmissionType === 'Επίγειο' && currentStation.frequency ? currentStation.frequency : 'WEB'}</span>
+                <span>{currentStation.transmissionType === 'Επίγειο' && currentStation.frequency ? formatFMFrequency(currentStation.frequency) : 'WEB'}</span>
               </div>
 
               {currentStation.explicit && (
