@@ -856,6 +856,27 @@ function MainApp() {
     return () => globalSocket.off('receive_message', handleNewMessage);
   }, [globalSocket, currentStation, currentUser, location.pathname]);
 
+  // The stage Socket.IO gateway is intentionally closed to public traffic.
+  // Report only an anonymous, ephemeral heartbeat while the real audio element
+  // is actually playing. No station URL, token, user ID or music data is sent.
+  useEffect(()=>{
+    if(window.location.hostname!=='stage.iradios.gr')return;
+    const stationId=String(currentStation?._id||'');
+    if(!/^[a-f0-9]{24}$/i.test(stationId)||!isPlaying||isPlayingAd||
+       isBuffering||!audioRef.current||audioRef.current.readyState<2)return;
+    if(!crypto?.randomUUID)return;
+    const sessionId=crypto.randomUUID();
+    const report=playing=>{
+      fetch(`${API_URL}/listen/heartbeat`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({stationId,sessionId,playing}),keepalive:true
+      }).catch(()=>{});
+    };
+    report(true);
+    const timer=setInterval(()=>{if(!audioRef.current?.paused)report(true);},60000);
+    return ()=>{clearInterval(timer);report(false);};
+  },[API_URL,currentStation?._id,isPlaying,isBuffering,isPlayingAd]);
+
   useEffect(() => {
     if (globalSocket && currentStation && isPlaying && !isPlayingAd) {
       globalSocket.emit('start_listen', { stationId: currentStation._id, location: userLocation });
