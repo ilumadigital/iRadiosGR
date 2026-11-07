@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Radio, SignalHigh } from 'lucide-react';
 import StationListenButton, { stationIsPlaying } from './StationListenButton';
+import { formatStationTransmission } from '../utils/stationFrequency';
 
 // Shared genre/region cards: a station profile action is separate from the player action.
 export default function StationCatalogCard({
@@ -10,8 +11,7 @@ export default function StationCatalogCard({
   const navigate=useNavigate();
   const active=stationIsPlaying(station,currentStation,isPlaying);
   const profile=()=>navigate('/station/'+(station.slug||station._id));
-  const meta=station.transmissionType==='Επίγειο'&&station.frequency
-    ? station.frequency+' FM' : (station.transmissionType||'Web Radio');
+  const meta=formatStationTransmission(station);
   const listen=<StationListenButton station={station} currentStation={currentStation} isPlaying={isPlaying}
     onPlayStation={onPlayStation} onPlayPause={onPlayPause} className={mode==='grid'?'w-full':'shrink-0'}/>;
   if(mode==='list')return (
