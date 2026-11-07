@@ -37,6 +37,8 @@ jobs:
         run: node ops/check-phase2-design-system.cjs
       - name: Validate Phase 2 listener player and station UI contracts
         run: node ops/check-phase2-player-station.cjs
+      - name: Validate editorial slides, station playlist and desktop player
+        run: node ops/check-phase3-home.cjs
       - name: Validate frontend production build
         # Existing react-simple-maps@1.0.0 declares React 16 peers despite the React 19 app.
         # Use the same legacy resolution needed by the current project; track upgrade separately.
