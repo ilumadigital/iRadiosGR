@@ -22,6 +22,15 @@ Module._load = function(name, parent, isMain) {
   if (name === './recordStationTrack' && from.endsWith('stageMetadata.js')) {
     return { recordStationTrack: async () => true };
   }
+  if (name === './recordStationTrack' && from.endsWith('stageSmartTracks.js')) {
+    // Offline CI does not install MongoDB dependencies. Use a deterministic
+    // parser in this legacy mock; full parser is covered by the Phase 3.3 test.
+    return { parseTrack: raw => {
+      const m=String(raw||'').match(/^(.+?)\\s+-\\s+(.+)$/);
+      return m ? {raw,artist:m[1],title:m[2]} : null;
+    }, recordStationTrack:async()=>true };
+  }
+
   if (name === './stageSafeRadioFetch' && from.endsWith('stageMetadata.js')) {
     return { readPublicUrl: async url => {
       upstreamUrls.push(url);
