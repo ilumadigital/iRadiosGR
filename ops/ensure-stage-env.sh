@@ -52,8 +52,10 @@ if ! grep -qx 'APP_ENV=staging' "$BACKEND_ENV"; then
 fi
 
 cd "$APP"
+# The checkout is owned by 'iradios', not root. Perform Git checks as owner.
+sudo -u iradios git rev-parse --is-inside-work-tree >/dev/null
 for link in .env backend/.env; do
-  if git ls-files --error-unmatch -- "$link" >/dev/null 2>&1; then
+  if sudo -u iradios git ls-files --error-unmatch -- "$link" >/dev/null 2>&1; then
     echo "STOP: $link is tracked by Git! Do not link secrets into tracked paths." >&2
     exit 1
   fi
@@ -78,6 +80,13 @@ ensure_link() {
 
 ensure_link .env "$COMPOSE_ENV"
 ensure_link backend/.env "$BACKEND_ENV"
+
+for link in .env backend/.env; do
+  if ! sudo -u iradios git check-ignore -q "$link"; then
+    echo "STOP: Git does not ignore $link; update .gitignore before proceeding." >&2
+    exit 1
+  fi
+done
 
 # The Compose env and backend env are intentionally separate:
 # the backend must NOT receive the MongoDB root/admin credential.
