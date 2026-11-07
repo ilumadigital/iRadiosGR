@@ -10,6 +10,7 @@ const {recognizeApprovedStation,readyForAcr}=require('./stageAcrcloud');
 
 const listeners=new Map(); // session UUID -> station ID and expiry, no user data or IP addresses.
 const lastAutomatic=new Map();
+const lastNativeProbe=new Map(); // one upstream metadata check per Top-10 station per five minutes
 const lastBeat=new Map();
 const LISTEN_TTL=155000;
 const TICK_MS=30000;
@@ -74,9 +75,16 @@ async function reserveDailyBudget(now=Date.now()){
   return Boolean(reserved);
 }
 async function inspectAndMaybeIdentify(station,now=Date.now()){
-  if(lastAutomatic.get(String(station._id))>now)return;
-  const native=await readCachedNativeMetadata(station);
-  const status=statusFromNative(native,station.name);
+  const id=String(station._id);
+  if(lastAutomatic.get(id)>now)return;
+  let probe=lastNativeProbe.get(id);
+  if(!probe || probe.until<=now){
+    const native=await readCachedNativeMetadata(station);
+    probe={title:native,until:Date.now()+FIVE_MINUTES};
+    if(lastNativeProbe.size>100)lastNativeProbe.clear();
+    lastNativeProbe.set(id,probe);
+  }
+  const status=statusFromNative(probe.title,station.name);
   if(status==='valid'){
     clearAutomaticAI(station._id);
     return;
@@ -85,7 +93,6 @@ async function inspectAndMaybeIdentify(station,now=Date.now()){
   if(getSharedAI(station._id)?.kind==='manual')return;
 
   // Each station's clock starts BEFORE capture; even failures cannot spin.
-  const id=String(station._id);
   lastAutomatic.set(id,Date.now()+FIVE_MINUTES);
   try{
     const result=await recognizeApprovedStation(station,{beforeVendorCall:reserveDailyBudget});
