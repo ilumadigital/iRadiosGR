@@ -17,6 +17,8 @@ jobs:
         run: find backend -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check
       - name: Check staging radio proxy URL safety
         run: node ops/check-stage-stream-proxy.cjs
+      - name: Verify public staging API access boundaries
+        run: node ops/check-stage-public-access.cjs
       - name: Validate stage Compose YAML
         run: |
           python3 -m pip install --quiet PyYAML
