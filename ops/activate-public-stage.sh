@@ -9,15 +9,15 @@ CONF=/etc/nginx/sites-available/iradios-stage
 # file that isn't loaded by Nginx leaves the old Basic Auth in effect.
 ACTIVE_SOURCES=$(nginx -T 2>&1 | awk '
   /^# configuration file / { file=$4; sub(/:$/, "", file) }
-  /^[[:space:]]*server_name[[:space:]]+stage\\.iradios\\.gr;/ { if (file != "") print file }
+  index($0, "server_name stage.iradios.gr;") > 0 { if (file != "") print file }
 ' | sort -u)
 if [[ -z "$ACTIVE_SOURCES" ]]; then
   echo "STOP: no loaded Nginx server_name for stage.iradios.gr" >&2
   exit 1
 fi
-if [[ "$(printf '%s\\n' "$ACTIVE_SOURCES" | wc -l)" -ne 1 ]]; then
+if [[ "$(printf '%s\n' "$ACTIVE_SOURCES" | wc -l)" -ne 1 ]]; then
   echo "STOP: multiple active Nginx configuration files for stage.iradios.gr:" >&2
-  printf '%s\\n' "$ACTIVE_SOURCES" >&2
+  printf '%s\n' "$ACTIVE_SOURCES" >&2
   exit 1
 fi
 ACTIVE_FILE=$(readlink -f "$ACTIVE_SOURCES")
