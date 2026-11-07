@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 
 // Accessible searchable filter popover with explicit selection, rather than native HTML selects.
-export default function CatalogFilterPopover({label,value='all',options=[],onChange,allLabel='Όλα',searchable=true}) {
+export default function CatalogFilterPopover({label,value='all',options=[],onChange,allLabel='Όλα',searchable=true,includeAll=true}) {
   const [open,setOpen]=useState(false);
   const [query,setQuery]=useState('');
   const shell=useRef(null);
@@ -14,7 +14,7 @@ export default function CatalogFilterPopover({label,value='all',options=[],onCha
     document.addEventListener('pointerdown',outside);
     return ()=>{document.removeEventListener('keydown',close);document.removeEventListener('pointerdown',outside);};
   },[open]);
-  const choices=[{value:'all',label:allLabel},...options.map(x=>
+  const choices=[...(includeAll?[{value:'all',label:allLabel}]:[]),...options.map(x=>
     typeof x==='string'?{value:x,label:x}:{value:x.value,label:x.label})];
   const chosen=choices.find(x=>x.value===value)?.label||label;
   const filtered=choices.filter(x=>x.value==='all'||x.label.toLocaleLowerCase('el').includes(query.trim().toLocaleLowerCase('el')));
