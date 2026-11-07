@@ -62,6 +62,10 @@ function stagePublicAccess(req, res, next) {
   // A user may read their own profile and favorites, never another user's.
   if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
 
+  // Signed-in users can accept terms for their own JWT identity only.
+  // The controller never accepts a client-supplied user ID.
+  if (req.method === 'PUT' && path === '/api/users/me/accept-terms') return protect(req,res,next);
+
   const favoriteMatch = req.method === 'POST' &&
     new RegExp('^/api/users/[0-9a-fA-F]{24}/favorites$').test(path);
   if (favoriteMatch) {

@@ -33,6 +33,9 @@ for(const p of ['/admin/users','/stations/all','/auth/me','/agency/test','/payme
  assert.equal(result.reached,false,'block private '+p);
  assert.equal(result.res.code,401);
 }
+const consentWithoutJwt=call('PUT','/users/me/accept-terms');
+assert.equal(consentWithoutJwt.reached,false,'terms acceptance requires JWT');
+assert.equal(consentWithoutJwt.res.code,401);
 const blocked=call('POST','/stations');
 assert.equal(blocked.res.code,401);
 (async()=>{

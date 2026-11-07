@@ -337,11 +337,14 @@ const GEO_DICTIONARY = {
 const RequireTerms = ({ currentUser, children }) => {
   if (!currentUser) return children; 
   if (currentUser.role === 'admin') return children;
+  if (currentUser.role === 'broadcaster') {
+    return currentUser.hasAcceptedCurrentBroadcasterTerms === true
+      ? children
+      : <Navigate to="/broadcaster-terms" replace />;
+  }
   if (currentUser.hasAcceptedTerms) return children;
 
-  if (currentUser.role === 'broadcaster') {
-    return <Navigate to="/broadcaster-terms" replace />;
-  } else if (currentUser.role === 'agency') {
+  if (currentUser.role === 'agency') {
     return <Navigate to="/agency-terms" replace />;
   } else {
     return <Navigate to="/terms" replace />;
