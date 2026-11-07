@@ -8,6 +8,7 @@ const {readPublicUrl}=require('./stageSafeRadioFetch');
 const {publishAI}=require('./stageSmartTracks');
 
 const attempts=new Map(),captures=new Map();
+const inFlightStations=new Map(); // Manual and automatic requests share one paid recognition per station.
 const WINDOW_MS=15*60*1000,MAX_CALLS=3,MAX_CAPTURES=6;
 function validAcrHost(value){
   return typeof value==='string'&&value.length<=253&&
@@ -55,7 +56,16 @@ function recognitionError(code){
 }
 // Reusable by BOTH manual recognition and the centrally scheduled Top-10 fallback.
 // beforeVendorCall lets manual requests enforce per-user billed request limits.
-async function recognizeApprovedStation(station,{beforeVendorCall}={}){
+async function recognizeApprovedStation(station,options={}){
+  const key=String(station?._id||'');
+  if(inFlightStations.has(key))return inFlightStations.get(key);
+  const work=performRecognition(station,options);
+  if(inFlightStations.size>64)inFlightStations.clear();
+  inFlightStations.set(key,work);
+  try{return await work;}
+  finally{if(inFlightStations.get(key)===work)inFlightStations.delete(key);}
+}
+async function performRecognition(station,{beforeVendorCall}={}){
   if(process.env.STAGE_ENABLE_ACRCLOUD!=='1')throw recognitionError('ACR_DISABLED');
   const {ACRCLOUD_HOST:host,ACRCLOUD_ACCESS_KEY:key,ACRCLOUD_ACCESS_SECRET:secret}=process.env;
   if(!validAcrHost(host)||!key||!secret)throw recognitionError('ACR_CONFIG');
