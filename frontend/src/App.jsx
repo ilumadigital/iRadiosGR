@@ -1739,7 +1739,7 @@ function MainApp() {
 
             <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
@@ -1821,7 +1821,7 @@ function MainApp() {
         
         <MobileMiniPlayer 
           currentStation={currentStation} isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo}
-          adTimeRemaining={adTimeRemaining} adWarning={adWarning} nowPlaying={nowPlaying}
+          adTimeRemaining={adTimeRemaining} adWarning={adWarning} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo}
           isPlaying={isPlaying} togglePlayPause={togglePlayPause} isBuffering={isBuffering}
           toggleFavorite={handleToggleFavorite} isFavorite={isFavorite}
           currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))}
@@ -1840,7 +1840,7 @@ function MainApp() {
       <Footer 
         currentStation={currentStation} isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo} isBuffering={isBuffering}    
         adTimeRemaining={adTimeRemaining} adWarning={adWarning} isPlaying={isPlaying} 
-        nowPlaying={isPlayingAd ? `Sponsored: ${currentAdInfo?.title}` : nowPlaying} 
+        nowPlaying={isPlayingAd ? `Sponsored: ${currentAdInfo?.title}` : nowPlaying} nowPlayingInfo={nowPlayingInfo} 
         volume={volume} setVolume={setVolume} togglePlayPause={togglePlayPause} 
         toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} 
         handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}  
