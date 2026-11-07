@@ -593,6 +593,8 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           currentUser={currentUser}
           currentStation={currentStation}
           stations={stations}
+          isPlaying={isPlaying}
+          onPlayPause={onPlayPause}
           onPlayStation={setCurrentStation}
           onOpenDiscovery={onOpenDiscovery}
           onFeaturedStationChange={setHeroStationId}
@@ -614,8 +616,8 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
             <PlayingNow stations={stations} API_URL={API_URL} currentUser={currentUser}/>
           ) : (
             <section className="rounded-2xl border border-[#ccff00]/15 bg-[#ccff00]/[0.05] p-5">
-              <h2 className="flex items-center gap-2 text-xl font-black text-white"><Radio size={21} className="text-[#ccff00]"/> Τώρα παίζουν</h2>
-              <p className="mt-3 max-w-lg text-sm text-zinc-300">Συνδέσου για να βλέπεις τραγούδια και καλλιτέχνες μόνο από σταθμούς με πραγματικά metadata.</p>
+              <h2 className="flex items-center gap-2 text-xl font-black text-white"><Radio size={21} className="text-[#ccff00]"/> Συνδέσου στο iRadios για NowPlaying</h2>
+              <p className="mt-3 max-w-lg text-sm text-zinc-300">Η ζωντανή ακρόαση παραμένει δωρεάν. Συνδέσου για να βλέπεις πραγματικά τραγούδια και καλλιτέχνες.</p>
               <button onClick={()=>navigate('/login')} className="ir-action-primary mt-4 px-5 text-sm"><LogIn size={16}/> Σύνδεση</button>
             </section>
           )}
@@ -632,6 +634,9 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         currentUser={currentUser}
         recentStations={recentlyPlayed}
         favoriteStations={favoriteStations}
+        currentStation={currentStation}
+        isPlaying={isPlaying}
+        onPlayPause={onPlayPause}
         onPlayStation={setCurrentStation}
         onOpenDiscovery={onOpenDiscovery}
       />
