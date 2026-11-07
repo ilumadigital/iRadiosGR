@@ -70,14 +70,16 @@ exports.publicSlides = async (req,res) => {
   try {
     const placement = req.query.placement || 'home';
     const value = clean(req.query.value);
+    const tileFeed = req.query.tiles === '1';
     if (!['home','genre','region'].includes(placement) ||
-        (placement !== 'home' && (!value || value.length > 120))) {
+        (tileFeed && placement === 'home') ||
+        (placement !== 'home' && (!value || value.length > 120) && !tileFeed)) {
       return res.status(400).json({error:'Μη έγκυρη τοποθέτηση editorial slide.'});
     }
     // Existing pre-placement documents remain visible on Home without a data migration.
     const scope = placement === 'home'
       ? {$or:[{placement:'home'},{placement:{$exists:false}}]}
-      : {placement,placementValue:value};
+      : tileFeed ? {placement} : {placement,placementValue:value};
     const now = new Date();
     const slides = await Slide.find({
       ...scope,
@@ -87,7 +89,7 @@ exports.publicSlides = async (req,res) => {
         { $or: [{endsAt: null}, {endsAt: {$gt:now}}] }
       ]
     }).select('title subtitle eyebrow imageUrl ctaLabel targetType stationId genre externalUrl audience priority placement placementValue')
-      .sort({ priority:-1, createdAt:-1 }).limit(16).lean();
+      .sort({ priority:-1, createdAt:-1 }).limit(tileFeed ? 80 : 16).lean();
     res.setHeader('Cache-Control', 'public, max-age=30');
     res.json(slides);
   } catch(e) { fail(res,e); }
