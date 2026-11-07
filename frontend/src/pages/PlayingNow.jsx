@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, Radio, AudioLines } from 'lucide-react';
 import { cleanMetadata } from '../utils/cleanMetadata'; 
 
-export default function PlayingNow({ stations, API_URL }) {
+export default function PlayingNow({ stations, API_URL, currentUser }) {
   const navigate = useNavigate(); 
   const [liveStations, setLiveStations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,7 +26,9 @@ export default function PlayingNow({ stations, API_URL }) {
         
         const promises = batch.map(async (station) => {
           try {
-            const metaRes = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(station.stream)}&customMeta=${encodeURIComponent(station.metadata || '')}`);
+            const metaRes = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(station.stream)}`, {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('iluma_token') || ''}` }
+            });
             const metaData = await metaRes.json();
             
             if (metaData && metaData.title && metaData.title.trim() !== '') {
@@ -78,9 +80,9 @@ export default function PlayingNow({ stations, API_URL }) {
       mountedRef.current = false;
       clearInterval(intervalId);
     };
-  }, [stations, API_URL]); 
+  }, [stations, API_URL, currentUser]); 
 
-  if (!isLoading && liveStations.length === 0) return null;
+  // Do not hide the Home now-playing section if stations have no valid metadata.
 
   return (
     <div className="w-full py-6 overflow-hidden animate-fade-in">
@@ -92,6 +94,9 @@ export default function PlayingNow({ stations, API_URL }) {
         </h2>
       </div>
 
+      {!isLoading && liveStations.length === 0 && (
+        <p className="px-6 pb-4 text-sm text-zinc-400">Δεν υπάρχουν διαθέσιμα μουσικά metadata αυτή τη στιγμή.</p>
+      )}
       <div className="flex overflow-x-auto gap-4 px-6 pb-6 pt-2 custom-scrollbar snap-x snap-mandatory">
         {liveStations.map((item, index) => {
           const hasCustomCover = item.coverArt !== item.logo;

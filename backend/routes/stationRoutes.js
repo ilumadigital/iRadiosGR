@@ -103,7 +103,9 @@ router.post('/recognize', memoryUpload.single('sample'), async (req, res) => {
 // ==============================================================
 // 🚀 CLOUD RECOGNITION (Προσπέλαση των περιορισμών του iPhone)
 // ==============================================================
-router.post('/recognize-proxy', async (req, res) => {
+router.post('/recognize-proxy', process.env.APP_ENV === 'staging'
+  ? require('../utils/stageAcrcloud').stageRecognizeProxy
+  : async (req, res) => {
   try {
     const { streamUrl } = req.body;
     if (!streamUrl) return res.status(400).json({ error: 'Λείπει το URL του σταθμού.' });

@@ -28,7 +28,7 @@ for(const p of ['/stations','/stations/discovery','/proxy-stream','/health','/co
  const result=call('GET',p);
  assert.equal(result.reached,true,'allow public '+p);
 }
-for(const p of ['/admin/users','/stations/all','/auth/me','/agency/test','/payments']) {
+for(const p of ['/admin/users','/stations/all','/auth/me','/metadata','/agency/test','/payments']) {
  const result=call('GET',p);
  assert.equal(result.reached,false,'block private '+p);
  assert.equal(result.res.code,401);
@@ -36,6 +36,9 @@ for(const p of ['/admin/users','/stations/all','/auth/me','/agency/test','/payme
 const consentWithoutJwt=call('PUT','/users/me/accept-terms');
 assert.equal(consentWithoutJwt.reached,false,'terms acceptance requires JWT');
 assert.equal(consentWithoutJwt.res.code,401);
+const recognizeWithoutJwt=call('POST','/recognize-proxy',{stationId:'000000000000000000000000'});
+assert.equal(recognizeWithoutJwt.reached,false,'cloud recognition requires JWT');
+assert.equal(recognizeWithoutJwt.res.code,401);
 const blocked=call('POST','/stations');
 assert.equal(blocked.res.code,401);
 (async()=>{

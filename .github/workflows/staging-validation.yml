@@ -29,6 +29,8 @@ jobs:
         run: node ops/check-stage-public-access.cjs
       - name: Verify versioned broadcaster consent behavior
         run: node ops/check-phase1-broadcaster-consent.cjs
+      - name: Test authenticated staging metadata and ACRCloud safety
+        run: node ops/check-stage-metadata-acrcloud.cjs
       - name: Validate frontend production build
         # Existing react-simple-maps@1.0.0 declares React 16 peers despite the React 19 app.
         # Use the same legacy resolution needed by the current project; track upgrade separately.

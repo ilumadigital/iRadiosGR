@@ -690,7 +690,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
 
       {/* 🟢 ΕΛΕΓΧΟΣ: Αν είναι συνδεδεμένος δείχνει το PlayingNow, αλλιώς το Promo Banner */}
       {currentUser ? (
-        <PlayingNow stations={stations} API_URL={API_URL} />
+        <PlayingNow stations={stations} API_URL={API_URL} currentUser={currentUser} />
       ) : (
         <div className="w-full py-6 px-6">
           <div className="bg-[#ccff00] rounded-[32px] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 shadow-[0_20px_40px_rgba(204,255,0,0.15)] relative overflow-hidden group border border-[#ccff00]/50">
