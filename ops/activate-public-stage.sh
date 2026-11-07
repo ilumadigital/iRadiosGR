@@ -5,6 +5,29 @@ set -euo pipefail
 [[ "$(id -u)" == "0" ]] || { echo "Run as root" >&2; exit 1; }
 cd /srv/iradios/staging/app
 CONF=/etc/nginx/sites-available/iradios-stage
+# Detect which config actually serves stage.iradios.gr. Editing a sites-available
+# file that isn't loaded by Nginx leaves the old Basic Auth in effect.
+ACTIVE_SOURCES=$(nginx -T 2>&1 | awk '
+  /^# configuration file / { file=$4; sub(/:$/, "", file) }
+  /^[[:space:]]*server_name[[:space:]]+stage\\.iradios\\.gr;/ { if (file != "") print file }
+' | sort -u)
+if [[ -z "$ACTIVE_SOURCES" ]]; then
+  echo "STOP: no loaded Nginx server_name for stage.iradios.gr" >&2
+  exit 1
+fi
+if [[ "$(printf '%s\\n' "$ACTIVE_SOURCES" | wc -l)" -ne 1 ]]; then
+  echo "STOP: multiple active Nginx configuration files for stage.iradios.gr:" >&2
+  printf '%s\\n' "$ACTIVE_SOURCES" >&2
+  exit 1
+fi
+ACTIVE_FILE=$(readlink -f "$ACTIVE_SOURCES")
+EXPECTED_FILE=$(readlink -f "$CONF")
+if [[ "$ACTIVE_FILE" != "$EXPECTED_FILE" ]]; then
+  echo "STOP: Nginx serves stage from $ACTIVE_FILE, not $EXPECTED_FILE." >&2
+  echo "Resolve site alias or duplicate config first; no changes made." >&2
+  exit 1
+fi
+echo "Active stage Nginx config: $ACTIVE_FILE"
 test -s "$CONF"
 test -s ops/nginx-stage.conf
 grep -q 'auth_basic off;' ops/nginx-stage.conf
@@ -40,6 +63,27 @@ trap rollback ERR
 install -o root -g root -m 644 ops/nginx-stage.conf "$CONF"
 nginx -t
 systemctl reload nginx
+
+# Nginx reload is asynchronous. Do not mistake the first old-worker 401
+# response for a persistent config failure and immediately roll back.
+READY=0
+for i in $(seq 1 12); do
+  code=$(curl --noproxy '*' --resolve stage.iradios.gr:443:127.0.0.1 \
+    -sS --connect-timeout 3 --max-time 6 -o /dev/null -w '%{http_code}' \
+    https://stage.iradios.gr/ || true)
+  if [[ "$code" == "200" ]]; then
+    READY=1
+    echo "Public stage homepage is live: HTTP 200"
+    break
+  fi
+  echo "Waiting for HTTPS site reload: observed HTTP ${code:-unavailable}"
+  sleep 1
+done
+if [[ "$READY" != 1 ]]; then
+  echo "STOP: Nginx still returns 401/non-200 after public config reload" >&2
+  nginx -T 2>&1 | grep -n -B 3 -A 3 'auth_basic' || true
+  false
+fi
 bash ops/test-public-stage.sh
 ACTIVATED=1
 trap - ERR
