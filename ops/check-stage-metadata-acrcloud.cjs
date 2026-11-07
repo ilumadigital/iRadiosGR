@@ -19,6 +19,10 @@ Module._load = function(name, parent, isMain) {
       select: () => ({ lean: async () => station })
     }), exists: async () => true };
   }
+  if (name === '../models/StationPlaylist' && from.endsWith('stageSmartTracks.js')) {
+    return {findOne:()=>({select:()=>({lean:async()=>null})}),
+      updateOne:async()=>({matchedCount:1})};
+  }
   if (name === './recordStationTrack' && from.endsWith('stageMetadata.js')) {
     return { recordStationTrack: async () => true };
   }
