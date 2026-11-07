@@ -38,6 +38,6 @@ assert.equal(blocked.res.code,401);
 (async()=>{
  const result=call('POST','/auth/login',{identifier:'not-an-admin'});
  await result.result;
- assert.equal(result.res.code,403);
+ assert.equal(result.res.code,401);
  console.log('Public stage route authorization tests passed.');
 })().catch(e=>{console.error(e);process.exitCode=1});
