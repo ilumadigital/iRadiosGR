@@ -73,7 +73,7 @@ export default function TopBar({
         `}
       </style>
 
-      <header className="h-[72px] sticky top-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-4 lg:px-8">
+      <header className="ir-app-topbar h-[72px] sticky top-0 z-50 flex items-center justify-between px-4 lg:px-8">
         
         {/* LEFT: MOBILE MENU & LOGO */}
         <div className="flex items-center gap-4">
@@ -107,7 +107,7 @@ export default function TopBar({
               value={searchTerm} 
               onFocus={() => setShowSearchResults(true)} 
               onChange={(e) => setSearchTerm(e.target.value)} 
-              className="w-full bg-zinc-900/50 border border-white/5 h-10 sm:h-11 rounded-xl sm:rounded-2xl pl-12 pr-10 text-sm focus:outline-none focus:border-[#ccff00]/30 transition-all text-white" 
+              className="ir-search-field w-full h-11 pl-12 pr-10 text-sm transition-all text-white" 
             />
             {searchTerm && (
               <X 
@@ -196,7 +196,7 @@ export default function TopBar({
           ) : (
             <div className="flex items-center gap-3">
               <Link to="/login" className="bg-[#ccff00] text-black text-xs font-black px-6 py-2.5 rounded-full hover:brightness-110 transition-all shadow-lg">Σύνδεση</Link>
-              <Link to="/register" className="bg-white text-black text-xs font-black px-6 py-2.5 rounded-full hover:bg-zinc-200 transition-all">Εγγραφή</Link>
+              <Link to="/register" className="ir-action-primary text-xs px-6 py-2.5 rounded-full transition-all">Εγγραφή</Link>
             </div>
           )}
         </div>
