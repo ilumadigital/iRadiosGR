@@ -487,6 +487,10 @@ export default function StationProfile({
                     </span>
                   </h2>
                 </div>
+              ) : !currentUser ? (
+                <button type="button" onClick={()=>navigate('/login')} className="min-h-11 text-left text-sm font-bold text-[#ccff00] hover:underline">
+                  Συνδέσου στο iRadios για NowPlaying
+                </button>
               ) : (
                 station.slogan && (
                   <h2 className="text-lg lg:text-xl text-[#ffffff55] tracking-tight mt-1 animate-fade-in">
