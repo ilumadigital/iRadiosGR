@@ -63,3 +63,70 @@ This safely pulls staging and recreates stage containers; it refuses non-staging
 - Playback, cover-art URLs and SSL remain functional.
 
 No environment file change alone can restore the old stage behavior: earlier stage code hard-disabled metadata and ACRCloud. Merge/deploy the reviewed code separately.
+
+## Recognition troubleshooting — after isolated staging deployment
+
+**Security first:** If keys have ever appeared in a screenshot, ticket or chat, rotate the
+project Access Key/Secret Key in ACRCloud before enabling recognition. Never paste
+their values into the chat, shell diagnostics or logs.
+
+The project host is an **Identify host** from ACRCloud (example:
+`identify-eu-west-1.acrcloud.com`), **not** a console URL or `https://` string.
+The signed request uses the ACRCloud project keys, not account-wide REST API keys.
+
+The server deliberately requires an additional opt-in switch. After replacing
+exposed keys and confirming ACRCloud usage/billing is acceptable, edit
+`/etc/iradios/staging/backend.env` using `sudoedit` and ensure exactly one line
+for each of these names (do not commit this file):
+
+```dotenv
+STAGE_ENABLE_ACRCLOUD=1
+ACRCLOUD_HOST=identify-eu-west-1.acrcloud.com
+ACRCLOUD_ACCESS_KEY=YOUR_NEW_PROJECT_ACCESS_KEY
+ACRCLOUD_ACCESS_SECRET=YOUR_NEW_PROJECT_ACCESS_SECRET
+```
+
+Replace the placeholders with private **new** project credentials; if you already
+configured the host correctly leave it unchanged. Keep other stage environment
+values, JWT, MongoDB and production connection settings untouched.
+
+**Changes in env_file do not update an existing Docker container.** After the
+reviewed staging code is merged, redeploy only staging to recreate backend and
+frontend containers:
+
+```bash
+cd /srv/iradios/staging/app
+sudo ./ilumadev.sh
+sudo bash ops/check-stage-acrcloud-runtime.sh
+```
+
+The check prints **only** ON/OFF and PRESENT/MISSING (no secrets); it does **not**
+call the billable ACRCloud API. If it shows OFF/NOT READY, solve the environment
+problem before trying the button again.
+
+Once the runtime check says READY TO TEST, sign in to staging and press
+**Βρες το τραγούδι** once on a known working music stream while a song is playing.
+The user-facing messages now distinguish:
+
+| Result | Meaning |
+| --- | --- |
+| ACR_DISABLED / ACR_CONFIG | Stage switch off / missing or invalid credentials |
+| STREAM_UNAVAILABLE / STREAM_FORMAT / STREAM_SHORT | Unable to capture a supported, long-enough music sample from that approved station |
+| ACR_AUTH | ACRCloud rejected the project key, signature or authentication; check/rotate credentials |
+| ACR_QUOTA | ACRCloud project request or QPS limit reached; check project usage/billing |
+| ACR_RATE_LIMIT | Local per-user limit (3 recognitions, 6 stream captures per 15 minutes) |
+| No result (ACRCloud 1001) | The service received the request but did not match the current audio; try during a recognizable song |
+
+If still failing, **without disclosing secrets**, inspect only diagnostic event
+names from the staging backend:
+
+```bash
+cd /srv/iradios/staging/app
+sudo docker compose --env-file /etc/iradios/staging/compose.env -f compose.stage.yml logs --tail=100 backend | grep '\[STAGE_ACRCLOUD\]' || true
+```
+
+Do not paste complete Docker logs, HTTP headers, Authorization tokens or raw
+ACRCloud responses into a chat. Give the event type and the safe frontend
+error code only. **No live ACRCloud recognition has been verified by CI**; CI
+uses synthetic offline tests and cannot access your Hostinger secrets or radio
+streams. Radio streaming stays public and independent of recognition.
