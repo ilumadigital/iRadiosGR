@@ -10,7 +10,7 @@ export default function MobileNav({ currentUser, onOpenDiscovery }) {
   const isFreeUser = !currentUser || !currentUser.isPremium;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-[72px] bg-black/95 backdrop-blur-xl border-t border-white/5 flex items-center justify-around lg:hidden z-[100] px-2 pb-safe">
+    <nav className="ir-app-mobile-nav fixed bottom-0 left-0 right-0 h-[72px] flex items-center justify-around lg:hidden z-[100] px-2">
       
       {/* ΑΡΧΙΚΗ */}
       <Link to="/" className={`flex flex-col items-center gap-1.5 w-16 transition-colors ${isActive('/') ? 'text-[#ccff00]' : 'text-zinc-500 hover:text-zinc-400'}`}>
