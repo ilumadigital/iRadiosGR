@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ListMusic, Radio, Play, RefreshCw, Music2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import StationListenButton from './StationListenButton';
 
 const resolveTime = date => {
   const d=new Date(date);
@@ -34,7 +35,7 @@ function TrackCover({track,fallback}) {
 }
 
 export default function StationPlaylistPanel({
-  station, currentUser, onPlayStation, compact=false
+  station, currentUser, currentStation, isPlaying, onPlayPause, onPlayStation, compact=false
 }) {
   const navigate=useNavigate();
   const [tracks,setTracks]=useState([]);
@@ -68,21 +69,21 @@ export default function StationPlaylistPanel({
     <section className={`ir-playlist-panel ir-glass flex min-w-0 flex-col overflow-hidden p-4 sm:p-5 ${compact?'ir-playlist-panel--compact h-full':''}`} aria-label="Πρόσφατα τραγούδια σταθμού">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#ccff00]"><Radio size={14}/> ΠΑΙΖΕΙ ΣΤΟ iRADIOS</p>
-          <h2 className="mt-1 text-xl font-black text-white">Playlist σταθμού</h2></div>
+          <h2 className="mt-1 text-xl font-black text-white">{currentUser?'Playlist σταθμού':'Συνδέσου στο iRadios για NowPlaying'}</h2></div>
         <button type="button" title="Ανανέωση playlist" aria-label="Ανανέωση playlist" onClick={()=>setRefresh(n=>n+1)} disabled={!currentUser||loading} className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-[#ccff00] disabled:opacity-40"><RefreshCw size={17} className={loading?'animate-spin':''}/></button>
       </div>
       <div className="mt-4 flex shrink-0 items-center gap-3 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/[0.045] p-3">
         {chosen?.logo&&<img src={chosen.logo} alt="" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"/>}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-black text-white">{chosen?.name||'Δεν έχει επιλεγεί σταθμός'}</div>
-          <span className="mt-1 block text-[11px] text-zinc-400">Τελευταία 12 τραγούδια · από πραγματικά metadata</span>
+          <span className="mt-1 block text-[11px] text-zinc-400">Τα τελευταία Tracks του {chosen?.name||'σταθμού'}</span>
         </div>
-        {onPlayStation&&chosen&&<button type="button" onClick={()=>onPlayStation(chosen)} aria-label={'Αναπαραγωγή '+chosen.name}
-          className="ir-player-transport flex h-10 w-10 shrink-0 items-center justify-center rounded-full"><Play fill="currentColor" size={18}/></button>}
+        {onPlayStation&&chosen&&<StationListenButton station={chosen} currentStation={currentStation} isPlaying={isPlaying}
+          onPlayStation={onPlayStation} onPlayPause={onPlayPause} className="shrink-0"/>}
       </div>
       {!currentUser?(
         <div className="py-10 text-center"><ListMusic size={30} className="mx-auto mb-3 text-[#ccff00]"/>
-          <p className="text-sm text-zinc-300">Συνδέσου για να δεις το ιστορικό τραγουδιών ανά σταθμό.</p>
+          <p className="text-sm text-zinc-300">Συνδέσου στο iRadios για NowPlaying</p>
           <button onClick={()=>navigate('/login')} className="mt-4 rounded-xl border border-[#ccff00]/40 px-5 py-2 text-sm font-bold text-[#ccff00]">Σύνδεση</button>
         </div>
       ):error?<p role="alert" className="mt-6 text-sm text-red-300">{error}</p>

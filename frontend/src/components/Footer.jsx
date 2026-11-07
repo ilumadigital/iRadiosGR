@@ -311,7 +311,7 @@ export default function Footer({
                 <div className="flex items-center gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full ${isRecognizing ? 'bg-blue-400 animate-ping' : isPlaying ? 'bg-[#ccff00] shadow-[0_0_8px_#ccff00]' : 'bg-red-500'}`}></div>
                   <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all ${isRecognizing ? 'text-blue-400' : 'text-[#ccff00]'}`}>
-                    {isRecognizing ? nowPlaying : (!isRealSong ? (isPlaying ? 'ΠΑΙΖΕΙ ΤΩΡΑ' : 'STOPPED') : nowPlaying)}
+                    {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying : (!isRealSong ? (isPlaying ? 'ΠΑΙΖΕΙ ΤΩΡΑ' : 'STOPPED') : nowPlaying)}
                   </span>
                 </div>
               )}

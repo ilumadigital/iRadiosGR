@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import StationCatalogCard from './StationCatalogCard';
+import EditorialPlacement from './EditorialPlacement';
 import {
   Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
   Play, MapPin, X, Headphones, Disc3, Music2, Grid2X2, MapPinned
@@ -25,7 +27,7 @@ const tabs=[
   {id:'all',label:'Όλοι',Icon:Grid2X2}
 ];
 
-export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], onPlayStation, onOpenDiscovery}) {
+export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery}) {
   const navigate=useNavigate();
   const location=useLocation();
   const [tab,setTab]=useState('for-you');
@@ -35,6 +37,26 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
   const [showAll,setShowAll]=useState(false);
   const [showRegions,setShowRegions]=useState(false);
   const [regionSearch,setRegionSearch]=useState('');
+  const [editorialTiles,setEditorialTiles]=useState({genre:[],region:[]});
+  useEffect(()=>{
+    const controller=new AbortController();
+    Promise.all(['genre','region'].map(placement=>
+      fetch('/api/home-slides?'+new URLSearchParams({placement,tiles:'1'}),{signal:controller.signal})
+        .then(r=>r.ok?r.json():[])
+        .catch(()=>[])
+    )).then(([genres,regions])=>{
+      if(!controller.signal.aborted)setEditorialTiles({
+        genre:Array.isArray(genres)?genres:[],region:Array.isArray(regions)?regions:[]
+      });
+    });
+    return ()=>controller.abort();
+  },[]);
+  const canSeeSlide=slide=>slide.audience==='all'||!slide.audience||
+    (slide.audience==='guest'&&!currentUser)||
+    (slide.audience==='member'&&Boolean(currentUser))||
+    (slide.audience==='premium'&&Boolean(currentUser&&(currentUser.isPremium||currentUser.role==='admin'||currentUser?.broadcasterProfile?.tier==='premium')));
+  const genreSlideFor=name=>editorialTiles.genre.find(s=>s.placementValue===name&&canSeeSlide(s));
+  const regionSlideFor=name=>editorialTiles.region.find(s=>s.placementValue===name&&canSeeSlide(s));
   const genreList=useMemo(()=>{
     const counts=new Map();
     for(const station of stations)if(station.genre)counts.set(station.genre,(counts.get(station.genre)||0)+1);
@@ -110,11 +132,16 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
           <h3 className="flex items-center gap-2 text-base font-black text-white"><Disc3 size={20} className="text-[#ccff00]"/> Κατηγορίες</h3>
           <button type="button" onClick={()=>{setGenre('');setTab('all');}} className="text-xs font-semibold text-[#ccff00]">Όλα τα είδη <ChevronRight size={14} className="inline"/></button>
         </div>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8">
           {genreList.slice(0,8).map((g,i)=>{
             const count=eligible.filter(s=>s.genre===g).length;
+            const slide=genreSlideFor(g);
             return <button type="button" key={g} aria-pressed={genre===g} onClick={()=>{setGenre(genre===g?'':g);setTab('all');setShowAll(false);}}
               className={`ir-genre-tile relative flex aspect-[1.3] min-h-[104px] flex-col justify-between overflow-hidden rounded-2xl border bg-gradient-to-br p-3 text-left transition-all hover:-translate-y-0.5 ${gradients[i%gradients.length]} ${genre===g?'border-[#ccff00] ring-1 ring-[#ccff00]':'border-white/15 hover:border-white/40'}`}>
+              {slide?.imageUrl&&<>
+                <img src={slide.imageUrl} alt="" loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-65"/>
+                <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10"/>
+              </>}
               <Music2 size={21} className="relative z-10 text-white/90"/>
               <span className="relative z-10"><span className="block line-clamp-2 text-xs font-black leading-snug text-white">{g}</span><span className="mt-1 block text-[10px] text-zinc-300">{count} σταθμοί</span></span>
               <span aria-hidden="true" className="absolute -bottom-6 -right-3 h-20 w-20 rounded-full border-[14px] border-white/10"/>
@@ -127,6 +154,21 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
             className={`shrink-0 rounded-full border px-3 py-2 text-xs ${genre===g?'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]':'border-white/10 text-zinc-300 hover:border-[#ccff00]/50'}`}>{g}</button>)}
         </div>}
       </div>}
+
+      {editorialTiles.region.some(s=>canSeeSlide(s)&&regionList.includes(s.placementValue))&&
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {editorialTiles.region.filter((s,i,a)=>canSeeSlide(s)&&regionList.includes(s.placementValue)&&a.findIndex(x=>x.placementValue===s.placementValue)===i).slice(0,3).map(slide=>
+            <button type="button" key={slide._id} onClick={()=>{setRegion(slide.placementValue);setShowRegions(true);setTab('all');setShowAll(false);}}
+              className={`group relative min-h-28 overflow-hidden rounded-2xl border text-left transition-colors ${region===slide.placementValue?'border-[#ccff00]':'border-white/10 hover:border-[#ccff00]/40'}`}>
+              <img src={slide.imageUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-70 transition-transform group-hover:scale-105"/>
+              <span className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent"/>
+              <span className="relative z-10 flex h-full flex-col justify-end p-4">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#ccff00]">Προτεινόμενη περιοχή</span>
+                <span className="mt-1 text-sm font-black text-white">{slide.placementValue}</span>
+              </span>
+            </button>
+          )}
+        </div>}
 
       <div>
         <button type="button" onClick={()=>setShowRegions(v=>!v)} aria-expanded={showRegions}
@@ -149,25 +191,18 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
         </div>}
       </div>
 
+      {genre&&<EditorialPlacement placement="genre" value={genre} currentUser={currentUser} stations={stations}
+        currentStation={currentStation} isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>}
+      {region&&<EditorialPlacement placement="region" value={region} currentUser={currentUser} stations={stations}
+        currentStation={currentStation} isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>}
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold text-zinc-400">{filtered.length} διαθέσιμοι σταθμοί {tab==='for-you'&&currentUser?'· προτάσεις από τις ακροάσεις σου':''}</span>
         {(genre||region||query)&&<button onClick={clear} type="button" className="flex items-center gap-1 text-xs font-semibold text-[#ccff00]"><X size={14}/> Καθαρισμός φίλτρων</button>}
       </div>
       {!!displayed.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-        {displayed.map((s,i)=><article key={s._id} className="group min-w-0 rounded-2xl border border-white/10 bg-[#11171d]/90 p-2.5 transition-all hover:border-[#ccff00]/40">
-          <button type="button" onClick={()=>navigate('/station/'+(s.slug||s._id))} aria-label={'Προφίλ '+s.name} className="block w-full text-left">
-            <div className="relative aspect-square overflow-hidden rounded-xl bg-white">
-              <img src={s.logo} alt="" loading="lazy" className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"/>
-              {tab==='top'&&<span className="absolute left-2 top-2 rounded-full bg-[#ccff00] px-2 py-1 text-xs font-black text-black">#{i+1}</span>}
-            </div>
-            <h3 className="mt-2 truncate text-xs font-black text-white sm:text-sm">{s.name}</h3>
-            <p className="mt-0.5 truncate text-[11px] text-zinc-500">{s.genre||'Ραδιόφωνο'}</p>
-          </button>
-          <button type="button" onClick={()=>onPlayStation(s)} aria-label={'Άκου '+s.name}
-            className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/10 text-xs font-black text-[#ccff00] transition-colors hover:bg-[#ccff00] hover:text-black">
-            <Play size={14} fill="currentColor"/> Άκου τώρα
-          </button>
-        </article>)}
+        {displayed.map(s=><StationCatalogCard key={s._id} station={s} currentStation={currentStation}
+          isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>)}
       </div>:<div className="rounded-2xl border border-dashed border-white/15 p-8 text-center">
         <Radio size={30} className="mx-auto text-zinc-500"/>
         <p className="mt-3 text-sm text-zinc-300">{tab==='favorites'?'Δεν έχεις προσθέσει αγαπημένους σταθμούς.':'Δεν βρέθηκαν σταθμοί με αυτά τα φίλτρα.'}</p>

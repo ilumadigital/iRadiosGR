@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronRight, Headphones, Play, Radio, Sparkles, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { stationIsPlaying } from './StationListenButton';
 
 const gradients=[
   'from-fuchsia-950 via-purple-900/80 to-zinc-950',
@@ -8,8 +9,9 @@ const gradients=[
   'from-rose-950 via-orange-900/70 to-zinc-950',
   'from-emerald-950 via-teal-900/75 to-zinc-950'
 ];
-export default function HomeRecommendationDeck({moodStations=[],topStations=[],onPlayStation}) {
+export default function HomeRecommendationDeck({moodStations=[],topStations=[],currentStation,isPlaying,onPlayStation,onPlayPause}) {
   const navigate=useNavigate();
+  const play=station=>{ if(stationIsPlaying(station,currentStation,isPlaying))return; if(String(station._id)===String(currentStation?._id)&&onPlayPause)onPlayPause(); else onPlayStation(station); };
   const picks=moodStations.filter(Boolean).slice(0,4);
   const top=topStations.filter(Boolean).slice(0,4);
   if(!picks.length&&!top.length)return null;
@@ -33,7 +35,7 @@ export default function HomeRecommendationDeck({moodStations=[],topStations=[],o
                 <button type="button" onClick={()=>navigate('/station/'+(station.slug||station._id))}
                   className="mt-1 block max-w-full truncate text-left text-sm font-black text-white hover:text-[#ccff00]">{station.name}</button>
               </div>
-              <button type="button" onClick={()=>onPlayStation(station)} aria-label={'Άκου '+station.name}
+              <button type="button" disabled={stationIsPlaying(station,currentStation,isPlaying)} onClick={()=>play(station)} title={stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+station.name}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white transition-colors hover:bg-[#ccff00] hover:text-black">
                 <Play size={17} fill="currentColor"/>
               </button>
@@ -57,7 +59,7 @@ export default function HomeRecommendationDeck({moodStations=[],topStations=[],o
                 className="block max-w-full truncate text-left text-xs font-black text-white hover:text-[#ccff00]">{station.name}</button>
               <span className="block truncate text-[10px] text-zinc-500">{station.genre||station.region||'Radio'}</span>
             </div>
-            <button type="button" onClick={()=>onPlayStation(station)} aria-label={'Άκου '+station.name}
+            <button type="button" disabled={stationIsPlaying(station,currentStation,isPlaying)} onClick={()=>play(station)} title={stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+station.name}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:border-[#ccff00]/50 hover:text-[#ccff00]"><Play size={15} fill="currentColor"/></button>
           </div>)}
           {!top.length&&<div className="flex h-36 items-center justify-center text-xs text-zinc-500"><Radio size={20}/></div>}

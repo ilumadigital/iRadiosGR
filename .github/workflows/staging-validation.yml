@@ -43,6 +43,8 @@ jobs:
         run: node ops/check-desktop-fullscreen-viewport.cjs
       - name: Validate metadata-only home and visual no-dropdown browsing
         run: node ops/check-home-mockup-navigation.cjs
+      - name: Validate Phase 3.1 editorial CMS, branded hero, playback and catalog
+        run: node ops/check-phase31-editorial.cjs
       - name: Validate frontend production build
         # Existing react-simple-maps@1.0.0 declares React 16 peers despite the React 19 app.
         # Use the same legacy resolution needed by the current project; track upgrade separately.

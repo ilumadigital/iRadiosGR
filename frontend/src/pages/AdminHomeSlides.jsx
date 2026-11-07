@@ -3,7 +3,7 @@ import { Image, Plus, Save, Trash2, Pencil, ArrowUp, ArrowDown, Upload, External
 
 const emptySlide = () => ({
   title:'', subtitle:'', eyebrow:'ΠΡΟΤΕΙΝΟΥΜΕ', imageUrl:'', ctaLabel:'Άκου τώρα',
-  targetType:'station', stationId:'', genre:'', externalUrl:'', audience:'all',
+  placement:'home', placementValue:'', targetType:'station', stationId:'', genre:'', externalUrl:'', audience:'all',
   priority:100, status:'draft', startsAt:'', endsAt:''
 });
 const fieldClass='w-full rounded-xl border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-white outline-none focus:border-[#ccff00]/70';
@@ -68,7 +68,7 @@ export default function AdminHomeSlides() {
         if(!response.ok) throw new Error(data.error||'Αποτυχία ανεβάσματος εικόνας.');
         imageUrl=data.url;
       }
-      const payload={...draft,imageUrl,priority:Number(draft.priority),
+      const payload={...draft,imageUrl,placement:draft.placement||'home',placementValue:draft.placement==='home'?'':draft.placementValue,priority:Number(draft.priority),
         startsAt:draft.startsAt||null,endsAt:draft.endsAt||null};
       const response=await fetch(`/api/admin/home-slides${editingId?'/'+editingId:''}`,{
         method:editingId?'PUT':'POST',
@@ -77,7 +77,7 @@ export default function AdminHomeSlides() {
       });
       const data=await response.json();
       if(!response.ok) throw new Error(data.error||'Αποτυχία αποθήκευσης.');
-      await refresh();reset();setNotice('Το slide αποθηκεύτηκε. Τα δημοσιευμένα εμφανίζονται στην αρχική.');
+      await refresh();reset();setNotice('Το slide αποθηκεύτηκε. Τα δημοσιευμένα εμφανίζονται στην τοποθέτηση που επέλεξες.');
     } catch(e){setError(e.message);} finally{setBusy(false);}
   };
   const remove=async(item)=>{
@@ -100,12 +100,13 @@ export default function AdminHomeSlides() {
     }catch(e){setError(e.message);}finally{setBusy(false);}
   };
   const genres=[...new Set(stations.map(s=>s.genre).filter(Boolean))].sort();
+  const regions=[...new Set(stations.flatMap(s=>[s.region,s.city]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'el-GR'));
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-4 pb-36 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div><p className="text-xs font-black uppercase tracking-widest text-[#ccff00]">iRadiosGR CMS</p>
-          <h1 className="mt-2 text-3xl font-black text-white">Slides Αρχικής</h1>
-          <p className="mt-2 text-sm text-zinc-400">Editorial carousel, ανεξάρτητο από διαφημίσεις. Η υψηλότερη προτεραιότητα εμφανίζεται πρώτη.</p>
+          <h1 className="mt-2 text-3xl font-black text-white">Editorial Slides</h1>
+          <p className="mt-2 text-sm text-zinc-400">Προτάσεις για Αρχική, μουσικά είδη και περιοχές, ανεξάρτητα από τις διαφημίσεις.</p>
         </div>
         <button type="button" onClick={reset} className="ir-action-primary px-5"><Plus size={17}/> Νέο slide</button>
       </header>
@@ -117,6 +118,25 @@ export default function AdminHomeSlides() {
           <div className="grid gap-4 sm:grid-cols-2">
             <label><span className={labelClass}>Τίτλος *</span><input required maxLength={100} className={fieldClass} value={draft.title} onChange={e=>change('title',e.target.value)}/></label>
             <label><span className={labelClass}>Μικρή ετικέτα</span><input maxLength={60} className={fieldClass} value={draft.eyebrow} onChange={e=>change('eyebrow',e.target.value)}/></label>
+          </div>
+          <div className="space-y-3 rounded-2xl border border-[#ccff00]/25 bg-[#ccff00]/[0.035] p-4">
+            <p className="text-xs font-black uppercase tracking-wider text-[#ccff00]">Πού θα εμφανιστεί το slide;</p>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Τοποθέτηση slide">
+              {[['home','Αρχική'],['genre','Μουσικό είδος'],['region','Περιοχή']].map(([value,label])=>
+                <button key={value} type="button" aria-pressed={draft.placement===value}
+                  onClick={()=>{change('placement',value);change('placementValue','');}}
+                  className={`min-h-10 rounded-full border px-4 text-xs font-bold ${draft.placement===value?'border-[#ccff00] bg-[#ccff00] text-black':'border-white/15 bg-black/25 text-zinc-200'}`}>{label}</button>
+              )}
+            </div>
+            {draft.placement!=='home'&&<label className="block">
+              <span className={labelClass}>{draft.placement==='genre'?'Μουσικό είδος':'Περιοχή'} προβολής *</span>
+              <select required className={fieldClass} value={draft.placementValue}
+                onChange={e=>change('placementValue',e.target.value)}>
+                <option value="">Επιλογή…</option>
+                {(draft.placement==='genre'?genres:regions).map(value=><option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>}
+            <p className="text-[11px] text-zinc-400">Η τοποθέτηση ορίζει τη σελίδα προβολής. Το κουμπί CTA παρακάτω μπορεί να οδηγεί αλλού.</p>
           </div>
           <label><span className={labelClass}>Περιγραφή</span><textarea rows={3} maxLength={220} className={fieldClass} value={draft.subtitle} onChange={e=>change('subtitle',e.target.value)}/></label>
           <label><span className={labelClass}>Εικόνα 16:9 (HTTPS URL ή ανεβάστε νέα)</span>
@@ -159,6 +179,7 @@ export default function AdminHomeSlides() {
                 <span className="text-xs font-black uppercase tracking-widest text-[#ccff00]">{draft.eyebrow}</span>
                 <h3 className="mt-2 text-2xl font-black text-white">{draft.title||'Προεπισκόπηση τίτλου'}</h3>
                 <p className="mt-2 max-w-sm text-sm text-zinc-200">{draft.subtitle}</p>
+                <p className="mt-3 text-[10px] font-bold text-[#ccff00]">Προβολή: {draft.placement==='home'?'Αρχική':(draft.placement==='genre'?'Είδος · ':'Περιοχή · ')+draft.placementValue}</p>
               </div>
             </div>
           </div>
@@ -168,7 +189,7 @@ export default function AdminHomeSlides() {
               {slides.map(item=><div key={item._id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
                 <img className="h-14 w-20 shrink-0 rounded-lg object-cover bg-zinc-800" src={item.imageUrl} alt=""/>
                 <div className="min-w-0 flex-1"><h4 className="truncate text-sm font-bold">{item.title}</h4>
-                  <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">{item.status==='published'?<Eye size={12}/>:<EyeOff size={12}/>} {item.status==='published'?'Δημοσιευμένο':'Πρόχειρο'} · Σειρά {item.priority||0}</p>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">{item.status==='published'?<Eye size={12}/>:<EyeOff size={12}/>} {item.status==='published'?'Δημοσιευμένο':'Πρόχειρο'} · {item.placement==='region'?'Περιοχή: '+item.placementValue:item.placement==='genre'?'Είδος: '+item.placementValue:'Αρχική'} · Σειρά {item.priority||0}</p>
                 </div>
                 <div className="flex gap-1">
                   <button disabled={busy} onClick={()=>reorder(item,10)} title="Ανέβασμα σειράς" className="rounded-lg p-2 hover:bg-white/10"><ArrowUp size={15}/></button>

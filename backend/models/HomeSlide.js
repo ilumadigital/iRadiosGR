@@ -6,6 +6,9 @@ const schema = new mongoose.Schema({
   eyebrow: { type: String, default: 'ΠΡΟΤΕΙΝΟΥΜΕ', trim: true, maxlength: 60 },
   imageUrl: { type: String, required: true, maxlength: 2048 },
   ctaLabel: { type: String, default: 'Ανακάλυψε', trim: true, maxlength: 48 },
+  // Editorial placement is independent of CTA destination. Legacy slides default to Home.
+  placement: { type: String, enum: ['home', 'genre', 'region'], default: 'home', index: true },
+  placementValue: { type: String, default: '', trim: true, maxlength: 120 },
   targetType: { type: String, enum: ['none', 'station', 'genre', 'external'], default: 'none' },
   stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Station', default: null },
   genre: { type: String, default: '', maxlength: 100 },
@@ -16,5 +19,5 @@ const schema = new mongoose.Schema({
   startsAt: { type: Date, default: null },
   endsAt: { type: Date, default: null }
 }, { timestamps: true });
-schema.index({ status: 1, priority: -1, createdAt: -1 });
+schema.index({ placement: 1, placementValue: 1, status: 1, priority: -1, createdAt: -1 });
 module.exports = mongoose.model('HomeSlide', schema);

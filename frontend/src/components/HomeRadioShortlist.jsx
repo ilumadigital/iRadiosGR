@@ -1,10 +1,12 @@
 import React from 'react';
 import { ArrowUpRight, Heart, History, Play, Radio } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { stationIsPlaying } from './StationListenButton';
 
 // Lightweight, factual shortlists matching the approved desktop home composition.
-export default function HomeRadioShortlist({ kind='recent', stations=[], currentUser, onPlayStation }) {
+export default function HomeRadioShortlist({ kind='recent', stations=[], currentUser, currentStation, isPlaying, onPlayStation, onPlayPause }) {
   const navigate=useNavigate();
+  const play=station=>{ if(stationIsPlaying(station,currentStation,isPlaying))return; if(String(station._id)===String(currentStation?._id)&&onPlayPause)onPlayPause(); else onPlayStation(station); };
   const isFavorite=kind==='favorites';
   const title=isFavorite?'Αγαπημένα':'Πρόσφατα';
   const Icon=isFavorite?Heart:History;
@@ -29,7 +31,7 @@ export default function HomeRadioShortlist({ kind='recent', stations=[], current
               <span className="block truncate text-[10px] text-zinc-500">{item.genre||item.region||'Ραδιόφωνο'}</span>
             </span>
           </button>
-          <button type="button" onClick={()=>onPlayStation(item)} aria-label={'Άκου '+item.name}
+          <button type="button" disabled={stationIsPlaying(item,currentStation,isPlaying)} onClick={()=>play(item)} title={stationIsPlaying(item,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(stationIsPlaying(item,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+item.name}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-zinc-200 transition-colors hover:bg-[#ccff00] hover:text-black">
             <Play size={15} fill="currentColor"/>
           </button>
