@@ -3,7 +3,7 @@
 // Client-supplied stream/customMeta URLs are never directly fetched.
 const Station = require('../models/Station');
 const { recordStationTrack } = require('./recordStationTrack');
-const {statusFromNative,resolvedNowPlaying} = require('./stageSmartTracks');
+const {statusFromNative,resolvedNowPlaying,getSharedAI} = require('./stageSmartTracks');
 const { readPublicUrl } = require('./stageSafeRadioFetch');
 
 const cache = new Map();
@@ -138,7 +138,10 @@ async function readCachedNativeMetadata(station) {
   const now=Date.now(),existing=cache.get(key);
   if(existing&&existing.until>now)return existing.promise;
   const promise=readStationMetadata(station).then(async raw=>{
-    if(statusFromNative(raw,station.name)==='valid'){
+    // During a 4-minute manual recognition the AI result is explicitly the
+    // on-air song; never move unrelated native metadata ahead of it in history.
+    const manual=getSharedAI(station._id);
+    if(statusFromNative(raw,station.name)==='valid'&&manual?.kind!=='manual'){
       await recordStationTrack(station,raw,{source:'station'});
     }
     return raw;
