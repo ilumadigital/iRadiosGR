@@ -9,7 +9,13 @@ cd "$APP"
 # No live URLs, keys or Stage->Prod accident in tracked code.
 ./ops/check-stage-source.sh
 docker compose --env-file "$ENV" -f compose.stage.yml config --quiet
-docker compose --env-file "$ENV" -f compose.stage.yml build --pull
+build_args=(--pull)
+# An opt-in full rebuild, used by ./ilumadev.sh --fresh. Default remains
+# incremental, preserving shared Docker build cache and avoiding host-wide prune.
+if [[ "${IRADIOS_STAGE_NO_CACHE:-0}" == "1" ]]; then
+  build_args+=(--no-cache)
+fi
+docker compose --env-file "$ENV" -f compose.stage.yml build "${build_args[@]}"
 docker compose --env-file "$ENV" -f compose.stage.yml up -d --remove-orphans
 docker compose --env-file "$ENV" -f compose.stage.yml ps
 for i in $(seq 1 30); do
