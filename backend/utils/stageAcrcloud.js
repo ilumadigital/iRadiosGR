@@ -8,24 +8,29 @@ const Station = require('../models/Station');
 const { readPublicUrl } = require('./stageSafeRadioFetch');
 
 const attempts = new Map();
+const captures = new Map();
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_CALLS = 3;
+const MAX_CAPTURES = 6;
 
 function validAcrHost(value) {
   return typeof value === 'string' &&
     value.length <= 253 &&
     /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.acrcloud\.com$/i.test(value);
 }
-function allowAcrRequest(userId) {
-  const now = Date.now();
-  if (attempts.size > 4096) attempts.clear();
-  const record = attempts.get(userId);
-  const state = !record || now - record.start >= WINDOW_MS
-    ? {start:now,count:0} : record;
-  if(state.count >= MAX_CALLS)return false;
+function allowWithinWindow(bucket,userId,maxHits) {
+  const now=Date.now();
+  if(bucket.size>4096)bucket.clear();
+  const last=bucket.get(userId);
+  const state=!last || now-last.start>=WINDOW_MS
+    ? {start:now,count:0} : last;
+  if(state.count>=maxHits)return false;
   state.count++;
-  attempts.set(userId,state);
+  bucket.set(userId,state);
   return true;
+}
+function allowAcrRequest(userId) {
+  return allowWithinWindow(attempts,userId,MAX_CALLS);
 }
 const problems = Object.freeze({
   ACR_DISABLED: [503, 'Η αναγνώριση δεν έχει ενεργοποιηθεί ακόμη.'],
@@ -77,6 +82,13 @@ async function stageRecognizeProxy(req,res) {
     return res.status(404).json({error:'Ο σταθμός δεν βρέθηκε.',code:'STATION_MISSING'});
   }
 
+  // Limit upstream stream capture too, even when an audio source is broken.
+  // Bad streams do not exhaust the smaller billable ACRCloud quota.
+  if(!allowWithinWindow(captures,userId,MAX_CAPTURES)){
+    res.setHeader('Retry-After','900');
+    return fail(res,'ACR_RATE_LIMIT');
+  }
+
   // Fetch from the approved station DB, never from req.body.streamUrl (SSRF).
   // 12 seconds gives fingerprint matching more musical context, stays <15s guidance.
   let sample;
@@ -92,8 +104,9 @@ async function stageRecognizeProxy(req,res) {
     return fail(res,'STREAM_UNAVAILABLE');
   }
   const type=String(sample.headers['content-type']||'audio/mpeg').toLowerCase();
-  if(!type.startsWith('audio/') &&
-     !/^(application\/ogg|application\/octet-stream)(;|$)/.test(type)){
+  if(/(?:mpegurl|m3u8|x-scpls|playlist)/.test(type) ||
+     (!type.startsWith('audio/') &&
+      !/^(application\/ogg|application\/octet-stream)(;|$)/.test(type))){
     console.warn('[STAGE_ACRCLOUD] unsupported_stream_content_type');
     return fail(res,'STREAM_FORMAT');
   }
