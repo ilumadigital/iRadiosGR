@@ -35,7 +35,6 @@ const publicReads = new Set([
   '/api/ads/public',
   '/api/banners/active',
   '/api/cover-art',
-  '/api/metadata',
   '/api/proxy-stream'
 ]);
 
@@ -61,6 +60,10 @@ function stagePublicAccess(req, res, next) {
 
   // A user may read their own profile and favorites, never another user's.
   if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
+
+  // Listener-only song metadata and ACRCloud recognition.
+  if (req.method === 'GET' && path === '/api/metadata') return protect(req,res,next);
+  if (req.method === 'POST' && path === '/api/recognize-proxy') return protect(req,res,next);
 
   // Signed-in users can accept terms for their own JWT identity only.
   // The controller never accepts a client-supplied user ID.

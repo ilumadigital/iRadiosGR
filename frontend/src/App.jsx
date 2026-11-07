@@ -1245,12 +1245,16 @@ function MainApp() {
       try {
         const res = await fetch(`${API_URL}/recognize-proxy`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ streamUrl: currentStation.stream })
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('iluma_token') || ''}`
+          },
+          body: JSON.stringify({ stationId: currentStation._id || currentStation.id, streamUrl: currentStation.stream })
         });
 
         clearInterval(intervalId);
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Η αναγνώριση δεν είναι διαθέσιμη.');
 
         if (data.status?.msg === 'Success' && data.metadata?.music?.length > 0) {
           const track = data.metadata.music[0];
@@ -1299,10 +1303,12 @@ function MainApp() {
   }, [currentStation]);
 
   const fetchMetadata = async () => {
-  if (!currentStation || isPlayingAd || isRecognizing || recognitionLock.current) return;
+  if (!currentStation || !currentUser || isPlayingAd || isRecognizing || recognitionLock.current) return;
 
   try {
-    const res = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(currentStation.stream)}`);
+    const res = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(currentStation.stream)}`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('iluma_token') || ''}` }
+    });
     const data = await res.json();
     
     if (data && data.title) {
@@ -1344,7 +1350,7 @@ function MainApp() {
   useEffect(() => {
     if (isPlaying && currentStation && !isPlayingAd && !isRecognizing && !recognitionLock.current) fetchMetadata(); 
     else if (!isRecognizing && !recognitionLock.current) setNowPlaying('');
-  }, [currentStation, isPlaying, isPlayingAd, isRecognizing]);
+  }, [currentStation, currentUser, isPlaying, isPlayingAd, isRecognizing]);
 
   useMediaSession({
     currentStation, nowPlaying, isPlayingAd, currentAdInfo,
@@ -1690,7 +1696,7 @@ function MainApp() {
 
             <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />

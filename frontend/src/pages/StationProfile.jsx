@@ -69,7 +69,7 @@ export default function StationProfile({
     let intervalId;
 
     const fetchLocalMetadata = async () => {
-      if (!station) return;
+      if (!station || !currentUser) return;
       
       if (!isThisPlaying || !isPlaying) {
          if (mountedRef.current) {
@@ -82,7 +82,9 @@ export default function StationProfile({
 
       setIsSearchingMetadata(true);
       try {
-        const metaRes = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(station.stream)}&customMeta=${encodeURIComponent(station.metadata || '')}`);
+        const metaRes = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(station.stream)}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('iluma_token') || ''}` }
+        });
         const metaData = await metaRes.json();
         
         if (metaData && metaData.title && metaData.title.trim() !== '') {
@@ -106,7 +108,7 @@ export default function StationProfile({
       mountedRef.current = false;
       clearInterval(intervalId);
     };
-  }, [station, isThisPlaying, isPlaying, API_URL, isRecognizing]);
+  }, [station, currentUser, isThisPlaying, isPlaying, API_URL, isRecognizing]);
 
 
   // 🟢 ΚΛΙΚ ΣΤΟ AI RADAR

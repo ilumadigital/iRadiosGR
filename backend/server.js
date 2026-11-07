@@ -45,7 +45,7 @@ if (process.env.APP_ENV === 'staging') {
     const blocked = [
       /^\/api\/payments(?:\/|$)/,
       /^\/api\/notifications\/(?:send|subscribe)(?:\/|$)/,
-      /^\/api\/recognize(?:-proxy)?(?:\/|$)/
+      /^\/api\/recognize(?:\/|$)/
     ];
     if (blocked.some(regex => regex.test(req.path))) {
       return res.status(503).json({ error: 'Disabled in isolated staging environment' });
