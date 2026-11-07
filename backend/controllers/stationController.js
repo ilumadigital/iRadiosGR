@@ -13,6 +13,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 // Καθαρισμός ληγμένων Boosts (Χρησιμοποιείται εσωτερικά)
 const cleanExpiredBoosts = async () => {
+  // Preserve imported production snapshot in isolated staging: GET routes must never mutate imported boosts.
+  if (process.env.APP_ENV === 'staging') return;
   const now = new Date();
   await Station.updateMany(
     { boostStatus: true, boostExpiresAt: { $lt: now } },
