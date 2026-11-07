@@ -1250,16 +1250,39 @@ function MainApp() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('iluma_token') || ''}`
           },
-          body: JSON.stringify({ stationId: currentStation._id || currentStation.id, streamUrl: currentStation.stream })
+          // The backend uses the approved station's stored stream, never a client URL.
+          body: JSON.stringify({stationId: currentStation._id || currentStation.id})
         });
 
         clearInterval(intervalId);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Η αναγνώριση δεν είναι διαθέσιμη.');
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          // Only known, non-sensitive codes are exposed to listeners.
+          const messages = {
+            ACR_DISABLED: 'Η αναγνώριση δεν έχει ενεργοποιηθεί ακόμη.',
+            ACR_CONFIG: 'Η αναγνώριση δεν είναι ακόμη έτοιμη.',
+            ACR_AUTH: 'Δεν μπορέσαμε να συνδεθούμε με την αναγνώριση μουσικής.',
+            ACR_QUOTA: 'Η υπηρεσία αναγνώρισης έχει φτάσει το όριό της. Δοκίμασε αργότερα.',
+            ACR_RATE_LIMIT: 'Δοκίμασε ξανά σε 15 λεπτά.',
+            STREAM_UNAVAILABLE: 'Δεν μπορέσαμε να ακούσουμε τον σταθμό. Δοκίμασε ξανά σε λίγο.',
+            STREAM_FORMAT: 'Αυτός ο σταθμός δεν υποστηρίζει ακόμη την αναγνώριση.',
+            STREAM_SHORT: 'Δεν ακούστηκε αρκετή μουσική. Δοκίμασε ξανά σε λίγο.',
+            STATION_INVALID: 'Επίλεξε έναν σταθμό.',
+            STATION_MISSING: 'Ο σταθμός δεν βρέθηκε.',
+            AUTH_REQUIRED: 'Συνδέσου ξανά στο iRadios για να βρεις το τραγούδι.'
+          };
+          const message=messages[data?.code] ||
+            (res.status===401?'Συνδέσου ξανά στο iRadios.':
+              res.status===429?'Δοκίμασε ξανά αργότερα.':
+              'Η αναγνώριση δεν είναι διαθέσιμη αυτή τη στιγμή.');
+          throw new Error(message);
+        }
 
-        if (data.status?.msg === 'Success' && data.metadata?.music?.length > 0) {
-          const track = data.metadata.music[0];
-          const songTitle = `${track.artists[0].name} - ${track.title}`;
+        const music = data?.metadata?.music;
+        const track = Array.isArray(music) ? music[0] : null;
+        const artist = track?.artists?.find(a => typeof a?.name==='string' && a.name.trim())?.name;
+        if (Number(data?.status?.code)===0 && track?.title && artist) {
+          const songTitle = `${artist} - ${track.title}`;
           
           setNowPlaying(songTitle);
           
@@ -1286,13 +1309,14 @@ function MainApp() {
 
         } else {
           setNowPlaying(previousNowPlaying);
-          showAlert("Δεν αναγνωρίστηκε κάποιο τραγούδι αυτή τη στιγμή. Ίσως είναι ομιλία ή διαφημίσεις.");
+          showAlert("Δεν αναγνωρίστηκε τραγούδι αυτή τη στιγμή. Ίσως παίζει ομιλία ή διαφήμιση.");
         }
       } catch (err) {
         clearInterval(intervalId);
-        console.error("Recognition API error:", err);
+        // No secrets, stream URLs or upstream response bodies are printed.
+        console.warn("Song recognition unavailable");
         setNowPlaying(previousNowPlaying);
-        showAlert("Δεν μπορέσαμε να βρούμε το τραγούδι. Δοκίμασε ξανά σε λίγο.");
+        showAlert(err?.message || "Δεν μπορέσαμε να βρούμε το τραγούδι. Δοκίμασε ξανά σε λίγο.");
       } finally {
         clearInterval(intervalId); 
         setIsRecognizing(false);
