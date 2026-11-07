@@ -17,6 +17,13 @@ export default function AdminHomeSlides() {
   const [draft,setDraft]=useState(emptySlide());
   const [editingId,setEditingId]=useState(null);
   const [upload,setUpload]=useState(null);
+  const [previewUrl,setPreviewUrl]=useState('');
+  useEffect(()=>{
+    if(!upload){setPreviewUrl('');return;}
+    const url=URL.createObjectURL(upload);
+    setPreviewUrl(url);
+    return ()=>URL.revokeObjectURL(url);
+  },[upload]);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
@@ -146,7 +153,7 @@ export default function AdminHomeSlides() {
         <div className="space-y-4">
           <div className="ir-glass overflow-hidden">
             <div className="relative aspect-[16/9] bg-zinc-900">
-              {(upload||draft.imageUrl)?<img src={upload?URL.createObjectURL(upload):draft.imageUrl} alt="Προεπισκόπηση slide" className="absolute inset-0 h-full w-full object-cover" onLoad={e=>{if(upload)URL.revokeObjectURL(e.currentTarget.src);}}/>:<div className="absolute inset-0 flex items-center justify-center text-zinc-500"><Image size={48}/></div>}
+              {(upload||draft.imageUrl)?<img src={previewUrl||draft.imageUrl} alt="Προεπισκόπηση slide" className="absolute inset-0 h-full w-full object-cover"/>:<div className="absolute inset-0 flex items-center justify-center text-zinc-500"><Image size={48}/></div>}
               <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent"/>
               <div className="absolute bottom-0 left-0 w-full p-6">
                 <span className="text-xs font-black uppercase tracking-widest text-[#ccff00]">{draft.eyebrow}</span>
