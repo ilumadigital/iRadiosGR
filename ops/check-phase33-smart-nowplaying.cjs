@@ -11,8 +11,9 @@ const orig=Module._load;
 let writes=0;
 try{
   Module._load=function(name,parent,isMain){
-    if(parent?.filename?.endsWith('recordStationTrack.js')&&name==='../models/StationPlaylist'){
-      return {updateOne:async()=>{writes++;return {modifiedCount:1};}};
+    if(/(?:recordStationTrack|stageSmartTracks)\.js$/.test(parent?.filename||'')&&name==='../models/StationPlaylist'){
+      return {updateOne:async()=>{writes++;return {modifiedCount:1,matchedCount:1};},
+        findOne:()=>({select:()=>({lean:async()=>null})})};
     }
     return orig.call(this,name,parent,isMain);
   };
