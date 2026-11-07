@@ -20,7 +20,8 @@ const publicReads = new Set([
 ]);
 
 function stagePublicAccess(req, res, next) {
-  const path = req.path.replace(/\/+$/,'') || '/';
+  // The middleware is mounted at /api, and Express req.path excludes the mount prefix.
+  const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
 
   // Never allow real user registration, password resets, payment submission,
