@@ -209,7 +209,7 @@ export default function Sidebar({
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/ads" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Megaphone size={20} />} label="Διαφημίσεις (Network)" />
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/ad-control" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Target size={20} />} label="Local Ads (Broadcasters)" />
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/push" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<BellRing size={20} />} label="Αποστολή Ειδοποίησης" />
-                  <SidebarItem isCollapsed={isCollapsed} to="/dsp" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<SlidersHorizontal size={20} />} label="DSP Engine" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/dsp" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<SlidersHorizontal size={20} />} label="Ρυθμίσεις ήχου" />
                   <SidebarItem isCollapsed={isCollapsed} to="/my-schedules" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Calendar size={20} />} label="Πρόγραμμα Σταθμών" />
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/billing" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<FileText size={20} className="text-orange-400" />} label="Πληρωμές & Τιμολόγια" />
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/emails" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Mail size={20} className="text-[#ccff00]" />} label="Αποστολή Email" />
@@ -274,7 +274,7 @@ export default function Sidebar({
                       )}
 
                       {hasDSP && (
-                        <SidebarItem isCollapsed={isCollapsed} to="/dsp" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<SlidersHorizontal size={20} />} label="My DSP Engine" />
+                        <SidebarItem isCollapsed={isCollapsed} to="/dsp" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<SlidersHorizontal size={20} />} label="Οι ρυθμίσεις ήχου μου" />
                       )}
                       
                       {!isFullPremium && (
