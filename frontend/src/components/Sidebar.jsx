@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, MessageSquare, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Navigation } from 'lucide-react';
+import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, MessageSquare, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy } from 'lucide-react';
 
 function SidebarItem({ icon, label, to, currentPath, onClick, className = "", isCollapsed }) {
   const active = currentPath === to || decodeURIComponent(currentPath) === to;
@@ -90,7 +90,7 @@ export default function Sidebar({
 
       <aside className={`ir-app-sidebar fixed inset-y-0 left-0 z-[100] lg:sticky lg:top-0 lg:h-screen shrink-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      } ${isCollapsed ? 'lg:w-[88px] w-[280px]' : 'w-[280px]'}`}>
+      } ${isCollapsed ? 'lg:w-[82px] w-[280px]' : 'w-[280px] lg:w-[252px]'}`}>
         
         <div className="flex flex-col h-full">
           
@@ -168,7 +168,10 @@ export default function Sidebar({
               
               {!isProducer && (
                 <>
-                  <SidebarItem isCollapsed={isCollapsed} to="/" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Compass size={20} />} label="Αρχική" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Compass size={20} />} label="Αρχική" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=categories" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Grid2X2 size={20} />} label="Κατηγορίες" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=top" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Trophy size={20} />} label="Top σταθμοί" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=for-you" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Sparkles size={20} />} label="Προτάσεις για σένα" />
                   <SidebarItem isCollapsed={isCollapsed} to="/map" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<MapPinned size={20} />} label="Δες στον Χάρτη" />
                 </>
               )}
@@ -305,6 +308,8 @@ export default function Sidebar({
                   {isCollapsed && <div className="hidden lg:block w-6 h-px bg-white/10 mx-auto my-6" />}
                   
                   <SidebarItem isCollapsed={isCollapsed} to="/favorites" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Heart size={20} />} label="Αγαπημένα" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=recent" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<History size={20} />} label="Πρόσφατα" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=playlist" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<ListMusic size={20} />} label="Playlist σταθμού" />
 
                   {(!currentUser || !isListenerPremium) && (
                     <div className="mt-2 mb-2">
@@ -319,65 +324,15 @@ export default function Sidebar({
                     </div>
                   )}
 
-                  {/* 🟢 ΝΕΟ: ΔΗΜΟΦΙΛΕΙΣ ΠΕΡΙΟΧΕΣ (Νομοί) */}
-                  <>
-                    <div className={`text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 mt-10 transition-all duration-300 ${isCollapsed ? 'lg:hidden px-4' : 'px-4'}`}>Δημοφιλεις Περιοχες</div>
-                    {isCollapsed && <div className="hidden lg:block w-6 h-px bg-white/10 mx-auto my-6" />}
-                    
-                    <SidebarItem 
-                      isCollapsed={isCollapsed}
-                      to={`/region/${encodeURIComponent('Αθήνα')}`} 
-                      currentPath={location.pathname} 
-                      onClick={() => setIsMobileMenuOpen(false)} 
-                      icon={<Navigation size={18} className="text-zinc-500" />} 
-                      label="Αθήνα" 
-                    />
-                    <SidebarItem 
-                      isCollapsed={isCollapsed}
-                      to={`/region/${encodeURIComponent('Θεσσαλονίκη')}`} 
-                      currentPath={location.pathname} 
-                      onClick={() => setIsMobileMenuOpen(false)} 
-                      icon={<Navigation size={18} className="text-zinc-500" />} 
-                      label="Θεσσαλονίκη" 
-                    />
-                  </>
-
-                  {regions.length > 0 && (
-                    <>
-                      {/* 🟢 Αλλαγή του τίτλου σε ΑΝΑ ΠΕΡΙΦΕΡΕΙΑ */}
-                      <div className={`text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 mt-10 transition-all duration-300 ${isCollapsed ? 'lg:hidden px-4' : 'px-4'}`}>Ανα Περιφερεια</div>
-                      {isCollapsed && <div className="hidden lg:block w-6 h-px bg-white/10 mx-auto my-6" />}
-                      {regions.map(region => (
-                        <SidebarItem 
-                          key={region}
-                          isCollapsed={isCollapsed}
-                          to={`/region/${encodeURIComponent(region)}`} 
-                          currentPath={location.pathname} 
-                          onClick={() => setIsMobileMenuOpen(false)} 
-                          icon={<MapPin size={18} className="text-zinc-500" />} 
-                          label={region} 
-                        />
-                      ))}
-                    </>
-                  )}
-
-                  {genres.length > 0 && (
-                    <>
-                      <div className={`text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 mt-10 transition-all duration-300 ${isCollapsed ? 'lg:hidden px-4' : 'px-4'}`}>Ανα Ειδος</div>
-                      {isCollapsed && <div className="hidden lg:block w-6 h-px bg-white/10 mx-auto my-6" />}
-                      {genres.map(genre => (
-                        <SidebarItem 
-                          key={genre}
-                          isCollapsed={isCollapsed}
-                          to={`/genre/${encodeURIComponent(genre)}`} 
-                          currentPath={location.pathname} 
-                          onClick={() => setIsMobileMenuOpen(false)} 
-                          icon={<Disc3 size={18} className="text-zinc-500" />} 
-                          label={genre.charAt(0).toUpperCase() + genre.slice(1).toLowerCase()} 
-                        />
-                      ))}
-                    </>
-                  )}
+                  {/* Focused region shortcuts; the home grid contains every real region/genre. */}
+                  <div className={`ir-sidebar-heading mb-3 mt-7 px-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 ${isCollapsed?'lg:hidden':''}`}>Ανά περιοχή</div>
+                  {['Αττική','Θεσσαλονίκη','Ανατολική Μακεδονία & Θράκη'].map(name=>(
+                    <SidebarItem key={name} isCollapsed={isCollapsed} to={`/region/${encodeURIComponent(name)}`}
+                      currentPath={location.pathname} onClick={()=>setIsMobileMenuOpen(false)}
+                      icon={<MapPin size={18}/>} label={name}/>
+                  ))}
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=regions" currentPath={location.pathname+location.search}
+                    onClick={()=>setIsMobileMenuOpen(false)} icon={<Grid2X2 size={18}/>} label="Περισσότερες περιοχές"/>
                 </>
               )}
 
