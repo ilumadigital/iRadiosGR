@@ -1,0 +1,172 @@
+/*
+ * iRadiosGR v6.1 / Phase 2
+ * Shared dark + lime interface tokens. No runtime JS or third-party assets.
+ * The listener/player layouts can adopt these utilities incrementally.
+ */
+
+:root {
+  color-scheme: dark;
+  --ir-color-bg: #05070a;
+  --ir-color-panel: #10151b;
+  --ir-color-panel-raised: #171d25;
+  --ir-color-text: #f5f7f9;
+  --ir-color-muted: #a3adb8;
+  --ir-color-accent: #ccff00;
+  --ir-color-accent-soft: #e4ff83;
+  --ir-color-divider: rgba(209, 222, 238, 0.10);
+  --ir-color-glass: rgba(16, 21, 28, 0.82);
+  --ir-glass-border: rgba(225, 239, 255, 0.12);
+  --ir-elevation: 0 22px 60px rgba(0, 0, 0, 0.32);
+  --ir-radius-card: 1.5rem;
+  --ir-radius-control: 0.875rem;
+  --ir-focus-ring: 0 0 0 3px rgba(204, 255, 0, 0.38);
+}
+
+@layer components {
+  .ir-glass {
+    background: var(--ir-color-glass);
+    border: 1px solid var(--ir-glass-border);
+    border-radius: var(--ir-radius-card);
+    box-shadow: var(--ir-elevation);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+  }
+
+  .ir-app-topbar {
+    background: rgba(7, 10, 14, 0.90);
+    border-bottom: 1px solid var(--ir-color-divider);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  .ir-app-sidebar {
+    background: linear-gradient(170deg, #0c1116 0%, #070a0e 65%, #080b10 100%);
+    border-right: 1px solid var(--ir-color-divider);
+  }
+
+  .ir-app-mobile-nav {
+    background: rgba(7, 10, 14, 0.96);
+    border-top: 1px solid var(--ir-color-divider);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 4px));
+  }
+
+  .ir-app-mobile-nav :is(a, button) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .ir-search-field {
+    min-height: 44px;
+    background: rgba(30, 36, 46, 0.68);
+    border: 1px solid var(--ir-glass-border);
+    border-radius: var(--ir-radius-control);
+    color: var(--ir-color-text);
+  }
+
+  .ir-search-field::placeholder {
+    color: var(--ir-color-muted);
+  }
+
+  .ir-search-field:focus-visible {
+    border-color: var(--ir-color-accent);
+    box-shadow: var(--ir-focus-ring);
+  }
+
+  .ir-nav-item {
+    border: 1px solid transparent;
+  }
+
+  .ir-nav-item--active {
+    border-color: rgba(204, 255, 0, 0.20);
+    background: rgba(204, 255, 0, 0.07);
+    color: var(--ir-color-text);
+  }
+
+  .ir-nav-item--active::before {
+    content: "";
+    position: absolute;
+    top: 24%;
+    bottom: 24%;
+    left: 0;
+    width: 3px;
+    border-radius: 999px;
+    background: var(--ir-color-accent);
+  }
+
+  .ir-now-playing-card {
+    border: 1px solid rgba(204, 255, 0, 0.24);
+    background: var(--ir-color-panel);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.025);
+  }
+
+  .ir-station-image {
+    border: 1px solid var(--ir-glass-border);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+  }
+
+  .ir-action-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    border: 1px solid var(--ir-color-accent);
+    border-radius: var(--ir-radius-control);
+    background: var(--ir-color-accent);
+    color: #111600;
+    font-weight: 800;
+    box-shadow: 0 7px 24px rgba(204, 255, 0, 0.15);
+  }
+
+  .ir-action-primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  @media (hover: hover) {
+    .ir-action-primary:not(:disabled):hover {
+      background: var(--ir-color-accent-soft);
+      box-shadow: 0 9px 27px rgba(204, 255, 0, 0.25);
+    }
+
+    .ir-now-playing-card:hover {
+      border-color: rgba(204, 255, 0, 0.7);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35), 0 0 22px rgba(204, 255, 0, 0.10);
+    }
+
+    .ir-station-image:hover {
+      border-color: rgba(204, 255, 0, 0.7);
+    }
+  }
+
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .ir-glass, .ir-app-topbar, .ir-app-mobile-nav {
+      background: #10151b;
+    }
+  }
+}
+
+:where(button, a, input, textarea, select, [role="button"]):focus-visible {
+  outline: 2px solid var(--ir-color-accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --ir-color-divider: rgba(255, 255, 255, 0.35);
+    --ir-glass-border: rgba(255, 255, 255, 0.46);
+    --ir-color-muted: #d6dbe2;
+  }
+}

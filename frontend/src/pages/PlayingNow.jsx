@@ -105,7 +105,7 @@ export default function PlayingNow({ stations, API_URL, currentUser }) {
             <div 
               key={`${item._id}-${index}`}
               onClick={() => navigate(`/station/${item.slug || item._id || item.id}`)}
-              className="relative w-56 h-56 md:w-64 md:h-64 rounded-2xl overflow-hidden shrink-0 group snap-start bg-zinc-900 cursor-pointer transition-all duration-500 border border-[#0055ff]/40 shadow-[0_0_15px_rgba(0,85,255,0.15)] hover:border-[#ccff00] hover:shadow-[0_0_25px_rgba(204,255,0,0.3)] hover:-translate-y-1"
+              className="ir-now-playing-card relative w-56 h-56 md:w-64 md:h-64 rounded-2xl overflow-hidden shrink-0 group snap-start cursor-pointer transition-all duration-500 hover:-translate-y-1"
             >
               
               <img 
@@ -117,7 +117,7 @@ export default function PlayingNow({ stations, API_URL, currentUser }) {
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent group-hover:bg-black/40 transition-colors duration-300"></div>
               
               {/* Εικονίδιο πάνω δεξιά (Μπλε που γίνεται Λαχανί) */}
-              <div className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 z-20 bg-black/50 backdrop-blur-md border border-[#0055ff]/50 text-[#0099ff] group-hover:border-[#ccff00] group-hover:text-[#ccff00] shadow-lg">
+              <div className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 z-20 bg-black/50 backdrop-blur-md border border-[#ccff00]/40 text-[#ccff00] group-hover:border-[#ccff00] shadow-lg">
                  <AudioLines size={18} className="animate-pulse" />
               </div>
 
@@ -140,7 +140,7 @@ export default function PlayingNow({ stations, API_URL, currentUser }) {
               </div>
 
               {/* Γραμμή προόδου στο κάτω μέρος (Μπλε που γίνεται Λαχανί) */}
-              <div className="absolute bottom-0 left-0 h-1.5 w-[75%] rounded-r-full transition-all duration-500 ease-in-out z-10 bg-gradient-to-r from-[#0055ff] to-[#0099ff] shadow-[0_0_10px_#0099ff] group-hover:w-full group-hover:from-[#ccff00] group-hover:to-[#a3cc00] group-hover:shadow-[0_0_10px_#ccff00]"></div>
+              <div className="absolute bottom-0 left-0 h-1.5 w-[75%] rounded-r-full transition-all duration-500 ease-in-out z-10 bg-gradient-to-r from-[#ccff00] to-[#a3cc00] shadow-[0_0_10px_#ccff0060] group-hover:w-full group-hover:shadow-[0_0_10px_#ccff00]"></div>
             </div>
           );
         })}
