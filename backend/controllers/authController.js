@@ -6,6 +6,11 @@ const { sendEmail } = require('../utils/myMailer');
 const { otpVerificationEmail, welcomeEmail, passwordResetEmail } = require('../utils/mailTemp'); // 🟢 ΝΕΟ: Import το νέο template
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const {
+  CURRENT_BROADCASTER_TERMS_VERSION,
+  hasAcceptedCurrentBroadcasterTerms,
+  withBroadcasterTermsStatus
+} = require('../utils/broadcasterTerms');
 const FRONTEND_URL = process.env.FRONTEND_URL || '__IRADIOS_SITE_ORIGIN__'; // Για το link του email
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -135,10 +140,12 @@ exports.verifyOtp = async (req, res) => {
     res.json({ 
       message: "Επιτυχής επαλήθευση!", 
       token, 
-      user: { 
-        _id: user._id, username: user.username, role: user.role, isPremium: user.isPremium, 
-        broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile
-      } 
+      user: withBroadcasterTermsStatus({
+        _id: user._id, username: user.username, role: user.role, isPremium: user.isPremium,
+        broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile,
+        hasAcceptedTerms: user.hasAcceptedTerms, termsAcceptedAt: user.termsAcceptedAt,
+        termsAcceptedVersion: user.termsAcceptedVersion
+      }) 
     });
   } catch (err) { res.status(500).json({ error: "Σφάλμα επαλήθευσης." }); }
 };
@@ -171,25 +178,20 @@ exports.login = async (req, res) => {
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     res.json({
       token,
-      user: {
+      user: withBroadcasterTermsStatus({
         _id: user._id, username: user.username, fname: user.fname, lname: user.lname,
         birthdate: user.birthdate, isPremium: user.isPremium, favorites: user.favorites, role: user.role,
-        broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile
-      }
+        broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile,
+        hasAcceptedTerms: user.hasAcceptedTerms, termsAcceptedAt: user.termsAcceptedAt,
+        termsAcceptedVersion: user.termsAcceptedVersion
+      })
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 exports.getMe = async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'No token' });
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
-  } catch (err) { res.status(401).json({ error: 'Invalid token' }); }
+  // protect middleware verified the JWT and loaded this user from MongoDB.
+  return res.json(withBroadcasterTermsStatus(req.user));
 };
 
 exports.updateMe = async (req, res) => {
@@ -332,30 +334,35 @@ exports.deleteMe = async (req, res) => {
 
 exports.acceptTerms = async (req, res) => {
   try {
-    // 1. Παίρνουμε το Token από τον Header
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Δεν δόθηκε Token' });
-    
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET); // Χρησιμοποιούμε το JWT_SECRET του αρχείου
+    // Route uses protect: the target is ALWAYS the authenticated user.
+    const user = req.user;
+    if (!user) return res.status(401).json({ error: 'Απαιτείται σύνδεση.' });
 
-    // 2. Κάνουμε update τον χρήστη χρησιμοποιώντας το ID από το Token
-    const user = await User.findByIdAndUpdate(
-      decoded.id,
-      { 
-        $set: { 
-          hasAcceptedTerms: true,
-          termsAcceptedAt: new Date() 
-        } 
-      },
-      { new: true } // Φέρνει πίσω τον ανανεωμένο χρήστη
-    ).select('-password'); // Κρύβουμε τον κωδικό για ασφάλεια
+    if (user.role === 'broadcaster') {
+      // Avoid accepting a newer legal agreement using an old browser tab.
+      if (req.body?.termsVersion !== CURRENT_BROADCASTER_TERMS_VERSION) {
+        return res.status(409).json({
+          error: 'Οι όροι έχουν ενημερωθεί. Ανανεώστε τη σελίδα και δοκιμάστε ξανά.',
+          requiredBroadcasterTermsVersion: CURRENT_BROADCASTER_TERMS_VERSION
+        });
+      }
 
-    if (!user) return res.status(404).json({ error: "Ο χρήστης δεν βρέθηκε." });
+      // Preserve timestamps and approvals when the same version is already accepted.
+      if (hasAcceptedCurrentBroadcasterTerms(user)) {
+        return res.json({ message: 'Οι όροι έχουν ήδη γίνει αποδεκτοί.', user: withBroadcasterTermsStatus(user) });
+      }
+      user.termsAcceptedVersion = CURRENT_BROADCASTER_TERMS_VERSION;
+    } else if (user.hasAcceptedTerms) {
+      return res.json({ message: 'Οι όροι έχουν ήδη γίνει αποδεκτοί.', user: withBroadcasterTermsStatus(user) });
+    }
 
-    res.json({ message: "Οι όροι έγιναν αποδεκτοί.", user });
+    user.hasAcceptedTerms = true;
+    user.termsAcceptedAt = new Date();
+    await user.save();
+
+    return res.json({ message: 'Οι όροι έγιναν αποδεκτοί.', user: withBroadcasterTermsStatus(user) });
   } catch (error) {
-    console.error("Σφάλμα αποδοχής όρων:", error.message);
-    res.status(500).json({ error: "Σφάλμα κατά την αποδοχή των όρων." });
+    console.error('Σφάλμα αποδοχής όρων:', error);
+    return res.status(500).json({ error: 'Σφάλμα κατά την αποδοχή των όρων.' });
   }
 };
