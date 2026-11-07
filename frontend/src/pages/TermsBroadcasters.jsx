@@ -10,27 +10,42 @@ export default function TermsBroadcasters({ API_URL, currentUser }) {
   const navigate = useNavigate();
   const [isChecked, setIsChecked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const hasAlreadyAccepted = currentUser?.hasAcceptedTerms;
+  const hasAlreadyAccepted = currentUser?.hasAcceptedCurrentBroadcasterTerms === true;
+  const [submitError, setSubmitError] = useState('');
 
   const handleAcceptTerms = async () => {
+    if (!isChecked || isSubmitting) return;
+
+    const termsVersion = currentUser?.requiredBroadcasterTermsVersion;
+    const token = localStorage.getItem('iluma_token');
+    if (!token || !termsVersion) {
+      setSubmitError('Η συνεδρία δεν είναι έτοιμη. Συνδεθείτε ξανά και ανανεώστε τη σελίδα.');
+      return;
+    }
+
     setIsSubmitting(true);
+    setSubmitError('');
     try {
       const res = await fetch(`${API_URL}/users/me/accept-terms`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('iluma_token')}`
-        }
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ termsVersion })
       });
-      if (res.ok) {
-        window.location.href = '/studio'; // Κάνει redirect και reload για να διαβάσει το νέο state το App.jsx
-      } else {
-        alert("Υπήρξε πρόβλημα κατά την αποθήκευση της συγκατάθεσης. Δοκιμάστε ξανά.");
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.user?.hasAcceptedCurrentBroadcasterTerms === true) {
+        // Reload the authenticated profile from /auth/me on the next page load.
+        window.location.assign('/studio');
+        return;
       }
+      setSubmitError(data.error || 'Η αποθήκευση της συγκατάθεσης απέτυχε. Δοκιμάστε ξανά.');
     } catch (error) {
-      alert("Σφάλμα δικτύου.");
+      setSubmitError('Δεν ήταν δυνατή η σύνδεση με τον server. Δοκιμάστε ξανά.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   return (
@@ -192,6 +207,7 @@ export default function TermsBroadcasters({ API_URL, currentUser }) {
                     {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
                     Αποδοχη & Μεταβαση στο Studio
                   </button>
+                  {submitError && <p role="alert" className="text-red-400 text-xs font-medium max-w-md">{submitError}</p>}
                 </>
               )}
 
