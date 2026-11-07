@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AudioLines, ChevronLeft, ChevronRight, Loader2, Radio } from 'lucide-react';
 import { parseMusicMetadata } from '../utils/musicMetadata';
+import FoundWithAI from '../components/FoundWithAI';
 
 const PER_PASS = 36;
 const BATCH = 6;
@@ -49,7 +50,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
             const data = await res.json();
             const music = parseMusicMetadata(data?.title);
             if (!music) return null;
-            return { ...station, music, coverArt: station.logo };
+            return { ...station, music, coverArt: station.logo, foundWithAI: data?.foundWithAI===true };
           } catch { return null; }
         }));
         detected.push(...found.filter(Boolean));
@@ -135,6 +136,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
               <p className="mt-2 truncate text-[11px] font-bold text-white">{item.name}</p>
               <p className="truncate text-[11px] text-[#ccff00]">{item.music.title}</p>
               <p className="truncate text-[10px] text-zinc-500">{item.music.artist}</p>
+              {item.foundWithAI&&<FoundWithAI compact className="mt-1"/>}
             </article>
           )}
         </div>
