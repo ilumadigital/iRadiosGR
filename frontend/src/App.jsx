@@ -530,6 +530,7 @@ function MainApp() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [nowPlaying, setNowPlaying] = useState('');
+  const [nowPlayingInfo,setNowPlayingInfo] = useState({source:'none',foundWithAI:false});
   const [volume, setVolume] = useState(0.7);
   const [globalCoverArt, setGlobalCoverArt] = useState(null);
 
@@ -553,6 +554,7 @@ function MainApp() {
   
   const audioRef = useRef(null); 
   const lastMetaFetch = useRef(0);
+  const lastStationRefresh=useRef(0);
   const intendedPlayState = useRef(false);
 
   const recognitionLock = useRef(false);
@@ -575,6 +577,9 @@ function MainApp() {
       return saved ? JSON.parse(saved) : null;
     } catch (e) { return null; }
   });
+
+  const activeStationIdRef=useRef('');
+  activeStationIdRef.current=String(currentStation?._id||currentStation?.id||'');
 
   const [isCarModeActive, setIsCarModeActive] = useState(false);
 
@@ -942,6 +947,7 @@ function MainApp() {
     setCurrentStation(station);
     setIsPlayingAd(false);
     setNowPlaying('');
+    setNowPlayingInfo({source:'none',foundWithAI:false});
     intendedPlayState.current = true;
 
     audioRef.current.src = finalStreamUrl;
@@ -1225,6 +1231,8 @@ function MainApp() {
 
       setIsRecognizing(true);
       const previousNowPlaying = nowPlaying;
+      const previousInfo=nowPlayingInfo;
+      const recognizingStationId=String(currentStation?._id||currentStation?.id||'');
       
       setNowPlaying("Βρίσκουμε το τραγούδι…");
 
@@ -1284,7 +1292,9 @@ function MainApp() {
         if (Number(data?.status?.code)===0 && track?.title && artist) {
           const songTitle = `${artist} - ${track.title}`;
           
+          if(activeStationIdRef.current!==recognizingStationId)return;
           setNowPlaying(songTitle);
+          setNowPlayingInfo({source:'acrcloud',foundWithAI:true});
           
           const sId = track.external_metadata?.spotify?.track?.id;
           
@@ -1298,24 +1308,30 @@ function MainApp() {
             setSpotifyUrl(`https://open.spotify.com/search/${encodeURIComponent(songTitle)}`);
           }
 
-          recognitionLock.current = true;
-          if (recognitionTimeout.current) clearTimeout(recognitionTimeout.current);
-          
-          recognitionTimeout.current = setTimeout(() => { 
-            recognitionLock.current = false; 
+          // The server publishes this result for FOUR minutes to every listener.
+          // A local lock is unnecessary and would hide subsequent shared updates.
+          recognitionLock.current=false;
+          if(recognitionTimeout.current)clearTimeout(recognitionTimeout.current);
+          recognitionTimeout.current=setTimeout(()=>{
             setSpotifyUrl(null);
-            fetchMetadata(); 
-          }, 60000);
+            if(activeStationIdRef.current===recognizingStationId)fetchMetadata();
+          },4*60*1000);
 
         } else {
-          setNowPlaying(previousNowPlaying);
+          if(activeStationIdRef.current===recognizingStationId){
+            setNowPlaying(previousNowPlaying);
+            setNowPlayingInfo(previousInfo);
+          }
           showAlert("Δεν αναγνωρίστηκε τραγούδι αυτή τη στιγμή. Ίσως παίζει ομιλία ή διαφήμιση.");
         }
       } catch (err) {
         clearInterval(intervalId);
         // No secrets, stream URLs or upstream response bodies are printed.
         console.warn("Song recognition unavailable");
-        setNowPlaying(previousNowPlaying);
+        if(activeStationIdRef.current===recognizingStationId){
+          setNowPlaying(previousNowPlaying);
+          setNowPlayingInfo(previousInfo);
+        }
         showAlert(err?.message || "Δεν μπορέσαμε να βρούμε το τραγούδι. Δοκίμασε ξανά σε λίγο.");
       } finally {
         clearInterval(intervalId); 
@@ -1327,58 +1343,48 @@ function MainApp() {
     if (currentStation) localStorage.setItem('iluma_last_station', JSON.stringify(currentStation));
   }, [currentStation]);
 
-  const fetchMetadata = async () => {
-  if (!currentStation || !currentUser || isPlayingAd || isRecognizing || recognitionLock.current) return;
-
-  try {
-    const res = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(currentStation.stream)}`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('iluma_token') || ''}` }
-    });
-    const data = await res.json();
-    
-    if (data && data.title) {
-      // Παίρνουμε τον αρχικό τίτλο (βγάζοντας κενά και παύλες στο τέλος)
-      const rawTitle = data.title.replace(/-$/, '').trim();
-      
-      // Τον περνάμε από το πλυντήριο
-      const cleanTitle = cleanMetadata(rawTitle);
-      
-      // Αν το πλυντήριο επιστρέψει κενό, κρατάμε τον rawTitle!
-      setNowPlaying(cleanTitle || rawTitle); 
-    } else {
-      setNowPlaying('');
+  const fetchMetadata=async()=>{
+    if(!currentStation?._id||!currentUser||isPlayingAd||isRecognizing||recognitionLock.current)return;
+    const stationId=String(currentStation._id);
+    const matches=()=>activeStationIdRef.current===stationId;
+    try{
+      const res=await fetch(`${API_URL}/metadata?stationId=${encodeURIComponent(stationId)}`,{
+        headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`}
+      });
+      if(!res.ok)throw new Error('Music data unavailable');
+      const data=await res.json();
+      if(!matches())return;
+      const title=typeof data?.title==='string'?data.title.trim():'';
+      setNowPlaying(title?cleanMetadata(title):'');
+      setNowPlayingInfo({source:data?.source==='acrcloud'?'acrcloud':title?'station':'none',
+        foundWithAI:Boolean(title&&data?.foundWithAI)});
+    }catch{
+      if(matches()){setNowPlaying('');setNowPlayingInfo({source:'none',foundWithAI:false});}
     }
-  } catch (e) { 
-    setNowPlaying(''); 
-  }
 
-    try {
-      const stationId = currentStation._id || currentStation.id;
-      const stationRes = await fetch(`${API_URL}/stations`);
-      
-      if (stationRes.ok) {
-        const allStations = await stationRes.json();
-        const updatedStation = allStations.find(s => s._id === stationId || s.id === stationId);
-        
-        if (updatedStation) {
-          setCurrentStation(prev => {
-            if (updatedStation.dspPreset && updatedStation.dspPreset !== prev.dspPreset) {
-              return { ...prev, dspPreset: updatedStation.dspPreset };
-            }
-            return prev; 
-          });
-        }
+    // Avoid refetching the entire station catalog with every 10-second audio event.
+    if(!matches()||Date.now()-lastStationRefresh.current<5*60*1000)return;
+    lastStationRefresh.current=Date.now();
+    try{
+      const response=await fetch(`${API_URL}/stations`);
+      if(!response.ok)return;
+      const available=await response.json();
+      const updated=Array.isArray(available)?available.find(x=>String(x._id)===stationId):null;
+      if(updated&&matches()){
+        setCurrentStation(prev=>prev&&String(prev._id)===stationId&&
+          updated.dspPreset && updated.dspPreset!==prev.dspPreset
+          ? {...prev,dspPreset:updated.dspPreset} : prev);
       }
-    } catch (e) {}
+    }catch{ /* a station settings refresh must never interrupt playback */ }
   };
 
   useEffect(() => {
     if (isPlaying && currentStation && !isPlayingAd && !isRecognizing && !recognitionLock.current) fetchMetadata(); 
-    else if (!isRecognizing && !recognitionLock.current) setNowPlaying('');
+    else if (!isRecognizing && !recognitionLock.current) {setNowPlaying('');setNowPlayingInfo({source:'none',foundWithAI:false});}
   }, [currentStation, currentUser, isPlaying, isPlayingAd, isRecognizing]);
 
   useMediaSession({
-    currentStation, nowPlaying, isPlayingAd, currentAdInfo,
+    currentStation, nowPlaying, nowPlayingInfo, isPlaying, isPlayingAd, currentAdInfo,
     togglePlayPause, handleNextStation, handlePrevStation, globalCoverArt, currentUser
   });
 
