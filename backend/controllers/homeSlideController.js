@@ -21,6 +21,8 @@ function normalize(input) {
   const eyebrow = clean(body.eyebrow) || 'ΠΡΟΤΕΙΝΟΥΜΕ';
   const ctaLabel = clean(body.ctaLabel) || 'Ανακάλυψε';
   const imageUrl = clean(body.imageUrl);
+  const placement = body.placement || 'home';
+  const placementValue = clean(body.placementValue);
   const targetType = body.targetType || 'none';
   const audience = body.audience || 'all';
   const status = body.status || 'draft';
@@ -30,7 +32,9 @@ function normalize(input) {
   if (!title || title.length > 100 || subtitle.length > 220 || eyebrow.length > 60 || ctaLabel.length > 48 ||
     !safeImage(imageUrl) || !['none','station','genre','external'].includes(targetType) ||
     !['all','guest','member','premium'].includes(audience) ||
-    !['draft','published'].includes(status) || !Number.isInteger(priority) || priority < 0 || priority > 1000) {
+    !['draft','published'].includes(status) || !['home','genre','region'].includes(placement) ||
+    (placement !== 'home' && (!placementValue || placementValue.length > 120)) ||
+    !Number.isInteger(priority) || priority < 0 || priority > 1000) {
     const err = new Error('Μη έγκυρα στοιχεία slide (τίτλος, εικόνα, κατάσταση ή σειρά).'); err.status = 400; throw err;
   }
   const stationId = targetType === 'station' ? clean(body.stationId) : null;
@@ -49,7 +53,8 @@ function normalize(input) {
       (startsAt && endsAt && endsAt <= startsAt)) {
     const err = new Error('Ελέγξτε την ημερομηνία αρχής/λήξης.'); err.status = 400; throw err;
   }
-  return { title, subtitle, eyebrow, ctaLabel, imageUrl, targetType,
+  return { title, subtitle, eyebrow, ctaLabel, imageUrl, placement,
+    placementValue: placement === 'home' ? '' : placementValue, targetType,
     stationId, genre: targetType === 'genre' ? genre : '',
     externalUrl: targetType === 'external' ? externalUrl : '',
     audience, priority, status, startsAt, endsAt };
@@ -61,16 +66,27 @@ async function validateStation(payload) {
 }
 const fail = (res,e) => res.status(e.status || 500).json({ error: e.status ? e.message : 'Σφάλμα διαχείρισης slides.' });
 exports.normalize = normalize; // pure input validation for offline tests
-exports.publicSlides = async (_req,res) => {
+exports.publicSlides = async (req,res) => {
   try {
+    const placement = req.query.placement || 'home';
+    const value = clean(req.query.value);
+    if (!['home','genre','region'].includes(placement) ||
+        (placement !== 'home' && (!value || value.length > 120))) {
+      return res.status(400).json({error:'Μη έγκυρη τοποθέτηση editorial slide.'});
+    }
+    // Existing pre-placement documents remain visible on Home without a data migration.
+    const scope = placement === 'home'
+      ? {$or:[{placement:'home'},{placement:{$exists:false}}]}
+      : {placement,placementValue:value};
     const now = new Date();
     const slides = await Slide.find({
+      ...scope,
       status: 'published',
       $and: [
         { $or: [{startsAt: null}, {startsAt: {$lte:now}}] },
         { $or: [{endsAt: null}, {endsAt: {$gt:now}}] }
       ]
-    }).select('title subtitle eyebrow imageUrl ctaLabel targetType stationId genre externalUrl audience priority')
+    }).select('title subtitle eyebrow imageUrl ctaLabel targetType stationId genre externalUrl audience priority placement placementValue')
       .sort({ priority:-1, createdAt:-1 }).limit(16).lean();
     res.setHeader('Cache-Control', 'public, max-age=30');
     res.json(slides);
