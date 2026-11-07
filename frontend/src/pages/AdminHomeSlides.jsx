@@ -8,7 +8,7 @@ const emptySlide = () => ({
 });
 const fieldClass='w-full rounded-xl border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-white outline-none focus:border-[#ccff00]/70';
 const labelClass='mb-1 block text-xs font-bold text-zinc-300';
-const toLocal = value => value ? new Date(value).toISOString().slice(0,16) : '';
+const toLocal = value => { if(!value)return ''; const d=new Date(value); return Number.isFinite(d.getTime()) ? new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16) : ''; };
 const credential = () => ({Authorization:`Bearer ${localStorage.getItem('iluma_token') || ''}`});
 
 export default function AdminHomeSlides() {
@@ -63,7 +63,7 @@ export default function AdminHomeSlides() {
         if(upload.size>8*1024*1024||!['image/jpeg','image/png','image/webp'].includes(upload.type))
           throw new Error('Η εικόνα πρέπει να είναι JPG, PNG ή WebP έως 8MB.');
         const form=new FormData();form.append('imageFile',upload);
-        const response=await fetch('/api/uploads/upload-banner',{method:'POST',headers:credential(),body:form});
+        const response=await fetch('/api/admin/home-slides/upload',{method:'POST',headers:credential(),body:form});
         const data=await response.json();
         if(!response.ok) throw new Error(data.error||'Αποτυχία ανεβάσματος εικόνας.');
         imageUrl=data.url;
