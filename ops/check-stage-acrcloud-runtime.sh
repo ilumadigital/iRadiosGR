@@ -41,6 +41,12 @@ console.log("Runtime stage environment:",e.APP_ENV==="staging"?"OK":"INVALID");
 console.log("Runtime ACRCloud switch:",e.STAGE_ENABLE_ACRCLOUD==="1"?"ON":"OFF");
 console.log("Runtime ACRCloud host:",host?"VALID":"INVALID");
 console.log("Runtime credentials:",e.ACRCLOUD_ACCESS_KEY&&e.ACRCLOUD_ACCESS_SECRET?"PRESENT":"MISSING");
+const auto=e.STAGE_ENABLE_AUTO_ACRCLOUD==="1";
+const budget=Number(e.STAGE_AUTO_ACR_DAILY_LIMIT);
+console.log("Runtime automatic Top-10 recognition:",auto?"ON":"OFF");
+console.log("Runtime daily auto recognition cap:",Number.isInteger(budget)&&budget>0?Math.min(budget,2880):2880);
+if(auto&&!ready)console.log("WARNING: Auto recognition is ON but ACRCloud is not configured.");
+
 console.log("Status:",ready?"READY TO TEST":"NOT READY");
 process.exit(ready?0:2);
 '
