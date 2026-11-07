@@ -9,6 +9,7 @@ export const parseMusicMetadata = value => {
   const artist = match[1].trim();
   const title = match[2].trim();
   if (!artist || !title) return null;
-  if (/^(?:radio|station|on air|live|unknown|playing now|now playing|μουσική|εκπομπή|ραδιόφωνο)$/i.test(artist)) return null;
+  if (/^(?:radio|station|on air|live|unknown|playing now|now playing|μουσική|εκπομπή|ραδιόφωνο|σύνδεση)$/i.test(artist)) return null;
+  if (/^(?:στον αέρα|live|live now|on air|now playing|unknown|διαφήμιση|παίζει τώρα)$/i.test(title)) return null;
   return { artist, title, raw: artist + ' - ' + title };
 };
