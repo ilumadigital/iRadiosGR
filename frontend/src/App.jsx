@@ -655,9 +655,13 @@ function MainApp() {
   }, [volume, fadeAudio]);
 
   useEffect(() => {
-    const socketUrl = window.location.origin; 
-    const s = io(socketUrl, { path: '/api/socket.io' });
-    setGlobalSocket(s);
+    // The public stage runs radio playback without the legacy user-sync socket.
+    // Those socket events lack resource authorization; skip the connection
+    // instead of repeatedly retrying a 403 and flooding browser Network logs.
+    const isPublicStage = window.location.hostname === 'stage.iradios.gr';
+    const socketUrl = window.location.origin;
+    const s = isPublicStage ? null : io(socketUrl, { path: '/api/socket.io' });
+    if (s) setGlobalSocket(s);
     
     fetch('https://ipapi.co/json/')
       .then(res => res.json())
@@ -673,7 +677,7 @@ function MainApp() {
       })
       .catch(() => {});
 
-    return () => s.disconnect();
+    return () => { if (s) s.disconnect(); };
   }, []);
 
   // ==============================================================
