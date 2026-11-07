@@ -99,7 +99,7 @@ export default function DesktopFullPlayer({
                   className="w-[clamp(110px,12vw,176px)] accent-[#ccff00]"/>
               </label>
               {!isPlayingAd&&<button type="button" onClick={onRecognize} disabled={isRecognizing||!isPlaying}
-                className="ir-recognize-button"><ScanSearch size={18}/>{isRecognizing?'Αναγνώριση…':'Αναγνώριση τραγουδιού'}</button>}
+                className="ir-recognize-button"><ScanSearch size={18}/>{isRecognizing?'Ψάχνουμε το τραγούδι…':'Βρες το τραγούδι'}</button>}
             </div>
           </div>
           <div className="ir-desktop-player-artframe relative mx-auto flex h-full min-h-0 min-w-0 w-full max-w-[650px] items-center justify-center">
