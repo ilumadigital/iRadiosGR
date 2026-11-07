@@ -55,7 +55,7 @@ data = p.read_bytes()
 # Vite returns index.html with HTTP 200 for nonexistent static paths.
 # Never copy HTML or a broken partial response under a .png name.
 assert len(data) >= 40 and len(data) <= 12 * 1024 * 1024
-assert data[:8] == b'\\x89PNG\\r\\n\\x1a\\n'
+assert data[:8] == b'\x89PNG\r\n\x1a\n'
 assert data[12:16] == b'IHDR'
 w = int.from_bytes(data[16:20], 'big')
 h = int.from_bytes(data[20:24], 'big')
