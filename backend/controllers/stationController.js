@@ -25,7 +25,13 @@ const cleanExpiredBoosts = async () => {
 exports.getApprovedStations = async (req, res) => {
   try {
     await cleanExpiredBoosts();
-    const stations = await Station.find({ status: 'approved' }).sort({ position: 1, createdAt: -1 });
+    const query = Station.find({ status: 'approved' }).sort({ position: 1, createdAt: -1 });
+    // Public stage may expose station metadata, never broadcaster personal
+    // information or private pending edits imported from production.
+    if (process.env.APP_ENV === 'staging') {
+      query.select('name slogan description genre region city transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule position isFeatured dspPreset disableNetworkAds');
+    }
+    const stations = await query;
     res.json(stations);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -345,7 +351,8 @@ exports.updateNetworkAds = async (req, res) => {
 // 🚀 SMART DISCOVERY MODE
 exports.getDiscoveryStations = async (req, res) => {
   try {
-    const userId = req.query.userId;
+    // Never look up arbitrary imported user favorites from a public query.
+    const userId = process.env.APP_ENV === 'staging' ? null : req.query.userId;
     let matchQuery = { status: 'approved' };
 
     // Αν υπάρχει χρήστης συνδεδεμένος, βρες ποια είναι τα αγαπημένα του
