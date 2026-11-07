@@ -371,6 +371,7 @@
   }
 
   .ir-desktop-player-title {
+    font-size: clamp(1.5rem, min(4.4vw, 7.8dvh), 5.4rem);
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 3;
