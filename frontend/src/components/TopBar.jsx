@@ -73,11 +73,11 @@ export default function TopBar({
         `}
       </style>
 
-      <header className="ir-app-topbar h-[72px] sticky top-0 z-50 flex items-center justify-between px-4 lg:px-8">
+      <header className="ir-app-topbar h-[66px] sticky top-0 z-50 flex items-center justify-between gap-3 px-4 lg:px-7">
         
         {/* LEFT: MOBILE MENU & LOGO */}
         <div className="flex items-center gap-4">
-          <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden text-white">
+          <button type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Άνοιγμα μενού πλοήγησης" className="lg:hidden text-white">
             <Menu size={24} />
           </button>
 
@@ -98,36 +98,35 @@ export default function TopBar({
         </div>
         
         {/* CENTER: SEARCH BAR */}
-        <div className="relative w-full max-w-[180px] sm:max-w-md ml-4 lg:ml-0">
+        <div className="relative ml-3 w-full min-w-0 max-w-[200px] sm:max-w-[370px] lg:ml-0 lg:max-w-[510px] 2xl:max-w-[580px]">
           <div className="relative group">
             <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#ccff00]" />
             <input 
               type="text" 
-              placeholder="Αναζήτηση..." 
+              placeholder="Αναζήτηση σταθμού ή είδους μουσικής…" 
               value={searchTerm} 
               onFocus={() => setShowSearchResults(true)} 
               onChange={(e) => setSearchTerm(e.target.value)} 
               className="ir-search-field w-full h-11 pl-12 pr-10 text-sm transition-all text-white" 
             />
             {searchTerm && (
-              <X 
-                size={16} 
-                onClick={() => setSearchTerm('')} 
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 cursor-pointer hover:text-white" 
-              />
+              <button type="button" onClick={() => setSearchTerm('')} aria-label="Καθαρισμός αναζήτησης"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-500 hover:text-white">
+                <X size={16}/>
+              </button>
             )}
           </div>
 
           {showSearchResults && searchTerm && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl z-50 max-h-[300px] overflow-y-auto custom-scrollbar">
               {filteredSearch.map(s => (
-                <div key={s._id} onClick={() => handleSearchResultClick(s._id)} className="flex items-center gap-4 p-3 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0 transition-colors">
+                <button type="button" key={s._id} onClick={() => handleSearchResultClick(s._id)} className="flex w-full items-center gap-4 border-b border-white/5 p-3 text-left transition-colors hover:bg-white/5 focus:bg-white/5 last:border-0">
                   <img src={s.logo} className="w-10 h-10 rounded-lg object-cover bg-white" alt="" />
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-white truncate">{s.name}</div>
                     <div className="text-[10px] text-zinc-500 font-bold tracking-wider">{s.genre}</div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
