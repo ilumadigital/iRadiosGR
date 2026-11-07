@@ -308,7 +308,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
   );
 
   return (
-    <div className="w-full px-4 md:px-8 py-6 md:py-10 pb-40 animate-fade-in relative">
+    <div className="ir-catalog-page relative w-full animate-fade-in px-4 pb-40 pt-6 md:px-8 md:pt-9">
       
       <Helmet>
         <title>{`Ραδιόφωνα από ${regionName} | iRadios`}</title>
@@ -323,7 +323,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
         <span className="text-[10px] font-black tracking-[0.2em] uppercase">Επιστροφη</span>
       </button>
 
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 mb-8 md:mb-12 border-b border-white/5 pb-6">
+      <div className="ir-catalog-heading mb-7 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
         <div>
           <h2 className="text-3xl md:text-5xl font-black tracking-tighter text-white italic flex items-center gap-4">
             {canShowMap ? <MapPin className="text-[#ccff00]" size={36} /> : <Globe className="text-[#ccff00]" size={36} />}
