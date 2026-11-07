@@ -24,7 +24,7 @@ fi
 if tar -tzf "$TRANSFER/iradios-prod-uploads.tar.gz" | grep -E '(^/|(^|/)\.\.(/|$))' ; then
   echo "STOP: traversal path in archive" >&2; exit 1
 fi
-if tar -tzvf "$TRANSFER/iradios-prod-uploads.tar.gz" | grep -q '^l'; then
+if tar -tzvf "$TRANSFER/iradios-prod-uploads.tar.gz" | grep '^l' >/dev/null; then
   echo "STOP: symlink in uploads archive; manual review needed" >&2; exit 1
 fi
 [[ "$(docker inspect --format '{{.State.Health.Status}}' "$MONGO")" == "healthy" ]] || { echo "MongoDB not healthy" >&2; exit 1; }
