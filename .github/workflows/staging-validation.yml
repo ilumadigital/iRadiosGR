@@ -51,6 +51,10 @@ jobs:
         run: node ops/check-phase32-listener-polish.cjs
       - name: Validate staging ACRCloud recognition diagnostics without remote requests
         run: node ops/check-stage-acrcloud-diagnostics.cjs
+      - name: Validate shared ACR song provenance and five-minute device metadata
+        run: node ops/check-phase33-smart-nowplaying.cjs
+      - name: Validate Top 10 music-only automatic recognition and billing cap
+        run: node ops/check-phase33-auto-acr.cjs
       - name: Validate frontend production build
         # Existing react-simple-maps@1.0.0 declares React 16 peers despite the React 19 app.
         # Use the same legacy resolution needed by the current project; track upgrade separately.
