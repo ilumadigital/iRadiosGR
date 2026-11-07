@@ -76,7 +76,7 @@ export default function StationPlaylistPanel({
         {chosen?.logo&&<img src={chosen.logo} alt="" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"/>}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-black text-white">{chosen?.name||'Δεν έχει επιλεγεί σταθμός'}</div>
-          <span className="mt-1 block text-[11px] text-zinc-400">Τελευταία 12 τραγούδια · από πραγματικά metadata</span>
+          <span className="mt-1 block text-[11px] text-zinc-400">Τα τελευταία Tracks του {chosen?.name||'σταθμού'}</span>
         </div>
         {onPlayStation&&chosen&&<StationListenButton station={chosen} currentStation={currentStation} isPlaying={isPlaying}
           onPlayStation={onPlayStation} onPlayPause={onPlayPause} className="shrink-0"/>}
