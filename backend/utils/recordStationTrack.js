@@ -12,6 +12,8 @@ function parseTrack(raw,stationName=''){
   if(!match)return null;
   const artist=match[1].trim(),title=match[2].trim();
   if(!artist||!title||noise.test(artist)||noise.test(title))return null;
+  // A DJ/radio programme label is not proof of a real artist/title pair.
+  if(/(?:radio\s?show|live\s?show|dj\s?set|morning\s?show|evening\s?show|podcast|εκπομπή|δελτίο\s+ειδήσεων)/i.test(title))return null;
   const compactStation=compact(stationName);
   if(compactStation.length>=5 &&
     (compact(artist)===compactStation||compact(title)===compactStation))return null;
