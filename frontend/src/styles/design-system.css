@@ -612,3 +612,51 @@
     .ir-catalog-popover { background: #11181e; }
   }
 }
+
+
+/* Phase 3.2 — responsive navigation, favorites, station profile and mobile player. */
+@layer components {
+  .ir-favorites-page {
+    background: radial-gradient(ellipse 65% 28% at 90% 0%, rgba(204, 255, 0, .05), transparent 75%);
+  }
+  .ir-favorites-page input[type="search"]::-webkit-search-cancel-button {
+    appearance: none;
+  }
+  .ir-favorites-page button:focus-visible,
+  .ir-station-page button:focus-visible,
+  .ir-app-topbar button:focus-visible {
+    outline: 2px solid #ccff00;
+    outline-offset: 2px;
+  }
+  .ir-mobile-player-content {
+    scrollbar-color: rgba(204,255,0,.2) transparent;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  @media (max-width: 767px) {
+    .ir-station-page .ir-station-hero {
+      gap: 1.25rem;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .ir-station-page .ir-station-hero-art {
+      width: min(61vw, 220px);
+      height: min(61vw, 220px);
+      border-radius: 1.3rem;
+    }
+  }
+  @media (max-height: 680px) and (max-width: 1023px) {
+    .ir-mobile-player-content .ir-full-player-art {
+      max-height: 36dvh;
+      max-width: 36dvh;
+    }
+    .ir-mobile-player-content .ir-live-visualizer {
+      margin-bottom: .25rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ir-mini-player, .ir-full-player {
+      transition: none;
+    }
+  }
+}
