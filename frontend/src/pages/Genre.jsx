@@ -193,7 +193,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
             options={availableRegions} allLabel="Όλες οι περιοχές"/>
           <CatalogFilterPopover label="Μετάδοση" value={selectedTransmission} onChange={setSelectedTransmission}
             options={availableTransmissions} allLabel="Όλες οι μεταδόσεις"/>
-          <CatalogFilterPopover label="Ταξινόμηση" value={sortBy} onChange={setSortBy} searchable={false}
+          <CatalogFilterPopover label="Ταξινόμηση" value={sortBy} onChange={setSortBy} searchable={false} includeAll={false}
             options={[{value:'popularity',label:'Δημοτικότητα'},{value:'alphabetical',label:'Αλφαβητικά'},{value:'date',label:'Νεότερα'}]}/>
           <div className="flex items-center bg-zinc-900 border border-white/10 rounded-xl p-1">
             <button type="button" aria-label="Προβολή πλέγματος" onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><LayoutGrid size={16} /></button>
