@@ -27,6 +27,17 @@ const { injectStationSeo, injectGenreSeo, injectRegionSeo, injectMapSeo, injectH
 // --- 3. INIT APP ---
 const app = express();
 
+// Staging-only defense: unauthenticated access to admin APIs must not expose
+// imported production account and billing records.
+if (process.env.APP_ENV === 'staging') {
+  const { protect } = require('./utils/authMiddleware');
+  const { authorizeRoles } = require('./utils/roleMiddleware');
+  app.use('/api/admin', protect, authorizeRoles('admin'));
+  app.use('/api/banners/admin', protect, authorizeRoles('admin'));
+  app.use('/api/notifications/stats', protect, authorizeRoles('admin'));
+}
+
+
 // Fail closed for STAGING: never reach production payment, push or recognition services.
 // Authentication for the entire staging host is also enforced by the host Nginx.
 if (process.env.APP_ENV === 'staging') {
