@@ -285,7 +285,7 @@
 
   .ir-live-visualizer span {
     width: 4px;
-    height: 38%;
+    height: 19px;
     border-radius: 999px;
     background: var(--ir-color-accent);
     box-shadow: 0 0 9px rgba(204, 255, 0, 0.3);
