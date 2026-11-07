@@ -25,6 +25,11 @@ router.post('/notifications/send', notificationController.sendNotification);
 
 // Analytics & Metadata
 router.get('/broadcaster/:userId/analytics', analyticsController.getBroadcasterAnalytics);
-router.get('/metadata', miscController.getMetadata);
+// The original metadata extractor performs arbitrary upstream fetches.
+// Keep the staging response deterministic until that endpoint gets the
+// same approved-station SSRF protection as the stream proxy.
+router.get('/metadata', process.env.APP_ENV === 'staging'
+  ? (_req,res) => res.json({title:''})
+  : miscController.getMetadata);
 
 module.exports = router;
