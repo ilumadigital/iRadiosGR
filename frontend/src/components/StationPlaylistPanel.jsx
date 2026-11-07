@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ListMusic, Radio, Play, RefreshCw, Music2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StationListenButton from './StationListenButton';
+import FoundWithAI from './FoundWithAI';
 
 const resolveTime = date => {
   const d=new Date(date);
@@ -99,6 +100,7 @@ export default function StationPlaylistPanel({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-white">{track.title}</p>
             <p className="truncate text-xs text-zinc-400">{track.artist}</p>
+            {track.source==='acrcloud'&&<FoundWithAI compact className="mt-1"/>}
           </div>
           <time dateTime={track.playedAt} className="shrink-0 text-[11px] tabular-nums text-zinc-500">{resolveTime(track.playedAt)}</time>
           {i===0&&<span className="sr-only">Πιο πρόσφατο τραγούδι</span>}
