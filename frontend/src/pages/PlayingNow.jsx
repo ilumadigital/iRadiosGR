@@ -81,18 +81,17 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
 
   if (!currentUser) return null;
   return (
-    <section className="ir-home-now-playing min-w-0" aria-label="Σταθμοί που μεταδίδουν τραγούδια με metadata">
+    <section className="ir-home-now-playing min-w-0" aria-label="Τραγούδια που παίζουν τώρα στο ραδιόφωνο">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-xl font-black text-white sm:text-2xl">
             <AudioLines className="text-[#ccff00]" size={23}/> Τώρα παίζουν
             {isLoading && <Loader2 size={16} className="animate-spin text-[#ccff00]"/>}
           </h2>
-          <p className="mt-1 text-xs text-zinc-400">Μόνο σταθμοί με επιβεβαιωμένα μουσικά metadata</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="hidden rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-1.5 text-[11px] font-bold text-[#ccff00] sm:inline">
-            {liveStations.length} με metadata
+            {liveStations.length} {liveStations.length===1?"σταθμός LIVE":"σταθμοί LIVE"}
           </span>
           <button type="button" aria-label="Προηγούμενοι σταθμοί που παίζουν" disabled={!liveStations.length}
             onClick={()=>stripRef.current?.scrollBy({left:-330,behavior:'smooth'})}
@@ -114,8 +113,8 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
       {!isLoading && !liveStations.length &&
         <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.025] p-6 text-center">
           <Radio size={27} className="mx-auto text-[#ccff00]/60"/>
-          <p className="mt-3 text-sm text-zinc-300">Δεν εντοπίστηκαν σταθμοί με έγκυρα μουσικά metadata αυτή τη στιγμή.</p>
-          <p className="mt-1 text-xs text-zinc-500">Οι μεταδόσεις συνεχίζουν κανονικά. Η λίστα ενημερώνεται αυτόματα.</p>
+          <p className="mt-3 text-sm text-zinc-300">Δεν έχουμε τραγούδια να σου δείξουμε αυτή τη στιγμή.</p>
+          <p className="mt-1 text-xs text-zinc-500">Δοκίμασε ξανά σε λίγο ή ανακάλυψε άλλους σταθμούς.</p>
         </div>
       }
       {!!liveStations.length &&
