@@ -63,7 +63,7 @@ export default function DesktopFullPlayer({
             <div className="mb-[clamp(0.25rem,1dvh,0.9rem)] inline-flex items-center gap-2 text-[clamp(0.6rem,1.25dvh,0.75rem)] font-black uppercase tracking-[0.2em] text-[#ccff00]">
               <Radio size={19}/> {isPlayingAd?'ΔΙΑΦΗΜΙΣΗ':'ΖΩΝΤΑΝΑ ΣΤΟΝ ΑΕΡΑ'}
             </div>
-            <h1 className="ir-desktop-player-title line-clamp-3 break-words text-[clamp(1.5rem,min(4.4vw,7.8dvh),5.4rem)] font-black leading-[1.03] tracking-tight">
+            <h1 className="ir-desktop-player-title break-words font-black leading-[1.03] tracking-tight">
               {songTitle||showName}
             </h1>
             <p className="mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-2 text-[clamp(1rem,2.8dvh,1.8rem)] font-semibold leading-tight text-zinc-200">
@@ -103,7 +103,7 @@ export default function DesktopFullPlayer({
             </div>
           </div>
           <div className="ir-desktop-player-artframe relative mx-auto flex h-full min-h-0 min-w-0 w-full max-w-[650px] items-center justify-center">
-            <div className="ir-desktop-player-art relative aspect-square w-[min(100%,calc(100dvh-170px),610px)] max-w-full shrink-0 overflow-hidden rounded-[clamp(16px,2.5vw,36px)] border border-white/15 bg-[#151b20] shadow-[0_22px_65px_rgba(0,0,0,0.6)]">
+            <div className="ir-desktop-player-art relative aspect-square max-w-full shrink-0 overflow-hidden rounded-[clamp(16px,2.5vw,36px)] border border-white/15 bg-[#151b20] shadow-[0_22px_65px_rgba(0,0,0,0.6)]">
               <img src={image} alt={artwork?'Εξώφυλλο τρέχοντος τραγουδιού':'Λογότυπο '+station.name}
                 className={`h-full w-full ${artwork?'object-cover':'bg-white object-contain p-12'}`}/>
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent"/>
