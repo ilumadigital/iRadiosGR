@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { formatFMFrequency } from '../utils/stationFrequency';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Play, Pause, Heart, SkipBack, Car, SkipForward, MessageSquare, 
@@ -42,6 +43,7 @@ export default function MobileMiniPlayer({
   
   const [showChat, setShowChat] = useState(false); 
   const [isMaximized, setIsMaximized] = useState(false);
+  const fullscreenRef = useRef(null);
   
   // 🟢 ΝΕΑ TOUCH STATES ΓΙΑ ΤΟ SMOOTH SWIPE
   const [touchStartY, setTouchStartY] = useState(null);
@@ -70,6 +72,27 @@ export default function MobileMiniPlayer({
   }, []);
 
   useEffect(() => { setShowChat(false); }, [currentStation?._id]);
+  useEffect(()=>{
+    if(!isMaximized)return;
+    const previousOverflow=document.body.style.overflow;
+    const previousFocus=document.activeElement;
+    document.body.style.overflow='hidden';
+    fullscreenRef.current?.querySelector('[aria-label="Ελαχιστοποίηση player"]')?.focus();
+    const onEscape=e=>{
+      if(e.key==='Escape'){
+        if(showChat)setShowChat(false);
+        else if(showEQMenu)setShowEQMenu(false);
+        else if(showDevicesMenu)setShowDevicesMenu(false);
+        else setIsMaximized(false);
+      }
+    };
+    document.addEventListener('keydown',onEscape);
+    return ()=>{
+      document.body.style.overflow=previousOverflow;
+      document.removeEventListener('keydown',onEscape);
+      if(previousFocus?.isConnected)previousFocus.focus();
+    };
+  },[isMaximized,showChat,showEQMenu,showDevicesMenu]);
 
   useEffect(() => {
     if (isPlayingAd && currentAdInfo?._id && lastTrackedAdId.current !== currentAdInfo._id) {
@@ -272,11 +295,18 @@ export default function MobileMiniPlayer({
       </style>
 
       {/* --- 1. FULL SCREEN (MAXIMIZED) PLAYER --- */}
-      <div 
+      <div
+        ref={fullscreenRef}
+        role="dialog"
+        aria-label={`Πλήρης αναπαραγωγή: ${currentStation.name}`}
+        aria-modal={isMaximized}
+        aria-hidden={!isMaximized}
+        inert={!isMaximized}
+        tabIndex={-1}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMoveMaximized}
         onTouchEnd={handleTouchEndMaximized}
-        className={`ir-full-player fixed inset-0 z-[100] flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
+        className={`ir-full-player fixed inset-0 z-[100] flex h-[100vh] h-[100dvh] min-h-0 flex-col overflow-hidden overscroll-contain transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:hidden ${
           isMaximized ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
@@ -288,9 +318,9 @@ export default function MobileMiniPlayer({
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/90 to-transparent" />
         </div>
 
-        <div className="relative z-10 flex h-full flex-col overflow-x-hidden overflow-y-auto px-5 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8">
+        <div className="ir-mobile-player-content relative z-10 flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-8">
           
-          <div className="relative flex items-center justify-between mb-8 min-h-[36px]">
+          <div className="relative mb-[clamp(.65rem,2dvh,2rem)] flex min-h-[36px] shrink-0 items-center justify-between">
             <div className="flex-1 flex justify-start z-10 relative">
               <button onClick={() => setIsMaximized(false)} aria-label="Ελαχιστοποίηση player" className="p-2 -ml-2 text-white/70 hover:text-white transition-colors active:scale-90">
                 <ChevronDown size={28} />
@@ -315,7 +345,7 @@ export default function MobileMiniPlayer({
             <div className="flex-1 flex flex-col items-end gap-1.5 z-10">
               <div className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-black tracking-[0.1em] border shadow-md bg-zinc-800/80 text-zinc-300 border-white/10">
                 {currentStation.transmissionType === 'Επίγειο' ? <Radio size={10} strokeWidth={3} /> : <SignalHigh size={10} strokeWidth={3} />}
-                <span>{currentStation.transmissionType === 'Επίγειο' && currentStation.frequency ? currentStation.frequency : 'WEB'}</span>
+                <span>{currentStation.transmissionType === 'Επίγειο' && currentStation.frequency ? formatFMFrequency(currentStation.frequency) : 'WEB'}</span>
               </div>
 
               {currentStation.explicit && (
@@ -329,13 +359,13 @@ export default function MobileMiniPlayer({
 
           {/* 🟢 Κεντρική Εικόνα Maximized Player ΜΕ SWIPE ANIMATION */}
           <div 
-            className="flex-1 flex flex-col items-center justify-center w-full relative z-10 will-change-transform"
+            className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center will-change-transform"
             style={{
               transform: `translateX(${swipeX}px)`,
               transition: isAnimatingX ? 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)' : 'none'
             }}
           >
-            <div className="relative mb-5 flex aspect-square w-full max-w-[min(68vw,310px)] justify-center sm:max-w-[340px]">
+            <div className="relative mb-[clamp(.5rem,2dvh,1.25rem)] flex aspect-square w-full max-w-[min(72vw,37dvh,310px)] justify-center sm:max-w-[min(340px,37dvh)]">
               <img 
                 onClick={handleAdClick}
                 src={maximizedImage} 
@@ -381,13 +411,13 @@ export default function MobileMiniPlayer({
 
           {/* Decorative motion only; live radio has no track progress bar. */}
           {!isPlayingAd && (
-            <div className={`ir-live-visualizer mb-3 ${(!isPlaying || isBuffering) ? 'ir-live-visualizer--paused' : ''}`} aria-hidden="true">
+            <div className={`ir-live-visualizer mb-2 shrink-0 ${(!isPlaying || isBuffering) ? 'ir-live-visualizer--paused' : ''}`} aria-hidden="true">
               {Array.from({ length: 23 }, (_, i) => <span key={i} style={{ '--i': i }} />)}
             </div>
           )}
 
           {/* MAIN CONTROLS - MAXIMIZED PLAYER */}
-          <div className="ir-full-player-actions grid grid-cols-3 items-center justify-between mb-4 px-2 w-full">
+          <div className="ir-full-player-actions mb-[clamp(.35rem,1.3dvh,1rem)] grid w-full shrink-0 grid-cols-3 items-center justify-between px-1 sm:px-2">
             <div className="flex justify-start">
               {!isPlayingAd && (
                 <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} aria-label={isCurrentlyFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"} className={`p-2 rounded-full transition-all active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-white/40 hover:text-white'}`}>

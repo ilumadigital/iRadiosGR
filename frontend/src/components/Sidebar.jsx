@@ -34,6 +34,15 @@ export default function Sidebar({
   unreadBroadcasterChat, setUnreadBroadcasterChat
 }) {
   const location = useLocation();
+  useEffect(()=>{setIsMobileMenuOpen(false);},[location.pathname,location.search]);
+  useEffect(()=>{
+    if(!isMobileMenuOpen)return;
+    const old=document.body.style.overflow;
+    document.body.style.overflow='hidden';
+    const escape=e=>{if(e.key==='Escape'){setIsMobileMenuOpen(false);document.querySelector('[aria-label="Άνοιγμα μενού πλοήγησης"]')?.focus();}};
+    document.addEventListener('keydown',escape);
+    return ()=>{document.body.style.overflow=old;document.removeEventListener('keydown',escape);};
+  },[isMobileMenuOpen,setIsMobileMenuOpen]);
   const navigate = useNavigate();
   
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -88,9 +97,11 @@ export default function Sidebar({
         `}
       </style>
 
-      <aside className={`ir-app-sidebar fixed inset-y-0 left-0 z-[100] lg:sticky lg:top-0 lg:h-screen shrink-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      } ${isCollapsed ? 'lg:w-[82px] w-[280px]' : 'w-[280px] lg:w-[252px]'}`}>
+      {isMobileMenuOpen&&<button type="button" aria-label="Κλείσιμο μενού" onClick={()=>setIsMobileMenuOpen(false)}
+        className="fixed inset-0 z-[99] bg-black/70 backdrop-blur-[3px] lg:hidden" />}
+      <aside aria-label="Κύρια πλοήγηση" className={`ir-app-sidebar fixed inset-y-0 left-0 z-[100] lg:sticky lg:top-0 lg:h-screen shrink-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+        isMobileMenuOpen ? 'translate-x-0 visible' : '-translate-x-full invisible lg:visible lg:translate-x-0'
+      } ${isCollapsed ? 'lg:w-[82px] w-[min(86vw,280px)]' : 'w-[min(86vw,280px)] lg:w-[252px]'}`}>
         
         <div className="flex flex-col h-full">
           
@@ -114,6 +125,8 @@ export default function Sidebar({
             </Link>
 
             <button 
+              type="button"
+              aria-label={isCollapsed ? 'Επέκταση μενού' : 'Σύμπτυξη μενού'}
               onClick={toggleCollapse} 
               className="hidden lg:flex text-zinc-500 hover:text-white transition-colors p-2 rounded-xl hover:bg-white/5 shrink-0"
               title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
@@ -121,13 +134,13 @@ export default function Sidebar({
               {isCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
             </button>
 
-            <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden text-zinc-500 hover:text-white transition-colors shrink-0">
+            <button type="button" aria-label="Κλείσιμο μενού" onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden rounded-lg p-2 text-zinc-400 hover:bg-white/10 hover:text-white transition-colors shrink-0">
               <X size={24} />
             </button>
           </div>
           
           {/* 📜 SCROLLABLE AREA */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col justify-between pb-44 lg:pb-32">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain custom-scrollbar flex flex-col justify-between pb-28 lg:pb-24">
             
             <nav className={`space-y-1 transition-all duration-300 ${isCollapsed ? 'lg:px-3 px-4' : 'px-4'}`}>
               

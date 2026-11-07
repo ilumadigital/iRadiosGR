@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { formatFMFrequency } from '../utils/stationFrequency';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Play, Pause, Heart, ArrowLeft, Disc3, Globe, Zap, Facebook, Instagram, Twitter, 
@@ -8,7 +9,8 @@ import {
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import CircularVU from '../components/CircularVU';
-import StationPlaylistPanel from '../components/StationPlaylistPanel'; 
+import StationPlaylistPanel from '../components/StationPlaylistPanel';
+import StationCatalogCard from '../components/StationCatalogCard'; 
 import { useAlert } from '../context/AlertContext';
 
 const DAYS_OF_WEEK = ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'];
@@ -31,7 +33,7 @@ export default function StationProfile({
   const [localNowPlaying, setLocalNowPlaying] = useState(null);
   const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
   
-  const mountedRef = useRef(true);
+  // Station metadata must never update the page after the station changes.
 
   const station = stations.find(s => s.slug === id || s._id === id);
   const isFreeOrGuest = !currentUser || (!currentUser.isPremium && currentUser?.broadcasterProfile?.tier !== 'premium');
@@ -64,53 +66,41 @@ export default function StationProfile({
 
   const homeBanners = activeBanners.filter(b => b.placement && b.placement.includes('home'));
 
-  // --- FETCH LOCAL METADATA ---
+  // Fetch live song information only for the authenticated listener's active station.
   useEffect(() => {
-    mountedRef.current = true;
+    const controller=new AbortController();
     let intervalId;
-
-    const fetchLocalMetadata = async () => {
-      if (!station || !currentUser) return;
-      
-      if (!isThisPlaying || !isPlaying) {
-         if (mountedRef.current) {
-            setLocalNowPlaying(null);
-         }
-         return;
-      }
-
-      if (isRecognizing) return;
-
-      setIsSearchingMetadata(true);
-      try {
-        const metaRes = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(station.stream)}`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('iluma_token') || ''}` }
-        });
-        const metaData = await metaRes.json();
-        
-        if (metaData && metaData.title && metaData.title.trim() !== '') {
-          if (mountedRef.current) setLocalNowPlaying(metaData.title);
-        } else {
-           if(mountedRef.current) setLocalNowPlaying(null);
-        }
-      } catch (err) {
-         if(mountedRef.current) setLocalNowPlaying(null);
-      } finally {
-         if(mountedRef.current) setIsSearchingMetadata(false);
-      }
-    };
-
-    fetchLocalMetadata();
-    if (isThisPlaying && isPlaying) {
-        intervalId = setInterval(fetchLocalMetadata, 45000);
+    let inFlight=false;
+    setLocalNowPlaying(null);
+    setIsSearchingMetadata(false);
+    if (!station?._id || !currentUser || !isThisPlaying || !isPlaying || isRecognizing) {
+      return () => controller.abort();
     }
-
-    return () => {
-      mountedRef.current = false;
-      clearInterval(intervalId);
+    const read=async()=>{
+      if(inFlight || controller.signal.aborted)return;
+      inFlight=true;
+      setIsSearchingMetadata(true);
+      try{
+        const response=await fetch(`${API_URL}/metadata?stationId=${encodeURIComponent(station._id)}`,{
+          headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},
+          signal:controller.signal
+        });
+        if(!response.ok)throw new Error('Song information unavailable');
+        const data=await response.json();
+        if(!controller.signal.aborted)setLocalNowPlaying(
+          typeof data?.title==='string' && data.title.trim() ? data.title.trim() : null
+        );
+      }catch{
+        if(!controller.signal.aborted)setLocalNowPlaying(null);
+      }finally{
+        inFlight=false;
+        if(!controller.signal.aborted)setIsSearchingMetadata(false);
+      }
     };
-  }, [station, currentUser, isThisPlaying, isPlaying, API_URL, isRecognizing]);
-
+    read();
+    intervalId=setInterval(read,45000);
+    return ()=>{controller.abort();clearInterval(intervalId);};
+  }, [station?._id, currentUser?._id, isThisPlaying, isPlaying, API_URL, isRecognizing]);
 
   // 🟢 ΚΛΙΚ ΣΤΟ AI RADAR
   const onRadarClick = (e) => {
@@ -139,15 +129,16 @@ export default function StationProfile({
 
 
   const relatedStations = useMemo(() => {
-    if (!station || !stations) return [];
-    let filtered = stations.filter(s => s.genre === station.genre && s._id !== station._id);
-    if (filtered.length < 6) {
-       const byRegion = stations.filter(s => s.region === station.region && s._id !== station._id && s.genre !== station.genre);
-       filtered = [...filtered, ...byRegion];
-    }
-    return filtered.sort(() => 0.5 - Math.random()).slice(0, 6);
-  }, [station, stations]);
-  
+    if(!station?._id)return [];
+    const available=stations.filter(s=>
+      s?._id && String(s._id)!==String(station._id) && (s.status==='approved'||!s.status));
+    const sameGenre=available.filter(s=>s.genre && s.genre===station.genre);
+    const sameRegion=available.filter(s=>
+      s.region && s.region===station.region && !sameGenre.includes(s));
+    const others=available.filter(s=>!sameGenre.includes(s)&&!sameRegion.includes(s));
+    return [...sameGenre,...sameRegion,...others].slice(0,6);
+  }, [station?._id,station?.genre,station?.region,stations]);
+
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual';
@@ -206,7 +197,12 @@ export default function StationProfile({
     return { currentShow: curr, nextShow: next };
   }, [station]);
 
-  if (!station) return <div className="p-8 text-zinc-500 font-bold italic">Ο σταθμός δεν βρέθηκε.</div>;
+  if (!station) return <div className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center gap-4 px-6 text-center">
+    <Radio size={38} className="text-[#ccff00]"/>
+    <h1 className="text-2xl font-black text-white">Δεν βρήκαμε αυτόν τον σταθμό</h1>
+    <p className="text-sm text-zinc-400">Μπορείς να ανακαλύψεις άλλους σταθμούς στην αρχική.</p>
+    <button type="button" onClick={()=>navigate('/')} className="ir-action-primary px-6">Στην αρχική</button>
+  </div>;
 
   const isFav = isFavorite ? isFavorite(station._id) : false;
   const canUseCustomEQ = currentUser?.isPremium && isFav;
@@ -455,7 +451,7 @@ export default function StationProfile({
                   'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                 }`}>
                   <SignalHigh size={12} />
-                  {station.transmissionType || 'Web Radio'} {station.frequency && `• ${station.frequency}`}
+                  {station.transmissionType || 'Web Radio'} {station.frequency && `• ${formatFMFrequency(station.frequency)}`}
                 </span>
 
                 {station.explicit && (
@@ -651,7 +647,7 @@ export default function StationProfile({
         </div>
 
         {/* Real last 12 songs for this station, never demo/mock track rows. */}
-        <StationPlaylistPanel station={station} currentUser={currentUser} />
+        <StationPlaylistPanel station={station} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
 
         {/* 3. ΑΝΑΛΥΤΙΚΟ ΠΡΟΓΡΑΜΜΑ (TIMELINE) */}
         {station.schedule && station.schedule.length > 0 && (
@@ -746,39 +742,11 @@ export default function StationProfile({
               Μπορει να σου αρεσουν
             </h3>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-5">
-              {relatedStations.map(relStation => (
-                <button 
-                  key={relStation._id}
-                  onClick={() => {
-                    window.scrollTo(0, 0);
-                    navigate(`/station/${relStation.slug || relStation._id}`);
-                  }}
-                  className="flex flex-col items-center gap-3 group text-left w-full"
-                >
-                  <div className="w-full aspect-square rounded-2xl overflow-hidden bg-zinc-900 border border-white/5 relative shadow-lg">
-                    <img 
-                      src={relStation.logo} 
-                      alt={relStation.name} 
-                      className="w-full h-full object-contain bg-white group-hover:scale-110 transition-transform duration-500"
-                    />
-                    
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <div className="w-12 h-12 bg-[#ccff00] text-black rounded-full flex items-center justify-center scale-75 group-hover:scale-100 transition-transform shadow-[0_0_20px_rgba(204,255,0,0.4)]">
-                        <Play size={20} className="ml-1" fill="currentColor" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="w-full text-center lg:text-left">
-                    <h4 className="text-white font-bold text-sm truncate group-hover:text-[#ccff00] transition-colors">
-                      {relStation.name}
-                    </h4>
-                    <p className="text-zinc-500 text-[10px] font-black tracking-widest truncate mt-0.5">
-                      {relStation.genre}
-                    </p>
-                  </div>
-                </button>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 sm:gap-5">
+              {relatedStations.map(relStation=>(
+                <StationCatalogCard key={relStation._id} station={relStation}
+                  currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause}
+                  onPlayStation={setCurrentStation}/>
               ))}
             </div>
           </div>

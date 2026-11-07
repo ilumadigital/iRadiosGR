@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { formatFMFrequency } from '../utils/stationFrequency';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Play, Pause, ArrowLeft, MapPin, LayoutGrid, List, Music, Map as MapIcon, X, Zap, Globe, Activity, Megaphone, ExternalLink, SignalHigh } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
@@ -475,7 +476,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
                                      <span className={`shrink-0 text-[8.5px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex items-center ${
                                        station.transmissionType === 'Επίγειο' ? 'text-blue-400 bg-blue-500/10' : 'text-purple-400 bg-purple-500/10'
                                      }`}>
-                                       {station.transmissionType === 'Επίγειο' && station.frequency ? station.frequency : station.transmissionType}
+                                       {station.transmissionType === 'Επίγειο' && station.frequency ? formatFMFrequency(station.frequency) : station.transmissionType}
                                      </span>
                                   )}
                                   <p className="text-[10px] text-zinc-500 font-medium truncate uppercase">{station.genre}</p>

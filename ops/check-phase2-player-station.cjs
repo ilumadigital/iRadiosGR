@@ -35,7 +35,9 @@ assert.ok(!mini.includes('audioRef = useRef'), 'do not duplicate audio node in U
 
 assert.ok(station.includes('ir-station-hero'), 'station hero');
 assert.ok(station.includes('ir-station-now'), 'factual metadata panel');
-assert.ok(station.includes('if (!station || !currentUser) return;'), 'station metadata stays authenticated');
+assert.ok(station.includes('!station?._id || !currentUser || !isThisPlaying'), 'station metadata stays authenticated and follows the playing station');
+assert.ok(station.includes("localStorage.getItem('iluma_token')"), 'station metadata sends the signed-in listener token');
+assert.ok(station.includes('controller.abort();clearInterval(intervalId);'), 'station metadata must abort stale requests');
 assert.ok(station.includes('onClick={handlePlayClick}'), 'original play callback preserved');
 
 assert.ok(home.includes('aria-label={`Άνοιγμα σταθμού'), 'now-playing cards keyboard accessible');
