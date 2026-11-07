@@ -1,5 +1,8 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16', 
+// The staging deployment may retain legacy/live Stripe env values for parity,
+// but MUST NEVER initialize a billing client or send a Stripe API request.
+// Production behavior remains unchanged.
+const stripe = process.env.APP_ENV === 'staging' ? null : require('stripe')(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2023-10-16',
 });
 
 const User = require('../models/User');
