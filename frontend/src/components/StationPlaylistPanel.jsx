@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Clock3, ListMusic, Radio, ChevronDown, Play, RefreshCw, Music2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ListMusic, Radio, Play, RefreshCw, Music2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const resolveTime = date => {
@@ -34,26 +34,20 @@ function TrackCover({track,fallback}) {
 }
 
 export default function StationPlaylistPanel({
-  station, stations=[], currentUser, onPlayStation, compact=false
+  station, currentUser, onPlayStation, compact=false
 }) {
   const navigate=useNavigate();
-  const [selected,setSelected]=useState('');
   const [tracks,setTracks]=useState([]);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState('');
   const [refresh,setRefresh]=useState(0);
-  useEffect(()=>{if(station?._id)setSelected(String(station._id));},[station?._id]);
-  const allStations=useMemo(()=>{
-    const map=new Map();
-    if(station?._id)map.set(String(station._id),station);
-    stations.forEach(item=>{if(item._id)map.set(String(item._id),item);});
-    return [...map.values()];
-  },[stations,station]);
-  const chosen=allStations.find(s=>String(s._id)===selected)||station;
+  // The playlist always belongs to the station displayed in this panel.
+  // No independent station selector can drift away from the home hero or current station.
+  const chosen=station;
   useEffect(()=>{
     if(!currentUser||!chosen?._id){setTracks([]);setError('');return;}
     const controller=new AbortController();
-    setLoading(true);setError('');
+    setLoading(true);setTracks([]);setError('');
     fetch('/api/stations/'+encodeURIComponent(chosen._id)+'/playlist',{
       headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},signal:controller.signal
     }).then(async r=>{
@@ -71,23 +65,16 @@ export default function StationPlaylistPanel({
     return ()=>clearInterval(timer);
   },[currentUser?._id,chosen?._id]);
   return (
-    <section className={`ir-playlist-panel ir-glass min-w-0 overflow-hidden p-5 sm:p-6 ${compact?'h-full':''}`} aria-label="Πρόσφατα τραγούδια σταθμού">
+    <section className={`ir-playlist-panel ir-glass flex min-w-0 flex-col overflow-hidden p-4 sm:p-5 ${compact?'ir-playlist-panel--compact h-full':''}`} aria-label="Πρόσφατα τραγούδια σταθμού">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#ccff00]"><Radio size={14}/> ΠΑΙΖΕΙ ΣΤΟ iRADIOS</p>
-          <h2 className="mt-2 text-xl font-black text-white">Playlist σταθμού</h2></div>
+          <h2 className="mt-1 text-xl font-black text-white">Playlist σταθμού</h2></div>
         <button type="button" title="Ανανέωση playlist" aria-label="Ανανέωση playlist" onClick={()=>setRefresh(n=>n+1)} disabled={!currentUser||loading} className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-[#ccff00] disabled:opacity-40"><RefreshCw size={17} className={loading?'animate-spin':''}/></button>
       </div>
-      <div className="mt-5 flex items-center gap-3 rounded-xl bg-white/5 p-3">
+      <div className="mt-4 flex shrink-0 items-center gap-3 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/[0.045] p-3">
         {chosen?.logo&&<img src={chosen.logo} alt="" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"/>}
         <div className="min-w-0 flex-1">
-          {stations.length>1?(
-            <label className="relative block"><span className="sr-only">Σταθμός playlist</span>
-              <select value={chosen?._id||''} onChange={e=>setSelected(e.target.value)}
-                className="w-full appearance-none truncate bg-transparent pr-6 text-sm font-bold text-white outline-none">
-                {allStations.map(item=><option value={item._id} key={item._id} className="bg-zinc-950">{item.name}</option>)}
-              </select><ChevronDown size={14} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-zinc-400"/>
-            </label>
-          ):<div className="truncate text-sm font-bold text-white">{chosen?.name||'Επίλεξε σταθμό'}</div>}
+          <div className="truncate text-sm font-black text-white">{chosen?.name||'Δεν έχει επιλεγεί σταθμός'}</div>
           <span className="mt-1 block text-[11px] text-zinc-400">Τελευταία 12 τραγούδια · από πραγματικά metadata</span>
         </div>
         {onPlayStation&&chosen&&<button type="button" onClick={()=>onPlayStation(chosen)} aria-label={'Αναπαραγωγή '+chosen.name}
@@ -104,7 +91,7 @@ export default function StationPlaylistPanel({
         <p className="text-sm text-zinc-300">Δεν έχει καταγραφεί ακόμα μουσική για αυτόν τον σταθμό.</p>
         <p className="mt-2 text-xs text-zinc-500">Το ιστορικό συμπληρώνεται αυτόματα όταν λαμβάνουμε έγκυρα metadata τραγουδιών.</p>
       </div>:null}
-      {tracks.length>0&&<div className="mt-4 max-h-[560px] divide-y divide-white/5 overflow-y-auto pr-1" aria-live="polite">
+      {tracks.length>0&&<div className={`mt-3 min-h-0 divide-y divide-white/5 overflow-y-auto pr-1 ${compact?'flex-1':'max-h-[560px]'}`} aria-live="polite">
         {tracks.map((track,i)=><div key={track.raw+'-'+track.playedAt+'-'+i}
           className={`flex items-center gap-3 rounded-lg px-2 py-2.5 ${i===0?'bg-[#ccff00]/10':''}`}>
           <TrackCover track={track} fallback={chosen?.logo||'/iradios-app-logo.png'}/>
@@ -118,7 +105,7 @@ export default function StationPlaylistPanel({
       </div>}
       {loading&&!tracks.length&&<p className="mt-6 text-sm text-zinc-400">Φόρτωση πραγματικού ιστορικού…</p>}
       {chosen&&<button type="button" onClick={()=>navigate('/station/'+(chosen.slug||chosen._id))}
-        className="mt-4 w-full rounded-xl border border-white/10 p-3 text-sm font-semibold text-zinc-300 hover:border-[#ccff00]/30 hover:text-[#ccff00]">
+        className="mt-3 w-full shrink-0 rounded-xl border border-white/10 p-2.5 text-xs font-semibold text-zinc-300 hover:border-[#ccff00]/30 hover:text-[#ccff00]">
         Δες τον σταθμό και το πρόγραμμά του
       </button>}
     </section>

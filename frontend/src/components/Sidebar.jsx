@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, MessageSquare, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Navigation } from 'lucide-react';
+import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, MessageSquare, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy } from 'lucide-react';
 
 function SidebarItem({ icon, label, to, currentPath, onClick, className = "", isCollapsed }) {
   const active = currentPath === to || decodeURIComponent(currentPath) === to;
@@ -90,7 +90,7 @@ export default function Sidebar({
 
       <aside className={`ir-app-sidebar fixed inset-y-0 left-0 z-[100] lg:sticky lg:top-0 lg:h-screen shrink-0 flex flex-col transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      } ${isCollapsed ? 'lg:w-[88px] w-[280px]' : 'w-[280px]'}`}>
+      } ${isCollapsed ? 'lg:w-[82px] w-[280px]' : 'w-[280px] lg:w-[252px]'}`}>
         
         <div className="flex flex-col h-full">
           
@@ -107,13 +107,10 @@ export default function Sidebar({
                 <div className="w-[4px] bg-white rounded-full eq-bar-4" />
                 <div className="w-[4px] bg-[#ccff00] rounded-full eq-bar-5" />
               </div>
-              <img 
-                src="/noicon-iradios-app-logo.png" 
-                alt="iRadios Logo" 
-                className={`h-[20px] w-auto object-contain mt-1 group-hover:opacity-80 transition-all duration-300 ${
-                  isCollapsed ? 'lg:max-w-0 lg:opacity-0' : 'max-w-[100px] opacity-100'
-                }`} 
-              />
+              <span className={`flex min-w-0 flex-col justify-center transition-all duration-300 ${isCollapsed?'lg:max-w-0 lg:opacity-0':'opacity-100'}`}>
+                <span className="whitespace-nowrap text-lg font-black tracking-tight text-white">iRadios<span className="text-[#ccff00]">GR</span></span>
+                <span className="whitespace-nowrap text-[9px] font-medium text-zinc-500">Ελληνικό Ραδιόφωνο · Premium</span>
+              </span>
             </Link>
 
             <button 
@@ -168,7 +165,10 @@ export default function Sidebar({
               
               {!isProducer && (
                 <>
-                  <SidebarItem isCollapsed={isCollapsed} to="/" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Compass size={20} />} label="Αρχική" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Compass size={20} />} label="Αρχική" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=categories" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Grid2X2 size={20} />} label="Κατηγορίες" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=top" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Trophy size={20} />} label="Top σταθμοί" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=for-you" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Sparkles size={20} />} label="Προτάσεις για σένα" />
                   <SidebarItem isCollapsed={isCollapsed} to="/map" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<MapPinned size={20} />} label="Δες στον Χάρτη" />
                 </>
               )}
@@ -305,6 +305,8 @@ export default function Sidebar({
                   {isCollapsed && <div className="hidden lg:block w-6 h-px bg-white/10 mx-auto my-6" />}
                   
                   <SidebarItem isCollapsed={isCollapsed} to="/favorites" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Heart size={20} />} label="Αγαπημένα" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=recent" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<History size={20} />} label="Πρόσφατα" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=playlist" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<ListMusic size={20} />} label="Playlist σταθμού" />
 
                   {(!currentUser || !isListenerPremium) && (
                     <div className="mt-2 mb-2">
@@ -319,65 +321,15 @@ export default function Sidebar({
                     </div>
                   )}
 
-                  {/* 🟢 ΝΕΟ: ΔΗΜΟΦΙΛΕΙΣ ΠΕΡΙΟΧΕΣ (Νομοί) */}
-                  <>
-                    <div className={`text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 mt-10 transition-all duration-300 ${isCollapsed ? 'lg:hidden px-4' : 'px-4'}`}>Δημοφιλεις Περιοχες</div>
-                    {isCollapsed && <div className="hidden lg:block w-6 h-px bg-white/10 mx-auto my-6" />}
-                    
-                    <SidebarItem 
-                      isCollapsed={isCollapsed}
-                      to={`/region/${encodeURIComponent('Αθήνα')}`} 
-                      currentPath={location.pathname} 
-                      onClick={() => setIsMobileMenuOpen(false)} 
-                      icon={<Navigation size={18} className="text-zinc-500" />} 
-                      label="Αθήνα" 
-                    />
-                    <SidebarItem 
-                      isCollapsed={isCollapsed}
-                      to={`/region/${encodeURIComponent('Θεσσαλονίκη')}`} 
-                      currentPath={location.pathname} 
-                      onClick={() => setIsMobileMenuOpen(false)} 
-                      icon={<Navigation size={18} className="text-zinc-500" />} 
-                      label="Θεσσαλονίκη" 
-                    />
-                  </>
-
-                  {regions.length > 0 && (
-                    <>
-                      {/* 🟢 Αλλαγή του τίτλου σε ΑΝΑ ΠΕΡΙΦΕΡΕΙΑ */}
-                      <div className={`text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 mt-10 transition-all duration-300 ${isCollapsed ? 'lg:hidden px-4' : 'px-4'}`}>Ανα Περιφερεια</div>
-                      {isCollapsed && <div className="hidden lg:block w-6 h-px bg-white/10 mx-auto my-6" />}
-                      {regions.map(region => (
-                        <SidebarItem 
-                          key={region}
-                          isCollapsed={isCollapsed}
-                          to={`/region/${encodeURIComponent(region)}`} 
-                          currentPath={location.pathname} 
-                          onClick={() => setIsMobileMenuOpen(false)} 
-                          icon={<MapPin size={18} className="text-zinc-500" />} 
-                          label={region} 
-                        />
-                      ))}
-                    </>
-                  )}
-
-                  {genres.length > 0 && (
-                    <>
-                      <div className={`text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 mt-10 transition-all duration-300 ${isCollapsed ? 'lg:hidden px-4' : 'px-4'}`}>Ανα Ειδος</div>
-                      {isCollapsed && <div className="hidden lg:block w-6 h-px bg-white/10 mx-auto my-6" />}
-                      {genres.map(genre => (
-                        <SidebarItem 
-                          key={genre}
-                          isCollapsed={isCollapsed}
-                          to={`/genre/${encodeURIComponent(genre)}`} 
-                          currentPath={location.pathname} 
-                          onClick={() => setIsMobileMenuOpen(false)} 
-                          icon={<Disc3 size={18} className="text-zinc-500" />} 
-                          label={genre.charAt(0).toUpperCase() + genre.slice(1).toLowerCase()} 
-                        />
-                      ))}
-                    </>
-                  )}
+                  {/* Focused region shortcuts; the home grid contains every real region/genre. */}
+                  <div className={`ir-sidebar-heading mb-3 mt-7 px-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 ${isCollapsed?'lg:hidden':''}`}>Ανά περιοχή</div>
+                  {['Αττική','Θεσσαλονίκη','Ανατολική Μακεδονία & Θράκη'].map(name=>(
+                    <SidebarItem key={name} isCollapsed={isCollapsed} to={`/region/${encodeURIComponent(name)}`}
+                      currentPath={location.pathname} onClick={()=>setIsMobileMenuOpen(false)}
+                      icon={<MapPin size={18}/>} label={name}/>
+                  ))}
+                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=regions" currentPath={location.pathname+location.search}
+                    onClick={()=>setIsMobileMenuOpen(false)} icon={<Grid2X2 size={18}/>} label="Περισσότερες περιοχές"/>
                 </>
               )}
 
@@ -403,20 +355,23 @@ export default function Sidebar({
             <div className="mt-8">
               {!['admin', 'broadcaster', 'producer', 'agency'].includes(currentUser?.role) && ( 
                 <div className={`px-4 shrink-0 transition-all duration-300 ${isCollapsed ? 'lg:opacity-0 lg:h-0 lg:overflow-hidden' : 'opacity-100 h-auto'}`}>
-                  <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-white/10 rounded-3xl p-5 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-[60px] transition-transform group-hover:scale-110"></div>
+                  <div className="relative overflow-hidden rounded-3xl border border-[#ccff00]/25 bg-gradient-to-br from-[#323a19]/95 via-[#1c2417] to-[#0b1011] p-4 shadow-[0_0_28px_rgba(204,255,0,0.07)]">
+                    <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#ccff00]/20 blur-[35px]"/>
                     <div className="relative z-10">
-                      <h4 className="text-white font-black mb-1">Έχεις σταθμό;</h4>
-                      <p className="text-[11px] text-zinc-400 font-medium leading-relaxed mb-4">
-                        Έλα στο δίκτυο του iRadios και πάρε τον έλεγχο των ακροατών και των διαφημίσεών σου.
-                      </p>
-                      <Link 
-                        to="/broadcast" 
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="w-full bg-white hover:bg-zinc-200 text-black text-[10px] font-black uppercase tracking-widest py-3 rounded-xl flex items-center justify-center transition-transform active:scale-95 shadow-lg"
-                      >
-                        Γινε Broadcaster
-                      </Link>
+                      <h4 className="flex items-center gap-2 text-sm font-black text-white"><Crown size={18} className="text-[#ccff00]"/> iRadiosGR Premium</h4>
+                      {isListenerPremium?(
+                        <p className="mt-3 text-xs leading-relaxed text-zinc-200">Απολαμβάνεις ήδη τα Premium προνόμιά σου.</p>
+                      ):(
+                        <>
+                          <p className="mt-3 text-[11px] leading-relaxed text-zinc-300">Premium λειτουργίες και ακρόαση χωρίς διαφημίσεις του iRadios.</p>
+                          <Link to="/premium" onClick={()=>setIsMobileMenuOpen(false)}
+                            className="mt-4 flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#ccff00] px-3 text-xs font-black text-black transition-colors hover:bg-[#e4ff83]">
+                            Αναβάθμιση σε Premium <Rocket size={15}/>
+                          </Link>
+                        </>
+                      )}
+                      <Link to="/broadcast" onClick={()=>setIsMobileMenuOpen(false)}
+                        className="mt-3 block text-center text-[10px] font-semibold text-zinc-300 underline decoration-white/20 underline-offset-4 hover:text-[#ccff00]">Έχεις ραδιοφωνικό σταθμό;</Link>
                     </div>
                   </div>
                 </div>

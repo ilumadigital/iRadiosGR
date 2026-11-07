@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Play, Pause, ChevronRight, Star, Heart, History, 
   ChevronLeft, LogIn, UserPlus, ArrowRight, Radio, BellRing, Zap, Compass, 
@@ -12,6 +12,8 @@ import PlayingNow from './PlayingNow';
 import HomeHeroSlider from '../components/HomeHeroSlider';
 import HomeExplore from '../components/HomeExplore';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
+import HomeRadioShortlist from '../components/HomeRadioShortlist';
+import HomeRecommendationDeck from '../components/HomeRecommendationDeck';
 
 // 🌍 Αλγόριθμος Haversine: Υπολογίζει την απόσταση μεταξύ 2 συντεταγμένων σε χιλιόμετρα
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
@@ -89,6 +91,13 @@ const CITY_COORDINATES = {
 // 🟢 ΠΡΟΣΘΗΚΗ: Δέχεται το `weather` από το App.jsx
 export default function Home({ stations, weather, currentStation, setCurrentStation, userLocation, checkGeoMatch, isPlaying, onPlayPause, currentUser, analyser, onOpenDiscovery, API_URL }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [heroStationId,setHeroStationId] = useState(null);
+  useEffect(()=>{
+    if(new URLSearchParams(location.search).get('explore')==='playlist'){
+      document.getElementById('home-playlist')?.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+  },[location.search]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [activeBanners, setActiveBanners] = useState([]);
   
@@ -427,6 +436,8 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
 
   const favoriteStations = currentUser?.favorites ? stations.filter(s => currentUser.favorites.includes(s._id || s.id)) : [];
   const topStations = stations.filter(s => s.isFeatured === true || (s.boostStatus === true && s.position === 1));
+  const homeDisplayStation = stations.find(s=>String(s._id)===String(heroStationId)) ||
+    currentStation || recentlyPlayed[0] || topStations[0] || stations[0];
   const topRegions = ['Αττική', 'Αθήνα', 'Θεσσαλονίκη', 'WebRadios']; 
   const genres = [...new Set(stations.map(s => s.genre))].filter(Boolean).sort();
 
@@ -557,16 +568,16 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
   };
 
   return (
-    <div className="w-full px-4 md:px-8 py-6 md:py-10 space-y-10 md:space-y-16 pb-32">
+    <div className="ir-home-page relative mx-auto w-full max-w-[1720px] space-y-7 px-4 pb-36 pt-5 sm:px-6 md:space-y-8 md:pt-7 xl:px-8">
       
       {/* Personalized greeting and admin-managed editorial carousel. */}
-      <div className="ir-home-heading relative overflow-hidden rounded-[28px] border border-white/5 bg-gradient-to-r from-[#171d1c] via-[#0e1419] to-[#080b10] px-6 py-7 sm:px-9 sm:py-8">
+      <div className="ir-home-heading relative overflow-hidden rounded-[26px] border border-[#ccff00]/10 bg-gradient-to-r from-[#191e17] via-[#101816] to-[#080b10] px-6 py-6 sm:px-8 sm:py-7">
         <div className="pointer-events-none absolute -right-8 -top-24 h-64 w-64 rounded-full bg-[#ccff00]/10 blur-[75px]"/>
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-5">
           <div>
-            <p className="mb-2 flex items-center gap-2 text-xs font-black tracking-[0.16em] text-[#ccff00]"><Radio size={17}/> iRadiosGR · Η ΜΟΥΣΙΚΗ ΣΟΥ</p>
-            <h1 className={`text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl ${isBirthday?'text-[#ccff00]':'text-white'}`}>{finalGreeting}</h1>
-            <p className="mt-3 text-sm text-zinc-300 sm:text-base">
+            <p className="mb-2 flex items-center gap-2 text-[10px] font-black tracking-[0.16em] text-[#ccff00]"><Radio size={17}/> iRadiosGR · Η ΜΟΥΣΙΚΗ ΣΟΥ</p>
+            <h1 className={`text-3xl font-black italic tracking-tight sm:text-4xl ${isBirthday?'text-[#ccff00]':'text-white'}`}>{finalGreeting}</h1>
+            <p className="mt-2 text-sm text-zinc-300 sm:text-base">
               {recentlyPlayed.length ? 'Οι σταθμοί που αγαπάς και νέες προτάσεις, όλα σε ένα μέρος.' : 'Βρες τον επόμενο αγαπημένο σου σταθμό, με ένα κλικ.'}
             </p>
           </div>
@@ -577,85 +588,45 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           </div>
         </div>
       </div>
-      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.7fr)]">
+      <div className="ir-home-feature-grid grid items-stretch gap-4 xl:h-[390px] xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.72fr)]">
         <HomeHeroSlider
           currentUser={currentUser}
           currentStation={currentStation}
           stations={stations}
           onPlayStation={setCurrentStation}
           onOpenDiscovery={onOpenDiscovery}
+          onFeaturedStationChange={setHeroStationId}
         />
+        <div id="home-playlist" className="min-h-0 scroll-mt-24">
         <StationPlaylistPanel
-          station={currentStation||recentlyPlayed[0]||topStations[0]||stations[0]}
-          stations={stations}
+          station={homeDisplayStation}
           currentUser={currentUser}
           onPlayStation={setCurrentStation}
           compact
         />
-      </div>
-
-      {/* 🚀 DISCOVERY BANNER (Mobile) */}
-      <div className="md:hidden">
-        <div onClick={onOpenDiscovery} className="relative overflow-hidden rounded-[32px] border border-[#ccff00]/30 bg-gradient-to-r from-zinc-900 via-black to-zinc-900 p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 cursor-pointer group hover:border-[#ccff00]/60 transition-colors shadow-[0_0_30px_rgba(204,255,0,0.05)]">
-          <div className="absolute -right-20 -top-20 w-64 h-64 bg-[#ccff00]/10 blur-[80px] rounded-full group-hover:bg-[#ccff00]/20 transition-colors"></div>
-          <div className="relative z-10 flex items-center gap-6 text-center md:text-left">
-            <div className="hidden md:flex w-16 h-16 bg-[#ccff00]/10 rounded-full items-center justify-center border border-[#ccff00]/20 group-hover:scale-110 transition-transform shrink-0"><Compass size={32} className="text-[#ccff00]" /></div>
-            <div>
-              <h2 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase mb-2 flex items-center justify-center md:justify-start gap-2">
-                <Compass size={24} className="md:hidden text-[#ccff00]" /> Discover iRadios
-              </h2>
-              <p className="text-zinc-400 font-medium text-sm md:text-base max-w-xl">Άσε τον αλγόριθμο να σε ταξιδέψει. Κάνε swipe και βρες τον σταθμό που σου ταιριάζει σε δευτερόλεπτα.</p>
-            </div>
-          </div>
-          <button className="relative z-10 w-full md:w-auto whitespace-nowrap px-8 py-4 bg-[#ccff00] text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white transition-colors flex items-center justify-center gap-2 shadow-xl shrink-0">
-            ΕΝΑΡΞΗ DISCOVERY <ChevronRight size={16} />
-          </button>
         </div>
       </div>
 
-      
-
-      {/* 🟢 ΕΛΕΓΧΟΣ: Αν είναι συνδεδεμένος δείχνει το PlayingNow, αλλιώς το Promo Banner */}
-      {currentUser ? (
-        <PlayingNow stations={stations} API_URL={API_URL} currentUser={currentUser} />
-      ) : (
-        <div className="w-full py-6 px-6">
-          <div className="bg-[#ccff00] rounded-[32px] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 shadow-[0_20px_40px_rgba(204,255,0,0.15)] relative overflow-hidden group border border-[#ccff00]/50">
-            
-            {/* Διακοσμητικό εικονίδιο στο background */}
-            <div className="absolute -right-10 -top-10 opacity-10 pointer-events-none transition-transform duration-1000 group-hover:scale-110 group-hover:rotate-12">
-              <Music size={280} className="text-black" />
-            </div>
-
-            {/* Κείμενα (Αριστερά) */}
-            <div className="flex flex-col gap-3 relative z-10 text-center md:text-left">
-              <div className="flex items-center justify-center md:justify-start gap-2 text-black/70 font-black uppercase tracking-[0.2em] text-[10px] md:text-xs mb-1">
-                <Radio size={16} /> ΝΕΑ ΔΥΝΑΤΟΤΗΤΑ
-              </div>
-              <h2 className="text-3xl md:text-5xl font-black text-black leading-none tracking-tighter uppercase">
-                ΔΕΣ ΤΙ ΠΑΙΖΕΙ <br/> <span className="text-black/60">ΤΩΡΑ LIVE</span>
-              </h2>
-              <p className="text-black/80 font-medium text-sm md:text-base max-w-lg mt-2 leading-relaxed">
-                Ανακάλυψε τα τραγούδια που παίζουν αυτή τη στιγμή στους κορυφαίους ραδιοφωνικούς σταθμούς.
-              </p>
-            </div>
-
-            {/* Κουμπί (Δεξιά) */}
-            <button 
-              onClick={() => navigate('/login')} 
-              className="relative z-10 bg-black text-[#ccff00] px-8 py-4 rounded-full font-black uppercase tracking-widest text-xs md:text-sm hover:scale-105 active:scale-95 transition-transform duration-300 shadow-2xl flex items-center gap-3 shrink-0 group/btn"
-            >
-              ΣΥΝΔΕΣΟΥ ΓΙΑ ΠΡΟΒΟΛΗ
-              <div className="w-6 h-6 rounded-full bg-[#ccff00]/10 flex items-center justify-center group-hover/btn:bg-[#ccff00]/20 transition-colors">
-                <ArrowRight size={14} className="text-[#ccff00]" />
-              </div>
-            </button>
-
-          </div>
+      {/* Metadata-only Now Playing, plus actual listener history and favorites. */}
+      <div className="ir-home-quick-grid grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(215px,0.75fr)_minmax(215px,0.75fr)]">
+        <div className="min-w-0">
+          {currentUser ? (
+            <PlayingNow stations={stations} API_URL={API_URL} currentUser={currentUser}/>
+          ) : (
+            <section className="rounded-2xl border border-[#ccff00]/15 bg-[#ccff00]/[0.05] p-5">
+              <h2 className="flex items-center gap-2 text-xl font-black text-white"><Radio size={21} className="text-[#ccff00]"/> Τώρα παίζουν</h2>
+              <p className="mt-3 max-w-lg text-sm text-zinc-300">Συνδέσου για να βλέπεις τραγούδια και καλλιτέχνες μόνο από σταθμούς με πραγματικά metadata.</p>
+              <button onClick={()=>navigate('/login')} className="ir-action-primary mt-4 px-5 text-sm"><LogIn size={16}/> Σύνδεση</button>
+            </section>
+          )}
         </div>
-      )}
+        <HomeRadioShortlist kind="recent" stations={recentlyPlayed} currentUser={currentUser} onPlayStation={setCurrentStation}/>
+        <HomeRadioShortlist kind="favorites" stations={favoriteStations} currentUser={currentUser} onPlayStation={setCurrentStation}/>
+      </div>
 
-      {/* One fast browsing surface replaces dozens of repetitive genre and region grids. */}
+      <HomeRecommendationDeck moodStations={moodStations} topStations={topStations} onPlayStation={setCurrentStation}/>
+
+      {/* The visual genre / region finder is the single browsing surface (no native selects). */}
       <HomeExplore
         stations={stations}
         currentUser={currentUser}
@@ -664,80 +635,6 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         onPlayStation={setCurrentStation}
         onOpenDiscovery={onOpenDiscovery}
       />
-
-      {/* --- FAVORITES --- */}
-      {favoriteStations.length > 0 && (
-        <section>
-          <div className="flex items-end justify-between mb-8">
-            <h2 className="text-xl md:text-4xl font-black tracking-tighter text-white italic flex items-center gap-3">
-              <Heart className="text-[#ccff00] fill-[#ccff00]" size={28} /> ΤΑ ΑΓΑΠΗΜΕΝΑ ΣΟΥ
-            </h2>
-            <button onClick={() => navigate('/favorites')} className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-[#ccff00] flex items-center gap-1 group transition-colors">
-              ΠΡΟΒΟΛΗ ΟΛΩΝ <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
-            {favoriteStations.slice(0, 8).map((station) => <StationCard key={station._id} station={station} showRegion={true} />)}
-          </div>
-        </section>
-      )}
-
-      {/* 👑 TOP TODAY */}
-      <section>
-        <div className="flex items-end justify-between mb-8 border-t border-white/5 pt-12">
-          <h2 className="text-xl md:text-4xl font-black tracking-tighter text-white italic flex items-center gap-3">
-            <Star className="text-[#ccff00] fill-[#ccff00]" size={28} /> Τα Κορυφαία για Σήμερα
-          </h2>
-        </div>
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
-          {topStations.map((station) => <StationCard key={station._id} station={station} showRegion={true} />)}
-        </div>
-      </section>
-
-      {/* 🧠 AI MOOD MATCHER */}
-      <section className={`relative mt-12 mb-8 p-6 md:p-10 rounded-[40px] border ${moodMatch.borderColor} bg-gradient-to-r ${moodMatch.gradient} overflow-hidden shadow-2xl`}>
-        <div className="absolute -right-20 -top-20 w-64 h-64 bg-white/5 blur-[80px] rounded-full pointer-events-none"></div>
-        
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
-          <div>
-            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[14px] font-black tracking-widest uppercase mb-4 border ${moodMatch.badgeColor}`}>
-              <Sparkles size={12} className="animate-pulse" /> ΑΙ Radios MOOD MATCHER
-            </div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tighter text-white italic flex items-center gap-3 mb-2">
-              {moodMatch.icon} {moodMatch.title}
-            </h2>
-            <p className="text-zinc-400 text-sm md:text-base font-medium max-w-2xl">
-              {moodMatch.subtitle}
-            </p>
-          </div>
-          
-          <button onClick={onOpenDiscovery} className="shrink-0 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-black uppercase text-[10px] tracking-widest border border-white/10 transition-all flex items-center gap-2 backdrop-blur-md">
-            <Music size={14} /> MIX: {moodMatch.genres.slice(0, 2).join(' & ')}
-          </button>
-        </div>
-
-        <div className="relative z-10 grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
-          {moodStations.map((station) => (
-            <StationCard key={`mood-${station._id}`} station={station} showRegion={true} />
-          ))}
-        </div>
-      </section>
-
-      {/* 📍 ΡΑΔΙΟΦΩΝΑ ΚΟΝΤΑ ΣΟΥ (ΕΜΦΑΝΙΖΕΤΑΙ ΜΟΝΟ ΑΝ ΥΠΑΡΧΟΥΝ) */}
-      {nearbyStations.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between mb-8 border-t border-white/5 pt-12">
-            <h2 className="text-lg md:text-3xl font-black text-white tracking-widest italic flex items-center gap-3">
-              <MapPin className="text-[#ccff00]" size={26} /> ΡΑΔΙΟΦΩΝΑ ΚΟΝΤΑ ΣΟΥ
-            </h2>
-          </div>
-          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4 md:gap-6">
-            {nearbyStations.map((station) => (
-              <StationCard key={`nearby-${station._id}`} station={station} showRegion={true} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Existing paid home banners remain separate and clearly labelled as sponsored. */}
       {isFreeOrGuest && homeBanners.map(banner => <HomeAdBanner key={banner._id} banner={banner} />)}

@@ -8,7 +8,7 @@ const meetsAudience=(slide,user)=>{
   if(slide.audience==='premium')return Boolean(user?.isPremium||user?.broadcasterProfile?.tier==='premium');
   return true;
 };
-export default function HomeHeroSlider({ currentUser, currentStation, stations=[], onPlayStation, onOpenDiscovery }) {
+export default function HomeHeroSlider({ currentUser, currentStation, stations=[], onPlayStation, onOpenDiscovery, onFeaturedStationChange }) {
   const navigate=useNavigate();
   const [slides,setSlides]=useState([]);
   const [index,setIndex]=useState(0);
@@ -28,6 +28,11 @@ export default function HomeHeroSlider({ currentUser, currentStation, stations=[
   },[slides,currentUser,stations]);
   const activeIndex=visible.length?index%visible.length:0;
   const slide=visible[activeIndex];
+  // The attached playlist must reflect the station featured in the active slide.
+  const featuredStation = slide?.targetType === 'station'
+    ? stations.find(s => String(s._id) === String(slide.stationId)) || stationFallback
+    : stationFallback;
+  useEffect(() => { onFeaturedStationChange?.(featuredStation?._id || null); }, [featuredStation?._id, onFeaturedStationChange]);
   useEffect(()=>{
     if(visible.length<=1||hover)return;
     const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -58,21 +63,21 @@ export default function HomeHeroSlider({ currentUser, currentStation, stations=[
       aria-roledescription="carousel" aria-label="Επιλεγμένες προτάσεις iRadios"
       onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
       onFocusCapture={()=>setHover(true)} onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget))setHover(false);}}
-      className="ir-home-hero relative isolate flex min-h-[345px] overflow-hidden rounded-[30px] border border-white/10 bg-zinc-900 md:min-h-[420px]"
+      className="ir-home-hero relative isolate flex min-h-[300px] overflow-hidden rounded-[30px] border border-white/10 bg-zinc-900 md:min-h-[335px] xl:min-h-[365px]"
     >
-      <img src={image} alt="" loading="eager" className="absolute inset-0 h-full w-full object-cover opacity-75" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#07090d] via-[#080a10]/90 via-45% to-[#080a10]/20" />
+      <img src={image} alt="" loading="eager" className="absolute inset-0 h-full w-full object-cover opacity-85" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#07090d]/95 via-[#100b10]/70 via-50% to-[#080a10]/10" />
       <div className="absolute inset-0 bg-gradient-to-t from-[#05070a]/80 via-transparent to-transparent" />
       <div className="pointer-events-none absolute -left-16 bottom-0 h-40 w-[70%] rounded-full bg-[#ccff00]/10 blur-[70px]" />
-      <div className="relative z-10 flex w-full flex-col justify-end p-6 pb-14 sm:p-9 sm:pb-14 md:p-12 md:pb-12">
-        <span className="mb-5 inline-flex w-fit items-center gap-2 rounded-full border border-[#ccff00]/40 bg-black/60 px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#ccff00] backdrop-blur-lg">
+      <div className="relative z-10 flex w-full flex-col justify-end p-6 pb-12 sm:p-8 sm:pb-12 xl:p-10">
+        <span className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-[#ccff00]/40 bg-black/60 px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#ccff00] backdrop-blur-lg">
           <Sparkles size={15}/>{slide?.eyebrow||'ΕΠΙΛΟΓΗ ΓΙΑ ΣΕΝΑ'}
         </span>
-        <h2 className="max-w-[680px] break-words text-3xl font-black leading-tight tracking-tight text-white drop-shadow-lg sm:text-5xl lg:text-6xl">
+        <h2 className="max-w-[620px] break-words text-3xl font-black leading-[1.08] tracking-tight text-white drop-shadow-lg sm:text-4xl xl:text-5xl">
           {title}
         </h2>
-        <p className="mt-4 max-w-xl text-sm font-medium leading-relaxed text-zinc-200 sm:text-base">{description}</p>
-        <div className="mt-7 flex flex-wrap items-center gap-3">
+        <p className="mt-2 max-w-xl text-sm font-medium leading-relaxed text-zinc-200 sm:text-base">{description}</p>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
           <button type="button" onClick={activate} className="ir-action-primary px-6 sm:px-8"><Play size={17} fill="currentColor"/>{slide?.ctaLabel||'Άκου τώρα'}</button>
           {!slide&&stationFallback&&<button type="button" onClick={()=>navigate('/station/'+(stationFallback.slug||stationFallback._id))} className="min-h-11 rounded-xl border border-white/25 bg-black/40 px-5 text-sm font-semibold text-white hover:border-[#ccff00]/50">Πληροφορίες σταθμού</button>}
         </div>

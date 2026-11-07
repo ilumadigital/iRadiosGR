@@ -10,6 +10,8 @@ function parseTrack(raw, stationName='') {
   if(!match) return null; // Do not invent artist/title from radio slogans.
   const artist=match[1].trim(), title=match[2].trim();
   if(!artist||!title) return null;
+  if(/^(?:radio|station|on air|live|unknown|playing now|now playing|μουσική|εκπομπή|ραδιόφωνο|σύνδεση)$/i.test(artist) ||
+     /^(?:στον αέρα|live|live now|on air|now playing|unknown|διαφήμιση|παίζει τώρα)$/i.test(title)) return null;
   return { raw:value, artist, title, playedAt:new Date() };
 }
 async function recordStationTrack(station,raw) {
