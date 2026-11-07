@@ -2,7 +2,8 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'iluma_secret_2026';
+// No hard-coded JWT secrets may be committed to source control.
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const protect = async (req, res, next) => {
   try {
