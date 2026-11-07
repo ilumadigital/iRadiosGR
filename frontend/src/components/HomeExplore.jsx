@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import StationCatalogCard from './StationCatalogCard';
+import EditorialPlacement from './EditorialPlacement';
 import {
   Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
   Play, MapPin, X, Headphones, Disc3, Music2, Grid2X2, MapPinned
@@ -25,7 +27,7 @@ const tabs=[
   {id:'all',label:'Όλοι',Icon:Grid2X2}
 ];
 
-export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], onPlayStation, onOpenDiscovery}) {
+export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery}) {
   const navigate=useNavigate();
   const location=useLocation();
   const [tab,setTab]=useState('for-you');
@@ -149,25 +151,18 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
         </div>}
       </div>
 
+      {genre&&<EditorialPlacement placement="genre" value={genre} currentUser={currentUser} stations={stations}
+        currentStation={currentStation} isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>}
+      {region&&<EditorialPlacement placement="region" value={region} currentUser={currentUser} stations={stations}
+        currentStation={currentStation} isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>}
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold text-zinc-400">{filtered.length} διαθέσιμοι σταθμοί {tab==='for-you'&&currentUser?'· προτάσεις από τις ακροάσεις σου':''}</span>
         {(genre||region||query)&&<button onClick={clear} type="button" className="flex items-center gap-1 text-xs font-semibold text-[#ccff00]"><X size={14}/> Καθαρισμός φίλτρων</button>}
       </div>
       {!!displayed.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-        {displayed.map((s,i)=><article key={s._id} className="group min-w-0 rounded-2xl border border-white/10 bg-[#11171d]/90 p-2.5 transition-all hover:border-[#ccff00]/40">
-          <button type="button" onClick={()=>navigate('/station/'+(s.slug||s._id))} aria-label={'Προφίλ '+s.name} className="block w-full text-left">
-            <div className="relative aspect-square overflow-hidden rounded-xl bg-white">
-              <img src={s.logo} alt="" loading="lazy" className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"/>
-              {tab==='top'&&<span className="absolute left-2 top-2 rounded-full bg-[#ccff00] px-2 py-1 text-xs font-black text-black">#{i+1}</span>}
-            </div>
-            <h3 className="mt-2 truncate text-xs font-black text-white sm:text-sm">{s.name}</h3>
-            <p className="mt-0.5 truncate text-[11px] text-zinc-500">{s.genre||'Ραδιόφωνο'}</p>
-          </button>
-          <button type="button" onClick={()=>onPlayStation(s)} aria-label={'Άκου '+s.name}
-            className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/10 text-xs font-black text-[#ccff00] transition-colors hover:bg-[#ccff00] hover:text-black">
-            <Play size={14} fill="currentColor"/> Άκου τώρα
-          </button>
-        </article>)}
+        {displayed.map(s=><StationCatalogCard key={s._id} station={s} currentStation={currentStation}
+          isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>)}
       </div>:<div className="rounded-2xl border border-dashed border-white/15 p-8 text-center">
         <Radio size={30} className="mx-auto text-zinc-500"/>
         <p className="mt-3 text-sm text-zinc-300">{tab==='favorites'?'Δεν έχεις προσθέσει αγαπημένους σταθμούς.':'Δεν βρέθηκαν σταθμοί με αυτά τα φίλτρα.'}</p>
