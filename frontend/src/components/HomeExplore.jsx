@@ -1,114 +1,170 @@
-import React, { useMemo, useState } from 'react';
-import { Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight, Play, MapPin, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
+  Play, MapPin, X, Headphones, Disc3, Music2, Grid2X2, MapPinned
+} from 'lucide-react';
 
-const normalize = s => String(s||'').toLocaleLowerCase('el-GR');
-const listUnique = values=>[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'el'));
+const normalize = s => String(s || '').toLocaleLowerCase('el-GR');
+const unique = list => [...new Set(list.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'el'));
+const gradients = [
+  'from-[#812e70] via-[#4a2145] to-[#11151d]',
+  'from-[#966337] via-[#573c24] to-[#11151d]',
+  'from-[#4643a5] via-[#252963] to-[#11151d]',
+  'from-[#7b344f] via-[#472139] to-[#11151d]',
+  'from-[#446f83] via-[#203f54] to-[#11151d]',
+  'from-[#777431] via-[#434322] to-[#11151d]',
+  'from-[#366d68] via-[#224744] to-[#11151d]',
+  'from-[#784755] via-[#392531] to-[#11151d]'
+];
+const tabs=[
+  {id:'for-you',label:'Για σένα',Icon:Sparkles},
+  {id:'top',label:'Top σταθμοί',Icon:Radio},
+  {id:'recent',label:'Πρόσφατα',Icon:History},
+  {id:'favorites',label:'Αγαπημένα',Icon:Heart},
+  {id:'all',label:'Όλοι',Icon:Grid2X2}
+];
+
 export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], onPlayStation, onOpenDiscovery}) {
   const navigate=useNavigate();
+  const location=useLocation();
   const [tab,setTab]=useState('for-you');
   const [query,setQuery]=useState('');
   const [genre,setGenre]=useState('');
   const [region,setRegion]=useState('');
   const [showAll,setShowAll]=useState(false);
-  const genreList=useMemo(()=>listUnique(stations.map(x=>x.genre)),[stations]);
-  const regionList=useMemo(()=>listUnique(stations.map(x=>x.region)),[stations]);
-  const favIds=new Set(favoriteStations.map(x=>String(x._id)));
-  const recentIds=new Set(recentStations.map(x=>String(x._id)));
-  const preferredGenres=new Set([...favoriteStations,...recentStations].map(x=>x.genre).filter(Boolean));
+  const [showRegions,setShowRegions]=useState(false);
+  const genreList=useMemo(()=>unique(stations.map(x=>x.genre)),[stations]);
+  const regionList=useMemo(()=>unique(stations.map(x=>x.region)),[stations]);
+
+  // Sidebar shortcuts open this exact visual finder without introducing dropdowns/routes.
+  useEffect(()=>{
+    const target=new URLSearchParams(location.search).get('explore');
+    if(!target||target==='playlist')return;
+    if(['for-you','top','recent','favorites','all'].includes(target))setTab(target);
+    if(target==='categories'){setGenre('');setTab('all');}
+    if(target==='regions'){setShowRegions(true);setTab('all');}
+    setShowAll(false);
+    document.getElementById('station-explorer')?.scrollIntoView({behavior:'smooth',block:'start'});
+  },[location.search]);
+
+  const favIds=useMemo(()=>new Set(favoriteStations.map(x=>String(x._id))),[favoriteStations]);
+  const recentIds=useMemo(()=>new Set(recentStations.map(x=>String(x._id))),[recentStations]);
+  const prefGenres=useMemo(()=>new Set([...favoriteStations,...recentStations].map(x=>x.genre).filter(Boolean)),[favoriteStations,recentStations]);
+  const eligible=useMemo(()=>stations.filter(s=>s._id && (s.status==='approved'||!s.status)),[stations]);
   const filtered=useMemo(()=>{
-    let sorted=stations.filter(s=>s.status==='approved'||!s.status);
-    if(tab==='favorites')sorted=sorted.filter(s=>favIds.has(String(s._id)));
-    if(tab==='recent')sorted=sorted.filter(s=>recentIds.has(String(s._id)));
-    if(tab==='for-you')sorted=[...sorted].sort((a,b)=>
-      (Number(preferredGenres.has(b.genre))*20+Number(favIds.has(String(b._id)))*15+Number(b.isFeatured)*7+Number(b.plays||0)/10000)-
-      (Number(preferredGenres.has(a.genre))*20+Number(favIds.has(String(a._id)))*15+Number(a.isFeatured)*7+Number(a.plays||0)/10000)
-    );
-    if(tab==='top')sorted=[...sorted].sort((a,b)=>(Number(b.plays||0)+Number(b.isFeatured)*100)-(Number(a.plays||0)+Number(a.isFeatured)*100));
-    if(genre)sorted=sorted.filter(s=>s.genre===genre);
-    if(region)sorted=sorted.filter(s=>s.region===region);
+    let result=eligible;
+    if(tab==='favorites')result=result.filter(s=>favIds.has(String(s._id)));
+    if(tab==='recent')result=result.filter(s=>recentIds.has(String(s._id)));
+    if(tab==='for-you')result=[...result].sort((a,b)=>
+      (Number(prefGenres.has(b.genre))*20+Number(favIds.has(String(b._id)))*15+Number(b.isFeatured)*7+Number(b.plays||0)/10000)-
+      (Number(prefGenres.has(a.genre))*20+Number(favIds.has(String(a._id)))*15+Number(a.isFeatured)*7+Number(a.plays||0)/10000));
+    if(tab==='top')result=[...result].sort((a,b)=>
+      (Number(b.plays||0)+Number(b.isFeatured)*100)-(Number(a.plays||0)+Number(a.isFeatured)*100));
+    if(genre)result=result.filter(s=>s.genre===genre);
+    if(region)result=result.filter(s=>s.region===region);
     if(query.trim()){
       const q=normalize(query.trim());
-      sorted=sorted.filter(s=>[s.name,s.genre,s.region,s.city,s.slogan].some(t=>normalize(t).includes(q)));
+      result=result.filter(s=>[s.name,s.genre,s.region,s.city,s.slogan].some(t=>normalize(t).includes(q)));
     }
-    return sorted;
-  },[stations,tab,genre,region,query,preferredGenres,favIds,recentIds]);
+    return result;
+  },[eligible,tab,genre,region,query,favIds,recentIds,prefGenres]);
   const displayed=showAll?filtered.slice(0,48):filtered.slice(0,12);
-  const tabs=[
-    {id:'for-you',label:'Για σένα',Icon:Sparkles},
-    {id:'top',label:'Top σταθμοί',Icon:Radio},
-    {id:'recent',label:'Πρόσφατα',Icon:History},
-    {id:'favorites',label:'Αγαπημένα',Icon:Heart},
-    {id:'all',label:'Όλοι',Icon:SlidersHorizontal}
-  ];
+  const clear=()=>{setGenre('');setRegion('');setQuery('');};
   return (
-    <section id="station-explorer" className="ir-explore rounded-[28px] border border-white/10 bg-zinc-950/60 p-5 sm:p-7">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-        <div><p className="mb-2 text-xs font-black uppercase tracking-widest text-[#ccff00]">ΑΝΑΚΑΛΥΨΗ ΣΤΑΘΜΩΝ</p>
-          <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Βρες αυτό που θέλεις να ακούσεις</h2>
-          <p className="mt-1 text-sm text-zinc-400">Φίλτραρε πραγματικούς σταθμούς ανά είδος, περιοχή ή προτιμήσεις.</p>
+    <section id="station-explorer" className="ir-discovery-shell scroll-mt-24 space-y-5 rounded-[28px] border border-white/10 bg-gradient-to-b from-[#141a20]/95 to-[#0b1014]/95 p-4 sm:p-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#ccff00]"><SlidersHorizontal size={15}/> Ανακάλυψη</p>
+          <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Βρες τον δικό σου ήχο</h2>
+          <p className="mt-1 text-sm text-zinc-400">Σταθμοί, είδη και περιοχές. Χωρίς περιττά dropdown.</p>
         </div>
-        <button onClick={onOpenDiscovery} className="flex items-center gap-1 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-zinc-200 hover:text-[#ccff00]">
-          Ανακάλυψη με swipe <ChevronRight size={16}/>
+        <button type="button" onClick={onOpenDiscovery} className="flex min-h-11 items-center gap-2 rounded-full border border-[#ccff00]/30 bg-[#ccff00]/10 px-4 text-xs font-bold text-[#ccff00] hover:bg-[#ccff00]/20">
+          <Headphones size={16}/> Γρήγορη ανακάλυψη <ChevronRight size={15}/>
         </button>
-      </div>
-      <div className="flex gap-2 overflow-x-auto pb-3" role="tablist" aria-label="Προτάσεις ραδιοφωνικών σταθμών">
-        {tabs.map(({id,label,Icon})=><button type="button" key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);setShowAll(false);}}
-          className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-xs font-bold transition-colors ${tab===id?'border-[#ccff00] bg-[#ccff00] text-black':'border-white/10 bg-white/5 text-zinc-300 hover:border-[#ccff00]/40'}`}>
+      </header>
+
+      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Συλλογές σταθμών">
+        {tabs.map(({id,label,Icon})=><button key={id} type="button" role="tab" aria-selected={tab===id}
+          onClick={()=>{setTab(id);setShowAll(false);}}
+          className={`flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-xs font-bold transition-colors ${tab===id?'border-[#ccff00] bg-[#ccff00] text-black':'border-white/10 bg-white/5 text-zinc-300 hover:border-[#ccff00]/50'}`}>
           <Icon size={15}/>{label}
         </button>)}
       </div>
-      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(150px,0.28fr)_minmax(150px,0.28fr)]">
-        <label className="flex min-h-11 items-center gap-3 rounded-xl border border-white/15 bg-black/40 px-3 text-zinc-400 focus-within:border-[#ccff00]/60">
-          <Search size={19}/><span className="sr-only">Αναζήτηση σταθμών</span>
-          <input type="search" value={query} onChange={e=>{setQuery(e.target.value);setShowAll(false);}} placeholder="Σταθμός, μουσική, πόλη…" className="min-w-0 flex-1 bg-transparent py-3 text-sm text-white outline-none placeholder:text-zinc-500"/>
-        </label>
-        <label className="sr-only" htmlFor="ir-filter-genre">Μουσικό είδος</label>
-        <select id="ir-filter-genre" value={genre} onChange={e=>{setGenre(e.target.value);setShowAll(false);}}
-          className="min-h-11 rounded-xl border border-white/15 bg-zinc-900 px-3 text-sm text-white outline-none focus:border-[#ccff00]/60">
-          <option value="">Όλα τα είδη</option>{genreList.map(g=><option key={g} value={g}>{g}</option>)}
-        </select>
-        <label className="sr-only" htmlFor="ir-filter-region">Περιοχή</label>
-        <select id="ir-filter-region" value={region} onChange={e=>{setRegion(e.target.value);setShowAll(false);}}
-          className="min-h-11 rounded-xl border border-white/15 bg-zinc-900 px-3 text-sm text-white outline-none focus:border-[#ccff00]/60">
-          <option value="">Όλες οι περιοχές</option>{regionList.map(g=><option key={g} value={g}>{g}</option>)}
-        </select>
-      </div>
-      {genreList.length>0&&<div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-        {genreList.slice(0,9).map(g=><button type="button" key={g} onClick={()=>{setGenre(genre===g?'':g);setShowAll(false);}}
-          className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold ${genre===g?'border-[#ccff00]/70 bg-[#ccff00]/10 text-[#ccff00]':'border-white/10 bg-white/5 text-zinc-400 hover:text-white'}`}>{g}</button>)}
-        <button onClick={()=>{setGenre('');setTab('all');}} className="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300">Όλες οι κατηγορίες</button>
-      </div>}
-      <div className="mb-4 mt-5 flex items-center justify-between">
-        <span className="text-xs font-semibold text-zinc-400">{filtered.length} σταθμοί{tab==='for-you'&&currentUser?' · βάσει ακροάσεων και αγαπημένων':''}</span>
-        {(genre||region||query)&&<button type="button" onClick={()=>{setGenre('');setRegion('');setQuery('');}} className="flex items-center gap-1 text-xs text-zinc-300 hover:text-[#ccff00]"><X size={13}/> Καθαρισμός φίλτρων</button>}
-      </div>
-      {displayed.length?(
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-          {displayed.map(s=><div key={s._id} className="group min-w-0 rounded-2xl border border-white/10 bg-[#151b22] p-2.5 transition-colors hover:border-[#ccff00]/45">
-            <button type="button" onClick={()=>navigate('/station/'+(s.slug||s._id))}
-              aria-label={'Προφίλ '+s.name} className="block w-full text-left">
-              <div className="relative aspect-square overflow-hidden rounded-xl bg-white">
-                <img src={s.logo} alt="" loading="lazy" className="h-full w-full object-contain transition-transform group-hover:scale-105"/>
-                <span className="absolute right-2 top-2 rounded-full bg-[#ccff00] px-2 py-1 text-[9px] font-black text-black">LIVE</span>
-              </div>
-              <h3 className="mt-2 truncate text-sm font-bold text-white">{s.name}</h3>
-              <p className="mt-1 truncate text-[11px] text-zinc-400">{s.genre||'Radio'}{s.city?' · '+s.city:''}</p>
-            </button>
-            <button type="button" onClick={()=>onPlayStation(s)} className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#ccff00]/10 text-xs font-bold text-[#ccff00] hover:bg-[#ccff00] hover:text-black">
-              <Play size={14} fill="currentColor"/> Άκου τώρα
-            </button>
-          </div>)}
+
+      <label className="flex min-h-12 items-center gap-3 rounded-2xl border border-white/15 bg-[#080d12] px-4 text-zinc-400 focus-within:border-[#ccff00]/60">
+        <Search size={19} className="shrink-0"/><span className="sr-only">Αναζήτηση ραδιοφωνικών σταθμών</span>
+        <input type="search" value={query} onChange={e=>{setQuery(e.target.value);setShowAll(false);}}
+          placeholder="Αναζήτηση σταθμού, μουσικής ή περιοχής…"
+          className="min-w-0 flex-1 bg-transparent py-3 text-sm text-white outline-none placeholder:text-zinc-500"/>
+        {query&&<button type="button" onClick={()=>setQuery('')} aria-label="Καθαρισμός αναζήτησης" className="rounded-full p-2 hover:bg-white/10"><X size={16}/></button>}
+      </label>
+
+      {!!genreList.length&&<div id="home-categories" className="scroll-mt-24">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-base font-black text-white"><Disc3 size={20} className="text-[#ccff00]"/> Κατηγορίες</h3>
+          <button type="button" onClick={()=>{setGenre('');setTab('all');}} className="text-xs font-semibold text-[#ccff00]">Όλα τα είδη <ChevronRight size={14} className="inline"/></button>
         </div>
-      ):<div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-zinc-400">
-        <Radio size={28} className="mx-auto mb-3"/>
-        <p className="text-sm">{tab==='favorites'?'Δεν έχεις προσθέσει αγαπημένους σταθμούς.':'Δεν βρέθηκαν σταθμοί με αυτά τα φίλτρα.'}</p>
-        <button type="button" onClick={()=>{setTab('all');setGenre('');setRegion('');setQuery('');}} className="mt-4 text-sm font-bold text-[#ccff00]">Εμφάνιση όλων</button>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
+          {genreList.slice(0,8).map((g,i)=>{
+            const count=eligible.filter(s=>s.genre===g).length;
+            return <button type="button" key={g} aria-pressed={genre===g} onClick={()=>{setGenre(genre===g?'':g);setTab('all');setShowAll(false);}}
+              className={`ir-genre-tile relative flex aspect-[1.3] min-h-[104px] flex-col justify-between overflow-hidden rounded-2xl border bg-gradient-to-br p-3 text-left transition-all hover:-translate-y-0.5 ${gradients[i%gradients.length]} ${genre===g?'border-[#ccff00] ring-1 ring-[#ccff00]':'border-white/15 hover:border-white/40'}`}>
+              <Music2 size={21} className="relative z-10 text-white/90"/>
+              <span className="relative z-10"><span className="block line-clamp-2 text-xs font-black leading-snug text-white">{g}</span><span className="mt-1 block text-[10px] text-zinc-300">{count} σταθμοί</span></span>
+              <span aria-hidden="true" className="absolute -bottom-6 -right-3 h-20 w-20 rounded-full border-[14px] border-white/10"/>
+            </button>;
+          })}
+        </div>
+        {genreList.length>8&&<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          {genreList.slice(8).map(g=><button type="button" key={g} aria-pressed={genre===g}
+            onClick={()=>{setGenre(genre===g?'':g);setTab('all');setShowAll(false);}}
+            className={`shrink-0 rounded-full border px-3 py-2 text-xs ${genre===g?'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]':'border-white/10 text-zinc-300 hover:border-[#ccff00]/50'}`}>{g}</button>)}
+        </div>}
       </div>}
-      {!showAll&&filtered.length>displayed.length&&<button type="button" onClick={()=>setShowAll(true)} className="mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 text-sm font-bold text-white hover:border-[#ccff00]/40">
+
+      <div>
+        <button type="button" onClick={()=>setShowRegions(v=>!v)} aria-expanded={showRegions}
+          className={`inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 text-xs font-bold ${showRegions?'border-[#ccff00]/50 bg-[#ccff00]/10 text-[#ccff00]':'border-white/15 bg-white/5 text-zinc-300'}`}>
+          <MapPinned size={16}/> {region||'Περιοχές'} <ChevronRight size={14} className={showRegions?'rotate-90 transition-transform':'transition-transform'}/>
+        </button>
+        {showRegions&&<div className="mt-3 flex max-h-44 flex-wrap gap-2 overflow-y-auto rounded-2xl border border-white/10 bg-[#080d12] p-3" aria-label="Επιλογή περιοχής">
+          <button type="button" aria-pressed={!region} onClick={()=>setRegion('')}
+            className={`rounded-full border px-3 py-2 text-xs font-semibold ${!region?'border-[#ccff00] bg-[#ccff00] text-black':'border-white/15 text-zinc-300'}`}>Όλες</button>
+          {regionList.map(r=><button type="button" key={r} aria-pressed={region===r} onClick={()=>{setRegion(region===r?'':r);setShowAll(false);}}
+            className={`rounded-full border px-3 py-2 text-xs font-semibold ${region===r?'border-[#ccff00] bg-[#ccff00] text-black':'border-white/15 text-zinc-300 hover:border-[#ccff00]/40'}`}>{r}</button>)}
+        </div>}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-zinc-400">{filtered.length} διαθέσιμοι σταθμοί {tab==='for-you'&&currentUser?'· προτάσεις από τις ακροάσεις σου':''}</span>
+        {(genre||region||query)&&<button onClick={clear} type="button" className="flex items-center gap-1 text-xs font-semibold text-[#ccff00]"><X size={14}/> Καθαρισμός φίλτρων</button>}
+      </div>
+      {!!displayed.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+        {displayed.map((s,i)=><article key={s._id} className="group min-w-0 rounded-2xl border border-white/10 bg-[#11171d]/90 p-2.5 transition-all hover:border-[#ccff00]/40">
+          <button type="button" onClick={()=>navigate('/station/'+(s.slug||s._id))} aria-label={'Προφίλ '+s.name} className="block w-full text-left">
+            <div className="relative aspect-square overflow-hidden rounded-xl bg-white">
+              <img src={s.logo} alt="" loading="lazy" className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"/>
+              {tab==='top'&&<span className="absolute left-2 top-2 rounded-full bg-[#ccff00] px-2 py-1 text-xs font-black text-black">#{i+1}</span>}
+            </div>
+            <h3 className="mt-2 truncate text-xs font-black text-white sm:text-sm">{s.name}</h3>
+            <p className="mt-0.5 truncate text-[11px] text-zinc-500">{s.genre||'Ραδιόφωνο'}</p>
+          </button>
+          <button type="button" onClick={()=>onPlayStation(s)} aria-label={'Άκου '+s.name}
+            className="mt-2 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/10 text-xs font-black text-[#ccff00] transition-colors hover:bg-[#ccff00] hover:text-black">
+            <Play size={14} fill="currentColor"/> Άκου τώρα
+          </button>
+        </article>)}
+      </div>:<div className="rounded-2xl border border-dashed border-white/15 p-8 text-center">
+        <Radio size={30} className="mx-auto text-zinc-500"/>
+        <p className="mt-3 text-sm text-zinc-300">{tab==='favorites'?'Δεν έχεις προσθέσει αγαπημένους σταθμούς.':'Δεν βρέθηκαν σταθμοί με αυτά τα φίλτρα.'}</p>
+        <button type="button" onClick={()=>{setTab('all');clear();}} className="mt-3 text-xs font-black text-[#ccff00]">Δες όλους τους σταθμούς</button>
+      </div>}
+      {!showAll&&filtered.length>displayed.length&&<button type="button" onClick={()=>setShowAll(true)}
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 text-xs font-bold text-zinc-300 hover:border-[#ccff00]/40">
         Περισσότεροι σταθμοί ({filtered.length-displayed.length}) <ChevronRight size={16}/>
       </button>}
-      {showAll&&filtered.length>48&&<button type="button" onClick={onOpenDiscovery} className="mt-5 text-sm font-bold text-[#ccff00]">Ανακάλυψε και άλλους σταθμούς</button>}
+      {showAll&&filtered.length>48&&<button type="button" onClick={onOpenDiscovery} className="w-full text-center text-sm font-bold text-[#ccff00]">Περισσότερη ανακάλυψη</button>}
     </section>
   );
 }
