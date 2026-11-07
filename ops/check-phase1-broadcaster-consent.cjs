@@ -7,10 +7,12 @@ const {
   withBroadcasterTermsStatus
 } = require('../backend/utils/broadcasterTerms');
 
-assert.equal(CURRENT_BROADCASTER_TERMS_VERSION, LEGACY_BROADCASTER_TERMS_VERSION,
-  'Baseline should preserve legacy consents; change CURRENT only when terms change');
+// Legacy approvals are valid only while the current legal version is the baseline.
+// After a legal revision, changing CURRENT must force legacy users to reaccept.
 const legacy = {role:'broadcaster',hasAcceptedTerms:true,termsAcceptedAt:new Date('2025-05-01')};
-assert.equal(hasAcceptedCurrentBroadcasterTerms(legacy),true,'retain legacy broadcaster consent');
+assert.equal(hasAcceptedCurrentBroadcasterTerms(legacy),
+ CURRENT_BROADCASTER_TERMS_VERSION === LEGACY_BROADCASTER_TERMS_VERSION,
+ 'preserve legacy consent for baseline only');
 assert.equal(hasAcceptedCurrentBroadcasterTerms({role:'broadcaster',hasAcceptedTerms:false}),false);
 assert.equal(hasAcceptedCurrentBroadcasterTerms({
  role:'broadcaster',hasAcceptedTerms:true,termsAcceptedVersion:CURRENT_BROADCASTER_TERMS_VERSION
