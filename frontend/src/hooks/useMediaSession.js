@@ -54,8 +54,18 @@ export default function useMediaSession({
     const data=latest.current;
     if(!data.currentStation)return;
     const fields=mediaFields(data);
-    const src=fields.image;
-    const image=typeof src==='string'&&/^https?:\/\//i.test(src)?src:null;
+    // Radio logos may be /uploads/... paths; Media Session artwork needs an absolute URL.
+    // Prefer album art, then fall back to the station logo when media cannot be loaded.
+    let image=null;
+    for(const src of [fields.image,data.currentStation.logo]){
+      if(typeof src!=='string'||!src.trim())continue;
+      try{
+        const url=new URL(src,window.location.origin);
+        if(!['https:','http:'].includes(url.protocol))continue;
+        if(window.location.protocol==='https:'&&url.protocol!=='https:')continue;
+        image=url.href;break;
+      }catch{ /* malformed artwork URL; try the station logo */ }
+    }
     const metadata={
       title:fields.title,artist:fields.artist,album:fields.album,
       artwork:image?[96,128,256,512].map(size=>({
