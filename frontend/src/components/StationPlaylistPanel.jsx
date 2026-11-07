@@ -29,7 +29,7 @@ function TrackCover({track,fallback}) {
     return ()=>{mounted=false;controller.abort();};
   },[ready,track.raw]);
   return <img ref={imgRef} src={url||fallback} alt="" loading="lazy"
-    onError={e=>{if(e.currentTarget.src!==fallback)e.currentTarget.src=fallback;}}
+    onError={e=>{ e.currentTarget.onerror=null; e.currentTarget.src=fallback; }}
     className="h-12 w-12 shrink-0 rounded-xl border border-white/10 bg-white object-cover"/>;
 }
 
