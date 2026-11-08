@@ -8,9 +8,13 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const read = filename => fs.readFileSync(path.join(root, filename), 'utf8');
 
+const {normalizeStationCity} = require('../backend/utils/stationLocations');
 const geoSource = read('frontend/src/utils/mapLocations.js')
+  .replace(/^import .*;\s*$/gm,'')
   .replace(/^export (const|function) /gm, '$1 ');
-const geo = vm.runInNewContext(geoSource + '\n({CITY_COORDINATES, stationMapLocation, stationMapPosition, locationMapCenter})');
+const geo = vm.runInNewContext(geoSource + '\n({CITY_COORDINATES, stationMapLocation, stationMapPosition, locationMapCenter})', {
+  canonicalStationLocation: station => normalizeStationCity(station).data
+});
 
 const seats = {
   'Κεντρική Μακεδονία': 'Θεσσαλονίκη',
@@ -40,6 +44,7 @@ assert.equal(city.label, 'Χανιά');
 assert.equal(JSON.stringify(city.position), JSON.stringify([35.5138,24.018]));
 assert.equal(geo.stationMapLocation({city:'Αθηνα',region:'Αττική'}).label, 'Αθήνα', 'accent normalization');
 assert.equal(geo.stationMapLocation({city:'Athens',region:'Αττική'}).label, 'Αθήνα', 'English alias');
+assert.equal(geo.stationMapLocation({city:'Νέα Σμύρνη',region:'Αττική'}).label, 'Αθήνα', 'legacy municipality resolves to prefectural seat');
 const region = geo.stationMapLocation({city:'Άλλη',region:'Ιόνια Νησιά'});
 assert.equal(region.precision, 'region');
 assert.equal(region.label, 'Ιόνια Νησιά');
