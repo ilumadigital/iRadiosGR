@@ -93,6 +93,14 @@ const response=()=>({statusCode:200,body:null,headers:{},
   const home=read('frontend/src/pages/Home.jsx');
   assert.ok(home.includes('xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]'),
     'home hero/playlist must share the same 70/30 desktop balance');
+  const css=read('frontend/src/styles/design-system.css');
+  assert.match(css,/\.ir-home-feature-grid\s*\{\s*height:\s*355px;/,
+    'home hero/playlist row must be height-capped at desktop');
+  assert.match(css,/\.ir-home-feature-grid \.ir-playlist-panel--compact\s*\{\s*height:\s*100%;\s*max-height:\s*100%;/,
+    'compact playlist must never stretch the home grid row');
+  const playlist=read('frontend/src/components/StationPlaylistPanel.jsx');
+  assert.ok(playlist.includes("min-h-0 divide-y divide-white/5 overflow-y-auto"),
+    'playlist entries must scroll inside the capped card');
   const backoffice=read('frontend/src/pages/Backoffice.jsx');
   assert.ok(backoffice.includes("id:'promoted'"),'dedicated Promoted Stations admin tool');
   assert.ok(backoffice.includes("path={'/backoffice/admin/'+section}"),'admin route mapping exists');
