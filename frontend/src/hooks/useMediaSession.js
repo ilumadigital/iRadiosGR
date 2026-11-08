@@ -6,7 +6,9 @@ function musicParts(value){
   if(typeof value!=='string'||LOADING.test(value))return null;
   const match=value.trim().match(/^(.{1,150}?)\s+[-–—]\s+(.{1,150})$/);
   if(!match)return null;
-  return {artist:match[1].trim(),title:match[2].trim()};
+  const artist=match[1].trim(),title=match[2].trim();
+  if(/(?:dj\\s*set|djset|live\\s*(?:show|session|set|mix)|on\\s*air|radio\\s*show|podcast|εκπομπ[ήη]|δελτ[ιί]ο\\s*ειδ[ήη]σεων)/i.test(artist+' '+title))return null;
+  return {artist,title};
 }
 function artworkType(url){
   if(/\.png(?:[?#]|$)/i.test(url))return 'image/png';
@@ -35,7 +37,7 @@ export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUse
     image:globalCoverArt||currentStation?.logo,
     foundWithAI:ai
   };
-  return {title:name,artist:'Ζωντανό ραδιόφωνο',album:'iRadios',image:currentStation?.logo};
+  return {title:name,artist:'iRadios GR',album:'iRadios',image:currentStation?.logo};
 }
 // Browser/iOS Media Session controls are one shared audio session; the source
 // audio element is owned by App.jsx. Native song changes are batched at 5 minutes.
