@@ -60,6 +60,7 @@ export default function HomeNewsFeed({
   const [feedCategories, setFeedCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Date.now());
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -79,7 +80,7 @@ export default function HomeNewsFeed({
             ? data.categories.filter(value => typeof value === 'string' && value.trim()) : []);
           setError('');
         }
-      } catch (cause) {
+      } catch {
         if (!controller.signal.aborted) setError('Οι ειδήσεις δεν είναι προσωρινά διαθέσιμες.');
       } finally {
         inFlight = false;
@@ -89,11 +90,13 @@ export default function HomeNewsFeed({
     refresh();
     // Same lightweight polling cadence as the complete Newsfeed page.
     const timer = setInterval(() => { if (!document.hidden) refresh(); }, 120000);
+    const clock = setInterval(() => setNow(Date.now()), 30000);
     const onVisible = () => { if (!document.hidden) refresh(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       controller.abort();
       clearInterval(timer);
+      clearInterval(clock);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [reloadKey]);
@@ -220,7 +223,7 @@ export default function HomeNewsFeed({
       ) : (
         <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {filtered.map(item => (
-            <Article key={item.key} item={item} view="grid" now={Date.now()} source="" backTo="/" />
+            <Article key={item.key} item={item} view="grid" now={now} source="" backTo="/" />
           ))}
         </div>
       )}
