@@ -3,7 +3,8 @@ import { ArrowLeft, Pause, Play, SkipBack, SkipForward, Volume2, Heart,
   ListMusic, Info, ScanSearch, Loader2, Radio, ExternalLink, X } from 'lucide-react';
 import StationPlaylistPanel from './StationPlaylistPanel';
 import FoundWithAI from './FoundWithAI';
-import RdsCrossfade from './RdsCrossfade';
+import FullscreenArtwork from './FullscreenArtwork';
+import OnAirShowCard from './OnAirShowCard';
 import {parseMusicMetadata} from '../utils/musicMetadata';
 
 // This visual layer never creates an <audio>. App.jsx remains the only stream player.
@@ -26,7 +27,7 @@ export default function DesktopFullPlayer({
   const validTitle=Boolean(music);
   const showProducerArt=Boolean(currentUser&&!isPlayingAd&&!isRecognizing&&
     liveBroadcast?.imageUrl&&rdsShowProducer);
-  const visibleSong=validTitle&&!showProducerArt;
+  const visibleSong=validTitle;
   const songTitle=showProducerArt?liveBroadcast.title:music?.title||'';
   const artist=showProducerArt?liveBroadcast.artist:music?.artist||'';
   const image=isPlayingAd&&currentAdInfo?.logoUrl?currentAdInfo.logoUrl:
@@ -73,17 +74,15 @@ export default function DesktopFullPlayer({
             <div className="mb-[clamp(0.25rem,1dvh,0.9rem)] inline-flex items-center gap-2 text-[clamp(0.6rem,1.25dvh,0.75rem)] font-black uppercase tracking-[0.2em] text-[#ccff00]">
               <Radio size={19}/> {isPlayingAd?'ΔΙΑΦΗΜΙΣΗ':'ΖΩΝΤΑΝΑ ΣΤΟΝ ΑΕΡΑ'}
             </div>
-            <RdsCrossfade showSecondary={showProducerArt} secondary={canShowDj?(
-              <>
-                <h1 className="ir-desktop-player-title break-words font-black leading-[1.03] tracking-tight">{liveBroadcast.title||showName}</h1>
-                <p className="mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-2 text-[clamp(1rem,2.8dvh,1.8rem)] font-semibold leading-tight text-zinc-200">{liveBroadcast.artist||station.name}</p>
-              </>
-            ):null}>
-              <>
-                <h1 className="ir-desktop-player-title break-words font-black leading-[1.03] tracking-tight">{music?.title||showName}</h1>
-                <p className="mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-2 text-[clamp(1rem,2.8dvh,1.8rem)] font-semibold leading-tight text-zinc-200">{music?.artist||(currentShow?.host&&!isPlayingAd?currentShow.host:station.name)}</p>
-              </>
-            </RdsCrossfade>
+            <div className="min-w-0" aria-live="polite">
+              <h1 className="ir-desktop-player-title break-words font-black leading-[1.03] tracking-tight">
+                {isPlayingAd?(currentAdInfo?.client||'Διαφήμιση'):(music?.title||currentShow?.title||station.name)}
+              </h1>
+              <p className="mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-2 text-[clamp(1rem,2.8dvh,1.8rem)] font-semibold leading-tight text-zinc-200">
+                {isPlayingAd?(currentAdInfo?.title||'Διαφημιστικό διάλειμμα'):
+                  (music?.artist||currentShow?.host||station.name)}
+              </p>
+            </div>
             {visibleSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI className="mt-2"/>}
             <div className="mt-[clamp(0.5rem,2dvh,1.2rem)] flex min-w-0 items-center gap-3">
               <img src={station.logo} alt="" className="h-[clamp(32px,5.5dvh,48px)] w-[clamp(32px,5.5dvh,48px)] shrink-0 rounded-xl bg-white p-1 object-contain"/>
@@ -92,7 +91,8 @@ export default function DesktopFullPlayer({
               </div>
               <span className="ml-2 rounded-full bg-[#ccff00] px-3 py-1.5 text-[10px] font-black text-black">LIVE</span>
             </div>
-            {currentShow&&!isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">Στον αέρα: <strong className="text-white">{currentShow.title}</strong>{currentShow.host?' · '+currentShow.host:''}</p>}
+            {!isPlayingAd&&<OnAirShowCard show={currentShow} stationName={station.name}
+              className="mt-[clamp(0.45rem,1.8dvh,1rem)]"/>}
             {isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-300">{currentAdInfo?.title||'Διαφημιστικό διάλειμμα'}{Number.isFinite(adTimeRemaining)?' · '+adTimeRemaining+'″':''}</p>}
             {!isPlayingAd&&!validTitle&&!showProducerArt&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">{currentUser?'Δεν γνωρίζουμε ποιο τραγούδι παίζει αυτή τη στιγμή.':'Συνδέσου στο iRadios για NowPlaying'}</p>}
             <div className="mt-[clamp(0.5rem,2.2dvh,1.6rem)] flex shrink-0 flex-wrap items-center gap-[clamp(0.4rem,1.1vw,1.25rem)]">
@@ -119,42 +119,30 @@ export default function DesktopFullPlayer({
             </div>
           </div>
           <div className="ir-desktop-player-artframe relative mx-auto flex h-full min-h-0 min-w-0 w-full max-w-[650px] items-center justify-center">
-            <div className="ir-desktop-player-art relative aspect-square max-w-full shrink-0 overflow-hidden rounded-[clamp(16px,2.5vw,36px)] border border-white/15 bg-[#151b20] shadow-[0_22px_65px_rgba(0,0,0,0.6)]">
-              <img src={baseImage} alt={baseArtwork?'Εξώφυλλο τρέχοντος τραγουδιού':'Λογότυπο '+station.name}
-                onError={e=>{if(e.currentTarget.src!==new URL(station.logo,window.location.href).href){
-                  e.currentTarget.src=station.logo;e.currentTarget.style.objectFit='contain';
-                  e.currentTarget.style.background='#fff';e.currentTarget.style.padding='2rem';
-                }}}
-                className={`h-full w-full ${baseArtwork?'object-cover':'bg-white object-contain p-12'}`}/>
-              {canShowDj&&<img src={liveBroadcast.imageUrl} alt="" aria-hidden="true"
-                onError={e=>{if(e.currentTarget.src!==new URL(station.logo,window.location.href).href){
-                  e.currentTarget.src=station.logo;e.currentTarget.style.objectFit='contain';
-                  e.currentTarget.style.background='#fff';
-                }}}
-                className={`ir-rds-image-overlay ${showProducerArt?'is-active':''}`}/>}
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent"/>
-              <div className="absolute bottom-6 left-6 flex items-center gap-2 rounded-full border border-white/15 bg-black/70 px-3 py-2 text-xs font-black text-[#ccff00]">
-                <Radio size={15}/> {station.name}
-              </div>
-            </div>
+            <FullscreenArtwork station={station}
+              songCover={baseArtwork?globalCoverArt:null}
+              producerImage={canShowDj?liveBroadcast.imageUrl:null}
+              showProducer={showProducerArt}
+              adImage={isPlayingAd?currentAdInfo?.logoUrl:null}
+              className="ir-desktop-player-art"/>
+
           </div>
         </main>
         <footer className="ir-desktop-player-footer flex min-h-[56px] shrink-0 flex-nowrap items-center justify-between gap-3 rounded-[clamp(12px,1.6vw,22px)] border border-white/10 bg-white/5 px-4 py-[clamp(0.35rem,0.85dvh,0.8rem)] backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-3">
             <div className="relative h-[clamp(36px,5.5dvh,54px)] w-[clamp(36px,5.5dvh,54px)] shrink-0 overflow-hidden rounded-xl bg-white">
               <img src={baseImage} alt="" className="h-full w-full object-cover"/>
-              {canShowDj&&<img src={liveBroadcast.imageUrl} alt="" aria-hidden="true"
-                className={`ir-rds-image-overlay ${showProducerArt?'is-active':''}`}/>}
             </div>
-            <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-widest text-[#ccff00]">ΤΩΡΑ ΠΑΙΖΕΙ</p>
-              <RdsCrossfade showSecondary={showProducerArt} secondary={canShowDj?(
-                <><p className="max-w-xs truncate text-sm font-bold">{liveBroadcast.title||station.name}</p>
-                <p className="truncate text-xs text-zinc-400">{liveBroadcast.artist||station.name}</p></>
-              ):null}>
-                <><p className="max-w-xs truncate text-sm font-bold">{music?.title||station.name}</p>
-                <p className="truncate text-xs text-zinc-400">{music?.artist||station.name}</p></>
-              </RdsCrossfade>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#ccff00]">ΤΩΡΑ ΠΑΙΖΕΙ</p>
+              <p className="max-w-xs truncate text-sm font-bold">
+                {isPlayingAd?(currentAdInfo?.client||'Διαφήμιση'):(music?.title||currentShow?.title||station.name)}
+              </p>
+              <p className="truncate text-xs text-zinc-400">
+                {isPlayingAd?(currentAdInfo?.title||'Διάλειμμα'):(music?.artist||currentShow?.host||station.name)}
+              </p>
             </div>
+
           </div>
           <p className="hidden text-xs text-zinc-400 2xl:block">Ζωντανή ροή · χωρίς δυνατότητα μετακίνησης στο τραγούδι</p>
           <button type="button" onClick={()=>setShowPlaylist(true)} className="flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-white/15 px-3 py-2 text-xs font-bold text-zinc-200 hover:text-[#ccff00]">
