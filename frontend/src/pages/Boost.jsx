@@ -53,6 +53,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   const [positionInputs, setPositionInputs] = useState({});
   const [boostChanged, setBoostChanged] = useState(() => new Set());
   const [dirty, setDirty] = useState(false);
+  const [orderDirty, setOrderDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
   const draggedId = useRef(null);
@@ -92,6 +93,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
     setPositionInputs({});
     setBoostChanged(new Set());
     setDirty(false);
+    setOrderDirty(false);
   }, [approved, scope, scopeValue]);
 
   const scopedStations = useMemo(() => localStations.filter(s =>
@@ -129,6 +131,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
     current.splice(destination, 0, selected);
     setLocalStations([...current, ...localStations.filter(s => !matchesScope(s, scope, scopeValue))]);
     setDirty(true);
+    setOrderDirty(true);
     setNotice(null);
   };
   const updateStation = (id, changes) => {
@@ -182,6 +185,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
     setPositionInputs({});
     setBoostChanged(new Set());
     setDirty(false);
+    setOrderDirty(false);
     setNotice(null);
   };
   const save = async () => {
@@ -195,6 +199,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
         body: JSON.stringify({
           scope,
           scopeValue: scope === 'global' ? '' : scopeValue,
+          updateOrder: orderDirty,
           // Always submit the complete scope. Searching or filtering is view-only.
           stationsData: scopedStations.map((station, index) => ({
             id: station._id, position: index + 1,
@@ -209,6 +214,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Δεν αποθηκεύτηκε η κατάταξη.');
       setDirty(false);
+      setOrderDirty(false);
       setBoostChanged(new Set());
       // Read back the server's final persisted order (and boost expirations).
       try { await reloadRankings(); }
