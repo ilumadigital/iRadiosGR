@@ -113,7 +113,7 @@
 
 @media (max-width: 639px) {
   .ir-radio-geo-map .maplibregl-ctrl-bottom-right {
-    bottom: 44px;
+    bottom: 0;
   }
   .ir-radio-geo-map .maplibregl-ctrl-bottom-left {
     bottom: 0;
