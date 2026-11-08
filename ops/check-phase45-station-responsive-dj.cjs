@@ -82,7 +82,7 @@ async function main(){
   assert.ok(a>=0&&b>a);
   const media=vm.runInNewContext(mediaSource.slice(a,b)
     .replace('export function mediaFields','function mediaFields')+'\nmediaFields;',
-    {parseMusicMetadata});
+    {parseMusicMetadata,LOADING:/^(?:Βρίσκουμε το τραγούδι|Ακούμε τον σταθμό|ΠΑΙΖΕΙ ΤΩΡΑ)/i});
   const result=media({currentStation:station,currentUser:{_id:'u'},
     nowPlaying:'',nowPlayingInfo:{broadcastHint:'DJZONE'},
     liveBroadcast:resolveLiveShowArtwork({station,nowPlaying:'',
