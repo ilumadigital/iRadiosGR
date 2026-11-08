@@ -5,8 +5,9 @@ const NewsFeedArchive=require('../models/NewsFeedArchive');
 const {keyFor,publicArticle,relatedArticles}=require('../utils/newsFeedArticle');
 const {DEFAULT_FEED_URL,normalizeSource,download}=require('../utils/rssNews');
 const newsbeast=require('../utils/newsbeastSources');
+const initialPreset=require('../utils/newsFeedInitialPreset');
 // Ten-minute server refresh; public requests serve the persisted cache.
-const CACHE_MS=10*60*1000,RETRY_MS=10*60*1000,MAX_SOURCES=32;
+const CACHE_MS=10*60*1000,RETRY_MS=10*60*1000,MAX_SOURCES=32,MAX_ARTICLES=500;
 let pending=null;
 const error=(message,status=400)=>Object.assign(new Error(message),{status});
 const sourceOf=(input,id)=>({
@@ -19,22 +20,22 @@ async function settings(){
   let doc=await NewsFeed.findOneAndUpdate({_id:'primary'},
     {$setOnInsert:{feedUrl:DEFAULT_FEED_URL,enabled:true}},
     {upsert:true,new:true,setDefaultsOnInsert:true});
-  // User-selected staging launch lineup. Exactly once, atomically installed and
-  // guarded by VERSION. Subsequent admin edits are never overwritten by restarts.
-  if(process.env.APP_ENV==='staging'&&doc.bootstrapVersion!==newsbeast.VERSION){
-    const feedSources=newsbeast.sources();
+  // Staging-only one-time reset. Keep subsequent admin changes across restarts.
+  if(process.env.APP_ENV==='staging'&&doc.bootstrapVersion!==initialPreset.VERSION){
+    const seed=sourceOf({url:initialPreset.FEED_URL,label:initialPreset.FEED_LABEL},
+      'rssnews-selected-2026-11-08');
     const updated=await NewsFeed.findOneAndUpdate({
-      _id:'primary',bootstrapVersion:{$ne:newsbeast.VERSION}
+      _id:'primary',bootstrapVersion:{$ne:initialPreset.VERSION}
     },{
-      $set:{bootstrapVersion:newsbeast.VERSION,sources:feedSources,
-        feedUrl:feedSources[0].url,enabled:true,
-        articles:[],feedTitle:'Newsbeast · Ειδήσεις',
+      $set:{bootstrapVersion:initialPreset.VERSION,sources:[seed],
+        feedUrl:seed.url,enabled:true,articles:[],hiddenArticleKeys:[],
+        feedTitle:initialPreset.FEED_LABEL,
         lastSyncedAt:null,lastAttemptAt:null,lastError:''},
       $inc:{configRevision:1}
     },{new:true});
     doc=updated||await NewsFeed.findById('primary');
   }
-  if(!doc.sources?.length){
+  if(!doc.sources?.length && !doc.configRevision){
     const legacyUrl=doc.feedUrl||DEFAULT_FEED_URL;
     const first=sourceOf({url:legacyUrl},'legacy-'+crypto.createHash('sha256').update(legacyUrl).digest('hex').slice(0,32));
     doc.sources=[first];
@@ -46,7 +47,8 @@ async function settings(){
 }
 function currentView(doc){
   return {enabled:doc.enabled,feedUrl:doc.feedUrl,feedTitle:doc.feedTitle,
-    sources:doc.sources||[],articles:doc.articles||[],
+    sources:doc.sources||[],articles:doc.articles||[],syncing:Boolean(pending),
+    refreshIntervalSeconds:600,maxArticles:MAX_ARTICLES,hiddenArticleCount:(doc.hiddenArticleKeys||[]).length,
     lastSyncedAt:doc.lastSyncedAt,lastAttemptAt:doc.lastAttemptAt,lastError:doc.lastError};
 }
 const fail=(res,e)=>res.status(e.status||503).json({error:e.status?e.message:'Το Newsfeed δεν είναι προσωρινά διαθέσιμο.'});
@@ -90,15 +92,17 @@ async function sync(doc,force=false){
         }));
       }
     }
-    const retained=(current.articles||[]).filter(a=>current.sources.some(s=>s.enabled&&s.id===a.sourceId)&&!successful.has(a.sourceId));
+    // Keep prior items until displaced by newer publications; a feed may only
+    // expose its last 10-30 posts on subsequent refreshes.
+    const retained=(current.articles||[]).filter(a=>current.sources.some(s=>s.enabled&&s.id===a.sourceId));
     const all=[...fresh,...retained];
-    const seen=new Set();
+    const seen=new Set(),hidden=new Set(current.hiddenArticleKeys||[]);
     current.articles=all.sort((a,b)=>(new Date(b.publishedAt||0).getTime()||0)-(new Date(a.publishedAt||0).getTime()||0))
       .filter(item=>{
         const fingerprint=(item.source||'').toLowerCase().trim()+'|'+(item.title||'').toLowerCase().trim();
-        if(seen.has(item.url)||seen.has(fingerprint))return false;
+        if(hidden.has(keyFor(item.url))||seen.has(item.url)||seen.has(fingerprint))return false;
         seen.add(item.url);seen.add(fingerprint);return true;
-      }).slice(0,400);
+      }).slice(0,MAX_ARTICLES);
     current.lastAttemptAt=started;
     if(successful.size)current.lastSyncedAt=started;
     current.lastError=failed.length?failed.length+' πηγές με σφάλμα. Δες λεπτομέρειες ανά εκδότη.':'';
@@ -113,7 +117,7 @@ async function sync(doc,force=false){
       const key=keyFor(a.url);
       if(currentKeys.has(key)||archived.has(key)||!a.url||!a.title)return false;
       archived.add(key);return true;
-    }).slice(0,400).map(a=>({
+    }).slice(0,MAX_ARTICLES).map(a=>({
       updateOne:{filter:{_id:keyFor(a.url)},update:{$setOnInsert:{
         _id:keyFor(a.url),title:a.title,summary:a.summary||'',
         previewParagraphs:a.previewParagraphs||[],imageUrl:a.imageUrl||'',
@@ -133,7 +137,10 @@ exports.publicFeed=async(_req,res)=>{
   try{
     let doc=await settings();
     // First load may bootstrap if the cache has not been populated yet.
-    if(doc.enabled&&!doc.articles.length)doc=await sync(doc);
+    if(doc.enabled&&!doc.articles.length&&!pending){
+      // Public reads must never wait for dozens of publisher requests.
+      sync(doc).catch(e=>console.warn('[NEWSFEED] Initial sync:',e.message));
+    }
     const active=doc.sources.filter(s=>s.enabled);
     const articles=doc.enabled?doc.articles.filter(a=>active.some(s=>s.id===a.sourceId)):[];
     const categories=[],seen=new Set();
@@ -165,7 +172,7 @@ exports.save=async(req,res)=>{
       if(typeof req.body?.feedUrl==='string')raw=[{url:req.body.feedUrl}];
       else throw error('Χρειάζεται λίστα πηγών ειδήσεων.');
     }
-    if(!raw.length||raw.length>MAX_SOURCES)throw error('Επίλεξε 1 έως 32 publishers ή RSS feeds.');
+    if(raw.length>MAX_SOURCES)throw error('Μέχρι 32 publishers ή RSS feeds.');
     const previous=new Map(doc.sources.map(s=>[s.id,s]));
     const items=raw.map(item=>{
       const id=typeof item.id==='string'&&previous.has(item.id)?item.id:crypto.randomUUID();
@@ -180,14 +187,20 @@ exports.save=async(req,res)=>{
     doc.enabled=req.body.enabled;doc.sources=items;doc.configRevision=(doc.configRevision||0)+1;
     const ids=new Set(items.map(x=>x.id));
     doc.articles=doc.articles.filter(a=>ids.has(a.sourceId)&&items.some(s=>s.enabled&&s.id===a.sourceId&&s.url===previous.get(s.id)?.url));
-    doc.feedUrl=items[0].url;doc.lastError='';doc.lastAttemptAt=null;
+    doc.feedUrl=items[0]?.url||'';doc.lastError='';doc.lastAttemptAt=null;
+    if(!items.length){doc.feedTitle='';doc.lastSyncedAt=null;}
     await doc.save();res.json(currentView(doc));
   }catch(e){fail(res,e);}
 };
 exports.refresh=async(_req,res)=>{
   try{
-    let doc=await settings();doc=await sync(doc,true);
-    res.json(currentView(doc));
+    const doc=await settings();
+    if(!doc.enabled||!doc.sources.some(s=>s.enabled))
+      return res.status(400).json({error:'Ενεργοποίησε τουλάχιστον μία πηγή πριν από τον συγχρονισμό.'});
+    if(!pending)sync(doc,true).catch(e=>
+      console.error('[NEWSFEED] Manual refresh failed:',e.message));
+    // Never keep the browser waiting on publisher networking and OG lookups.
+    res.status(202).json({...currentView(doc),syncing:true});
   }catch(e){fail(res,e);}
 };
 
@@ -196,6 +209,27 @@ exports.refreshInBackground=async()=>{
   const doc=await settings();
   if(!doc.enabled)return doc;
   return sync(doc,true);
+};
+
+exports.removeArticle=async(req,res)=>{
+  try{
+    const key=String(req.params.key||'').toLowerCase();
+    if(!/^[a-f0-9]{24}$/.test(key))throw error('Μη έγκυρο άρθρο.');
+    const doc=await settings();
+    const item=doc.articles.find(a=>keyFor(a.url)===key);
+    if(!item)return res.status(404).json({error:'Το άρθρο δεν βρέθηκε στη ροή.'});
+    const updated=await NewsFeed.findOneAndUpdate({_id:'primary'},
+      {$pull:{articles:{url:item.url}},$addToSet:{hiddenArticleKeys:key},$inc:{configRevision:1}},
+      {new:true});
+    res.json(currentView(updated));
+  }catch(e){fail(res,e);}
+};
+exports.restoreHiddenArticles=async(_req,res)=>{
+  try{
+    const doc=await NewsFeed.findOneAndUpdate({_id:'primary'},
+      {$set:{hiddenArticleKeys:[]},$inc:{configRevision:1}},{new:true});
+    res.json(currentView(doc||await settings()));
+  }catch(e){fail(res,e);}
 };
 
 exports.articleDetail=async(req,res)=>{
@@ -208,7 +242,8 @@ exports.articleDetail=async(req,res)=>{
     const articles=doc.articles.filter(a=>allowed.has(a.sourceId));
     const item=articles.find(a=>keyFor(a.url)===key)||
       await NewsFeedArchive.findById(key).lean();
-    if(!item||!allowed.has(item.sourceId)||keyFor(item.url)!==key)
+    if(!item||!allowed.has(item.sourceId)||keyFor(item.url)!==key||
+      (doc.hiddenArticleKeys||[]).includes(key))
       return res.status(404).json({error:'Το άρθρο δεν είναι πλέον διαθέσιμο. Επίστρεψε στις ειδήσεις.'});
     res.setHeader('Cache-Control','public, max-age=30');
     res.json({article:publicArticle(item),
