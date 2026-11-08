@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 
-router.get('/admin/clean-chat', adminController.cleanChat);
 router.put('/admin/users/:id/password', adminController.updateUserPassword);
 router.put('/admin/users/:id/full-update', adminController.fullUpdateUser);
 router.get('/admin/users', adminController.getUsers);

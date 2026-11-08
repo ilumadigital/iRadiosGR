@@ -55,7 +55,6 @@ const userSchema = new mongoose.Schema({
       adControl: { type: Boolean, default: false },
       dspEngine: { type: Boolean, default: false },
       betaAccess: { type: Boolean, default: false },
-      liveChat: { type: Boolean, default: false },  
       analytics: { type: Boolean, default: false }
     }
   },

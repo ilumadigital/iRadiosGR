@@ -31,7 +31,6 @@ The product should remain fast, mobile-first, audio-first, premium, easy to unde
 - Media Session / hardware-media controls
 - Web Audio DSP / EQ / normalization-oriented presets
 - Notifications / Web Push
-- Live Chat
 - Sharing and social-sharing flows
 - PWA/app-like experience
 - Embeddable radio widgets
@@ -42,7 +41,7 @@ The codebase includes concepts and UI for premium listening, including removal o
 
 ### Broadcaster platform
 
-Broadcaster functionality includes broadcaster accounts, station ownership/submission, station profile/assets, approval/edit-request workflows, schedules and ON AIR information, station analytics, Live Chat, widgets, DSP/VU functionality, advertising controls, broadcaster premium plans, station boost and producer invitation/assignment flows.
+Broadcaster functionality includes broadcaster accounts, station ownership/submission, station profile/assets, approval/edit-request workflows, schedules and ON AIR information, station analytics, widgets, DSP/VU functionality, advertising controls, broadcaster premium plans, station boost and producer invitation/assignment flows.
 
 ### Producer platform
 
@@ -72,7 +71,7 @@ Entry point: `backend/server.js`
 
 ### Data
 
-Main MongoDB models: User, Station, Subscription (Web Push), Transaction, Ad, BannerAd, StationAnalytics, ChatMessage and EmailHistory.
+Main MongoDB models: User, Station, Subscription (Web Push), Transaction, Ad, BannerAd, StationAnalytics and EmailHistory.
 
 The production MongoDB dump is **not stored in Git** because it contains real operational/user data.
 
@@ -135,7 +134,7 @@ Before audio changes, test station switching, reconnect/stalled streams, Chrome,
 
 ## Realtime
 
-Socket.IO supports listener counts, device registration/playback transfer, station rooms, chat, listening sessions and live updates. Security-sensitive identity/room access must come from authenticated server state.
+Socket.IO supports listener counts, device registration/playback transfer, listening sessions and live updates. Security-sensitive identity/room access must come from authenticated server state.
 
 ## Payments
 

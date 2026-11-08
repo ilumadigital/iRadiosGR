@@ -183,7 +183,7 @@ const stationApprovedEmail = (userName, stationName, stationSlug) => {
       </a>
     </div>
 
-    <p>Μπες στο <strong>Broadcaster Dashboard</strong> για να δεις τα πρώτα σου στατιστικά, να ενεργοποιήσεις το <strong>DSP Engine</strong> (αν δεν το έχεις κάνει ήδη) και να απαντήσεις στα μηνύματα των ακροατών σου στο <strong>Live Chat</strong>.</p>
+    <p>Μπες στο <strong>Broadcaster Dashboard</strong> για να δεις τα πρώτα σου στατιστικά, να ενεργοποιήσεις το <strong>DSP Engine</strong> (αν δεν το έχεις κάνει ήδη) και να διαχειριστείς το πρόγραμμα και την παρουσία του σταθμού σου στο δίκτυο.</p>
 
     <div style="text-align: center; margin-top: 35px; margin-bottom: 40px;">
       <a href="${escapeHtml(dashboardUrl)}" class="btn">BROADCASTER DASHBOARD</a>

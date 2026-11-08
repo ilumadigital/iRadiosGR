@@ -71,7 +71,6 @@ import AdControl from './pages/AdControl';
 import AdminAdControl from './pages/AdminAdControl';
 import GoBroadcast from './pages/GoBroadcast';
 import GoPremiumBroadcast from './pages/GoPremiumBroadcast';
-import MyChat from './pages/MyChat';
 import BoostStation from './pages/BoostStation';
 import AdminBanners from './pages/AdminBanners';
 import AdminHomeSlides from './pages/AdminHomeSlides';
@@ -578,9 +577,6 @@ function MainApp() {
   const [globalSocket, setGlobalSocket] = useState(null);
   const [userLocation, setUserLocation] = useState({ city: 'Unknown', country: 'Unknown' });
 
-  const [unreadListenerChat, setUnreadListenerChat] = useState(false);
-  const [unreadBroadcasterChat, setUnreadBroadcasterChat] = useState(false);
-
   const [isRecognizing, setIsRecognizing] = useState(false);
   // A Spotify track ID must belong to the CURRENT recognized song, not to
   // a previous station or an older AI match.
@@ -896,36 +892,6 @@ function MainApp() {
       station: currentStation
     });
   };
-
-  useEffect(() => {
-    if (!globalSocket) return;
-    if (currentStation) {
-      globalSocket.emit('join_station', currentStation._id);
-    }
-    if (currentUser?.role === 'broadcaster' && stations?.length > 0) {
-      const myStations = stations.filter(s => s.broadcasterId === currentUser._id || s.broadcasterId === currentUser.id);
-      myStations.forEach(st => { globalSocket.emit('join_station', st._id); });
-    }
-    return () => {
-      if (currentStation && currentUser?.role !== 'broadcaster') {
-        globalSocket.emit('leave_station', currentStation._id);
-      }
-    };
-  }, [globalSocket, currentStation, currentUser, stations]);
-
-  useEffect(() => {
-    if (!globalSocket) return;
-    const handleNewMessage = (newMsg) => {
-      if (currentStation && newMsg.stationId === currentStation._id) {
-        setUnreadListenerChat(true);
-      }
-      if (currentUser?.role === 'broadcaster' && location.pathname !== '/my-chat') {
-        setUnreadBroadcasterChat(true);
-      }
-    };
-    globalSocket.on('receive_message', handleNewMessage);
-    return () => globalSocket.off('receive_message', handleNewMessage);
-  }, [globalSocket, currentStation, currentUser, location.pathname]);
 
   // The stage Socket.IO gateway is intentionally closed to public traffic.
   // Report only an anonymous, ephemeral heartbeat while the real audio element
@@ -1799,7 +1765,7 @@ function MainApp() {
 
       <Preloader />
 
-      <Sidebar isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} currentUser={currentUser} stations={stations} unreadBroadcasterChat={unreadBroadcasterChat} setUnreadBroadcasterChat={setUnreadBroadcasterChat} API_URL={API_URL} />
+      <Sidebar isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} currentUser={currentUser} stations={stations} API_URL={API_URL} />
       
       <main className="flex-1 flex flex-col min-w-0 bg-zinc-950/20 relative">
         <TopBar setIsMobileMenuOpen={setIsMobileMenuOpen} openSmartSearchRequest={openSmartSearchRequest} stations={stations} weather={weather} handleSearchResultClick={(id) => { const s = stations.find(x => String(x._id) === String(id)); if (s) handleStationSelectWithAds(s); navigate(`/station/${s?.slug || id}`); }} currentUser={currentUser} onLogout={handleLogout} />
@@ -1837,8 +1803,8 @@ function MainApp() {
             <Route path="/studio" element={
               <RequireTerms currentUser={currentUser}>
                 {currentUser?.role === 'producer' 
-                  ? <ProducerStudio currentUser={currentUser} API_URL={API_URL} unreadBroadcasterChat={unreadBroadcasterChat} currentStation={currentStation} isPlaying={isPlaying} analyser={analyserRef.current} /> 
-                  : <BroadcasterStudio currentUser={currentUser} API_URL={API_URL} unreadBroadcasterChat={unreadBroadcasterChat} currentStation={currentStation} isPlaying={isPlaying} analyser={analyserRef.current} />
+                  ? <ProducerStudio currentUser={currentUser} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} analyser={analyserRef.current} /> 
+                  : <BroadcasterStudio currentUser={currentUser} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} analyser={analyserRef.current} />
                 }
               </RequireTerms>
             } />
@@ -1876,11 +1842,6 @@ function MainApp() {
             <Route path="/upgrade-station" element={
               <RequireTerms currentUser={currentUser}>
                 {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster') ? <GoPremiumBroadcast API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/" />}
-              </RequireTerms>
-            } />
-            <Route path="/my-chat" element={
-              <RequireTerms currentUser={currentUser}>
-                {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster' || currentUser?.role === 'producer') ? <MyChat API_URL={API_URL} currentUser={currentUser} stations={stations} /> : <Navigate to="/" />}
               </RequireTerms>
             } />
             <Route path="/boost-my-station" element={
@@ -1934,7 +1895,6 @@ function MainApp() {
           toggleFavorite={handleToggleFavorite} isFavorite={isFavorite}
           currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))}
           handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}
-          unreadListenerChat={unreadListenerChat} setUnreadListenerChat={setUnreadListenerChat}
           isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} spotifyUrl={spotifyUrl}
           onOpenCarMode={() => setIsCarModeActive(true)}
           globalCoverArt={globalCoverArt}
@@ -1955,7 +1915,6 @@ function MainApp() {
         toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} 
         handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}  
         currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))}
-        unreadListenerChat={unreadListenerChat} setUnreadListenerChat={setUnreadListenerChat}
         isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} spotifyUrl={spotifyUrl}
         globalCoverArt={globalCoverArt}
         liveBroadcast={liveBroadcast}
