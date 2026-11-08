@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import {compareCatalogPopularity} from '../utils/catalogLive';
 
 // ⚠️ Helper function για εύκολο ανακάτεμα πινάκων
 const shuffleArray = (array) => {
@@ -69,7 +70,7 @@ export default function useStations(API_URL, currentUser, currentStation, setCur
   };
 
   const filteredSearch = searchTerm.length > 0 
-    ? stations.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.genre.toLowerCase().includes(searchTerm.toLowerCase()))
+    ? stations.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.genre.toLowerCase().includes(searchTerm.toLowerCase())).sort(compareCatalogPopularity)
     : [];
 
   // ==============================================================
@@ -78,12 +79,13 @@ export default function useStations(API_URL, currentUser, currentStation, setCur
   const zappingPlaylist = useMemo(() => {
     if (!stations || stations.length === 0) return [];
 
+    const available = stations.filter(s => s.isOffline !== true);
     let playlist = [];
 
     // --- 1. ΛΟΓΙΚΗ ΓΙΑ GUESTS (Χωρίς Σύνδεση) ---
     if (!currentUser) {
-      const featured = shuffleArray(stations.filter(s => s.isFeatured));
-      const others = shuffleArray(stations.filter(s => !s.isFeatured));
+      const featured = shuffleArray(available.filter(s => s.isFeatured));
+      const others = shuffleArray(available.filter(s => !s.isFeatured));
 
       playlist.push(...featured);
       playlist.push(...others.splice(0, 5));
@@ -98,13 +100,13 @@ export default function useStations(API_URL, currentUser, currentStation, setCur
     // Ασφαλής έλεγχος για το αν ένας σταθμός είναι στα αγαπημένα
     const isFav = (s) => userFavIds.includes(s._id) || userFavIds.includes(s.id);
 
-    const favorites = stations.filter(s => isFav(s));
+    const favorites = available.filter(s => isFav(s));
     const favGenres = [...new Set(favorites.map(s => s.genre).filter(Boolean))];
 
     // Διαθέσιμοι σταθμοί (που ΔΕΝ είναι στα αγαπημένα για να μην τους ακούσει διπλά)
-    let availableFeatured = shuffleArray(stations.filter(s => s.isFeatured && !isFav(s)));
-    let availableSameGenre = shuffleArray(stations.filter(s => favGenres.includes(s.genre) && !s.isFeatured && !isFav(s)));
-    let availableRandom = shuffleArray(stations.filter(s => !favGenres.includes(s.genre) && !s.isFeatured && !isFav(s)));
+    let availableFeatured = shuffleArray(available.filter(s => s.isFeatured && !isFav(s)));
+    let availableSameGenre = shuffleArray(available.filter(s => favGenres.includes(s.genre) && !s.isFeatured && !isFav(s)));
+    let availableRandom = shuffleArray(available.filter(s => !favGenres.includes(s.genre) && !s.isFeatured && !isFav(s)));
 
     // --- 2. ΛΟΓΙΚΗ ΓΙΑ PREMIUM USERS ---
     if (currentUser.isPremium) {
