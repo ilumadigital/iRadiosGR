@@ -89,22 +89,18 @@ exports.getStats = async (req, res) => {
   } catch (error) { res.status(500).json({ error: 'Σφάλμα λήψης στατιστικών' }); }
 };
 
-exports.sendNotification = async (req, res) => {
-  try {
-    const { title, body, topic = 'promotions' } = req.body;
-    if (!TOPICS.includes(topic) || !title || !body || String(title).length > 180 || String(body).length > 1000) {
-      return res.status(400).json({error:'Συμπλήρωσε έγκυρο μήνυμα και κατηγορία.'});
-    }
-    const payload = JSON.stringify({ title, body, url: '/' });
-    const subscriptions = await Subscription.find({userId:{$ne:null}}).populate('userId');
-    if (subscriptions.length === 0) return res.status(404).json({ error: 'Δεν βρέθηκαν συσκευές.' });
-
-    const promises = subscriptions.filter(sub=>sub.userId&&canNotify(sub.userId,'push',topic)).map(sub =>
-      webpush.sendNotification(sub, payload).catch(err => {
-        if (err.statusCode === 404 || err.statusCode === 410) return Subscription.findByIdAndDelete(sub._id);
-      })
-    );
-    await Promise.all(promises);
-    res.status(200).json({ message: 'Η αποστολή ολοκληρώθηκε.', sent:promises.length });
-  } catch (error) { res.status(500).json({ error: 'Σφάλμα αποστολής.' }); }
+exports.sendNotification = async (req,res)=>{
+  const {title,body,topic='promotions',alsoEmail=false}=req.body||{};
+  if(!TOPICS.includes(topic)||typeof title!=='string'||!title.trim()||title.length>140||
+     typeof body!=='string'||!body.trim()||body.length>600||typeof alsoEmail!=='boolean') {
+    return res.status(400).json({error:'Συμπλήρωσε έγκυρη κατηγορία και μήνυμα.'});
+  }
+  try{
+    const {deliver}=require('../utils/notificationDelivery');
+    const result=await deliver({topic,title,body,channels:alsoEmail?['push','email']:['push']});
+    res.json({message:'Η αποστολή ολοκληρώθηκε.',...result});
+  }catch(e){
+    console.error('[NOTIFY] Manual admin dispatch failed:',e.message);
+    res.status(500).json({error:'Η αποστολή δεν ολοκληρώθηκε.'});
+  }
 };
