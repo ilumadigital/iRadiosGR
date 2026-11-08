@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock3, Disc3, Heart, ListMusic, Loader2, MoreHorizontal, Pause, Play, Radio, ScanSearch, Share2, Check, SignalHigh } from 'lucide-react';
+import { ArrowLeft, Clock3, Disc3, Heart, Loader2, MoreHorizontal, Pause, Play, Radio, ScanSearch, Share2, Check, SignalHigh } from 'lucide-react';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import FoundWithAI from './FoundWithAI';
 
