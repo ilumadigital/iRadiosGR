@@ -28,7 +28,8 @@ for(const handler of ['togglePlayPause()', 'handlePrevStation()', 'handleNextSta
   'handleRadarClick', 'setIsMaximized(true)', 'setIsMaximized(false)']) {
   assert.ok(mini.includes(handler), 'player must preserve '+handler);
 }
-assert.ok(mini.includes('Boolean(currentUser) && !isRecognizing'), 'guest metadata must remain gated');
+assert.ok(mini.includes('Boolean(currentUser&&!isRecognizing&&!isPlayingAd&&currentTrack)'),
+  'guest metadata must remain gated and only real songs qualify');
 assert.ok(mini.includes('ir-recognize-button'), 'recognition CTA');
 assert.ok(mini.includes('aria-label={isPlaying ?'), 'player controls accessible');
 assert.ok(!mini.includes('audioRef = useRef'), 'do not duplicate audio node in UI');
