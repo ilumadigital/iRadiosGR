@@ -65,6 +65,7 @@ export default function Profile({API_URL='/api',onLogout}){
   const [user,setUser]=useState(null);
   const [fields,setFields]=useState(toFields({}));
   const [preferences,setPreferences]=useState(INITIAL_PREFS);
+  const [newsCategories,setNewsCategories]=useState([]);
   const [pushAvailable,setPushAvailable]=useState(false);
   const [pushSupported,setPushSupported]=useState(false);
   const [deviceRegistered,setDeviceRegistered]=useState(false);
@@ -118,6 +119,18 @@ export default function Profile({API_URL='/api',onLogout}){
     checkDevice().catch(()=>setDeviceRegistered(false));
   },[user?._id,checkDevice]);
 
+  useEffect(()=>{
+    if(tab!=='notifications')return undefined;
+    const controller=new AbortController();
+    fetch(API_URL+'/newsfeed',{signal:controller.signal})
+      .then(r=>r.ok?r.json():{})
+      .then(data=>{
+        if(controller.signal.aborted)return;
+        setNewsCategories(Array.isArray(data.categories)?data.categories.filter(c=>typeof c==='string'&&c.trim()).slice(0,24):[]);
+      }).catch(()=>{});
+    return()=>controller.abort();
+  },[tab,API_URL]);
+
   const setField=(name,value)=>setFields(old=>({...old,[name]:value}));
 
   const saveProfile=async event=>{
@@ -149,6 +162,21 @@ export default function Profile({API_URL='/api',onLogout}){
       if(!response.ok)throw Error(data.error||'Η αλλαγή δεν αποθηκεύτηκε.');
       setPreferences(data.preferences);
       setNotice({type:'success',text:'Η προτίμηση αποθηκεύτηκε.'});
+    }catch(error){setNotice({type:'error',text:error.message||'Σφάλμα αποθήκευσης.'});}
+    finally{setPrefBusy('');}
+  };
+
+  const saveNewsCategories=async categories=>{
+    if(prefBusy)return;
+    setPrefBusy('newsCategories');setNotice(null);
+    try{
+      const response=await fetch(API_URL+'/users/me/notification-preferences',{
+        method:'PATCH',headers:authHeaders(),body:JSON.stringify({newsCategories:categories})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||'Δεν αποθηκεύτηκαν οι κατηγορίες ειδήσεων.');
+      setPreferences(data.preferences);
+      setNotice({type:'success',text:'Οι κατηγορίες ειδήσεων ενημερώθηκαν.'});
     }catch(error){setNotice({type:'error',text:error.message||'Σφάλμα αποθήκευσης.'});}
     finally{setPrefBusy('');}
   };
@@ -309,6 +337,23 @@ export default function Profile({API_URL='/api',onLogout}){
               onChange={()=>togglePreference('topic',id)} disabled={Boolean(prefBusy)}/>
           </div>)}
         </div>
+        {newsCategories.length>0&&preferences.topics?.news&&<div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <h3 className="flex items-center gap-2 text-sm font-black text-white"><Newspaper size={16} className="text-[#ccff00]"/> Ποιες ειδήσεις σε ενδιαφέρουν;</h3>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">Επίλεξε θεματικές για πιο σχετικές ειδοποιήσεις. Χωρίς επιλογή λαμβάνεις όλες τις κατηγορίες.</p>
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Προσωπικές κατηγορίες ειδήσεων">
+            <button type="button" aria-pressed={!preferences.newsCategories?.length}
+              disabled={Boolean(prefBusy)} onClick={()=>saveNewsCategories([])}
+              className={'ir-profile-news-chip '+(!preferences.newsCategories?.length?'ir-profile-news-chip--active':'')}>Όλες</button>
+            {newsCategories.map(category=><button type="button" key={category} disabled={Boolean(prefBusy)}
+              aria-pressed={preferences.newsCategories?.includes(category)||false}
+              onClick={()=>{
+                const selected=preferences.newsCategories||[];
+                saveNewsCategories(selected.includes(category)?selected.filter(x=>x!==category):[...selected,category]);
+              }}
+              className={'ir-profile-news-chip '+(preferences.newsCategories?.includes(category)?'ir-profile-news-chip--active':'')}>
+              {category}</button>)}
+          </div>
+        </div>}
         <p className="mt-4 flex items-start gap-2 text-[11px] leading-5 text-zinc-500"><ShieldCheck size={15} className="mt-0.5 shrink-0 text-[#ccff00]"/> Οι προωθητικές ενέργειες είναι απενεργοποιημένες μέχρι να δώσεις εσύ ρητή συγκατάθεση.</p>
       </section>
       <div className="flex flex-col gap-5">
@@ -336,7 +381,7 @@ export default function Profile({API_URL='/api',onLogout}){
               {deviceBusy?<Loader2 size={16} className="animate-spin"/>:<XCircle size={16}/>} Αφαίρεση συσκευής
             </button>
           </div>:<div className="space-y-3">
-            <p className="text-xs leading-6 text-zinc-400">{!pushSupported?'Ο browser ή η εγκατάσταση δεν υποστηρίζει push.':pushPermission==='denied'?'Ο browser έχει αποκλείσει το μικρόφωνο ή τις ειδοποιήσεις. Ενεργοποίησε τις ειδοποιήσεις στις ρυθμίσεις του.':'Πάτησε ενεργοποίηση για να δώσεις άδεια και να καταχωρήσεις αυτή τη συσκευή.'}</p>
+            <p className="text-xs leading-6 text-zinc-400">{!pushSupported?'Ο browser ή η εγκατάσταση δεν υποστηρίζει push.':pushPermission==='denied'?'Ο browser έχει αποκλείσει τις ειδοποιήσεις. Ενεργοποίησέ τες στις ρυθμίσεις του.':'Πάτησε ενεργοποίηση για να δώσεις άδεια και να καταχωρήσεις αυτή τη συσκευή.'}</p>
             <button type="button" onClick={registerDevice} disabled={deviceBusy||!pushSupported||!preferences.push} className="ir-profile-primary w-full">
               {deviceBusy?<Loader2 size={17} className="animate-spin"/>:<BellRing size={17}/>} Ενεργοποίηση στη συσκευή
             </button>
