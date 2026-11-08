@@ -150,8 +150,11 @@ async function main(){
   ]});
   assert.equal(schedule.code,200,'assigned producer manages weekly programming');
   assert.equal(all[0].schedule[0].title,'Breakfast');
+  const invalidCategories=await call('POST','/backoffice/stations',owner,
+    {name:'Invalid',genre:'House',stream:'https://radio.example/other'});
+  assert.equal(invalidCategories.code,400,'legacy-only categories are not valid for new stations');
   const added=await call('POST','/backoffice/stations',owner,
-    {name:'New Radio',genre:'Pop',stream:'https://radio.example/other'});
+    {name:'New Radio',genre:'Διεθνή Mainstream',secondaryGenre:'Pop',stream:'https://radio.example/other'});
   assert.equal(added.code,201);
   assert.equal(added.body.station.status,'pending');
   assert.equal(added.body.station.broadcasterId,undefined);
