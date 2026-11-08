@@ -32,7 +32,7 @@ for(const text of [
 
 assert.ok(artwork.includes('onStationClick'), 'station logo must open station profile');
 assert.ok(artwork.includes('ir-showcase-art__brand--link'), 'logo must be a proper button');
-assert.ok(artwork.includes('transition: opacity'), 'RDS crossfade should not be implemented here');
+assert.ok(sharedCss.includes('transition: opacity'), 'RDS crossfade remains smooth');
 assert.ok(sharedCss.includes('.ir-showcase-art__dj.is-active'), 'live DJ RDS fade retained');
 assert.ok(music.includes("Αναβαθμίστε σε Premium"), 'Spotify / Apple premium gate retained');
 assert.ok(story.includes('label = null'), 'sharing tile remains fully tappable');
