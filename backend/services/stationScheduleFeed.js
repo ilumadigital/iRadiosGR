@@ -1,6 +1,6 @@
 'use strict';
-// Restricted, dependency-free XML schedule ingestion. External URLs are resolved and
-// pinned to public DNS addresses; redirects are re-validated to avoid SSRF.
+// Restricted, dependency-free XML/JSON schedule ingestion. External URLs are resolved
+// and pinned to public DNS addresses; redirects are re-validated to avoid SSRF.
 const http=require('node:http');
 const https=require('node:https');
 const dns=require('node:dns/promises');
@@ -66,14 +66,15 @@ async function fetchXml(url,hops=0){
   const addresses=net.isIP(host)?[{address:host,family:net.isIP(host)}]:
     await dns.lookup(host,{all:true,verbatim:true});
   if(!addresses.length||addresses.some(item=>!publicIp(item.address)))
-    throw invalid('Το XML URL οδηγεί σε μη δημόσια διεύθυνση δικτύου.');
-  const pinned=addresses[0];
+    throw invalid('Το feed URL οδηγεί σε μη δημόσια διεύθυνση δικτύου.');
+  // Prefer a validated public IPv4 address on hosts without IPv6 egress.
+  const pinned=addresses.find(item=>item.family===4)||addresses[0];
   const response=await new Promise((resolve,reject)=>{
     const driver=u.protocol==='https:'?https:http;
     const request=driver.get(u,{
       agent:false,timeout:10000,
       lookup:(_name,_options,cb)=>cb(null,pinned.address,pinned.family),
-      headers:{'Accept':'application/xml,text/xml,application/rss+xml,text/plain;q=0.8',
+      headers:{'Accept':'application/xml,text/xml,application/json,text/plain;q=0.8',
         'User-Agent':'iRadiosGR-Schedule-Sync/1.0'}
     },res=>{
       if([301,302,303,307,308].includes(res.statusCode)){
@@ -195,6 +196,38 @@ function rowsFromXml(root,chosenTag){
   const fields=[...new Set(rows.slice(0,15).flatMap(row=>Object.keys(row)))];
   return {rows,fields,rowTags:candidates.slice(0,25),rowTag:selected.tag};
 }
+function rowsFromJson(raw){
+  let data;
+  try{data=JSON.parse(raw);}catch{throw invalid('Το feed περιέχει μη έγκυρο JSON.');}
+  const obj=item=>item&&typeof item==='object'&&!Array.isArray(item);
+  let entries,dayFormat;
+  if(obj(data)&&Array.isArray(data.days)){
+    if(data.ok===false)throw invalid('Το JSON feed επέστρεψε σφάλμα αντί για πρόγραμμα.');
+    entries=data.days.flatMap(day=>{
+      if(!obj(day)||!Array.isArray(day.shows))throw invalid('Το JSON περιέχει ημέρα χωρίς λίστα εκπομπών.');
+      return day.shows.map(show=>{
+        if(!obj(show))throw invalid('Το JSON περιέχει μη έγκυρη εκπομπή.');
+        return {...show,day_of_week:day.day_of_week??day.day};
+      });
+    });
+    if(data.days.every(day=>Number.isInteger(Number(day.day_of_week))&&
+      Number(day.day_of_week)>=1&&Number(day.day_of_week)<=7))dayFormat='iso';
+  }else if(Array.isArray(data))entries=data;
+  else if(obj(data)&&Array.isArray(data.shows))entries=data.shows;
+  else if(obj(data)&&Array.isArray(data.schedule))entries=data.schedule;
+  else throw invalid('Δεν βρέθηκε λίστα εκπομπών JSON (days[].shows, shows ή schedule).');
+  if(!entries.length||entries.length>ROW_LIMIT)
+    throw invalid('Το feed πρέπει να περιέχει από 1 έως 160 εκπομπές.');
+  const rows=entries.map(item=>{
+    if(!obj(item))throw invalid('Μη έγκυρη εκπομπή JSON.');
+    return Object.fromEntries(Object.entries(item)
+      .filter(([key,value])=>key.length<=100&&
+        (typeof value==='string'||typeof value==='number'))
+      .map(([key,value])=>[key,String(value)]));
+  });
+  const fields=[...new Set(rows.slice(0,30).flatMap(row=>Object.keys(row)))];
+  return {rows,fields,rowTag:'shows',rowTags:[],format:'json',dayFormat};
+}
 function autoMapping(fields,mapping){
   const configured=mapping&&typeof mapping==='object'&&!Array.isArray(mapping)?mapping:{};
   const result={};
@@ -230,7 +263,7 @@ function timeString(value,canEnd){
 }
 function mapRows(payload,options={}){
   const chosenMapping=autoMapping(payload.fields,options.mapping);
-  const dayFormat=['iso','monday0','sunday0'].includes(options.dayFormat)?options.dayFormat:'iso';
+  const dayFormat=payload.dayFormat||(['iso','monday0','sunday0'].includes(options.dayFormat)?options.dayFormat:'iso');
   const required=['day','start','end'];
   if(required.some(key=>!chosenMapping[key])||!chosenMapping.title&&!chosenMapping.producer)
     throw invalid('Επίλεξε mapping για ημέρα, έναρξη, λήξη και τίτλο ή παραγωγό.');
@@ -257,13 +290,23 @@ function mapRows(payload,options={}){
     hash:crypto.createHash('sha256').update(JSON.stringify(normalized.schedule)).digest('hex')};
 }
 async function readFeedRows(options){
-  let xml;
-  try{xml=await fetchXml(String(options.url||'').trim());}
+  let body;
+  try{body=await fetchXml(String(options.url||'').trim());}
   catch(error){
     if(error.status)throw error;
-    throw invalid('Δεν ήταν δυνατή η πρόσβαση στο XML feed (DNS, SSL ή σύνδεση). Έλεγξε ότι το URL είναι δημόσιο και λειτουργεί.',422);
+    const code=String(error.code||'').toUpperCase();
+    const detail=['ENOTFOUND','EAI_AGAIN'].includes(code)?
+      'Δεν επιλύεται το DNS του feed από τον server ('+code+').':
+      ['ENETUNREACH','EHOSTUNREACH','ETIMEDOUT','ECONNREFUSED','ECONNRESET'].includes(code)?
+        'Αποτυχία δικτυακής σύνδεσης από τον staging server ('+code+').':
+        /CERT|TLS|SSL|SELF_SIGNED|UNABLE_TO_VERIFY/.test(code)?
+          'Σφάλμα πιστοποιητικού SSL/TLS του feed ('+code+').':
+          'Αποτυχία σύνδεσης από τον staging server'+(code?' ('+code+')':'')+'.';
+    throw invalid(detail+' Έλεγξε τον σύνδεσμο και την εξερχόμενη πρόσβαση του server.',422);
   }
-  return rowsFromXml(parseXml(xml),String(options.rowTag||'').trim());
+  const trimmed=body.trimStart();
+  if(trimmed.startsWith('{')||trimmed.startsWith('['))return rowsFromJson(body);
+  return {...rowsFromXml(parseXml(body),String(options.rowTag||'').trim()),format:'xml'};
 }
 async function loadFeed(options){
   return mapRows(await readFeedRows(options),options);
@@ -272,7 +315,7 @@ async function loadFeed(options){
 // Only the final import/sync performs the strict all-or-nothing validation.
 function previewRows(rows,options={}){
   const mapping=autoMapping(rows.fields,options.mapping);
-  const dayFormat=['iso','monday0','sunday0'].includes(options.dayFormat)?options.dayFormat:'iso';
+  const dayFormat=rows.dayFormat||(['iso','monday0','sunday0'].includes(options.dayFormat)?options.dayFormat:'iso');
   try{
     return {...mapRows(rows,{...options,mapping,dayFormat}),valid:true,validationError:''};
   }catch(error){
@@ -286,6 +329,7 @@ async function previewFeed(options){
 }
 function publicPreview(result){
   return {rowTag:result.rowTag,rowTags:result.rowTags,fields:result.fields,
+    format:result.format||'xml',
     mapping:result.mapping,dayFormat:result.dayFormat,valid:result.valid!==false,
     validationError:result.validationError||'',
     count:result.schedule.length,sourceCount:result.sourceCount,split:result.split,
@@ -346,4 +390,4 @@ function startCron(){
   console.info('[SCHEDULE XML] Daily sync scheduled 03:00 Europe/Athens');
 }
 module.exports={loadFeed,previewFeed,publicPreview,publicHttpUrl,syncOne,syncAll,startCron,
-  __testing:{parseXml,rowsFromXml,mapRows,previewRows,dayNumber,timeString}};
+  __testing:{parseXml,rowsFromXml,rowsFromJson,mapRows,previewRows,dayNumber,timeString}};
