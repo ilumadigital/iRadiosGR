@@ -116,7 +116,7 @@ export default function StationPlaylistPanel({
         <p className="text-sm text-zinc-300">Δεν υπάρχουν ακόμη τραγούδια στη λίστα.</p>
         <p className="mt-2 text-xs text-zinc-500">Τα τραγούδια θα εμφανιστούν εδώ μόλις τα μάθουμε.</p>
       </div>:null}
-      {tracks.length>0&&<div className={`mt-3 min-h-0 divide-y divide-white/5 overflow-y-auto pr-1 ${compact?'flex-1':'max-h-[560px]'}`} aria-live="polite">
+      {tracks.length>0&&<div className={`ir-playlist-tracks mt-3 min-h-0 divide-y divide-white/5 overflow-y-auto pr-1 ${compact?'flex-1':'max-h-[560px]'}`} aria-live="polite">
         {tracks.map((track,i)=><div key={track.raw+'-'+track.playedAt+'-'+i}
           className={`ir-station-playlist-track flex min-w-0 items-center gap-3 rounded-lg px-2 py-2.5 ${i===0?'bg-[#ccff00]/10':''}`}>
           <TrackCover track={track} fallback={chosen?.logo||'/iradios-app-logo.png'}/>
