@@ -810,6 +810,25 @@ function AdminWorkspace({data}){
     {!filtered.length&&<div className={panel+' p-10 text-center text-sm text-zinc-400'}>Δεν βρέθηκαν εργαλεία με αυτή την αναζήτηση.</div>}
   </div>;
 }
+class AdminToolErrorBoundary extends React.Component {
+  constructor(props){super(props);this.state={failed:false};}
+  static getDerivedStateFromError(){return {failed:true};}
+  componentDidCatch(error){console.error('Backoffice Admin module unavailable:',error?.message);}
+  render(){
+    if(!this.state.failed)return this.props.children;
+    return <div className="rounded-2xl border border-rose-400/20 bg-rose-400/[.05] p-8 text-center">
+      <CircleAlert className="mx-auto mb-3 text-rose-300" size={28}/>
+      <h3 className="text-lg font-black text-white">Δεν φορτώθηκε το εργαλείο.</h3>
+      <p className="mt-2 text-sm text-zinc-400">Δοκίμασε ανανέωση ή επίλεξε άλλο εργαλείο.
+        Δεν έγιναν αλλαγές στα δεδομένα.</p>
+      <div className="mt-5 flex flex-wrap justify-center gap-3">
+        <button type="button" className={buttonPrimary} onClick={()=>window.location.reload()}>
+          <RefreshCw size={15}/> Επανάληψη</button>
+        <Link className={buttonSecondary} to="/backoffice/admin">Άλλα εργαλεία</Link>
+      </div>
+    </div>;
+  }
+}
 function Operations({data,section,reload}){
   if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
   const current=ADMIN_TOOLS.find(item=>item.id===section);
@@ -841,10 +860,12 @@ function Operations({data,section,reload}){
       <Link to="/backoffice/admin" className={buttonSecondary+' !py-2'}><LayoutDashboard size={15}/> Όλα</Link>
     </nav>
     <div className="min-w-0">
-      <Suspense fallback={<div className={panel+' p-10 text-center text-[#caff00]'}>
-        <RefreshCw size={20} className="mx-auto mb-3 animate-spin"/>Φόρτωση εργαλείου…</div>}>
-        {views[section]}
-      </Suspense>
+      <AdminToolErrorBoundary key={section}>
+        <Suspense fallback={<div className={panel+' p-10 text-center text-[#caff00]'}>
+          <RefreshCw size={20} className="mx-auto mb-3 animate-spin"/>Φόρτωση εργαλείου…</div>}>
+          {views[section]}
+        </Suspense>
+      </AdminToolErrorBoundary>
     </div>
   </div>;
 }
