@@ -43,7 +43,7 @@ let playlistHandler=null;
 const route={get:(path,...handlers)=>{if(path.includes('/playlist'))playlistHandler=handlers.at(-1);}};
 Module._load=function(name,parent,isMain){
   const from=String(parent?.filename||'');
-  if(name==='../models/StationPlaylist'&&/recordStationTrack\.js$|stageSmartTracks\.js$|stationPlaylistRoutes\.js$/.test(from))
+  if(name==='../models/StationPlaylist'&&/recordStationTrack\.js$|stageSmartTracks\.js$|stageNativeNow\.js$|stationPlaylistRoutes\.js$/.test(from))
     return Playlist;
   if(from.endsWith('stationPlaylistRoutes.js')){
     if(name==='express')return {Router:()=>route};

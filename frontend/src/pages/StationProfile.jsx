@@ -11,7 +11,8 @@ import { Helmet } from 'react-helmet-async';
 import CircularVU from '../components/CircularVU';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import StationCatalogCard from '../components/StationCatalogCard';
-import FoundWithAI from '../components/FoundWithAI'; 
+import FoundWithAI from '../components/FoundWithAI';
+import {parseMusicMetadata,spotifySongLink} from '../utils/musicMetadata'; 
 import { useAlert } from '../context/AlertContext';
 
 const DAYS_OF_WEEK = ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'];
@@ -53,7 +54,8 @@ export default function StationProfile({
   const useGlobal=Boolean(currentUser&&isThisPlaying&&isPlaying&&globalNowPlaying&&
     !LOADING_MESSAGES.includes(globalNowPlaying));
   const effectiveNowPlaying=currentUser?(useGlobal?globalNowPlaying:localNowPlaying):null;
-  const foundWithAI=Boolean(effectiveNowPlaying&&
+  const validatedMusic=parseMusicMetadata(effectiveNowPlaying,station?.name);
+  const foundWithAI=Boolean(validatedMusic&&
     (useGlobal?globalNowPlayingInfo?.foundWithAI:localNowPlayingInfo.foundWithAI));
 
   const isCurrentlyLoadingMeta = LOADING_MESSAGES.includes(effectiveNowPlaying) || isRecognizing;
@@ -106,7 +108,7 @@ export default function StationProfile({
       }
     };
     read();
-    intervalId=setInterval(read,45000);
+    intervalId=setInterval(read,15000); // Fast shared DB snapshot, no upstream fetch
     return ()=>{controller.abort();clearInterval(intervalId);};
   }, [station?._id, currentUser?._id, API_URL]);
 
@@ -127,8 +129,10 @@ export default function StationProfile({
   // 🟢 ΚΛΙΚ ΣΤΟ SPOTIFY (ΔΙΟΡΘΩΜΕΝΟ TYPO)
   const onSpotifyClick = (e) => {
     e.stopPropagation();
+    const link=validatedMusic?spotifySongLink(validatedMusic.raw,station?.name):null;
+    if(!link)return;
     if (currentUser?.isPremium) {
-      window.open(`https://open.spotify.com/search/${encodeURIComponent(effectiveNowPlaying)}`, '_blank', 'noopener,noreferrer');
+      window.open(link, '_blank', 'noopener,noreferrer');
     } else {
       showAlert("Αναβαθμίστε σε Premium για 1-Click Spotify Save.");
       navigate('/premium');
@@ -430,7 +434,7 @@ export default function StationProfile({
             </div>
 
             {/* 🟢 SPOTIFY BUTTON (Φαίνεται σε όλους, συμπεριφορά βάσει Premium) */}
-            {effectiveNowPlaying && !isCurrentlyLoadingMeta && (
+            {validatedMusic && !isCurrentlyLoadingMeta && (
               <button 
                 onClick={onSpotifyClick}
                 className="w-full flex items-center justify-center gap-2 bg-[#1DB954]/10 hover:bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/20 px-6 py-3.5 rounded-2xl transition-all font-bold text-xs tracking-wider shrink-0"

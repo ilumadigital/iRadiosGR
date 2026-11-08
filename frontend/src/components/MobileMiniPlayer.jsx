@@ -10,6 +10,7 @@ import {
 import LiveChat from './LiveChat'; 
 import ShareStory from './ShareStory';
 import FoundWithAI from './FoundWithAI';
+import {parseMusicMetadata,spotifySongLink} from '../utils/musicMetadata';
 import { useAlert } from '../context/AlertContext';
 
 export default function MobileMiniPlayer({
@@ -121,22 +122,12 @@ export default function MobileMiniPlayer({
   const canUseCustomEQ = currentStation && isPremium && isCurrentlyFavorite;
   const currentPreset = (currentStation && userOverrides?.[currentStation._id]) || 'Station Default';
 
-  const isActualSong = 
-    Boolean(currentUser) && !isRecognizing &&
-    nowPlaying && typeof nowPlaying === 'string' &&
-    nowPlaying !== "LIVE NOW" && 
-    nowPlaying !== "ΠΑΙΖΕΙ ΤΩΡΑ" && 
-    !nowPlaying.toLowerCase().includes("αναζήτηση") && 
-    !nowPlaying.toLowerCase().includes("ακούω") &&
-    !nowPlaying.toLowerCase().includes("scanning");
-
-  // Show factual stream metadata as a track label, never as a seekable duration.
-  const trackParts = isActualSong ? nowPlaying.split(/\s+[-–—]\s+/) : [];
-  const displayTrackTitle = trackParts.length > 1 ? trackParts.slice(1).join(' — ')
-    : (isActualSong ? nowPlaying : currentStation.name);
-  const displayTrackArtist = trackParts.length > 1 ? trackParts[0] : '';
-
-  const finalSpotifyUrl = spotifyUrl || (isActualSong && nowPlaying ? `https://open.spotify.com/search/${encodeURIComponent(nowPlaying)}` : null);
+  const currentTrack=parseMusicMetadata(nowPlaying,currentStation?.name);
+  const isActualSong=Boolean(currentUser&&!isRecognizing&&!isPlayingAd&&currentTrack);
+  const displayTrackTitle=currentTrack?.title||currentStation.name;
+  const displayTrackArtist=currentTrack?.artist||'';
+  const finalSpotifyUrl=isActualSong
+    ?(spotifyUrl||spotifySongLink(currentTrack.raw,currentStation?.name)):null;
 
   const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
   const showCoverArt = isActualSong && globalCoverArt && !isPlayingAd;
@@ -164,6 +155,7 @@ export default function MobileMiniPlayer({
 
   const handleSpotifyClick = (e) => {
     e.stopPropagation();
+    if(!finalSpotifyUrl)return;
     if (isPremium) {
       window.open(finalSpotifyUrl, '_blank', 'noopener,noreferrer');
     } else {

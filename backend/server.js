@@ -75,6 +75,7 @@ if (process.env.APP_ENV === 'staging') {
   const smartAuto=require('./utils/stageAutoAcrcloud');
   app.post('/api/listen/heartbeat', smartAuto.heartbeat);
   smartAuto.start(); // opt-in only; no external calls without both server switches
+  require('./utils/stageNativeScanner').start();
 }
 
 

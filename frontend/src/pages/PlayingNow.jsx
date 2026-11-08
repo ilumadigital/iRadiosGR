@@ -1,115 +1,68 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AudioLines, ChevronLeft, ChevronRight, Loader2, Radio } from 'lucide-react';
 import { parseMusicMetadata } from '../utils/musicMetadata';
 import FoundWithAI from '../components/FoundWithAI';
 
-const PER_PASS = 36;
-const BATCH = 6;
+// ONE fast MongoDB feed replaces per-browser probing of dozens of radio URLs.
+// Songs come from the 2-minute backend prefetch and existing shared AI results.
+export default function PlayingNow({ stations = [], API_URL, currentUser }) {
+  const navigate=useNavigate();
+  const [liveStations,setLiveStations]=useState([]);
+  const [isLoading,setIsLoading]=useState(true);
+  const stripRef=useRef(null);
+  const displayStations=liveStations;
 
-export default function PlayingNow({ stations = [], API_URL, currentUser, onPlayStation }) {
-  const navigate = useNavigate();
-  const [liveStations, setLiveStations] = useState([]);
-  const [sharedAIStations,setSharedAIStations]=useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const cursor = useRef(0);
-  const stripRef = useRef(null);
-
-  useEffect(() => {
-    // Song titles are a logged-in feature. A guest never attempts to fetch metadata.
-    if (!currentUser || !stations.length) {
-      setLiveStations([]);
-      setIsLoading(false);
-      return;
-    }
-    let alive = true;
-    let controller = new AbortController();
-    const eligible = stations.filter(s => (s.status === 'approved' || !s.status) && s._id && s.stream);
-
-    const poll = async () => {
-      controller.abort();
-      controller = new AbortController();
-      const signal = controller.signal;
-      if (!eligible.length) { if (alive) { setLiveStations([]); setIsLoading(false); } return; }
-
-      // Rotate through the approved stations rather than selecting random stations.
-      const offset = cursor.current % eligible.length;
-      const sampled = Array.from({ length: Math.min(PER_PASS, eligible.length) }, (_,i) =>
-        eligible[(offset + i) % eligible.length]);
-      cursor.current = (offset + sampled.length) % eligible.length;
-      const token = localStorage.getItem('iluma_token');
-      if (!token) { if (alive) { setLiveStations([]); setIsLoading(false); } return; }
-      const detected = [];
-
-      for (let i=0; i<sampled.length && alive && !signal.aborted; i+=BATCH) {
-        const found = await Promise.all(sampled.slice(i,i+BATCH).map(async station => {
-          try {
-            const res = await fetch(`${API_URL}/metadata?stationId=${encodeURIComponent(station._id)}`, {
-              headers:{Authorization:`Bearer ${token}`}, signal
-            });
-            if (!res.ok) return null;
-            const data = await res.json();
-            const music = parseMusicMetadata(data?.title);
-            if (!music) return null;
-            return { ...station, music, coverArt: station.logo, foundWithAI: data?.foundWithAI===true, expiresAt:data?.expiresAt||null };
-          } catch { return null; }
-        }));
-        detected.push(...found.filter(Boolean));
-      }
-
-      if (signal.aborted || !alive) return;
-      // A station disappears immediately when it no longer reports valid artist-title metadata.
-      // Do not keep stale songs in the list after a failed/empty refresh.
-      setLiveStations(detected);
-      setIsLoading(false);
-
-      // Artwork is optional and fetched only for a few visible cards, after music was verified.
-      await Promise.all(detected.slice(0,12).map(async item => {
-        try {
-          const res = await fetch(`${API_URL}/cover-art?term=${encodeURIComponent(item.music.raw)}`,{signal});
-          if (!res.ok) return;
-          const data = await res.json();
-          if (!data?.artworkUrl || !/^https:\/\//.test(data.artworkUrl) || !alive || signal.aborted) return;
-          setLiveStations(prev => prev.map(s => s._id===item._id && s.music.raw===item.music.raw ?
-            {...s,coverArt:data.artworkUrl} : s));
-        } catch { /* station logo is the honest fallback */ }
-      }));
-    };
-
-    poll();
-    const timer = setInterval(() => { if (!document.hidden) poll(); }, 90000);
-    return () => { alive=false; controller.abort(); clearInterval(timer); };
-  }, [stations, API_URL, currentUser?._id]);
-
-  // Fetch EVERY active station-wide AI match, irrespective of which subset
-  // of native metadata stations is being scanned by this browser.
-  // All signed-in listeners see the same centrally recognized on-air songs.
   useEffect(()=>{
-    if(!currentUser){setSharedAIStations([]);return;}
+    if(!currentUser){
+      setLiveStations([]);setIsLoading(false);return;
+    }
     const controller=new AbortController();
-    let alive=true;
-    const lookup=new Map(stations.filter(s=>s._id && (s.status==='approved'||!s.status))
+    let running=false,alive=true;
+    const lookup=new Map(stations.filter(s=>s?._id && (s.status==='approved'||!s.status))
       .map(s=>[String(s._id),s]));
     const poll=async()=>{
-      const token=localStorage.getItem('iluma_token');
-      if(!token||controller.signal.aborted){if(alive)setSharedAIStations([]);return;}
+      if(running||!alive||controller.signal.aborted)return;
+      running=true;
       try{
+        const token=localStorage.getItem('iluma_token');
+        if(!token){setLiveStations([]);return;}
         const response=await fetch(`${API_URL}/metadata/live`,{
           headers:{Authorization:`Bearer ${token}`},signal:controller.signal
         });
-        if(!response.ok)throw new Error('unavailable');
-        const data=await response.json();
-        const shared=(Array.isArray(data?.tracks)?data.tracks:[]).slice(0,512)
+        if(!response.ok)throw new Error('Music feed unavailable');
+        const json=await response.json();
+        const next=(Array.isArray(json?.tracks)?json.tracks:[])
           .map(entry=>{
             const station=lookup.get(String(entry.stationId||''));
-            const music=entry?.foundWithAI===true?parseMusicMetadata(entry.title):null;
-            if(!station||!music||Date.parse(entry.expiresAt)<=Date.now())return null;
-            return {...station,music,coverArt:station.logo,foundWithAI:true,
-              expiresAt:entry.expiresAt};
+            const music=parseMusicMetadata(entry.title,station?.name);
+            if(!station||!music||!['station','acrcloud'].includes(entry.source)||
+               (entry.expiresAt&&Date.parse(entry.expiresAt)<=Date.now()))return null;
+            return {...station,music,coverArt:station.logo,
+              foundWithAI:entry.source==='acrcloud'&&entry.foundWithAI===true};
           }).filter(Boolean);
-        if(alive&&!controller.signal.aborted)setSharedAIStations(shared);
-      }catch{
-        if(alive&&!controller.signal.aborted)setSharedAIStations([]);
+        if(alive){
+          // When the backend confirms the same song after two minutes,
+          // the public card remains untouched: no re-render or cover refetch.
+          setLiveStations(prev=>{
+            const old=new Map(prev.map(s=>[String(s._id),s]));
+            const merged=next.map(s=>{
+              const p=old.get(String(s._id));
+              return p&&p.music.raw===s.music.raw&&p.foundWithAI===s.foundWithAI
+                ?{...s,coverArt:p.coverArt}:s;
+            });
+            const same=prev.length===merged.length&&prev.every((p,i)=>
+              String(p._id)===String(merged[i]._id)&&
+              p.music.raw===merged[i].music.raw&&
+              p.foundWithAI===merged[i].foundWithAI);
+            return same?prev:merged;
+          });
+        }
+      }catch(error){
+        if(error.name!=='AbortError'&&alive)setLiveStations([]);
+      }finally{
+        if(alive)setIsLoading(false);
+        running=false;
       }
     };
     poll();
@@ -117,16 +70,26 @@ export default function PlayingNow({ stations = [], API_URL, currentUser, onPlay
     return ()=>{alive=false;controller.abort();clearInterval(timer);};
   },[stations,API_URL,currentUser?._id]);
 
-  // A station appears ONCE. Centrally recognized results replace an older
-  // scanned entry and stay visible even if the native scan never sampled it.
-  const displayStations=useMemo(()=>{
-    const now=Date.now();
-    const ai=sharedAIStations.filter(s=>!s.expiresAt||Date.parse(s.expiresAt)>now);
-    const ids=new Set(ai.map(s=>String(s._id)));
-    const native=liveStations.filter(s=>!ids.has(String(s._id))&&
-      (!s.foundWithAI||!s.expiresAt||Date.parse(s.expiresAt)>now));
-    return [...ai,...native];
-  },[sharedAIStations,liveStations]);
+  // Artwork is optional and never delays the native/AI song display.
+  useEffect(()=>{
+    if(!currentUser||!liveStations.length)return;
+    const controller=new AbortController();
+    let alive=true;
+    void Promise.all(liveStations.slice(0,8).filter(item=>item.coverArt===item.logo).map(async item=>{
+      try{
+        const response=await fetch(`${API_URL}/cover-art?term=${encodeURIComponent(item.music.raw)}`,
+          {signal:controller.signal});
+        if(!response.ok)return;
+        const json=await response.json();
+        if(!alive||!/^https:\/\//.test(json?.artworkUrl||''))return;
+        setLiveStations(prev=>prev.map(s=>
+          String(s._id)===String(item._id)&&s.music.raw===item.music.raw
+            ?{...s,coverArt:json.artworkUrl}:s));
+      }catch{ /* station logo is the fallback */ }
+    }));
+    return()=>{alive=false;controller.abort();};
+  },[currentUser?._id,API_URL,
+    liveStations.map(s=>s._id+':'+s.music.raw).join('|')]);
 
   if (!currentUser) return null;
   return (

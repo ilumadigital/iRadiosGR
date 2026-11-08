@@ -3,7 +3,9 @@
 // Client-supplied stream/customMeta URLs are never directly fetched.
 const Station = require('../models/Station');
 const { recordStationTrack } = require('./recordStationTrack');
-const {statusFromNative,resolvedNowPlaying,hydrateSharedAI} = require('./stageSmartTracks');
+const {statusFromNative,hydrateSharedAI} = require('./stageSmartTracks');
+const Playlist = require('../models/StationPlaylist');
+const {rememberNativeSong,clearInvalidNativeSong,snapshotSong} = require('./stageNativeNow');
 const { readPublicUrl } = require('./stageSafeRadioFetch');
 
 const cache = new Map();
@@ -129,7 +131,7 @@ async function readStationMetadata(station) {
   }
 }
 
-// Native metadata cache is shared by the API and the Top-10 background worker.
+// Native upstream metadata cache is exclusively for the background workers.
 // AI overrides are intentionally NOT cached here: a manual result must appear
 // to all listeners immediately and expire on its own four-minute timer.
 async function readCachedNativeMetadata(station) {
@@ -141,8 +143,15 @@ async function readCachedNativeMetadata(station) {
     // During a 4-minute manual recognition the AI result is explicitly the
     // on-air song; never move unrelated native metadata ahead of it in history.
     const manual=await hydrateSharedAI(station._id);
-    if(statusFromNative(raw,station.name)==='valid'&&manual?.kind!=='manual'){
-      await recordStationTrack(station,raw,{source:'station'});
+    const status=statusFromNative(raw,station.name);
+    // Keep the most recently CONFIRMED song for instant home/profile reads.
+    // A manual AI match can temporarily take playback precedence without
+    // erasing native metadata or adding native rows ahead of that AI song.
+    if(status==='valid'){
+      await rememberNativeSong(station,raw);
+      if(manual?.kind!=='manual')await recordStationTrack(station,raw,{source:'station'});
+    }else if(status==='invalid'){
+      await clearInvalidNativeSong(station,raw);
     }
     return raw;
   }).catch(()=>'');
@@ -163,11 +172,11 @@ async function stageMetadata(req,res){
       ...(validId?{_id:stationId}:{stream})
     }).select('_id name stream metadata status').lean();
     if(!station)return res.status(404).json({title:'',source:'none',foundWithAI:false});
-    // Refresh from durable station-wide recognition before resolving native metadata.
-    // Every listener sees the same four/five-minute AI result after a restart.
-    await hydrateSharedAI(station._id);
-    const native=await readCachedNativeMetadata(station);
-    return res.json(resolvedNowPlaying(native,station));
+    // Fast path: a single MongoDB read. NEVER contact station/stream/metadata
+    // hosts from an API read. Background workers prefetch every two minutes.
+    const snapshot=await Playlist.findOne({stationId:station._id})
+      .select('nativeNow currentAI').lean();
+    return res.json(snapshotSong(snapshot)||{title:'',source:'none',foundWithAI:false});
   }catch{
     return res.status(503).json({title:'',source:'none',foundWithAI:false});
   }

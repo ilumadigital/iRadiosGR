@@ -10,6 +10,7 @@ const station = {
   metadata: 'https://meta.example.com/now.json'
 };
 const upstreamUrls = [];
+let cachedSnapshot=null;
 
 Module._load = function(name, parent, isMain) {
   const from = String(parent?.filename || '');
@@ -19,9 +20,23 @@ Module._load = function(name, parent, isMain) {
       select: () => ({ lean: async () => station })
     }), exists: async () => true };
   }
-  if (name === '../models/StationPlaylist' && from.endsWith('stageSmartTracks.js')) {
-    return {findOne:()=>({select:()=>({lean:async()=>null})}),
+  if(name==='../models/StationPlaylist' &&
+    (from.endsWith('stageSmartTracks.js')||from.endsWith('stageMetadata.js'))){
+    return {findOne:()=>({select:()=>({lean:async()=>cachedSnapshot})}),
       updateOne:async()=>({matchedCount:1})};
+  }
+  if(name==='./stageNativeNow'&&
+    (from.endsWith('stageSmartTracks.js')||from.endsWith('stageMetadata.js'))){
+    return {
+      VALID_FOR:8*60*1000,
+      rememberNativeSong:async(_station,raw)=>{
+        cachedSnapshot={nativeNow:{raw},currentAI:null};
+      },
+      clearInvalidNativeSong:async()=>{},
+      snapshotSong:doc=>doc?.nativeNow?{
+        title:doc.nativeNow.raw,source:'station',foundWithAI:false
+      }:null
+    };
   }
   if (name === './recordStationTrack' && from.endsWith('stageMetadata.js')) {
     return { recordStationTrack: async () => true };
@@ -86,11 +101,17 @@ assert.equal(acr.validAcrHost('127.0.0.1'),false);
   const req = { query: { stream: station.stream, customMeta: 'http://127.0.0.1/private' } };
   const response = {code:200,status(n){this.code=n;return this;},
     setHeader(){},json(body){this.body=body;return this;} };
-  await meta.stageMetadata(req, response);
-  assert.equal(response.code, 200);
-  assert.equal(response.body.title,'Artist - Track');
+  // Background-only probe uses the approved DB station URL.
+  await meta.readCachedNativeMetadata(station);
   assert.deepEqual(upstreamUrls,[station.metadata],
-    'ignore client-supplied customMeta; only the DB-owned metadata URL may be fetched');
+    'ignore client-supplied customMeta; only the approved DB URL may be fetched');
+  const upstreamBefore=upstreamUrls.length;
+  // The HTTP request itself reads the persisted snapshot without upstream I/O.
+  await meta.stageMetadata(req,response);
+  assert.equal(response.code,200);
+  assert.equal(response.body.title,'Artist - Track');
+  assert.equal(upstreamUrls.length,upstreamBefore,
+    'listener page reads never fetch upstream metadata');
 
   const previous = process.env.STAGE_ENABLE_ACRCLOUD;
   delete process.env.STAGE_ENABLE_ACRCLOUD;

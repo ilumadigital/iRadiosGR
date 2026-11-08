@@ -571,7 +571,10 @@ function MainApp() {
   const [unreadBroadcasterChat, setUnreadBroadcasterChat] = useState(false);
 
   const [isRecognizing, setIsRecognizing] = useState(false);
-  const [spotifyUrl, setSpotifyUrl] = useState(null);
+  // A Spotify track ID must belong to the CURRENT recognized song, not to
+  // a previous station or an older AI match.
+  const [spotifyMatch,setSpotifyMatch] = useState(null);
+  const spotifyUrl=spotifyMatch?.raw===nowPlaying?spotifyMatch.url:null;
   
   const [currentStation, setCurrentStation] = useState(() => {
     try {
@@ -971,6 +974,7 @@ function MainApp() {
     setIsPlayingAd(false);
     setNowPlaying('');
     setNowPlayingInfo({source:'none',foundWithAI:false});
+    setSpotifyMatch(null);
     intendedPlayState.current = true;
 
     audioRef.current.src = finalStreamUrl;
@@ -1325,12 +1329,10 @@ function MainApp() {
           
           // 🚀 ΔΙΟΡΘΩΣΗ: Αν έχουμε το ID του τραγουδιού, το ανοίγουμε ΑΠΕΥΘΕΙΑΣ. 
           // Αλλιώς κάνουμε Search ως Fallback. (Μπήκε το $ για το string interpolation)
-          if (sId) {
-            // Link κατευθείαν στο τραγούδι
-            setSpotifyUrl(`https://open.spotify.com/track/${sId}`);
-          } else {
-            // Link αναζήτησης
-            setSpotifyUrl(`https://open.spotify.com/search/${encodeURIComponent(songTitle)}`);
+          if(typeof sId==='string'&&/^[A-Za-z0-9]{22}$/.test(sId)){
+            setSpotifyMatch({raw:songTitle,url:`https://open.spotify.com/track/${sId}`});
+          }else{
+            setSpotifyMatch(null); // validated native/AI songs use safe Spotify search fallback
           }
 
           // The server publishes this result for FOUR minutes to every listener.
@@ -1338,7 +1340,7 @@ function MainApp() {
           recognitionLock.current=false;
           if(recognitionTimeout.current)clearTimeout(recognitionTimeout.current);
           recognitionTimeout.current=setTimeout(()=>{
-            setSpotifyUrl(null);
+            setSpotifyMatch(null);
             if(activeStationIdRef.current===recognizingStationId)fetchMetadata();
           },4*60*1000);
 
@@ -1385,7 +1387,8 @@ function MainApp() {
       setNowPlayingInfo({source:data?.source==='acrcloud'?'acrcloud':title?'station':'none',
         foundWithAI:Boolean(title&&data?.foundWithAI)});
     }catch{
-      if(matches()){setNowPlaying('');setNowPlayingInfo({source:'none',foundWithAI:false});}
+      // Keep the last confirmed UI title on a transient network failure.
+      // The server's native snapshot will expire if validation stops.
     }
 
     // Avoid refetching the entire station catalog with every 10-second audio event.
