@@ -232,7 +232,7 @@ exports.updateNotificationPreferences = async (req, res) => {
   const change = validateChange(req.body);
   if (!change) return res.status(400).json({error:'Μη έγκυρη ρύθμιση ειδοποιήσεων.'});
   try {
-    const $set = {[change.path]: change.enabled};
+    const $set = {[change.path]:change.newsCategories || change.enabled};
     if (change.channel === 'push') $set.pushNotifications = change.enabled;
     if (change.topic === 'promotions') {
       // Keep time of explicit consent for audit; revocation removes consent.
