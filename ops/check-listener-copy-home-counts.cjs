@@ -23,12 +23,16 @@ assert.ok(now.includes('if (!currentUser) return null'),
 assert.ok(now.includes('setLiveStations(prev=>{'), 'keep same song cached, replace it on track changes');
 
 const deck=read('frontend/src/components/HomeRecommendationDeck.jsx');
-assert.ok(deck.includes('moodStations.filter(Boolean)') && deck.includes('.slice(0,8)') && deck.includes('Number(a.isOffline===true)'),
-  'For You must display up to 8 real stations');
-assert.ok(deck.includes('topStations.filter(Boolean)') && deck.includes('.slice(0,7)') && deck.includes('Number(b.isOffline===true)'),
-  'Top stations must display up to 7 real stations');
-assert.ok(deck.includes('grid grid-cols-2 gap-3 sm:grid-cols-4'),
-  'eight picks must create two balanced rows on desktop');
+assert.ok(deck.includes('[...moodStations].filter(Boolean)') &&
+  deck.includes('.slice(0, 12)') && deck.includes('Number(a.isOffline === true)'),
+  'For You must display 3x4 desktop cards, 2x4 mobile, and offline stations last');
+const top=read('frontend/src/components/HomeTopStations.jsx');
+assert.ok(top.includes('topStations.filter(Boolean)') && top.includes('.slice(0, 7)') &&
+  top.includes('station.isOffline === true'),
+  'Guest Top stations must display up to 7 with offline playback disabled');
+assert.ok(deck.includes('grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-3') &&
+  deck.includes('index >= 8') && deck.includes('xl:grid-cols-2'),
+  'For You keeps the requested responsive 50/50 layout');
 assert.ok(deck.includes('stationIsPlaying'), 'radio playback state must remain intact');
 
 const home=read('frontend/src/pages/Home.jsx');
@@ -62,4 +66,4 @@ assert.ok(app.includes('Συνδέσου στο iRadios για NowPlaying') ||
           read('frontend/src/components/Footer.jsx').includes('Συνδέσου στο iRadios για NowPlaying'),
   'guest messaging stays clear');
 
-console.log('Listener-facing language and 8 + 7 radio recommendation contracts passed.');
+console.log('Listener-facing language and 12 + 7 radio recommendation contracts passed.');
