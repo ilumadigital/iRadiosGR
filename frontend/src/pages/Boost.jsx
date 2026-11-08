@@ -44,12 +44,13 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   const [scope, setScope] = useState('global');
   const [scopeValue, setScopeValue] = useState('');
   const [localStations, setLocalStations] = useState([]);
-  const [rankSource, setRankSource] = useState(stations);
+  const [rankSource, setRankSource] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [onlyBoosted, setOnlyBoosted] = useState(false);
   const [positionInputs, setPositionInputs] = useState({});
+  const [boostChanged, setBoostChanged] = useState(() => new Set());
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
@@ -88,6 +89,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   useEffect(() => {
     setLocalStations(initialOrder(approved, scope, scopeValue));
     setPositionInputs({});
+    setBoostChanged(new Set());
     setDirty(false);
   }, [approved, scope, scopeValue]);
 
@@ -125,6 +127,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   };
   const updateStation = (id, changes) => {
     setLocalStations(prev => prev.map(s => stationId(s) === String(id) ? { ...s, ...changes } : s));
+    setBoostChanged(prev => new Set(prev).add(String(id)));
     setDirty(true);
     setNotice(null);
   };
@@ -171,11 +174,12 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   const discard = () => {
     setLocalStations(initialOrder(approved, scope, scopeValue));
     setPositionInputs({});
+    setBoostChanged(new Set());
     setDirty(false);
     setNotice(null);
   };
   const save = async () => {
-    if (!dirty || saving) return;
+    if (!dirty || saving || loading || loadError) return;
     setSaving(true);
     setNotice(null);
     try {
@@ -188,14 +192,18 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
           // Always submit the complete scope. Searching or filtering is view-only.
           stationsData: scopedStations.map((station, index) => ({
             id: station._id, position: index + 1,
-            boostStatus: Boolean(station.boostStatus),
-            boostExpiresAt: station.boostExpiresAt || null
+            // Do not overwrite boosts from a concurrent admin when only sorting.
+            ...(boostChanged.has(stationId(station)) ? {
+              boostStatus: Boolean(station.boostStatus),
+              boostExpiresAt: station.boostExpiresAt || null
+            } : {})
           }))
         })
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Δεν αποθηκεύτηκε η κατάταξη.');
       setDirty(false);
+      setBoostChanged(new Set());
       // Read back the server's final persisted order (and boost expirations).
       try { await reloadRankings(); }
       catch { /* The write succeeded; the next visit will reload saved state. */ }
@@ -428,7 +436,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-3 text-xs font-bold text-zinc-300 transition hover:bg-white/10 disabled:opacity-30 sm:px-4">
               <RotateCcw size={15} /> <span className="hidden sm:inline">Αναίρεση</span>
             </button>
-            <button type="button" onClick={save} disabled={!dirty || saving}
+            <button type="button" onClick={save} disabled={!dirty || saving || loading || Boolean(loadError)}
               className="ir-action-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-xs font-black disabled:cursor-not-allowed disabled:opacity-40 sm:px-6">
               <Save size={16} /> {saving ? 'Αποθήκευση…' : 'Αποθήκευση σειράς'}
             </button>
