@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Globe2, MapPin, Play, RadioTower, SortDesc, X } from 'lucide-react';
 import { formatFMFrequency } from '../utils/stationFrequency';
+import {catalogStationInfo,compareCatalogPopularity} from '../utils/catalogLive';
 import { locationMapCenter, stationMapLocation } from '../utils/mapLocations';
 import './RadioGeoMap.css';
 
@@ -20,7 +21,7 @@ function loadMapLibre() {
   return maplibrePromise;
 }
 
-function sortRadioStations(stations, sortBy) {
+function sortRadioStations(stations, sortBy, nowPlayingById, catalogClock) {
   return [...(stations || [])].sort((a, b) => {
     if (sortBy === 'frequency') {
       const freq = station => station.transmissionType === 'Επίγειο' && station.frequency
@@ -28,7 +29,8 @@ function sortRadioStations(stations, sortBy) {
       return freq(a) - freq(b);
     }
     if (sortBy === 'alphabetical') return String(a.name || '').localeCompare(String(b.name || ''), 'el');
-    return Number(b.popularity || b.plays || 0) - Number(a.popularity || a.plays || 0);
+    return nowPlayingById ? compareCatalogPopularity(a,b,nowPlayingById,catalogClock)
+      : Number(b.popularity || b.plays || 0) - Number(a.popularity || a.plays || 0);
   });
 }
 
@@ -39,6 +41,8 @@ export default function RadioGeoMap({
   isPlaying,
   onPlayPause,
   centerName,
+  nowPlayingById,
+  catalogClock,
   initialZoom = 6,
   showFilters = false,
   className = ''
@@ -53,7 +57,8 @@ export default function RadioGeoMap({
   const [showUnmapped, setShowUnmapped] = useState(false);
   const [sortBy, setSortBy] = useState('popularity');
 
-  const sortedStations = useMemo(() => sortRadioStations(stations, sortBy), [stations, sortBy]);
+  const sortedStations = useMemo(() => sortRadioStations(stations, sortBy, nowPlayingById, catalogClock),
+    [stations, sortBy, nowPlayingById, catalogClock]);
   const { places, unlocated } = useMemo(() => {
     const byCoordinates = new Map();
     const unknown = [];
@@ -273,6 +278,7 @@ export default function RadioGeoMap({
             {activeGroup.stations.map(station => {
               const isCurrent = String(currentStation?._id) === String(station._id);
               const playing = isCurrent && isPlaying;
+              const live=nowPlayingById?catalogStationInfo(station,nowPlayingById[String(station._id)],catalogClock):null;
               return (
                 <div key={station._id} className="flex items-center gap-2 rounded-xl p-2 transition-colors hover:bg-white/5">
                   <img alt="" src={station.logo || '/iradios-logo.png'} loading="lazy"
@@ -285,6 +291,12 @@ export default function RadioGeoMap({
                         ? formatFMFrequency(station.frequency) + ' · ' : ''}
                       {station.genre || station.region || 'Live Radio'}
                     </span>
+                    {live?.song&&<span className="mt-1 block truncate text-[10px] text-[#e5f2c9]">
+                      {live.song.artist} — {live.song.title}
+                    </span>}
+                    {(live?.host||live?.showTitle)&&<span className="mt-0.5 block truncate text-[10px] text-zinc-400">
+                      Στον αέρα: {live.host||live.showTitle}
+                    </span>}
                   </button>
                   <button type="button"
                     aria-label={(playing ? 'Παύση' : 'Αναπαραγωγή') + ' ' + station.name}

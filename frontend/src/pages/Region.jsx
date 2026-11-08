@@ -6,6 +6,8 @@ import RadioGeoMap from '../components/RadioGeoMap';
 import EditorialPlacement from '../components/EditorialPlacement';
 import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
+import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
+import {compareCatalogPopularity} from '../utils/catalogLive';
  
 
 export default function Region({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
@@ -15,6 +17,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
   const [sortBy, setSortBy] = useState('popularity');
   const [viewMode, setViewMode] = useState('grid');
   const [promotedStationId,setPromotedStationId] = useState(null);
+  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying();
   useEffect(()=>setPromotedStationId(null),[regionName]);
   
   const [selectedGenre, setSelectedGenre] = useState('all'); 
@@ -88,7 +91,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     if (selectedTransmission !== 'all') result = result.filter(s => (s.transmissionType || 'Web Radio') === selectedTransmission);
 
     return result.sort((a, b) => {
-      if (sortBy === 'popularity') return (b.popularity || 0) - (a.popularity || 0);
+      if (sortBy === 'popularity') return compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock);
       if (sortBy === 'alphabetical') return a.name.localeCompare(b.name);
       if (sortBy === 'frequency') {
         const getFreq = (st) => (st.transmissionType === 'Επίγειο' && st.frequency) ? parseFloat(st.frequency) || 9999 : 9999;
@@ -96,7 +99,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
       }
       return 0;
     });
-  }, [baseStations, selectedGenre, selectedTransmission, sortBy]);
+  }, [baseStations, selectedGenre, selectedTransmission, sortBy, catalogNowPlaying, catalogClock]);
 
   const formatGenre = (text) => text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
@@ -216,7 +219,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
       {viewMode !== 'map' && filteredAndSorted.length > 0 && (
-        <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex flex-col gap-3 max-w-4xl"}>
+        <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex w-full min-w-0 flex-col gap-3"}>
           {displayStations.map((station, index) => {
             const isCurrent = currentStation && (currentStation._id === station._id);
             const isCurrentlyPlaying = isCurrent && isPlaying;
@@ -277,7 +280,8 @@ export default function Region({ stations, currentStation, setCurrentStation, is
 
                 {/* Shared premium station card; profile navigation is separate from live playback. */}
                 <StationCatalogCard station={station} currentStation={currentStation} isPlaying={isPlaying}
-                  onPlayStation={setCurrentStation} onPlayPause={onPlayPause} mode={viewMode} />
+                  onPlayStation={setCurrentStation} onPlayPause={onPlayPause} mode={viewMode}
+                  nowPlaying={catalogNowPlaying[String(station._id)]} clock={catalogClock} />
               </React.Fragment>
             );
           })}
@@ -288,6 +292,8 @@ export default function Region({ stations, currentStation, setCurrentStation, is
         <RadioGeoMap
           key={regionName}
           stations={filteredAndSorted}
+          nowPlayingById={catalogNowPlaying}
+          catalogClock={catalogClock}
           currentStation={currentStation}
           onPlayStation={setCurrentStation}
           isPlaying={isPlaying}

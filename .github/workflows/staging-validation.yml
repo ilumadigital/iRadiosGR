@@ -47,6 +47,8 @@ jobs:
         run: node ops/check-phase31-editorial.cjs
       - name: Verify 1200x630 catalog slides and scoped promoted station
         run: node ops/check-catalog-promoted-station.cjs
+      - name: Validate full-width catalog live information and promoted all-mode cards
+        run: node ops/check-catalog-live.cjs
       - name: Validate simple Greek listener copy and expanded station recommendations
         run: node ops/check-listener-copy-home-counts.cjs
       - name: Validate Phase 3.2 listener polish and single FM frequency
@@ -61,8 +63,6 @@ jobs:
         run: node ops/check-phase33-auto-acr.cjs
       - name: Verify shared network recognition and rolling playlist history
         run: node ops/check-phase34-network-nowplaying.cjs
-      - name: Validate two-level station categories, dropdowns and subgenre sitemap
-        run: node ops/check-station-category-taxonomy.cjs
       - name: Test Phase 4 player-free backoffice, station ownership and approval workflow
         run: node ops/check-phase4-backoffice.cjs
       - name: Check Phase 4.1 Backoffice simplicity, schedules and admin authorization

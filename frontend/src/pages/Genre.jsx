@@ -6,6 +6,8 @@ import CircularVU from '../components/CircularVU';
 import EditorialPlacement from '../components/EditorialPlacement';
 import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
+import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
+import {compareCatalogPopularity} from '../utils/catalogLive';
 
 
 export default function Genre({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
@@ -15,6 +17,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
   const [sortBy, setSortBy] = useState('popularity');
   const [viewMode, setViewMode] = useState('grid');
   const [promotedStationId,setPromotedStationId] = useState(null);
+  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying();
   useEffect(()=>setPromotedStationId(null),[genreName]);
   
   const [selectedRegion, setSelectedRegion] = useState('all');
@@ -96,12 +99,12 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
     }
 
     return result.sort((a, b) => {
-      if (sortBy === 'popularity') return (b.popularity || 0) - (a.popularity || 0);
+      if (sortBy === 'popularity') return compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock);
       if (sortBy === 'alphabetical') return a.name.localeCompare(b.name);
       if (sortBy === 'date') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
       return 0;
     });
-  }, [baseStations, selectedRegion, selectedTransmission, sortBy]);
+  }, [baseStations, selectedRegion, selectedTransmission, sortBy, catalogNowPlaying, catalogClock]);
 
   const displayStations=useMemo(()=>viewMode==='grid' && promotedStationId
     ? filteredAndSorted.filter(s=>String(s._id)!==String(promotedStationId))
@@ -214,7 +217,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
       {filteredAndSorted.length > 0 ? (
-        <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex flex-col gap-3 max-w-4xl"}>
+        <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex w-full min-w-0 flex-col gap-3"}>
           {displayStations.map((station, index) => {
             const isCurrent = currentStation && (currentStation._id === station._id);
             const isCurrentlyPlaying = isCurrent && isPlaying;
@@ -275,7 +278,8 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
 
                 {/* Shared premium station card; profile navigation is separate from live playback. */}
                 <StationCatalogCard station={station} currentStation={currentStation} isPlaying={isPlaying}
-                  onPlayStation={setCurrentStation} onPlayPause={onPlayPause} mode={viewMode} />
+                  onPlayStation={setCurrentStation} onPlayPause={onPlayPause} mode={viewMode}
+                  nowPlaying={catalogNowPlaying[String(station._id)]} clock={catalogClock} />
               </React.Fragment>
             );
           })}

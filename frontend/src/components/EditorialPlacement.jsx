@@ -14,7 +14,8 @@ export default function EditorialPlacement({
     setHasPromoted(Boolean(id));
     onPromotedStationChange?.(id);
   },[onPromotedStationChange]);
-  const showPromoted=viewMode==='grid';
+  // Identical promoted unit in grid, list and map, with the same 70/30 desktop split.
+  const showPromoted=true;
   return (
     <div className={`ir-catalog-feature-row mb-8 grid min-w-0 items-stretch gap-4 ${showPromoted&&hasPromoted?'xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]':''}`}>
       <HomeHeroSlider placement={placement} value={value} fallbackStation={fallbackStation}

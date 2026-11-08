@@ -36,6 +36,7 @@ const publicReads = new Set([
   '/api/banners/active',
   '/api/home-slides',
   '/api/promoted-station',
+  '/api/catalog/now-playing',
   '/api/cover-art',
   '/api/proxy-stream'
 ]);
