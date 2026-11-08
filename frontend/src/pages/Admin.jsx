@@ -20,7 +20,7 @@ const INITIAL_STATION_STATE = {
   transmissionType: 'Web Radio', frequency: '', 
   logo: '', stream: '', metadata: '', description: '', website: '', facebook: '', instagram: '', twitter: '', tiktok: '', 
   phone: '', viber: '', email: '', 
-  explicit: false, status: 'approved', isFeatured: false
+  explicit: false, status: 'approved', isOffline: false, isFeatured: false
 };
 
 export default function Admin({ API_URL, refreshStations }) {
@@ -273,7 +273,8 @@ export default function Admin({ API_URL, refreshStations }) {
       email: sourceData.email || '',
       explicit: sourceData.explicit || false,
       
-      status: station.status, // Το status παραμένει του κύριου σταθμού
+      status: station.status, // Approval is independent from stream availability.
+       isOffline: station.isOffline === true,
       isFeatured: station.isFeatured || false
     });
 
@@ -296,19 +297,30 @@ export default function Admin({ API_URL, refreshStations }) {
     }
   };
 
+  const stationAdminHeaders = () => ({
+    'Content-Type': 'application/json',
+    ...(localStorage.getItem('token') ? {Authorization: `Bearer ${localStorage.getItem('token')}`} : {})
+  });
   const handleStatusUpdate = async (id, newStatus) => {
     try {
-      await fetch(`${API_URL}/admin/stations/${id}/status`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
-        },
-        body: JSON.stringify({ status: newStatus })
+      const response = await fetch(`${API_URL}/admin/stations/${id}/status`, {
+        method:'PUT', headers:stationAdminHeaders(), body:JSON.stringify({status:newStatus})
       });
-      loadAdminStations();
-      if (refreshStations) refreshStations();
-    } catch (err) { console.error(err); }
+      if(!response.ok)throw new Error((await response.json().catch(()=>({}))).error || 'Αποτυχία αλλαγής κατάστασης');
+      await loadAdminStations();
+      refreshStations?.();
+    } catch(err) { alert(err.message); }
+  };
+  const handleOfflineUpdate = async station => {
+    try {
+      const response = await fetch(`${API_URL}/admin/stations/${station._id}/offline`, {
+        method:'PATCH', headers:stationAdminHeaders(),
+        body:JSON.stringify({isOffline:station.isOffline !== true})
+      });
+      if(!response.ok)throw new Error((await response.json().catch(()=>({}))).error || 'Αποτυχία ενημέρωσης offline');
+      await loadAdminStations();
+      refreshStations?.();
+    } catch(err) { alert(err.message); }
   };
 
   const handleToggleFeatured = async (id) => {
@@ -368,6 +380,7 @@ export default function Admin({ API_URL, refreshStations }) {
       filterStatus === 'approved' ? (station.status === 'approved' && !station.pendingEdits) :
       filterStatus === 'pending' ? isStationPending :
       filterStatus === 'rejected' ? station.status === 'rejected' :
+       filterStatus === 'offline' ? station.isOffline === true :
       true; 
 
     const matchesGenre = filterGenre ? station.genre === filterGenre : true;
@@ -375,7 +388,7 @@ export default function Admin({ API_URL, refreshStations }) {
     const matchesRegion = filterRegion ? station.region === filterRegion : true;
 
     return matchesSearch && matchesStatus && matchesGenre && matchesType && matchesRegion;
-  });
+  }).sort((a,b)=>Number(a.isOffline === true)-Number(b.isOffline === true));
 
   const liveCount = adminStations.filter(s => s.status === 'approved' && !s.pendingEdits).length;
   const pendingCount = adminStations.filter(s => s.status === 'pending' || s.pendingEdits).length;
@@ -630,7 +643,11 @@ export default function Admin({ API_URL, refreshStations }) {
             </label>
           </div>
 
-          {/* 📍 ΕΝΟΤΗΤΑ ΤΟΠΟΘΕΣΙΑΣ 4 ΕΠΙΠΕΔΩΝ */}
+          <label className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs font-bold text-zinc-200">
+             <input type="checkbox" checked={formData.isOffline === true} onChange={e => setFormData({...formData, isOffline:e.target.checked})} className="h-4 w-4 accent-red-500" />
+             Σταθμός OFFLINE — παραμένει ορατός, αλλά η αναπαραγωγή απενεργοποιείται
+           </label>
+           {/* 📍 ΕΝΟΤΗΤΑ ΤΟΠΟΘΕΣΙΑΣ 4 ΕΠΙΠΕΔΩΝ */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-zinc-900/50 rounded-2xl border border-white/5">
             
             {/* 1. ΧΩΡΑ */}
@@ -820,6 +837,7 @@ export default function Admin({ API_URL, refreshStations }) {
               <option value="approved">✅ Μόνο Approved</option>
               <option value="pending">⏳ Μόνο Pending / Αιτήματα</option>
               <option value="rejected">❌ Μόνο Rejected</option>
+               <option value="offline">🔴 Μόνο Offline</option>
             </select>
           </div>
           
@@ -887,7 +905,8 @@ export default function Admin({ API_URL, refreshStations }) {
                 <div className="min-w-0">
                   <h4 className={`font-bold text-white text-base sm:text-lg flex items-center gap-2 truncate ${viewMode === 'grid' ? 'justify-center' : ''}`}>
                     {station.name}
-                    {station.explicit && <AlertTriangle size={14} className="text-red-500 shrink-0" />}
+                    {station.isOffline === true && <span className="rounded-md border border-red-500/40 bg-red-500/15 px-2 py-0.5 text-[9px] font-black text-red-400">OFFLINE</span>}
+                     {station.explicit && <AlertTriangle size={14} className="text-red-500 shrink-0" />}
                     {station.isFeatured && <Star size={14} className="text-[#ccff00] fill-[#ccff00] shrink-0" />}
                   </h4>
                   <div className={`flex flex-wrap items-center gap-2 mt-1.5 ${viewMode === 'grid' ? 'justify-center' : ''}`}>
@@ -920,19 +939,25 @@ export default function Admin({ API_URL, refreshStations }) {
                   <button onClick={() => handleToggleFeatured(station._id)} className={`p-1.5 rounded-lg transition-all ${station.isFeatured ? 'text-[#ccff00]' : 'text-zinc-600 hover:text-white'}`} title="Featured">
                     <Star size={16} fill={station.isFeatured ? '#ccff00' : 'none'} />
                   </button>
-                  <button onClick={() => handleStatusUpdate(station._id, 'approved')} className={`p-1.5 rounded-lg transition-all ${station.status === 'approved' ? 'bg-green-500/20 text-green-500' : 'text-zinc-600 hover:text-white'}`} title="Approve">
+                  <button disabled={loading} onClick={() => handleStatusUpdate(station._id, 'approved')} className={`p-1.5 rounded-lg transition-all ${station.status === 'approved' ? 'bg-green-500/20 text-green-500' : 'text-zinc-600 hover:text-white'}`} title="Approve">
                     <CheckCircle size={16} />
                   </button>
-                  <button onClick={() => handleStatusUpdate(station._id, 'pending')} className={`p-1.5 rounded-lg transition-all ${station.status === 'pending' ? 'bg-orange-500/20 text-orange-500' : 'text-zinc-600 hover:text-white'}`} title="Set Pending">
+                  <button disabled={loading} onClick={() => handleStatusUpdate(station._id, 'pending')} className={`p-1.5 rounded-lg transition-all ${station.status === 'pending' ? 'bg-orange-500/20 text-orange-500' : 'text-zinc-600 hover:text-white'}`} title="Set Pending">
                     <Clock size={16} />
                   </button>
-                  <button onClick={() => handleStatusUpdate(station._id, 'rejected')} className={`p-1.5 rounded-lg transition-all ${station.status === 'rejected' ? 'bg-red-500/20 text-red-500' : 'text-zinc-600 hover:text-white'}`} title="Reject">
+                  <button disabled={loading} onClick={() => handleStatusUpdate(station._id, 'rejected')} className={`p-1.5 rounded-lg transition-all ${station.status === 'rejected' ? 'bg-red-500/20 text-red-500' : 'text-zinc-600 hover:text-white'}`} title="Reject">
                     <XCircle size={16} />
                   </button>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button onClick={() => handleEditClick(station, false)} className="w-10 h-10 rounded-xl bg-white/5 text-zinc-300 flex items-center justify-center hover:bg-white/10 hover:text-white transition-all">
+                  <button type="button" disabled={loading} onClick={() => handleOfflineUpdate(station)}
+                     title={station.isOffline ? 'Ενεργοποίηση μετάδοσης' : 'Ορισμός ως OFFLINE'}
+                     aria-label={station.isOffline ? 'Ενεργοποίηση μετάδοσης' : 'Ορισμός ως offline'}
+                     className={`rounded-xl border px-2 py-2 text-[10px] font-black transition-colors ${station.isOffline ? 'border-red-500/50 bg-red-500/15 text-red-400' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'}`}>
+                     {station.isOffline ? 'OFFLINE' : 'ONLINE'}
+                   </button>
+                   <button onClick={() => handleEditClick(station, false)} className="w-10 h-10 rounded-xl bg-white/5 text-zinc-300 flex items-center justify-center hover:bg-white/10 hover:text-white transition-all">
                     <Edit size={16} />
                   </button>
                   <button onClick={() => handleDelete(station._id)} className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
