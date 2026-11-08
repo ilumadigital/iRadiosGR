@@ -8,5 +8,7 @@ router.get('/promoted-station',c.publicPromoted);
 router.use('/admin/promoted-stations',protect,authorizeRoles('admin'));
 router.get('/admin/promoted-stations',c.list);
 router.put('/admin/promoted-stations',c.save);
+router.put('/admin/promoted-stations/campaign',c.saveCampaign);
+router.delete('/admin/promoted-stations/campaign/:id',c.removeCampaign);
 router.delete('/admin/promoted-stations/:id',c.remove);
 module.exports=router;

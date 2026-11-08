@@ -7,7 +7,9 @@ const schema = new mongoose.Schema({
   imageUrl: { type: String, required: true, maxlength: 2048 },
   ctaLabel: { type: String, default: 'Ανακάλυψε', trim: true, maxlength: 48 },
   // Editorial placement is independent of CTA destination. Legacy slides default to Home.
-  placement: { type: String, enum: ['home', 'genre', 'region'], default: 'home', index: true },
+  placement: { type: String, enum: ['home', 'genre', 'region', 'news'], default: 'home', index: true },
+  // Multiple destinations per creative. Old placement/value fields remain for legacy documents.
+  placements: [{ _id: false, placement: {type:String,enum:['home','genre','region','news'],required:true}, placementValue: {type:String,default:'',maxlength:120} }],
   placementValue: { type: String, default: '', trim: true, maxlength: 120 },
   targetType: { type: String, enum: ['none', 'station', 'genre', 'external'], default: 'none' },
   stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Station', default: null },
@@ -20,4 +22,5 @@ const schema = new mongoose.Schema({
   endsAt: { type: Date, default: null }
 }, { timestamps: true });
 schema.index({ placement: 1, placementValue: 1, status: 1, priority: -1, createdAt: -1 });
+schema.index({ 'placements.placement':1,'placements.placementValue':1,status:1,priority:-1 });
 module.exports = mongoose.model('HomeSlide', schema);

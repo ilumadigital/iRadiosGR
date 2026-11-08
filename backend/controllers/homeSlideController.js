@@ -21,8 +21,24 @@ function normalize(input) {
   const eyebrow = clean(body.eyebrow) || 'ΠΡΟΤΕΙΝΟΥΜΕ';
   const ctaLabel = clean(body.ctaLabel) || 'Ανακάλυψε';
   const imageUrl = clean(body.imageUrl);
-  const placement = body.placement || 'home';
-  const placementValue = clean(body.placementValue);
+  const legacyPlacement = body.placement || 'home';
+  const legacyValue = clean(body.placementValue);
+  const rawPlacements = Array.isArray(body.placements) && body.placements.length
+    ? body.placements : [{placement:legacyPlacement,placementValue:legacyValue}];
+  if (rawPlacements.length > 12) {
+    const err=new Error('Έως 12 θέσεις προβολής ανά slide.');err.status=400;throw err;
+  }
+  const placements = [...new Map(rawPlacements.map(item=>{
+    const placement=clean(item?.placement),placementValue=clean(item?.placementValue);
+    if (!['home','genre','region','news'].includes(placement) ||
+      (['genre','region'].includes(placement) && (!placementValue||placementValue.length>120))) {
+      const err=new Error('Μη έγκυρη τοποθέτηση slide.');err.status=400;throw err;
+    }
+    const record={placement,placementValue:['home','news'].includes(placement)?'':placementValue};
+    return [record.placement+':'+record.placementValue,record];
+  })).values()];
+  if (!placements.length){const err=new Error('Επίλεξε τουλάχιστον μία θέση προβολής.');err.status=400;throw err;}
+  const {placement,placementValue}=placements[0];
   const targetType = body.targetType || 'none';
   const audience = body.audience || 'all';
   const status = body.status || 'draft';
@@ -32,8 +48,7 @@ function normalize(input) {
   if (!title || title.length > 100 || subtitle.length > 220 || eyebrow.length > 60 || ctaLabel.length > 48 ||
     !safeImage(imageUrl) || !['none','station','genre','external'].includes(targetType) ||
     !['all','guest','member','premium'].includes(audience) ||
-    !['draft','published'].includes(status) || !['home','genre','region'].includes(placement) ||
-    (placement !== 'home' && (!placementValue || placementValue.length > 120)) ||
+    !['draft','published'].includes(status) ||
     !Number.isInteger(priority) || priority < 0 || priority > 1000) {
     const err = new Error('Μη έγκυρα στοιχεία slide (τίτλος, εικόνα, κατάσταση ή σειρά).'); err.status = 400; throw err;
   }
@@ -53,8 +68,7 @@ function normalize(input) {
       (startsAt && endsAt && endsAt <= startsAt)) {
     const err = new Error('Ελέγξτε την ημερομηνία αρχής/λήξης.'); err.status = 400; throw err;
   }
-  return { title, subtitle, eyebrow, ctaLabel, imageUrl, placement,
-    placementValue: placement === 'home' ? '' : placementValue, targetType,
+  return { title, subtitle, eyebrow, ctaLabel, imageUrl, placement, placementValue, placements, targetType,
     stationId, genre: targetType === 'genre' ? genre : '',
     externalUrl: targetType === 'external' ? externalUrl : '',
     audience, priority, status, startsAt, endsAt };
@@ -71,15 +85,18 @@ exports.publicSlides = async (req,res) => {
     const placement = req.query.placement || 'home';
     const value = clean(req.query.value);
     const tileFeed = req.query.tiles === '1';
-    if (!['home','genre','region'].includes(placement) ||
-        (tileFeed && placement === 'home') ||
-        (placement !== 'home' && (!value || value.length > 120) && !tileFeed)) {
+    if (!['home','genre','region','news'].includes(placement) ||
+        (tileFeed && ['home','news'].includes(placement)) ||
+        (['genre','region'].includes(placement) && (!value || value.length > 120) && !tileFeed)) {
       return res.status(400).json({error:'Μη έγκυρη τοποθέτηση editorial slide.'});
     }
     // Existing pre-placement documents remain visible on Home without a data migration.
-    const scope = placement === 'home'
+    const legacy = placement === 'home'
       ? {$or:[{placement:'home'},{placement:{$exists:false}}]}
-      : tileFeed ? {placement} : {placement,placementValue:value};
+      : tileFeed ? {placement} : placement === 'news' ? {placement:'news'} : {placement,placementValue:value};
+    const modern = tileFeed ? {'placements.placement':placement} :
+      {placements:{$elemMatch:{placement,placementValue:['home','news'].includes(placement)?'':value}}};
+    const scope = {$or:[legacy,modern]};
     const now = new Date();
     const slides = await Slide.find({
       ...scope,
