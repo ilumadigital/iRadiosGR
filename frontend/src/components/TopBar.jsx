@@ -212,7 +212,7 @@ export default function TopBar({
       (expanded ? 'ir-header--searching' : '')}>
       <div className="ir-header__left flex min-w-0 items-center gap-2">
         <button type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Άνοιγμα μενού πλοήγησης"
-          className="ir-header__icon-button lg:hidden"><Menu size={21}/></button>
+          className="ir-header__mobile-menu ir-header__icon-button lg:hidden"><Menu size={21}/></button>
         <Link to="/" className="ir-header__mobile-brand flex min-w-0 items-center gap-2 lg:hidden" aria-label="iRadiosGR αρχική">
           <span className="ir-header__equalizer flex h-6 shrink-0 items-end gap-[3px]" aria-hidden="true">
             {equalizer.map(i => <span className={'ir-header__eq-bar ir-header__eq-bar--' + i} key={i}/>)}
