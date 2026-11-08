@@ -18,6 +18,7 @@ const AdminUsers=lazy(()=>import('./AdminUsers'));
 const AdminAds=lazy(()=>import('./AdminAds'));
 const AdminBanners=lazy(()=>import('./AdminBanners'));
 const AdminHomeSlides=lazy(()=>import('./AdminHomeSlides'));
+const AdminPromotedStations=lazy(()=>import('../components/AdminPromotedStations'));
 const AdminEmails=lazy(()=>import('./AdminEmails'));
 const AdminPaid=lazy(()=>import('./AdminPaid'));
 const AdminRadioSet=lazy(()=>import('./AdminRadioSet'));
@@ -124,6 +125,11 @@ function StationCard({station,role}){
     <div className="flex shrink-0 flex-wrap gap-2">
       <Link to={to} className={buttonSecondary}>
         {role==='producer'?'Πρόγραμμα':'Επεξεργασία'}<ArrowRight size={15}/></Link>
+      {role==='admin'&&station.status==='approved'&&
+        <Link to={'/backoffice/admin/promoted?station='+encodeURIComponent(station._id)}
+          className={buttonSecondary} title={'Προώθηση '+station.name}>
+          <Sparkles size={15} className="text-[#caff00]"/> Promoted
+        </Link>}
       {role!=='producer'&&<Link to={'/backoffice/schedules?station='+encodeURIComponent(station._id)} className={buttonSecondary}
         aria-label={'Πρόγραμμα '+station.name} title="Πρόγραμμα σταθμού">
         <CalendarDays size={16}/></Link>}
@@ -256,7 +262,12 @@ function Stations({data}){
   return <div>
     <SectionTitle eyebrow="Station directory" title={data.user.role==='admin'?'Όλο το δίκτυο.':'Οι σταθμοί μου.'}
       description="Βρες κάθε σταθμό, επεξεργάσου τις πληροφορίες του και παρακολούθησε την έγκριση."
-      aside={data.user.role!=='producer'&&<Link to="/backoffice/stations/new" className={buttonPrimary}><Plus size={17}/> Νέος σταθμός</Link>}/>
+      aside={data.user.role!=='producer'&&<div className="flex flex-wrap gap-2">
+        {data.user.role==='admin'&&<Link to="/backoffice/admin/promoted" className={buttonSecondary}>
+          <Sparkles size={17} className="text-[#caff00]"/> Διαχείριση Promoted
+        </Link>}
+        <Link to="/backoffice/stations/new" className={buttonPrimary}><Plus size={17}/> Νέος σταθμός</Link>
+      </div>}/>
     <div className={panel+' mb-5 flex flex-wrap gap-3 p-4'}>
       <div className="relative min-w-[200px] flex-1"><Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"/>
         <input className={inputClass+' pl-11'} placeholder="Αναζήτηση σταθμού ή κατηγορίας…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
@@ -314,7 +325,14 @@ function StationEditor({data,reload,notify}){
     <SectionTitle eyebrow={isAdmin?'iRadios Network / Admin':'iRadios Broadcasters'}
       title={actionTitle} description={isAdmin?'Οι αλλαγές σου δημοσιεύονται αμέσως.':
         'Οι αλλαγές προφίλ υποβάλλονται για έγκριση από την ομάδα iRadios.'}
-      aside={!isNew&&<StationStatus station={station}/>}/>
+      aside={!isNew&&<div className="flex flex-wrap items-center gap-2">
+        {isAdmin&&station.status==='approved'&&<Link
+          to={'/backoffice/admin/promoted?station='+encodeURIComponent(station._id)}
+          className={buttonSecondary}>
+          <Sparkles size={16} className="text-[#caff00]"/> Promoted Station
+        </Link>}
+        <StationStatus station={station}/>
+      </div>}/>
     {!isNew&&station.pendingEdits&&Object.keys(station.pendingEdits).length>0&&
       <div className="mb-6 flex gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/[.07] p-4 text-[12px] text-amber-200">
         <Clock3 size={18} className="shrink-0"/> Υπάρχουν προτεινόμενες αλλαγές σε αναμονή. Η φόρμα εμφανίζει τις πιο πρόσφατες υποβληθείσες τιμές.</div>}
@@ -892,6 +910,7 @@ const ADMIN_TOOLS=[
   {id:'users',name:'Χρήστες & ρόλοι',desc:'Λογαριασμοί, άδειες και πρόσβαση',icon:Users,group:'Δίκτυο'},
   {id:'radioset',name:'Αναθέσεις σταθμών',desc:'Σύνδεσε σταθμούς με broadcasters',icon:Radio,group:'Δίκτυο'},
   {id:'boost',name:'Προβολή σταθμών',desc:'Προτεραιότητες και boost σταθμών',icon:Sparkles,group:'Δίκτυο'},
+  {id:'promoted',name:'Promoted Stations',desc:'Επίλεξε σταθμό δίπλα στα slides ανά Περιοχή ή Είδος',icon:Sparkles,group:'Δίκτυο'},
   {id:'ads',name:'Audio διαφημίσεις',desc:'Διαχείριση ηχητικών καμπανιών',icon:Activity,group:'Διαφημίσεις'},
   {id:'banners',name:'Banners',desc:'Οπτικές διαφημίσεις και θέσεις',icon:Image,group:'Διαφημίσεις'},
   {id:'adcontrol',name:'Τοπικές διαφημίσεις',desc:'Ρυθμίσεις διαφημίσεων ανά σταθμό',icon:SlidersHorizontal,group:'Διαφημίσεις'},
@@ -973,6 +992,8 @@ const ADMIN_GUIDES={
     steps:['Αναζήτησε τον σταθμό','Άνοιξε ανάθεση','Επίλεξε Broadcaster και αποθήκευσε']},
   boost:{intro:'Ρύθμισε προβολές και προτεραιότητες σταθμών. Η σειρά αποθηκεύεται χωριστά.',
     steps:['Βρες τον σταθμό','Ρύθμισε boost ή σειρά','Αποθήκευσε τη σειρά χωρίς φίλτρα']},
+  promoted:{intro:'Πρόβαλε έναν εγκεκριμένο σταθμό δεξιά από το editorial slide σε κάθε Περιοχή ή Είδος.',
+    steps:['Επίλεξε Περιοχή ή Είδος','Διάλεξε τον σταθμό','Ενεργοποίησε και αποθήκευσε']},
   ads:{intro:'Βρες, δημιούργησε και έλεγξε τις ηχητικές διαφημίσεις του δικτύου.',
     steps:['Έλεγξε τα ενεργά σποτ','Πρόσθεσε ή επεξεργάσου','Επιβεβαίωσε στόχευση και κατάσταση']},
   banners:{intro:'Διαχειρίσου τις οπτικές διαφημίσεις ανά θέση και κατάσταση.',
@@ -1016,7 +1037,8 @@ function Operations({data,section,reload}){
   const views={
     analytics:<AdminDashboard {...common}/>,users:<AdminUsers {...common}/>,
     ads:<AdminAds {...common}/>,banners:<AdminBanners {...common}/>,
-    slides:<AdminHomeSlides {...common}/>,emails:<AdminEmails {...common}/>,
+    slides:<AdminHomeSlides {...common}/>,promoted:<AdminPromotedStations stations={data.stations}/>,
+    emails:<AdminEmails {...common}/>,
     billing:<AdminPaid {...common}/>,radioset:<AdminRadioSet {...common}/>,
     adcontrol:<AdminAdControl {...common}/>,boost:<Boost {...common}/>,
     push:<NewPush {...common}/>
@@ -1077,6 +1099,7 @@ export default function Backoffice(){
     {section:'Ο ΧΩΡΟΣ ΜΟΥ',items:[
       {to:'/backoffice',label:'Αρχική',icon:LayoutDashboard,end:true},
       {to:'/backoffice/stations',label:admin?'Σταθμοί δικτύου':'Οι σταθμοί μου',icon:Radio},
+      ...(admin?[{to:'/backoffice/admin/promoted',label:'Promoted Stations',icon:Sparkles}]:[]),
       {to:'/backoffice/schedules',label:'Πρόγραμμα εκπομπών',icon:CalendarDays},
       ...(!admin?[{to:'/backoffice/insights',label:'Στατιστικά σταθμών',icon:BarChart3}]:[]),
       ...(data?.user.role==='broadcaster'?[{to:'/backoffice/team',label:'Παραγωγοί & ομάδα',icon:Users}]:[]),
@@ -1089,7 +1112,8 @@ export default function Backoffice(){
         {to:'/backoffice/admin/analytics',label:'Αναλύσεις',icon:BarChart3},
         {to:'/backoffice/admin/users',label:'Χρήστες & ρόλοι',icon:Users},
         {to:'/backoffice/admin/radioset',label:'Αναθέσεις σταθμών',icon:Radio},
-        {to:'/backoffice/admin/boost',label:'Προβολή σταθμών',icon:Sparkles}
+        {to:'/backoffice/admin/boost',label:'Προβολή σταθμών',icon:Sparkles},
+        {to:'/backoffice/admin/promoted',label:'Promoted Stations',icon:Sparkles}
       ]},
       {section:'ΔΙΑΦΗΜΙΣΕΙΣ',items:[
         {to:'/backoffice/admin/ads',label:'Audio διαφημίσεις',icon:Activity},
@@ -1175,7 +1199,7 @@ export default function Backoffice(){
           <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
           <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify}/>}/>
           <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
-          {['analytics','users','ads','banners','slides','emails','billing','radioset','boost','adcontrol','push'].map(section=>
+          {['analytics','users','ads','banners','slides','promoted','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
           <Route path="/backoffice/*" element={<Navigate to="/backoffice" replace/>}/>
         </Routes>
