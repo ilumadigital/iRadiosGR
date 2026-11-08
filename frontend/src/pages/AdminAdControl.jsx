@@ -185,17 +185,17 @@ export default function AdminAdControl({ API_URL }) {
   const adFreeStations = stations.filter(s => s.disableNetworkAds);
 
   return (
-    <div className="p-6 lg:p-12 max-w-6xl mx-auto animate-fade-in pb-40">
+    <div className="admin-legacy-page space-y-6">
       
       <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-6">
         <Target className="text-[#ccff00]" size={36} />
         <div>
-          <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">Ελεγχος Local Ads</h1>
-          <p className="text-zinc-500 font-bold text-sm tracking-widest uppercase mt-1">Παρακολουθηση Broadcaster Monetization</p>
+          <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">Τοπικές διαφημίσεις</h1>
+          <p className="text-zinc-500 font-bold text-sm tracking-widest uppercase mt-1">Διαχείριση διαφημίσεων ανά σταθμό</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         
         {/* ΣΤΑΘΜΟΙ ΜΕ ΚΛΕΙΣΤΑ NETWORK ADS */}
         <div className="bg-[#0f0f0f] border border-white/5 rounded-3xl p-6 shadow-2xl">
