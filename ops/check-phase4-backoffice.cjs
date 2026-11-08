@@ -49,6 +49,12 @@ const Station={
   },
   countDocuments:async q=>all.filter(s=>matches(s,q)).length,
   exists:async q=>all.some(s=>matches(s,q)),
+  findById:async id=>all.find(s=>String(s._id)===String(id))||null,
+  deleteOne:async q=>{
+    const index=all.findIndex(s=>matches(s,q));
+    if(index===-1)return {deletedCount:0};
+    all.splice(index,1);return {deletedCount:1};
+  },
   findOne:q=>({select:async()=>all.find(s=>matches(s,q))||null}),
   create:async fields=>{const s=doc({_id:'333333333333333333333333',schedule:[],...fields});
     all.push(s);return s;}
@@ -208,6 +214,31 @@ async function main(){
   assert.equal(otherSlug.code,409,
     'unapproved slug changes must reserve the slug for the station owner');
 
+  const deletePath='/backoffice/stations/:id';
+  assert.equal((await call('DELETE',deletePath,null,{confirmationName:'102.5 FM'},imported._id)).code,401,
+    'anonymous listeners cannot delete stations');
+  assert.equal((await call('DELETE',deletePath,owner,{confirmationName:'102.5 FM'},imported._id)).code,403,
+    'broadcasters cannot delete stations');
+  assert.equal((await call('DELETE',deletePath,producer,{confirmationName:'102.5 FM'},imported._id)).code,403,
+    'producers cannot delete stations');
+  assert.equal((await call('DELETE',deletePath,admin,{},imported._id)).code,400,
+    'admin deletion requires explicit station name');
+  assert.equal((await call('DELETE',deletePath,admin,{confirmationName:'Wrong FM'},imported._id)).code,409,
+    'incorrect station name cannot delete another station');
+  assert.ok(all.some(s=>s._id===imported._id),'failed delete attempts preserve the imported station');
+  const deletedStation=await call('DELETE',deletePath,admin,{confirmationName:'102.5 FM'},imported._id);
+  assert.equal(deletedStation.code,200,'admin can delete a station with exact name confirmation');
+  assert.equal(deletedStation.body.removedStationId,imported._id);
+  assert.equal(all.some(s=>s._id===imported._id),false,'only the targeted station record was removed');
+  assert.equal(all.some(s=>s._id===songId),true,'unrelated stations remain intact');
+
+  const legacyRoutes=fs.readFileSync(path.join(__dirname,'../backend/routes/stationRoutes.js'),'utf8');
+  const legacyController=fs.readFileSync(path.join(__dirname,'../backend/controllers/stationController.js'),'utf8');
+  assert.ok(legacyRoutes.includes("router.delete('/admin/stations/:id', protect, authorizeRoles('admin')"),
+    'legacy station delete must require a verified admin');
+  assert.ok(!legacyController.includes('fs.rm('),
+    'admin station deletion must not recursively remove imported slug media');
+
   const frontend=fs.readFileSync(path.join(__dirname,'../frontend/src/pages/Backoffice.jsx'),'utf8');
   const app=fs.readFileSync(path.join(__dirname,'../frontend/src/App.jsx'),'utf8');
   // A descendant <Routes> outside a parent <Route> must match absolute URLs.
@@ -227,6 +258,10 @@ async function main(){
     'Backoffice root must be an absolute path, not an unmatched index route');
 
   assert.ok(frontend.includes('Business Console'));
+  assert.ok(frontend.includes('function DeleteStationDialog(')&&
+    frontend.includes("method:'DELETE',body:JSON.stringify({confirmationName:typedName})")&&
+    frontend.includes('typedName!==station.name')&&frontend.includes('onDelete={requestDelete}'),
+    'the new backoffice must expose a confirmed, admin-only station deletion action');
   assert.ok(frontend.includes('Slug / Δημόσιο URL *')&&frontend.includes("['name','slug'"),
     'admins and broadcasters must be able to set custom station slugs');
   assert.ok(frontend.includes("api('/review-queue?pendingPage=")&&
