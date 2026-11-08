@@ -175,6 +175,7 @@ export default function Footer({
           handleNextStation={handleNextStation}
           isFavorite={isCurrentlyFavorite}
           onFavorite={() => currentUser ? toggleFavorite(currentStation._id) : navigate('/login')}
+          spotifyUrl={spotifyUrl}
           onRecognize={handleRadarClick}
           isRecognizing={isRecognizing}
           onOpenStation={() => { setIsMaximized(false); navigate('/station/'+(currentStation.slug||currentStation._id)); }}
