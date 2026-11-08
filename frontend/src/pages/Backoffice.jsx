@@ -29,10 +29,10 @@ const AdminAdControl=lazy(()=>import('./AdminAdControl'));
 const Boost=lazy(()=>import('./Boost'));
 const NewPush=lazy(()=>import('./NewPush'));
 const DAY_NAMES=['','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
-const EDIT_FIELDS=['name','slogan','description','genre','secondaryGenre','transmissionType','frequency',
+const EDIT_FIELDS=['name','slug','slogan','description','genre','secondaryGenre','transmissionType','frequency',
   'region','city','website','email','phone','stream','metadata','facebook','instagram',
   'twitter','tiktok','explicit'];
-const BLANK={name:'',slogan:'',description:'',genre:'',secondaryGenre:'',transmissionType:'Web Radio',
+const BLANK={name:'',slug:'',slogan:'',description:'',genre:'',secondaryGenre:'',transmissionType:'Web Radio',
   frequency:'',region:'',city:'',website:'',email:'',phone:'',stream:'',metadata:'',
   facebook:'',instagram:'',twitter:'',tiktok:'',explicit:false};
 const panel='rounded-[26px] border border-white/[0.075] bg-[#111418] shadow-[0_22px_90px_rgba(0,0,0,0.14)]';
@@ -40,6 +40,15 @@ const inputClass='w-full rounded-xl border border-white/10 bg-[#090b0d] px-4 py-
 const buttonPrimary='inline-flex items-center justify-center gap-2 rounded-xl bg-[#caff00] px-5 py-3 text-[12px] font-black uppercase tracking-[.08em] text-[#101300] shadow-[0_8px_26px_rgba(202,255,0,.18)] transition hover:bg-[#e5ff83] disabled:opacity-50';
 const buttonSecondary='inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-4 py-3 text-[12px] font-bold text-zinc-200 transition hover:border-white/25 hover:bg-white/[.09]';
 const roleLabels={admin:'Administrator',broadcaster:'Broadcaster',producer:'Producer'};
+function suggestStationSlug(name){
+  const greek={α:'a',β:'v',γ:'g',δ:'d',ε:'e',ζ:'z',η:'i',θ:'th',ι:'i',
+    κ:'k',λ:'l',μ:'m',ν:'n',ξ:'x',ο:'o',π:'p',ρ:'r',σ:'s',ς:'s',
+    τ:'t',υ:'y',φ:'f',χ:'ch',ψ:'ps',ω:'o'};
+  return String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[α-ω]/g,letter=>greek[letter]||'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')
+    .slice(0,100).replace(/-+$/g,'');
+}
 function shortNumber(n){return new Intl.NumberFormat('el-GR',{notation:'compact',maximumFractionDigits:1}).format(Number(n)||0);}
 function Badge({children,tone='neutral'}){const tones={
   lime:'bg-[#caff00]/10 text-[#d7ff55] ring-[#caff00]/20',
@@ -291,27 +300,54 @@ function Stations({data}){
 function StationEditor({data,reload,notify}){
   const {id}=useParams(),navigate=useNavigate();
   const isNew=id===undefined;
-  const station=data.stations.find(s=>String(s._id)===String(id));
+  const listedStation=data.stations.find(s=>String(s._id)===String(id));
+  const [remoteStation,setRemoteStation]=useState(null);
+  const [stationLookup,setStationLookup]=useState(false);
+  const station=listedStation||(String(remoteStation?._id)===String(id)?remoteStation:null);
   const isAdmin=data.user.role==='admin';
   const [form,setForm]=useState(BLANK),[busy,setBusy]=useState(false),[uploading,setUploading]=useState(''),[dirty,setDirty]=useState(false);
+  const [slugTouched,setSlugTouched]=useState(false);
+  useEffect(()=>{
+    if(isNew||listedStation)return;
+    let active=true;
+    setStationLookup(true);
+    api('/stations/'+id).then(result=>{if(active)setRemoteStation(result.station);})
+      .catch(error=>{if(active)notify(error.message,'error');})
+      .finally(()=>{if(active)setStationLookup(false);});
+    return ()=>{active=false;};
+  },[id,isNew,listedStation?._id,notify]);
   useEffect(()=>{
     const origin=isNew?BLANK:{...BLANK,...station,...(station?.pendingEdits||{})};
     setForm(Object.fromEntries(EDIT_FIELDS.map(k=>[k,origin[k]??BLANK[k]])));
+    setSlugTouched(false);
     setDirty(false);
   },[id,isNew,station?._id]); // Refresh by changing station id. Explicit reset after save.
-  const update=(field,value)=>{setForm(prev=>({...prev,[field]:value}));setDirty(true);};
+  const update=(field,value)=>{
+    setForm(prev=>{
+      const next={...prev,[field]:value};
+      if(field==='name'&&isNew&&!slugTouched)next.slug=suggestStationSlug(value);
+      return next;
+    });
+    if(field==='slug')setSlugTouched(true);
+    setDirty(true);
+  };
   async function save(e){
     e.preventDefault();
     if(!isPrimaryCategory(form.genre)||!isSecondaryCategory(form.secondaryGenre)){
       notify('Επίλεξε μία βασική και μία δευτερεύουσα κατηγορία.','error');return;
     }
+    if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug||'')){
+      notify('Το slug πρέπει να περιέχει πεζά λατινικά γράμματα, αριθμούς και παύλες.','error');return;
+    }
     setBusy(true);
     try{
-      const payload=isNew?Object.fromEntries(['name','slogan','description','genre','secondaryGenre','stream',
-        'transmissionType','region','city'].map(k=>[k,form[k]])):form;
+      const payload=isNew?Object.fromEntries(['name','slug','slogan','description','genre','secondaryGenre','stream',
+        'transmissionType','region','city'].map(k=>[k,form[k]])):
+        Object.fromEntries(Object.entries(form).filter(([key])=>key!=='slug'||form.slug!==station.slug));
       const result=await api(isNew?'/stations':'/stations/'+station._id,
         {method:isNew?'POST':'PATCH',body:JSON.stringify(payload)});
       notify(result.message||'Αποθηκεύτηκε.');setDirty(false);await reload();
+      if(result.station)setRemoteStation(result.station);
       if(isNew)navigate('/backoffice/stations/'+result.station._id+'/edit');
     }catch(error){notify(error.message,'error');}finally{setBusy(false);}
   }
@@ -322,9 +358,11 @@ function StationEditor({data,reload,notify}){
       const fd=new FormData();fd.append('image',file);
       const result=await api('/stations/'+station._id+'/media/'+kind,{method:'POST',body:fd});
       notify(result.message);await reload();
+      if(result.station)setRemoteStation(result.station);
     }catch(error){notify(error.message,'error');}finally{setUploading('');}
   }
   if(data.user.role==='producer')return <Navigate to="/backoffice/schedules" replace/>;
+  if(!isNew&&!station&&stationLookup)return <div className={panel+' p-10 text-center text-sm text-zinc-400'}><RefreshCw size={20} className="mx-auto mb-3 animate-spin text-[#caff00]"/>Φόρτωση στοιχείων σταθμού…</div>;
   if(!isNew&&!station)return <AuthGate title="Ο σταθμός δεν βρέθηκε" description="Δεν έχεις δικαίωμα πρόσβασης σε αυτόν τον σταθμό." href="/backoffice/stations" label="Πίσω στους σταθμούς"/>;
   const actionTitle=isNew?'Νέος σταθμός':'Επεξεργασία σταθμού';
   return <div>
@@ -350,6 +388,15 @@ function StationEditor({data,reload,notify}){
             <div><h3 className="text-lg font-black text-white">Ταυτότητα σταθμού</h3><p className="text-xs text-zinc-500">Πληροφορίες καταλόγου και δημόσιου προφίλ</p></div></div>
           <div className="grid gap-5 md:grid-cols-2">
             <Field label="Όνομα σταθμού *"><input required maxLength={100} className={inputClass} value={form.name} onChange={e=>update('name',e.target.value)}/></Field>
+            <Field label="Slug / Δημόσιο URL *" help="Μοναδικό όνομα διεύθυνσης, π.χ. venus-fm-105-1. Μόνο a-z, 0-9 και παύλες.">
+              <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#090b0d] focus-within:border-[#caff00]/70 sm:flex-row sm:items-center">
+                <span className="shrink-0 px-3 pt-3 text-[11px] font-semibold text-zinc-500 sm:py-3 sm:pr-0">/station/</span>
+                <input required maxLength={100} pattern="[a-z0-9]+(-[a-z0-9]+)*" spellCheck={false}
+                  autoComplete="off" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-white outline-none"
+                  placeholder="venus-fm-105-1" value={form.slug||''}
+                  onChange={e=>update('slug',e.target.value.toLowerCase().replace(/\\s+/g,'-'))}/>
+              </div>
+            </Field>
             <Field label="Βασική κατηγορία *"><PrimaryCategorySelect className={inputClass} value={form.genre} onChange={value=>update('genre',value)}/></Field>
             <Field label="Δευτερεύουσα κατηγορία *" help="Εξειδικευμένο ύφος για SEO / GEO. Δεν εμφανίζεται στο βασικό μενού."><SecondaryCategorySelect className={inputClass} value={form.secondaryGenre} onChange={value=>update('secondaryGenre',value)}/></Field>
             <Field label="Slogan" wide><input maxLength={240} className={inputClass} placeholder="Η μουσική σου, ο κόσμος σου." value={form.slogan} onChange={e=>update('slogan',e.target.value)}/></Field>
@@ -791,37 +838,95 @@ function Scheduler({data,reload,notify}){
   </div>;
 }
 function Review({data,reload,notify}){
-  if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
-  const changed=data.stations.filter(s=>s.pendingEdits&&Object.keys(s.pendingEdits).length);
-  const newStations=data.stations.filter(s=>s.status==='pending');
+  const empty={items:[],total:0,page:1,pageSize:50};
+  const [queue,setQueue]=useState({pending:empty,edits:empty});
+  const [pendingPage,setPendingPage]=useState(1);
+  const [editsPage,setEditsPage]=useState(1);
+  const [searchInput,setSearchInput]=useState('');
+  const [search,setSearch]=useState('');
+  const [refreshKey,setRefreshKey]=useState(0);
+  const [queueLoading,setQueueLoading]=useState(true);
+  const [queueError,setQueueError]=useState('');
   const [busy,setBusy]=useState('');
+  useEffect(()=>{
+    if(data.user.role!=='admin')return;
+    let active=true;
+    setQueueLoading(true);
+    api('/review-queue?pendingPage='+pendingPage+'&editsPage='+editsPage+'&q='+encodeURIComponent(search))
+      .then(next=>{
+        if(!active)return;
+        setQueue(next);setQueueError('');
+        if(pendingPage>1&&!next.pending.items.length)setPendingPage(p=>Math.max(1,p-1));
+        if(editsPage>1&&!next.edits.items.length)setEditsPage(p=>Math.max(1,p-1));
+      })
+      .catch(error=>{if(active)setQueueError(error.message);})
+      .finally(()=>{if(active)setQueueLoading(false);});
+    return ()=>{active=false;};
+  },[data.user.role,pendingPage,editsPage,search,refreshKey]);
+  if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
+  const changed=queue.edits.items||[];
+  const newStations=queue.pending.items||[];
   const work=async(s,action,isApproval=false)=>{
-    setBusy(s._id);
-    try{const response=await api('/stations/'+s._id+(isApproval?'/approve':'/review'),
-      {method:'POST',body:JSON.stringify({action})});notify(response.message);await reload();}
-    catch(error){notify(error.message,'error');}
+    setBusy(String(s._id));
+    try{
+      const response=await api('/stations/'+s._id+(isApproval?'/approve':'/review'),
+        {method:'POST',body:JSON.stringify({action})});
+      notify(response.message);await reload();setRefreshKey(v=>v+1);
+    }catch(error){notify(error.message,'error');}
     finally{setBusy('');}
   };
+  const pager=(part,setPage)=>{
+    const pages=Math.max(1,Math.ceil(part.total/part.pageSize));
+    return pages>1?<div className="mt-4 flex flex-wrap items-center justify-end gap-3 text-xs text-zinc-400">
+      <button type="button" className={buttonSecondary} disabled={queueLoading||part.page<=1}
+        onClick={()=>setPage(p=>Math.max(1,p-1))}>Προηγούμενη</button>
+      <span>Σελίδα {part.page} από {pages} · {part.total} εγγραφές</span>
+      <button type="button" className={buttonSecondary} disabled={queueLoading||part.page>=pages}
+        onClick={()=>setPage(p=>p+1)}>Επόμενη</button>
+    </div>:null;
+  };
   return <div><SectionTitle eyebrow="Moderation queue" title="Εγκρίσεις με ένα κλικ."
-    description="Τα νέα αιτήματα εμφανίζονται συγκεντρωμένα. Κάθε αλλαγή broadcaster περνά από έλεγχο."/>
+    description="Όλες οι εκκρεμότητες, μαζί με σταθμούς που εισήχθησαν από μεταφορά δεδομένων. Ανεξάρτητη φόρτωση από τον κατάλογο."/>
+    <form className={panel+' mb-6 flex flex-wrap items-center gap-3 p-4'} onSubmit={event=>{
+      event.preventDefault();setPendingPage(1);setEditsPage(1);
+      setSearch(searchInput.trim());setRefreshKey(v=>v+1);
+    }}>
+      <div className="relative min-w-[180px] flex-1"><Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"/>
+        <input className={inputClass+' pl-11'} placeholder="Αναζήτησε και σταθμούς από μεταφορά (π.χ. 102.5 FM)" value={searchInput}
+          onChange={event=>setSearchInput(event.target.value)} maxLength={100}/></div>
+      <button type="submit" className={buttonPrimary}><Search size={15}/> Αναζήτηση</button>
+      <button type="button" className={buttonSecondary} onClick={()=>{
+        setSearchInput('');setSearch('');setPendingPage(1);setEditsPage(1);setRefreshKey(v=>v+1);
+      }}><RefreshCw size={15}/> Όλες οι εγκρίσεις</button>
+    </form>
+    {queueLoading&&<div className="mb-5 flex items-center gap-2 text-xs text-[#caff00]" role="status">
+      <RefreshCw size={16} className="animate-spin"/> Φόρτωση εγκρίσεων από τη βάση…</div>}
+    {queueError&&<div role="alert" className="mb-6 rounded-xl border border-rose-500/25 bg-rose-500/[.07] p-4 text-sm text-rose-300">{queueError}</div>}
     <div className="space-y-8">
-      <section><h3 className="mb-4 flex items-center gap-2 text-lg font-black text-white"><Clock3 size={19} className="text-[#caff00]"/> Αιτήματα αλλαγών <Badge tone="amber">{changed.length}</Badge></h3>
+      <section><h3 className="mb-4 flex items-center gap-2 text-lg font-black text-white"><Clock3 size={19} className="text-[#caff00]"/> Αιτήματα αλλαγών <Badge tone="amber">{queue.edits.total}</Badge></h3>
         <div className="space-y-3">{changed.length?changed.map(s=><div key={s._id} className={panel+' p-5'}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><h4 className="font-black text-white">{s.name}</h4>
-              <p className="mt-1 text-[11px] text-zinc-500">Πεδία: {Object.keys(s.pendingEdits).join(', ')}</p></div>
+              <p className="mt-1 text-[11px] text-zinc-500">Πεδία: {Object.keys(s.pendingEdits||{}).join(', ')}</p></div>
             <div className="flex flex-wrap gap-2">
               <Link to={'/backoffice/stations/'+s._id+'/edit'} className={buttonSecondary}>Προβολή <ArrowRight size={13}/></Link>
               <button className={buttonSecondary+' text-rose-300'} disabled={Boolean(busy)} onClick={()=>work(s,'reject')}>Απόρριψη</button>
               <button className={buttonPrimary} disabled={Boolean(busy)} onClick={()=>work(s,'approve')}><Check size={15}/> Έγκριση</button>
-            </div></div></div>):<div className={panel+' p-7 text-sm text-zinc-500'}>Δεν υπάρχουν αλλαγές σε αναμονή.</div>}</div>
+            </div></div></div>):!queueLoading&&<div className={panel+' p-7 text-sm text-zinc-500'}>Δεν υπάρχουν αλλαγές σε αναμονή.</div>}</div>
+        {pager(queue.edits,setEditsPage)}
       </section>
-      <section><h3 className="mb-4 flex items-center gap-2 text-lg font-black text-white"><Radio size={19} className="text-[#caff00]"/> Νέοι σταθμοί <Badge tone="amber">{newStations.length}</Badge></h3>
+      <section><h3 className="mb-4 flex items-center gap-2 text-lg font-black text-white"><Radio size={19} className="text-[#caff00]"/> Νέοι σταθμοί <Badge tone="amber">{queue.pending.total}</Badge></h3>
         <div className="space-y-3">{newStations.length?newStations.map(s=><div key={s._id} className={panel+' flex flex-wrap items-center justify-between gap-4 p-5'}>
-          <div><p className="font-black text-white">{s.name}</p><p className="mt-1 text-xs text-zinc-500">{s.genre} · {s.city}</p></div>
-          <div className="flex gap-2"><Link className={buttonSecondary} to={'/backoffice/stations/'+s._id+'/edit'}>Έλεγχος <ArrowRight size={14}/></Link>
+          <div className="flex min-w-0 items-center gap-3">
+            {s.logo&&<img src={s.logo} alt="" className="size-14 shrink-0 rounded-xl border border-white/10 bg-black/20 object-contain p-1"/>}
+            <div className="min-w-0"><p className="truncate font-black text-white">{s.name}</p>
+              <p className="mt-1 text-xs text-zinc-500">{s.genre} · {s.city||'Χωρίς πόλη'}</p>
+              <p className="mt-1 truncate text-[11px] text-zinc-500">{s.slug?'/station/'+s.slug:'Χωρίς slug'}</p></div>
+          </div>
+          <div className="flex flex-wrap gap-2"><Link className={buttonSecondary} to={'/backoffice/stations/'+s._id+'/edit'}>Έλεγχος <ArrowRight size={14}/></Link>
             <button onClick={()=>work(s,'approve',true)} disabled={Boolean(busy)} className={buttonPrimary}>Έγκριση σταθμού</button></div>
-        </div>):<div className={panel+' p-7 text-sm text-zinc-500'}>Δεν υπάρχουν νέοι σταθμοί προς έγκριση.</div>}</div>
+        </div>):!queueLoading&&<div className={panel+' p-7 text-sm text-zinc-500'}>Δεν υπάρχουν νέοι σταθμοί προς έγκριση.</div>}</div>
+        {pager(queue.pending,setPendingPage)}
       </section>
     </div>
   </div>;
