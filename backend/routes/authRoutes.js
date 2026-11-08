@@ -21,7 +21,9 @@ router.post('/auth/reset-password', authController.resetPassword);
 router.put('/users/me/accept-terms', protect, authController.acceptTerms);
 
 // Users Profiles
-router.put('/users/me', authController.updateMe);
+router.put('/users/me', protect, authController.updateMe);
+router.get('/users/me/notification-preferences', protect, authController.getNotificationPreferences);
+router.patch('/users/me/notification-preferences', protect, authController.updateNotificationPreferences);
 router.delete('/users/me', authController.deleteMe); // ΔΙΑΓΡΑΦΗ ΛΟΓΑΡΙΑΣΜΟΥ
 router.post('/users/:userId/favorites', authController.toggleFavorite);
 
