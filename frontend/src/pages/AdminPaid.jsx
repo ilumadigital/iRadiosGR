@@ -86,14 +86,14 @@ export default function AdminPaid({ API_URL }) {
   });
 
   return (
-    <div className="p-6 lg:p-12 max-w-full pb-40 animate-fade-in">
+    <div className="admin-legacy-page space-y-6">
       
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <FileText className="text-[#ccff00]" size={28} />
-            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">B2B Payments & Invoices</h2>
+            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Συναλλαγές & παραστατικά</h2>
           </div>
           <p className="text-zinc-500 text-sm font-medium">
             Διαχειριστείτε τις πληρωμές από Agencies & Broadcasters και εκδώστε τα τιμολόγιά τους.
@@ -104,11 +104,11 @@ export default function AdminPaid({ API_URL }) {
       {/* STATS ROW */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-[24px]">
-          <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">Συνολο Πληρωμων</div>
+          <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">Σύνολο συναλλαγών</div>
           <div className="text-3xl font-black text-white">{transactions.length}</div>
         </div>
         <div className="bg-orange-500/10 border border-orange-500/20 p-6 rounded-[24px]">
-          <div className="text-orange-400 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-1"><AlertCircle size={12}/> Εκκρεμη Τιμολογια</div>
+          <div className="text-orange-400 text-[10px] font-black uppercase tracking-widest mb-1 flex items-center gap-1"><AlertCircle size={12}/> Εκκρεμή παραστατικά</div>
           <div className="text-3xl font-black text-orange-400">{transactions.filter(t => !t.invoiceSent).length}</div>
         </div>
       </div>
