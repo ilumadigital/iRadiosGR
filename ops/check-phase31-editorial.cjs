@@ -101,7 +101,7 @@ async function request(query){
    'frontend/src/components/MobileMiniPlayer.jsx','frontend/src/components/Footer.jsx']){
    assert.ok(read(file).includes('Συνδέσου στο iRadios για NowPlaying'),file+' guest metadata message');
  }
- assert.ok(read('frontend/src/components/StationPlaylistPanel.jsx').includes("Τα τελευταία Tracks του {chosen?.name"), 'playlist caption follows chosen hero station name');
+ assert.ok(read('frontend/src/components/StationPlaylistPanel.jsx').includes("Τα τραγούδια των τελευταίων 30 λεπτών του {chosen?.name"), 'playlist caption follows chosen hero station name');
  assert.ok(read('frontend/src/App.jsx').includes('ref={audioRef}'),'no change to central audio element');
  assert.ok(read('backend/routes/homeSlideRoutes.js').includes("authorizeRoles('admin')"),'CMS protected');
  console.log('Phase 3.1 editorial placement, shared playback state, guest metadata and catalog contracts passed.');
