@@ -83,13 +83,16 @@ exports.inviteProducer = async (req, res) => {
 // 2. Αποδοχή πρόσκλησης και ορισμός κωδικού (Από τον Producer)
 exports.acceptInvite = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, newPassword } = req.body || {};
+    if(typeof token!=='string'||typeof newPassword!=='string'||
+       newPassword.length<10||newPassword.length>128)
+      return res.status(400).json({message:'Ο κωδικός χρειάζεται 10 έως 128 χαρακτήρες.'});
 
     // Επαλήθευση Token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     const user = await User.findById(decoded.userId);
-    if (!user || user.role !== 'producer') {
+    if (!user || user.role !== 'producer' || user.isVerified || user.email !== decoded.email) {
       return res.status(400).json({ message: 'Μη έγκυρος λογαριασμός ή πρόσκληση.' });
     }
 
