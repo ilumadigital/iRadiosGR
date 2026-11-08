@@ -2,8 +2,8 @@ import React, {useCallback, useEffect, useState} from 'react';
 import HomeHeroSlider from './HomeHeroSlider';
 import PromotedStationCard from './PromotedStationCard';
 
-// One shared carousel for Home, Region and Genre. Each slide has a 1200×630
-// presentation frame. The promoted station is independent of slide rotation.
+// Slide assets use 1200×630; the display window is intentionally shorter.
+// Home, Region and Genre share the same compact height and live playback.
 export default function EditorialPlacement({
   placement,value,currentUser,stations=[],fallbackStation,currentStation,isPlaying,
   onPlayStation,onPlayPause,viewMode='grid',onPromotedStationChange
@@ -16,7 +16,7 @@ export default function EditorialPlacement({
   },[onPromotedStationChange]);
   const showPromoted=viewMode==='grid';
   return (
-    <div className={`ir-catalog-feature-row mb-8 grid min-w-0 items-stretch gap-4 ${showPromoted&&hasPromoted?'xl:grid-cols-[minmax(0,1.8fr)_minmax(280px,0.72fr)]':''}`}>
+    <div className={`ir-catalog-feature-row mb-8 grid min-w-0 items-stretch gap-4 ${showPromoted&&hasPromoted?'xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]':''}`}>
       <HomeHeroSlider placement={placement} value={value} fallbackStation={fallbackStation}
         currentUser={currentUser} stations={stations} currentStation={currentStation}
         isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>
