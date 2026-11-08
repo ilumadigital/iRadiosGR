@@ -87,6 +87,8 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
       Number(favIds.has(String(station._id)))*15+
       Number(station.isFeatured)*7+Number(station.plays||0)/10000;
     result=[...result].sort((a,b)=>{
+      const offline=Number(a.isOffline===true)-Number(b.isOffline===true);
+      if(offline)return offline;
       if(tab==='for-you'){
         const aTier=catalogStationInfo(a,catalogNowPlaying[String(a._id)],catalogClock).tier;
         const bTier=catalogStationInfo(b,catalogNowPlaying[String(b._id)],catalogClock).tier;
