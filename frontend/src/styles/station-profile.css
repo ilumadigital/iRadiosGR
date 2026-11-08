@@ -226,3 +226,23 @@
   .ir-program-equalizer i{animation:none}
   .ir-station-page *{scroll-behavior:auto!important}
 }
+
+/* Follow DJ/show buttons belong inside the existing schedule grid text cell. */
+.ir-program-follow-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.ir-program-follow-button{
+  display:inline-flex;align-items:center;gap:6px;min-height:30px;
+  border:1px solid rgba(255,255,255,.17);border-radius:999px;
+  background:rgba(255,255,255,.045);color:#d9e3e8;
+  padding:5px 10px;font-size:10px;font-weight:800;
+  transition:color .2s,border-color .2s,background-color .2s;
+}
+.ir-program-follow-button:hover:not(:disabled){border-color:rgba(204,255,0,.50);color:#fff}
+.ir-program-follow-button--active{background:rgba(204,255,0,.11);border-color:rgba(204,255,0,.42);color:#d4ff65}
+.ir-program-follow-button:disabled{opacity:.55;cursor:wait}
+.ir-program-follow-error{margin:8px 0;padding:9px 13px;border:1px solid rgba(239,68,68,.3);
+  border-radius:12px;background:rgba(239,68,68,.07);color:#fda4af;font-size:12px}
+@media(max-width:620px){
+ .ir-program-follow-actions{margin-top:8px;gap:6px}
+ .ir-program-follow-button{font-size:10px;padding:5px 8px}
+}
+@media(prefers-reduced-motion:reduce){.ir-program-follow-button{transition:none}}
