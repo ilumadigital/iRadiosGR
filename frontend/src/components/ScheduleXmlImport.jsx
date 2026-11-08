@@ -1,5 +1,5 @@
 import React, {useEffect,useState} from 'react';
-import {CalendarClock,Check,ChevronDown,CloudDownload,FileCode2,
+import {Check,ChevronDown,CloudDownload,FileCode2,
   Link2Off,RefreshCw,ShieldCheck,TriangleAlert} from 'lucide-react';
 
 const FIELD_LABELS={
@@ -17,23 +17,24 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
   const [expanded,setExpanded]=useState(false);
   const [form,setForm]=useState(DEFAULT);
   const [preview,setPreview]=useState(null);
+  const [previewReady,setPreviewReady]=useState(false);
   const [busy,setBusy]=useState('');
   const [error,setError]=useState('');
   useEffect(()=>{
     const f=station?.scheduleFeed||{};
     setForm({url:f.url||'',rowTag:f.rowTag||'',mapping:f.mapping||{},dayFormat:f.dayFormat||'iso'});
-    setPreview(null);setError('');setExpanded(Boolean(f.enabled));
+    setPreview(null);setPreviewReady(false);setError('');setExpanded(Boolean(f.enabled));
   },[station?._id]);
   if(!station)return null;
   const connected=Boolean(station.scheduleFeed?.enabled);
   const status=station.scheduleFeed||{};
   const change=(key,value)=>{
     setForm(prev=>({...prev,[key]:value}));
-    setPreview(null);setError('');
+    setPreview(null);setPreviewReady(false);setError('');
   };
   const changeMapping=(key,value)=>{
     setForm(prev=>({...prev,mapping:{...prev.mapping,[key]:value}}));
-    setPreview(null);setError('');
+    setPreviewReady(false);setError('');
   };
   const action=async(name,path,options)=>{
     setBusy(name);setError('');
@@ -53,18 +54,18 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
       const data=await api('/stations/'+station._id+'/schedule-feed/preview',
         {method:'POST',body:JSON.stringify(form)});
       if(!data?.preview)throw new Error('Το XML δεν επέστρεψε εκπομπές.');
-      setPreview(data.preview);
+      setPreview(data.preview);setPreviewReady(true);
       setForm(prev=>({...prev,rowTag:data.preview.rowTag,
         mapping:data.preview.mapping}));
     }catch(e){setError(e.message||'Αποτυχία ελέγχου XML.');}
     finally{setBusy('');}
   };
   const connect=async()=>{
-    if(!preview)return;
+    if(!preview||!previewReady)return;
     if(!window.confirm('Το XML θα αντικαταστήσει το υπάρχον εβδομαδιαίο πρόγραμμα αυτού του σταθμού και θα συγχρονίζεται καθημερινά στις 03:00 ώρα Ελλάδας. Συνέχεια;'))return;
     const result=await action('connect','/stations/'+station._id+'/schedule-feed',
       {method:'POST',body:JSON.stringify(form)});
-    if(result)setPreview(null);
+    if(result){setPreview(null);setPreviewReady(false);}
   };
   const refresh=()=>action('refresh','/stations/'+station._id+'/schedule-feed/sync',{method:'POST'});
   const disable=()=>{
@@ -119,6 +120,7 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
           {busy==='preview'?<RefreshCw size={15} className="animate-spin"/>:<CloudDownload size={15}/>}
           Έλεγχος XML</button>
       </div>
+      {preview&&!previewReady&&<p className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs text-amber-200">Άλλαξε το mapping; Πάτησε ξανά «Έλεγχος XML» για νέα προεπισκόπηση πριν ενεργοποιήσεις.</p>}
       {preview&&<>
         <div className="border-t border-white/10 pt-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -166,7 +168,7 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
           {connected&&<button type="button" className={BTN+' border border-rose-500/20 text-rose-300 hover:bg-rose-500/10'}
             onClick={disable} disabled={Boolean(busy)}><Link2Off size={15}/> Απενεργοποίηση</button>}
           <button type="button" className={BTN+' bg-[#caff00] text-black hover:bg-[#e5ff80]'}
-            disabled={!preview||Boolean(busy)} onClick={connect}>
+            disabled={!preview||!previewReady||Boolean(busy)} onClick={connect}>
             <Check size={15}/>{busy==='connect'?'Αποθήκευση…':'Ενεργοποίηση XML & εισαγωγή'}</button>
         </div>
       </div>
