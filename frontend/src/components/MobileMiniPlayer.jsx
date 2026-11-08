@@ -436,8 +436,10 @@ export default function MobileMiniPlayer({
               {isRecognizing ? <Loader2 size={17} className="animate-spin"/> : <ScanSearch size={17}/>}
               {isRecognizing ? 'Ψάχνουμε το τραγούδι…' : 'Βρες το τραγούδι'}
             </button>}
-            {isActualSong && <MusicServiceLinks song={nowPlaying} stationName={currentStation.name}
-              currentUser={currentUser} compact className="ir-music-links--mobile-player"/>}
+            {isActualSong && (
+              <MusicServiceLinks song={nowPlaying} stationName={currentStation.name}
+                currentUser={currentUser} compact className="ir-music-links--mobile-player"/>
+            )}
           </div>
         </div>
 
