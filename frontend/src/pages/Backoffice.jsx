@@ -413,6 +413,31 @@ function Review({data,reload,notify}){
     </div>
   </div>;
 }
+function BroadcasterInsights({data}){
+  const stations=[...data.stations].sort((a,b)=>(b.plays||0)-(a.plays||0));
+  const total=stations.reduce((sum,station)=>sum+(Number(station.plays)||0),0);
+  const top=stations[0];
+  return <div>
+    <SectionTitle eyebrow="iRadios insights" title="Η πορεία του ήχου σου."
+      description="Συγκεντρωτικά στοιχεία από τους σταθμούς του λογαριασμού σου. Οι μετρήσεις είναι ιστορικά plays, όχι ταυτόχρονοι live ακροατές."/>
+    <div className="mb-8 grid gap-4 md:grid-cols-3">
+      <Metric icon={Headphones} label="Συνολικές ακροάσεις" value={shortNumber(total)} caption="Καταγεγραμμένα plays στο iRadios"/>
+      <Metric icon={Radio} label="Σταθμοί" value={stations.length} caption="Που έχεις δικαίωμα προβολής"/>
+      <Metric icon={BarChart3} label="Πρώτος σταθμός" value={top?.name||'—'} caption="Σύμφωνα με τα συνολικά plays" rose/>
+    </div>
+    <section className={panel+' p-5 md:p-8'}>
+      <h3 className="mb-6 text-xl font-black text-white">Ακροάσεις ανά σταθμό</h3>
+      {stations.length?stations.map((station,index)=><div key={station._id} className="mb-6 last:mb-0">
+        <div className="mb-2 flex items-center justify-between gap-4 text-sm">
+          <span className="truncate font-bold text-zinc-200">{index+1}. {station.name}</span>
+          <span className="shrink-0 font-black tabular-nums text-[#caff00]">{shortNumber(station.plays)}</span></div>
+        <div className="h-2 overflow-hidden rounded-full bg-white/[.07]">
+          <div className="h-full rounded-full bg-[#caff00]" style={{width:Math.max(0,Math.min(100,100*(Number(station.plays)||0)/Math.max(1,Number(top?.plays)||1)))+'%'}}/>
+        </div></div>):
+        <p className="text-sm text-zinc-500">Δεν υπάρχουν ακόμη σταθμοί.</p>}
+    </section>
+  </div>;
+}
 function Operations({data,section,reload}){
   if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
   const common={API_URL:'/api',currentUser:data.user,stations:data.stations,refreshStations:reload,refreshGlobalAds:()=>{}};
@@ -454,6 +479,7 @@ export default function Backoffice(){
     {section:'WORKSPACE',items:[{to:'/backoffice',label:'Επισκόπηση',icon:LayoutDashboard,end:true},
       {to:'/backoffice/stations',label:admin?'Δίκτυο σταθμών':'Οι σταθμοί μου',icon:Radio},
       {to:'/backoffice/schedules',label:'Πρόγραμμα εκπομπών',icon:CalendarDays},
+      ...(!admin?[{to:'/backoffice/insights',label:'Insights σταθμών',icon:BarChart3}]:[]),
       ...(!producer?[{to:'/backoffice/stations/new',label:'Προσθήκη σταθμού',icon:Plus}]:[])]},
     ...(admin?[{section:'ADMIN CONTROL',items:[
       {to:'/backoffice/review',label:'Εγκρίσεις',icon:FileCheck2},
@@ -527,6 +553,7 @@ export default function Backoffice(){
           <Route path="stations/new" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
           <Route path="stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
           <Route path="schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
+          <Route path="insights" element={<BroadcasterInsights data={data}/>}/>
           <Route path="review" element={<Review data={data} reload={reload} notify={notify}/>}/>
           {['analytics','users','ads','banners','slides','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
