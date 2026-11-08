@@ -47,6 +47,8 @@ jobs:
         run: node ops/check-phase31-editorial.cjs
       - name: Validate newsfeed RSS, dates, image and access contracts
         run: node ops/check-newsfeed.cjs
+      - name: Validate rssnews.io selected publishers and article image attribution
+        run: node ops/check-rssnews-selected-publishers.cjs
       - name: Verify 1200x630 catalog slides and scoped promoted station
         run: node ops/check-catalog-promoted-station.cjs
       - name: Validate full-width catalog live information and promoted all-mode cards
