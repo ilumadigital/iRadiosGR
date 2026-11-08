@@ -523,28 +523,61 @@ function Scheduler({data,reload,notify}){
     setActiveDay(day);setCopyTarget(String(activeDay));
     notify('Η ημέρα αντιγράφηκε. Πάτησε Αποθήκευση για να ολοκληρώσεις.');
   };
+  // Explicit, reviewable adjustment: when a later show starts before the previous
+  // one ends, finish the previous show at the next start. Never discard entries,
+  // auto-edit equal starts or silently alter airtime on the server.
+  const alignAdjacent=()=>{
+    const arranged=schedule.map(item=>({...item}));
+    let changes=0;
+    for(let day=1;day<=7;day++){
+      const indices=arranged.map((item,index)=>({item,index}))
+        .filter(({item})=>item.day===day&&Number.isFinite(minutes(item.startTime))&&
+          Number.isFinite(minutes(item.endTime,true))&&
+          minutes(item.endTime,true)>minutes(item.startTime))
+        .sort((a,b)=>minutes(a.item.startTime)-minutes(b.item.startTime));
+      for(let i=1;i<indices.length;i++){
+        const prev=indices[i-1],cur=indices[i];
+        if(minutes(cur.item.startTime)<minutes(prev.item.endTime,true)&&
+          minutes(cur.item.startTime)>minutes(prev.item.startTime)){
+          arranged[prev.index].endTime=cur.item.startTime;
+          changes++;
+        }
+      }
+    }
+    if(changes){
+      updateSchedule(()=>arranged);
+      notify('Τακτοποιήθηκαν '+changes+' όρια εκπομπών. Έλεγξε τις ώρες πριν αποθηκεύσεις.');
+    }else notify('Δεν μπορεί να διορθωθεί αυτόματα αυτή η σύγκρουση. Έλεγξε τις εκπομπές με ίδια ώρα.','error');
+  };
   async function save(){
     if(!station||saving||!dirty)return;
-    if(Object.keys(errors).length){
-      notify('Διόρθωσε τα επισημασμένα πεδία και τις επικαλύψεις πριν αποθηκεύσεις.','error');
+    if(Object.keys(errors).length||validation.message){
+      notify(validation.message||'Συμπλήρωσε τους τίτλους και τις ώρες πριν αποθηκεύσεις.','error');
       return;
     }
     setSaving(true);
     try{
+      // The API does the same normalization again, under JWT + ownership checks.
+      // Keep the user's overnight input intact until the server confirms the save.
       const result=await api('/stations/'+station._id+'/schedule',{
         method:'PUT',body:JSON.stringify({schedule:schedule.map(({day,startTime,endTime,title,host})=>
           ({day,startTime,endTime,title:title.trim(),host:host.trim()}))})
       });
+      setSchedule(toCanonical(result.station.schedule||[],1).map(show=>({
+        day:Number(show.day),startTime:show.startTime,endTime:show.endTime,
+        title:show.title,host:show.host||''
+      })));
+      setSourceBase(1);setAmbiguousBase(false);
       setDirty(false);
       notify(result.message||'Το πρόγραμμα αποθηκεύτηκε.');
       await reload();
     }catch(error){notify(error.message,'error');}finally{setSaving(false);}
   }
   const countDay=day=>schedule.filter(show=>show.day===day).length;
-  const totalErrors=Object.keys(errors).length;
+  const totalErrors=Object.keys(errors).length+Number(Boolean(validation.message));
   return <div>
     <SectionTitle eyebrow="Εύκολο πρόγραμμα" title="Οργάνωσε τις εκπομπές σου."
-      description="Διάλεξε ημέρα, πρόσθεσε εκπομπή και αποθήκευσε. Ισχύει για όλους τους ρόλους με πρόσβαση στο πρόγραμμα."
+      description="Οι ημέρες είναι Δευτέρα–Κυριακή (1–7). Γράψε ώρες κανονικά, ακόμη και αν μια εκπομπή τελειώνει μετά τα μεσάνυχτα. Το πρόγραμμα βάζει τη σωστή σειρά και χωρίζει τις ημέρες μόνο του."
       aside={<div className="flex flex-wrap items-center gap-3">
         {dirty&&<Badge tone="amber">Μη αποθηκευμένες αλλαγές</Badge>}
         <button type="button" onClick={save} disabled={!station||saving||!dirty||totalErrors>0}
@@ -557,10 +590,31 @@ function Scheduler({data,reload,notify}){
           {data.stations.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}
         </select></Field></div>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone="lime">{schedule.length} εκπομπές / εβδομάδα</Badge>
-        <Badge tone={totalErrors?'rose':'neutral'}>{totalErrors?totalErrors+' προβλήματα':'Χωρίς συγκρούσεις'}</Badge>
+        <Badge tone="lime">{schedule.length} εγγραφές / εβδομάδα</Badge>
+        <Badge tone={totalErrors?'rose':'neutral'}>{totalErrors?'Χρειάζεται διόρθωση':'Έτοιμο για αποθήκευση'}</Badge>
       </div>
     </div>
+    {ambiguousBase&&<div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/[.07] p-4">
+      <div className="max-w-2xl"><p className="text-xs font-black text-amber-200">Έλεγχος ημερών παλιού προγράμματος</p>
+        <p className="mt-1 text-xs leading-5 text-zinc-300">
+          Το πρόγραμμα είχε αποθηκευτεί χωρίς ένδειξη αρίθμησης ημερών. Τώρα προβάλλεται ως παλιό πρόγραμμα.
+          Αν βλέπεις τις εκπομπές μία ημέρα μετά ή πριν, επίλεξε την άλλη αντιστοίχιση.
+          Με την αποθήκευση οι ημέρες οριστικοποιούνται σωστά.</p></div>
+      <button type="button" onClick={changeLegacyInterpretation}
+        className={buttonSecondary}>Αλλαγή αντιστοίχισης ημερών</button>
+    </div>}
+    {overnightCount>0&&<div className="mb-5 rounded-2xl border border-[#caff00]/20 bg-[#caff00]/[.055] p-4 text-xs leading-6 text-zinc-200">
+      <span className="font-black text-[#caff00]">Αυτόματος διαχωρισμός μεσονυχτίου:</span>
+      {' '+overnightCount+' εκπομπές περνούν στην επόμενη ημέρα. Μπορείς να γράψεις π.χ. 23:00–02:00.'}
+      {' Με την αποθήκευση θα χωριστούν αυτόματα σε 23:00–24:00 και 00:00–02:00.'}
+    </div>}
+    {validation.message&&<div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-400/25 bg-rose-400/[.055] p-4">
+      <span className="flex items-start gap-2 text-xs leading-6 text-rose-200">
+        <CircleAlert size={17} className="mt-0.5 shrink-0"/>{validation.message}</span>
+      {validation.message.includes('επικαλύπτονται')&&
+        <button type="button" onClick={alignAdjacent} className={buttonSecondary}>
+          <RefreshCw size={15}/> Τακτοποίηση ωρών</button>}
+    </div>}
     {!station?<div className={panel+' p-12 text-center text-zinc-400'}>Δεν έχεις εκχωρημένο σταθμό.
       {data.user.role==='broadcaster'&&<div className="mt-4"><Link className={buttonSecondary}
         to="/backoffice/stations/new">Προσθήκη σταθμού</Link></div>}</div>:
