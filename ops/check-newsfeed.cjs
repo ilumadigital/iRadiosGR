@@ -30,6 +30,37 @@ assert.equal(parsed.articles[1].summary,'Πρώτο & δεύτερο');
 assert.equal(parsed.articles[1].imageUrl,'https://news.example/photo.jpg');
 assert.equal(parsed.articles[1].publishedAt.toISOString(),'2026-11-08T17:00:00.000Z');
 assert.throws(()=>rss.parse('<html>not RSS</html>'));
+const newsbeastSources=require('../backend/utils/newsbeastSources');
+const sectionSlugs=['greece','world','politiki','financial','sports','society',
+  'environment','media','entertainment','travel','lifestyle','technology','car','moto'];
+const sectionNames=['Ελλάδα','Κόσμος','Πολιτική','Οικονομία','Αθλητικά','Κοινωνία',
+  'Περιβάλλον','Media','Διασκέδαση','Ταξίδι','Lifestyle','Τεχνολογία','Auto','Μότο'];
+assert.equal(newsbeastSources.feeds.length,14,'all 14 requested sections are seeded');
+assert.deepEqual(newsbeastSources.feeds.map(f=>f.slug),sectionSlugs);
+assert.deepEqual(newsbeastSources.feeds.map(f=>f.category),sectionNames);
+assert.equal(newsbeastSources.sources().length,14);
+for(let i=0;i<14;i++){
+  const feed=newsbeastSources.feeds[i];
+  assert.equal(feed.url,'https://www.newsbeast.gr/'+sectionSlugs[i]+'/feed');
+  assert.equal(newsbeastSources.categoryOfUrl(feed.url),sectionNames[i]);
+  assert.equal(rss.normalizeSource(feed.url).type,'direct_rss');
+  const sectionXml='<rss><channel><title>Newsbeast</title><item>'+
+    '<title>Αυτόματη αναγνώριση</title><link>https://www.newsbeast.gr/'+sectionSlugs[i]+'/article</link>'+
+    '</item></channel></rss>';
+  assert.equal(rss.parse(sectionXml,{feedUrl:feed.url}).articles[0].category,sectionNames[i],
+    'section category inferred even when RSS article has no category tag');
+}
+assert.equal(newsbeastSources.categoryOfUrl('https://different-publisher.gr/greece/feed'),'');
+assert.ok(read('backend/controllers/newsFeedController.js').includes("process.env.APP_ENV==='staging'&&doc.bootstrapVersion!==newsbeast.VERSION"),
+  'one-time migration is staging-only');
+assert.ok(read('backend/controllers/newsFeedController.js').includes('$inc:{configRevision:1}'),
+  'source bootstrap increments config revision');
+assert.ok(read('backend/controllers/newsFeedController.js').includes('category:s.category||article.category'),
+  'direct section category is always retained on published articles');
+assert.ok(read('backend/controllers/newsFeedController.js').includes("const CACHE_MS=10*60*1000,RETRY_MS=10*60*1000,MAX_SOURCES=32"),
+  'up to 32 feeds can be managed with ten-minute refresh cadence');
+assert.ok(read('frontend/src/pages/AdminNewsFeed.jsx').includes('const MAX_SOURCES=32;'),
+  'admin source limit matches backend');
 const directTransport=require('../backend/utils/publicRssTransport');
 assert.equal(rss.normalizeSource('https://www.newsbeast.gr/feed').type,'direct_rss');
 assert.equal(rss.normalizeSource('https://www.newsbeast.gr/feed').domain,'www.newsbeast.gr');
@@ -263,5 +294,5 @@ console.log('Newsfeed RSS parsing, safety, image, dates, deduplication, placemen
   assert.ok(controller.includes('Promise.all(sources.map'),'sources sync independently');
   assert.ok(controller.includes('configRevision'),'changed source sets cannot be overwritten by old import');
   assert.ok(read('frontend/src/pages/AdminNewsFeed.jsx').includes('Προσθήκη publishers'));
-  console.log('Google News publication URL, fallback, source attribution, image and security regression checks passed.');
+  console.log('Newsbeast fourteen-section bootstrap, direct RSS category mapping, image and security checks passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
