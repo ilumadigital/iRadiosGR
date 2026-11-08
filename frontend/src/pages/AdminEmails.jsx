@@ -197,13 +197,13 @@ export default function AdminEmails({ API_URL }) {
   const displayHistory = getProcessedHistory();
 
   return (
-    <div className="p-6 lg:p-12 max-w-full pb-40 animate-fade-in relative">
+    <div className="admin-legacy-page space-y-6 relative">
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <Mail className="text-[#ccff00]" size={28} />
-            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Mailer Engine</h2>
+            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Emails & επικοινωνία</h2>
           </div>
           <p className="text-zinc-500 text-sm font-medium">Διαχείριση και αποστολή απευθείας emails στους χρήστες.</p>
         </div>
@@ -212,7 +212,7 @@ export default function AdminEmails({ API_URL }) {
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 bg-[#ccff00] hover:bg-white text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_20px_rgba(204,255,0,0.3)] active:scale-95 whitespace-nowrap"
         >
-          <Plus size={18} /> Νεα Αποστολη
+          <Plus size={18} /> Νέα αποστολή
         </button>
       </div>
 
@@ -231,7 +231,7 @@ export default function AdminEmails({ API_URL }) {
           <div className="flex items-center gap-2 bg-zinc-950 border border-white/10 rounded-xl px-3 py-2">
             <Filter size={14} className="text-zinc-500" />
             <select value={searchBy} onChange={(e) => setSearchBy(e.target.value)} className="bg-transparent text-xs font-bold text-zinc-300 outline-none cursor-pointer uppercase tracking-widest">
-              <option value="all">Ολα τα πεδια</option>
+              <option value="all">Όλα τα πεδία</option>
               <option value="email">Ομαδα/Email</option>
               <option value="name">Μονο Ονομα</option>
               <option value="company">Μονο Επωνυμια</option>
@@ -241,8 +241,8 @@ export default function AdminEmails({ API_URL }) {
           <div className="flex items-center gap-2 bg-zinc-950 border border-white/10 rounded-xl px-3 py-2">
             <CalendarDays size={14} className="text-zinc-500" />
             <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className="bg-transparent text-xs font-bold text-zinc-300 outline-none cursor-pointer uppercase tracking-widest">
-              <option value="newest">Πιο προσφατα</option>
-              <option value="oldest">Παλαιοτερα</option>
+              <option value="newest">Πιο πρόσφατα</option>
+              <option value="oldest">Παλαιότερα</option>
             </select>
           </div>
         </div>
@@ -252,7 +252,7 @@ export default function AdminEmails({ API_URL }) {
         <div className="p-6 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock size={18} className="text-zinc-400" />
-            <h3 className="text-white font-bold uppercase tracking-widest text-sm">Ιστορικο Αποστολων</h3>
+            <h3 className="text-white font-bold uppercase tracking-widest text-sm">Ιστορικό αποστολών</h3>
           </div>
           <span className="text-xs font-mono text-zinc-500">{displayHistory.length} Αποτελέσματα</span>
         </div>

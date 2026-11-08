@@ -224,13 +224,13 @@ export default function AdminUsers({ API_URL, currentUser }) {
   });
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl mx-auto text-white">
+    <div className="admin-legacy-page space-y-6 text-white">
       
       {/* HEADER & SEARCH */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-[#ccff00]/10 rounded-xl"><UserIcon className="text-[#ccff00]" size={28} /></div>
-          <h1 className="text-3xl font-black italic uppercase tracking-wider">User Management</h1>
+          <h1 className="text-3xl font-black italic uppercase tracking-wider">Όλοι οι χρήστες</h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative w-full md:w-64">
@@ -244,14 +244,14 @@ export default function AdminUsers({ API_URL, currentUser }) {
             />
           </div>
           <div className="flex bg-zinc-900/50 border border-white/10 rounded-xl p-1">
-            <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[#ccff00] text-black' : 'text-zinc-500 hover:text-white'}`}><List size={18} /></button>
-            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[#ccff00] text-black' : 'text-zinc-500 hover:text-white'}`}><Grid size={18} /></button>
+            <button aria-label="Προβολή λίστας" title="Προβολή λίστας" onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[#ccff00] text-black' : 'text-zinc-500 hover:text-white'}`}><List size={18} /></button>
+            <button aria-label="Προβολή καρτών" title="Προβολή καρτών" onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[#ccff00] text-black' : 'text-zinc-500 hover:text-white'}`}><Grid size={18} /></button>
           </div>
         </div>
       </div>
 
       {/* 🟢 ROLE FILTERS (Προστέθηκε το premium) */}
-      <div className="flex flex-wrap items-center gap-2 mb-10 bg-zinc-900/30 p-2 rounded-2xl border border-white/5 w-fit">
+      <div className="flex flex-wrap items-center gap-2 mb-5 bg-zinc-900/30 p-2 rounded-2xl border border-white/5">
         {['all', 'admin', 'broadcaster', 'producer', 'agency', 'user', 'premium'].map(role => (
           <button
             key={role}
@@ -268,16 +268,30 @@ export default function AdminUsers({ API_URL, currentUser }) {
         ))}
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-semibold text-zinc-300" role="status">
+          {filteredUsers.length} από {users.length} λογαριασμούς
+        </p>
+        {(searchQuery||roleFilter!=='all')&&<button type="button"
+          className="rounded-xl border border-[#caff00]/25 px-3 py-2 text-xs font-bold text-[#caff00]"
+          onClick={()=>{setSearchQuery('');setRoleFilter('all');}}>
+          Καθαρισμός φίλτρων
+        </button>}
+      </div>
+      {!filteredUsers.length&&<div className="mb-4 rounded-2xl border border-dashed border-white/10 bg-white/[.025] p-10 text-center text-sm text-zinc-400">
+        Δεν βρέθηκαν χρήστες. Δοκίμασε άλλη αναζήτηση ή καθάρισε τα φίλτρα.
+      </div>}
+
       {/* VIEW RENDER (LIST) */}
       {viewMode === 'list' ? (
-        <div className="bg-zinc-900/30 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
+        <div className="bo-legacy-scroll bg-zinc-900/30 border border-white/5 rounded-2xl backdrop-blur-sm">
           <table className="w-full text-left text-sm">
             <thead className="text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-white/5 bg-zinc-900/50">
               <tr>
-                <th className="px-6 py-4">User Details</th>
-                <th className="px-6 py-4">Role & Assigned</th>
-                <th className="px-6 py-4">Pro Modules</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4">Στοιχεία χρήστη</th>
+                <th className="px-6 py-4">Ρόλος & σταθμός</th>
+                <th className="px-6 py-4">Πρόσβαση Premium</th>
+                <th className="px-6 py-4 text-right">Ενέργειες</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -319,9 +333,9 @@ export default function AdminUsers({ API_URL, currentUser }) {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg"><Settings size={16} /></button>
-                      <button onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] hover:bg-[#ccff00]/10 rounded-lg"><Edit size={16} /></button>
-                      <button onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                      <button type="button" aria-label={'Στοιχεία λογαριασμού '+user.email} title="Στοιχεία λογαριασμού" onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg"><Settings size={16} /></button>
+                      <button type="button" aria-label={'Δικαιώματα '+user.email} title="Δικαιώματα" onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] hover:bg-[#ccff00]/10 rounded-lg"><Edit size={16} /></button>
+                      <button type="button" aria-label={'Διαγραφή '+user.email} title="Διαγραφή χρήστη" onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -347,9 +361,9 @@ export default function AdminUsers({ API_URL, currentUser }) {
                    <UserIcon className="text-zinc-600 shrink-0" size={18} />}
                </div>
                <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
-                  <button onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg transition-colors"><Settings size={16} /></button>
-                  <button onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] bg-[#ccff00]/10 rounded-lg transition-colors"><Edit size={16} /></button>
-                  <button onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors ml-auto"><Trash2 size={16} /></button>
+                  <button type="button" aria-label={'Στοιχεία λογαριασμού '+user.email} title="Στοιχεία λογαριασμού" onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg transition-colors"><Settings size={16} /></button>
+                  <button type="button" aria-label={'Δικαιώματα '+user.email} title="Δικαιώματα" onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] bg-[#ccff00]/10 rounded-lg transition-colors"><Edit size={16} /></button>
+                  <button type="button" aria-label={'Διαγραφή '+user.email} title="Διαγραφή χρήστη" onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors ml-auto"><Trash2 size={16} /></button>
                </div>
             </div>
           ))}

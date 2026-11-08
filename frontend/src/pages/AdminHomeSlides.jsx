@@ -103,17 +103,17 @@ export default function AdminHomeSlides() {
   const genres=[...new Set(stations.map(s=>s.genre).filter(Boolean))].sort();
   const regions=[...new Set(stations.flatMap(s=>[s.region,s.city]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'el-GR'));
   return (
-    <div className="mx-auto max-w-7xl space-y-8 p-4 pb-36 sm:p-8">
+    <div className="admin-legacy-page space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div><p className="text-xs font-black uppercase tracking-widest text-[#ccff00]">iRadiosGR CMS</p>
-          <h1 className="mt-2 text-3xl font-black text-white">Editorial Slides</h1>
+          <h1 className="mt-2 text-3xl font-black text-white">Slides και προτάσεις</h1>
           <p className="mt-2 text-sm text-zinc-400">Προτάσεις για Αρχική, μουσικά είδη και περιοχές, ανεξάρτητα από τις διαφημίσεις.</p>
         </div>
-        <button type="button" onClick={reset} className="ir-action-primary px-5"><Plus size={17}/> Νέο slide</button>
+        <button type="button" onClick={reset} className="ir-action-primary px-5"><Plus size={17}/> Δημιουργία slide</button>
       </header>
       {error&&<p role="alert" className="rounded-xl border border-red-400/40 bg-red-950/40 p-4 text-sm text-red-200">{error}</p>}
       {notice&&<p role="status" className="rounded-xl border border-[#ccff00]/30 bg-[#ccff00]/10 p-4 text-sm text-[#ccff00]">{notice}</p>}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         <form onSubmit={save} className="ir-glass space-y-5 p-5 sm:p-7">
           <h2 className="text-xl font-bold">{editingId?'Επεξεργασία slide':'Δημιουργία slide'}</h2>
           <div className="grid gap-4 sm:grid-cols-2">

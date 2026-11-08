@@ -1,6 +1,6 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect, useRef } from 'react';
-import { Rocket, Search, GripVertical, Save, Info, Filter, Zap, Clock, ZapOff } from 'lucide-react';
+import { Rocket, Search, GripVertical, Save, Info, Filter, Zap, Clock, ZapOff, ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function Boost({ API_URL, stations, refreshStations }) {
   const [localStations, setLocalStations] = useState([]);
@@ -112,6 +112,19 @@ export default function Boost({ API_URL, stations, refreshStations }) {
     dragOverItemIndex.current = null;
   };
 
+  // Accessible alternative to drag-and-drop; never reorder a filtered subset.
+  const moveStation=(id,direction)=>{
+    if(isSearchActive)return;
+    setLocalStations(prev=>{
+      const current=prev.findIndex(item=>item._id===id);
+      const destination=current+direction;
+      if(current<0||destination<0||destination>=prev.length)return prev;
+      const updated=[...prev];
+      [updated[current],updated[destination]]=[updated[destination],updated[current]];
+      return updated;
+    });
+  };
+
   // --- SAVE LOGIC ---
   const handleSaveOrder = async () => {
     setSaving(true);
@@ -148,17 +161,17 @@ export default function Boost({ API_URL, stations, refreshStations }) {
   };
 
   return (
-    <div className="p-6 lg:p-12 w-full mx-auto animate-fade-in pb-40">
+    <div className="admin-legacy-page space-y-6 w-full">
       
       {/* HEADER SECTION */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 mb-8 border-b border-white/5 pb-6">
         <div className="flex flex-col shrink-0">
           <div className="flex items-center gap-3">
             <Rocket className="text-[#ccff00]" size={36} />
-            <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">Premium Placements</h1>
+            <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">Προβολή & Boost σταθμών</h1>
           </div>
           <span className="text-zinc-500 font-bold text-sm tracking-widest uppercase mt-2">
-            Επίβλεψη & Χειροκίνητη Διαχείριση Boosts
+            Επίλεξε διάρκεια, άλλαξε σειρά και αποθήκευσε με ασφάλεια
           </span>
         </div>
 
@@ -200,9 +213,10 @@ export default function Boost({ API_URL, stations, refreshStations }) {
         </div>
       )}
 
+      <p className="mb-3 text-xs leading-5 text-zinc-400">Άλλαξε θέση με τα βέλη πάνω/κάτω ή σύρε έναν σταθμό. Για να αποθηκεύσεις τη σειρά, αφαίρεσε πρώτα τα φίλτρα.</p>
       {/* DRAG & DROP LIST */}
       <div className="bg-[#0f0f0f] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-        <div className="grid grid-cols-12 gap-4 p-4 border-b border-white/5 bg-black/50 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
+        <div className="grid grid-cols-12 gap-3 p-4 border-b border-white/5 bg-black/50 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
           <div className="col-span-1 text-center">Θεση</div>
           <div className="col-span-4 md:col-span-3">Σταθμος</div>
           <div className="col-span-2 hidden md:block">Ειδος</div>
@@ -251,17 +265,20 @@ export default function Boost({ API_URL, stations, refreshStations }) {
                 {/* Boost Controls */}
                 <div className="col-span-6 md:col-span-5 flex items-center justify-center gap-2 md:gap-4 bg-zinc-900/50 p-2 rounded-xl border border-white/5">
                   {/* Toggle */}
-                  <button type="button" onClick={() => handleBoostToggle(station._id)} className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none ${isBoosted ? 'bg-[#ccff00]' : 'bg-zinc-700'}`}>
+                  <button type="button" role="switch" aria-checked={Boolean(isBoosted)}
+                    aria-label={'Boost '+station.name} onClick={() => handleBoostToggle(station._id)} className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none ${isBoosted ? 'bg-[#ccff00]' : 'bg-zinc-700'}`}>
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-black transition duration-300 ${isBoosted ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
 
                   {/* Select Duration */}
-                  <select 
+                  <select
+                    aria-label={'Διάρκεια boost '+station.name}
                     disabled={!isBoosted}
+                    defaultValue=""
                     onChange={(e) => handleBoostDurationChange(station._id, e.target.value)}
                     className="bg-black border border-white/10 h-8 rounded-lg px-2 text-[11px] font-bold text-white outline-none disabled:opacity-30 cursor-pointer"
                   >
-                    <option value="" disabled selected>Επιλογή...</option>
+                    <option value="" disabled>Διάρκεια…</option>
                     <option value="1">1 Ημέρα</option>
                     <option value="3">3 Ημέρες</option>
                     <option value="7">7 Ημέρες</option>
@@ -285,8 +302,18 @@ export default function Boost({ API_URL, stations, refreshStations }) {
                   </div>
                 </div>
 
-                <div className="col-span-1 flex justify-end pr-4 text-zinc-600 group-hover:text-white transition-colors">
-                  <GripVertical size={20} className={isSearchActive ? 'opacity-20' : ''} />
+                <div className="col-span-1 flex flex-col items-end gap-1 text-zinc-400">
+                  <button type="button" disabled={isSearchActive||realIndex===0}
+                    aria-label={'Μετακίνηση '+station.name+' μία θέση πάνω'}
+                    title="Μία θέση πάνω" onClick={()=>moveStation(station._id,-1)}
+                    className="rounded-lg border border-white/10 p-1.5 hover:border-[#caff00]/40 hover:text-[#caff00]">
+                    <ArrowUp size={15}/></button>
+                  <button type="button" disabled={isSearchActive||realIndex===localStations.length-1}
+                    aria-label={'Μετακίνηση '+station.name+' μία θέση κάτω'}
+                    title="Μία θέση κάτω" onClick={()=>moveStation(station._id,1)}
+                    className="rounded-lg border border-white/10 p-1.5 hover:border-[#caff00]/40 hover:text-[#caff00]">
+                    <ArrowDown size={15}/></button>
+                  <GripVertical size={16} aria-hidden="true" className="hidden lg:block opacity-50" />
                 </div>
               </div>
             );

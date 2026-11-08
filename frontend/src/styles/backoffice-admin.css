@@ -1,0 +1,147 @@
+/* iRadiosGR Backoffice v6.2 — scoped operational design layer.
+   Does not affect the listener app, external embeds, or permission logic. */
+.ir-admin-workspace{
+  --bo-lime:#caff00;
+  --bo-panel:#15191b;
+  --bo-panel-raised:#1b2022;
+  --bo-stroke:rgba(255,255,255,.095);
+  --bo-muted:#a6afb8;
+  color-scheme:dark;
+  min-width:0;
+}
+.ir-admin-workspace .admin-legacy-page{
+  max-width:none!important;
+  width:100%;
+  margin:0!important;
+  padding:0 0 3rem!important;
+  min-height:0!important;
+  background:transparent!important;
+  color:#f4f6f6;
+  font-size:14px;
+  animation:none;
+  overflow-wrap:anywhere;
+}
+.ir-admin-workspace .admin-legacy-page h1,
+.ir-admin-workspace .admin-legacy-page h2{
+  font-style:normal!important;
+  letter-spacing:-.035em!important;
+  text-transform:none!important;
+  line-height:1.2!important;
+  overflow-wrap:break-word;
+}
+.ir-admin-workspace .admin-legacy-page h1{font-size:clamp(1.25rem,2vw,1.75rem)!important;}
+.ir-admin-workspace .admin-legacy-page h2{font-size:clamp(1.15rem,1.7vw,1.45rem)!important;}
+.ir-admin-workspace .admin-legacy-page h3{line-height:1.3;letter-spacing:-.02em;}
+.ir-admin-workspace .admin-legacy-page [class*="bg-zinc-900"],
+.ir-admin-workspace .admin-legacy-page [class*="bg-[#0f0f0f]"]{
+  background-color:var(--bo-panel);
+}
+.ir-admin-workspace .admin-legacy-page [class*="border-white/5"]{
+  border-color:var(--bo-stroke);
+}
+.ir-admin-workspace .admin-legacy-page :is(input,select,textarea){
+  color:#f5f6f7;
+  background-color:#0c0f11;
+  border-color:rgba(255,255,255,.17);
+  border-radius:12px;
+  min-height:42px;
+  max-width:100%;
+  accent-color:var(--bo-lime);
+  transition:border-color .15s,box-shadow .15s;
+}
+.ir-admin-workspace .admin-legacy-page :is(input,select,textarea):focus-visible{
+  outline:2px solid var(--bo-lime);
+  outline-offset:1px;
+  border-color:var(--bo-lime);
+}
+.ir-admin-workspace .admin-legacy-page :is(input,textarea)::placeholder{color:#888e96;}
+.ir-admin-workspace .admin-legacy-page :is(button,a,[role="button"]):focus-visible{
+  outline:2px solid var(--bo-lime);
+  outline-offset:3px;
+}
+.ir-admin-workspace .admin-legacy-page button{
+  cursor:pointer;
+  border-radius:12px;
+  transition:background-color .15s,border-color .15s,opacity .15s;
+}
+.ir-admin-workspace .admin-legacy-page button:disabled{opacity:.52;cursor:not-allowed;}
+.ir-admin-workspace .admin-legacy-page button:active:not(:disabled){transform:scale(.99);}
+.ir-admin-workspace .admin-legacy-page button[class*="uppercase"]{
+  letter-spacing:.025em!important;
+  text-transform:none!important;
+}
+.ir-admin-workspace .admin-legacy-page [class*="animate-pulse"]:is(button,span){
+  animation:none;
+}
+.ir-admin-workspace .admin-legacy-page [class*="shadow-2xl"]{
+  box-shadow:0 15px 40px rgba(0,0,0,.14);
+}
+.ir-admin-workspace .admin-legacy-page table{
+  min-width:680px;
+  border-collapse:separate;
+  border-spacing:0;
+}
+.ir-admin-workspace .admin-legacy-page thead{
+  color:#c8d0d7;
+}
+.ir-admin-workspace .admin-legacy-page tbody tr:hover{
+  background:rgba(255,255,255,.025);
+}
+.ir-admin-workspace .admin-legacy-page :is(td,th){vertical-align:middle;}
+.ir-admin-workspace .admin-legacy-page label{
+  color:#ced4db;
+}
+.ir-admin-workspace .admin-legacy-page :is(select,option){color-scheme:dark;}
+.ir-admin-workspace .admin-legacy-page :is(input[type="checkbox"],input[type="radio"]){
+  min-height:initial;
+  accent-color:var(--bo-lime);
+}
+.ir-admin-workspace .admin-legacy-page :is(button,a)[title]{
+  touch-action:manipulation;
+}
+.ir-admin-workspace .admin-legacy-page :is([role="dialog"],[class*="fixed inset-0"]){
+  z-index:80;
+}
+.ir-admin-workspace .bo-legacy-scroll{
+  max-width:100%;
+  overflow-x:auto;
+  scrollbar-color:#404a47 transparent;
+}
+.ir-admin-workspace .bo-operation-note{
+  border:1px solid rgba(202,255,0,.14);
+  background:linear-gradient(110deg,rgba(202,255,0,.055),rgba(255,255,255,.017));
+  border-radius:20px;
+}
+.ir-admin-workspace .bo-tab{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.7rem .95rem;border-radius:12px;
+  border:1px solid var(--bo-stroke);background:#15191b;
+  font-size:12px;font-weight:700;color:#d1d8d8;
+  transition:background-color .15s,border-color .15s;
+}
+.ir-admin-workspace .bo-tab:hover{border-color:rgba(202,255,0,.48);color:#fff;}
+.ir-admin-workspace .bo-tab[aria-current="page"]{
+  border-color:#caff00;background:#caff00;color:#131805;
+}
+.ir-admin-workspace .bo-step{display:flex;align-items:center;gap:.75rem;min-width:0;}
+.ir-admin-workspace .bo-step-count{
+  display:grid;place-items:center;flex-shrink:0;width:26px;height:26px;
+  border-radius:9px;background:rgba(202,255,0,.1);
+  color:#caff00;font-size:11px;font-weight:900;
+}
+@media(max-width:768px){
+  .ir-admin-workspace .admin-legacy-page{padding-bottom:3rem!important;}
+  .ir-admin-workspace .admin-legacy-page [class*="pb-40"]{padding-bottom:2rem;}
+  .ir-admin-workspace .admin-legacy-page :is(input,select,textarea){font-size:16px;}
+  .ir-admin-workspace .admin-legacy-page table{
+    width:100%;min-width:700px;
+  }
+  .ir-admin-workspace .admin-legacy-page [class*="fixed inset-0"] > div{
+    max-height:calc(100dvh - 2rem);
+    overflow-y:auto;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+ .ir-admin-workspace .admin-legacy-page *,
+ .ir-admin-workspace .bo-tab{animation:none!important;transition:none!important;}
+}

@@ -93,6 +93,7 @@ const INITIAL_AD_STATE = {
 export default function AdminAds({ API_URL, refreshGlobalAds }) {
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadError,setLoadError]=useState('');
   const [searchTerm, setSearchTerm] = useState('');
   
   const [showAddModal, setShowAddModal] = useState(false);
@@ -113,15 +114,16 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
   };
 
   const loadAds = async () => {
+    setLoading(true);setLoadError('');
     try {
-      const res = await fetch(`${API_URL}/admin/ads?t=${Date.now()}`, {
-        headers: getAuthHeaders()
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) setAds(data);
-      }
-    } catch (err) { console.error("Σφάλμα φόρτωσης διαφημίσεων:", err); }
+      const res = await fetch(API_URL+'/admin/ads?t='+Date.now(),{headers:getAuthHeaders()});
+      if(!res.ok)throw new Error(res.status===403?'Δεν υπάρχει πρόσβαση στις διαφημίσεις.':'Αποτυχία φόρτωσης διαφημίσεων.');
+      const data=await res.json();
+      if(!Array.isArray(data))throw new Error('Μη αναμενόμενη απάντηση από τον server.');
+      setAds(data);
+    }catch(err){
+      setLoadError(err.message||'Αποτυχία φόρτωσης διαφημίσεων.');
+    }finally{setLoading(false);}
   };
 
   useEffect(() => { loadAds(); }, []);
@@ -470,40 +472,54 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
   );
 
   return (
-    <div className="p-6 lg:p-12 max-w-full pb-40 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+    <div className="admin-legacy-page space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <Megaphone className="text-[#ccff00]" size={28} />
-            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Ads Management</h2>
+            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Ηχητικές διαφημίσεις</h2>
           </div>
           <p className="text-zinc-500 text-sm font-medium">Διαχειριστείτε τις Audio Pre-Roll & Mid-Roll καμπάνιες του δικτύου.</p>
         </div>
         <button onClick={() => setShowAddModal(true)} className="bg-[#ccff00] text-black px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-all shadow-[0_10px_30px_rgba(204,255,0,0.2)]">
-          Προσθηκη Νεου Σποτ
+          Νέο ηχητικό σποτ
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
         <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px]">
-          <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-2">Συνολο Σποτ</div>
+          <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-2">Σύνολο σποτ</div>
           <div className="text-4xl font-black text-white">{ads.length}</div>
         </div>
         <div className="bg-[#ccff00]/5 border border-[#ccff00]/10 p-8 rounded-[32px]">
-          <div className="text-[#ccff00] text-[10px] font-black uppercase tracking-widest mb-2">Pre-Rolls (Entry)</div>
+          <div className="text-[#ccff00] text-[10px] font-black uppercase tracking-widest mb-2">Pre-roll · στην είσοδο</div>
           <div className="text-4xl font-black text-[#ccff00]">{ads.filter(a => a.frequency === 'first_station').length}</div>
         </div>
         <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px]">
-          <div className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-2">Mid-Rolls (Time/Zapping)</div>
+          <div className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-2">Mid-roll · κατά την ακρόαση</div>
           <div className="text-4xl font-black text-white">{ads.filter(a => a.frequency !== 'first_station').length}</div>
         </div>
       </div>
 
-      <div className="relative w-full max-w-md mb-8">
+      <div className="relative w-full max-w-lg mb-6">
         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
         <input type="text" placeholder="Αναζήτηση..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-zinc-900/50 border border-white/10 h-12 rounded-2xl pl-12 pr-10 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-all placeholder:text-zinc-600" />
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-xs font-semibold text-zinc-400">{filteredAds.length} από {ads.length} σποτ</span>
+        <div className="flex items-center gap-2">
+          {searchTerm&&<button type="button" onClick={()=>setSearchTerm('')}
+            className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300">
+            Καθαρισμός</button>}
+          <button type="button" onClick={loadAds} disabled={loading} className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-[#caff00]">
+            Ανανέωση</button>
+        </div>
+      </div>
+      {loadError&&<p role="alert" className="mb-5 rounded-2xl border border-rose-400/25 bg-rose-400/[.06] p-4 text-xs text-rose-200">{loadError}</p>}
+      {loading&&<p role="status" className="mb-5 text-sm text-[#caff00]">Φόρτωση διαφημίσεων…</p>}
+      {!loading&&!filteredAds.length&&<div className="mb-5 rounded-2xl border border-dashed border-white/10 p-10 text-center text-sm text-zinc-400">
+        Δεν βρέθηκαν σποτ. Μπορείς να δημιουργήσεις νέο ή να καθαρίσεις την αναζήτηση.</div>}
       <div className="space-y-4">
         {filteredAds.map(ad => (
           <div key={ad._id} className={`border p-4 sm:p-5 rounded-[24px] flex flex-col sm:flex-row sm:items-center justify-between gap-4 group transition-all ${ad.status === 'pending' ? 'bg-zinc-900 border-orange-500/30' : 'bg-zinc-900/30 border-white/5 hover:bg-zinc-900/60'}`}>

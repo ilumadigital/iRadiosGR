@@ -81,7 +81,7 @@ export default function AdminRadioSet({ API_URL }) {
   );
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl mx-auto text-white animate-fade-in">
+    <div className="admin-legacy-page space-y-6 text-white">
       
       {/* HEADER & SEARCH */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -90,8 +90,8 @@ export default function AdminRadioSet({ API_URL }) {
             <Radio className="text-[#ccff00]" size={32} />
           </div>
           <div>
-            <h1 className="text-3xl font-black italic uppercase tracking-wider">Radio Set</h1>
-            <p className="text-zinc-500 text-sm font-medium mt-1">Ανάθεση σταθμών του δικτύου σε Broadcasters.</p>
+            <h1 className="text-3xl font-black italic uppercase tracking-wider">Αναθέσεις σταθμών</h1>
+            <p className="text-zinc-500 text-sm font-medium mt-1">Επίλεξε σταθμό, διάλεξε τον υπεύθυνο Broadcaster και αποθήκευσε την ανάθεση.</p>
           </div>
         </div>
         
@@ -107,12 +107,15 @@ export default function AdminRadioSet({ API_URL }) {
         </div>
       </div>
 
+      <p role="status" className="mb-4 text-xs font-semibold text-zinc-400">
+        {filteredStations.length} από {stations.length} σταθμούς
+      </p>
       {loading ? (
         <div className="flex justify-center items-center py-20">
           <Loader2 className="animate-spin text-[#ccff00]" size={40} />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredStations.map(station => {
             
             // 🟢 ΛΟΓΙΚΗ ΓΙΑ TO STATUS ΤΟΥ ΣΤΑΘΜΟΥ
@@ -200,7 +203,7 @@ export default function AdminRadioSet({ API_URL }) {
               <Radio size={32} />
             </div>
             
-            <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-1">Station Assignment</h3>
+            <h3 className="text-2xl font-black text-white italic tracking-tighter uppercase mb-1">Ανάθεση σταθμού</h3>
             <p className="text-zinc-400 text-sm mb-8">
               Επιλέξτε Broadcaster για τον σταθμό: <span className="text-white font-bold">{selectedStation.name}</span>
             </p>
