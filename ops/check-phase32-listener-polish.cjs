@@ -38,7 +38,7 @@ for(const x of ['<StationCatalogCard','type="search"','setView','aria-pressed={v
 assert.ok(favorites.includes('favoriteIds.has(String(station._id))'),'favorites follow saved user station IDs');
 assert.ok(favorites.includes('!currentUser?('),'guests receive a clear sign-in invitation');
 const search=read('frontend/src/components/TopBar.jsx');
-for(const x of ['aria-autocomplete="list"','ArrowDown','ArrowUp','Escape','Enter','role="listbox"','role="option"','pointerdown','Δεν βρήκαμε σταθμό']){
+for(const x of ['aria-autocomplete="list"','ArrowDown','ArrowUp','Escape','Enter','role="listbox"','role="option"','pointerdown','Δεν βρέθηκε αντιστοιχία']){
   assert.ok(search.includes(x),'search needs '+x);
 }
 const sidebar=read('frontend/src/components/Sidebar.jsx');
