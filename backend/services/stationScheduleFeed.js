@@ -207,7 +207,14 @@ function rowsFromJson(raw){
       if(!obj(day)||!Array.isArray(day.shows))throw invalid('Το JSON περιέχει ημέρα χωρίς λίστα εκπομπών.');
       return day.shows.map(show=>{
         if(!obj(show))throw invalid('Το JSON περιέχει μη έγκυρη εκπομπή.');
-        return {...show,day_of_week:day.day_of_week??day.day};
+        // Deseo publishes end_time=23:59 for a slot whose end_at is
+        // 00:00 on the next day. Preserve the real midnight boundary.
+        const midnight=show.end_time==='23:59'&&
+          typeof show.start_at==='string'&&typeof show.end_at==='string'&&
+          /^\d{4}-\d{2}-\d{2}T00:00:00/.test(show.end_at)&&
+          show.start_at.slice(0,10)!==show.end_at.slice(0,10);
+        return {...show,day_of_week:day.day_of_week??day.day,
+          ...(midnight?{end_time:'24:00'}:{})};
       });
     });
     if(data.days.every(day=>Number.isInteger(Number(day.day_of_week))&&
