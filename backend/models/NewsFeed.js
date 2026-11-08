@@ -7,7 +7,7 @@ const article=new mongoose.Schema({
 },{_id:false});
 const source=new mongoose.Schema({
   id:{type:String,required:true},url:{type:String,required:true},
-  type:{type:String,enum:['rss_app','google_publisher','google_rss','rssnews_preset'],required:true},
+  type:{type:String,enum:['rss_app','google_publisher','google_rss','rssnews_preset','direct_rss'],required:true},
   domain:{type:String,default:''},enabled:{type:Boolean,default:true},
   label:{type:String,default:''},feedTitle:{type:String,default:''},
   lastSyncedAt:{type:Date,default:null},lastAttemptAt:{type:Date,default:null},

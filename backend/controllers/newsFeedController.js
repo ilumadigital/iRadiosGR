@@ -47,6 +47,7 @@ async function sync(doc,force=false){
     if(!current||(current.configRevision||0)!==revision)return current||doc;
     const matched=new Map(results.map(r=>[r.id,r]));
     const fresh=[],failed=[],successful=new Set();
+    const previousArticle=new Map((current.articles||[]).map(a=>[a.sourceId+'|'+a.url,a]));
     for(const s of current.sources){
       const r=matched.get(s.id);if(!r)continue;
       s.lastAttemptAt=started;
@@ -56,7 +57,12 @@ async function sync(doc,force=false){
         s.lastSyncedAt=started;s.lastError=(r.data.warnings||[]).join(' | ').slice(0,220);
         s.fetchedCount=r.data.articles.length;
         s.retrievalMode=r.data.retrievalMode;successful.add(s.id);
-        fresh.push(...r.data.articles.map(article=>({...article,sourceId:s.id})));
+        fresh.push(...r.data.articles.map(article=>{
+          const old=previousArticle.get(s.id+'|'+article.url);
+          return {...article,sourceId:s.id,
+            imageUrl:article.imageUrl||old?.imageUrl||'',
+            category:article.category||old?.category||''};
+        }));
       }
     }
     const retained=(current.articles||[]).filter(a=>current.sources.some(s=>s.enabled&&s.id===a.sourceId)&&!successful.has(a.sourceId));

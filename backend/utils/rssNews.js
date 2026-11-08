@@ -2,6 +2,7 @@
 // RSS.app and Google News URL-based sources. No arbitrary network hosts, redirects or HTML scraping.
 const DEFAULT_FEED_URL='https://rss.app/feeds/k4AEhunSwl50WyaC.xml';
 const rssNewsPreset=require('./rssNewsPreset');
+const publicRss=require('./publicRssTransport');
 const invalid=message=>{throw Object.assign(new Error(message),{status:400});};
 const hostPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i;
 function checkDomain(value){
@@ -35,8 +36,10 @@ function normalizeSource(value){
   if(input.protocol!=='https:'||input.username||input.password||input.port||input.hash)
     invalid('Επιτρέπονται μόνο ασφαλείς HTTPS διευθύνσεις.');
   if(input.hostname==='rssnews.io')return rssNewsPreset.normalizePreset(raw.trim());
-  if(!['rss.app','news.google.com'].includes(input.hostname))
-    invalid('Υποστηρίζονται μόνο Google News, RSS.app και rssnews.io κατηγορίες.');
+  if(!['rss.app','news.google.com'].includes(input.hostname)){
+    const url=publicRss.validatePublicUrl(raw.trim(),{feed:true});
+    return {type:'direct_rss',url,domain:new URL(url).hostname};
+  }
   if(input.hostname==='rss.app'){
     if(!/^\/feeds\/[A-Za-z0-9_-]+\.xml$/.test(input.pathname)||input.search)
       invalid('Το RSS.app link πρέπει να τελειώνει σε /feeds/…xml.');
@@ -82,7 +85,7 @@ function attr(xml,name){
   return found?decode(found[2]).trim():'';
 }
 function picture(item,description){
-  for(const tag of item.match(/<(?:media:content|media:thumbnail|enclosure|image)\b[^>]*>/gi)||[]){
+  for(const tag of item.match(/<(?:media:content|media:thumbnail|enclosure|image|itunes:image)\b[^>]*>/gi)||[]){
     const image=safeHttp(attr(tag,'url')||attr(tag,'href'));
     const type=attr(tag,'type').toLowerCase(),medium=attr(tag,'medium').toLowerCase();
     if(image&&(!type||type.startsWith('image/')||medium==='image'))return image;
@@ -90,9 +93,62 @@ function picture(item,description){
   const embedded=field(item,'media:thumbnail')||field(item,'image')||field(item,'thumbnail');
   if(safeHttp(embedded))return safeHttp(embedded);
   const inline=(description||'').match(/<img\b[^>]*>/i);
-  return inline?safeHttp(attr(inline[0],'src')):'';
+  if(inline){
+    for(const name of ['src','data-src','data-original','data-lazy-src']){
+      const url=safeHttp(attr(inline[0],name));
+      if(url)return url;
+    }
+    const srcset=attr(inline[0],'srcset')||attr(inline[0],'data-srcset');
+    if(srcset){
+      const url=safeHttp(srcset.split(',')[0]?.trim().split(/\s+/)[0]);
+      if(url)return url;
+    }
+  }
+  return '';
 }
-function parse(xml,{google=false,publisherDomain:domain=''}={}){
+const categoryAliases=new Map(Object.entries({
+  'ελλαδα':'Ελλάδα','greece':'Ελλάδα','greek news':'Ελλάδα',
+  'κοσμος':'Κόσμος','world':'Κόσμος','international':'Κόσμος',
+  'πολιτικη':'Πολιτική','politics':'Πολιτική',
+  'οικονομια':'Business','οικονομικα':'Business','business':'Business','finance':'Business','financial':'Business',
+  'εκπαιδευση':'Education','παιδεια':'Education','education':'Education',
+  'αθλητικα':'Αθλητικά','αθλητισμος':'Αθλητικά','sports':'Αθλητικά','sport':'Αθλητικά',
+  'τεχνολογια':'Τεχνολογία','technology':'Τεχνολογία','tech':'Τεχνολογία',
+  'lifestyle':'Lifestyle','life style':'Lifestyle',
+  'κοινωνια':'Κοινωνία','society':'Κοινωνία',
+  'υγεια':'Υγεία','health':'Υγεία',
+  'media':'Media','ψυχαγωγια':'Διασκέδαση','διασκεδαση':'Διασκέδαση','entertainment':'Διασκέδαση',
+  'ταξιδι':'Ταξίδι','travel':'Ταξίδι','περιβαλλον':'Περιβάλλον','environment':'Περιβάλλον',
+  'αυτοκινητο':'Auto','auto':'Auto','car':'Auto','weird':'Διάφορα','γενικα':''
+}));
+const categoryKey=value=>plain(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[_\-\/]+/g,' ').replace(/\s+/g,' ').trim();
+function categoryFrom(item,articleUrl,feedUrl=''){
+  const candidates=[...item.matchAll(/<category\b[^>]*>([\s\S]*?)<\/category\s*>/gi)]
+    .map(m=>plain(m[1]));
+  for(const tag of item.match(/<category\b[^>]*\/>/gi)||[]){
+    const label=attr(tag,'label')||attr(tag,'term');
+    if(label)candidates.push(plain(label));
+  }
+  const subject=field(item,'dc:subject');
+  if(subject)candidates.push(plain(subject));
+  for(const candidate of candidates){
+    const category=categoryAliases.get(categoryKey(candidate));
+    if(category)return category;
+  }
+  // WordPress posts commonly expose their section in the path; trust it over
+  // arbitrary category tags that may represent people, keywords or article tags.
+  for(const value of [articleUrl,feedUrl]){
+    try{
+      const slug=new URL(value).pathname.split('/').filter(Boolean)[0]?.toLowerCase()||'';
+      const canonical=categoryAliases.get(categoryKey(slug));
+      if(canonical)return canonical;
+    }catch{}
+  }
+  const generic=new Set(['news','ειδησεις','uncategorized','χωρις κατηγορια','general']);
+  const first=candidates.find(s=>s.length>=2&&s.length<=44&&!generic.has(categoryKey(s)));
+  return first?first.slice(0,44):'';
+}
+function parse(xml,{google=false,publisherDomain:domain='',feedUrl=''}={}){
   if(typeof xml!=='string'||!/<(?:rss|feed|rdf:RDF)\b/i.test(xml))throw new Error('Η πηγή δεν επέστρεψε RSS/Atom XML.');
   const channel=plain(field(xml,'title')).slice(0,120);
   const blocks=[...xml.matchAll(/<(item|entry)(?:\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi)];
@@ -125,7 +181,8 @@ function parse(xml,{google=false,publisherDomain:domain=''}={}){
       summary:google?'':plain(rich).slice(0,420),
       imageUrl:picture(raw,google?'':rich),url,
       publishedAt:date&&Number.isFinite(date.getTime())?date:null,
-      source:sourceName||channel||domain||'Ειδήσεις'
+      source:sourceName||channel||domain||'Ειδήσεις',
+      category:google?'':categoryFrom(raw,url,feedUrl)
     });
   }
   articles.sort((a,b)=>(b.publishedAt?.getTime()||0)-(a.publishedAt?.getTime()||0));
@@ -174,6 +231,33 @@ async function download(source){
   const normalized=normalizeSource(source);
   if(normalized.type==='rssnews_preset')
     return rssNewsPreset.downloadPreset(normalized,{fetchXml});
+  if(normalized.type==='direct_rss'){
+    const xml=await publicRss.requestText(normalized.url,{feed:true});
+    const parsed=parse(xml,{feedUrl:normalized.url});
+    // WordPress often omits image elements. Check only a bounded number
+    // of direct publisher articles, with DNS pinning and redirect rejection.
+    let checked=0;
+    const articles=[];
+    for(const article of parsed.articles){
+      let enriched=article;
+      if(!article.imageUrl&&checked<12){
+        try{
+          const origin=new URL(normalized.url),target=new URL(article.url);
+          const site=origin.hostname.replace(/^www\./,'');
+          if(target.protocol==='https:'&&
+             target.hostname.replace(/^www\./,'')===site&&
+             !target.username&&!target.password&&!target.port){
+            checked++;
+            const html=await publicRss.requestText(target.href,{html:true});
+            const cover=rssNewsPreset.extractImage(html,target.href);
+            if(cover)enriched={...article,imageUrl:cover};
+          }
+        }catch{/* leave original feed article without an image */}
+      }
+      articles.push(enriched);
+    }
+    return {...parsed,articles,retrievalMode:'direct-rss'};
+  }
   if(normalized.type==='rss_app')
     return {...await fetchXml(normalized.url),retrievalMode:'rss'};
   if(normalized.type==='google_rss')
@@ -190,4 +274,4 @@ async function download(source){
     return {...xml,retrievalMode:'domain-search'};
   }
 }
-module.exports={DEFAULT_FEED_URL,validateUrl,normalizeSource,publisherDomain,parse,download,googleEndpoint,googleDomainEndpoint};
+module.exports={DEFAULT_FEED_URL,validateUrl,normalizeSource,publisherDomain,parse,categoryFrom,download,googleEndpoint,googleDomainEndpoint};
