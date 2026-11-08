@@ -44,7 +44,8 @@ const router={
   get:(name,...handlers)=>router.handlers.push({type:'GET',name,handlers}),
   post:(name,...handlers)=>router.handlers.push({type:'POST',name,handlers}),
   patch:(name,...handlers)=>router.handlers.push({type:'PATCH',name,handlers}),
-  put:(name,...handlers)=>router.handlers.push({type:'PUT',name,handlers})
+  put:(name,...handlers)=>router.handlers.push({type:'PUT',name,handlers}),
+  delete:(name,...handlers)=>router.handlers.push({type:'DELETE',name,handlers})
 };
 function auth(req,res,next){return req.user?next():res.status(401).json({error:'login'});}
 const roles=(...roles)=>(req,res,next)=>roles.includes(req.user?.role)?next():
