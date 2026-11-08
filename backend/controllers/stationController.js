@@ -257,7 +257,8 @@ exports.updateStationStatus = async (req, res) => {
     if (oldStation.status !== 'approved' && status === 'approved') {
       const {deliver}=require('../utils/notificationDelivery');
       deliver({
-        topic:'newStations',title:'Νέος σταθμός στο iRadiosGR!',
+        topic:'newStations',eventKey:'station-approved:'+String(updatedStation._id),
+        title:'Νέος σταθμός στο iRadiosGR!',
         body:'Ανακάλυψε τον '+updatedStation.name+(updatedStation.genre?' · '+updatedStation.genre:''),
         path:'/station/'+encodeURIComponent(updatedStation.slug||String(updatedStation._id))
       }).catch(e=>console.error('[NOTIFY] Station approval:',e.message));
