@@ -14,13 +14,13 @@ assert.ok(!now.includes('0 με metadata') && !now.includes('με επιβεβα
   'remove engineering labels from Now Playing');
 assert.ok(!now.includes('Δεν εντοπίστηκαν σταθμοί με έγκυρα μουσικά metadata'),
   'no verbose technical empty-state copy');
-assert.ok(now.includes('const music = parseMusicMetadata(data?.title)'),
+assert.ok(now.includes('const music=parseMusicMetadata(entry.title,station?.name)'),
   'music list must still require true artist-title metadata');
-assert.ok(now.includes('if (!music) return null;'),
+assert.ok(now.includes('!station||!music'),
   'never turn a failed check into a fake song');
 assert.ok(now.includes('if (!currentUser) return null'),
   'guest song metadata stays hidden');
-assert.ok(now.includes('setLiveStations(detected)'), 'clear stale Now Playing stations');
+assert.ok(now.includes('setLiveStations(prev=>{'), 'keep same song cached, replace it on track changes');
 
 const deck=read('frontend/src/components/HomeRecommendationDeck.jsx');
 assert.ok(deck.includes('moodStations.filter(Boolean).slice(0,8)'),
