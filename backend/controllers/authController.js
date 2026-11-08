@@ -196,26 +196,43 @@ exports.getMe = async (req, res) => {
 
 exports.updateMe = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Δεν δόθηκε Token' });
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    const { username, email, fname, lname, phone, birthdate, pushNotifications } = req.body;
-    const existingUser = await User.findOne({ 
-      $and: [ { _id: { $ne: decoded.id } }, { $or: [{ username }, { email }] } ]
-    });
-
-    if (existingUser) return res.status(400).json({ error: 'Το Username ή το Email χρησιμοποιείται ήδη.' });
-
-    const updatedUser = await User.findByIdAndUpdate(
-      decoded.id, 
-      { username, email, fname, lname, phone, birthdate: birthdate ? new Date(birthdate) : new Date('2000-01-01'), pushNotifications }, 
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    res.json(updatedUser);
-  } catch (err) { res.status(500).json({ error: 'Σφάλμα κατά την αποθήκευση στοιχείων' }); }
+    // The target account comes exclusively from the verified JWT.
+    const keys=['username','email','fname','lname','phone','birthdate'];
+    const patch={};
+    for(const key of keys){
+      if(!Object.prototype.hasOwnProperty.call(req.body||{},key))continue;
+      if(typeof req.body[key]!=='string'||req.body[key].length>254)
+        return res.status(400).json({error:'Μη έγκυρη τιμή στο '+key+'.'});
+      patch[key]=req.body[key].trim();
+    }
+    if(patch.username!==undefined && (patch.username.length<3||patch.username.length>60))
+      return res.status(400).json({error:'Το όνομα χρήστη πρέπει να έχει 3–60 χαρακτήρες.'});
+    if(patch.email!==undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.email))
+      return res.status(400).json({error:'Συμπλήρωσε έγκυρο email.'});
+    if(patch.fname!==undefined && !patch.fname)
+      return res.status(400).json({error:'Το όνομα είναι υποχρεωτικό.'});
+    if(patch.lname!==undefined && !patch.lname)
+      return res.status(400).json({error:'Το επώνυμο είναι υποχρεωτικό.'});
+    if(Object.prototype.hasOwnProperty.call(patch,'birthdate')){
+      if(patch.birthdate){
+        const date=new Date(patch.birthdate);
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(patch.birthdate)||!Number.isFinite(date.getTime()))
+          return res.status(400).json({error:'Η ημερομηνία γέννησης δεν είναι έγκυρη.'});
+        patch.birthdate=date;
+      }else delete patch.birthdate; // Never overwrite an existing date with a fake year.
+    }
+    if(!Object.keys(patch).length)
+      return res.status(400).json({error:'Δεν δόθηκαν στοιχεία για ενημέρωση.'});
+    const updated=await User.findByIdAndUpdate(req.user._id,{$set:patch},
+      {new:true,runValidators:true});
+    if(!updated)return res.status(404).json({error:'Ο λογαριασμός δεν βρέθηκε.'});
+    res.set('Cache-Control','no-store');
+    return res.json(withBroadcasterTermsStatus(updated));
+  }catch(error){
+    if(error.code===11000)return res.status(409).json({error:'Το όνομα χρήστη ή το email χρησιμοποιείται ήδη.'});
+    console.error('[PROFILE] Save failed:',error.message);
+    return res.status(500).json({error:'Δεν αποθηκεύτηκαν τα στοιχεία του λογαριασμού.'});
+  }
 };
 
 // Per-device push opt-in is separate from the saved user preference: a true
@@ -333,33 +350,33 @@ exports.resetPassword = async (req, res) => {
 };
 
 // Διαγραφή του ίδιου του χρήστη (Οριστική)
-exports.deleteMe = async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Δεν δόθηκε Token' });
-    
-    const token = authHeader.split(' ')[1];
-    // Χρησιμοποιούμε το ίδιο JWT_SECRET με το υπόλοιπο αρχείο
-    const JWT_SECRET = process.env.JWT_SECRET;
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // 🛡️ Ασπίδα: Οι Admins ΔΕΝ μπορούν να διαγραφούν
-    if (decoded.role === 'admin') {
-      return res.status(403).json({ error: 'Οι λογαριασμοί διαχειριστή δεν μπορούν να διαγραφούν.' });
+exports.deleteMe = async (req,res)=>{
+  const user=req.user;
+  if(!user)return res.status(401).json({error:'Χρειάζεται σύνδεση.'});
+  if(user.role==='admin')return res.status(403).json({error:'Δεν επιτρέπεται η διαγραφή λογαριασμού διαχειριστή.'});
+  if(process.env.APP_ENV==='staging')return res.status(503).json({error:'Η διαγραφή λογαριασμού είναι απενεργοποιημένη στο staging.'});
+  // Never delete a billing customer with live auto-renewal; otherwise Stripe
+  // could keep charging a user who no longer has an account.
+  const recurring=(user.activeSubscriptions||[]).some(sub=>sub.stripeSubscriptionId
+    && !['canceled','cancelled','expired','incomplete_expired'].includes(sub.status));
+  if(recurring || (user.stripeSubscriptionId && user.subscriptionStatus==='active'))
+    return res.status(409).json({error:'Διέκοψε πρώτα την αυτόματη ανανέωση των ενεργών συνδρομών σου.'});
+  try{
+    if(user.role==='broadcaster'){
+      const Station=require('../models/Station');
+      if(await Station.exists({broadcasterId:user._id}))
+        return res.status(409).json({error:'Μετέφερε ή αφαίρεσε πρώτα τους σταθμούς που διαχειρίζεσαι.'});
     }
-
-    // Διαγραφή του χρήστη από τη βάση (User model)
-    // Αν δεν έχεις κάνει import το User πάνω-πάνω, βεβαιώσου ότι υπάρχει: const User = require('../models/User');
-    const deletedUser = await User.findByIdAndDelete(decoded.id);
-    
-    if (!deletedUser) {
-      return res.status(404).json({ error: 'Ο χρήστης δεν βρέθηκε.' });
-    }
-
-    res.json({ message: 'Ο λογαριασμός διαγράφηκε επιτυχώς.' });
-  } catch (err) {
-    console.error("Σφάλμα διαγραφής λογαριασμού:", err);
-    res.status(500).json({ error: 'Σφάλμα κατά τη διαγραφή του λογαριασμού.' });
+    const removed=await User.deleteOne({_id:user._id});
+    if(!removed.deletedCount)return res.status(404).json({error:'Ο λογαριασμός δεν βρέθηκε.'});
+    await Promise.allSettled([
+      require('../models/Subscription').deleteMany({userId:user._id}),
+      require('../models/ListenerInbox').deleteMany({recipient:user._id})
+    ]);
+    return res.json({success:true,message:'Ο λογαριασμός διαγράφηκε.'});
+  }catch(error){
+    console.error('[PROFILE] Account deletion error:',error.message);
+    return res.status(500).json({error:'Η διαγραφή λογαριασμού απέτυχε.'});
   }
 };
 

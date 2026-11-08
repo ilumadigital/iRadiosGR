@@ -22,6 +22,16 @@ const userSchema = new mongoose.Schema({
   },
 
   favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Station' }],
+  // Shows are scoped to a station; DJs are followed across stations by normalized host name.
+  followedPrograms: [{
+    kind: { type: String, enum: ['show','dj'], required: true },
+    key: { type: String, required: true, maxlength: 230 },
+    label: { type: String, required: true, maxlength: 150 },
+    stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Station', required: true },
+    stationName: { type: String, default: '' },
+    stationSlug: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now }
+  }],
   isPremium: { type: Boolean, default: false },
   stripeCustomerId: { type: String, default: null },
 

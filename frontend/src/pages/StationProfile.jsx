@@ -760,7 +760,7 @@ export default function StationProfile({
         <div id="ir-station-program">
           <StationScheduleTimeline station={station} shows={canonicalSchedule}
             selectedDay={selectedDay} onSelectDay={setSelectedDay}
-            currentShow={currentShow} today={athensClock}/>
+            currentShow={currentShow} today={athensClock} currentUser={currentUser}/>
         </div>
 
         {/* 🟢 AD BANNER */}

@@ -81,6 +81,25 @@ function stagePublicAccess(req, res, next) {
   // A user may read their own profile and favorites, never another user's.
   if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
 
+  // Self-service listener actions are scoped by req.user in protected handlers.
+  // Without this allowlist the default admin-only staging policy hides Profile
+  // preferences and causes the entire account form to look empty.
+  const listenerSelfRead = req.method === 'GET' &&
+    ['/api/users/me/notification-preferences','/api/users/me/follows',
+      '/api/users/me/inbox','/api/users/me/inbox/count'].includes(path);
+  const listenerSelfWrite = (
+    (req.method === 'PUT' && path === '/api/users/me') ||
+    (req.method === 'PATCH' && path === '/api/users/me/notification-preferences') ||
+    (req.method === 'POST' && path === '/api/users/me/follows') ||
+    (req.method === 'POST' && path === '/api/users/me/inbox/read-all') ||
+    (req.method === 'DELETE' && path === '/api/users/me/inbox') ||
+    (req.method === 'POST' && /^\/api\/users\/me\/inbox\/[a-f0-9]{24}\/read$/i.test(path)) ||
+    (req.method === 'DELETE' && /^\/api\/users\/me\/follows\/[a-f0-9]{24}$/i.test(path)) ||
+    (req.method === 'DELETE' && /^\/api\/users\/me\/inbox\/[a-f0-9]{24}$/i.test(path))
+  );
+  if (listenerSelfRead || listenerSelfWrite) return protect(req,res,next);
+  // Account deletion, Stripe, email and push transport remain blocked on staging.
+
   // Phase 4 Backoffice: signed-in operational roles only. Each backoffice
   // route additionally enforces station ownership and action-specific roles.
   if (path === '/api/backoffice' || path.startsWith('/api/backoffice/')) {
