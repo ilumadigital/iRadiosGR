@@ -38,6 +38,17 @@ assert.ok(groups.visible.length <= 12, 'limit results per category in All view')
 const header = readFileSync(new URL('../frontend/src/components/TopBar.jsx', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../frontend/src/components/smart-header.css', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../frontend/src/App.jsx', import.meta.url), 'utf8');
+const home = readFileSync(new URL('../frontend/src/pages/Home.jsx', import.meta.url), 'utf8');
+assert.match(home, /onClick=\{onOpenSmartSearch\}/, 'welcome CTA must open the shared smart search');
+assert.match(home, /Πες μας τι θέλεις να ακούσεις/, 'welcome prompt should be visible in Greek');
+assert.match(home, /Δοκίμασε τη νέα/, 'welcome CTA should explain the AI search');
+assert.match(home, /AI αναζήτηση/, 'welcome CTA should mention AI search');
+assert.match(app, /onOpenSmartSearch=\{\(\) => setOpenSmartSearchRequest\(request => request \+ 1\)\}/,
+  'Home CTA must request header expansion from the common parent');
+assert.match(app, /<TopBar[^>]*openSmartSearchRequest=\{openSmartSearchRequest\}/,
+  'TopBar must receive the opening request');
+assert.match(header, /useEffect\(\(\) => \{\s*if \(!openSmartSearchRequest\) return;\s*setExpanded\(true\);[\s\S]*?inputRef\.current\?\.focus\(\);\s*\}, \[openSmartSearchRequest\]\)/,
+  'Header must expand and focus its existing search field without route navigation');
 assert.match(header,/window\.webkitSpeechRecognition/);
 assert.match(header,/recognition\.lang = 'el-GR'/);
 assert.match(header,/onKeyDown=\{handleKeyDown\}/);
