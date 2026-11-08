@@ -30,13 +30,15 @@ export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUse
     title:parts.title,artist:parts.artist,
     album:ai?`${name} - iRadios AI`:`${name} - iRadios`,
     image:globalCoverArt||currentStation?.logo,
+    trackKey:parts.raw,
     foundWithAI:ai
   };
   return {title:'Τώρα Ακούς',artist:name,album:'iRadios',image:currentStation?.logo};
 }
 // Browser/iOS Media Session controls are one shared audio session; the source
-// audio element is owned by App.jsx. Native song changes are batched at 5 minutes.
-// Station change, guest/login, ads and the first AI match update immediately.
+// audio element is owned by App.jsx. Verified track changes, source changes and
+// cover arrivals update immediately. The 5-minute timer only refreshes unchanged
+// metadata (iOS background scheduling remains best effort).
 export default function useMediaSession({
   currentStation,nowPlaying,nowPlayingInfo,isPlaying,isPlayingAd,currentAdInfo,
   togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser
@@ -44,7 +46,7 @@ export default function useMediaSession({
   const latest=useRef({});
   latest.current={currentStation,nowPlaying,nowPlayingInfo,isPlaying,isPlayingAd,currentAdInfo,
     togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser};
-  const last=useRef({key:null,at:0,ai:false,image:null});
+  const last=useRef({key:null,at:0,ai:false,image:null,imageSrc:null,trackKey:null});
   const write=()=>{
     if(typeof navigator==='undefined'||!('mediaSession' in navigator)||
        typeof window.MediaMetadata!=='function')return;
@@ -74,16 +76,22 @@ export default function useMediaSession({
       navigator.mediaSession.playbackState=data.isPlaying?'playing':'paused';
       last.current={key:[data.currentStation?._id,Boolean(data.currentUser),
         Boolean(data.isPlayingAd),data.currentAdInfo?._id].join(':'),
-        at:Date.now(),ai:Boolean(fields.foundWithAI),image};
+        at:Date.now(),ai:Boolean(fields.foundWithAI),image,
+        imageSrc:fields.image||null,trackKey:fields.trackKey||null};
     }catch{ /* mediaSession may be unavailable on some WebViews; radio still plays */ }
   };
   useEffect(()=>{
     if(!currentStation || (!isPlaying && last.current.key===null))return;
     const key=[currentStation._id,Boolean(currentUser),Boolean(isPlayingAd),currentAdInfo?._id].join(':');
     const fields=mediaFields(latest.current);
-    const firstAI=Boolean(fields.foundWithAI)&&!last.current.ai;
-    const coverArrival=Boolean(fields.foundWithAI&&globalCoverArt&&last.current.image!==globalCoverArt);
-    if(last.current.key!==key||firstAI||coverArrival||Date.now()-last.current.at>=FIVE_MINUTES){
+    // The first real song must replace "Τώρα Ακούς" as soon as metadata arrives.
+    // Never keep an old song/cover after a confirmed track change or song expiry.
+    const trackChanged=(fields.trackKey||null)!==last.current.trackKey;
+    const sourceChanged=Boolean(fields.foundWithAI)!==last.current.ai;
+    const artworkChanged=Boolean(fields.trackKey)&&
+      (fields.image||null)!==last.current.imageSrc;
+    if(last.current.key!==key||trackChanged||sourceChanged||artworkChanged||
+       Date.now()-last.current.at>=FIVE_MINUTES){
       write();
     }else if('mediaSession' in navigator){
       navigator.mediaSession.playbackState=isPlaying?'playing':'paused';
