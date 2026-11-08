@@ -1,6 +1,7 @@
 import React, {useCallback,useEffect,useMemo,useState,Suspense,lazy} from 'react';
 import {Link,NavLink,Routes,Route,Navigate,useLocation,useNavigate,useParams} from 'react-router-dom';
 import {Helmet} from 'react-helmet-async';
+import {minutes,scheduleDayBase,toCanonical,normalize,nextDay} from '../utils/schedule';
 import {
   Activity,ArrowDownRight,ArrowLeft,ArrowRight,BadgeCheck,BarChart3,
   Bell,Building2,CalendarDays,Check,CheckCircle2,ChevronDown,ChevronRight,
@@ -408,11 +409,18 @@ function Scheduler({data,reload,notify}){
   const [selected,setSelected]=useState(initialStation?._id||data.stations[0]?._id||'');
   const station=data.stations.find(s=>String(s._id)===String(selected));
   const [schedule,setSchedule]=useState([]);
+  const [sourceBase,setSourceBase]=useState(0);
+  const [ambiguousBase,setAmbiguousBase]=useState(false);
   const [activeDay,setActiveDay]=useState(1);
   const [copyTarget,setCopyTarget]=useState('2');
   const [saving,setSaving]=useState(false),[dirty,setDirty]=useState(false);
   useEffect(()=>{
-    setSchedule((station?.schedule||[]).map(s=>({
+    const existing=station?.schedule||[];
+    const base=scheduleDayBase(existing,station?.scheduleDayBase);
+    setSourceBase(base);
+    setAmbiguousBase(existing.length>0&&station?.scheduleDayBase!==0&&station?.scheduleDayBase!==1&&
+      !existing.some(show=>Number(show.day)===0||Number(show.day)===7));
+    setSchedule(toCanonical(existing,base).map(s=>({
       day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
     })));
     setDirty(false);
@@ -436,37 +444,47 @@ function Scheduler({data,reload,notify}){
       document.removeEventListener('click',confirmNavigation,true);
     };
   },[dirty]);
+  const changeLegacyInterpretation=()=>{
+    const other=sourceBase===0?1:0;
+    const existing=station?.schedule||[];
+    setSourceBase(other);
+    setSchedule(toCanonical(existing,other).map(s=>({
+      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
+    })));
+    setDirty(true);
+    notify('Έλεγξε τις ημέρες και πάτησε Αποθήκευση για επιβεβαίωση.');
+  };
   const updateSchedule=callback=>{
     setSchedule(previous=>callback(previous));
     setDirty(true);
   };
-  const errors=useMemo(()=>{
+  const validation=useMemo(()=>{
     const found={};
-    if(schedule.length>80)found.limit='Το πρόγραμμα δέχεται έως 80 εκπομπές.';
+    if(schedule.length>160)found.limit='Το πρόγραμμα δέχεται έως 160 εγγραφές.';
     schedule.forEach((show,index)=>{
-      if(!show.title.trim())found[index]='Συμπλήρωσε τίτλο εκπομπής.';
-      else if(!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(show.startTime)||
-        !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(show.endTime)||
-        show.startTime>=show.endTime)found[index]='Η ώρα λήξης πρέπει να είναι μετά την έναρξη.';
+      const from=minutes(show.startTime),to=minutes(show.endTime,true);
+      if(!show.title?.trim())found[index]='Συμπλήρωσε τίτλο εκπομπής.';
+      else if(!Number.isFinite(from)||!Number.isFinite(to))
+        found[index]='Επίλεξε έγκυρες ώρες έναρξης και λήξης.';
+      else if(from===to&&show.startTime!=='00:00')
+        found[index]='Για ολοήμερη εκπομπή χρησιμοποίησε 00:00–00:00.';
     });
-    for(let day=1;day<=7;day++){
-      const daily=schedule.map((show,index)=>({...show,index}))
-        .filter(show=>show.day===day).sort((a,b)=>a.startTime.localeCompare(b.startTime));
-      for(let i=1;i<daily.length;i++){
-        if(daily[i].startTime<daily[i-1].endTime){
-          found[daily[i].index]='Επικάλυψη με άλλη εκπομπή της ημέρας.';
-          found[daily[i-1].index]='Επικάλυψη με άλλη εκπομπή της ημέρας.';
-        }
-      }
+    let message='',prepared=null;
+    if(!Object.keys(found).length){
+      try{prepared=normalize(schedule);}
+      catch(error){message=error.message;}
     }
-    return found;
+    return {errors:found,message,prepared};
   },[schedule]);
+  const errors=validation.errors;
+  const overnightCount=schedule.filter(s=>Number.isFinite(minutes(s.startTime))&&
+    Number.isFinite(minutes(s.endTime,true))&&minutes(s.endTime,true)<minutes(s.startTime)).length;
   const dailyShows=schedule.map((show,index)=>({...show,index}))
     .filter(show=>show.day===activeDay).sort((a,b)=>a.startTime.localeCompare(b.startTime));
   const add=()=>{
-    if(schedule.length>=80){notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;}
+    if(schedule.length>=160){notify('Το πρόγραμμα υποστηρίζει έως 160 εγγραφές.','error');return;}
     const last=dailyShows[dailyShows.length-1];
-    const startTime=last&&last.endTime<'22:00'?last.endTime:'10:00';
+    const startTime=last?.endTime&&last.endTime>'00:00'&&last.endTime<'23:00'?last.endTime:'10:00';
     const hour=Number(startTime.slice(0,2));
     const endTime=String(Math.min(hour+1,23)).padStart(2,'0')+':'+startTime.slice(3);
     updateSchedule(previous=>[...previous,{day:activeDay,startTime,endTime,title:'',host:''}]);
@@ -475,8 +493,8 @@ function Scheduler({data,reload,notify}){
     j===index?{...s,[key]:value}:s));
   const remove=index=>updateSchedule(previous=>previous.filter((_,j)=>j!==index));
   const duplicate=show=>{
-    if(schedule.length>=80){notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;}
-    const startTime=show.endTime<'22:00'?show.endTime:show.startTime;
+    if(schedule.length>=160){notify('Το πρόγραμμα υποστηρίζει έως 160 εγγραφές.','error');return;}
+    const startTime=show.endTime>'00:00'&&show.endTime<'23:00'?show.endTime:show.startTime;
     const endHour=Number(startTime.slice(0,2))+1;
     const endTime=String(Math.min(endHour,23)).padStart(2,'0')+':'+startTime.slice(3);
     updateSchedule(previous=>[...previous,{
@@ -493,8 +511,8 @@ function Scheduler({data,reload,notify}){
     const source=schedule.filter(show=>show.day===activeDay);
     if(!source.length){notify('Δεν υπάρχουν εκπομπές για αντιγραφή.','error');return;}
     const existing=schedule.filter(show=>show.day===day);
-    if(schedule.length-existing.length+source.length>80){
-      notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;
+    if(schedule.length-existing.length+source.length>160){
+      notify('Το πρόγραμμα υποστηρίζει έως 160 εγγραφές.','error');return;
     }
     if(existing.length&&!window.confirm('Οι '+existing.length+' εκπομπές της '+DAY_NAMES[day]+
       ' θα αντικατασταθούν. Συνέχεια;'))return;
