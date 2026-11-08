@@ -11,9 +11,9 @@ const gradients=[
 ];
 export default function HomeRecommendationDeck({moodStations=[],topStations=[],currentStation,isPlaying,onPlayStation,onPlayPause}) {
   const navigate=useNavigate();
-  const play=station=>{ if(stationIsPlaying(station,currentStation,isPlaying))return; if(String(station._id)===String(currentStation?._id)&&onPlayPause)onPlayPause(); else onPlayStation(station); };
-  const picks=moodStations.filter(Boolean).slice(0,8);
-  const top=topStations.filter(Boolean).slice(0,7);
+  const play=station=>{ if(station.isOffline===true||stationIsPlaying(station,currentStation,isPlaying))return; if(String(station._id)===String(currentStation?._id)&&onPlayPause)onPlayPause(); else onPlayStation(station); };
+  const picks=moodStations.filter(Boolean).sort((a,b)=>Number(a.isOffline===true)-Number(b.isOffline===true)).slice(0,8);
+  const top=topStations.filter(Boolean).sort((a,b)=>Number(a.isOffline===true)-Number(b.isOffline===true)).slice(0,7);
   if(!picks.length&&!top.length)return null;
   return (
     <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.75fr)]">
@@ -35,9 +35,9 @@ export default function HomeRecommendationDeck({moodStations=[],topStations=[],c
                 <button type="button" onClick={()=>navigate('/station/'+(station.slug||station._id))}
                   className="mt-1 block max-w-full truncate text-left text-sm font-black text-white hover:text-[#ccff00]">{station.name}</button>
               </div>
-              <button type="button" disabled={stationIsPlaying(station,currentStation,isPlaying)} onClick={()=>play(station)} title={stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+station.name}
+              <button type="button" disabled={station.isOffline===true||stationIsPlaying(station,currentStation,isPlaying)} onClick={()=>play(station)} title={station.isOffline===true?'OFFLINE':stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(station.isOffline===true?'OFFLINE: ':stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+station.name}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white transition-colors hover:bg-[#ccff00] hover:text-black">
-                <Play size={17} fill="currentColor"/>
+                {station.isOffline===true?<span className="text-[9px] font-black text-red-400">OFF</span>:<Play size={17} fill="currentColor"/>}
               </button>
             </div>
           </article>)}
@@ -59,8 +59,8 @@ export default function HomeRecommendationDeck({moodStations=[],topStations=[],c
                 className="block max-w-full truncate text-left text-xs font-black text-white hover:text-[#ccff00]">{station.name}</button>
               <span className="block truncate text-[10px] text-zinc-500">{station.genre||station.region||'Radio'}</span>
             </div>
-            <button type="button" disabled={stationIsPlaying(station,currentStation,isPlaying)} onClick={()=>play(station)} title={stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+station.name}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:border-[#ccff00]/50 hover:text-[#ccff00]"><Play size={15} fill="currentColor"/></button>
+            <button type="button" disabled={station.isOffline===true||stationIsPlaying(station,currentStation,isPlaying)} onClick={()=>play(station)} title={station.isOffline===true?'OFFLINE':stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(station.isOffline===true?'OFFLINE: ':stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+station.name}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:border-[#ccff00]/50 hover:text-[#ccff00]">{station.isOffline===true?<span className="text-[9px] font-black text-red-400">OFF</span>:<Play size={15} fill="currentColor"/>}</button>
           </div>)}
           {!top.length&&<div className="flex h-36 items-center justify-center text-xs text-zinc-500"><Radio size={20}/></div>}
         </div>
