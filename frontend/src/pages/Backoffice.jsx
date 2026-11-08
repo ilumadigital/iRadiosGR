@@ -326,56 +326,215 @@ function StationEditor({data,reload,notify}){
   </div>;
 }
 function Scheduler({data,reload,notify}){
-  const navigate=useNavigate();
   const [selected,setSelected]=useState(data.stations[0]?._id||'');
   const station=data.stations.find(s=>String(s._id)===String(selected));
   const [schedule,setSchedule]=useState([]);
-  const [saving,setSaving]=useState(false);
-  useEffect(()=>{setSchedule((station?.schedule||[]).map(s=>({
-    day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
-  })));},[station?._id]);
-  const add=()=>setSchedule(prev=>[...prev,{day:1,startTime:'10:00',endTime:'12:00',title:'',host:''}]);
-  const edit=(i,key,value)=>setSchedule(prev=>prev.map((s,j)=>j===i?{...s,[key]:value}:s));
-  const remove=i=>setSchedule(prev=>prev.filter((_,j)=>j!==i));
+  const [activeDay,setActiveDay]=useState(1);
+  const [copyTarget,setCopyTarget]=useState('2');
+  const [saving,setSaving]=useState(false),[dirty,setDirty]=useState(false);
+  useEffect(()=>{
+    setSchedule((station?.schedule||[]).map(s=>({
+      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
+    })));
+    setDirty(false);
+  },[station?._id]);
+  useEffect(()=>{
+    if(!dirty)return;
+    const preventLeave=e=>{e.preventDefault();e.returnValue='';};
+    window.addEventListener('beforeunload',preventLeave);
+    return ()=>window.removeEventListener('beforeunload',preventLeave);
+  },[dirty]);
+  const updateSchedule=callback=>{
+    setSchedule(previous=>callback(previous));
+    setDirty(true);
+  };
+  const errors=useMemo(()=>{
+    const found={};
+    if(schedule.length>80)found.limit='Το πρόγραμμα δέχεται έως 80 εκπομπές.';
+    schedule.forEach((show,index)=>{
+      if(!show.title.trim())found[index]='Συμπλήρωσε τίτλο εκπομπής.';
+      else if(!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(show.startTime)||
+        !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(show.endTime)||
+        show.startTime>=show.endTime)found[index]='Η ώρα λήξης πρέπει να είναι μετά την έναρξη.';
+    });
+    for(let day=1;day<=7;day++){
+      const daily=schedule.map((show,index)=>({...show,index}))
+        .filter(show=>show.day===day).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+      for(let i=1;i<daily.length;i++){
+        if(daily[i].startTime<daily[i-1].endTime){
+          found[daily[i].index]='Επικάλυψη με άλλη εκπομπή της ημέρας.';
+          found[daily[i-1].index]='Επικάλυψη με άλλη εκπομπή της ημέρας.';
+        }
+      }
+    }
+    return found;
+  },[schedule]);
+  const dailyShows=schedule.map((show,index)=>({...show,index}))
+    .filter(show=>show.day===activeDay).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const add=()=>{
+    if(schedule.length>=80){notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;}
+    const last=dailyShows[dailyShows.length-1];
+    const startTime=last&&last.endTime<'22:00'?last.endTime:'10:00';
+    const hour=Number(startTime.slice(0,2));
+    const endTime=String(Math.min(hour+1,23)).padStart(2,'0')+':'+startTime.slice(3);
+    updateSchedule(previous=>[...previous,{day:activeDay,startTime,endTime,title:'',host:''}]);
+  };
+  const edit=(index,key,value)=>updateSchedule(previous=>previous.map((s,j)=>
+    j===index?{...s,[key]:value}:s));
+  const remove=index=>updateSchedule(previous=>previous.filter((_,j)=>j!==index));
+  const duplicate=show=>{
+    if(schedule.length>=80){notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;}
+    const startTime=show.endTime<'22:00'?show.endTime:show.startTime;
+    const endHour=Number(startTime.slice(0,2))+1;
+    const endTime=String(Math.min(endHour,23)).padStart(2,'0')+':'+startTime.slice(3);
+    updateSchedule(previous=>[...previous,{
+      day:activeDay,startTime,endTime,title:show.title,host:show.host
+    }]);
+  };
+  const changeStation=value=>{
+    if(dirty&&!window.confirm('Υπάρχουν μη αποθηκευμένες αλλαγές. Θέλεις να αλλάξεις σταθμό και να τις χάσεις;'))return;
+    setSelected(value);setActiveDay(1);setCopyTarget('2');
+  };
+  const copyDay=()=>{
+    const day=Number(copyTarget);
+    if(!day||day===activeDay)return;
+    const source=schedule.filter(show=>show.day===activeDay);
+    if(!source.length){notify('Δεν υπάρχουν εκπομπές για αντιγραφή.','error');return;}
+    const existing=schedule.filter(show=>show.day===day);
+    if(schedule.length-existing.length+source.length>80){
+      notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;
+    }
+    if(existing.length&&!window.confirm('Οι '+existing.length+' εκπομπές της '+DAY_NAMES[day]+
+      ' θα αντικατασταθούν. Συνέχεια;'))return;
+    updateSchedule(previous=>[
+      ...previous.filter(show=>show.day!==day),
+      ...source.map(show=>({...show,day}))
+    ]);
+    setActiveDay(day);setCopyTarget(String(activeDay));
+    notify('Η ημέρα αντιγράφηκε. Πάτησε Αποθήκευση για να ολοκληρώσεις.');
+  };
   async function save(){
-    if(!station)return;
+    if(!station||saving||!dirty)return;
+    if(Object.keys(errors).length){
+      notify('Διόρθωσε τα επισημασμένα πεδία και τις επικαλύψεις πριν αποθηκεύσεις.','error');
+      return;
+    }
     setSaving(true);
-    try{const result=await api('/stations/'+station._id+'/schedule',
-      {method:'PUT',body:JSON.stringify({schedule})});
-      notify(result.message);await reload();
-    }catch(error){notify(error.message,'error');}
-    finally{setSaving(false);}
+    try{
+      const result=await api('/stations/'+station._id+'/schedule',{
+        method:'PUT',body:JSON.stringify({schedule:schedule.map(({day,startTime,endTime,title,host})=>
+          ({day,startTime,endTime,title:title.trim(),host:host.trim()}))})
+      });
+      setDirty(false);
+      notify(result.message||'Το πρόγραμμα αποθηκεύτηκε.');
+      await reload();
+    }catch(error){notify(error.message,'error');}finally{setSaving(false);}
   }
-  return <div><SectionTitle eyebrow="On air programming" title="Εβδομαδιαίο πρόγραμμα."
-    description="Πρόσθεσε εκπομπές, ώρες και παραγωγούς. Οι αλλαγές προγράμματος αποθηκεύονται απευθείας."
-    aside={station&&<button onClick={save} disabled={saving} className={buttonPrimary}><Save size={16}/>{saving?'Αποθήκευση…':'Αποθήκευση προγράμματος'}</button>}/>
-    <div className={panel+' mb-5 p-5'}><Field label="Επίλεξε σταθμό"><select className={inputClass} value={selected} onChange={e=>setSelected(e.target.value)}>
-      {data.stations.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}</select></Field></div>
-    {!station?<div className={panel+' p-12 text-center text-zinc-400'}>Δεν έχεις εκχωρημένο σταθμό.</div>:
-      <div className="space-y-4">
-        {schedule.map((show,i)=><div key={i} className={panel+' grid gap-3 p-4 md:grid-cols-[125px_108px_108px_minmax(0,1fr)_minmax(0,1fr)_40px] md:items-end'}>
-          <Field label="Ημέρα"><select className={inputClass} value={show.day} onChange={e=>edit(i,'day',Number(e.target.value))}>{DAY_NAMES.slice(1).map((day,d)=><option key={day} value={d+1}>{day}</option>)}</select></Field>
-          <Field label="Από"><input type="time" className={inputClass} value={show.startTime} onChange={e=>edit(i,'startTime',e.target.value)}/></Field>
-          <Field label="Έως"><input type="time" className={inputClass} value={show.endTime} onChange={e=>edit(i,'endTime',e.target.value)}/></Field>
-          <Field label="Τίτλος εκπομπής"><input required maxLength={120} className={inputClass} value={show.title} onChange={e=>edit(i,'title',e.target.value)}/></Field>
-          <Field label="Παραγωγός"><input maxLength={100} className={inputClass} value={show.host} onChange={e=>edit(i,'host',e.target.value)}/></Field>
-          <button type="button" onClick={()=>remove(i)} className="flex h-11 items-center justify-center rounded-xl border border-rose-400/15 text-rose-300 transition hover:bg-rose-400/10" title="Διαγραφή εκπομπής"><Trash2 size={16}/></button>
-        </div>)}
-        {!schedule.length&&<div className={panel+' p-12 text-center text-sm text-zinc-500'}>Δεν έχει καταχωρηθεί πρόγραμμα.</div>}
-        <button onClick={add} className={buttonSecondary+' w-full border-dashed'}><Plus size={17}/> Προσθήκη εκπομπής</button>
-        <div className="mt-7 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {DAY_NAMES.slice(1).map((day,d)=>{
-            const shows=schedule.filter(x=>x.day===d+1).sort((a,b)=>a.startTime.localeCompare(b.startTime));
-            return <div className={panel+' p-5'} key={day}><p className="mb-4 text-sm font-black text-white">{day}</p>
-              {shows.length?shows.map((s,i)=><div key={i} className="mb-3 border-l-2 border-[#caff00] pl-3">
-                <p className="text-[11px] font-extrabold text-[#caff00]">{s.startTime} – {s.endTime}</p>
-                <p className="mt-1 text-[12px] font-bold text-white">{s.title||'Χωρίς τίτλο'}</p>
-                <p className="mt-1 text-[10px] text-zinc-500">{s.host}</p>
-              </div>):<p className="text-xs text-zinc-600">Χωρίς εκπομπές</p>}
-            </div>;
-          })}
+  const countDay=day=>schedule.filter(show=>show.day===day).length;
+  const totalErrors=Object.keys(errors).length;
+  return <div>
+    <SectionTitle eyebrow="Εύκολο πρόγραμμα" title="Οργάνωσε τις εκπομπές σου."
+      description="Διάλεξε ημέρα, πρόσθεσε εκπομπή και αποθήκευσε. Ισχύει για όλους τους ρόλους με πρόσβαση στο πρόγραμμα."
+      aside={<div className="flex flex-wrap items-center gap-3">
+        {dirty&&<Badge tone="amber">Μη αποθηκευμένες αλλαγές</Badge>}
+        <button type="button" onClick={save} disabled={!station||saving||!dirty||totalErrors>0}
+          className={buttonPrimary}><Save size={16}/>{saving?'Αποθήκευση…':'Αποθήκευση προγράμματος'}</button>
+      </div>}/>
+    <div className={panel+' mb-5 flex flex-wrap items-end justify-between gap-4 p-5'}>
+      <div className="min-w-[220px] flex-1"><Field label="Σταθμός">
+        <select aria-label="Σταθμός προγράμματος" className={inputClass} value={selected}
+          onChange={e=>changeStation(e.target.value)}>
+          {data.stations.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}
+        </select></Field></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone="lime">{schedule.length} εκπομπές / εβδομάδα</Badge>
+        <Badge tone={totalErrors?'rose':'neutral'}>{totalErrors?totalErrors+' προβλήματα':'Χωρίς συγκρούσεις'}</Badge>
+      </div>
+    </div>
+    {!station?<div className={panel+' p-12 text-center text-zinc-400'}>Δεν έχεις εκχωρημένο σταθμό.
+      {data.user.role==='broadcaster'&&<div className="mt-4"><Link className={buttonSecondary}
+        to="/backoffice/stations/new">Προσθήκη σταθμού</Link></div>}</div>:
+    <>
+      <div role="tablist" aria-label="Επίλεξε ημέρα" className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+        {DAY_NAMES.slice(1).map((day,index)=>{
+          const number=index+1,active=activeDay===number;
+          return <button role="tab" aria-selected={active} type="button" key={day}
+            onClick={()=>{setActiveDay(number);if(Number(copyTarget)===number)
+              setCopyTarget(String(number===7?1:number+1));}}
+            className={'rounded-2xl border px-4 py-4 text-left transition '+(active?
+              'border-[#caff00] bg-[#caff00] text-[#121600] shadow-[0_8px_25px_rgba(202,255,0,.16)]':
+              'border-white/10 bg-[#151819] text-zinc-200 hover:border-[#caff00]/35')}>
+            <span className="block text-xs font-black">{day}</span>
+            <span className={'mt-2 block text-[11px] '+(active?'text-[#303900]':'text-zinc-500')}>
+              {countDay(number)} {countDay(number)===1?'εκπομπή':'εκπομπές'}</span>
+          </button>;
+        })}
+      </div>
+      <div className={panel+' overflow-hidden'}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-5 md:p-7">
+          <div><h3 className="text-xl font-black text-white">{DAY_NAMES[activeDay]}</h3>
+            <p className="mt-1 text-xs text-zinc-500">Οι εκπομπές εμφανίζονται με σειρά ώρας.</p></div>
+          <button className={buttonPrimary} type="button" onClick={add}><Plus size={17}/> Νέα εκπομπή</button>
         </div>
-      </div>}
+        <div role="tabpanel" className="space-y-4 p-4 md:p-6">
+          {dailyShows.length?dailyShows.map(show=><div key={show.index}
+            className={'rounded-2xl border p-4 md:p-5 '+(errors[show.index]?
+              'border-rose-400/35 bg-rose-400/[.045]':'border-white/10 bg-[#0b0e0f]')}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-xs font-black text-[#caff00]">
+                <Clock3 size={15}/>{show.startTime} – {show.endTime}</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={()=>duplicate(show)} title="Αντιγραφή εκπομπής"
+                  aria-label={'Αντιγραφή '+(show.title||'εκπομπής')} className={buttonSecondary+' !px-3 !py-2'}>
+                  <Copy size={15}/> <span className="hidden sm:inline">Αντιγραφή</span></button>
+                <button type="button" onClick={()=>remove(show.index)} title="Διαγραφή εκπομπής"
+                  aria-label={'Διαγραφή '+(show.title||'εκπομπής')}
+                  className="rounded-xl border border-rose-400/20 px-3 py-2 text-rose-300 hover:bg-rose-400/10">
+                  <Trash2 size={16}/></button>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[130px_130px_minmax(0,1fr)_minmax(0,1fr)]">
+              <Field label="Από"><input aria-label="Από" type="time" className={inputClass}
+                value={show.startTime} onChange={e=>edit(show.index,'startTime',e.target.value)}/></Field>
+              <Field label="Έως"><input aria-label="Έως" type="time" className={inputClass}
+                value={show.endTime} onChange={e=>edit(show.index,'endTime',e.target.value)}/></Field>
+              <Field label="Τίτλος εκπομπής *"><input required maxLength={120} className={inputClass}
+                placeholder="π.χ. Πρωινή παρέα" value={show.title}
+                onChange={e=>edit(show.index,'title',e.target.value)}/></Field>
+              <Field label="Παραγωγός"><input maxLength={100} className={inputClass}
+                placeholder="π.χ. DJ Maria" value={show.host}
+                onChange={e=>edit(show.index,'host',e.target.value)}/></Field>
+            </div>
+            {errors[show.index]&&<p role="alert" className="mt-3 flex items-center gap-2 text-xs text-rose-300">
+              <CircleAlert size={15}/>{errors[show.index]}</p>}
+          </div>):<div className="rounded-2xl border border-dashed border-white/15 p-12 text-center">
+            <CalendarDays className="mx-auto mb-3 text-[#caff00]" size={30}/>
+            <p className="font-bold text-white">Δεν υπάρχουν εκπομπές για {DAY_NAMES[activeDay]}.</p>
+            <p className="mt-2 text-xs text-zinc-500">Πάτησε «Νέα εκπομπή» για να ξεκινήσεις.</p>
+          </div>}
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-white/10 bg-white/[.025] p-4">
+            <div className="min-w-[170px] flex-1"><Field label="Αντιγραφή αυτής της ημέρας σε">
+              <select className={inputClass} aria-label="Ημέρα προορισμού αντιγραφής"
+                value={Number(copyTarget)===activeDay?'':copyTarget}
+                onChange={e=>setCopyTarget(e.target.value)}>
+                <option value="">Επίλεξε ημέρα</option>
+                {DAY_NAMES.slice(1).map((day,index)=>index+1===activeDay?null:
+                  <option key={day} value={index+1}>{day}</option>)}
+              </select></Field></div>
+            <button type="button" disabled={!dailyShows.length||!copyTarget||Number(copyTarget)===activeDay}
+              onClick={copyDay} className={buttonSecondary}><Copy size={15}/> Αντιγραφή ημέρας</button>
+          </div>
+        </div>
+      </div>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#caff00]/15 bg-[#caff00]/[.035] p-5">
+        <div className="flex items-center gap-3 text-xs text-zinc-300"><ShieldCheck size={19} className="text-[#caff00]"/>
+          <span>{totalErrors?'Διόρθωσε πρώτα τις επισημασμένες εκπομπές.':
+            dirty?'Οι αλλαγές δεν έχουν αποθηκευτεί ακόμη.':'Το πρόγραμμά σου είναι ενημερωμένο.'}</span>
+        </div>
+        <button type="button" disabled={!dirty||saving||totalErrors>0} onClick={save}
+          className={buttonPrimary}><Save size={16}/>{saving?'Αποθήκευση…':'Αποθήκευση'}</button>
+      </div>
+    </>}
   </div>;
 }
 function Review({data,reload,notify}){
