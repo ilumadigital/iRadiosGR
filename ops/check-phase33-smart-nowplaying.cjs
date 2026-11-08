@@ -125,7 +125,7 @@ try{
       },
       useEffect(callback){callback();}
     };
-    const hook=vm.runInNewContext(parser+'\\n'+source+'\\nuseMediaSession;',env);
+    const hook=vm.runInNewContext(parser+'\n'+source+'\nuseMediaSession;',env);
     const render=(props)=>{
       refIndex=0;
       hook({currentStation:station,currentUser:{_id:'user'},isPlaying:true,
