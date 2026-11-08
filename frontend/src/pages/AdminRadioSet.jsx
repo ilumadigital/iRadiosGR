@@ -256,7 +256,7 @@ export default function AdminRadioSet({ API_URL }) {
       {/* --- MODAL ΑΝΑΘΕΣΗΣ --- */}
       {isModalOpen && selectedStation && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-zinc-950 border border-white/10 rounded-[32px] w-full max-w-lg shadow-2xl relative p-8 md:p-10 animate-in zoom-in-95">
+          <div className="bg-zinc-950 border border-white/10 rounded-[32px] w-full max-w-lg max-h-[92dvh] overflow-y-auto shadow-2xl relative p-6 md:p-10 animate-in zoom-in-95">
             <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full"><X size={20}/></button>
             
             <div className="w-16 h-16 bg-[#ccff00]/10 text-[#ccff00] rounded-2xl flex items-center justify-center mb-6 border border-[#ccff00]/20">
