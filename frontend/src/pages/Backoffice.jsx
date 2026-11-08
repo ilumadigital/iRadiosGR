@@ -105,7 +105,7 @@ function Metric({icon:Icon,label,value,caption,rose=false}){
   </div>;
 }
 function StationCard({station,role}){
-  const to=role==='producer'?'/backoffice/schedules':'/backoffice/stations/'+station._id+'/edit';
+  const to=role==='producer'?'/backoffice/schedules?station='+encodeURIComponent(station._id):'/backoffice/stations/'+station._id+'/edit';
   return <div className={panel+' group flex flex-col gap-4 p-4 transition hover:border-[#caff00]/30 md:flex-row md:items-center md:p-5'}>
     <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#070808]">
       {station.logo?<img src={station.logo} alt="" className="h-full w-full object-contain p-2" loading="lazy"/>:
@@ -121,7 +121,7 @@ function StationCard({station,role}){
     <div className="flex shrink-0 flex-wrap gap-2">
       <Link to={to} className={buttonSecondary}>
         {role==='producer'?'Πρόγραμμα':'Επεξεργασία'}<ArrowRight size={15}/></Link>
-      {role!=='producer'&&<Link to="/backoffice/schedules" className={buttonSecondary}
+      {role!=='producer'&&<Link to={'/backoffice/schedules?station='+encodeURIComponent(station._id)} className={buttonSecondary}
         aria-label={'Πρόγραμμα '+station.name} title="Πρόγραμμα σταθμού">
         <CalendarDays size={16}/></Link>}
       <a href={'/station/'+(station.slug||station._id)} target="_blank"
@@ -402,7 +402,10 @@ function StationEditor({data,reload,notify}){
   </div>;
 }
 function Scheduler({data,reload,notify}){
-  const [selected,setSelected]=useState(data.stations[0]?._id||'');
+  const location=useLocation();
+  const requestedStation=new URLSearchParams(location.search).get('station');
+  const initialStation=data.stations.find(s=>String(s._id)===String(requestedStation));
+  const [selected,setSelected]=useState(initialStation?._id||data.stations[0]?._id||'');
   const station=data.stations.find(s=>String(s._id)===String(selected));
   const [schedule,setSchedule]=useState([]);
   const [activeDay,setActiveDay]=useState(1);
@@ -417,8 +420,21 @@ function Scheduler({data,reload,notify}){
   useEffect(()=>{
     if(!dirty)return;
     const preventLeave=e=>{e.preventDefault();e.returnValue='';};
+    const confirmNavigation=event=>{
+      if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||
+        event.altKey||event.shiftKey)return;
+      const anchor=event.target.closest?.('a[href]');
+      if(!anchor||anchor.getAttribute('href')?.startsWith('/backoffice/schedules'))return;
+      if(!window.confirm('Υπάρχουν μη αποθηκευμένες αλλαγές στο πρόγραμμα. Θέλεις να φύγεις χωρίς αποθήκευση;')){
+        event.preventDefault();event.stopPropagation();
+      }
+    };
     window.addEventListener('beforeunload',preventLeave);
-    return ()=>window.removeEventListener('beforeunload',preventLeave);
+    document.addEventListener('click',confirmNavigation,true);
+    return ()=>{
+      window.removeEventListener('beforeunload',preventLeave);
+      document.removeEventListener('click',confirmNavigation,true);
+    };
   },[dirty]);
   const updateSchedule=callback=>{
     setSchedule(previous=>callback(previous));
