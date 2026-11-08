@@ -33,7 +33,7 @@ function matches(s,q={}){
 const Station={
   find:q=>({select:()=>({sort:()=>({limit:()=>({lean:async()=>all.filter(s=>matches(s,q))})})})}),
   countDocuments:async q=>all.filter(s=>matches(s,q)).length,
-  findOne:async q=>all.find(s=>matches(s,q))||null,
+  findOne:q=>({select:async()=>all.find(s=>matches(s,q))||null}),
   create:async fields=>{const s=doc({_id:'333333333333333333333333',schedule:[],...fields});
     all.push(s);return s;}
 };
