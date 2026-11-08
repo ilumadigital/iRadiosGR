@@ -1,6 +1,7 @@
 'use strict';
 // RSS.app and Google News URL-based sources. No arbitrary network hosts, redirects or HTML scraping.
 const DEFAULT_FEED_URL='https://rss.app/feeds/k4AEhunSwl50WyaC.xml';
+const rssNewsPreset=require('./rssNewsPreset');
 const invalid=message=>{throw Object.assign(new Error(message),{status:400});};
 const hostPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i;
 function checkDomain(value){
@@ -31,9 +32,11 @@ function normalizeSource(value){
   const raw=typeof value==='string'?value:value?.url;
   if(typeof raw!=='string'||raw.length>1024)invalid('Δώσε έγκυρο link Google News ή RSS.app.');
   let input;try{input=new URL(raw.trim());}catch{invalid('Μη έγκυρη διεύθυνση ειδήσεων.');}
-  if(input.protocol!=='https:'||input.username||input.password||input.port||
-     input.hash||!['rss.app','news.google.com'].includes(input.hostname))
-    invalid('Υποστηρίζονται μόνο HTTPS links από Google News και rss.app.');
+  if(input.protocol!=='https:'||input.username||input.password||input.port||input.hash)
+    invalid('Επιτρέπονται μόνο ασφαλείς HTTPS διευθύνσεις.');
+  if(input.hostname==='rssnews.io')return rssNewsPreset.normalizePreset(raw.trim());
+  if(!['rss.app','news.google.com'].includes(input.hostname))
+    invalid('Υποστηρίζονται μόνο Google News, RSS.app και rssnews.io κατηγορίες.');
   if(input.hostname==='rss.app'){
     if(!/^\/feeds\/[A-Za-z0-9_-]+\.xml$/.test(input.pathname)||input.search)
       invalid('Το RSS.app link πρέπει να τελειώνει σε /feeds/…xml.');
@@ -132,7 +135,8 @@ function parse(xml,{google=false,publisherDomain:domain=''}={}){
 async function fetchXml(url,google=false,publisherDomain=''){
   // Every fetch target is constructed from a strict host allowlist. Redirects blocked.
   const host=new URL(url).hostname;
-  if(!['rss.app','news.google.com'].includes(host))throw new Error('Unsupported feed host');
+  if(!['rss.app','news.google.com','www.newsbeast.gr','www.pes.gr','www.esos.gr','www.alfavita.gr'].includes(host))
+    throw new Error('Unsupported feed host');
   const response=await fetch(url,{
     redirect:'error',signal:AbortSignal.timeout(9000),
     headers:{Accept:'application/rss+xml, application/atom+xml, application/xml, text/xml',
@@ -168,6 +172,8 @@ function googleDomainEndpoint(source){
 }
 async function download(source){
   const normalized=normalizeSource(source);
+  if(normalized.type==='rssnews_preset')
+    return rssNewsPreset.downloadPreset(normalized,{fetchXml});
   if(normalized.type==='rss_app')
     return {...await fetchXml(normalized.url),retrievalMode:'rss'};
   if(normalized.type==='google_rss')

@@ -2,12 +2,12 @@
 const mongoose=require('mongoose');
 const article=new mongoose.Schema({
   id:{type:String,required:true},title:{type:String,required:true},summary:String,
-  imageUrl:String,url:{type:String,required:true},publishedAt:Date,source:String,
+  imageUrl:String,url:{type:String,required:true},publishedAt:Date,source:String,category:{type:String,default:''},
   sourceId:{type:String,default:''}
 },{_id:false});
 const source=new mongoose.Schema({
   id:{type:String,required:true},url:{type:String,required:true},
-  type:{type:String,enum:['rss_app','google_publisher','google_rss'],required:true},
+  type:{type:String,enum:['rss_app','google_publisher','google_rss','rssnews_preset'],required:true},
   domain:{type:String,default:''},enabled:{type:Boolean,default:true},
   label:{type:String,default:''},feedTitle:{type:String,default:''},
   lastSyncedAt:{type:Date,default:null},lastAttemptAt:{type:Date,default:null},

@@ -52,7 +52,8 @@ async function sync(doc,force=false){
       if(r.error){s.lastError=r.error;failed.push(s.label||s.domain||s.url);}
       else{
         s.feedTitle=r.data.feedTitle||s.label||s.domain||'';
-        s.lastSyncedAt=started;s.lastError='';s.fetchedCount=r.data.articles.length;
+        s.lastSyncedAt=started;s.lastError=(r.data.warnings||[]).join(' | ').slice(0,220);
+        s.fetchedCount=r.data.articles.length;
         s.retrievalMode=r.data.retrievalMode;successful.add(s.id);
         fresh.push(...r.data.articles.map(article=>({...article,sourceId:s.id})));
       }
