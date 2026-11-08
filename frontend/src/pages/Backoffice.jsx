@@ -394,7 +394,7 @@ function StationEditor({data,reload,notify}){
                 <input required maxLength={100} pattern="[a-z0-9]+(-[a-z0-9]+)*" spellCheck={false}
                   autoComplete="off" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-white outline-none"
                   placeholder="venus-fm-105-1" value={form.slug||''}
-                  onChange={e=>update('slug',e.target.value.toLowerCase().replace(/\\s+/g,'-'))}/>
+                  onChange={e=>update('slug',e.target.value.toLowerCase().replace(/\s+/g,'-'))}/>
               </div>
             </Field>
             <Field label="Βασική κατηγορία *"><PrimaryCategorySelect className={inputClass} value={form.genre} onChange={value=>update('genre',value)}/></Field>
