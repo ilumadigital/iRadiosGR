@@ -1,0 +1,132 @@
+import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {Helmet} from 'react-helmet-async';
+import {Newspaper,LayoutGrid,List,ExternalLink,RefreshCw,Clock3,Megaphone} from 'lucide-react';
+import EditorialPlacement from '../components/EditorialPlacement';
+
+export function newsAge(value,now=Date.now()){
+  const date=new Date(value);
+  if(!value||!Number.isFinite(date.getTime()))return null;
+  const age=Math.max(0,now-date.getTime());
+  const units=[['year',31536000000],['month',2592000000],['week',604800000],['day',86400000],['hour',3600000],['minute',60000],['second',1000]];
+  const [unit,ms]=units.find(([,duration])=>age>=duration)||units[units.length-1];
+  const number=Math.max(1,Math.floor(age/ms));
+  return {relative:new Intl.RelativeTimeFormat('el-GR',{numeric:'always'}).format(-number,unit),
+    absolute:new Intl.DateTimeFormat(undefined,{dateStyle:'long',timeStyle:'short'}).format(date),iso:date.toISOString()};
+}
+function Article({item,view,now,source}){
+  const [broken,setBroken]=useState(false),time=newsAge(item.publishedAt,now);
+  const href=item.url;
+  return <article className={'group min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#12171b] shadow-[0_16px_32px_rgba(0,0,0,.16)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ccff00]/35 '+(view==='list'?'flex flex-col sm:flex-row':'flex h-full flex-col')}>
+    <a href={href} target="_blank" rel="noopener noreferrer" aria-label={'Διάβασε: '+item.title}
+      className={'relative block shrink-0 overflow-hidden bg-[#202628] '+(view==='list'?'aspect-[16/9] sm:aspect-auto sm:w-[235px] lg:w-[290px]':'aspect-[16/10]')}>
+      {item.imageUrl&&!broken?<img src={item.imageUrl} alt="" loading="lazy" onError={()=>setBroken(true)} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"/>:
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1d292b] to-[#0a1213]"><Newspaper size={42} className="text-[#ccff00]/35"/></div>}
+      <span className="absolute bottom-3 left-3 max-w-[90%] truncate rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#ccff00] backdrop-blur">{item.source||source||'Ειδήσεις'}</span>
+    </a>
+    <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-zinc-400">
+        <Clock3 size={13} className="shrink-0 text-[#ccff00]"/>
+        {time?<time dateTime={time.iso} title={time.absolute}>{time.relative}</time>:<span>Χωρίς ημερομηνία</span>}
+        <span className="text-white/25">•</span><span className="max-w-[160px] truncate">{item.source||source||'iRadios'}</span>
+      </div>
+      <h2 className={'line-clamp-3 font-black leading-snug tracking-tight text-white transition-colors group-hover:text-[#ccff00] '+(view==='list'?'text-lg sm:text-xl':'text-base sm:text-lg')}>
+        <a href={href} target="_blank" rel="noopener noreferrer">{item.title}</a>
+      </h2>
+      {item.summary&&<p className="mt-3 line-clamp-3 text-xs leading-6 text-zinc-400 sm:text-sm">{item.summary}</p>}
+      <a href={href} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex w-fit items-center gap-1.5 pt-5 text-xs font-black text-[#ccff00] hover:text-white">Διάβασε το άρθρο <ExternalLink size={14}/></a>
+    </div>
+  </article>;
+}
+function AdLink({banner,children,className}){
+  const ref=React.useRef(null),tracked=React.useRef(false);
+  useEffect(()=>{
+    const node=ref.current;if(!node||typeof IntersectionObserver==='undefined')return;
+    const observer=new IntersectionObserver(entries=>{
+      if(entries[0]?.isIntersecting&&!tracked.current){
+        tracked.current=true;fetch('/api/banners/'+banner._id+'/impression',{method:'POST'}).catch(()=>{});
+      }
+    },{threshold:0.5});
+    observer.observe(node);return()=>observer.disconnect();
+  },[banner._id]);
+  const utm='ref=iradiosapp&utm_medium=ilumadigitalagencyiradios&utm_source=iradios&utm_campaign=radiofeed_ir&utm_content=radiofeed_ir';
+  return <a ref={ref} href={banner.targetUrl+(banner.targetUrl.includes('?')?'&':'?')+utm}
+    target="_blank" rel="noopener noreferrer" className={className}
+    onClick={()=>fetch('/api/banners/'+banner._id+'/click',{method:'POST'}).catch(()=>{})}>{children}</a>;
+}
+function AdUnit({banner,wide=false,view='grid'}){
+  if(wide)return <AdLink banner={banner} className="group relative block h-[200px] w-full overflow-hidden rounded-[32px] border border-purple-500/20 shadow-[0_20px_40px_rgba(0,0,0,.5)] transition-all duration-500 hover:border-purple-500 md:h-[350px]">
+    <img src={banner.imageUrl} alt={banner.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"/>
+    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"/>
+    <span className="absolute right-5 top-5 inline-flex items-center gap-2 rounded-full bg-purple-500 px-3 py-1.5 text-[10px] font-black uppercase text-white"><Megaphone size={14}/> Sponsored</span>
+    <div className="absolute bottom-6 left-6 right-6 flex flex-wrap items-end justify-between gap-4 md:bottom-10 md:left-10 md:right-10">
+      <div className="max-w-2xl"><h3 className="text-2xl font-black text-white md:text-4xl">{banner.title}</h3><p className="mt-2 line-clamp-2 text-sm text-zinc-200">{banner.description}</p></div>
+      <span className="inline-flex items-center gap-2 rounded-2xl bg-[#ccff00] px-6 py-3.5 text-xs font-black uppercase text-black">Μαθε Περισσοτερα <ExternalLink size={16}/></span>
+    </div>
+  </AdLink>;
+  if(view==='list')return <AdLink banner={banner} className="flex min-w-0 items-center gap-4 rounded-2xl border border-purple-500/20 bg-purple-900/10 p-3 hover:bg-purple-900/20">
+    <img src={banner.squareImageUrl||banner.imageUrl} alt="" className="size-20 shrink-0 rounded-xl object-cover"/>
+    <div className="min-w-0"><span className="text-[10px] font-black text-purple-400">Sponsored</span><h3 className="truncate font-bold text-white">{banner.title}</h3><p className="line-clamp-1 text-xs text-zinc-400">{banner.description}</p></div>
+  </AdLink>;
+  return <AdLink banner={banner} className="group flex h-full min-w-0 flex-col">
+    <div className="relative aspect-square overflow-hidden rounded-2xl border border-purple-500/30 bg-zinc-900 shadow-lg transition-all duration-500 group-hover:-translate-y-1 group-hover:border-purple-500 md:rounded-3xl">
+      <img src={banner.squareImageUrl||banner.imageUrl} alt={banner.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"/>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"/>
+      <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded bg-purple-500 px-1.5 py-0.5 text-[8px] font-black uppercase text-white"><Megaphone size={8}/> AD</span>
+    </div>
+    <div className="mt-2 px-1"><h3 className="truncate text-sm font-bold text-purple-400 md:text-lg">{banner.title} <ExternalLink size={12} className="inline"/></h3><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Sponsored</p></div>
+  </AdLink>;
+}
+export default function NewsFeed({stations=[],currentUser,currentStation,isPlaying,onPlayStation,onPlayPause}){
+  const [view,setView]=useState('grid'),[items,setItems]=useState([]),[source,setSource]=useState('');
+  const [loading,setLoading]=useState(true),[error,setError]=useState(''),[now,setNow]=useState(Date.now()),[banners,setBanners]=useState([]);
+  const premium=Boolean(currentUser&&(currentUser.role==='admin'||currentUser.role==='agency'||currentUser.isPremium===true||currentUser.broadcasterProfile?.tier==='premium'));
+  const refresh=useCallback(async signal=>{
+    const r=await fetch('/api/newsfeed',{signal});if(!r.ok)throw Error('Δεν είναι διαθέσιμες οι ειδήσεις αυτή τη στιγμή.');
+    const data=await r.json();setItems(Array.isArray(data.articles)?data.articles:[]);setSource(data.feedTitle||'');setError('');
+  },[]);
+  useEffect(()=>{
+    const controller=new AbortController();let live=true;
+    refresh(controller.signal).catch(e=>{if(live&&e.name!=='AbortError')setError(e.message);}).finally(()=>{if(live)setLoading(false);});
+    const interval=setInterval(()=>{if(!document.hidden)refresh(controller.signal).catch(()=>{});},120000);
+    const clock=setInterval(()=>setNow(Date.now()),30000);
+    return()=>{live=false;controller.abort();clearInterval(interval);clearInterval(clock);};
+  },[refresh]);
+  useEffect(()=>{
+    if(premium)return;
+    const controller=new AbortController();
+    fetch('/api/banners/active',{signal:controller.signal}).then(r=>r.ok?r.json():[])
+      .then(data=>{if(!controller.signal.aborted)setBanners((Array.isArray(data)?data:[]).filter(b=>
+        b.status==='active'&&Array.isArray(b.placement)&&b.placement.includes('news_feed')&&(!b.expiresAt||new Date(b.expiresAt)>new Date())&&
+        (!Array.isArray(b.targetLocations)||!b.targetLocations.length||b.targetLocations.includes('All'))));}).catch(()=>{});
+    return()=>controller.abort();
+  },[premium]);
+  const ordered=useMemo(()=>[...items].sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)),[items]);
+  return <div className="ir-catalog-page min-w-0 animate-fade-in px-4 pb-40 pt-6 md:px-8 md:pt-9">
+    <Helmet><title>Ειδήσεις τώρα | iRadios GR</title><meta name="description" content="Τελευταίες ειδήσεις και νέα από το Newsfeed του iRadios GR, με φωτογραφίες και συνεχή ενημέρωση."/></Helmet>
+    <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
+      <div><p className="mb-2 text-[11px] font-black uppercase tracking-[.2em] text-[#ccff00]">iRadios GR / News</p>
+        <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-white md:text-5xl"><Newspaper size={35} className="text-[#ccff00]"/> Ειδήσεις</h1>
+        <p className="mt-2 text-xs font-semibold text-zinc-500 md:text-sm">{ordered.length?ordered.length+' πρόσφατα άρθρα':'Οι τελευταίες ειδήσεις'} {source?'· '+source:''}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <button type="button" aria-label="Ανανέωση ειδήσεων" onClick={()=>{setLoading(true);refresh().catch(e=>setError(e.message)).finally(()=>setLoading(false));}} className="rounded-xl border border-white/10 bg-zinc-900 p-2.5 text-zinc-400 hover:text-[#ccff00]"><RefreshCw size={17} className={loading?'animate-spin':''}/></button>
+        <div className="flex items-center rounded-xl border border-white/10 bg-zinc-900 p-1" role="group" aria-label="Προβολή ειδήσεων">
+          <button type="button" aria-label="Πλέγμα" aria-pressed={view==='grid'} onClick={()=>setView('grid')} className={'rounded-lg p-1.5 '+(view==='grid'?'bg-[#ccff00] text-black':'text-zinc-500 hover:text-white')}><LayoutGrid size={16}/></button>
+          <button type="button" aria-label="Λίστα" aria-pressed={view==='list'} onClick={()=>setView('list')} className={'rounded-lg p-1.5 '+(view==='list'?'bg-[#ccff00] text-black':'text-zinc-500 hover:text-white')}><List size={16}/></button>
+        </div>
+      </div>
+    </header>
+    <EditorialPlacement placement="news" value="" viewMode={view} currentUser={currentUser} stations={stations}
+      currentStation={currentStation} isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>
+    {error&&<div role="alert" className="mb-5 rounded-xl border border-red-400/25 bg-red-950/20 p-4 text-sm text-red-200">{error}</div>}
+    {loading&&!ordered.length?<div className="rounded-2xl border border-white/10 p-12 text-center text-zinc-400"><RefreshCw size={24} className="mx-auto mb-3 animate-spin text-[#ccff00]"/>Φόρτωση ειδήσεων…</div>:
+    !ordered.length?<div className="rounded-2xl border border-white/10 bg-white/[.025] p-12 text-center text-zinc-400"><Newspaper className="mx-auto mb-4 text-[#ccff00]" size={35}/>Δεν υπάρχουν διαθέσιμες ειδήσεις αυτή τη στιγμή.</div>:
+    <section aria-label="Ροή ειδήσεων" className={view==='grid'?'grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 md:gap-5':'flex min-w-0 flex-col gap-4'}>
+      {ordered.map((item,index)=><React.Fragment key={item.id||item.url}>
+        {banners.length>0&&index>0&&index%12===0&&view==='grid'&&<div className="col-span-full py-4 md:py-8"><AdUnit wide banner={banners[Math.floor(index/12)%banners.length]}/></div>}
+        {banners.length>0&&index>0&&index%5===0&&<AdUnit banner={banners[Math.floor(index/5)%banners.length]} view={view}/>}
+        <Article item={item} view={view} now={now} source={source}/>
+      </React.Fragment>)}
+    </section>}
+  </div>;
+}
