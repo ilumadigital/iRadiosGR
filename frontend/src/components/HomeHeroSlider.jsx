@@ -80,7 +80,7 @@ export default function HomeHeroSlider({
       onFocusCapture={()=>setHover(true)}
       onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget))setHover(false);}}
       style={{'--ir-ambient-rgb':brandRgb}}
-      className="ir-home-hero ir-ambient-hero relative isolate aspect-[40/21] min-h-0 min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#10161b] sm:rounded-[28px]">
+      className="ir-home-hero ir-ambient-hero relative isolate aspect-[40/21] w-full max-w-[1200px] min-h-0 min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#10161b] sm:rounded-[28px]">
       <img src={image} alt="" loading="eager"
         className={`pointer-events-none absolute inset-0 h-full w-full ${slide?'object-cover opacity-80':'object-cover opacity-20 blur-[2px]'}`}/>
       <div className="ir-ambient-hero-gradient pointer-events-none absolute inset-0"/>
