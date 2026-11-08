@@ -46,20 +46,35 @@
   overflow:hidden;border-radius:clamp(22px,2.6vw,34px);
   border:1px solid rgba(255,255,255,.17);background:#161d20;
   box-shadow:0 30px 80px rgba(0,0,0,.5),inset 0 1px rgba(255,255,255,.1);
-  isolation:isolate
+  isolation:isolate;transform:translateZ(0);backface-visibility:hidden
 }
-.ir-station-profile-hero .ir-station-hero-art>img:first-child{width:100%;height:100%;object-fit:cover}
+.ir-station-profile-hero .ir-station-hero-art>img:first-child{
+  width:100%;height:100%;object-fit:cover;border-radius:inherit;backface-visibility:hidden
+}
 .ir-station-profile-hero .ir-station-hero-art>img.ir-station-art-is-logo{
-  object-fit:contain;background:#fff;padding:10%
+  object-fit:contain;background:#fff;padding:6%;border-radius:inherit
 }
 .ir-station-empty-meta{font-size:14px;color:#aab4b6;font-weight:650}
-.ir-station-profile-hero .ir-station-hero-art .ir-rds-image-overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ir-station-profile-hero .ir-station-hero-art .ir-rds-image-overlay{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;border-radius:inherit;backface-visibility:hidden
+}
 .ir-station-art-scrim{position:absolute;z-index:12;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.42),transparent 45%);pointer-events:none}
-.ir-station-art-brand-wrap{position:absolute;z-index:20;left:4%;bottom:4%;width:21%;aspect-ratio:1}
-.ir-station-art-brand{width:100%;height:100%;display:grid;place-items:center;overflow:hidden;
-  padding:6%;border-radius:24%;border:1px solid rgba(255,255,255,.62);
-  background:rgba(255,255,255,.79);backdrop-filter:blur(18px) saturate(150%);
-  box-shadow:0 9px 28px rgba(0,0,0,.35)}
+.ir-station-art-brand-wrap{
+  position:absolute;z-index:20;left:4%;bottom:4%;width:21%;aspect-ratio:1;
+  overflow:hidden;border-radius:25%;background:#fff;isolation:isolate;
+  box-shadow:0 9px 28px rgba(0,0,0,.35);transform:translateZ(0);backface-visibility:hidden
+}
+.ir-station-art-brand{
+  width:100%;height:100%;display:grid;place-items:center;overflow:hidden;
+  padding:0;border-radius:inherit;border:1px solid rgba(255,255,255,.74);
+  background:#fff;backface-visibility:hidden
+}
+.ir-station-art-brand-image{
+  display:block;width:100%;height:100%;object-fit:contain;
+  border-radius:inherit;background:#fff;backface-visibility:hidden;
+  transform:translateZ(0)
+}
 .ir-station-art-badge{position:absolute;top:14px;left:14px;z-index:20;
   display:flex;align-items:center;gap:7px;padding:8px 11px;border-radius:100px;
   border:1px solid rgba(255,255,255,.2);background:rgba(5,9,11,.65);backdrop-filter:blur(12px);
@@ -178,7 +193,7 @@
   .ir-station-actions{order:2;display:flex;flex-direction:column;gap:17px;
     align-items:center;width:100%}
   .ir-station-action-buttons{justify-content:center;gap:clamp(24px,7vw,50px)}
-  .ir-station-action-buttons>div:first-child{order:2}
+  .ir-station-action-buttons>.ir-station-play-button{order:2}
   .ir-station-action-buttons>button:nth-child(2){order:1}
   .ir-station-action-buttons>button:nth-child(3){order:3}
   .ir-station-action-buttons>div:not(:first-child){order:4}
@@ -207,8 +222,8 @@
   .ir-station-art-badge{top:12px;left:12px;font-size:8px}
   .ir-station-name{font-size:clamp(28px,7.6vw,36px)}
   .ir-station-hero-copy{gap:15px}
-  .ir-station-action-buttons>div:first-child{width:64px;height:64px}
-  .ir-station-action-buttons>button{width:48px;height:48px}
+  .ir-station-action-buttons>.ir-station-play-button{width:58px;height:58px}
+  .ir-station-action-buttons>button:not(.ir-station-play-button){width:48px;height:48px}
   .ir-station-stats{font-size:12px}
   .ir-station-playlist-aside .ir-playlist-panel{padding:15px!important}
   .ir-program-rows{padding:7px 8px}
@@ -557,46 +572,76 @@
 @media(prefers-reduced-motion:reduce){.ir-program-follow-button{transition:none}}
 
 
-/* Laptop first fold: keep full cover artwork above the fixed audio player.
-   Below 768px the independent mobile showcase remains unchanged. */
+/* A real responsive first fold on laptops: fluid typography and spacing,
+   not an internal scroll surface. Extremely long content extends the page
+   naturally instead of hiding station controls behind a scrollbar. */
+.ir-station-play-button{
+  width:clamp(54px,4.6vw,70px);height:clamp(54px,4.6vw,70px);
+  aspect-ratio:1;flex-shrink:0
+}
 @media (min-width:1100px) and (max-height:960px) {
   .ir-station-page .ir-station-responsive-shell { padding-top:clamp(10px,1.7dvh,19px) }
   .ir-station-profile-nav { min-height:38px;margin-bottom:clamp(8px,1.4dvh,14px) }
   .ir-station-profile-nav>div { width:38px;height:38px }
   .ir-station-profile-hero {
-    height:clamp(385px,calc(100dvh - 278px),675px);
-    min-height:0;
-    padding:clamp(16px,2.4dvh,27px)!important;
-    gap:clamp(17px,2.6vw,38px)!important;
-    overflow:hidden;
+    height:auto;min-height:clamp(385px,calc(100dvh - 278px),675px);
+    padding:clamp(16px,2.3dvh,27px)!important;
+    gap:clamp(14px,2vw,34px)!important;
+    overflow:visible;
   }
-  .ir-station-hero-visual { max-height:100%;gap:9px }
+  .ir-station-hero-visual { max-height:none;gap:8px;min-width:0 }
   .ir-station-profile-hero .ir-station-hero-art {
-    width:min(100%,calc(100dvh - 378px),510px)!important;
-    max-height:calc(100dvh - 378px);
-    flex-shrink:1;
+    width:min(100%,max(175px,calc(100dvh - 418px)),500px)!important;
+    max-height:none;flex-shrink:0
   }
   .ir-station-hero-copy {
-    max-height:100%;overflow-y:auto;overscroll-behavior:contain;
-    scrollbar-width:thin;scrollbar-color:rgba(204,255,0,.30) transparent;
-    padding:3px 5px 3px 0;gap:clamp(10px,1.8dvh,20px);
+    max-height:none;overflow:visible;overscroll-behavior:auto;
+    padding:0;gap:clamp(9px,1.55dvh,17px);
   }
-  .ir-station-identity { gap:8px }
-  .ir-station-name { font-size:clamp(29px,3vw,48px) }
-  .ir-station-profile-hero .ir-station-track-title { font-size:clamp(22px,2.55vw,37px) }
-  .ir-station-now-shows { margin-top:9px }
-  .ir-station-actions { gap:12px }
-  .ir-station-action-buttons { gap:10px }
-  .ir-station-action-buttons>div:first-child { width:64px;height:64px }
-  .ir-station-action-buttons>button { width:48px;height:48px }
-  .ir-station-track-artist { margin-top:4px;font-size:clamp(14px,1.4vw,19px) }
+  .ir-station-identity { gap:clamp(5px,.9dvh,9px) }
+  .ir-station-name { font-size:clamp(25px,min(2.9vw,4.7dvh),46px);line-height:1.03 }
+  .ir-station-tagline { font-size:clamp(11px,1.5dvh,13px);line-height:1.35 }
+  .ir-station-live-kicker { font-size:clamp(9px,1.25dvh,10px) }
+  .ir-station-profile-hero .ir-station-track-title {
+    font-size:clamp(21px,min(2.6vw,4dvh),40px);line-height:1.08
+  }
+  .ir-station-hero-copy .ir-station-now h2:not(.ir-station-track-title) {
+    font-size:clamp(19px,min(2.2vw,3.1dvh),27px)
+  }
+  .ir-station-track-artist { margin-top:3px;font-size:clamp(13px,min(1.4vw,2.1dvh),18px) }
+  .ir-station-now-shows { margin-top:clamp(4px,.8dvh,9px) }
+  .ir-station-now-shows>div { padding:5px 9px }
+  .ir-station-actions { gap:clamp(8px,1.1dvh,13px) }
+  .ir-station-action-buttons { gap:clamp(7px,1vw,11px) }
+  .ir-station-action-buttons>.ir-station-play-button {
+    width:clamp(52px,7.8dvh,66px);height:clamp(52px,7.8dvh,66px)
+  }
+  .ir-station-action-buttons>button:not(.ir-station-play-button),
+  .ir-station-action-buttons>div>button { width:clamp(43px,6.1dvh,50px);height:clamp(43px,6.1dvh,50px) }
+  .ir-station-stats { gap:clamp(7px,1vw,12px) }
+  .ir-station-stats>div span:first-child { font-size:9px }
+  .ir-station-stats>div span:not(:first-child) { font-size:clamp(11px,1.65dvh,13px) }
 }
 @media (min-width:768px) and (max-width:1099px) and (max-height:960px) {
-  /* Narrow laptops already use the image-first stacked layout. */
+  /* Preserve the image-first stacked composition on narrower laptops. */
   .ir-station-profile-hero .ir-station-hero-art {
-    width:min(100%,calc(100dvh - 280px),380px)!important;
+    width:min(100%,max(168px,calc(100dvh - 380px)),370px)!important
   }
-  .ir-station-hero-copy { gap:14px }
+  .ir-station-hero-copy { gap:clamp(10px,1.7dvh,16px);overflow:visible }
+  .ir-station-name { font-size:clamp(25px,min(4vw,4.8dvh),42px) }
+  .ir-station-profile-hero .ir-station-track-title { font-size:clamp(21px,3.8dvh,31px) }
+  .ir-station-stats span { font-size:clamp(11px,1.7dvh,13px) }
+}
+/* Prevent square flashes during RDS cover/producer/logo transitions. */
+.ir-station-profile-hero .ir-station-hero-art>img,
+.ir-station-profile-hero .ir-station-hero-art .ir-rds-image-overlay{
+  border-radius:inherit;backface-visibility:hidden
+}
+.ir-mobile-station-logo-frame{
+  isolation:isolate;transform:translateZ(0);backface-visibility:hidden
+}
+.ir-mobile-station-logo-frame img{
+  border-radius:50%;backface-visibility:hidden;transform:translateZ(0)
 }
 /* iRadiosGR glass contact modal, not an external email client. */
 .ir-station-contact-overlay {
