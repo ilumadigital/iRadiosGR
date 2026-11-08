@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { KeyRound, User, Mail, Loader2, CheckCircle2, X, Eye, EyeOff, Send } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 
@@ -11,6 +11,9 @@ export default function Login({ API_URL, setCurrentUser }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [query] = useSearchParams();
+  const inviteToken = query.get('invite') || '';
+  const afterLogin = inviteToken ? `/broadcaster-invite?token=${encodeURIComponent(inviteToken)}` : null;
 
   // --- OTP STATES ---
   const [showOtpModal, setShowOtpModal] = useState(false);
@@ -58,7 +61,8 @@ export default function Login({ API_URL, setCurrentUser }) {
         localStorage.setItem('iluma_token', data.token);
         setCurrentUser(data.user);
         
-        if (['admin','broadcaster','producer'].includes(data.user.role)) navigate('/backoffice');
+        if (afterLogin) navigate(afterLogin);
+        else if (['admin','broadcaster','producer'].includes(data.user.role)) navigate('/backoffice');
         else navigate('/');
       } 
       else if (res.status === 403 && data.requireOtp) {
@@ -90,7 +94,7 @@ export default function Login({ API_URL, setCurrentUser }) {
       const res = await fetch(`${BASE_URL}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: unverifiedEmail, otp })
+        body: JSON.stringify({ email: unverifiedEmail, otp, ...(inviteToken ? { inviteToken } : {}) })
       });
       const data = await res.json();
 
@@ -101,7 +105,8 @@ export default function Login({ API_URL, setCurrentUser }) {
         
         setShowOtpModal(false);
         
-        if (['admin','broadcaster','producer'].includes(data.user.role)) navigate('/backoffice');
+        if (afterLogin) navigate(afterLogin);
+        else if (['admin','broadcaster','producer'].includes(data.user.role)) navigate('/backoffice');
         else navigate('/');
       } else {
         setError(data.error || 'Λάθος κωδικός OTP.');
