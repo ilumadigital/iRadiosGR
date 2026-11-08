@@ -317,7 +317,9 @@ router.post('/backoffice/producers/invite',authorizeRoles('broadcaster'),async(r
       await User.deleteOne({_id:producer._id,role:'producer',isVerified:false}).catch(()=>{});
       throw error;
     }
-    return res.status(201).json({message:'Η πρόσκληση εστάλη στο email του παραγωγού.'});
+    return res.status(201).json({message:process.env.APP_ENV==='staging'?
+      'Η πρόσκληση δημιουργήθηκε στο staging Mailpit. Δεν εστάλη πραγματικό email.':
+      'Η πρόσκληση εστάλη στο email του παραγωγού.'});
   }catch(error){
     if(error?.code===11000)return res.status(409).json({error:'Ο χρήστης υπάρχει ήδη.'});
     return fail(res,error);
