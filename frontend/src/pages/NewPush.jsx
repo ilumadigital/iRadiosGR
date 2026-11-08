@@ -75,11 +75,11 @@ export default function NewPush({ API_URL }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="admin-legacy-page max-w-4xl space-y-6">
       {/* Header & Refresh Button */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-black text-white uppercase tracking-tight">Push Notifications</h2>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tight">Push ειδοποιήσεις</h2>
           <p className="text-sm text-zinc-400 mt-1">Στείλτε ζωντανές ειδοποιήσεις στους χρήστες του iRadios.</p>
         </div>
         <button 
@@ -96,7 +96,7 @@ export default function NewPush({ API_URL }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-zinc-900/50 border border-white/5 p-5 rounded-2xl flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Συνολο Συσκευων</p>
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">Σύνολο συσκευών</p>
             <p className="text-3xl font-black text-white">
               {isLoadingStats ? <Loader2 size={24} className="animate-spin text-zinc-600 mt-2" /> : stats.all}
             </p>
@@ -115,7 +115,7 @@ export default function NewPush({ API_URL }) {
         <form onSubmit={handleSendPush} className="space-y-6 relative z-10">
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Τιτλος Ειδοποιησης</label>
+              <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Τίτλος ειδοποίησης</label>
               <input
                 type="text"
                 placeholder="π.χ. Νέος Διαγωνισμός στο iRadios!"
