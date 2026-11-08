@@ -301,9 +301,9 @@ export default function RadioGeoMap({
                     disabled={offline}
                      aria-label={(offline ? 'OFFLINE' : playing ? 'Παύση' : 'Αναπαραγωγή') + ' ' + station.name}
                     onClick={() => { if(!offline) (isCurrent ? onPlayPause?.() : onPlayStation?.(station)); }}
-                    className={'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ' +
-                      (offline ? 'cursor-not-allowed bg-red-600 text-white' : playing ? 'bg-[#ccff00] text-black' : 'bg-white/10 text-white hover:bg-[#ccff00] hover:text-black')}>
-                    {offline ? <span className="text-[8px] font-black">OFF</span> : playing ? <Activity size={17} className="animate-pulse" /> : <Play size={16} fill="currentColor" />}
+                    className={'flex h-10 shrink-0 items-center justify-center rounded-full transition-colors ' +
+                      (offline ? 'w-[72px] cursor-not-allowed bg-red-600 text-white' : playing ? 'w-10 bg-[#ccff00] text-black' : 'w-10 bg-white/10 text-white hover:bg-[#ccff00] hover:text-black')}>
+                    {offline ? <span className="text-[9px] font-black">OFFLINE</span> : playing ? <Activity size={17} className="animate-pulse" /> : <Play size={16} fill="currentColor" />}
                   </button>
                 </div>
               );
