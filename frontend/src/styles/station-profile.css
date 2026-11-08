@@ -98,7 +98,7 @@
   border-radius:26px;background:linear-gradient(145deg,rgba(21,28,30,.92),rgba(10,15,18,.98));
   box-shadow:0 25px 65px rgba(0,0,0,.15)}
 .ir-station-playlist-aside .ir-playlist-panel{padding:clamp(16px,2.2vw,27px)!important;max-height:none}
-.ir-station-playlist-aside .ir-playlist-panel--station-sidebar>div:nth-of-type(3){
+.ir-station-playlist-aside .ir-playlist-panel--station-sidebar .ir-playlist-tracks{
   max-height:460px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(204,255,0,.28) transparent}
 .ir-station-playlist-aside .ir-station-playlist-track{min-width:0}
 .ir-station-playlist-aside .ir-station-playlist-song{min-width:0}
@@ -230,7 +230,7 @@
 
 /* iOS-inspired mobile station identity: only the station route is transformed.
    The desktop layout and the shared audio transport are intentionally untouched. */
-.ir-station-mobile-showcase,.ir-playlist-mobile-heading{display:none}
+.ir-station-mobile-showcase,.ir-playlist-mobile-heading,.ir-playlist-track-more-wrap{display:none}
 
 @media (max-width:767px){
   .ir-station-page{background:#080b0e!important;overflow-x:clip}
