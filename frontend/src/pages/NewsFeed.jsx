@@ -82,18 +82,29 @@ function AdUnit({banner,wide=false,view='grid'}){
 }
 export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoMatch,currentStation,isPlaying,onPlayStation,onPlayPause}){
   const [view,setView]=useState('grid'),[items,setItems]=useState([]),[source,setSource]=useState('');
+  const [categories,setCategories]=useState([]),[selectedCategory,setSelectedCategory]=useState('all');
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[now,setNow]=useState(Date.now()),[banners,setBanners]=useState([]);
   const premium=Boolean(currentUser&&(currentUser.role==='admin'||currentUser.role==='agency'||currentUser.isPremium===true||currentUser.broadcasterProfile?.tier==='premium'));
   const refresh=useCallback(async signal=>{
     const r=await fetch('/api/newsfeed',{signal});if(!r.ok)throw Error('Δεν είναι διαθέσιμες οι ειδήσεις αυτή τη στιγμή.');
-    const data=await r.json();setItems(Array.isArray(data.articles)?data.articles:[]);setSource(data.feedTitle||'');setError('');
+    const data=await r.json();setItems(Array.isArray(data.articles)?data.articles:[]);
+    setCategories(Array.isArray(data.categories)?data.categories.filter(c=>typeof c==='string'&&c.trim()):[]);
+    setSource(data.feedTitle||'');setError('');
   },[]);
   useEffect(()=>{
     const controller=new AbortController();let live=true;
     refresh(controller.signal).catch(e=>{if(live&&e.name!=='AbortError')setError(e.message);}).finally(()=>{if(live)setLoading(false);});
-    const interval=setInterval(()=>{if(!document.hidden)refresh(controller.signal).catch(()=>{});},120000);
+    // The backend imports at ten-minute intervals. Revalidate this lightweight
+    // shared cache while the page is open and immediately on returning to the tab.
+    const poll=()=>{if(!document.hidden)refresh(controller.signal).catch(()=>{});};
+    const interval=setInterval(poll,120000);
+    const onVisibility=()=>{if(!document.hidden)poll();};
+    document.addEventListener('visibilitychange',onVisibility);
     const clock=setInterval(()=>setNow(Date.now()),30000);
-    return()=>{live=false;controller.abort();clearInterval(interval);clearInterval(clock);};
+    return()=>{
+      live=false;controller.abort();clearInterval(interval);clearInterval(clock);
+      document.removeEventListener('visibilitychange',onVisibility);
+    };
   },[refresh]);
   useEffect(()=>{
     if(premium)return;
@@ -106,12 +117,27 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
     return()=>controller.abort();
   },[premium,userLocation,checkGeoMatch]);
   const ordered=useMemo(()=>[...items].sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)),[items]);
+  const categoryOptions=useMemo(()=>{
+    const all=new Set(categories);
+    ordered.forEach(item=>{if(item.category)all.add(item.category);});
+    return [...all];
+  },[categories,ordered]);
+  useEffect(()=>{
+    if(selectedCategory!=='all'&&!categoryOptions.includes(selectedCategory))setSelectedCategory('all');
+  },[selectedCategory,categoryOptions]);
+  const categoryCounts=useMemo(()=>{
+    const counts={};
+    for(const item of ordered)if(item.category)counts[item.category]=(counts[item.category]||0)+1;
+    return counts;
+  },[ordered]);
+  const filtered=useMemo(()=>selectedCategory==='all'?ordered:ordered.filter(item=>item.category===selectedCategory),
+    [ordered,selectedCategory]);
   return <div className="ir-catalog-page min-w-0 animate-fade-in px-4 pb-40 pt-6 md:px-8 md:pt-9">
     <Helmet><title>Ειδήσεις τώρα | iRadios GR</title><meta name="description" content="Τελευταίες ειδήσεις και νέα από το Newsfeed του iRadios GR, με φωτογραφίες και συνεχή ενημέρωση."/></Helmet>
     <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
       <div><p className="mb-2 text-[11px] font-black uppercase tracking-[.2em] text-[#ccff00]">iRadios GR / News</p>
         <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-white md:text-5xl"><Newspaper size={35} className="text-[#ccff00]"/> Ειδήσεις</h1>
-        <p className="mt-2 text-xs font-semibold text-zinc-500 md:text-sm">{ordered.length?ordered.length+' πρόσφατα άρθρα':'Οι τελευταίες ειδήσεις'} {source?'· '+source:''}</p>
+        <p className="mt-2 text-xs font-semibold text-zinc-500 md:text-sm">{ordered.length?ordered.length+' πρόσφατα άρθρα':'Οι τελευταίες ειδήσεις'} {source?'· '+source:''} · Ανανέωση κάθε 10′</p>
       </div>
       <div className="flex items-center gap-2">
         <button type="button" aria-label="Ανανέωση ειδήσεων" onClick={()=>{setLoading(true);refresh().catch(e=>setError(e.message)).finally(()=>setLoading(false));}} className="rounded-xl border border-white/10 bg-zinc-900 p-2.5 text-zinc-400 hover:text-[#ccff00]"><RefreshCw size={17} className={loading?'animate-spin':''}/></button>
@@ -123,11 +149,36 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
     </header>
     <EditorialPlacement placement="news" value="" viewMode={view} currentUser={currentUser} stations={stations}
       currentStation={currentStation} isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>
+    <section aria-label="Φίλτρα κατηγοριών ειδήσεων" className="mb-6 min-w-0">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-black text-white sm:text-base">Κατηγορίες ειδήσεων</h2>
+        <span className="text-xs font-semibold text-zinc-500">{filtered.length} {filtered.length===1?'άρθρο':'άρθρα'}</span>
+      </div>
+      <div className="-mx-4 flex min-w-0 gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0"
+        role="group" aria-label="Επιλογή κατηγορίας">
+        {[{name:'all',label:'Όλα',count:ordered.length},
+          ...categoryOptions.map(name=>({name,label:name,count:categoryCounts[name]||0}))].map(option=>{
+          const active=selectedCategory===option.name;
+          return <button key={option.name} type="button" aria-pressed={active}
+            onClick={()=>setSelectedCategory(option.name)}
+            className={'inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-xs font-black transition-colors sm:text-sm '+
+              (active?'border-[#ccff00] bg-[#ccff00] text-black':'border-white/15 bg-white/[.045] text-zinc-300 hover:border-[#ccff00]/50 hover:text-white')}>
+            <span>{option.label}</span>
+            <span className={'rounded-full px-2 py-0.5 text-[10px] tabular-nums '+(active?'bg-black/15 text-black':'bg-white/10 text-zinc-400')}>{option.count}</span>
+          </button>;
+        })}
+      </div>
+    </section>
     {error&&<div role="alert" className="mb-5 rounded-xl border border-red-400/25 bg-red-950/20 p-4 text-sm text-red-200">{error}</div>}
     {loading&&!ordered.length?<div className="rounded-2xl border border-white/10 p-12 text-center text-zinc-400"><RefreshCw size={24} className="mx-auto mb-3 animate-spin text-[#ccff00]"/>Φόρτωση ειδήσεων…</div>:
     !ordered.length?<div className="rounded-2xl border border-white/10 bg-white/[.025] p-12 text-center text-zinc-400"><Newspaper className="mx-auto mb-4 text-[#ccff00]" size={35}/>Δεν υπάρχουν διαθέσιμες ειδήσεις αυτή τη στιγμή.</div>:
+    !filtered.length?<div className="rounded-2xl border border-white/10 bg-white/[.025] p-10 text-center text-zinc-400">
+      <Newspaper className="mx-auto mb-3 text-[#ccff00]" size={30}/>
+      Δεν υπάρχουν ακόμη ειδήσεις στην κατηγορία «{selectedCategory}».
+      <button type="button" onClick={()=>setSelectedCategory('all')} className="mx-auto mt-4 block rounded-full border border-[#ccff00]/40 px-5 py-2 text-xs font-black text-[#ccff00]">Προβολή όλων</button>
+    </div>:
     <section aria-label="Ροή ειδήσεων" className={view==='grid'?'grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 md:gap-5':'flex min-w-0 flex-col gap-4'}>
-      {ordered.map((item,index)=><React.Fragment key={item.id||item.url}>
+      {filtered.map((item,index)=><React.Fragment key={item.id||item.url}>
         {banners.length>0&&index>0&&index%12===0&&view==='grid'&&<div className="col-span-full py-4 md:py-8"><AdUnit wide banner={banners[Math.floor(index/12)%banners.length]}/></div>}
         {banners.length>0&&index>0&&index%5===0&&<AdUnit banner={banners[Math.floor(index/5)%banners.length]} view={view}/>}
         <Article item={item} view={view} now={now} source={source}/>
