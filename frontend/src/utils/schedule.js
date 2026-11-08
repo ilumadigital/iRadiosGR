@@ -55,3 +55,15 @@ export function normalize(entries){
   }
   return {schedule:result,split};
 }
+
+// All Greek station schedules are broadcast in Greece-local time, regardless of
+// the listener's browser timezone. 1=Monday ... 7=Sunday.
+export function getAthensClock(date=new Date()){
+  const parts=new Intl.DateTimeFormat('en-GB',{
+    timeZone:'Europe/Athens',weekday:'short',hour:'2-digit',
+    minute:'2-digit',hourCycle:'h23'
+  }).formatToParts(date);
+  const value=type=>parts.find(x=>x.type===type)?.value||'';
+  const day=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(value('weekday'))+1;
+  return {day,minute:Number(value('hour'))*60+Number(value('minute'))};
+}
