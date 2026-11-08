@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Check, Clock,
+  ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Check,
   GripVertical, Info, Layers3, MapPin, Music2, Radio, RotateCcw,
   Rocket, Save, Search, SlidersHorizontal, Zap
 } from 'lucide-react';
@@ -44,6 +44,9 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   const [scope, setScope] = useState('global');
   const [scopeValue, setScopeValue] = useState('');
   const [localStations, setLocalStations] = useState([]);
+  const [rankSource, setRankSource] = useState(stations);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [onlyBoosted, setOnlyBoosted] = useState(false);
   const [positionInputs, setPositionInputs] = useState({});
@@ -51,11 +54,35 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(null);
   const draggedId = useRef(null);
-  const approved = useMemo(() => stations.filter(s => s.status === 'approved'), [stations]);
+  const approved = useMemo(() => rankSource.filter(s => s.status === 'approved'), [rankSource]);
   const genres = useMemo(() => [...new Set(approved.flatMap(s => [s.genre, s.secondaryGenre])
     .filter(Boolean))].sort((a, b) => a.localeCompare(b, 'el')), [approved]);
   const regions = useMemo(() => [...new Set(approved.flatMap(s => [s.region, s.city])
     .filter(Boolean))].sort((a, b) => a.localeCompare(b, 'el')), [approved]);
+
+  // Overview data is limited and lacks ranking fields. Always load the full
+  // authorized catalog from the dedicated backoffice endpoint.
+  const reloadRankings = async () => {
+    const response = await adminFetch('/api/backoffice/admin/station-ranking');
+    const data = await response.json();
+    if (!response.ok || !Array.isArray(data)) {
+      throw new Error(data?.error || 'Δεν φορτώθηκαν οι σταθμοί κατάταξης.');
+    }
+    setRankSource(data);
+  };
+  useEffect(() => {
+    let live = true;
+    adminFetch('/api/backoffice/admin/station-ranking')
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok || !Array.isArray(data))
+          throw new Error(data?.error || 'Αποτυχία φόρτωσης κατάταξης.');
+        return data;
+      }).then(data => { if (live) setRankSource(data); })
+      .catch(error => { if (live) setLoadError(error.message); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, []);
 
   // Props refresh and scope changes rebuild the local order from the saved scope.
   useEffect(() => {
@@ -86,17 +113,15 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
     setNotice(null);
   };
   const reorder = (id, toIndex) => {
-    setLocalStations(previous => {
-      const current = previous.filter(s => matchesScope(s, scope, scopeValue));
-      const source = current.findIndex(s => stationId(s) === String(id));
-      const destination = Math.max(0, Math.min(current.length - 1, Number(toIndex)));
-      if (source < 0 || !Number.isInteger(destination) || source === destination) return previous;
-      const [selected] = current.splice(source, 1);
-      current.splice(destination, 0, selected);
-      setDirty(true);
-      setNotice(null);
-      return [...current, ...previous.filter(s => !matchesScope(s, scope, scopeValue))];
-    });
+    const current = localStations.filter(s => matchesScope(s, scope, scopeValue));
+    const source = current.findIndex(s => stationId(s) === String(id));
+    const destination = Math.max(0, Math.min(current.length - 1, Number(toIndex)));
+    if (source < 0 || !Number.isInteger(destination) || source === destination) return;
+    const [selected] = current.splice(source, 1);
+    current.splice(destination, 0, selected);
+    setLocalStations([...current, ...localStations.filter(s => !matchesScope(s, scope, scopeValue))]);
+    setDirty(true);
+    setNotice(null);
   };
   const updateStation = (id, changes) => {
     setLocalStations(prev => prev.map(s => stationId(s) === String(id) ? { ...s, ...changes } : s));
@@ -171,9 +196,12 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Δεν αποθηκεύτηκε η κατάταξη.');
       setDirty(false);
+      // Read back the server's final persisted order (and boost expirations).
+      try { await reloadRankings(); }
+      catch { /* The write succeeded; the next visit will reload saved state. */ }
       if (typeof refreshStations === 'function') {
         try { await refreshStations(); }
-        catch { /* Save succeeded; the next refresh will synchronize the view. */ }
+        catch { /* Backoffice overview refresh is best-effort. */ }
       }
       setNotice({ error: false, text: `Αποθηκεύτηκε η κατάταξη «${scopeLabel}» για ${scopedStations.length} σταθμούς.` });
     } catch (error) {
@@ -185,6 +213,14 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
 
   return (
     <div className="admin-legacy-page mx-auto w-full max-w-[1600px] space-y-5 pb-24 text-white">
+      {loading && <p role="status" className="text-sm text-zinc-400">Φόρτωση κατάταξης σταθμών…</p>}
+      {loadError && <div role="alert" className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-300">
+        {loadError} <button type="button" onClick={() => {
+          setLoadError('');
+          setLoading(true);
+          reloadRankings().catch(error => setLoadError(error.message)).finally(() => setLoading(false));
+        }} className="ml-2 font-bold underline">Επανάληψη</button>
+      </div>}
       <header className="ir-glass relative overflow-hidden rounded-[30px] p-5 sm:p-7">
         <div className="pointer-events-none absolute -right-14 -top-20 size-64 rounded-full bg-[#ccff00]/10 blur-3xl" />
         <div className="relative flex flex-wrap items-start justify-between gap-5">
@@ -326,7 +362,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
                     <button type="button" role="switch" aria-checked={boosted}
                       aria-label={`Boost για ${station.name}`} onClick={() => toggleBoost(station)}
                       className={`relative h-6 w-11 shrink-0 rounded-full transition ${boosted ? 'bg-[#ccff00]' : 'bg-zinc-700'}`}>
-                      <span className={`absolute top-1 size-4 rounded-full bg-black transition-transform ${boosted ? 'translate-x-1' : '-translate-x-5'}`} />
+                      <span className={`absolute left-1 top-1 size-4 rounded-full bg-black transition-transform ${boosted ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                     <select aria-label={`Διάρκεια Boost για ${station.name}`} value=""
                       onChange={event => setDuration(id, event.target.value)}
@@ -350,9 +386,8 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
                       aria-label={`Μετακίνηση ${station.name} στο τέλος`}
                       disabled={index === scopedStations.length - 1}
                       onClick={() => reorder(id, scopedStations.length - 1)}><ArrowDownToLine size={16} /></button>
-                    <span draggable role="button" tabIndex={0}
+                    <span draggable aria-hidden="true"
                       title="Σύρε για αλλαγή θέσης"
-                      aria-label={`Σύρε τον σταθμό ${station.name} για αλλαγή θέσης`}
                       onDragStart={event => {
                         draggedId.current = id;
                         event.dataTransfer.effectAllowed = 'move';
