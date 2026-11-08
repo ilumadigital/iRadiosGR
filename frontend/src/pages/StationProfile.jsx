@@ -11,6 +11,8 @@ import {
 import { Helmet } from 'react-helmet-async';
 import CircularVU from '../components/CircularVU';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
+import MobileStationShowcase from '../components/MobileStationShowcase';
+import { useStationAmbient } from '../hooks/useStationAmbient';
 import StationScheduleTimeline from '../components/StationScheduleTimeline';
 import {resolveLiveShowArtwork} from '../utils/liveBroadcast';
 import {showProducerNow} from '../utils/rdsPresentation';
@@ -48,6 +50,7 @@ export default function StationProfile({
   // Station metadata must never update the page after the station changes.
 
   const station = stations.find(s => s.slug === id || s._id === id);
+  const stationAmbient = useStationAmbient(station?.logo);
   // Legacy schedules use 0=Monday; new backoffice saves 1=Monday.
   // The station is never rewritten by public reads.
   const canonicalSchedule = useMemo(()=>toCanonical(station?.schedule||[],
@@ -398,7 +401,19 @@ export default function StationProfile({
       </div>
 
       <div className="ir-station-responsive-shell relative z-10 flex-1 mx-auto w-full">
-        
+        <MobileStationShowcase
+          station={station} ambient={stationAmbient}
+          playing={Boolean(isThisPlaying && isPlaying)} onPlay={handlePlayClick}
+          favorite={isFav} onFavorite={() => toggleFavorite?.(station._id)}
+          onShare={handleShare} copied={copied}
+          currentUser={currentUser} song={validatedMusic}
+          songText={effectiveNowPlaying}
+          foundWithAI={foundWithAI} loadingMetadata={isCurrentlyLoadingMeta}
+          artwork={stationSongCover ? globalCoverArt : (liveProducerImage || station.logo)}
+          show={currentShow} recognizing={isRecognizing}
+          onRecognize={onRadarClick}
+        />
+
         {/* BACK BUTTON */}
         <button 
           onClick={() => navigate(-1)} 
@@ -710,7 +725,7 @@ export default function StationProfile({
         <aside className="ir-station-playlist-aside" aria-label="Playlist σταθμού">
           <StationPlaylistPanel station={station} currentUser={currentUser}
             currentStation={currentStation} isPlaying={isPlaying}
-            onPlayPause={onPlayPause} onPlayStation={setCurrentStation} sidebar/>
+            onPlayPause={onPlayPause} onPlayStation={setCurrentStation} sidebar mobileShowcase/>
         </aside>
         <section className="ir-station-about" aria-label="Πληροφορίες σταθμού">
           <div className="ir-station-about-eyebrow">ΓΝΩΡΙΣΕ ΤΟΝ ΣΤΑΘΜΟ</div>
@@ -742,9 +757,11 @@ export default function StationProfile({
         </section>
         </div>
 
-        <StationScheduleTimeline station={station} shows={canonicalSchedule}
-          selectedDay={selectedDay} onSelectDay={setSelectedDay}
-          currentShow={currentShow} today={athensClock}/>
+        <div id="ir-station-program">
+          <StationScheduleTimeline station={station} shows={canonicalSchedule}
+            selectedDay={selectedDay} onSelectDay={setSelectedDay}
+            currentShow={currentShow} today={athensClock}/>
+        </div>
 
         {/* 🟢 AD BANNER */}
         {isFreeOrGuest && homeBanners.length > 0 && (
