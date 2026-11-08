@@ -1,3 +1,4 @@
+import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Megaphone, LayoutPanelTop, Rows3, LayoutGrid, ExternalLink, Activity, X, Check, Loader2 } from 'lucide-react';
 

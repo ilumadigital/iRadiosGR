@@ -105,7 +105,7 @@ function Metric({icon:Icon,label,value,caption,rose=false}){
   </div>;
 }
 function StationCard({station,role}){
-  const to=role==='producer'?'/backoffice/schedules':'/backoffice/stations/'+station._id+'/edit';
+  const to=role==='producer'?'/backoffice/schedules?station='+encodeURIComponent(station._id):'/backoffice/stations/'+station._id+'/edit';
   return <div className={panel+' group flex flex-col gap-4 p-4 transition hover:border-[#caff00]/30 md:flex-row md:items-center md:p-5'}>
     <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#070808]">
       {station.logo?<img src={station.logo} alt="" className="h-full w-full object-contain p-2" loading="lazy"/>:
@@ -118,60 +118,127 @@ function StationCard({station,role}){
         <span className="flex items-center gap-1"><Headphones size={13}/> {shortNumber(station.plays)} ακροάσεις</span>
         <span className="flex items-center gap-1"><Globe2 size={13}/> {station.transmissionType||'Web Radio'}</span>
       </div></div>
-    <Link to={to} className={buttonSecondary+' shrink-0'}>{role==='producer'?'Πρόγραμμα':'Διαχείριση'}<ArrowRight size={15}/></Link>
+    <div className="flex shrink-0 flex-wrap gap-2">
+      <Link to={to} className={buttonSecondary}>
+        {role==='producer'?'Πρόγραμμα':'Επεξεργασία'}<ArrowRight size={15}/></Link>
+      {role!=='producer'&&<Link to={'/backoffice/schedules?station='+encodeURIComponent(station._id)} className={buttonSecondary}
+        aria-label={'Πρόγραμμα '+station.name} title="Πρόγραμμα σταθμού">
+        <CalendarDays size={16}/></Link>}
+      <a href={'/station/'+(station.slug||station._id)} target="_blank"
+        rel="noopener noreferrer" className={buttonSecondary}
+        aria-label={'Δημόσια σελίδα '+station.name} title="Δημόσια σελίδα">
+        <ExternalLink size={16}/></a>
+    </div>
   </div>;
 }
 function Dashboard({data}){
   const {user,counts,stations=[]}=data;
   const admin=user.role==='admin',producer=user.role==='producer';
-  const recent=[...stations].sort((a,b)=>(b.popularity||0)-(a.popularity||0)).slice(0,4);
+  const primaryStation=stations.find(s=>s.status==='approved')||stations[0];
+  const popular=[...stations].sort((a,b)=>(b.popularity||0)-(a.popularity||0)).slice(0,4);
+  const pending=(Number(counts.pendingApproval)||0)+(Number(counts.pendingEdits)||0);
+  const today=new Date(),day=today.getDay()||7;
+  const currentTime=String(today.getHours()).padStart(2,'0')+':'+String(today.getMinutes()).padStart(2,'0');
+  const nextShows=stations.flatMap(station=>(station.schedule||[])
+    .filter(show=>Number(show.day)===day&&show.endTime>currentTime)
+    .map(show=>({...show,stationName:station.name,stationId:station._id})))
+    .sort((a,b)=>a.startTime.localeCompare(b.startTime)).slice(0,3);
   const cards=[
-    {to:'/backoffice/stations',icon:Radio,name:'Ραδιοφωνικοί σταθμοί',desc:'Όλοι οι σταθμοί, οι πληροφορίες και τα stream σου.',number:'01'},
-    {to:'/backoffice/schedules',icon:CalendarDays,name:'Πρόγραμμα εκπομπών',desc:'Οργάνωσε το εβδομαδιαίο πρόγραμμα και τους παραγωγούς.',number:'02'},
-    ...(user.role==='broadcaster'?[{to:'/backoffice/team',icon:Users,name:'Παραγωγοί & συνεργάτες',desc:'Προσκάλεσε την ομάδα σου και όρισε σταθμούς.',number:'03'}]:[]),
-    ...(admin?[{to:'/backoffice/review',icon:FileCheck2,name:'Εγκρίσεις σταθμών',desc:'Έλεγξε αιτήματα και αλλαγές με ένα κλικ.',number:'03'},
-      {to:'/backoffice/admin/users',icon:Users,name:'Χρήστες & ρόλοι',desc:'Πρόσβαση, λογαριασμοί και διαχείριση.',number:'04'}]:[])
+    ...(primaryStation&&!producer?[{to:'/backoffice/stations/'+primaryStation._id+'/edit',
+      icon:Settings2,name:'Ενημέρωση σταθμού',desc:'Όνομα, στοιχεία, λογότυπο και stream.',
+      label:primaryStation.name}]:[]),
+    {to:'/backoffice/schedules',icon:CalendarDays,name:'Πρόγραμμα εκπομπών',
+      desc:'Οργάνωσε εύκολα την εβδομάδα ανά ημέρα.',label:nextShows.length?nextShows.length+' σήμερα':'Εβδομάδα'},
+    ...(user.role==='broadcaster'?[{to:'/backoffice/team',icon:Users,name:'Παραγωγοί & ομάδα',
+      desc:'Πρόσθεσε παραγωγούς και ανάθεσε σταθμούς.',label:'Συνεργάτες'}]:[]),
+    ...(admin?[{to:'/backoffice/review',icon:FileCheck2,name:'Εγκρίσεις',
+      desc:'Δες συγκεντρωμένα τα αιτήματα.',label:pending+' σε αναμονή'},
+      {to:'/backoffice/admin',icon:SlidersHorizontal,name:'Κέντρο διαχείρισης',
+      desc:'Όλα τα εργαλεία Admin σε ένα σημείο.',label:'11 εργαλεία'}]:[]),
+    {to:'/backoffice/stations',icon:Radio,name:admin?'Σταθμοί δικτύου':'Οι σταθμοί μου',
+      desc:'Εντόπισε και διαχειρίσου τους σταθμούς.',label:stations.length+' σταθμοί'},
+    ...(!producer?[{to:'/backoffice/stations/new',icon:Plus,name:'Προσθήκη σταθμού',
+      desc:'Συμπλήρωσε μόνο τα βασικά για να ξεκινήσεις.',label:'Νέα καταχώρηση'}]:[]),
+    ...(!admin?[{to:'/backoffice/insights',icon:BarChart3,name:'Στατιστικά σταθμών',
+      desc:'Δες καταγεγραμμένες ακροάσεις ανά σταθμό.',label:'Insights'}]:[])
   ];
-  return <div className="space-y-9">
-    <div className="relative overflow-hidden rounded-[32px] border border-[#caff00]/15 bg-[#11181a] px-7 py-9 md:px-11 md:py-11">
-      <div className="absolute -right-20 -top-32 size-96 rounded-full bg-[#caff00]/[.12] blur-[95px]"/>
-      <div className="absolute bottom-0 right-0 hidden text-[#caff00]/[.055] md:block"><Radio size={280} strokeWidth={.7}/></div>
-      <div className="relative max-w-2xl">
-        <Badge tone="lime"><Sparkles size={12}/> iRadios Business v6.1</Badge>
-        <h1 className="mt-6 text-4xl font-black leading-[1.05] tracking-[-.075em] text-white md:text-6xl">
-          Ο ήχος σου.<br/><span className="text-[#caff00]">Ο έλεγχός σου.</span></h1>
-        <p className="mt-5 max-w-xl text-[14px] leading-7 text-zinc-300">
-          {admin?'Το κέντρο ελέγχου ολόκληρου του δικτύου iRadios.':
-            producer?'Ο χώρος σου για να οργανώνεις την παρουσία σου στον αέρα.':
-              'Καλωσόρισες στο δικό σου broadcaster portal. Όλα τα ραδιόφωνά σου σε ένα μέρος.'}
-        </p>
-        <div className="mt-7 flex flex-wrap gap-3">
-          <Link to="/backoffice/stations" className={buttonPrimary}>Διαχείριση σταθμών<ArrowRight size={16}/></Link>
-          {!producer&&<Link to={admin?'/backoffice/review':'/backoffice/stations/new'} className={buttonSecondary}>
-            {admin?'Εκκρεμότητες':'Νέος σταθμός'}<ChevronRight size={16}/></Link>}
+  return <div className="space-y-8">
+    <div className="relative overflow-hidden rounded-[28px] border border-[#caff00]/15 bg-[#11181a] p-7 md:p-10">
+      <div className="absolute -right-20 -top-28 size-80 rounded-full bg-[#caff00]/[.11] blur-[90px]"/>
+      <div className="relative flex flex-col justify-between gap-7 lg:flex-row lg:items-center">
+        <div className="max-w-2xl">
+          <Badge tone="lime"><Sparkles size={12}/> iRadios Business Console</Badge>
+          <h1 className="mt-4 text-3xl font-black tracking-[-.05em] text-white md:text-5xl">
+            {admin?'Το δίκτυο με μια ματιά.':producer?'Το πρόγραμμά σου, απλά.':
+              'Καλώς ήρθες στο στούντιό σου.'}</h1>
+          <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-300">
+            {admin?'Αιτήματα, σταθμοί, χρήστες και εργαλεία οργανωμένα σε ένα μέρος.':
+              producer?'Βρες τις εκπομπές σου και οργάνωσε τις ώρες του σταθμού χωρίς περιττά βήματα.':
+              'Διαχειρίσου τους σταθμούς, το εβδομαδιαίο πρόγραμμα και τους συνεργάτες σου από ένα σημείο.'}
+          </p>
+        </div>
+        <div className="relative flex flex-wrap gap-2">
+          <Link to="/backoffice/schedules" className={buttonPrimary}><CalendarDays size={16}/> Επεξεργασία προγράμματος</Link>
+          {admin?<Link to="/backoffice/review" className={buttonSecondary}><FileCheck2 size={16}/> Εγκρίσεις</Link>:
+            !producer&&<Link to="/backoffice/stations/new" className={buttonSecondary}><Plus size={16}/> Νέος σταθμός</Link>}
         </div>
       </div>
     </div>
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
-      <Metric icon={Radio} label="Σταθμοί" value={shortNumber(counts.total)} caption="Στο δικό σου επίπεδο πρόσβασης"/>
-      <Metric icon={BadgeCheck} label="Ενεργοί" value={shortNumber(counts.approved)} caption="Εγκεκριμένοι σταθμοί"/>
-      <Metric icon={Clock3} label="Αιτήματα αλλαγών" value={shortNumber(counts.pendingEdits)} caption="Αναμένουν διαχειριστή" rose/>
-      <Metric icon={admin?Users:Headphones} label={admin?'Χρήστες δικτύου':'Συνολικές ακροάσεις'}
-        value={shortNumber(admin?counts.users:stations.reduce((a,s)=>a+(s.plays||0),0))}
-        caption={admin?'Εγγεγραμμένοι λογαριασμοί':'Μετρική καταλόγου, όχι live ακροατές'}/>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Metric icon={Radio} label="Σταθμοί" value={shortNumber(counts.total)} caption="Στο επίπεδο πρόσβασής σου"/>
+      <Metric icon={BadgeCheck} label="Εγκεκριμένοι" value={shortNumber(counts.approved)} caption="Ενεργοί στο δίκτυο"/>
+      <Metric icon={Clock3} label="Εκκρεμότητες" value={shortNumber(pending)}
+        caption={admin?'Νέες καταχωρήσεις & αλλαγές':'Αναμονή έγκρισης'} rose/>
+      <Metric icon={admin?Users:Headphones} label={admin?'Χρήστες':'Ακροάσεις'}
+        value={shortNumber(admin?counts.users:stations.reduce((n,s)=>n+(Number(s.plays)||0),0))}
+        caption={admin?'Λογαριασμοί δικτύου':'Καταγεγραμμένα plays, όχι live ακροατές'}/>
     </div>
-    <div><SectionTitle eyebrow="Quick actions" title="Όλα στη θέση τους." description="Οι βασικές εργασίες χωρίς περιττά μενού."/>
-      <div className="grid gap-3 md:grid-cols-2">{cards.map(c=><Link key={c.to} to={c.to}
-        className={panel+' group flex items-center gap-5 p-5 transition hover:border-[#caff00]/30 hover:bg-[#151b19]'}>
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-[#caff00]/10 bg-[#caff00]/[.07] text-[#caff00]"><c.icon size={25}/></div>
-        <div className="min-w-0 flex-1"><h3 className="font-black text-white">{c.name}</h3>
-          <p className="mt-1 text-xs leading-5 text-zinc-500">{c.desc}</p></div>
-        <ArrowRight size={18} className="shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-[#caff00]"/>
-      </Link>)}</div></div>
-    <div><SectionTitle eyebrow="Your network" title={admin?'Κορυφαίοι σταθμοί':'Οι σταθμοί σου'}
-      aside={<Link to="/backoffice/stations" className={buttonSecondary}>Προβολή όλων <ArrowRight size={14}/></Link>}/>
-      {recent.length?<div className="space-y-3">{recent.map(s=><StationCard key={s._id} station={s} role={user.role}/>)}</div>:
-        <div className={panel+' p-10 text-center text-zinc-400'}>Δεν υπάρχουν ακόμη σταθμοί στον λογαριασμό.</div>}</div>
+    <section>
+      <SectionTitle eyebrow="Quick actions" title="Τι θέλεις να κάνεις;"
+        description="Άμεση πρόσβαση στις πιο συχνές εργασίες σου, χωρίς να ψάχνεις σε μενού."/>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {cards.map(card=><Link key={card.to} to={card.to}
+          className={panel+' group flex min-h-44 flex-col justify-between p-5 transition hover:border-[#caff00]/35 hover:bg-[#17201b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#caff00]'}>
+          <div className="flex items-start justify-between gap-3">
+            <span className="flex size-11 items-center justify-center rounded-xl border border-[#caff00]/10 bg-[#caff00]/[.08] text-[#caff00]">
+              <card.icon size={21}/></span>
+            <ArrowRight size={17} className="text-zinc-600 transition group-hover:translate-x-1 group-hover:text-[#caff00]"/>
+          </div>
+          <div><h3 className="mt-4 text-base font-black text-white">{card.name}</h3>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">{card.desc}</p>
+            <span className="mt-3 inline-block text-[10px] font-black text-[#caff00]">{card.label}</span>
+          </div>
+        </Link>)}
+      </div>
+    </section>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <section><SectionTitle eyebrow="Οι σταθμοί" title={admin?'Κορυφαίοι σταθμοί':'Οι σταθμοί σου'}
+        aside={<Link to="/backoffice/stations" className={buttonSecondary}>Όλοι οι σταθμοί <ArrowRight size={14}/></Link>}/>
+        {popular.length?<div className="space-y-3">{popular.map(s=>
+          <StationCard key={s._id} station={s} role={user.role}/>)}</div>:
+          <div className={panel+' p-8 text-center text-sm text-zinc-400'}>
+            Δεν υπάρχουν ακόμη σταθμοί στον λογαριασμό.
+            {!producer&&<div className="mt-4"><Link className={buttonSecondary}
+              to="/backoffice/stations/new"><Plus size={14}/> Προσθήκη πρώτου σταθμού</Link></div>}
+          </div>}
+      </section>
+      <section className={panel+' p-5 md:p-6'}>
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div><p className="text-[10px] font-bold uppercase tracking-widest text-[#caff00]">Σήμερα</p>
+            <h3 className="mt-2 text-lg font-black text-white">Επόμενες εκπομπές</h3></div>
+          <CalendarDays size={22} className="text-[#caff00]"/>
+        </div>
+        {nextShows.length?nextShows.map((show,index)=><div key={show.stationId+'-'+index}
+          className="border-t border-white/10 py-4 first:border-t-0">
+          <p className="text-xs font-black text-[#caff00]">{show.startTime} – {show.endTime}</p>
+          <p className="mt-1 text-sm font-bold text-white">{show.title}</p>
+          <p className="mt-1 text-[11px] text-zinc-500">{show.stationName}{show.host?' · '+show.host:''}</p>
+        </div>):<p className="py-5 text-xs leading-6 text-zinc-400">
+          Δεν υπάρχουν άλλες προγραμματισμένες εκπομπές για σήμερα.</p>}
+        <Link className={buttonSecondary+' mt-3 w-full'} to="/backoffice/schedules">
+          <CalendarDays size={15}/> Άνοιγμα προγράμματος</Link>
+      </section>
+    </div>
   </div>;
 }
 function Stations({data}){
@@ -194,7 +261,11 @@ function Stations({data}){
         <option value="pending">Προς έγκριση</option><option value="pendingEdits">Αλλαγές σε αναμονή</option>
       </select>
     </div>
-    <p className="mb-4 text-xs font-semibold text-zinc-500">{filtered.length} σταθμοί</p>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <p className="text-xs font-semibold text-zinc-400">{filtered.length} από {data.stations.length} σταθμούς</p>
+      {(search||status!=='all')&&<button type="button" className="text-xs font-bold text-[#caff00] hover:underline"
+        onClick={()=>{setSearch('');setStatus('all');}}>Καθαρισμός φίλτρων</button>}
+    </div>
     <div className="space-y-3">{filtered.length?filtered.map(s=><StationCard key={s._id} station={s} role={data.user.role}/>):
       <div className={panel+' p-12 text-center text-zinc-500'}>Δεν βρέθηκαν σταθμοί με αυτά τα κριτήρια.</div>}</div>
   </div>;
@@ -269,9 +340,14 @@ function StationEditor({data,reload,notify}){
             {!isNew&&<Field label="Metadata URL (προαιρετικό)"><input className={inputClass} type="url" maxLength={1200} placeholder="https://..." value={form.metadata} onChange={e=>update('metadata',e.target.value)}/></Field>}
           </div>
         </section>
-        {!isNew&&<section className={panel+' p-5 md:p-7'}>
-          <div className="mb-6 flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><Globe2 size={19}/></div>
-            <div><h3 className="text-lg font-black text-white">Επικοινωνία & Social</h3><p className="text-xs text-zinc-500">Δεσμοί που βλέπει ο ακροατής στο προφίλ</p></div></div>
+        {!isNew&&<details className={panel+' p-5 md:p-7'}>
+          <summary className="mb-5 flex cursor-pointer list-none items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><Globe2 size={19}/></div>
+              <div><h3 className="text-lg font-black text-white">Επικοινωνία & Social</h3>
+                <p className="text-xs text-zinc-500">Προαιρετικά στοιχεία — πάτησε για επεξεργασία.</p></div>
+            </div><ChevronDown size={20} className="shrink-0 text-[#caff00]"/>
+          </summary>
           <div className="grid gap-5 md:grid-cols-2">
             {[
               ['website','Website URL'],['email','Δημόσιο email'],['phone','Τηλέφωνο'],
@@ -281,7 +357,7 @@ function StationEditor({data,reload,notify}){
               <input className={inputClass} type={key==='email'?'email':'text'} maxLength={key==='email'?254:450}
                 value={form[key]} onChange={e=>update(key,e.target.value)}/></Field>)}
           </div>
-        </section>}
+        </details>}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#151819] p-4">
           <div className="text-[11px] text-zinc-400">{dirty?'Υπάρχουν αλλαγές που δεν αποθηκεύτηκαν.':
             isNew?'Ο νέος σταθμός θα δημιουργηθεί ως εκκρεμής.':'Τα στοιχεία είναι έτοιμα.'}</div>
@@ -326,56 +402,231 @@ function StationEditor({data,reload,notify}){
   </div>;
 }
 function Scheduler({data,reload,notify}){
-  const navigate=useNavigate();
-  const [selected,setSelected]=useState(data.stations[0]?._id||'');
+  const location=useLocation();
+  const requestedStation=new URLSearchParams(location.search).get('station');
+  const initialStation=data.stations.find(s=>String(s._id)===String(requestedStation));
+  const [selected,setSelected]=useState(initialStation?._id||data.stations[0]?._id||'');
   const station=data.stations.find(s=>String(s._id)===String(selected));
   const [schedule,setSchedule]=useState([]);
-  const [saving,setSaving]=useState(false);
-  useEffect(()=>{setSchedule((station?.schedule||[]).map(s=>({
-    day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
-  })));},[station?._id]);
-  const add=()=>setSchedule(prev=>[...prev,{day:1,startTime:'10:00',endTime:'12:00',title:'',host:''}]);
-  const edit=(i,key,value)=>setSchedule(prev=>prev.map((s,j)=>j===i?{...s,[key]:value}:s));
-  const remove=i=>setSchedule(prev=>prev.filter((_,j)=>j!==i));
+  const [activeDay,setActiveDay]=useState(1);
+  const [copyTarget,setCopyTarget]=useState('2');
+  const [saving,setSaving]=useState(false),[dirty,setDirty]=useState(false);
+  useEffect(()=>{
+    setSchedule((station?.schedule||[]).map(s=>({
+      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
+    })));
+    setDirty(false);
+  },[station?._id]);
+  useEffect(()=>{
+    if(!dirty)return;
+    const preventLeave=e=>{e.preventDefault();e.returnValue='';};
+    const confirmNavigation=event=>{
+      if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||
+        event.altKey||event.shiftKey)return;
+      const anchor=event.target.closest?.('a[href]');
+      if(!anchor||anchor.getAttribute('href')?.startsWith('/backoffice/schedules'))return;
+      if(!window.confirm('Υπάρχουν μη αποθηκευμένες αλλαγές στο πρόγραμμα. Θέλεις να φύγεις χωρίς αποθήκευση;')){
+        event.preventDefault();event.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload',preventLeave);
+    document.addEventListener('click',confirmNavigation,true);
+    return ()=>{
+      window.removeEventListener('beforeunload',preventLeave);
+      document.removeEventListener('click',confirmNavigation,true);
+    };
+  },[dirty]);
+  const updateSchedule=callback=>{
+    setSchedule(previous=>callback(previous));
+    setDirty(true);
+  };
+  const errors=useMemo(()=>{
+    const found={};
+    if(schedule.length>80)found.limit='Το πρόγραμμα δέχεται έως 80 εκπομπές.';
+    schedule.forEach((show,index)=>{
+      if(!show.title.trim())found[index]='Συμπλήρωσε τίτλο εκπομπής.';
+      else if(!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(show.startTime)||
+        !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(show.endTime)||
+        show.startTime>=show.endTime)found[index]='Η ώρα λήξης πρέπει να είναι μετά την έναρξη.';
+    });
+    for(let day=1;day<=7;day++){
+      const daily=schedule.map((show,index)=>({...show,index}))
+        .filter(show=>show.day===day).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+      for(let i=1;i<daily.length;i++){
+        if(daily[i].startTime<daily[i-1].endTime){
+          found[daily[i].index]='Επικάλυψη με άλλη εκπομπή της ημέρας.';
+          found[daily[i-1].index]='Επικάλυψη με άλλη εκπομπή της ημέρας.';
+        }
+      }
+    }
+    return found;
+  },[schedule]);
+  const dailyShows=schedule.map((show,index)=>({...show,index}))
+    .filter(show=>show.day===activeDay).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const add=()=>{
+    if(schedule.length>=80){notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;}
+    const last=dailyShows[dailyShows.length-1];
+    const startTime=last&&last.endTime<'22:00'?last.endTime:'10:00';
+    const hour=Number(startTime.slice(0,2));
+    const endTime=String(Math.min(hour+1,23)).padStart(2,'0')+':'+startTime.slice(3);
+    updateSchedule(previous=>[...previous,{day:activeDay,startTime,endTime,title:'',host:''}]);
+  };
+  const edit=(index,key,value)=>updateSchedule(previous=>previous.map((s,j)=>
+    j===index?{...s,[key]:value}:s));
+  const remove=index=>updateSchedule(previous=>previous.filter((_,j)=>j!==index));
+  const duplicate=show=>{
+    if(schedule.length>=80){notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;}
+    const startTime=show.endTime<'22:00'?show.endTime:show.startTime;
+    const endHour=Number(startTime.slice(0,2))+1;
+    const endTime=String(Math.min(endHour,23)).padStart(2,'0')+':'+startTime.slice(3);
+    updateSchedule(previous=>[...previous,{
+      day:activeDay,startTime,endTime,title:show.title,host:show.host
+    }]);
+  };
+  const changeStation=value=>{
+    if(dirty&&!window.confirm('Υπάρχουν μη αποθηκευμένες αλλαγές. Θέλεις να αλλάξεις σταθμό και να τις χάσεις;'))return;
+    setSelected(value);setActiveDay(1);setCopyTarget('2');
+  };
+  const copyDay=()=>{
+    const day=Number(copyTarget);
+    if(!day||day===activeDay)return;
+    const source=schedule.filter(show=>show.day===activeDay);
+    if(!source.length){notify('Δεν υπάρχουν εκπομπές για αντιγραφή.','error');return;}
+    const existing=schedule.filter(show=>show.day===day);
+    if(schedule.length-existing.length+source.length>80){
+      notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;
+    }
+    if(existing.length&&!window.confirm('Οι '+existing.length+' εκπομπές της '+DAY_NAMES[day]+
+      ' θα αντικατασταθούν. Συνέχεια;'))return;
+    updateSchedule(previous=>[
+      ...previous.filter(show=>show.day!==day),
+      ...source.map(show=>({...show,day}))
+    ]);
+    setActiveDay(day);setCopyTarget(String(activeDay));
+    notify('Η ημέρα αντιγράφηκε. Πάτησε Αποθήκευση για να ολοκληρώσεις.');
+  };
   async function save(){
-    if(!station)return;
+    if(!station||saving||!dirty)return;
+    if(Object.keys(errors).length){
+      notify('Διόρθωσε τα επισημασμένα πεδία και τις επικαλύψεις πριν αποθηκεύσεις.','error');
+      return;
+    }
     setSaving(true);
-    try{const result=await api('/stations/'+station._id+'/schedule',
-      {method:'PUT',body:JSON.stringify({schedule})});
-      notify(result.message);await reload();
-    }catch(error){notify(error.message,'error');}
-    finally{setSaving(false);}
+    try{
+      const result=await api('/stations/'+station._id+'/schedule',{
+        method:'PUT',body:JSON.stringify({schedule:schedule.map(({day,startTime,endTime,title,host})=>
+          ({day,startTime,endTime,title:title.trim(),host:host.trim()}))})
+      });
+      setDirty(false);
+      notify(result.message||'Το πρόγραμμα αποθηκεύτηκε.');
+      await reload();
+    }catch(error){notify(error.message,'error');}finally{setSaving(false);}
   }
-  return <div><SectionTitle eyebrow="On air programming" title="Εβδομαδιαίο πρόγραμμα."
-    description="Πρόσθεσε εκπομπές, ώρες και παραγωγούς. Οι αλλαγές προγράμματος αποθηκεύονται απευθείας."
-    aside={station&&<button onClick={save} disabled={saving} className={buttonPrimary}><Save size={16}/>{saving?'Αποθήκευση…':'Αποθήκευση προγράμματος'}</button>}/>
-    <div className={panel+' mb-5 p-5'}><Field label="Επίλεξε σταθμό"><select className={inputClass} value={selected} onChange={e=>setSelected(e.target.value)}>
-      {data.stations.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}</select></Field></div>
-    {!station?<div className={panel+' p-12 text-center text-zinc-400'}>Δεν έχεις εκχωρημένο σταθμό.</div>:
-      <div className="space-y-4">
-        {schedule.map((show,i)=><div key={i} className={panel+' grid gap-3 p-4 md:grid-cols-[125px_108px_108px_minmax(0,1fr)_minmax(0,1fr)_40px] md:items-end'}>
-          <Field label="Ημέρα"><select className={inputClass} value={show.day} onChange={e=>edit(i,'day',Number(e.target.value))}>{DAY_NAMES.slice(1).map((day,d)=><option key={day} value={d+1}>{day}</option>)}</select></Field>
-          <Field label="Από"><input type="time" className={inputClass} value={show.startTime} onChange={e=>edit(i,'startTime',e.target.value)}/></Field>
-          <Field label="Έως"><input type="time" className={inputClass} value={show.endTime} onChange={e=>edit(i,'endTime',e.target.value)}/></Field>
-          <Field label="Τίτλος εκπομπής"><input required maxLength={120} className={inputClass} value={show.title} onChange={e=>edit(i,'title',e.target.value)}/></Field>
-          <Field label="Παραγωγός"><input maxLength={100} className={inputClass} value={show.host} onChange={e=>edit(i,'host',e.target.value)}/></Field>
-          <button type="button" onClick={()=>remove(i)} className="flex h-11 items-center justify-center rounded-xl border border-rose-400/15 text-rose-300 transition hover:bg-rose-400/10" title="Διαγραφή εκπομπής"><Trash2 size={16}/></button>
-        </div>)}
-        {!schedule.length&&<div className={panel+' p-12 text-center text-sm text-zinc-500'}>Δεν έχει καταχωρηθεί πρόγραμμα.</div>}
-        <button onClick={add} className={buttonSecondary+' w-full border-dashed'}><Plus size={17}/> Προσθήκη εκπομπής</button>
-        <div className="mt-7 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {DAY_NAMES.slice(1).map((day,d)=>{
-            const shows=schedule.filter(x=>x.day===d+1).sort((a,b)=>a.startTime.localeCompare(b.startTime));
-            return <div className={panel+' p-5'} key={day}><p className="mb-4 text-sm font-black text-white">{day}</p>
-              {shows.length?shows.map((s,i)=><div key={i} className="mb-3 border-l-2 border-[#caff00] pl-3">
-                <p className="text-[11px] font-extrabold text-[#caff00]">{s.startTime} – {s.endTime}</p>
-                <p className="mt-1 text-[12px] font-bold text-white">{s.title||'Χωρίς τίτλο'}</p>
-                <p className="mt-1 text-[10px] text-zinc-500">{s.host}</p>
-              </div>):<p className="text-xs text-zinc-600">Χωρίς εκπομπές</p>}
-            </div>;
-          })}
+  const countDay=day=>schedule.filter(show=>show.day===day).length;
+  const totalErrors=Object.keys(errors).length;
+  return <div>
+    <SectionTitle eyebrow="Εύκολο πρόγραμμα" title="Οργάνωσε τις εκπομπές σου."
+      description="Διάλεξε ημέρα, πρόσθεσε εκπομπή και αποθήκευσε. Ισχύει για όλους τους ρόλους με πρόσβαση στο πρόγραμμα."
+      aside={<div className="flex flex-wrap items-center gap-3">
+        {dirty&&<Badge tone="amber">Μη αποθηκευμένες αλλαγές</Badge>}
+        <button type="button" onClick={save} disabled={!station||saving||!dirty||totalErrors>0}
+          className={buttonPrimary}><Save size={16}/>{saving?'Αποθήκευση…':'Αποθήκευση προγράμματος'}</button>
+      </div>}/>
+    <div className={panel+' mb-5 flex flex-wrap items-end justify-between gap-4 p-5'}>
+      <div className="min-w-[220px] flex-1"><Field label="Σταθμός">
+        <select aria-label="Σταθμός προγράμματος" className={inputClass} value={selected}
+          onChange={e=>changeStation(e.target.value)}>
+          {data.stations.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}
+        </select></Field></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone="lime">{schedule.length} εκπομπές / εβδομάδα</Badge>
+        <Badge tone={totalErrors?'rose':'neutral'}>{totalErrors?totalErrors+' προβλήματα':'Χωρίς συγκρούσεις'}</Badge>
+      </div>
+    </div>
+    {!station?<div className={panel+' p-12 text-center text-zinc-400'}>Δεν έχεις εκχωρημένο σταθμό.
+      {data.user.role==='broadcaster'&&<div className="mt-4"><Link className={buttonSecondary}
+        to="/backoffice/stations/new">Προσθήκη σταθμού</Link></div>}</div>:
+    <>
+      <div role="tablist" aria-label="Επίλεξε ημέρα" className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+        {DAY_NAMES.slice(1).map((day,index)=>{
+          const number=index+1,active=activeDay===number;
+          return <button role="tab" aria-selected={active} type="button" key={day}
+            onClick={()=>{setActiveDay(number);if(Number(copyTarget)===number)
+              setCopyTarget(String(number===7?1:number+1));}}
+            className={'rounded-2xl border px-4 py-4 text-left transition '+(active?
+              'border-[#caff00] bg-[#caff00] text-[#121600] shadow-[0_8px_25px_rgba(202,255,0,.16)]':
+              'border-white/10 bg-[#151819] text-zinc-200 hover:border-[#caff00]/35')}>
+            <span className="block text-xs font-black">{day}</span>
+            <span className={'mt-2 block text-[11px] '+(active?'text-[#303900]':'text-zinc-500')}>
+              {countDay(number)} {countDay(number)===1?'εκπομπή':'εκπομπές'}</span>
+          </button>;
+        })}
+      </div>
+      <div className={panel+' overflow-hidden'}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 p-5 md:p-7">
+          <div><h3 className="text-xl font-black text-white">{DAY_NAMES[activeDay]}</h3>
+            <p className="mt-1 text-xs text-zinc-500">Οι εκπομπές εμφανίζονται με σειρά ώρας.</p></div>
+          <button className={buttonPrimary} type="button" onClick={add}><Plus size={17}/> Νέα εκπομπή</button>
         </div>
-      </div>}
+        <div role="tabpanel" className="space-y-4 p-4 md:p-6">
+          {dailyShows.length?dailyShows.map(show=><div key={show.index}
+            className={'rounded-2xl border p-4 md:p-5 '+(errors[show.index]?
+              'border-rose-400/35 bg-rose-400/[.045]':'border-white/10 bg-[#0b0e0f]')}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-xs font-black text-[#caff00]">
+                <Clock3 size={15}/>{show.startTime} – {show.endTime}</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={()=>duplicate(show)} title="Αντιγραφή εκπομπής"
+                  aria-label={'Αντιγραφή '+(show.title||'εκπομπής')} className={buttonSecondary+' !px-3 !py-2'}>
+                  <Copy size={15}/> <span className="hidden sm:inline">Αντιγραφή</span></button>
+                <button type="button" onClick={()=>remove(show.index)} title="Διαγραφή εκπομπής"
+                  aria-label={'Διαγραφή '+(show.title||'εκπομπής')}
+                  className="rounded-xl border border-rose-400/20 px-3 py-2 text-rose-300 hover:bg-rose-400/10">
+                  <Trash2 size={16}/></button>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[130px_130px_minmax(0,1fr)_minmax(0,1fr)]">
+              <Field label="Από"><input aria-label="Από" type="time" className={inputClass}
+                value={show.startTime} onChange={e=>edit(show.index,'startTime',e.target.value)}/></Field>
+              <Field label="Έως"><input aria-label="Έως" type="time" className={inputClass}
+                value={show.endTime} onChange={e=>edit(show.index,'endTime',e.target.value)}/></Field>
+              <Field label="Τίτλος εκπομπής *"><input required maxLength={120} className={inputClass}
+                placeholder="π.χ. Πρωινή παρέα" value={show.title}
+                onChange={e=>edit(show.index,'title',e.target.value)}/></Field>
+              <Field label="Παραγωγός"><input maxLength={100} className={inputClass}
+                placeholder="π.χ. DJ Maria" value={show.host}
+                onChange={e=>edit(show.index,'host',e.target.value)}/></Field>
+            </div>
+            {errors[show.index]&&<p role="alert" className="mt-3 flex items-center gap-2 text-xs text-rose-300">
+              <CircleAlert size={15}/>{errors[show.index]}</p>}
+          </div>):<div className="rounded-2xl border border-dashed border-white/15 p-12 text-center">
+            <CalendarDays className="mx-auto mb-3 text-[#caff00]" size={30}/>
+            <p className="font-bold text-white">Δεν υπάρχουν εκπομπές για {DAY_NAMES[activeDay]}.</p>
+            <p className="mt-2 text-xs text-zinc-500">Πάτησε «Νέα εκπομπή» για να ξεκινήσεις.</p>
+          </div>}
+          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-white/10 bg-white/[.025] p-4">
+            <div className="min-w-[170px] flex-1"><Field label="Αντιγραφή αυτής της ημέρας σε">
+              <select className={inputClass} aria-label="Ημέρα προορισμού αντιγραφής"
+                value={Number(copyTarget)===activeDay?'':copyTarget}
+                onChange={e=>setCopyTarget(e.target.value)}>
+                <option value="">Επίλεξε ημέρα</option>
+                {DAY_NAMES.slice(1).map((day,index)=>index+1===activeDay?null:
+                  <option key={day} value={index+1}>{day}</option>)}
+              </select></Field></div>
+            <button type="button" disabled={!dailyShows.length||!copyTarget||Number(copyTarget)===activeDay}
+              onClick={copyDay} className={buttonSecondary}><Copy size={15}/> Αντιγραφή ημέρας</button>
+          </div>
+        </div>
+      </div>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#caff00]/15 bg-[#caff00]/[.035] p-5">
+        <div className="flex items-center gap-3 text-xs text-zinc-300"><ShieldCheck size={19} className="text-[#caff00]"/>
+          <span>{totalErrors?'Διόρθωσε πρώτα τις επισημασμένες εκπομπές.':
+            dirty?'Οι αλλαγές δεν έχουν αποθηκευτεί ακόμη.':'Το πρόγραμμά σου είναι ενημερωμένο.'}</span>
+        </div>
+        <button type="button" disabled={!dirty||saving||totalErrors>0} onClick={save}
+          className={buttonPrimary}><Save size={16}/>{saving?'Αποθήκευση…':'Αποθήκευση'}</button>
+      </div>
+    </>}
   </div>;
 }
 function Review({data,reload,notify}){
@@ -501,25 +752,129 @@ function BroadcasterInsights({data}){
     </section>
   </div>;
 }
+const ADMIN_TOOLS=[
+  {id:'analytics',name:'Αναλύσεις',desc:'Στοιχεία δικτύου και απόδοση',icon:BarChart3,group:'Δίκτυο'},
+  {id:'users',name:'Χρήστες & ρόλοι',desc:'Λογαριασμοί, άδειες και πρόσβαση',icon:Users,group:'Δίκτυο'},
+  {id:'radioset',name:'Αναθέσεις σταθμών',desc:'Σύνδεσε σταθμούς με broadcasters',icon:Radio,group:'Δίκτυο'},
+  {id:'boost',name:'Προβολή σταθμών',desc:'Προτεραιότητες και boost σταθμών',icon:Sparkles,group:'Δίκτυο'},
+  {id:'ads',name:'Audio διαφημίσεις',desc:'Διαχείριση ηχητικών καμπανιών',icon:Activity,group:'Διαφημίσεις'},
+  {id:'banners',name:'Banners',desc:'Οπτικές διαφημίσεις και θέσεις',icon:Image,group:'Διαφημίσεις'},
+  {id:'adcontrol',name:'Τοπικές διαφημίσεις',desc:'Ρυθμίσεις διαφημίσεων ανά σταθμό',icon:SlidersHorizontal,group:'Διαφημίσεις'},
+  {id:'slides',name:'Slides αρχικής',desc:'Προβολές και περιεχόμενο αρχικής',icon:LayoutDashboard,group:'Περιεχόμενο'},
+  {id:'push',name:'Push ειδοποιήσεις',desc:'Μηνύματα σε συνδεδεμένες συσκευές',icon:Bell,group:'Επικοινωνία'},
+  {id:'emails',name:'Emails',desc:'Επικοινωνία και ιστορικό μηνυμάτων',icon:Globe2,group:'Επικοινωνία'},
+  {id:'billing',name:'Πληρωμές',desc:'Συναλλαγές και στοιχεία τιμολόγησης',icon:FileCheck2,group:'Οικονομικά'}
+];
+function AdminWorkspace({data}){
+  const [search,setSearch]=useState('');
+  if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
+  const filtered=ADMIN_TOOLS.filter(item=>(item.name+' '+item.desc+' '+item.group)
+    .toLocaleLowerCase('el').includes(search.toLocaleLowerCase('el')));
+  const pending=(Number(data.counts?.pendingApproval)||0)+(Number(data.counts?.pendingEdits)||0);
+  return <div>
+    <SectionTitle eyebrow="Admin Control" title="Κέντρο διαχείρισης."
+      description="Όλα τα εργαλεία του δικτύου, οργανωμένα ανά εργασία. Επίλεξε τι θέλεις να διαχειριστείς."/>
+    <div className="mb-6 grid gap-3 sm:grid-cols-3">
+      <Link to="/backoffice/review" className={panel+' group flex items-center gap-4 p-5 hover:border-[#caff00]/35'}>
+        <FileCheck2 className="shrink-0 text-[#caff00]" size={24}/>
+        <span className="flex-1"><strong className="block text-base text-white">{pending}</strong>
+          <span className="text-xs text-zinc-400">Αιτήματα προς έλεγχο</span></span><ArrowRight size={17}/></Link>
+      <Link to="/backoffice/stations" className={panel+' group flex items-center gap-4 p-5 hover:border-[#caff00]/35'}>
+        <Radio className="shrink-0 text-[#caff00]" size={24}/>
+        <span className="flex-1"><strong className="block text-base text-white">{shortNumber(data.counts?.total)}</strong>
+          <span className="text-xs text-zinc-400">Σταθμοί δικτύου</span></span><ArrowRight size={17}/></Link>
+      <Link to="/backoffice/schedules" className={panel+' group flex items-center gap-4 p-5 hover:border-[#caff00]/35'}>
+        <CalendarDays className="shrink-0 text-[#caff00]" size={24}/>
+        <span className="flex-1"><strong className="block text-sm text-white">Πρόγραμμα</strong>
+          <span className="text-xs text-zinc-400">Εβδομαδιαίες εκπομπές</span></span><ArrowRight size={17}/></Link>
+    </div>
+    <div className={panel+' mb-6 p-4'}>
+      <label className="relative block"><Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"/>
+        <input aria-label="Αναζήτηση εργαλείου Admin" value={search} onChange={e=>setSearch(e.target.value)}
+          className={inputClass+' pl-11'} placeholder="Τι θέλεις να διαχειριστείς; π.χ. χρήστες, διαφημίσεις…"/></label>
+    </div>
+    {['Δίκτυο','Διαφημίσεις','Περιεχόμενο','Επικοινωνία','Οικονομικά'].map(group=>{
+      const tools=filtered.filter(item=>item.group===group);
+      if(!tools.length)return null;
+      return <section key={group} className="mb-7"><h3 className="mb-3 text-xs font-black uppercase tracking-widest text-zinc-400">{group}</h3>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{tools.map(item=><Link
+          key={item.id} to={'/backoffice/admin/'+item.id}
+          className={panel+' group flex min-h-28 items-center gap-4 p-5 transition hover:border-[#caff00]/40 hover:bg-[#161b1b]'}>
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#caff00]/10 text-[#caff00]">
+            <item.icon size={22}/></div>
+          <div className="min-w-0 flex-1"><p className="font-black text-white">{item.name}</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">{item.desc}</p></div>
+          <ArrowRight size={16} className="shrink-0 text-zinc-500 group-hover:text-[#caff00]"/>
+        </Link>)}</div></section>;
+    })}
+    {!filtered.length&&<div className={panel+' p-10 text-center text-sm text-zinc-400'}>Δεν βρέθηκαν εργαλεία με αυτή την αναζήτηση.</div>}
+  </div>;
+}
+class AdminToolErrorBoundary extends React.Component {
+  constructor(props){super(props);this.state={failed:false};}
+  static getDerivedStateFromError(){return {failed:true};}
+  componentDidCatch(error){console.error('Backoffice Admin module unavailable:',error?.message);}
+  render(){
+    if(!this.state.failed)return this.props.children;
+    return <div className="rounded-2xl border border-rose-400/20 bg-rose-400/[.05] p-8 text-center">
+      <CircleAlert className="mx-auto mb-3 text-rose-300" size={28}/>
+      <h3 className="text-lg font-black text-white">Δεν φορτώθηκε το εργαλείο.</h3>
+      <p className="mt-2 text-sm text-zinc-400">Δοκίμασε ανανέωση ή επίλεξε άλλο εργαλείο.
+        Πριν επαναλάβεις κάποια ενέργεια, έλεγξε αν αποθηκεύτηκε.</p>
+      <div className="mt-5 flex flex-wrap justify-center gap-3">
+        <button type="button" className={buttonPrimary} onClick={()=>window.location.reload()}>
+          <RefreshCw size={15}/> Επανάληψη</button>
+        <Link className={buttonSecondary} to="/backoffice/admin">Άλλα εργαλεία</Link>
+      </div>
+    </div>;
+  }
+}
 function Operations({data,section,reload}){
   if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
-  const common={API_URL:'/api',currentUser:data.user,stations:data.stations,refreshStations:reload,refreshGlobalAds:()=>{}};
+  const current=ADMIN_TOOLS.find(item=>item.id===section);
+  const common={API_URL:'/api',currentUser:data.user,stations:data.stations,
+    refreshStations:reload,refreshGlobalAds:()=>{}};
   const views={
     analytics:<AdminDashboard {...common}/>,users:<AdminUsers {...common}/>,
     ads:<AdminAds {...common}/>,banners:<AdminBanners {...common}/>,
     slides:<AdminHomeSlides {...common}/>,emails:<AdminEmails {...common}/>,
     billing:<AdminPaid {...common}/>,radioset:<AdminRadioSet {...common}/>,
-    adcontrol:<AdminAdControl {...common}/>,boost:<Boost {...common}/>,push:<NewPush {...common}/>
+    adcontrol:<AdminAdControl {...common}/>,boost:<Boost {...common}/>,
+    push:<NewPush {...common}/>
   };
-  return <Suspense fallback={<div className={panel+' p-10 text-center text-[#caff00]'}>Φόρτωση εργαλείου…</div>}>
-    {views[section]||<Navigate to="/backoffice" replace/>}
-  </Suspense>;
+  if(!current)return <Navigate to="/backoffice/admin" replace/>;
+  const related=ADMIN_TOOLS.filter(item=>item.group===current.group);
+  return <div>
+    <div className="mb-6">
+      <Link to="/backoffice/admin" className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-[#caff00]">
+        <ArrowLeft size={15}/> Όλα τα εργαλεία Admin</Link>
+    </div>
+    <SectionTitle eyebrow={'Admin / '+current.group} title={current.name}
+      description={current.desc+'. Οι λειτουργίες παραμένουν διαθέσιμες μόνο σε διαχειριστές.'}/>
+    <nav aria-label="Σχετικά εργαλεία" className="mb-6 flex flex-wrap gap-2">
+      {related.map(item=><NavLink key={item.id} to={'/backoffice/admin/'+item.id}
+        className={({isActive})=>(isActive?
+          'bg-[#caff00] text-[#131800]':'border border-white/10 bg-white/[.035] text-zinc-300 hover:border-[#caff00]/40')+
+          ' inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold'}>
+        <item.icon size={15}/>{item.name}</NavLink>)}
+      <Link to="/backoffice/admin" className={buttonSecondary+' !py-2'}><LayoutDashboard size={15}/> Όλα</Link>
+    </nav>
+    <div className="min-w-0">
+      <AdminToolErrorBoundary key={section}>
+        <Suspense fallback={<div className={panel+' p-10 text-center text-[#caff00]'}>
+          <RefreshCw size={20} className="mx-auto mb-3 animate-spin"/>Φόρτωση εργαλείου…</div>}>
+          {views[section]}
+        </Suspense>
+      </AdminToolErrorBoundary>
+    </div>
+  </div>;
 }
 export default function Backoffice(){
   const location=useLocation(),navigate=useNavigate();
   const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(null);
   const [notice,setNotice]=useState(null),[sidebarOpen,setSidebarOpen]=useState(false);
+  const [navFilter,setNavFilter]=useState('');
   const notify=useCallback((message,type='success')=>{
     setNotice({message,type});
   },[]);
@@ -535,30 +890,39 @@ export default function Backoffice(){
       .finally(()=>{if(alive)setLoading(false);});
     return ()=>{alive=false;};
   },[reload]);
-  useEffect(()=>{setSidebarOpen(false);setNotice(null);},[location.pathname]);
+  useEffect(()=>{setSidebarOpen(false);setNotice(null);setNavFilter('');},[location.pathname]);
   const admin=data?.user.role==='admin',producer=data?.user.role==='producer';
   const logout=()=>{localStorage.removeItem('iluma_token');window.location.assign('/login');};
   const nav=[
-    {section:'WORKSPACE',items:[{to:'/backoffice',label:'Επισκόπηση',icon:LayoutDashboard,end:true},
-      {to:'/backoffice/stations',label:admin?'Δίκτυο σταθμών':'Οι σταθμοί μου',icon:Radio},
+    {section:'Ο ΧΩΡΟΣ ΜΟΥ',items:[
+      {to:'/backoffice',label:'Αρχική',icon:LayoutDashboard,end:true},
+      {to:'/backoffice/stations',label:admin?'Σταθμοί δικτύου':'Οι σταθμοί μου',icon:Radio},
       {to:'/backoffice/schedules',label:'Πρόγραμμα εκπομπών',icon:CalendarDays},
-      ...(!admin?[{to:'/backoffice/insights',label:'Insights σταθμών',icon:BarChart3}]:[]),
+      ...(!admin?[{to:'/backoffice/insights',label:'Στατιστικά σταθμών',icon:BarChart3}]:[]),
       ...(data?.user.role==='broadcaster'?[{to:'/backoffice/team',label:'Παραγωγοί & ομάδα',icon:Users}]:[]),
-      ...(!producer?[{to:'/backoffice/stations/new',label:'Προσθήκη σταθμού',icon:Plus}]:[])]},
-    ...(admin?[{section:'ADMIN CONTROL',items:[
-      {to:'/backoffice/review',label:'Εγκρίσεις',icon:FileCheck2},
-      {to:'/backoffice/admin/analytics',label:'Αναλύσεις',icon:BarChart3},
-      {to:'/backoffice/admin/users',label:'Χρήστες & ρόλοι',icon:Users},
-      {to:'/backoffice/admin/ads',label:'Διαφημίσεις',icon:Activity},
-      {to:'/backoffice/admin/banners',label:'Banners',icon:Image},
-      {to:'/backoffice/admin/slides',label:'Slides αρχικής',icon:Sparkles},
-      {to:'/backoffice/admin/radioset',label:'Radio Set',icon:SlidersHorizontal},
-      {to:'/backoffice/admin/boost',label:'Boost σταθμών',icon:Sparkles},
-      {to:'/backoffice/admin/adcontrol',label:'Local Ad Control',icon:Activity},
-      {to:'/backoffice/admin/push',label:'Push ειδοποιήσεις',icon:Bell},
-      {to:'/backoffice/admin/billing',label:'Πληρωμές',icon:FileCheck2},
-      {to:'/backoffice/admin/emails',label:'Emails',icon:Bell}
-    ]}]:[])
+      ...(!producer?[{to:'/backoffice/stations/new',label:'Προσθήκη σταθμού',icon:Plus}]:[])
+    ]},
+    ...(admin?[
+      {section:'ΔΙΑΧΕΙΡΙΣΗ',items:[
+        {to:'/backoffice/admin',label:'Όλα τα εργαλεία',icon:LayoutDashboard,end:true},
+        {to:'/backoffice/review',label:'Εγκρίσεις',icon:FileCheck2},
+        {to:'/backoffice/admin/analytics',label:'Αναλύσεις',icon:BarChart3},
+        {to:'/backoffice/admin/users',label:'Χρήστες & ρόλοι',icon:Users},
+        {to:'/backoffice/admin/radioset',label:'Αναθέσεις σταθμών',icon:Radio},
+        {to:'/backoffice/admin/boost',label:'Προβολή σταθμών',icon:Sparkles}
+      ]},
+      {section:'ΔΙΑΦΗΜΙΣΕΙΣ',items:[
+        {to:'/backoffice/admin/ads',label:'Audio διαφημίσεις',icon:Activity},
+        {to:'/backoffice/admin/banners',label:'Banners',icon:Image},
+        {to:'/backoffice/admin/adcontrol',label:'Τοπικές διαφημίσεις',icon:SlidersHorizontal}
+      ]},
+      {section:'ΠΕΡΙΕΧΟΜΕΝΟ & ΛΕΙΤΟΥΡΓΙΑ',items:[
+        {to:'/backoffice/admin/slides',label:'Slides αρχικής',icon:Sparkles},
+        {to:'/backoffice/admin/push',label:'Push ειδοποιήσεις',icon:Bell},
+        {to:'/backoffice/admin/emails',label:'Emails',icon:Globe2},
+        {to:'/backoffice/admin/billing',label:'Πληρωμές',icon:FileCheck2}
+      ]}
+    ]:[])
   ];
   if(loading)return <div className="flex min-h-screen items-center justify-center bg-[#080a0b] text-[#caff00]">
     <RefreshCw className="animate-spin" size={28}/><span className="ml-3 text-sm font-black">iRadios Business Console</span></div>;
@@ -583,9 +947,19 @@ export default function Backoffice(){
         <p className="mt-3 truncate text-sm font-black text-white">{data.user.fname||data.user.username||roleLabels[data.user.role]}</p>
         <p className="mt-1 text-[11px] text-zinc-500">{roleLabels[data.user.role]}</p>
       </div>
-      <nav className="flex-1 space-y-7">{nav.map(group=><div key={group.section}>
+      {admin&&<label className="relative mb-5 block">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"/>
+        <input aria-label="Αναζήτηση στο μενού" placeholder="Αναζήτηση εργαλείου…"
+          value={navFilter} onChange={e=>setNavFilter(e.target.value)}
+          className="w-full rounded-xl border border-white/10 bg-[#090b0d] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-[#caff00]/50"/>
+      </label>}
+      <nav className="flex-1 space-y-7">{nav.map(group=>{
+        const items=group.items.filter(item=>item.label.toLocaleLowerCase('el')
+          .includes(navFilter.toLocaleLowerCase('el')));
+        if(!items.length)return null;
+        return <div key={group.section}>
         <p className="mb-3 px-4 text-[9px] font-black tracking-[.24em] text-zinc-600">{group.section}</p>
-        <div className="space-y-1">{group.items.map(item=><NavItem key={item.to} {...item} close={()=>setSidebarOpen(false)}/>)}</div></div>)}</nav>
+        <div className="space-y-1">{items.map(item=><NavItem key={item.to} {...item} close={()=>setSidebarOpen(false)}/>)}</div></div>;})}</nav>
       <div className="mt-7 space-y-2 border-t border-white/10 pt-5">
         <a href="/" className="flex items-center gap-3 rounded-xl px-4 py-3 text-[12px] font-bold text-zinc-400 hover:bg-white/5 hover:text-white"><ExternalLink size={17}/> Άνοιγμα iRadios App</a>
         <button onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[12px] font-bold text-zinc-400 hover:bg-rose-500/10 hover:text-rose-300"><LogOut size={17}/> Αποσύνδεση</button>
@@ -620,6 +994,7 @@ export default function Backoffice(){
           <Route path="/backoffice/insights" element={<BroadcasterInsights data={data}/>}/>
           <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
           <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify}/>}/>
+          <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
           {['analytics','users','ads','banners','slides','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
           <Route path="/backoffice/*" element={<Navigate to="/backoffice" replace/>}/>

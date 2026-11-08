@@ -1,3 +1,4 @@
+import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,

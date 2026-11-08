@@ -1,3 +1,4 @@
+import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useEffect, useState } from 'react';
 import { Image, Plus, Save, Trash2, Pencil, ArrowUp, ArrowDown, Upload, ExternalLink, EyeOff, Eye } from 'lucide-react';
 

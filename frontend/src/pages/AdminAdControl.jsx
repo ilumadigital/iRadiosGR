@@ -1,3 +1,4 @@
+import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
 import { Target, ShieldAlert, Zap, Trash2, Radio, Edit, X, Image as ImageIcon, SlidersHorizontal, MapPin } from 'lucide-react';
 
