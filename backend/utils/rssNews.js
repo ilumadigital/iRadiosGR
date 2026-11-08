@@ -120,7 +120,7 @@ function parse(xml,{google=false,publisherDomain:domain=''}={}){
       title,
       // Google News descriptions are related-article HTML lists, not summaries.
       summary:google?'':plain(rich).slice(0,420),
-      imageUrl:google?'':picture(raw,rich),url,
+      imageUrl:picture(raw,google?'':rich),url,
       publishedAt:date&&Number.isFinite(date.getTime())?date:null,
       source:sourceName||channel||domain||'Ειδήσεις'
     });
@@ -129,7 +129,7 @@ function parse(xml,{google=false,publisherDomain:domain=''}={}){
   if(!articles.length)throw new Error('Δεν βρέθηκαν δημοσιεύσεις στο RSS feed.');
   return {feedTitle:channel,articles:articles.slice(0,100)};
 }
-async function fetchXml(url,google=false){
+async function fetchXml(url,google=false,publisherDomain=''){
   // Every fetch target is constructed from a strict host allowlist. Redirects blocked.
   const host=new URL(url).hostname;
   if(!['rss.app','news.google.com'].includes(host))throw new Error('Unsupported feed host');
@@ -146,7 +146,7 @@ async function fetchXml(url,google=false){
     throw new Error('XML μεγαλύτερο από 2MB.');
   const xml=await response.text();
   if(xml.length>2_000_000)throw new Error('XML μεγαλύτερο από 2MB.');
-  return parse(xml,{google});
+  return parse(xml,{google,publisherDomain});
 }
 function googleEndpoint(source){
   const page=new URL(source.url);
@@ -173,12 +173,12 @@ async function download(source){
   if(normalized.type==='google_rss')
     return {...await fetchXml(normalized.url,true),retrievalMode:'google-rss'};
   try{
-    return {...await fetchXml(googleEndpoint(normalized),true),retrievalMode:'publisher-rss'};
+    return {...await fetchXml(googleEndpoint(normalized),true,normalized.domain),retrievalMode:'publisher-rss'};
   }catch(error){
     // Publisher-specific RSS is undocumented and frequently unavailable.
     // When the publisher ID reveals its domain, use a bounded site-search fallback.
     if(!normalized.domain)throw new Error('Το Google News δεν παρείχε publisher RSS. Συμπλήρωσε domain εκδότη για εναλλακτική αναζήτηση.');
-    const xml=await fetchXml(googleDomainEndpoint(normalized),true);
+    const xml=await fetchXml(googleDomainEndpoint(normalized),true,normalized.domain);
     // Site-filtered results can include mixed coverage, so keep only the named publisher
     // when an explicit source URL is available (the Google RSS may omit it).
     return {...xml,retrievalMode:'domain-search'};

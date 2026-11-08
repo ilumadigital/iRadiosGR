@@ -14,7 +14,8 @@ async function settings(){
     {$setOnInsert:{feedUrl:DEFAULT_FEED_URL,enabled:true}},
     {upsert:true,new:true,setDefaultsOnInsert:true});
   if(!doc.sources?.length){
-    const first=sourceOf({url:doc.feedUrl||DEFAULT_FEED_URL});
+    const legacyUrl=doc.feedUrl||DEFAULT_FEED_URL;
+    const first=sourceOf({url:legacyUrl},'legacy-'+crypto.createHash('sha256').update(legacyUrl).digest('hex').slice(0,32));
     doc.sources=[first];
     doc.articles.forEach(item=>{if(!item.sourceId)item.sourceId=first.id;});
     doc.markModified('articles');
@@ -56,7 +57,7 @@ async function sync(doc,force=false){
         fresh.push(...r.data.articles.map(article=>({...article,sourceId:s.id})));
       }
     }
-    const retained=(current.articles||[]).filter(a=>current.sources.some(s=>s.id===a.sourceId)&&!successful.has(a.sourceId));
+    const retained=(current.articles||[]).filter(a=>current.sources.some(s=>s.enabled&&s.id===a.sourceId)&&!successful.has(a.sourceId));
     const all=[...fresh,...retained];
     const seen=new Set();
     current.articles=all.sort((a,b)=>(new Date(b.publishedAt||0).getTime()||0)-(new Date(a.publishedAt||0).getTime()||0))
@@ -80,7 +81,7 @@ exports.publicFeed=async(_req,res)=>{
     if(doc.enabled)doc=await sync(doc);
     res.setHeader('Cache-Control','public, max-age=30');
     res.json({enabled:doc.enabled,feedTitle:doc.feedTitle,
-      articles:doc.enabled?doc.articles:[],lastSyncedAt:doc.lastSyncedAt});
+      articles:doc.enabled?doc.articles.filter(a=>doc.sources.some(s=>s.enabled&&s.id===a.sourceId)):[],lastSyncedAt:doc.lastSyncedAt});
   }catch(e){fail(res,e);}
 };
 exports.adminFeed=async(_req,res)=>{try{res.json(currentView(await settings()));}catch(e){fail(res,e);}};
@@ -107,7 +108,7 @@ exports.save=async(req,res)=>{
     if(new Set(items.map(s=>s.url)).size!==items.length)throw error('Η ίδια πηγή υπάρχει δύο φορές.');
     doc.enabled=req.body.enabled;doc.sources=items;doc.configRevision=(doc.configRevision||0)+1;
     const ids=new Set(items.map(x=>x.id));
-    doc.articles=doc.articles.filter(a=>ids.has(a.sourceId)&&items.some(s=>s.id===a.sourceId&&s.url===previous.get(s.id)?.url));
+    doc.articles=doc.articles.filter(a=>ids.has(a.sourceId)&&items.some(s=>s.enabled&&s.id===a.sourceId&&s.url===previous.get(s.id)?.url));
     doc.feedUrl=items[0].url;doc.lastError='';doc.lastAttemptAt=null;
     await doc.save();res.json(currentView(doc));
   }catch(e){fail(res,e);}

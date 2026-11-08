@@ -20,7 +20,10 @@ function Article({item,view,now,source}){
     <a href={href} target="_blank" rel="noopener noreferrer" aria-label={'Διάβασε: '+item.title}
       className={'relative block shrink-0 overflow-hidden bg-[#202628] '+(view==='list'?'aspect-[16/9] sm:aspect-auto sm:w-[235px] lg:w-[290px]':'aspect-[16/10]')}>
       {item.imageUrl&&!broken?<img src={item.imageUrl} alt="" loading="lazy" onError={()=>setBroken(true)} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"/>:
-        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1d292b] to-[#0a1213]"><Newspaper size={42} className="text-[#ccff00]/35"/></div>}
+        <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#1d292b] to-[#0a1213] px-4 text-center">
+          <Newspaper size={42} className="text-[#ccff00]/45"/>
+          <span className="max-w-full truncate text-[10px] font-black uppercase tracking-[.15em] text-zinc-400">{item.source||source||'News'}</span>
+        </div>}
       <span className="absolute bottom-3 left-3 max-w-[90%] truncate rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#ccff00] backdrop-blur">{item.source||source||'Ειδήσεις'}</span>
     </a>
     <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
