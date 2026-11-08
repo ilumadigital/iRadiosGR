@@ -118,7 +118,17 @@ function StationCard({station,role}){
         <span className="flex items-center gap-1"><Headphones size={13}/> {shortNumber(station.plays)} ακροάσεις</span>
         <span className="flex items-center gap-1"><Globe2 size={13}/> {station.transmissionType||'Web Radio'}</span>
       </div></div>
-    <Link to={to} className={buttonSecondary+' shrink-0'}>{role==='producer'?'Πρόγραμμα':'Διαχείριση'}<ArrowRight size={15}/></Link>
+    <div className="flex shrink-0 flex-wrap gap-2">
+      <Link to={to} className={buttonSecondary}>
+        {role==='producer'?'Πρόγραμμα':'Επεξεργασία'}<ArrowRight size={15}/></Link>
+      {role!=='producer'&&<Link to="/backoffice/schedules" className={buttonSecondary}
+        aria-label={'Πρόγραμμα '+station.name} title="Πρόγραμμα σταθμού">
+        <CalendarDays size={16}/></Link>}
+      <a href={'/station/'+(station.slug||station._id)} target="_blank"
+        rel="noopener noreferrer" className={buttonSecondary}
+        aria-label={'Δημόσια σελίδα '+station.name} title="Δημόσια σελίδα">
+        <ExternalLink size={16}/></a>
+    </div>
   </div>;
 }
 function Dashboard({data}){
@@ -251,7 +261,11 @@ function Stations({data}){
         <option value="pending">Προς έγκριση</option><option value="pendingEdits">Αλλαγές σε αναμονή</option>
       </select>
     </div>
-    <p className="mb-4 text-xs font-semibold text-zinc-500">{filtered.length} σταθμοί</p>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <p className="text-xs font-semibold text-zinc-400">{filtered.length} από {data.stations.length} σταθμούς</p>
+      {(search||status!=='all')&&<button type="button" className="text-xs font-bold text-[#caff00] hover:underline"
+        onClick={()=>{setSearch('');setStatus('all');}}>Καθαρισμός φίλτρων</button>}
+    </div>
     <div className="space-y-3">{filtered.length?filtered.map(s=><StationCard key={s._id} station={s} role={data.user.role}/>):
       <div className={panel+' p-12 text-center text-zinc-500'}>Δεν βρέθηκαν σταθμοί με αυτά τα κριτήρια.</div>}</div>
   </div>;
@@ -326,9 +340,14 @@ function StationEditor({data,reload,notify}){
             {!isNew&&<Field label="Metadata URL (προαιρετικό)"><input className={inputClass} type="url" maxLength={1200} placeholder="https://..." value={form.metadata} onChange={e=>update('metadata',e.target.value)}/></Field>}
           </div>
         </section>
-        {!isNew&&<section className={panel+' p-5 md:p-7'}>
-          <div className="mb-6 flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><Globe2 size={19}/></div>
-            <div><h3 className="text-lg font-black text-white">Επικοινωνία & Social</h3><p className="text-xs text-zinc-500">Δεσμοί που βλέπει ο ακροατής στο προφίλ</p></div></div>
+        {!isNew&&<details className={panel+' p-5 md:p-7'}>
+          <summary className="mb-5 flex cursor-pointer list-none items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><Globe2 size={19}/></div>
+              <div><h3 className="text-lg font-black text-white">Επικοινωνία & Social</h3>
+                <p className="text-xs text-zinc-500">Προαιρετικά στοιχεία — πάτησε για επεξεργασία.</p></div>
+            </div><ChevronDown size={20} className="shrink-0 text-[#caff00]"/>
+          </summary>
           <div className="grid gap-5 md:grid-cols-2">
             {[
               ['website','Website URL'],['email','Δημόσιο email'],['phone','Τηλέφωνο'],
@@ -338,7 +357,7 @@ function StationEditor({data,reload,notify}){
               <input className={inputClass} type={key==='email'?'email':'text'} maxLength={key==='email'?254:450}
                 value={form[key]} onChange={e=>update(key,e.target.value)}/></Field>)}
           </div>
-        </section>}
+        </details>}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#151819] p-4">
           <div className="text-[11px] text-zinc-400">{dirty?'Υπάρχουν αλλαγές που δεν αποθηκεύτηκαν.':
             isNew?'Ο νέος σταθμός θα δημιουργηθεί ως εκκρεμής.':'Τα στοιχεία είναι έτοιμα.'}</div>
