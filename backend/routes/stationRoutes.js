@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const stationController = require('../controllers/stationController');
 const Station = require('../models/Station');
+const {protect}=require('../utils/authMiddleware');
+const {authorizeRoles}=require('../utils/roleMiddleware');
 
 // 🚀 IMPORTS ΓΙΑ ΤΟ ACRCLOUD (SHAZAM FEATURE)
 const crypto = require('crypto');
@@ -264,7 +266,8 @@ router.put('/admin/stations/reorder', async (req, res) => {
 
 router.put('/admin/stations/:id', uploadStationLogo.single('logoFile'), stationController.updateStation);
 router.delete('/admin/stations/:id', stationController.deleteStation);
-router.put('/admin/stations/:id/status', stationController.updateStationStatus);
+router.put('/admin/stations/:id/status', protect, authorizeRoles('admin'), stationController.updateStationStatus);
+router.patch('/admin/stations/:id/offline', protect, authorizeRoles('admin'), stationController.updateStationOffline);
 router.patch('/admin/stations/:id/featured', stationController.toggleFeatured);
 router.post('/admin/stations/:id/approve-edit', stationController.approveEdit);
 router.delete('/admin/stations/:id/reject-edit', stationController.rejectEdit);
