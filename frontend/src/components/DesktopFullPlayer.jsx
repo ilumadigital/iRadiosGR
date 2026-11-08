@@ -124,7 +124,7 @@ export default function DesktopFullPlayer({
               producerImage={canShowDj?liveBroadcast.imageUrl:null}
               showProducer={showProducerArt}
               adImage={isPlayingAd?currentAdInfo?.logoUrl:null}
-              className="ir-desktop-player-art"/>
+              className="ir-desktop-player-art aspect-square"/>
 
           </div>
         </main>
