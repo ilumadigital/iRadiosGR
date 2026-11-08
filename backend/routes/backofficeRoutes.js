@@ -13,7 +13,9 @@ const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {hasAcceptedCurrentBroadcasterTerms}=require('../utils/broadcasterTerms');
 const {normalize:normalizeWeeklySchedule}=require('../utils/scheduleNormalization');
-const {loadFeed,publicPreview,syncOne}=require('../services/stationScheduleFeed');
+const {loadFeed,publicPreview,syncOne,startCron}=require('../services/stationScheduleFeed');
+// Routes are mounted once on API startup, so registration occurs once per worker.
+startCron();
 const router=express.Router();
 
 router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'),
