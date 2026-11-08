@@ -236,26 +236,30 @@ async function download(source){
     const parsed=parse(xml,{feedUrl:normalized.url});
     // WordPress often omits image elements. Check only a bounded number
     // of direct publisher articles, with DNS pinning and redirect rejection.
-    let checked=0;
-    const articles=[];
-    for(const article of parsed.articles){
-      let enriched=article;
-      if(!article.imageUrl&&checked<12){
-        try{
-          const origin=new URL(normalized.url),target=new URL(article.url);
-          const site=origin.hostname.replace(/^www\./,'');
-          if(target.protocol==='https:'&&
-             target.hostname.replace(/^www\./,'')===site&&
-             !target.username&&!target.password&&!target.port){
-            checked++;
-            const html=await publicRss.requestText(target.href,{html:true});
-            const cover=rssNewsPreset.extractImage(html,target.href);
-            if(cover)enriched={...article,imageUrl:cover};
-          }
-        }catch{/* leave original feed article without an image */}
+    let checked=0,cursor=0;
+    const articles=new Array(parsed.articles.length);
+    const worker=async()=>{
+      while(cursor<parsed.articles.length){
+        const index=cursor++,article=parsed.articles[index];
+        let enriched=article;
+        if(!article.imageUrl&&checked<12){
+          try{
+            const origin=new URL(normalized.url),target=new URL(article.url);
+            const site=origin.hostname.replace(/^www\./,'');
+            if(target.protocol==='https:'&&
+               target.hostname.replace(/^www\./,'')===site&&
+               !target.username&&!target.password&&!target.port){
+              checked++;
+              const html=await publicRss.requestText(target.href,{html:true});
+              const cover=rssNewsPreset.extractImage(html,target.href);
+              if(cover)enriched={...article,imageUrl:cover};
+            }
+          }catch{/* leave original feed article without an image */}
+        }
+        articles[index]=enriched;
       }
-      articles.push(enriched);
-    }
+    };
+    await Promise.all(Array.from({length:3},worker));
     return {...parsed,articles,retrievalMode:'direct-rss'};
   }
   if(normalized.type==='rss_app')

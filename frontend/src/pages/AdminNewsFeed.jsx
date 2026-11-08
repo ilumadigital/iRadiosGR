@@ -3,11 +3,12 @@ import {Newspaper,Save,RefreshCw,ExternalLink,Clock3,CheckCircle2,AlertTriangle,
 import {adminFetch} from '../utils/adminFetch';
 
 const DEFAULT='https://rss.app/feeds/k4AEhunSwl50WyaC.xml';
-const EXAMPLE='https://rssnews.io/?feed=my&c=%CE%95%CE%BB%CE%BB%CE%AC%CE%B4%CE%B1%2CBusiness%2CEducation%2C%CE%9A%CF%8C%CF%83%CE%BC%CE%BF%CF%82%2C%CE%91%CE%B8%CE%BB%CE%B7%CF%84%CE%B9%CE%BA%CE%AC%2C%CE%A4%CE%B5%CF%87%CE%BD%CE%BF%CE%BB%CE%BF%CE%B3%CE%AF%CE%B1';
+const EXAMPLE='https://www.newsbeast.gr/feed';
 const fmt=value=>value&&Number.isFinite(new Date(value).getTime())?
   new Intl.DateTimeFormat('el-GR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'—';
 const isGoogle=url=>{try{return new URL(url).hostname==='news.google.com';}catch{return false;}};
 const isRssnews=url=>{try{return new URL(url).hostname==='rssnews.io';}catch{return false;}};
+const isDirect=url=>{try{return !['rss.app','rssnews.io','news.google.com'].includes(new URL(url).hostname);}catch{return false;}};
 const rssCategories=url=>{try{return new URL(url).searchParams.get('c')?.split(',')||[];}catch{return [];}};
 const field='w-full min-w-0 rounded-xl border border-white/15 bg-zinc-950 px-4 py-3 text-sm text-white outline-none focus:border-[#ccff00]';
 const fresh=url=>({url,enabled:true,label:'',domain:'',id:''});
@@ -17,6 +18,7 @@ function sourceName(item){
   if(item.domain)return item.domain;
   if(isRssnews(item.url))return 'Επιλογή κατηγοριών rssnews.io';
   if(isGoogle(item.url))return 'Google News Publisher';
+  if(isDirect(item.url))return new URL(item.url).hostname.replace(/^www\./,'');
   return 'RSS.app';
 }
 export default function AdminNewsFeed(){
@@ -80,7 +82,7 @@ export default function AdminNewsFeed(){
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><p className="text-xs font-black uppercase tracking-[.18em] text-[#ccff00]">iRadios GR / Newsroom</p>
         <h1 className="mt-2 flex items-center gap-3 text-3xl font-black text-white"><Newspaper size={29} className="text-[#ccff00]"/> Publishers & Newsfeed</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">Συνδύασε επιλογές κατηγοριών rssnews.io, RSS εκδοτών και Google News publishers σε μία ροή. Χωρίς XML mapping ή ξεχωριστές καμπάνιες. Τα άρθρα μπαίνουν με βάση τη δημοσίευση, με όνομα πηγής και αυτόματη απομάκρυνση διπλών εγγραφών.</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">Πρόσθεσε απευθείας RSS/XML από ειδησεογραφικά sites (π.χ. Newsbeast), μαζί με επιλογές rssnews.io, Google News και RSS.app. Τίτλοι, κατηγορίες, εικόνες και ημερομηνίες αναγνωρίζονται αυτόματα. Χωρίς XML mapping ή ξεχωριστές καμπάνιες. Τα άρθρα μπαίνουν με βάση τη δημοσίευση, με όνομα πηγής και αυτόματη απομάκρυνση διπλών εγγραφών.</p>
       </div>
       <a href="/newsfeed" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-3 text-sm font-bold text-white hover:border-[#ccff00]">Δες το Newsfeed <ExternalLink size={16}/></a>
     </header>
@@ -88,9 +90,9 @@ export default function AdminNewsFeed(){
     {notice&&<p role="status" className="flex items-center gap-2 rounded-xl border border-[#ccff00]/30 bg-[#ccff00]/10 p-4 text-sm text-[#ccff00]"><CheckCircle2 size={17} className="shrink-0"/>{notice}</p>}
     <section className="ir-glass space-y-4 p-5 sm:p-7">
       <div><h2 className="text-lg font-black text-white">Πρόσθεσε publishers</h2>
-        <p className="mt-1 text-xs leading-6 text-zinc-400">Επικόλλησε το «Η ροή μου» link από το rssnews.io, Google News publishers ή RSS.app feeds — ένα link ανά γραμμή. Οι επιλογές rssnews.io αντιστοιχίζονται στις ίδιες κατηγορίες και συγκεντρώνονται από RSS εκδοτών, με εικόνες όπου διατίθενται.</p></div>
+        <p className="mt-1 text-xs leading-6 text-zinc-400">Δέχεται πραγματικά RSS/XML links οποιουδήποτε δημόσιου εκδότη, όπως https://www.newsbeast.gr/feed ή /greece/feed, καθώς και Google News, RSS.app ή «Η ροή μου» rssnews.io — ένα link ανά γραμμή. Οι κατηγορίες και οι φωτογραφίες διαβάζονται από το ίδιο το RSS και, όπου λείπει εικόνα, από το Open Graph του άρθρου.</p></div>
       <textarea value={newLinks} onChange={e=>setNewLinks(e.target.value)} rows={3} disabled={busy||loading}
-        placeholder={EXAMPLE} className={field+' resize-y'} aria-label="Νέοι σύνδεσμοι rssnews.io, Google News ή RSS"/>
+        placeholder={EXAMPLE} className={field+' resize-y'} aria-label="Νέα RSS XML links εκδοτών, rssnews.io, Google News ή RSS.app"/>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" disabled={busy||loading} onClick={add}
           className="inline-flex items-center gap-2 rounded-xl border border-[#ccff00]/40 px-5 py-3 text-sm font-bold text-[#ccff00] hover:bg-[#ccff00]/10 disabled:opacity-40">
@@ -109,7 +111,7 @@ export default function AdminNewsFeed(){
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-sm font-black text-white">{isGoogle(source.url)||isRssnews(source.url)?<Globe2 className="text-[#ccff00]" size={16}/>:<Link2 className="text-[#ccff00]" size={16}/>} {sourceName(source)}</p>
-              <p className="mt-1 text-xs text-zinc-500">{isRssnews(source.url)?'RSS εκδοτών / κατηγορίες rssnews.io':isGoogle(source.url)?'Google News':'RSS.app'} · {source.fetchedCount||0} άρθρα · {fmt(source.lastSyncedAt)}</p>
+              <p className="mt-1 text-xs text-zinc-500">{isDirect(source.url)?'Direct RSS/XML':isRssnews(source.url)?'RSS εκδοτών / κατηγορίες rssnews.io':isGoogle(source.url)?'Google News':'RSS.app'} · {source.fetchedCount||0} άρθρα · {fmt(source.lastSyncedAt)}</p>
             </div>
             <div className="flex items-center gap-3">
               <label className="inline-flex items-center gap-2 text-xs text-zinc-300"><input type="checkbox" checked={source.enabled!==false} onChange={e=>update(index,{enabled:e.target.checked})} className="accent-[#ccff00]"/> Ενεργό</label>
@@ -138,7 +140,7 @@ export default function AdminNewsFeed(){
           <RefreshCw size={16} className={busy?'animate-spin':''}/> Συγχρονισμός τώρα
         </button>
       </div>
-      <p className="text-xs leading-5 text-zinc-500">Ο συγχρονισμός γίνεται server-side με κοινή cache. Επιτρέπονται μόνο ελεγμένες μορφές URL από rssnews.io, Google News και RSS.app. Τα απευθείας RSS εκδοτών επιλέγονται από ασφαλή λίστα και όπου δεν υπάρχει φωτογραφία εξετάζεται το Open Graph του άρθρου. Τα Google News feeds από μόνα τους συχνά δεν δίνουν φωτογραφία. Πριν τη δημόσια χρήση Google News περιεχομένου επιβεβαίωσε τους όρους και τα δικαιώματα προβολής.</p>
+      <p className="text-xs leading-5 text-zinc-500">Ο συγχρονισμός γίνεται server-side με κοινή cache. Τα απευθείας feeds επιτρέπονται από δημόσια HTTPS domains, με έλεγχο DNS, χωρίς εσωτερικές διευθύνσεις ή redirects. Τα rssnews.io, Google News και RSS.app παραμένουν συμβατά. Τα απευθείας RSS εκδοτών επιλέγονται από ασφαλή λίστα και όπου δεν υπάρχει φωτογραφία εξετάζεται το Open Graph του άρθρου. Τα Google News feeds από μόνα τους συχνά δεν δίνουν φωτογραφία. Πριν τη δημόσια χρήση Google News περιεχομένου επιβεβαίωσε τους όρους και τα δικαιώματα προβολής.</p>
     </form>
     {data&&<section className="ir-glass p-5 sm:p-7">
       <div className="mb-5 grid gap-3 sm:grid-cols-3">

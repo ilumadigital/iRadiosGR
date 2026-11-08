@@ -25,7 +25,7 @@ function validatePublicUrl(value,{feed=false}={}){
       !['rss','rss2','atom','xml'].includes((params.get('format')||'').toLowerCase()))
       invalid('Ο σύνδεσμος πρέπει να οδηγεί σε RSS/XML feed (π.χ. /feed ή .xml).');
   }
-  if(u.pathname.includes('\0'))invalid('Μη έγκυρο RSS path.');
+  if(/%00|%0d|%0a/i.test(u.pathname+u.search))invalid('Μη έγκυρο RSS path.');
   return u.href;
 }
 function ipv4Public(ip){
@@ -75,7 +75,7 @@ function requestText(value,{feed=false,html=false}={}){
         Accept:html?'text/html, application/xhtml+xml':'application/rss+xml, application/atom+xml, application/xml, text/xml, text/plain',
         'Accept-Encoding':'identity','User-Agent':'iRadiosGR-NewsFeed/3.0'
       },
-      timeout:9000
+      timeout:html?4000:9000
     },res=>{
       const code=res.statusCode||0;
       if(code<200||code>=300){
