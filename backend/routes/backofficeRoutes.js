@@ -130,7 +130,7 @@ router.get('/backoffice/review-queue',authorizeRoles('admin'),async(req,res)=>{
     const editsPage=page(req.query.editsPage);
     const pageSize=50;
     const search=String(req.query.q||'').trim().slice(0,100);
-    const safeSearch=search.replace(/[.*+?^$()|[\]{}\\]/g,'\\router.get('/backoffice/overview',async(req,res)=>{');
+    const safeSearch=search.replace(/[.*+?^$()|[\]{}\\]/g,'\\$&');
     const nameFilter=search?{name:{$regex:safeSearch,$options:'i'}}:{};
     const pendingFilter={status:'pending',...nameFilter};
     const editsFilter={pendingEdits:{$type:'object',$ne:{}},...nameFilter};
