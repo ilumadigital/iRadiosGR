@@ -61,6 +61,8 @@ jobs:
         run: node ops/check-phase4-backoffice.cjs
       - name: Validate two-minute native song cache, instant Home and safe Spotify links
         run: node ops/check-phase36-native-cache.cjs
+      - name: Validate two-minute staging background metadata scanner and round-robin
+        run: node ops/check-phase36-native-scan.cjs
       - name: Validate frontend production build
         # Existing react-simple-maps@1.0.0 declares React 16 peers despite the React 19 app.
         # Use the same legacy resolution needed by the current project; track upgrade separately.
