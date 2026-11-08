@@ -70,7 +70,7 @@ async function run(){
   ])assert.equal(track.parseTrack(malformed,station.name),null,'never a valid song: '+malformed);
   assert.equal(track.parseTrack('Daft Punk - One More Time',station.name).title,'One More Time');
 
-  const now=Date.now();
+  const now=Date.now()-180000; // simulate two completed prefetches in the past
   assert.equal(await native.rememberNativeSong(station,'Daft Punk - One More Time',now),true);
   assert.equal(nativeChanges,1);
   const changedAt=new Date(doc.nativeNow.changedAt).getTime();
