@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import {PrimaryCategorySelect,SecondaryCategorySelect} from '../components/StationCategorySelect';
+import {isPrimaryCategory,isSecondaryCategory,PRIMARY_CATEGORIES} from '../utils/stationCategories';
 import { 
   PlusCircle, Radio, Trash2, Edit, X, 
   CheckCircle, XCircle, Clock, Star, Loader2, Search, AlertTriangle, Check, LayoutDashboard,
@@ -119,17 +121,12 @@ const LOCATION_DATA = {
   }
 };
 
-// 🎵 2. GENRES
-const GENRES = [
-  "Διεθνή Mainstream", "House", "Techno", "Rock", "HipHop / RnB / Rap", 
-  "80s / 90s", "Ειδήσεις", "Αθλητικά", "Παιδικά", "Cosmopolitan", "Sophisticated", 
-  "Εναλλακτικά", "Ελληνικά Επιτυχίες", "Ελληνικά Λαϊκά", "Έντεχνη",
-  "Θρησκευτικά", "Κλασική", "Lounge", "Παραδοσιακά"
-];
+// Dropdown choices come from the shared station taxonomy.
+
 
 // 🟢 Προστέθηκε το viber & το metadata
 const INITIAL_STATION_STATE = { 
-  name: '', slogan: '', slug: '', genre: '', country: 'Ελλάδα', region: '', prefecture: '', city: '', 
+  name: '', slogan: '', slug: '', genre: '', secondaryGenre: '', country: 'Ελλάδα', region: '', prefecture: '', city: '', 
   transmissionType: 'Web Radio', frequency: '', 
   logo: '', stream: '', metadata: '', description: '', website: '', facebook: '', instagram: '', twitter: '', tiktok: '', 
   phone: '', viber: '', email: '', 
@@ -250,7 +247,7 @@ export default function Admin({ API_URL, refreshStations }) {
 
   const checkFormValidity = (formData) => {
     const { name, slug, genre, stream, country, region, prefecture, city, transmissionType, frequency } = formData;
-    const hasBasics = name && slug && genre && stream && country && region && prefecture && city;
+    const hasBasics = name && slug && isPrimaryCategory(genre) && isSecondaryCategory(formData.secondaryGenre) && stream && country && region && prefecture && city;
     const hasFreq = transmissionType === 'Επίγειο' ? frequency : true;
     const hasLogo = selectedFile || (formData.logo !== '' && isLogoValid);
     return hasBasics && hasFreq && hasLogo;
@@ -360,7 +357,8 @@ export default function Admin({ API_URL, refreshStations }) {
       name: sourceData.name || '',
       slug: sourceData.slug || '',
       slogan: sourceData.slogan || '',
-      genre: sourceData.genre || '',
+      genre: sourceData.genre || station.genre || '',
+      secondaryGenre: sourceData.secondaryGenre || station.secondaryGenre || '',
       logo: sourceData.logo || '',
       stream: sourceData.stream || '',
       metadata: sourceData.metadata || '', // 🟢 Metadata
@@ -695,11 +693,10 @@ export default function Admin({ API_URL, refreshStations }) {
             </div>
             
             <div className="space-y-2">
-              <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Genre *</label>
-              <select required value={formData.genre} onChange={e => setFormData({...formData, genre: e.target.value})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white focus:border-[#ccff00]/50 outline-none appearance-none cursor-pointer">
-                <option value="">Select Genre...</option>
-                {GENRES.map((g, idx) => <option key={idx} value={g}>{g}</option>)}
-              </select>
+              <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Βασική κατηγορία *</label>
+              <PrimaryCategorySelect value={formData.genre} onChange={genre=>setFormData({...formData,genre})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white outline-none"/>
+              <label className="mt-3 block text-[9px] font-black text-zinc-500 uppercase tracking-widest">Δευτερεύουσα κατηγορία *</label>
+              <SecondaryCategorySelect value={formData.secondaryGenre} onChange={secondaryGenre=>setFormData({...formData,secondaryGenre})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white outline-none"/>
             </div>
           </div>
 
@@ -940,7 +937,7 @@ export default function Admin({ API_URL, refreshStations }) {
             <Filter size={16} className="text-zinc-500" />
             <select value={filterGenre} onChange={(e) => setFilterGenre(e.target.value)} className="bg-transparent text-xs text-white outline-none cursor-pointer">
               <option value="">Όλα τα Είδη</option>
-              {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+              {PRIMARY_CATEGORIES.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
 

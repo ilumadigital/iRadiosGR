@@ -6,6 +6,8 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { useAlert } from '../context/AlertContext';
+import {PrimaryCategorySelect,SecondaryCategorySelect} from '../components/StationCategorySelect';
+import {isPrimaryCategory,isSecondaryCategory} from '../utils/stationCategories';
 
 // 🗺️ 1. ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ
 const LOCATION_DATA = {
@@ -120,13 +122,8 @@ const LOCATION_DATA = {
   }
 };
 
-// 🎵 2. GENRES
-const GENRES = [
-  "Διεθνή Mainstream", "House", "Techno", "Rock", "HipHop / RnB / Rap", 
-  "80s / 90s", "Ειδήσεις", "Αθλητικά", "Παιδικά", "Cosmopolitan", "Sophisticated", 
-  "Εναλλακτικά", "Ελληνικά Επιτυχίες", "Ελληνικά Λαϊκά", "Έντεχνη",
-  "Θρησκευτικά", "Κλασική", "Lounge", "Παραδοσιακά"
-];
+// Dropdown choices come from the shared station taxonomy.
+
 
 export default function MyRadios({ API_URL, currentUser }) {
   const navigate = useNavigate();
@@ -150,7 +147,7 @@ export default function MyRadios({ API_URL, currentUser }) {
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
   
   const initialFormState = {
-    name: '', slug: '', genre: '', stream: '', metadata: '', logo: '', 
+    name: '', slug: '', genre: '', secondaryGenre: '', stream: '', metadata: '', logo: '', 
     country: 'Ελλάδα', region: '', prefecture: '', city: '', slogan: '', description: '',
     transmissionType: 'Web Radio', frequency: '',
     website: '', facebook: '', instagram: '', twitter: '', tiktok: '',
@@ -161,7 +158,7 @@ export default function MyRadios({ API_URL, currentUser }) {
 
   const isFormValid = useMemo(() => {
     const { name, slug, genre, stream, country, region, prefecture, city, transmissionType, frequency } = formData;
-    const hasBasics = name && slug && genre && stream && country && region && prefecture && city;
+    const hasBasics = name && slug && isPrimaryCategory(genre) && isSecondaryCategory(formData.secondaryGenre) && stream && country && region && prefecture && city;
     const hasFreq = transmissionType === 'Επίγειο' ? frequency : true;
     const hasLogo = selectedFile || (formData.logo !== '' && isLogoValid);
     return hasBasics && hasFreq && hasLogo;
@@ -303,7 +300,8 @@ export default function MyRadios({ API_URL, currentUser }) {
       ...initialFormState,
       name: sourceData.name || '',
       slug: sourceData.slug || '',
-      genre: sourceData.genre || '',
+      genre: sourceData.genre || station.genre || '',
+      secondaryGenre: sourceData.secondaryGenre || station.secondaryGenre || '',
       stream: sourceData.stream || '',
       metadata: sourceData.metadata || '',
       logo: sourceData.logo || '',
@@ -740,11 +738,10 @@ export default function MyRadios({ API_URL, currentUser }) {
                       <input type="text" value={formData.slogan || ''} onChange={e => setFormData({...formData, slogan: e.target.value})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white focus:border-[#ccff00]/50 outline-none" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Ειδος *</label>
-                      <select required value={formData.genre} onChange={e => setFormData({...formData, genre: e.target.value})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white focus:border-[#ccff00]/50 outline-none appearance-none cursor-pointer">
-                        <option value="">Select Genre...</option>
-                        {GENRES.map((g, idx) => <option key={idx} value={g}>{g}</option>)}
-                      </select>
+                      <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Βασική κατηγορία *</label>
+                      <PrimaryCategorySelect value={formData.genre} onChange={genre=>setFormData({...formData,genre})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white outline-none"/>
+                      <label className="mt-3 block text-[9px] font-black text-zinc-500 uppercase tracking-widest">Δευτερεύουσα κατηγορία *</label>
+                      <SecondaryCategorySelect value={formData.secondaryGenre} onChange={secondaryGenre=>setFormData({...formData,secondaryGenre})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white outline-none"/>
                     </div>
                   </div>
 

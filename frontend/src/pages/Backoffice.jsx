@@ -3,6 +3,8 @@ import {Link,NavLink,Routes,Route,Navigate,useLocation,useNavigate,useParams} fr
 import {Helmet} from 'react-helmet-async';
 import '../styles/backoffice-admin.css';
 import ScheduleXmlImport from '../components/ScheduleXmlImport';
+import {PrimaryCategorySelect,SecondaryCategorySelect} from '../components/StationCategorySelect';
+import {isPrimaryCategory,isSecondaryCategory} from '../utils/stationCategories';
 import {minutes,scheduleDayBase,toCanonical,normalize,nextDay} from '../utils/schedule';
 import {
   Activity,ArrowDownRight,ArrowLeft,ArrowRight,BadgeCheck,BarChart3,
@@ -26,10 +28,10 @@ const AdminAdControl=lazy(()=>import('./AdminAdControl'));
 const Boost=lazy(()=>import('./Boost'));
 const NewPush=lazy(()=>import('./NewPush'));
 const DAY_NAMES=['','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
-const EDIT_FIELDS=['name','slogan','description','genre','transmissionType','frequency',
+const EDIT_FIELDS=['name','slogan','description','genre','secondaryGenre','transmissionType','frequency',
   'region','city','website','email','phone','stream','metadata','facebook','instagram',
   'twitter','tiktok','explicit'];
-const BLANK={name:'',slogan:'',description:'',genre:'',transmissionType:'Web Radio',
+const BLANK={name:'',slogan:'',description:'',genre:'',secondaryGenre:'',transmissionType:'Web Radio',
   frequency:'',region:'',city:'',website:'',email:'',phone:'',stream:'',metadata:'',
   facebook:'',instagram:'',twitter:'',tiktok:'',explicit:false};
 const panel='rounded-[26px] border border-white/[0.075] bg-[#111418] shadow-[0_22px_90px_rgba(0,0,0,0.14)]';
@@ -298,9 +300,13 @@ function StationEditor({data,reload,notify}){
   },[id,isNew,station?._id]); // Refresh by changing station id. Explicit reset after save.
   const update=(field,value)=>{setForm(prev=>({...prev,[field]:value}));setDirty(true);};
   async function save(e){
-    e.preventDefault();setBusy(true);
+    e.preventDefault();
+    if(!isPrimaryCategory(form.genre)||!isSecondaryCategory(form.secondaryGenre)){
+      notify('Επίλεξε μία βασική και μία δευτερεύουσα κατηγορία.','error');return;
+    }
+    setBusy(true);
     try{
-      const payload=isNew?Object.fromEntries(['name','slogan','description','genre','stream',
+      const payload=isNew?Object.fromEntries(['name','slogan','description','genre','secondaryGenre','stream',
         'transmissionType','region','city'].map(k=>[k,form[k]])):form;
       const result=await api(isNew?'/stations':'/stations/'+station._id,
         {method:isNew?'POST':'PATCH',body:JSON.stringify(payload)});
@@ -343,7 +349,8 @@ function StationEditor({data,reload,notify}){
             <div><h3 className="text-lg font-black text-white">Ταυτότητα σταθμού</h3><p className="text-xs text-zinc-500">Πληροφορίες καταλόγου και δημόσιου προφίλ</p></div></div>
           <div className="grid gap-5 md:grid-cols-2">
             <Field label="Όνομα σταθμού *"><input required maxLength={100} className={inputClass} value={form.name} onChange={e=>update('name',e.target.value)}/></Field>
-            <Field label="Μουσική κατηγορία *"><input required maxLength={100} className={inputClass} placeholder="π.χ. Dance & Electronic" value={form.genre} onChange={e=>update('genre',e.target.value)}/></Field>
+            <Field label="Βασική κατηγορία *"><PrimaryCategorySelect className={inputClass} value={form.genre} onChange={value=>update('genre',value)}/></Field>
+            <Field label="Δευτερεύουσα κατηγορία *" help="Εξειδικευμένο ύφος για SEO / GEO. Δεν εμφανίζεται στο βασικό μενού."><SecondaryCategorySelect className={inputClass} value={form.secondaryGenre} onChange={value=>update('secondaryGenre',value)}/></Field>
             <Field label="Slogan" wide><input maxLength={240} className={inputClass} placeholder="Η μουσική σου, ο κόσμος σου." value={form.slogan} onChange={e=>update('slogan',e.target.value)}/></Field>
             <Field label="Περιγραφή" wide><textarea rows={4} maxLength={4000} className={inputClass+' resize-y'} value={form.description} onChange={e=>update('description',e.target.value)}/></Field>
             <Field label="Τύπος μετάδοσης"><select className={inputClass} value={form.transmissionType} onChange={e=>update('transmissionType',e.target.value)}>
@@ -395,7 +402,7 @@ function StationEditor({data,reload,notify}){
             <div className="mx-auto flex size-28 items-center justify-center overflow-hidden rounded-2xl bg-[#121519]">
               {station?.pendingEdits?.logo||station?.logo?<img src={station.pendingEdits?.logo||station.logo} className="size-full object-contain p-3" alt="Logo"/>:<Radio size={46} className="text-[#caff00]"/>}</div>
             <h3 className="mt-4 truncate text-xl font-black text-white">{form.name||'Ο σταθμός σου'}</h3>
-            <p className="mt-2 text-xs text-zinc-400">{form.genre||'Μουσική κατηγορία'}</p>
+            <p className="mt-2 text-xs text-zinc-400">{form.genre||'Βασική κατηγορία'}{form.secondaryGenre?` · ${form.secondaryGenre}`:''}</p>
             <p className="mt-3 text-xs text-[#caff00]">{form.slogan||'iRadiosGR'}</p>
           </div>
           {!isNew&&<div className="mt-4 flex flex-wrap gap-2">
