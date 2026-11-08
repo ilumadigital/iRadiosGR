@@ -354,11 +354,11 @@ exports.injectGenreSeo = async (req, res, next) => {
         const exactUrl = `__IRADIOS_SITE_ORIGIN__${req.originalUrl}`;
         
         // 🟢 1. Τραβάμε τους σταθμούς αυτού του Genre (Έως 30 για πιο πλούσιο περιεχόμενο)
-        const escapedGenre = decodedGenre.replace(/[.*+?^${}()|[\]\\]/g, '\\        const stations = await Station.find({ 
-            genre: new RegExp('^' + decodedGenre + '$', 'i'),
+        // Exact category and subcategory pages, without regex injection.
+        const stations = await Station.find({
+            $or: [{genre: decodedGenre}, {secondaryGenre: decodedGenre}],
             status: 'approved'
-        }).limit(30).lean();');
-        const matchingGenre = new RegExp('^' + escapedGenre + '
+        }).limit(30).lean();
 
         // 🟢 2. Τραβάμε 10 τυχαία (ή διαφορετικά) Genres για δυνατά Internal Links!
         const relatedGenres = await Station.distinct('genre', { 
