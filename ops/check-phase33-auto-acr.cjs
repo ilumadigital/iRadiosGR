@@ -12,14 +12,17 @@ const candidates=[
 ];
 const titles=new Map(ids.map(id=>[id,'Native Artist - Native Song']));
 titles.set(ids[1],'');titles.set(ids[2],'LIVE SHOW');titles.set(ids[3],'');
-const stations={find:()=>({select:()=>({sort:()=>({limit:()=>({lean:async()=>candidates})})})})};
+const stations={find:query=>({select:()=>({
+  lean:async()=>candidates.filter(s=>query?._id?.$in?.includes(s._id)),
+  sort:()=>({limit:()=>({lean:async()=>candidates})})
+})})};
 const quota={updateOne:async()=>({}),findOneAndUpdate:()=>({lean:async()=>{
-  if(used>=2)return null;
+  if(used>=3)return null;
   used++;return {_id:'stage-auto-acr:2026-11-09',used};
 }})};
 Date.now=()=>now;
 process.env.APP_ENV='staging';process.env.STAGE_ENABLE_AUTO_ACRCLOUD='1';
-process.env.STAGE_AUTO_ACR_DAILY_LIMIT='2';
+process.env.STAGE_AUTO_ACR_DAILY_LIMIT='3';
 let worker;
 try{
   Module._load=function(name,parent,isMain){
@@ -65,19 +68,28 @@ async function run(){
     await worker.tick();
     assert.deepEqual(requests,[ids[2],ids[3]],'absent metadata with live listener triggers one ACR');
     assert.equal(used,2);
+    // Station #11 is not in Top-10. It must still be recognized when
+    // someone genuinely listens and it has no usable native metadata.
+    const extraId='223e4567-e89b-12d3-a456-426614174000';
+    worker.heartbeat({body:{stationId:ids[10],sessionId:extraId,playing:true}},res());
+    assert.equal(worker.listenerPresent(ids[10]),true);
+    await worker.tick();
+    assert.deepEqual(requests,[ids[2],ids[3],ids[10]],
+      'a listened station outside Top-10 is eligible for AI');
+    assert.equal(used,3);
 
     await worker.tick();
-    assert.equal(requests.length,2,'one attempt per five-minute station window');
+    assert.equal(requests.length,3,'one attempt per five-minute station window');
     now+=5*60*1000+1000;
     await worker.tick();
-    assert.equal(requests.length,2,'persistent daily limit prevents new paid calls');
-    assert.equal(published,2);
+    assert.equal(requests.length,3,'persistent daily limit prevents new paid calls');
+    assert.equal(published,3);
     worker.heartbeat({body:{stationId:ids[3],sessionId:id,playing:false}},res());
     assert.equal(worker.listenerPresent(ids[3]),false,'stop event removes listening presence');
     assert.equal(worker.listenerPresent(ids[3],now+160000),false,'idle presence expires');
     assert.equal(worker.heartbeat({body:{stationId:ids[3],sessionId:'bad',playing:true}},res()).code,400);
-    assert.equal(requests.some(id=>id===ids[10]),false,'station outside Top 10 is never recognized');
-    console.log('Top-10 music-only scheduler, no-listener junk exemption, listening heartbeat, 5-minute clock and daily cost cap passed.');
+    assert.equal(requests.includes(ids[10]),true,'an actively listened station outside Top-10 is recognized');
+    console.log('Top-10 music priority, extra listened stations, heartbeat, 5-minute clock and daily cost cap passed.');
   }finally{
     Date.now=oldDateNow;
     for(const [k,v] of Object.entries(oldEnv))v===undefined?delete process.env[k]:process.env[k]=v;
