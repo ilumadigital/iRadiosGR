@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { 
-  Scale, Radio, Banknote, MessageSquare, AlertTriangle, SlidersHorizontal, 
+  Scale, Radio, Banknote, AlertTriangle, SlidersHorizontal, 
   BarChart3, Users, Crown, ShieldCheck, Lock, MapPin, CheckSquare, Loader2
 } from 'lucide-react';
 
@@ -112,10 +112,6 @@ export default function TermsBroadcasters({ API_URL, currentUser }) {
               <div>
                 <h3 className="text-white font-bold flex items-center gap-2 mb-2"><Users size={16} className="text-green-400"/> Υπολογαριασμοί Παραγωγών (Producers)</h3>
                 <p>Ως κεντρικός διαχειριστής, φέρετε εις ολόκληρον ευθύνη για κάθε ενέργεια που εκτελείται από τους προσκεκλημένους Παραγωγούς σας.</p>
-              </div>
-              <div>
-                <h3 className="text-white font-bold flex items-center gap-2 mb-2"><MessageSquare size={16} className="text-blue-400"/> Εποπτεία Live Chat (Moderation)</h3>
-                <p>Φέρετε την ευθύνη συνεχούς εποπτείας του Live Chat του σταθμού σας. Οφείλετε να επιβάλλετε κυρώσεις σε ακροατές που παραβιάζουν τους όρους ευπρέπειας.</p>
               </div>
             </div>
           </section>
