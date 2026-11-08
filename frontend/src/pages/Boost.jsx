@@ -49,6 +49,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [onlyBoosted, setOnlyBoosted] = useState(false);
+  const [shown, setShown] = useState(60);
   const [positionInputs, setPositionInputs] = useState({});
   const [boostChanged, setBoostChanged] = useState(() => new Set());
   const [dirty, setDirty] = useState(false);
@@ -95,11 +96,16 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
 
   const scopedStations = useMemo(() => localStations.filter(s =>
     matchesScope(s, scope, scopeValue)), [localStations, scope, scopeValue]);
+  const scopePositions = useMemo(() =>
+    new Map(scopedStations.map((station, index) => [stationId(station), index])),
+    [scopedStations]);
   const searchKey = search.trim().toLocaleLowerCase('el');
-  const visible = scopedStations.filter(s =>
+  const matches = scopedStations.filter(s =>
     (!searchKey || [s.name, s.genre, s.secondaryGenre, s.region, s.city, s.frequency]
       .some(value => String(value || '').toLocaleLowerCase('el').includes(searchKey))) &&
     (!onlyBoosted || s.boostStatus === true));
+  const visible = matches.slice(0, shown);
+  useEffect(() => { setShown(60); }, [scope, scopeValue, search, onlyBoosted]);
   const boostedCount = scopedStations.filter(s => s.boostStatus &&
     (!s.boostExpiresAt || new Date(s.boostExpiresAt).getTime() > Date.now())).length;
   const scopeLabel = scope === 'global' ? 'Όλο το δίκτυο' :
@@ -169,7 +175,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
     draggedId.current = null;
     if (!id || id === targetId) return;
     // Reorder in the entire scope, never only in the searched subset.
-    reorder(id, scopedStations.findIndex(s => stationId(s) === targetId));
+    reorder(id, scopePositions.get(targetId) ?? -1);
   };
   const discard = () => {
     setLocalStations(initialOrder(approved, scope, scopeValue));
@@ -316,7 +322,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
 
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
           <p className="text-xs text-zinc-400">
-            <strong className="text-white">{visible.length}</strong> από {scopedStations.length} σταθμούς
+            <strong className="text-white">{matches.length}</strong> από {scopedStations.length} σταθμούς
             {(search || onlyBoosted) && ' · Η θέση αφορά ολόκληρη την επιλεγμένη κατάταξη.'}
           </p>
           {dirty && <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300">
@@ -326,7 +332,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
 
         <div className="space-y-2.5">
           {visible.map(station => {
-            const index = scopedStations.findIndex(item => stationId(item) === stationId(station));
+            const index = scopePositions.get(stationId(station)) ?? -1;
             const boosted = Boolean(station.boostStatus);
             const time = boosted ? remaining(station.boostExpiresAt) : null;
             const id = stationId(station);
@@ -415,6 +421,11 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
               Δεν βρέθηκαν σταθμοί. Δοκίμασε άλλη αναζήτηση ή κατάταξη.
             </div>
           )}
+          {matches.length > shown && <button type="button"
+            onClick={() => setShown(value => value + 60)}
+            className="w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-bold text-zinc-200 transition hover:border-[#ccff00]/40 hover:text-[#ccff00]">
+            Εμφάνιση περισσότερων ({matches.length - shown} ακόμη)
+          </button>}
         </div>
       </section>
 
