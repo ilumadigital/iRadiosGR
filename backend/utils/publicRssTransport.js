@@ -61,51 +61,95 @@ function safeLookup(host,options,cb){
     cb(null,preferred.address,preferred.family);
   });
 }
+// Follow a maximum of two HTTPS redirects on the exact same host only.
+// Feed URLs still must match the RSS/XML form; HTML article fetches are likewise
+// constrained to the starting publisher. DNS is public-only and pinned on EVERY hop.
+function redirectTarget(current,location,{feed}){
+  let target;
+  try{target=new URL(location,current);}
+  catch{throw new Error('Το RSS έκανε μη έγκυρη ανακατεύθυνση.');}
+  const original=new URL(current);
+  if(target.hostname!==original.hostname||target.protocol!=='https:'||
+    target.username||target.password||target.port)
+    throw new Error('Η πηγή RSS ανακατευθύνει σε διαφορετικό domain. Χρησιμοποίησε το τελικό HTTPS RSS URL.');
+  return validatePublicUrl(target.href,{feed});
+}
 function requestText(value,{feed=false,html=false}={}){
-  const href=validatePublicUrl(value,{feed}),u=new URL(href),max=html?MAX_HTML_BYTES:MAX_XML_BYTES;
-  return new Promise((resolve,reject)=>{
+  const href=validatePublicUrl(value,{feed});
+  const max=html?MAX_HTML_BYTES:MAX_XML_BYTES;
+  const fetchHop=(url,hops)=>new Promise((resolve,reject)=>{
     let done=false;
-    const finish=(err,text)=>{
+    const finish=(error,body)=>{
       if(done)return;done=true;
-      if(err)reject(err);else resolve(text);
+      if(error)reject(error);else resolve(body);
     };
-    const req=https.request(u,{
+    const req=https.request(new URL(url),{
       method:'GET',agent:false,lookup:safeLookup,
       headers:{
         Accept:html?'text/html, application/xhtml+xml':'application/rss+xml, application/atom+xml, application/xml, text/xml, text/plain',
-        'Accept-Encoding':'identity','User-Agent':'iRadiosGR-NewsFeed/3.0'
+        'Accept-Encoding':'gzip, deflate, br, identity',
+        'User-Agent':'iRadiosGR-NewsFeed/3.1'
       },
       timeout:html?4000:9000
     },res=>{
-      const code=res.statusCode||0;
-      if(code<200||code>=300){
-        res.resume();return finish(new Error('Ο RSS server επέστρεψε HTTP '+code+'.'));
+      const status=res.statusCode||0;
+      if([301,302,303,307,308].includes(status)){
+        res.resume();
+        if(hops>=2)return finish(new Error('Υπερβολικές ανακατευθύνσεις από το RSS.'));
+        let target;
+        try{target=redirectTarget(url,res.headers.location,{feed});}
+        catch(e){return finish(e);}
+        fetchHop(target,hops+1).then(body=>finish(null,body),finish);
+        return;
+      }
+      if(status<200||status>=300){
+        res.resume();return finish(new Error('Ο RSS server επέστρεψε HTTP '+status+'.'));
       }
       const type=String(res.headers['content-type']||'');
       if(type&&!(html?/html/i:/xml|text\/plain|application\/octet-stream/i).test(type)){
         res.resume();return finish(new Error('Η πηγή δεν επέστρεψε '+(html?'HTML':'RSS/Atom XML')+'.'));
       }
-      if(String(res.headers['content-encoding']||'identity').toLowerCase()!=='identity'){
+      const encoding=String(res.headers['content-encoding']||'identity').toLowerCase();
+      if(!['identity','gzip','deflate','br'].includes(encoding)){
         res.resume();return finish(new Error('Μη υποστηριζόμενη συμπίεση RSS.'));
       }
       if(Number(res.headers['content-length']||0)>max){
         res.resume();return finish(new Error('Το RSS/XML ξεπερνά το όριο μεγέθους.'));
       }
-      let bytes=0,parts=[];
-      res.on('data',part=>{
+      let decoder;
+      if(encoding==='gzip')decoder=require('node:zlib').createGunzip();
+      else if(encoding==='br')decoder=require('node:zlib').createBrotliDecompress();
+      else if(encoding==='deflate')decoder=require('node:zlib').createInflate();
+      const input=decoder||res;
+      if(decoder){
+        decoder.on('error',e=>finish(new Error('Αποτυχία αποσυμπίεσης RSS: '+e.message)));
+        res.pipe(decoder);
+      }
+      let bytes=0,rawBytes=0;
+      const parts=[];
+      if(decoder){
+        res.on('data',part=>{
+          rawBytes+=part.length;
+          if(rawBytes>max)res.destroy(new Error('Το συμπιεσμένο RSS ξεπερνά το όριο.'));
+        });
+      }
+      input.on('data',part=>{
         bytes+=part.length;
         if(bytes>max){
-          res.destroy(new Error('Το RSS/XML ξεπερνά το όριο μεγέθους.'));
+          input.destroy(new Error('Το RSS/XML ξεπερνά το όριο μεγέθους.'));
+          res.destroy();
           return;
         }
         parts.push(part);
       });
-      res.on('end',()=>finish(null,Buffer.concat(parts).toString('utf8')));
-      res.on('error',err=>finish(err));
+      input.on('end',()=>finish(null,Buffer.concat(parts).toString('utf8')));
+      input.on('error',error=>finish(error));
+      res.on('error',error=>finish(error));
     });
     req.on('timeout',()=>req.destroy(new Error('Η πηγή RSS δεν αποκρίθηκε έγκαιρα.')));
-    req.on('error',e=>finish(e));
+    req.on('error',error=>finish(error));
     req.end();
   });
+  return fetchHop(href,0);
 }
-module.exports={validatePublicUrl,publicIp,safeLookup,requestText};
+module.exports={validatePublicUrl,publicIp,safeLookup,redirectTarget,requestText};
