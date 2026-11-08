@@ -268,6 +268,20 @@ export default function AdminUsers({ API_URL, currentUser }) {
         ))}
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs font-semibold text-zinc-300" role="status">
+          {filteredUsers.length} από {users.length} λογαριασμούς
+        </p>
+        {(searchQuery||roleFilter!=='all')&&<button type="button"
+          className="rounded-xl border border-[#caff00]/25 px-3 py-2 text-xs font-bold text-[#caff00]"
+          onClick={()=>{setSearchQuery('');setRoleFilter('all');}}>
+          Καθαρισμός φίλτρων
+        </button>}
+      </div>
+      {!filteredUsers.length&&<div className="mb-4 rounded-2xl border border-dashed border-white/10 bg-white/[.025] p-10 text-center text-sm text-zinc-400">
+        Δεν βρέθηκαν χρήστες. Δοκίμασε άλλη αναζήτηση ή καθάρισε τα φίλτρα.
+      </div>}
+
       {/* VIEW RENDER (LIST) */}
       {viewMode === 'list' ? (
         <div className="bo-legacy-scroll bg-zinc-900/30 border border-white/5 rounded-2xl backdrop-blur-sm">
@@ -319,9 +333,9 @@ export default function AdminUsers({ API_URL, currentUser }) {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg"><Settings size={16} /></button>
-                      <button onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] hover:bg-[#ccff00]/10 rounded-lg"><Edit size={16} /></button>
-                      <button onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                      <button type="button" aria-label={'Στοιχεία λογαριασμού '+user.email} title="Στοιχεία λογαριασμού" onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg"><Settings size={16} /></button>
+                      <button type="button" aria-label={'Δικαιώματα '+user.email} title="Δικαιώματα" onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] hover:bg-[#ccff00]/10 rounded-lg"><Edit size={16} /></button>
+                      <button type="button" aria-label={'Διαγραφή '+user.email} title="Διαγραφή χρήστη" onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -347,9 +361,9 @@ export default function AdminUsers({ API_URL, currentUser }) {
                    <UserIcon className="text-zinc-600 shrink-0" size={18} />}
                </div>
                <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
-                  <button onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg transition-colors"><Settings size={16} /></button>
-                  <button onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] bg-[#ccff00]/10 rounded-lg transition-colors"><Edit size={16} /></button>
-                  <button onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors ml-auto"><Trash2 size={16} /></button>
+                  <button type="button" aria-label={'Στοιχεία λογαριασμού '+user.email} title="Στοιχεία λογαριασμού" onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg transition-colors"><Settings size={16} /></button>
+                  <button type="button" aria-label={'Δικαιώματα '+user.email} title="Δικαιώματα" onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] bg-[#ccff00]/10 rounded-lg transition-colors"><Edit size={16} /></button>
+                  <button type="button" aria-label={'Διαγραφή '+user.email} title="Διαγραφή χρήστη" onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors ml-auto"><Trash2 size={16} /></button>
                </div>
             </div>
           ))}
