@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock3, Disc3, Heart, Loader2, MoreHorizontal, Pause, Play, Radio, ScanSearch, Share2, Check, SignalHigh } from 'lucide-react';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import FoundWithAI from './FoundWithAI';
+import MusicServiceLinks from './MusicServiceLinks';
 
 /**
  * The mobile-only station introduction. Playback, favorite state, recognition
@@ -132,6 +133,10 @@ export default function MobileStationShowcase({
           ) : <h2>{offline ? 'Προσωρινά εκτός σύνδεσης' : 'Συντονίσου για να ακούσεις'}</h2>}
         </div>
       </div>
+      {!loadingMetadata && (
+        <MusicServiceLinks song={song?.raw || songText} stationName={station.name}
+          currentUser={currentUser} compact className="ir-music-links--station-mobile" />
+      )}
       {showTitle && title && <p className="ir-mobile-station-live-show">
         <Radio size={13} aria-hidden="true" /> Στον αέρα: <strong>{showTitle}</strong>
       </p>}
