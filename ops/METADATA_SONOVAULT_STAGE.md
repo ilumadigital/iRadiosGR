@@ -67,3 +67,34 @@ A real-key/live-radio end-to-end check cannot be run in CI.
 
 Do not share the API key, any backend.env contents, request headers, or complete
 recognition logs. If it is exposed, rotate it in SonoVault.
+
+## Recognition-result reliability fix
+
+SonoVault analyzes around 30 seconds per window. The previous stage adapter
+captured only 15 seconds of audio and allowed only 20 seconds for identification,
+which could cause empty or timed-out results even though the station was playing.
+
+The stage adapter now captures **up to 30 seconds**, limited to **900 KB**
+(one started MB of upload for pricing), and waits up to **50 seconds**
+for the provider's response. There is still only **one** billable
+identify call per manual action (concurrent actions on one backend are deduped).
+
+A valid provider `matched:true` payload is mapped to the existing UI contract:
+`{status:{code:0},metadata:{music:[{title,artists:[{name}]}]}}`.
+Explicit `matched:false` becomes the familiar no-result status 1001.
+Malformed `matched:true` data is reported as a service error rather
+than silently shown as "no song".
+
+For debugging without exposing secrets:
+
+```bash
+cd /srv/iradios/staging/app
+sudo docker compose --env-file /etc/iradios/staging/compose.env \
+  -f compose.stage.yml logs --tail=100 backend | \
+  grep '\[STAGE_SONOVAULT\]' || true
+```
+
+The logs expose only operation/status and the number of captured audio bytes,
+never the key, stream URL, audio, track title, or provider response body.
+An actual real-key request needs to be run manually on staging because CI must
+never spend SonoVault credits.

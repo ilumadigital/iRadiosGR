@@ -18,7 +18,10 @@ Module._load=function(name,parent,isMain){
     }};
     if(name==='./stageSafeRadioFetch')return {readPublicUrl:async(url,options)=>{
       assert.equal(url,station.stream,'only DB-approved station streams');
-      assert.ok(options.timeoutMs<=15000);
+      assert.ok(options.timeoutMs>=25000&&options.timeoutMs<=35000,
+        'capture needs about 30 seconds of radio audio');
+      assert.ok(options.maxBytes<=1048576&&options.maxBytes>=800000,
+        'upstream sample stays within one billed MB');
       captured.push(url);
       if(failCapture)throw new Error('Offline stream');
       return {headers:{'content-type':sampleType},buffer:Buffer.alloc(sampleSize,65)};
@@ -31,6 +34,8 @@ Module._load=function(name,parent,isMain){
       assert.equal(options.headers['Content-Type'],'application/octet-stream');
       assert.equal(options.headers['x-api-key'],'test-api-key');
       assert.equal(options.maxRedirects,0);
+      assert.ok(options.timeout>=45000 && options.timeout<=60000,
+        'fingerprint service must have enough time to return a billed match');
       requestHeader=options.headers;
       if(errorStatus)throw {response:{status:errorStatus}};
       return {data:reply};
@@ -104,7 +109,27 @@ async function run(){
 
     reply={matched:true,results:[{title:'Song',artists:[{name:'Artist'}],confidence:0.12}]};
     r=await recognize('uncertain');
-    assert.equal(r.body.status.code,1001);
+    assert.equal(r.code,502);
+    assert.equal(r.body.code,'ACR_UPSTREAM',
+      'malformed provider match is not mislabeled as a genuine no-match');
+
+    reply={matched:true,results:[
+      {title:'Incomplete',artists:[]},
+      {title:'Second Ranked Song',artists:[{name:'Second Artist'}],confidence:0.91}
+    ]};
+    r=await recognize('ranked-fallback');
+    assert.equal(r.code,200);
+    assert.equal(r.body.metadata.music[0].title,'Second Ranked Song');
+    assert.equal(publishes,2,'usable ranked match must still be published');
+
+    reply={matched:true,results:[{id:123,title:'No artist',artists:[]}]};
+    r=await recognize('malformed-result');
+    assert.equal(r.code,502);
+    assert.equal(r.body.code,'ACR_UPSTREAM');
+    reply='Not JSON';
+    r=await recognize('invalid-provider-response');
+    assert.equal(r.code,502);
+    assert.equal(r.body.code,'ACR_UPSTREAM');
 
     errorStatus=403;
     r=await recognize('free-tier');
@@ -128,7 +153,7 @@ async function run(){
     assert.equal(both[0].code,200);
     assert.equal(both[1].code,200);
     assert.equal(calls,before+1,'concurrent listeners share one vendor request');
-    assert.equal(publishes,2,'concurrent listeners share one playlist publication');
+    assert.equal(publishes,3,'concurrent listeners share one playlist publication');
     assert.equal(recognizer.readyForSonoVault(),true);
     console.log('Manual SonoVault: approved stream, raw audio, legacy metadata compatibility, rate limits and in-flight dedup passed.');
   }finally{

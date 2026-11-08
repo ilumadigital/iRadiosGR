@@ -90,7 +90,9 @@ async function performRecognition(station,{beforeVendorCall}={}){
         'x-api-key':process.env.SONOVAULT_API_KEY.trim(),
         'Content-Type':'application/octet-stream','Accept':'application/json'
       },
-      maxRedirects:0,timeout:20000,maxBodyLength:1048576,maxContentLength:262144
+      // Audio fingerprint matching can exceed 20 seconds even for a valid sample.
+      // Do not prematurely discard a billable successful provider response.
+      maxRedirects:0,timeout:50000,maxBodyLength:1048576,maxContentLength:262144
     });
     payload=response.data;
   }catch(error){

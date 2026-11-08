@@ -30,7 +30,10 @@ async function readPublicUrl(raw, options = {}) {
   if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 1048576) {
     throw new Error('Invalid byte limit');
   }
-  if (!Number.isInteger(timeoutMs) || timeoutMs < 500 || timeoutMs > 15000) {
+  // Only explicit bounded audio captures may exceed the normal 15-second
+  // metadata timeout. SonoVault needs a useful ~30-second music excerpt.
+  const maximumTimeout = allowPartialOnDeadline ? 35000 : 15000;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 500 || timeoutMs > maximumTimeout) {
     throw new Error('Invalid timeout');
   }
 
