@@ -6,13 +6,14 @@ import FoundWithAI from './FoundWithAI';
 import FullscreenArtwork from './FullscreenArtwork';
 import OnAirShowCard from './OnAirShowCard';
 import {parseMusicMetadata} from '../utils/musicMetadata';
+import MusicServiceLinks from './MusicServiceLinks';
 
 // This visual layer never creates an <audio>. App.jsx remains the only stream player.
 export default function DesktopFullPlayer({
   station, currentUser, isPlaying, isBuffering, isPlayingAd, adWarning, currentAdInfo,
   adTimeRemaining, nowPlaying, nowPlayingInfo, globalCoverArt, currentShow, liveBroadcast, rdsShowProducer, volume, setVolume,
   togglePlayPause, handlePrevStation, handleNextStation, onClose, onFavorite, isFavorite,
-  onRecognize, isRecognizing, onOpenStation
+  onRecognize, isRecognizing, onOpenStation, spotifyUrl
 }) {
   const [showPlaylist,setShowPlaylist]=useState(false);
   useEffect(()=>{
@@ -84,6 +85,11 @@ export default function DesktopFullPlayer({
               </p>
             </div>
             {visibleSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI className="mt-2"/>}
+            {visibleSong&&!isPlayingAd&&(
+              <MusicServiceLinks raw={music.raw} stationName={station.name}
+                spotifyUrl={currentUser?.isPremium || currentUser?.broadcasterProfile?.tier === 'premium' ? spotifyUrl : null}
+                compact/>
+            )}
             <div className="mt-[clamp(0.5rem,2dvh,1.2rem)] flex min-w-0 items-center gap-3">
               <img src={station.logo} alt="" className="h-[clamp(32px,5.5dvh,48px)] w-[clamp(32px,5.5dvh,48px)] shrink-0 rounded-xl bg-white p-1 object-contain"/>
               <div className="min-w-0"><p className="truncate text-sm font-bold text-white">{station.name}</p>
