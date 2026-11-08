@@ -127,7 +127,10 @@ router.put('/admin/stations/:id/assign', protect, authorizeRoles('admin'), async
 // approved station set for the selected scope, and unique valid station IDs.
 router.put('/admin/stations/reorder', protect, authorizeRoles('admin'), async (req, res) => {
   try {
-    const { stationsData, scope = 'global', scopeValue = '' } = req.body || {};
+    const { stationsData, scope = 'global', scopeValue = '', updateOrder = true } = req.body || {};
+    if (typeof updateOrder !== 'boolean') {
+      return res.status(400).json({ error: 'Μη έγκυρη εντολή ταξινόμησης.' });
+    }
     if (!['global', 'genre', 'region'].includes(scope) ||
         (scope !== 'global' && (typeof scopeValue !== 'string' ||
           !scopeValue.trim() || scopeValue.length > 120))) {
@@ -156,7 +159,7 @@ router.put('/admin/stations/reorder', protect, authorizeRoles('admin'), async (r
     const now = Date.now();
     const bulkOps = stationsData.map((item, index) => {
       const original = byId.get(String(item.id));
-      const fields = scope === 'global'
+      const fields = !updateOrder ? {} : scope === 'global'
         ? { position: index + 1 }
         : { rankings: [
             ...(original.rankings || []).filter(rank =>
@@ -176,11 +179,12 @@ router.put('/admin/stations/reorder', protect, authorizeRoles('admin'), async (r
               ? original.boostExpiresAt : new Date(now + 86400000));
         }
       }
+      if (!Object.keys(fields).length) return null;
       return { updateOne: {
         filter: { _id: item.id, status: 'approved' },
         update: { $set: fields }
       } };
-    });
+    }).filter(Boolean);
     if (bulkOps.length) await Station.bulkWrite(bulkOps, { ordered: true });
     return res.json({ message: 'Η κατάταξη αποθηκεύτηκε.', scope, scopeValue: value,
       count: bulkOps.length });
