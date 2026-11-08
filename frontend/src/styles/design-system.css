@@ -527,13 +527,22 @@
   }
 
   @media (min-width: 1280px) {
-    /* The compact hero defines row height; the playlist stretches beside it. */
+    /* Keep the Home carousel and its playlist on one compact 355px row.
+       The playlist's own flex-1/min-h-0 track list scrolls inside, rather
+       than inflating the grid row and leaving blank space under the hero. */
     .ir-home-feature-grid {
-      height: auto;
+      height: 355px;
+      min-height: 0;
+      align-items: stretch;
     }
-    .ir-playlist-panel--compact {
+    .ir-home-feature-grid > #home-playlist {
+      height: 100%;
+      min-height: 0;
+    }
+    .ir-home-feature-grid .ir-playlist-panel--compact {
       height: 100%;
       max-height: 100%;
+      min-height: 0;
     }
   }
 
