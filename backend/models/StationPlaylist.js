@@ -31,11 +31,19 @@ const recognitionSchema = new mongoose.Schema({
   expiresAt: {type:Date,required:true}
 },{_id:false});
 
+// Short-lived generic upstream on-air text (not music and never stored in song history).
+// Enables schedule-linked host artwork without misleading ACR results.
+const nativeShowSchema=new mongoose.Schema({
+  raw:{type:String,required:true,maxlength:300},
+  confirmedAt:{type:Date,required:true}
+},{_id:false});
+
 const schema = new mongoose.Schema({
   stationId:{type:mongoose.Schema.Types.ObjectId,ref:'Station',required:true,unique:true,index:true},
   tracks:{type:[trackSchema],default:[]},
   currentAI:{type:recognitionSchema,default:undefined},
-  nativeNow:{type:nativeSchema,default:undefined}
+  nativeNow:{type:nativeSchema,default:undefined},
+  nativeShow:{type:nativeShowSchema,default:undefined}
 },{timestamps:true});
 schema.index({'currentAI.expiresAt':1});
 schema.index({'nativeNow.confirmedAt':1});
