@@ -7,7 +7,7 @@ const User = require('../models/User');
 const Invitation = require('../models/BroadcasterInvitation');
 const { protect } = require('../utils/authMiddleware');
 const { authorizeRoles } = require('../utils/roleMiddleware');
-const { hasAcceptedCurrentBroadcasterTerms } = require('../utils/broadcasterTerms');
+const { hasAcceptedCurrentBroadcasterTerms, withBroadcasterTermsStatus } = require('../utils/broadcasterTerms');
 const { sendEmail } = require('../utils/myMailer');
 
 const router = express.Router();
@@ -170,7 +170,7 @@ router.post('/broadcaster-invitations/activate-broadcaster', protect, async (req
       } }, { new: true }
     );
     if (!updated) return res.status(409).json({ error: 'Ο λογαριασμός έχει αλλάξει. Συνδέσου ξανά.' });
-    return res.json({ message: 'Ο ρόλος Broadcaster ενεργοποιήθηκε. Αποδέξου τους όρους για την ανάθεση.' });
+    return res.json({ message: 'Ο ρόλος Broadcaster ενεργοποιήθηκε. Αποδέξου τους όρους για την ανάθεση.', user: withBroadcasterTermsStatus(updated) });
   } catch (error) {
     console.error('Broadcaster activation:', error);
     return res.status(500).json({ error: 'Η ενεργοποίηση δεν ολοκληρώθηκε.' });
