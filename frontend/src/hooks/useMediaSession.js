@@ -1,15 +1,8 @@
 import {useEffect,useRef} from 'react';
+import {parseMusicMetadata} from '../utils/musicMetadata';
 
 const FIVE_MINUTES=5*60*1000;
 const LOADING=/^(?:Βρίσκουμε το τραγούδι|Ακούμε τον σταθμό|Ψάχνουμε το τραγούδι|Λίγο ακόμη|Σχεδόν έτοιμο|ΠΑΙΖΕΙ ΤΩΡΑ)/i;
-function musicParts(value){
-  if(typeof value!=='string'||LOADING.test(value))return null;
-  const match=value.trim().match(/^(.{1,150}?)\s+[-–—]\s+(.{1,150})$/);
-  if(!match)return null;
-  const artist=match[1].trim(),title=match[2].trim();
-  if(/(?:dj\s*set|djset|live\s*(?:show|session|set|mix)|on\s*air|radio\s*show|podcast|εκπομπ[ήη]|δελτ[ιί]ο\s*ειδ[ήη]σεων)/i.test(artist+' '+title))return null;
-  return {artist,title};
-}
 function artworkType(url){
   if(/\.png(?:[?#]|$)/i.test(url))return 'image/png';
   if(/\.webp(?:[?#]|$)/i.test(url))return 'image/webp';
@@ -29,7 +22,9 @@ export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUse
     album:'iRadios',
     image:currentAdInfo?.logoUrl||currentStation?.logo
   };
-  const parts=musicParts(nowPlaying);
+  // Only verified Artist - Title is a song; invalid radio text keeps the station fallback.
+  const parts=typeof nowPlaying==='string'&&!LOADING.test(nowPlaying)
+    ?parseMusicMetadata(nowPlaying,name):null;
   const ai=Boolean(parts&&nowPlayingInfo?.source==='acrcloud'&&nowPlayingInfo?.foundWithAI);
   if(parts)return {
     title:parts.title,artist:parts.artist,
@@ -37,7 +32,7 @@ export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUse
     image:globalCoverArt||currentStation?.logo,
     foundWithAI:ai
   };
-  return {title:name,artist:'iRadios GR',album:'iRadios',image:currentStation?.logo};
+  return {title:'Τώρα Ακούς',artist:name,album:'iRadios',image:currentStation?.logo};
 }
 // Browser/iOS Media Session controls are one shared audio session; the source
 // audio element is owned by App.jsx. Native song changes are batched at 5 minutes.
