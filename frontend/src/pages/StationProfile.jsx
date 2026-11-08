@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import {scheduleDayBase,toCanonical,minutes,getAthensClock} from '../utils/schedule';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { 
   Play, Pause, Heart, ArrowLeft, Disc3, Globe, Zap, Facebook, Instagram, Twitter, 
   Phone, Mail, Music, AlertTriangle, SlidersHorizontal, MonitorSpeaker, 
@@ -13,6 +13,7 @@ import CircularVU from '../components/CircularVU';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import MusicServiceLinks from '../components/MusicServiceLinks';
 import MobileStationShowcase from '../components/MobileStationShowcase';
+import StationContactModal from '../components/StationContactModal';
 import { useStationAmbient } from '../hooks/useStationAmbient';
 import StationScheduleTimeline from '../components/StationScheduleTimeline';
 import {resolveLiveShowArtwork} from '../utils/liveBroadcast';
@@ -33,6 +34,8 @@ export default function StationProfile({
   const { showAlert } = useAlert();
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [contactOpen, setContactOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(()=>getAthensClock().day);
    const [athensClock,setAthensClock]=useState(()=>getAthensClock());
    useEffect(()=>{
@@ -51,6 +54,16 @@ export default function StationProfile({
   // Station metadata must never update the page after the station changes.
 
   const station = stations.find(s => s.slug === id || s._id === id);
+  useEffect(() => setContactOpen(false), [station?._id]);
+  useEffect(() => {
+    if (!station?._id || !currentUser || searchParams.get('contact') !== '1') return;
+    if (station.email) setContactOpen(true);
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      next.delete('contact');
+      return next;
+    }, { replace: true });
+  }, [station?._id, station?.email, currentUser?._id, searchParams, setSearchParams]);
   const stationAmbient = useStationAmbient(station?.logo);
   // Legacy schedules use 0=Monday; new backoffice saves 1=Monday.
   // The station is never rewritten by public reads.
@@ -324,8 +337,6 @@ export default function StationProfile({
     
     if (type === 'phone') {
       link = `tel:${href}`; target = "_self";
-    } else if (type === 'email') {
-      link = `mailto:${href}`; target = "_self";
     } else if (type === 'viber') { 
       const cleanPhone = href.replace(/[^\d+]/g, ''); 
       const encodedText = encodeURIComponent('Γειά σας! Σας ακούω από το iRadios!');
@@ -375,6 +386,8 @@ export default function StationProfile({
   return (
     <div className="ir-station-page relative flex flex-col pb-40 w-full min-h-screen" style={{ '--ir-station-ambient': stationAmbient }}>
       
+      <StationContactModal open={contactOpen} onClose={() => setContactOpen(false)}
+        station={station} currentUser={currentUser} apiUrl={API_URL} />
       <Helmet>
         <title>{`${station.name} στο iRadios. ${currentShow ? 'ON Air: ' + currentShow.title : ''} ${station.slogan ? ' | ' + station.slogan : ''}`}</title>
       </Helmet>
@@ -731,7 +744,11 @@ export default function StationProfile({
                   <SocialLink href={station.twitter} icon={<Twitter size={16} />} label="Twitter" type="web" />
                   <SocialLink href={station.phone} icon={<Phone size={16} />} label={station.phone} type="phone" />
                   <SocialLink href={station.viber} icon={<MessageCircle size={16} />} label="Viber" type="viber" />
-                  <SocialLink href={station.email} icon={<Mail size={16} />} label="Email" type="email" />
+                  {station.email && <button type="button" onClick={() => setContactOpen(true)}
+                     className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-zinc-900/50 hover:bg-zinc-800 border border-white/10 hover:border-white/20 transition-all text-sm font-medium group backdrop-blur-sm text-zinc-300 hover:text-white"
+                     aria-label={'Στείλε μήνυμα στον σταθμό ' + station.name}>
+                     <Mail size={16} className="text-zinc-400 group-hover:text-[#ccff00]" /><span>Email</span>
+                   </button>}
                 </div>
               </div>
             )}

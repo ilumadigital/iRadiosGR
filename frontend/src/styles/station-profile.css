@@ -555,3 +555,95 @@
  .ir-program-follow-button{font-size:10px;padding:5px 8px}
 }
 @media(prefers-reduced-motion:reduce){.ir-program-follow-button{transition:none}}
+
+
+/* Laptop first fold: keep full cover artwork above the fixed audio player.
+   Below 768px the independent mobile showcase remains unchanged. */
+@media (min-width:1100px) and (max-height:960px) {
+  .ir-station-page .ir-station-responsive-shell { padding-top:clamp(10px,1.7dvh,19px) }
+  .ir-station-profile-nav { min-height:38px;margin-bottom:clamp(8px,1.4dvh,14px) }
+  .ir-station-profile-nav>div { width:38px;height:38px }
+  .ir-station-profile-hero {
+    height:clamp(385px,calc(100dvh - 278px),675px);
+    min-height:0;
+    padding:clamp(16px,2.4dvh,27px)!important;
+    gap:clamp(17px,2.6vw,38px)!important;
+    overflow:hidden;
+  }
+  .ir-station-hero-visual { max-height:100%;gap:9px }
+  .ir-station-profile-hero .ir-station-hero-art {
+    width:min(100%,calc(100dvh - 378px),510px)!important;
+    max-height:calc(100dvh - 378px);
+    flex-shrink:1;
+  }
+  .ir-station-hero-copy {
+    max-height:100%;overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin;scrollbar-color:rgba(204,255,0,.30) transparent;
+    padding:3px 5px 3px 0;gap:clamp(10px,1.8dvh,20px);
+  }
+  .ir-station-identity { gap:8px }
+  .ir-station-name { font-size:clamp(29px,3vw,48px) }
+  .ir-station-profile-hero .ir-station-track-title { font-size:clamp(22px,2.55vw,37px) }
+  .ir-station-now-shows { margin-top:9px }
+  .ir-station-actions { gap:12px }
+  .ir-station-action-buttons { gap:10px }
+  .ir-station-action-buttons>div:first-child { width:64px;height:64px }
+  .ir-station-action-buttons>button { width:48px;height:48px }
+  .ir-station-track-artist { margin-top:4px;font-size:clamp(14px,1.4vw,19px) }
+}
+@media (min-width:768px) and (max-width:1099px) and (max-height:960px) {
+  /* Narrow laptops already use the image-first stacked layout. */
+  .ir-station-profile-hero .ir-station-hero-art {
+    width:min(100%,calc(100dvh - 280px),380px)!important;
+  }
+  .ir-station-hero-copy { gap:14px }
+}
+/* iRadiosGR glass contact modal, not an external email client. */
+.ir-station-contact-overlay {
+  position:fixed;inset:0;z-index:10050;display:grid;place-items:center;
+  padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
+  background:rgba(2,7,10,.79);backdrop-filter:blur(19px) saturate(130%);
+}
+.ir-station-contact-dialog {
+  position:relative;width:min(100%,520px);max-height:min(90dvh,780px);overflow-y:auto;
+  padding:clamp(23px,5vw,38px);border:1px solid rgba(226,247,255,.20);
+  border-radius:30px;background:radial-gradient(ellipse at 90% 0%,rgba(204,255,0,.13),transparent 49%),linear-gradient(145deg,#20292d,#0b1014 85%);
+  box-shadow:0 28px 110px rgba(0,0,0,.72),inset 0 1px rgba(255,255,255,.13);
+  color:#f6faff;scrollbar-width:thin;
+}
+.ir-station-contact-close {
+  position:absolute;right:18px;top:18px;width:38px;height:38px;
+  display:grid;place-items:center;border-radius:14px;border:1px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.07);color:#dce5e8;
+}
+.ir-station-contact-close:hover { background:rgba(255,255,255,.15) }
+.ir-station-contact-icon {
+  width:50px;height:50px;display:grid;place-items:center;margin-bottom:18px;
+  border:1px solid rgba(204,255,0,.3);border-radius:17px;
+  background:rgba(204,255,0,.12);color:#ccff00;
+}
+.ir-station-contact-eyebrow { color:#ccff00;font-size:10px;font-weight:900;letter-spacing:.18em;text-transform:uppercase }
+.ir-station-contact-dialog h2 { margin:9px 45px 12px 0;font-size:clamp(24px,5vw,32px);font-weight:900;line-height:1.15;letter-spacing:-.04em }
+.ir-station-contact-muted { color:#aab9c2;font-size:13px;line-height:1.7 }
+.ir-station-contact-details {
+  margin:22px 0;padding:14px 16px;border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.045);border-radius:16px;
+  display:flex;flex-direction:column;gap:6px;overflow-wrap:anywhere;font-size:12px;
+}
+.ir-station-contact-details strong { color:#f5f8ff;font-size:13px }
+.ir-station-contact-label { display:block;margin:18px 0 9px;color:#e3ecf1;font-size:12px;font-weight:800 }
+.ir-station-contact-textarea {
+  display:block;width:100%;min-height:158px;padding:15px 16px;
+  border-radius:17px;border:1px solid rgba(255,255,255,.16);outline:0;
+  background:rgba(0,0,0,.27);color:white;resize:vertical;
+  font-family:inherit;font-size:14px;font-weight:500;line-height:1.65;
+}
+.ir-station-contact-textarea:focus { border-color:#ccff00;box-shadow:0 0 0 3px rgba(204,255,0,.12) }
+.ir-station-contact-error { margin-top:12px;color:#fca5a5;font-size:13px;line-height:1.5 }
+.ir-station-contact-button {
+  min-height:47px;width:100%;margin-top:17px;display:flex;align-items:center;justify-content:center;gap:9px;
+  border-radius:15px;border:1px solid #ccff00;background:#ccff00;color:#101700;
+  font-size:13px;font-weight:900;transition:filter .2s,transform .2s;
+}
+.ir-station-contact-button:hover:not(:disabled) { filter:brightness(1.08);transform:translateY(-1px) }
+.ir-station-contact-button:disabled { opacity:.52;cursor:not-allowed }
