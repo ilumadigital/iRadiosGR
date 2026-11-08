@@ -147,7 +147,8 @@ async function run(){
   const server=fs.readFileSync('backend/server.js','utf8');
   assert.ok(server.includes("require('./utils/stageNativeScanner').start()"));
   const lock=fs.readFileSync('frontend/src/hooks/useMediaSession.js','utf8');
-  assert.ok(lock.includes("artist:'iRadios GR'"),'fallback lock screen artist must be iRadios GR');
+  assert.ok(lock.includes("title:'Τώρα Ακούς',artist:name"),
+    'signed-in lock screen fallback must show Τώρα Ακούς and station name');
   console.log('Phase 3.6: native 2-minute prefetch, unchanged cache, fast Mongo feed, TTL, AI precedence, Spotify safeguards and Media Session fallback passed.');
 }
 run().catch(e=>{console.error(e);process.exitCode=1;});
