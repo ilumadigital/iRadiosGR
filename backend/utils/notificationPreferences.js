@@ -21,6 +21,7 @@ function notificationPreferencesOf(user) {
     email: prefs.email !== false,
     topics: Object.fromEntries(TOPICS.map(topic => [topic,
       topic === 'promotions' ? (topics.promotions === true && Boolean(prefs.marketingConsentAt)) : topics[topic] !== false])),
+    newsCategories: Array.isArray(prefs.newsCategories) ? prefs.newsCategories.filter(s=>typeof s==='string') : [],
     marketingConsentAt: prefs.marketingConsentAt || null
   };
 }
@@ -32,9 +33,14 @@ function canNotify(user, channel, topic) {
 }
 
 function validateChange(body) {
-  if (!body || typeof body !== 'object' || Array.isArray(body) || typeof body.enabled !== 'boolean') return null;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
   const keys = Object.keys(body);
-  if (keys.some(key => !['channel', 'topic', 'enabled'].includes(key))) return null;
+  if (keys.some(key => !['channel', 'topic', 'enabled', 'newsCategories'].includes(key))) return null;
+  if (Array.isArray(body.newsCategories) && keys.length === 1 && body.newsCategories.length <= 12 &&
+      body.newsCategories.every(v => typeof v === 'string' && v.length <= 50 && v.trim() && !/[<>$]/.test(v))) {
+    return {path:'notificationPreferences.newsCategories',newsCategories:[...new Set(body.newsCategories)]};
+  }
+  if (typeof body.enabled !== 'boolean') return null;
   if (typeof body.channel === 'string' && ['push', 'email'].includes(body.channel)
       && body.topic === undefined && keys.length === 2) {
     return {path: 'notificationPreferences.' + body.channel, enabled: body.enabled, channel: body.channel};
