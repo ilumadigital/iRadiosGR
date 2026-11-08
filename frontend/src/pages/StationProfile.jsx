@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { formatFMFrequency } from '../utils/stationFrequency';
+import {scheduleDayBase,toCanonical,minutes} from '../utils/schedule';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Play, Pause, Heart, ArrowLeft, Disc3, Globe, Zap, Facebook, Instagram, Twitter, 
@@ -26,7 +27,7 @@ export default function StationProfile({
   const { showAlert } = useAlert();
   const { id } = useParams();
   const navigate = useNavigate();
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay() === 0 ? 6 : new Date().getDay() - 1);
+  const [selectedDay, setSelectedDay] = useState(new Date().getDay()||7);
   const [copied, setCopied] = useState(false);
   const [showEQMenu, setShowEQMenu] = useState(false);
   const [activeBanners, setActiveBanners] = useState([]);
@@ -39,6 +40,11 @@ export default function StationProfile({
   // Station metadata must never update the page after the station changes.
 
   const station = stations.find(s => s.slug === id || s._id === id);
+  // Legacy schedules use 0=Monday; new backoffice saves 1=Monday.
+  // The station is never rewritten by public reads.
+  const canonicalSchedule = useMemo(()=>toCanonical(station?.schedule||[],
+    scheduleDayBase(station?.schedule,station?.scheduleDayBase)),
+    [station?.schedule,station?.scheduleDayBase]);
   const isFreeOrGuest = !currentUser || (!currentUser.isPremium && currentUser?.broadcasterProfile?.tier !== 'premium');
   const isThisPlaying = currentStation && (currentStation._id === station?._id);
 
@@ -173,17 +179,14 @@ export default function StationProfile({
   }, []);
 
   const { currentShow, nextShow } = useMemo(() => {
-    if (!station || !station.schedule || station.schedule.length === 0) {
+    if (!canonicalSchedule.length) {
       return { currentShow: null, nextShow: null };
     }
     const now = new Date();
-    const currentDayIdx = now.getDay() === 0 ? 6 : now.getDay() - 1;
+    const currentDayIdx = now.getDay()||7;
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const parseTime = (timeStr) => {
-      const [h, m] = timeStr.split(':').map(Number);
-      return h * 60 + m;
-    };
-    const sortedSchedule = [...station.schedule].sort((a, b) => {
+    const parseTime = (timeStr) => minutes(timeStr,true);
+    const sortedSchedule = [...canonicalSchedule].sort((a, b) => {
       if (a.day !== b.day) return a.day - b.day;
       return parseTime(a.startTime) - parseTime(b.startTime);
     });
@@ -198,7 +201,7 @@ export default function StationProfile({
       next = todayShows[0];
     } else {
       for (let i = 1; i <= 7; i++) {
-        const nextDayIdx = (currentDayIdx + i) % 7;
+        const nextDayIdx = ((currentDayIdx-1+i)%7)+1;
         const nextDayShows = sortedSchedule.filter(s => s.day === nextDayIdx);
         if (nextDayShows.length > 0) {
           next = nextDayShows[0];
@@ -207,7 +210,7 @@ export default function StationProfile({
       }
     }
     return { currentShow: curr, nextShow: next };
-  }, [station]);
+  }, [canonicalSchedule]);
 
   if (!station) return <div className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center gap-4 px-6 text-center">
     <Radio size={38} className="text-[#ccff00]"/>
@@ -663,7 +666,7 @@ export default function StationProfile({
         <StationPlaylistPanel station={station} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
 
         {/* 3. ΑΝΑΛΥΤΙΚΟ ΠΡΟΓΡΑΜΜΑ (TIMELINE) */}
-        {station.schedule && station.schedule.length > 0 && (
+        {canonicalSchedule.length > 0 && (
           <div className="mt-8 border-t border-white/5 pt-16">
             <div className="flex items-center gap-3 mb-8 justify-center lg:justify-start">
               <CalendarDays className="text-[#ccff00]" size={28} />
@@ -672,18 +675,19 @@ export default function StationProfile({
 
             <div className="flex overflow-x-auto gap-3 pb-4 custom-scrollbar mb-8 justify-start lg:justify-start snap-x">
               {DAYS_OF_WEEK.map((dayName, idx) => {
-                 const hasShows = station.schedule.some(s => s.day === idx);
+                 const day=idx+1;
+                 const hasShows = canonicalSchedule.some(s => Number(s.day) === day);
                  if (!hasShows) return null;
                  
-                 const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-                 const isToday = todayIdx === idx;
+                 const todayIdx = new Date().getDay()||7;
+                 const isToday = todayIdx === day;
 
                  return (
                    <button
                      key={idx}
-                     onClick={() => setSelectedDay(idx)}
+                     onClick={() => setSelectedDay(day)}
                      className={`px-6 py-3 rounded-full text-sm font-black  tracking-widest whitespace-nowrap transition-all snap-start shadow-lg ${
-                       selectedDay === idx 
+                       selectedDay === day 
                          ? 'bg-[#ccff00] text-black shadow-[0_0_15px_rgba(204,255,0,0.3)]' 
                          : 'bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800'
                      }`}
@@ -698,7 +702,7 @@ export default function StationProfile({
                {station.schedule
                   .filter(s => s.day === selectedDay)
                   .sort((a,b) => {
-                    const parseTime = (timeStr) => { const [h, m] = timeStr.split(':').map(Number); return h * 60 + m; };
+                    const parseTime = (timeStr) => minutes(timeStr,true);
                     return parseTime(a.startTime) - parseTime(b.startTime);
                   })
                   .map((show, i) => {
@@ -713,7 +717,7 @@ export default function StationProfile({
                       }`}>
                          <div className="w-auto sm:w-28 shrink-0 flex flex-row sm:flex-col items-center sm:items-start gap-2 sm:gap-0">
                             <div className={`text-lg font-black ${isPlayingNow ? 'text-[#ccff00]' : 'text-white'}`}>{show.startTime}</div>
-                            <div className="text-xs text-zinc-500 font-bold tracking-widest sm:mt-1">έως {show.endTime}</div>
+                            <div className="text-xs text-zinc-500 font-bold tracking-widest sm:mt-1">έως {show.endTime==='24:00'?'00:00':show.endTime}</div>
                          </div>
                          
                          <div className="hidden sm:block h-12 w-px bg-white/10 shrink-0"></div>
@@ -732,7 +736,7 @@ export default function StationProfile({
                       </div>
                     )
                })}
-               {station.schedule.filter(s => s.day === selectedDay).length === 0 && (
+               {canonicalSchedule.filter(s => Number(s.day) === selectedDay).length === 0 && (
                  <div className="p-8 text-center text-zinc-500 font-medium italic bg-zinc-900/30 rounded-3xl border border-white/5">
                    Δεν υπάρχει προγραμματισμένη εκπομπή για αυτή την ημέρα.
                  </div>
