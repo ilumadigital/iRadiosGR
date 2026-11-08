@@ -251,8 +251,8 @@ router.post('/backoffice/stations/:id/media/:kind',authorizeRoles('admin','broad
       if(!ext)return res.status(400).json({error:'Η εικόνα δεν έχει έγκυρη μορφή PNG/JPG/WEBP.'});
       const folder=path.join(process.cwd(),'uploads','radioassets',String(station._id));
       const filename=kind+'-'+crypto.randomUUID()+'.'+ext;
-      await fs.mkdir(folder,{recursive:true,mode:0o750});
-      await fs.writeFile(path.join(folder,filename),req.file.buffer,{flag:'wx',mode:0o640});
+      await fs.mkdir(folder,{recursive:true,mode:0o755});
+      await fs.writeFile(path.join(folder,filename),req.file.buffer,{flag:'wx',mode:0o644});
       const uri='/media/radioassets/'+String(station._id)+'/'+filename;
       if(req.user.role==='admin')station[kind]=uri;
       else station.pendingEdits={...(station.pendingEdits||{}),[kind]:uri};
