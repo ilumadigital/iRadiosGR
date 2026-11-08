@@ -5,7 +5,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 const read=p=>fs.readFileSync(path.resolve(__dirname,'..',p),'utf8');
 
-const parserSource=read('frontend/src/utils/musicMetadata.js').replace('export const parseMusicMetadata =','const parseMusicMetadata =');
+const parserSource=read('frontend/src/utils/musicMetadata.js').replaceAll('export const ','const ');
 const parse=vm.runInNewContext(parserSource+'\nparseMusicMetadata;');
 const track=parse('Urban Soul and DJ Roland Clark - Have A Good Time');
 assert.equal(track.artist,'Urban Soul and DJ Roland Clark');
@@ -16,10 +16,11 @@ for(const value of ['',null,undefined,'DESEO RADIO','LIVE NOW','on air','Now Pla
 }
 
 const now=read('frontend/src/pages/PlayingNow.jsx');
-assert.ok(now.includes('parseMusicMetadata(data?.title)'),'show only verified artist-title pairs');
-assert.ok(now.includes('if (!music) return null'),'non-song metadata must be excluded');
-assert.ok(now.includes('setLiveStations(detected)'),'clear missing/stale metadata on refresh');
-assert.ok(now.includes("if (!currentUser || !stations.length)"),'never request song metadata for guests');
+assert.ok(now.includes('parseMusicMetadata(entry.title,station?.name)'),
+  'show only verified artist-title pairs from shared native/AI feed');
+assert.ok(now.includes('!station||!music'), 'non-song metadata must be excluded');
+assert.ok(now.includes('setLiveStations(prev=>{'), 'unchanged songs keep their cached UI state');
+assert.ok(now.includes('if(!currentUser){'),'never request song metadata for guests');
 assert.ok(now.includes('AbortController'),'stop in-flight polling on route changes');
 assert.ok(!now.includes('Math.random'),'metadata must not be randomly filtered');
 assert.ok(now.includes('scrollBy({left:330'),'Now Playing carousel controls');
