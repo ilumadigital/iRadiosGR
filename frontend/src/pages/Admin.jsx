@@ -287,17 +287,26 @@ export default function Admin({ API_URL, refreshStations }) {
     setMetaTestStatus({ status: null, title: '' });
   };
 
-  const handleDelete = async (id) => {
-    if(window.confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε οριστικά αυτόν τον σταθμό;')) {
-      try {
-        await fetch(`${API_URL}/admin/stations/${id}`, { 
-          method: 'DELETE',
-          headers: { ...(localStorage.getItem('iluma_token') ? { 'Authorization': `Bearer ${localStorage.getItem('iluma_token')}` } : {}) }
-        });
-        loadAdminStations();
-        if (refreshStations) refreshStations();
-      } catch (err) { console.error(err); }
-    }
+  const handleDelete = async (station) => {
+    const confirmationName=window.prompt(
+      'Οριστική διαγραφή του σταθμού «'+station.name+'». Για επιβεβαίωση, πληκτρολόγησε ακριβώς το όνομα του σταθμού:'
+    );
+    if(confirmationName===null)return;
+    if(confirmationName!==station.name){alert('Το όνομα δεν ταιριάζει. Η διαγραφή ακυρώθηκε.');return;}
+    try{
+      const res=await fetch(`${API_URL}/admin/stations/${station._id}`,{
+        method:'DELETE',
+        headers:{
+          'Content-Type':'application/json',
+          ...(localStorage.getItem('iluma_token')?{Authorization:`Bearer ${localStorage.getItem('iluma_token')}`}:{})
+        },
+        body:JSON.stringify({confirmationName})
+      });
+      const result=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(result.error||'Η διαγραφή απέτυχε.');
+      await loadAdminStations();
+      if(refreshStations)await refreshStations();
+    }catch(error){alert(error.message);}
   };
 
   const stationAdminHeaders = () => ({
@@ -963,7 +972,7 @@ export default function Admin({ API_URL, refreshStations }) {
                    <button onClick={() => handleEditClick(station, false)} className="w-10 h-10 rounded-xl bg-white/5 text-zinc-300 flex items-center justify-center hover:bg-white/10 hover:text-white transition-all">
                     <Edit size={16} />
                   </button>
-                  <button onClick={() => handleDelete(station._id)} className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                  <button onClick={() => handleDelete(station)} className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
                     <Trash2 size={16} />
                   </button>
                 </div>
