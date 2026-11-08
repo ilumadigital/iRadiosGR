@@ -52,11 +52,15 @@ try{
     assert.equal(smart.getSharedAI(station._id),null,
       'automatic result is removed on valid native metadata');
 
+    const parser=read('frontend/src/utils/musicMetadata.js')
+      .replace('export const parseMusicMetadata','const parseMusicMetadata')
+      .replace('export const spotifySongLink','const spotifySongLink');
     const source=read('frontend/src/hooks/useMediaSession.js')
       .replace("import {useEffect,useRef} from 'react';",'')
+      .replace("import {parseMusicMetadata} from '../utils/musicMetadata';",'')
       .replace('export function mediaFields','function mediaFields')
       .replace('export default function useMediaSession','function useMediaSession');
-    const media=vm.runInNewContext(source+'\nmediaFields;', {});
+    const media=vm.runInNewContext(parser+'\n'+source+'\nmediaFields;', {});
     const guest=media({currentStation:station,currentUser:null,nowPlaying:'Soul Artist - Hit Song'});
     assert.equal(guest.title,'Login στο iRadios για NowPlaying');
     assert.equal(guest.artist,'Deseo Radio');
@@ -66,9 +70,20 @@ try{
     assert.equal(recognized.title,'Hit Song');
     assert.equal(recognized.artist,'Soul Artist');
     assert.equal(recognized.album,'Deseo Radio - iRadios AI');
-    assert.equal(media({...signed,nowPlayingInfo:{source:'station',foundWithAI:false}}).album,
-      'Deseo Radio - iRadios');
-    assert.equal(media({...signed,nowPlaying:'LIVE SHOW'}).title,'Deseo Radio');
+    const native=media({...signed,nowPlayingInfo:{source:'station',foundWithAI:false}});
+    assert.equal(native.title,'Hit Song');
+    assert.equal(native.artist,'Soul Artist');
+    assert.equal(native.album,'Deseo Radio - iRadios');
+    for(const invalid of ['', 'LIVE SHOW', 'DJ Zone - Deseo Radio',
+      'Deseo Radio - LIVE NOW', 'Βρίσκουμε το τραγούδι…']){
+      const fallback=media({...signed,nowPlaying:invalid});
+      assert.equal(fallback.title,'Τώρα Ακούς','missing/invalid metadata is not a song');
+      assert.equal(fallback.artist,'Deseo Radio','station name stays in artist');
+      assert.equal(fallback.album,'iRadios','fallback is not labeled AI');
+    }
+    const ad=media({...signed,isPlayingAd:true,currentAdInfo:{title:'Ad Break',client:'Advertiser'}});
+    assert.equal(ad.title,'Ad Break','ad media fields remain unchanged');
+    assert.equal(ad.artist,'Advertiser');
     const mediaHook=read('frontend/src/hooks/useMediaSession.js');
     assert.ok(mediaHook.includes('FIVE_MINUTES=5*60*1000'));
     assert.ok(mediaHook.includes('navigator.mediaSession.metadata=new window.MediaMetadata'));
@@ -84,8 +99,8 @@ try{
       'the shared source is passed from the central player');
     assert.ok(read('backend/utils/stageMetadata.js').includes('snapshotSong(snapshot)'),
       'API metadata uses the pre-fetched shared MongoDB snapshot');
-    assert.equal(media({...signed,nowPlaying:'LIVE SHOW'}).artist,'iRadios GR',
-      'logged-in iPhone fallback artist is the iRadios brand');
+    assert.equal(media({...signed,nowPlaying:'LIVE SHOW'}).artist,'Deseo Radio',
+      'logged-in iPhone fallback artist is always the station name');
     assert.ok(read('backend/models/StationPlaylist.js').includes('source:'),
       'playlist entries persist their source');
     assert.ok(writes>0,'successful recognition saves playlist history');
