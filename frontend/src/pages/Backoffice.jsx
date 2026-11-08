@@ -1,6 +1,7 @@
 import React, {useCallback,useEffect,useMemo,useState,Suspense,lazy} from 'react';
 import {Link,NavLink,Routes,Route,Navigate,useLocation,useNavigate,useParams} from 'react-router-dom';
 import {Helmet} from 'react-helmet-async';
+import '../styles/backoffice-admin.css';
 import {minutes,scheduleDayBase,toCanonical,normalize,nextDay} from '../utils/schedule';
 import {
   Activity,ArrowDownRight,ArrowLeft,ArrowRight,BadgeCheck,BarChart3,
@@ -902,6 +903,50 @@ class AdminToolErrorBoundary extends React.Component {
     </div>;
   }
 }
+const ADMIN_GUIDES={
+  analytics:{intro:'Τα βασικά στοιχεία του δικτύου και τα αποτελέσματα των καμπανιών σε μία εικόνα.',
+    steps:['Δες τις βασικές μετρήσεις','Έλεγξε τα γραφήματα','Άνοιξε το εργαλείο που χρειάζεται ενέργεια']},
+  users:{intro:'Διαχειρίσου τους λογαριασμούς με αναζήτηση, φίλτρα και αλλαγές ρόλων.',
+    steps:['Βρες τον χρήστη','Επίλεξε επεξεργασία ή δικαιώματα','Έλεγξε τα στοιχεία πριν αποθηκεύσεις']},
+  radioset:{intro:'Σύνδεσε έναν σταθμό με τον σωστό Broadcaster χωρίς επιπλέον διαδικασίες.',
+    steps:['Αναζήτησε τον σταθμό','Άνοιξε ανάθεση','Επίλεξε Broadcaster και αποθήκευσε']},
+  boost:{intro:'Ρύθμισε προβολές και προτεραιότητες σταθμών. Η σειρά αποθηκεύεται χωριστά.',
+    steps:['Βρες τον σταθμό','Ρύθμισε boost ή σειρά','Αποθήκευσε τη σειρά χωρίς φίλτρα']},
+  ads:{intro:'Βρες, δημιούργησε και έλεγξε τις ηχητικές διαφημίσεις του δικτύου.',
+    steps:['Έλεγξε τα ενεργά σποτ','Πρόσθεσε ή επεξεργάσου','Επιβεβαίωσε στόχευση και κατάσταση']},
+  banners:{intro:'Διαχειρίσου τις οπτικές διαφημίσεις ανά θέση και κατάσταση.',
+    steps:['Φίλτραρε ανά τοποθέτηση','Άνοιξε banner','Έλεγξε εικόνα και στόχευση']},
+  adcontrol:{intro:'Έλεγξε τους σταθμούς χωρίς network ads και τις τοπικές καμπάνιες.',
+    steps:['Έλεγξε τις εξαιρέσεις','Βρες το τοπικό σποτ','Επιβεβαίωσε πριν αλλάξεις ρυθμίσεις']},
+  slides:{intro:'Δημιούργησε editorial slides με προεπισκόπηση πριν τη δημοσίευση.',
+    steps:['Επίλεξε σημείο προβολής','Συμπλήρωσε εικόνα και σύνδεσμο','Αποθήκευσε και έλεγξε την προεπισκόπηση']},
+  push:{intro:'Σύνταξε ειδοποίηση και έλεγξε τα στοιχεία πριν την τελική αποστολή.',
+    steps:['Γράψε σύντομο τίτλο','Συμπλήρωσε το μήνυμα','Έλεγξε και επιβεβαίωσε αποστολή']},
+  emails:{intro:'Αναζήτησε αποστολές και σύνταξε νέα επικοινωνία για συγκεκριμένο παραλήπτη ή ομάδα.',
+    steps:['Βρες προηγούμενες αποστολές','Διάλεξε παραλήπτες','Έλεγξε θέμα και περιεχόμενο πριν στείλεις']},
+  billing:{intro:'Παρακολούθησε συναλλαγές και έκδοση παραστατικών από ένα σημείο.',
+    steps:['Αναζήτησε συναλλαγή','Έλεγξε τιμολόγηση','Άνοιξε το διαθέσιμο παραστατικό']}
+};
+function AdminGuide({section}){
+  const guide=ADMIN_GUIDES[section];
+  if(!guide)return null;
+  return <details className="bo-operation-note mb-6 group p-4 md:p-5">
+    <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><ShieldCheck size={18}/></div>
+        <div><p className="text-xs font-black text-white">Γρήγορος οδηγός</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">{guide.intro}</p></div>
+      </div>
+      <ChevronDown size={19} className="shrink-0 text-[#caff00] transition-transform group-open:rotate-180"/>
+    </summary>
+    <div className="mt-5 grid gap-3 border-t border-white/10 pt-4 md:grid-cols-3">
+      {guide.steps.map((step,i)=><div key={step} className="bo-step">
+        <span className="bo-step-count">{i+1}</span>
+        <span className="text-xs leading-5 text-zinc-200">{step}</span>
+      </div>)}
+    </div>
+  </details>;
+}
 function Operations({data,section,reload}){
   if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
   const current=ADMIN_TOOLS.find(item=>item.id===section);
@@ -917,7 +962,7 @@ function Operations({data,section,reload}){
   };
   if(!current)return <Navigate to="/backoffice/admin" replace/>;
   const related=ADMIN_TOOLS.filter(item=>item.group===current.group);
-  return <div>
+  return <div className="ir-admin-workspace">
     <div className="mb-6">
       <Link to="/backoffice/admin" className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-[#caff00]">
         <ArrowLeft size={15}/> Όλα τα εργαλεία Admin</Link>
@@ -928,10 +973,11 @@ function Operations({data,section,reload}){
       {related.map(item=><NavLink key={item.id} to={'/backoffice/admin/'+item.id}
         className={({isActive})=>(isActive?
           'bg-[#caff00] text-[#131800]':'border border-white/10 bg-white/[.035] text-zinc-300 hover:border-[#caff00]/40')+
-          ' inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold'}>
+          ' inline-flex min-h-10 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold'}>
         <item.icon size={15}/>{item.name}</NavLink>)}
       <Link to="/backoffice/admin" className={buttonSecondary+' !py-2'}><LayoutDashboard size={15}/> Όλα</Link>
     </nav>
+    <AdminGuide section={section}/>
     <div className="min-w-0">
       <AdminToolErrorBoundary key={section}>
         <Suspense fallback={<div className={panel+' p-10 text-center text-[#caff00]'}>
