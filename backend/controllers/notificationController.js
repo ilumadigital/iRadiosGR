@@ -12,11 +12,18 @@ exports.getVapidKey = (req, res) => {
 
 exports.subscribe = async (req, res) => {
   try {
-    const { subscription, userId } = req.body; 
+    const {subscription}=req.body||{};
+    if(!subscription?.endpoint || typeof subscription.endpoint!=='string' ||
+       !/^https:\/\//i.test(subscription.endpoint) || subscription.endpoint.length>2048 ||
+       !subscription?.keys?.p256dh || !subscription?.keys?.auth)
+      return res.status(400).json({error:'Μη έγκυρη εγγραφή.'});
+    // Legacy public registration is anonymous. Client-supplied userId is
+    // intentionally ignored, so it can never attach a device to another user.
     await Subscription.findOneAndUpdate(
-      { endpoint: subscription.endpoint }, 
-      { ...subscription, userId: userId || null }, 
-      { upsert: true, new: true }
+      {endpoint:subscription.endpoint},
+      {$set:{endpoint:subscription.endpoint,expirationTime:subscription.expirationTime||null,
+        keys:{p256dh:subscription.keys.p256dh,auth:subscription.keys.auth},userId:null}},
+      {upsert:true,new:true,runValidators:true}
     );
     res.status(201).json({ message: 'Επιτυχής εγγραφή.' });
   } catch (error) { res.status(500).json({ error: 'Σφάλμα κατά την εγγραφή.' }); }
