@@ -20,6 +20,7 @@ const schema=new mongoose.Schema({
   enabled:{type:Boolean,default:true},feedTitle:{type:String,default:''},
   sources:{type:[source],default:[]},configRevision:{type:Number,default:0},
   bootstrapVersion:{type:String,default:''},
+  hiddenArticleKeys:{type:[String],default:[]},
   articles:{type:[article],default:[]},lastSyncedAt:{type:Date,default:null},
   lastAttemptAt:{type:Date,default:null},lastError:{type:String,default:''}
 },{timestamps:true});
