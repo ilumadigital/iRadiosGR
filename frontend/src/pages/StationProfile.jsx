@@ -74,9 +74,11 @@ export default function StationProfile({
     !LOADING_MESSAGES.includes(globalNowPlaying));
   const effectiveNowPlaying=currentUser?(useGlobal?globalNowPlaying:localNowPlaying):null;
   const currentMetadataInfo=useGlobal?globalNowPlayingInfo:localNowPlayingInfo;
-  const broadcast=resolveLiveShowArtwork({
+  const localBroadcast=resolveLiveShowArtwork({
     station,nowPlaying:effectiveNowPlaying,nowPlayingInfo:currentMetadataInfo,clock:athensClock
   });
+  const broadcast=isThisPlaying&&isPlaying&&liveBroadcast?.recognizedShow?
+    liveBroadcast:localBroadcast;
   const validatedMusic=parseMusicMetadata(effectiveNowPlaying,station?.name);
   const foundWithAI=Boolean(validatedMusic&&
     (useGlobal?globalNowPlayingInfo?.foundWithAI:localNowPlayingInfo.foundWithAI));
