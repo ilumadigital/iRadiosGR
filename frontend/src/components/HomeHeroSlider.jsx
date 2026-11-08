@@ -12,7 +12,8 @@ const meetsAudience=(slide,user)=>{
 };
 export default function HomeHeroSlider({
   currentUser, currentStation, stations=[], isPlaying, onPlayPause,
-  onPlayStation, onOpenDiscovery, onFeaturedStationChange
+  onPlayStation, onOpenDiscovery, onFeaturedStationChange,
+  placement='home', value='', fallbackStation=null
 }) {
   const navigate=useNavigate();
   const [slides,setSlides]=useState([]);
@@ -20,14 +21,20 @@ export default function HomeHeroSlider({
   const [hover,setHover]=useState(false);
   useEffect(()=>{
     const controller=new AbortController();
-    fetch('/api/home-slides',{signal:controller.signal})
+    setIndex(0);
+    setSlides([]);
+    if(placement!=='home'&&!value)return()=>controller.abort();
+    const query=placement==='home'?'':'?'+new URLSearchParams({placement,value}).toString();
+    fetch('/api/home-slides'+query,{signal:controller.signal})
       .then(r=>r.ok?r.json():[])
       .then(data=>{if(!controller.signal.aborted)setSlides(Array.isArray(data)?data:[]);})
       .catch(()=>{if(!controller.signal.aborted)setSlides([]);});
     return ()=>controller.abort();
-  },[]);
+  },[placement,value]);
   const stationFallback=useMemo(()=>
-    currentStation || stations.find(s=>s.isFeatured) || stations[0], [currentStation,stations]);
+    (placement==='home'?currentStation:null) || fallbackStation ||
+    stations.find(s=>s.isFeatured) || stations[0],
+    [placement,currentStation,fallbackStation,stations]);
   const visible=useMemo(()=>{
     const approved=new Set(stations.map(s=>String(s._id)));
     return slides.filter(item=>meetsAudience(item,currentUser) &&
@@ -71,37 +78,37 @@ export default function HomeHeroSlider({
       onFocusCapture={()=>setHover(true)}
       onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget))setHover(false);}}
       style={{'--ir-ambient-rgb':brandRgb}}
-      className="ir-home-hero ir-ambient-hero relative isolate flex min-h-[315px] overflow-hidden rounded-[30px] border border-white/10 bg-[#10161b] md:min-h-[345px] xl:min-h-[365px]">
+      className="ir-home-hero ir-ambient-hero relative isolate aspect-[40/21] min-h-0 min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#10161b] sm:rounded-[28px]">
       <img src={image} alt="" loading="eager"
         className={`pointer-events-none absolute inset-0 h-full w-full ${slide?'object-cover opacity-80':'object-cover opacity-20 blur-[2px]'}`}/>
       <div className="ir-ambient-hero-gradient pointer-events-none absolute inset-0"/>
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#090b10]/95 via-[#090b10]/65 to-transparent"/>
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"/>
-      <div className="relative z-10 flex w-full flex-col justify-end gap-3 p-6 pb-12 sm:p-8 sm:pb-10 xl:p-10">
-        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#ccff00]/40 bg-black/60 px-3 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#ccff00] backdrop-blur-xl">
+      <div className="absolute inset-0 z-10 flex min-w-0 w-full flex-col justify-end gap-1.5 p-3 pb-11 sm:gap-3 sm:p-6 sm:pb-10 xl:p-8">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#ccff00]/40 bg-black/60 px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-[#ccff00] backdrop-blur-xl sm:gap-2 sm:px-3 sm:py-2 sm:text-[10px]">
           <Sparkles size={15}/>{slide?.eyebrow||'ΕΠΙΛΟΓΗ ΓΙΑ ΣΕΝΑ'}
         </span>
         <div className="flex min-w-0 items-center justify-between gap-4 sm:gap-8">
           <div className="min-w-0 flex-1">
-            <h2 className="line-clamp-2 break-words text-3xl font-black leading-[1.07] tracking-tight text-white drop-shadow-lg sm:text-4xl xl:text-[clamp(2rem,3vw,3.15rem)]">
+            <h2 className="line-clamp-2 break-words text-[clamp(1.2rem,3.2vw,3.1rem)] font-black leading-[1.07] tracking-tight text-white drop-shadow-lg">
               {title}
             </h2>
-            <p className="mt-3 line-clamp-2 max-w-xl text-xs font-medium leading-relaxed text-zinc-200 sm:text-sm">{description}</p>
+            <p className="mt-2 hidden max-w-xl text-xs font-medium leading-relaxed text-zinc-200 sm:line-clamp-2 sm:text-sm">{description}</p>
           </div>
-          {displayLogo&&<div className="ir-hero-station-logo relative flex h-24 w-24 shrink-0 items-center justify-center rounded-[22px] border border-white/25 bg-white/95 p-3 shadow-[0_18px_55px_rgba(0,0,0,.5)] sm:h-36 sm:w-36 xl:h-40 xl:w-40">
+          {displayLogo&&<div className="ir-hero-station-logo relative hidden h-24 w-24 shrink-0 items-center justify-center rounded-[22px] border border-white/25 bg-white/95 p-3 shadow-[0_18px_55px_rgba(0,0,0,.5)] sm:flex lg:h-32 lg:w-32 xl:h-36 xl:w-36">
             <img src={displayLogo} alt={featuredStation?.name||'Λογότυπο σταθμού'} className="h-full w-full object-contain"/>
           </div>}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-3">
+        <div className="mt-1 flex flex-wrap items-center gap-2 sm:gap-3">
           {stationAction
             ?<StationListenButton station={featuredStation} currentStation={currentStation} isPlaying={isPlaying}
               onPlayStation={onPlayStation} onPlayPause={onPlayPause}
-              className="min-h-11 px-6 sm:px-8"/>
-            :<button type="button" onClick={activate} className="ir-action-primary px-6 sm:px-8">
+              className="min-h-9 px-3 sm:min-h-11 sm:px-8"/>
+            :<button type="button" onClick={activate} className="ir-action-primary min-h-9 px-3 text-xs sm:min-h-11 sm:px-8">
               <ArrowUpRight size={18}/>{slide?.ctaLabel||'Ανακάλυψε'}
             </button>}
           {featuredStation&&<button type="button" onClick={()=>navigate('/station/'+(featuredStation.slug||featuredStation._id))}
-            className="min-h-11 rounded-xl border border-white/30 bg-black/35 px-5 text-xs font-bold text-white backdrop-blur hover:border-[#ccff00]/60">
+            className="hidden min-h-11 rounded-xl border border-white/30 bg-black/35 px-5 text-xs font-bold text-white backdrop-blur hover:border-[#ccff00]/60 sm:inline-flex sm:items-center">
             Πληροφορίες σταθμού
           </button>}
         </div>
