@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { 
-  Shield, Headphones, Zap, CreditCard, MessageSquare, 
+  Shield, Headphones, Zap, CreditCard, 
   Car, SlidersHorizontal, Radar, Heart, Activity, AlertTriangle, Lock, CheckSquare, Loader2
 } from 'lucide-react';
 
@@ -139,28 +139,11 @@ export default function TermsListeners({ API_URL, currentUser }) {
             </div>
           </section>
 
-          {/* 7. CHAT & ΚΑΝΟΝΕΣ */}
-          <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <MessageSquare className="w-5 h-5 text-[#ccff00]" />
-              7. Κώδικας Δεοντολογίας Κοινότητας & Live Chat
-            </h2>
-            <div className="space-y-4 text-zinc-400">
-              <p>Η χρήση του Live Chat συνιστά προνόμιο και όχι δικαίωμα. Απαγορεύονται απολύτως η ρητορική μίσους, το εξυβριστικό λεξιλόγιο και το Spam.</p>
-              <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-start gap-3 mt-4">
-                <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
-                <p className="text-sm text-red-200">
-                  Οι διαχειριστές διατηρούν το δικαίωμα οριστικού αποκλεισμού (Permanent Ban) οποιουδήποτε λογαριασμού παραβιάζει τους όρους.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* 8. ANALYTICS */}
+          {/* 7. ANALYTICS */}
           <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
               <Activity className="w-5 h-5 text-[#ccff00]" />
-              8. Προστασία Προσωπικών Δεδομένων
+              7. Προστασία Προσωπικών Δεδομένων
             </h2>
             <p className="text-zinc-400">
               Σε καμία περίπτωση δεν παραχωρούνται ή πωλούνται προσωπικά αναγνωρίσιμα στοιχεία σε τρίτους, σε πλήρη εναρμόνιση με τον Γενικό Κανονισμό Προστασίας Δεδομένων (GDPR).
