@@ -354,7 +354,7 @@ export default function MyRadios({ API_URL, currentUser }) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {myStations.map(s => {
+            {[...myStations].sort((a,b)=>Number(a.isOffline===true)-Number(b.isOffline===true)).map(s => {
               const isApproved = s.status === 'approved';
               const isRejected = s.status === 'rejected';
               return (
@@ -383,7 +383,7 @@ export default function MyRadios({ API_URL, currentUser }) {
                   <div className="px-6 pt-8 pb-6 flex-1 flex flex-col bg-zinc-950/50">
                     <h3 className="text-2xl font-black text-white truncate mb-1">{s.name}</h3>
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest truncate mb-4">
-                      {s.genre} • {s.city ? `${s.city}, ${s.prefecture || s.region}` : (s.prefecture || s.region)}
+                      {s.isOffline === true ? "🔴 OFFLINE • " : ""}{s.genre} • {s.city ? `${s.city}, ${s.prefecture || s.region}` : (s.prefecture || s.region)}
                     </p>
                     {s.pendingEdits && (
                       <div className="text-[9px] text-orange-400 font-black mb-4 bg-orange-400/10 w-fit px-2.5 py-1 rounded-lg uppercase border border-orange-400/20 tracking-wider">
