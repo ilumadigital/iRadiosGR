@@ -170,7 +170,7 @@ async function main(){
   }
   assert.ok(frontend.includes("path={'/backoffice/admin/'+section}"),
     'all admin operation routes must have the /backoffice prefix');
-  assert.ok(!/<Route\\s+index\\b/.test(frontend),
+  assert.ok(!frontend.includes('<Route index'),
     'Backoffice root must be an absolute path, not an unmatched index route');
 
   assert.ok(frontend.includes('Business Console'));
