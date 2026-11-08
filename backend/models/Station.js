@@ -51,6 +51,8 @@ const stationSchema = new mongoose.Schema({
   pendingEdits: { type: Object, default: null },
   slug: { type: String, unique: true, sparse: true },
   popularity: { type: Number, default: 0 },
+  // 0 = legacy Monday index; 1 = ISO Monday index. Undefined means untagged legacy data.
+  scheduleDayBase: { type: Number, enum: [0,1], default: undefined },
   schedule: [scheduleSchema],
   position: { type: Number, default: 999 },
   boostStatus: { type: Boolean, default: false },
