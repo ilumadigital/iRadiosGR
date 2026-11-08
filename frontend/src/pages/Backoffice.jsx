@@ -717,19 +717,101 @@ function BroadcasterInsights({data}){
     </section>
   </div>;
 }
+const ADMIN_TOOLS=[
+  {id:'analytics',name:'Αναλύσεις',desc:'Στοιχεία δικτύου και απόδοση',icon:BarChart3,group:'Δίκτυο'},
+  {id:'users',name:'Χρήστες & ρόλοι',desc:'Λογαριασμοί, άδειες και πρόσβαση',icon:Users,group:'Δίκτυο'},
+  {id:'radioset',name:'Αναθέσεις σταθμών',desc:'Σύνδεσε σταθμούς με broadcasters',icon:Radio,group:'Δίκτυο'},
+  {id:'boost',name:'Προβολή σταθμών',desc:'Προτεραιότητες και boost σταθμών',icon:Sparkles,group:'Δίκτυο'},
+  {id:'ads',name:'Audio διαφημίσεις',desc:'Διαχείριση ηχητικών καμπανιών',icon:Activity,group:'Διαφημίσεις'},
+  {id:'banners',name:'Banners',desc:'Οπτικές διαφημίσεις και θέσεις',icon:Image,group:'Διαφημίσεις'},
+  {id:'adcontrol',name:'Τοπικές διαφημίσεις',desc:'Ρυθμίσεις διαφημίσεων ανά σταθμό',icon:SlidersHorizontal,group:'Διαφημίσεις'},
+  {id:'slides',name:'Slides αρχικής',desc:'Προβολές και περιεχόμενο αρχικής',icon:LayoutDashboard,group:'Περιεχόμενο'},
+  {id:'push',name:'Push ειδοποιήσεις',desc:'Μηνύματα σε συνδεδεμένες συσκευές',icon:Bell,group:'Επικοινωνία'},
+  {id:'emails',name:'Emails',desc:'Επικοινωνία και ιστορικό μηνυμάτων',icon:Globe2,group:'Επικοινωνία'},
+  {id:'billing',name:'Πληρωμές',desc:'Συναλλαγές και στοιχεία τιμολόγησης',icon:FileCheck2,group:'Οικονομικά'}
+];
+function AdminWorkspace({data}){
+  const [search,setSearch]=useState('');
+  if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
+  const filtered=ADMIN_TOOLS.filter(item=>(item.name+' '+item.desc+' '+item.group)
+    .toLocaleLowerCase('el').includes(search.toLocaleLowerCase('el')));
+  const pending=(Number(data.counts?.pendingApproval)||0)+(Number(data.counts?.pendingEdits)||0);
+  return <div>
+    <SectionTitle eyebrow="Admin Control" title="Κέντρο διαχείρισης."
+      description="Όλα τα εργαλεία του δικτύου, οργανωμένα ανά εργασία. Επίλεξε τι θέλεις να διαχειριστείς."/>
+    <div className="mb-6 grid gap-3 sm:grid-cols-3">
+      <Link to="/backoffice/review" className={panel+' group flex items-center gap-4 p-5 hover:border-[#caff00]/35'}>
+        <FileCheck2 className="shrink-0 text-[#caff00]" size={24}/>
+        <span className="flex-1"><strong className="block text-base text-white">{pending}</strong>
+          <span className="text-xs text-zinc-400">Αιτήματα προς έλεγχο</span></span><ArrowRight size={17}/></Link>
+      <Link to="/backoffice/stations" className={panel+' group flex items-center gap-4 p-5 hover:border-[#caff00]/35'}>
+        <Radio className="shrink-0 text-[#caff00]" size={24}/>
+        <span className="flex-1"><strong className="block text-base text-white">{shortNumber(data.counts?.total)}</strong>
+          <span className="text-xs text-zinc-400">Σταθμοί δικτύου</span></span><ArrowRight size={17}/></Link>
+      <Link to="/backoffice/schedules" className={panel+' group flex items-center gap-4 p-5 hover:border-[#caff00]/35'}>
+        <CalendarDays className="shrink-0 text-[#caff00]" size={24}/>
+        <span className="flex-1"><strong className="block text-sm text-white">Πρόγραμμα</strong>
+          <span className="text-xs text-zinc-400">Εβδομαδιαίες εκπομπές</span></span><ArrowRight size={17}/></Link>
+    </div>
+    <div className={panel+' mb-6 p-4'}>
+      <label className="relative block"><Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"/>
+        <input aria-label="Αναζήτηση εργαλείου Admin" value={search} onChange={e=>setSearch(e.target.value)}
+          className={inputClass+' pl-11'} placeholder="Τι θέλεις να διαχειριστείς; π.χ. χρήστες, διαφημίσεις…"/></label>
+    </div>
+    {['Δίκτυο','Διαφημίσεις','Περιεχόμενο','Επικοινωνία','Οικονομικά'].map(group=>{
+      const tools=filtered.filter(item=>item.group===group);
+      if(!tools.length)return null;
+      return <section key={group} className="mb-7"><h3 className="mb-3 text-xs font-black uppercase tracking-widest text-zinc-400">{group}</h3>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{tools.map(item=><Link
+          key={item.id} to={'/backoffice/admin/'+item.id}
+          className={panel+' group flex min-h-28 items-center gap-4 p-5 transition hover:border-[#caff00]/40 hover:bg-[#161b1b]'}>
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#caff00]/10 text-[#caff00]">
+            <item.icon size={22}/></div>
+          <div className="min-w-0 flex-1"><p className="font-black text-white">{item.name}</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-500">{item.desc}</p></div>
+          <ArrowRight size={16} className="shrink-0 text-zinc-500 group-hover:text-[#caff00]"/>
+        </Link>)}</div></section>;
+    })}
+    {!filtered.length&&<div className={panel+' p-10 text-center text-sm text-zinc-400'}>Δεν βρέθηκαν εργαλεία με αυτή την αναζήτηση.</div>}
+  </div>;
+}
 function Operations({data,section,reload}){
   if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
-  const common={API_URL:'/api',currentUser:data.user,stations:data.stations,refreshStations:reload,refreshGlobalAds:()=>{}};
+  const current=ADMIN_TOOLS.find(item=>item.id===section);
+  const common={API_URL:'/api',currentUser:data.user,stations:data.stations,
+    refreshStations:reload,refreshGlobalAds:()=>{}};
   const views={
     analytics:<AdminDashboard {...common}/>,users:<AdminUsers {...common}/>,
     ads:<AdminAds {...common}/>,banners:<AdminBanners {...common}/>,
     slides:<AdminHomeSlides {...common}/>,emails:<AdminEmails {...common}/>,
     billing:<AdminPaid {...common}/>,radioset:<AdminRadioSet {...common}/>,
-    adcontrol:<AdminAdControl {...common}/>,boost:<Boost {...common}/>,push:<NewPush {...common}/>
+    adcontrol:<AdminAdControl {...common}/>,boost:<Boost {...common}/>,
+    push:<NewPush {...common}/>
   };
-  return <Suspense fallback={<div className={panel+' p-10 text-center text-[#caff00]'}>Φόρτωση εργαλείου…</div>}>
-    {views[section]||<Navigate to="/backoffice" replace/>}
-  </Suspense>;
+  if(!current)return <Navigate to="/backoffice/admin" replace/>;
+  const related=ADMIN_TOOLS.filter(item=>item.group===current.group);
+  return <div>
+    <div className="mb-6">
+      <Link to="/backoffice/admin" className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-[#caff00]">
+        <ArrowLeft size={15}/> Όλα τα εργαλεία Admin</Link>
+    </div>
+    <SectionTitle eyebrow={'Admin / '+current.group} title={current.name}
+      description={current.desc+'. Οι λειτουργίες παραμένουν διαθέσιμες μόνο σε διαχειριστές.'}/>
+    <nav aria-label="Σχετικά εργαλεία" className="mb-6 flex flex-wrap gap-2">
+      {related.map(item=><NavLink key={item.id} to={'/backoffice/admin/'+item.id}
+        className={({isActive})=>(isActive?
+          'bg-[#caff00] text-[#131800]':'border border-white/10 bg-white/[.035] text-zinc-300 hover:border-[#caff00]/40')+
+          ' inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold'}>
+        <item.icon size={15}/>{item.name}</NavLink>)}
+      <Link to="/backoffice/admin" className={buttonSecondary+' !py-2'}><LayoutDashboard size={15}/> Όλα</Link>
+    </nav>
+    <div className="min-w-0">
+      <Suspense fallback={<div className={panel+' p-10 text-center text-[#caff00]'}>
+        <RefreshCw size={20} className="mx-auto mb-3 animate-spin"/>Φόρτωση εργαλείου…</div>}>
+        {views[section]}
+      </Suspense>
+    </div>
+  </div>;
 }
 export default function Backoffice(){
   const location=useLocation(),navigate=useNavigate();
