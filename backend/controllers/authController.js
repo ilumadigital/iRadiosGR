@@ -350,33 +350,33 @@ exports.resetPassword = async (req, res) => {
 };
 
 // Διαγραφή του ίδιου του χρήστη (Οριστική)
-exports.deleteMe = async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Δεν δόθηκε Token' });
-    
-    const token = authHeader.split(' ')[1];
-    // Χρησιμοποιούμε το ίδιο JWT_SECRET με το υπόλοιπο αρχείο
-    const JWT_SECRET = process.env.JWT_SECRET;
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    // 🛡️ Ασπίδα: Οι Admins ΔΕΝ μπορούν να διαγραφούν
-    if (decoded.role === 'admin') {
-      return res.status(403).json({ error: 'Οι λογαριασμοί διαχειριστή δεν μπορούν να διαγραφούν.' });
+exports.deleteMe = async (req,res)=>{
+  const user=req.user;
+  if(!user)return res.status(401).json({error:'Χρειάζεται σύνδεση.'});
+  if(user.role==='admin')return res.status(403).json({error:'Δεν επιτρέπεται η διαγραφή λογαριασμού διαχειριστή.'});
+  if(process.env.APP_ENV==='staging')return res.status(503).json({error:'Η διαγραφή λογαριασμού είναι απενεργοποιημένη στο staging.'});
+  // Never delete a billing customer with live auto-renewal; otherwise Stripe
+  // could keep charging a user who no longer has an account.
+  const recurring=(user.activeSubscriptions||[]).some(sub=>sub.stripeSubscriptionId
+    && !['canceled','cancelled','expired','incomplete_expired'].includes(sub.status));
+  if(recurring || (user.stripeSubscriptionId && user.subscriptionStatus==='active'))
+    return res.status(409).json({error:'Διέκοψε πρώτα την αυτόματη ανανέωση των ενεργών συνδρομών σου.'});
+  try{
+    if(user.role==='broadcaster'){
+      const Station=require('../models/Station');
+      if(await Station.exists({broadcasterId:user._id}))
+        return res.status(409).json({error:'Μετέφερε ή αφαίρεσε πρώτα τους σταθμούς που διαχειρίζεσαι.'});
     }
-
-    // Διαγραφή του χρήστη από τη βάση (User model)
-    // Αν δεν έχεις κάνει import το User πάνω-πάνω, βεβαιώσου ότι υπάρχει: const User = require('../models/User');
-    const deletedUser = await User.findByIdAndDelete(decoded.id);
-    
-    if (!deletedUser) {
-      return res.status(404).json({ error: 'Ο χρήστης δεν βρέθηκε.' });
-    }
-
-    res.json({ message: 'Ο λογαριασμός διαγράφηκε επιτυχώς.' });
-  } catch (err) {
-    console.error("Σφάλμα διαγραφής λογαριασμού:", err);
-    res.status(500).json({ error: 'Σφάλμα κατά τη διαγραφή του λογαριασμού.' });
+    const removed=await User.deleteOne({_id:user._id});
+    if(!removed.deletedCount)return res.status(404).json({error:'Ο λογαριασμός δεν βρέθηκε.'});
+    await Promise.allSettled([
+      require('../models/Subscription').deleteMany({userId:user._id}),
+      require('../models/ListenerInbox').deleteMany({recipient:user._id})
+    ]);
+    return res.json({success:true,message:'Ο λογαριασμός διαγράφηκε.'});
+  }catch(error){
+    console.error('[PROFILE] Account deletion error:',error.message);
+    return res.status(500).json({error:'Η διαγραφή λογαριασμού απέτυχε.'});
   }
 };
 
