@@ -11,6 +11,8 @@ import LiveChat from './LiveChat';
 import ShareStory from './ShareStory';
 import FoundWithAI from './FoundWithAI';
 import RdsCrossfade from './RdsCrossfade';
+import FullscreenArtwork from './FullscreenArtwork';
+import OnAirShowCard from './OnAirShowCard';
 import {parseMusicMetadata,spotifySongLink} from '../utils/musicMetadata';
 import { useAlert } from '../context/AlertContext';
 
@@ -129,18 +131,13 @@ export default function MobileMiniPlayer({
   const isActualSong=Boolean(currentUser&&!isRecognizing&&!isPlayingAd&&currentTrack);
   const showProducerArt=Boolean(currentUser&&!isPlayingAd&&!isRecognizing&&
     liveBroadcast?.imageUrl&&rdsShowProducer);
-  const visibleSong=isActualSong&&!showProducerArt;
-  const displayTrackTitle=showProducerArt?liveBroadcast.title:(currentTrack?.title||currentStation.name);
-  const displayTrackArtist=showProducerArt?liveBroadcast.artist:(currentTrack?.artist||'');
+  const visibleSong=isActualSong;
   const finalSpotifyUrl=visibleSong
     ?(spotifyUrl||spotifySongLink(currentTrack.raw,currentStation?.name)):null;
 
   const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
   const showCoverArt = Boolean(isActualSong && globalCoverArt && !isPlayingAd);
   const canShowDj=Boolean(currentUser&&!isPlayingAd&&!isRecognizing&&liveBroadcast?.imageUrl);
-  const rdsBaseImage=isPlayingAd&&currentAdInfo?.logoUrl?currentAdInfo.logoUrl:
-    showCoverArt?globalCoverArt:(currentStation?.logo||'');
-  const largeArtwork=Boolean(showCoverArt||showProducerArt);
   const maximizedImage = isPlayingAd && currentAdInfo?.logoUrl 
     ? currentAdInfo.logoUrl 
     : (showCoverArt ? globalCoverArt : (showProducerArt?liveBroadcast.imageUrl:(currentStation?.logo || '')));
@@ -330,15 +327,7 @@ export default function MobileMiniPlayer({
                 <ChevronDown size={28} />
               </button>
               
-              {isPlaying && !isPlayingAd && !isBuffering && (
-                <div className="absolute top-[38px] left-0 flex items-end gap-[3px] h-[20px]">
-                  <div className="w-1 h-3 bg-[#ccff00] rounded-full animate-pulse" />
-                  <div className="w-1 h-5 bg-white rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-                  <div className="w-1 h-4 bg-[#ccff00] rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
-                  <div className="w-1 h-6 bg-white rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
-                  <div className="w-1 h-3 bg-[#ccff00] rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
-                </div>
-              )}
+              
             </div>
 
             <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center z-0 w-3/5 pointer-events-none">
@@ -369,73 +358,29 @@ export default function MobileMiniPlayer({
               transition: isAnimatingX ? 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)' : 'none'
             }}
           >
-            <div className="relative mb-[clamp(.5rem,2dvh,1.25rem)] flex aspect-square w-full max-w-[min(72vw,37dvh,310px)] justify-center sm:max-w-[min(340px,37dvh)]">
-              <img 
-                onClick={handleAdClick}
-                src={rdsBaseImage}
-                alt={showCoverArt?'Εξώφυλλο τρέχοντος τραγουδιού':currentStation.name}
-                onError={e=>{
-                  if(e.currentTarget.src!==new URL(currentStation.logo,window.location.href).href){
-                    e.currentTarget.src=currentStation.logo;
-                    e.currentTarget.style.objectFit='contain';
-                    e.currentTarget.style.background='#fff';
-                    e.currentTarget.style.padding='1rem';
-                  }
-                }}
-                className={`ir-full-player-art w-full h-full transition-all duration-500 mx-auto ${
-                  showCoverArt ? 'object-cover shadow-2xl' : 'bg-white object-contain p-4'
-                } ${isPlayingAd ? 'cursor-pointer' : 'pointer-events-none'} ${
-                  isPlaying && !isBuffering ? 'scale-100 shadow-[0_30px_60px_rgba(0,0,0,0.6)]' : 'scale-95 grayscale-[30%] opacity-80'
-                }`}
-              />
-              {canShowDj&&<img src={liveBroadcast.imageUrl} alt="" aria-hidden="true"
-                onError={e=>{
-                  if(e.currentTarget.src!==new URL(currentStation.logo,window.location.href).href){
-                    e.currentTarget.src=currentStation.logo;
-                    e.currentTarget.style.objectFit='contain';
-                    e.currentTarget.style.background='#fff';
-                  }
-                }}
-                className={'ir-rds-image-overlay z-[1] rounded-[32px] '+(showProducerArt?'is-active':'')}/>}
-
-              {largeArtwork && (
-                <>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none rounded-[32px]"></div>
-                  <div className="absolute bottom-3 left-3 z-20">
-                    <div className="bg-white p-1 rounded-xl shadow-lg w-14 h-14 flex items-center justify-center border border-black/5 overflow-hidden">
-                      <img src={currentStation.logo} alt={currentStation.name} className="w-full h-full object-contain" />
-                    </div>
-                  </div>
-                  <div className="absolute top-3 left-3 z-20 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]"></div>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">{showProducerArt?'ON AIR · DJ':'NOW PLAYING'}</span>
-                  </div>
-                </>
-              )}
-            </div>
+            <div className="ir-mobile-player-artwrap relative z-10 mx-auto mb-[clamp(.35rem,1.4dvh,.8rem)] aspect-square shrink-0">
+               <FullscreenArtwork station={currentStation}
+                 songCover={showCoverArt?globalCoverArt:null}
+                 producerImage={canShowDj?liveBroadcast.imageUrl:null}
+                 showProducer={showProducerArt}
+                 adImage={isPlayingAd?currentAdInfo?.logoUrl:null}
+                 onAdClick={handleAdClick}
+                 className="h-full w-full"/>
+             </div>
             
             <div className="flex flex-col items-center text-center gap-1 w-full max-w-sm px-2">
-              <RdsCrossfade showSecondary={showProducerArt} className="w-full"
-                secondary={canShowDj?(<>
-                  <h2 className="text-2xl sm:text-3xl font-black text-white truncate tracking-tight w-full">{liveBroadcast.title||currentStation.name}</h2>
-                  <p className="text-base sm:text-lg font-medium truncate w-full text-zinc-400">{liveBroadcast.artist||currentStation.name}</p>
-                </>):null}>
-                <>
-              <h2 onClick={handleAdClick} className="text-2xl sm:text-3xl font-black text-white truncate tracking-tight w-full">
-                {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : (isActualSong?currentTrack?.title:currentStation.name)}
-              </h2>
-              <p className={`text-base sm:text-lg font-medium truncate w-full ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                {isPlayingAd ? `${currentAdInfo?.title || 'Διαφήμιση'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (currentTrack?.artist || currentStation.name) : (currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
-              </p>
-                </>
-              </RdsCrossfade>
-              {visibleSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI compact className="mt-1"/>}
-              {!isPlayingAd && (
-                <div className="mt-3 flex items-center gap-3">
-                  <span className="ir-live-indicator">LIVE RADIO</span>
-                  <span className="max-w-[150px] truncate text-xs text-zinc-400">{currentStation.name}</span>
-                </div>
-              )}
+              <h2 onClick={handleAdClick} className="w-full truncate text-[clamp(1.3rem,3dvh,2rem)] font-black leading-tight tracking-tight text-white">
+                 {isPlayingAd?(currentAdInfo?.client||'Διαφήμιση'):(isActualSong?currentTrack.title:(liveBroadcast?.show?.title||currentStation.name))}
+               </h2>
+               <p className="w-full truncate text-[clamp(.85rem,2dvh,1.05rem)] font-medium text-zinc-300">
+                 {isPlayingAd?(currentAdInfo?.title||'Διαφημιστικό διάλειμμα'):
+                   isRecognizing?'Αναγνώριση…':
+                   isActualSong?currentTrack.artist:
+                   (liveBroadcast?.show?.host||(currentUser?'Ζωντανό ραδιόφωνο':'Συνδέσου στο iRadios για NowPlaying'))}
+               </p>
+               {visibleSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI compact className="mt-1"/>}
+               {!isPlayingAd&&<OnAirShowCard show={liveBroadcast?.show} stationName={currentStation.name} className="ir-mobile-show-card"/>}
+
             </div>
           </div>
 
@@ -447,7 +392,7 @@ export default function MobileMiniPlayer({
           )}
 
           {/* MAIN CONTROLS - MAXIMIZED PLAYER */}
-          <div className="ir-full-player-actions mb-[clamp(.35rem,1.3dvh,1rem)] grid w-full shrink-0 grid-cols-3 items-center justify-between px-1 sm:px-2">
+          <div className="ir-full-player-actions mb-[clamp(.35rem,1.3dvh,1rem)] flex w-full shrink-0 items-center justify-between gap-1 px-1 sm:px-2">
             <div className="flex justify-start">
               {!isPlayingAd && (
                 <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} aria-label={isCurrentlyFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"} className={`p-2 rounded-full transition-all active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-white/40 hover:text-white'}`}>
@@ -456,12 +401,12 @@ export default function MobileMiniPlayer({
               )}
             </div>
 
-            <div className="flex items-center justify-center gap-2 sm:gap-6 w-full">
+            <div className="flex min-w-0 items-center justify-center gap-0.5 sm:gap-5">
               <button 
                 onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} aria-label="Προηγούμενος σταθμός" 
                 onTouchStart={(e) => e.stopPropagation()} 
                 disabled={isPlayingAd || adWarning || !isPremium} 
-                className={`p-4 transition-all ${(!isPremium || isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
+                className={`p-2 sm:p-3 transition-all ${(!isPremium || isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
               >
                 <SkipBack size={32} fill="currentColor" />
               </button>
@@ -490,7 +435,7 @@ export default function MobileMiniPlayer({
                 onClick={(e) => { e.stopPropagation(); handleNextStation(); }} aria-label="Επόμενος σταθμός" 
                 onTouchStart={(e) => e.stopPropagation()} 
                 disabled={isPlayingAd || adWarning} 
-                className={`p-4 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
+                className={`p-2 sm:p-3 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
               >
                 <SkipForward size={32} fill="currentColor" />
               </button>
@@ -544,18 +489,14 @@ export default function MobileMiniPlayer({
               </button>
             </div>
           )}
-          <div className="flex items-center justify-evenly bg-white/5 border border-white/10 rounded-3xl py-3 px-2">
+          <div className="ir-mobile-player-controls flex items-center justify-evenly py-2.5 px-2">
             {isPremium && !isPlayingAd && <button onClick={() => { setIsMaximized(false); navigate(`/station/${currentStation.slug || currentStation._id}`); }} className="p-3 text-white/80 hover:text-white rounded-full active:scale-90 transition-all"><CalendarDays size={24} /></button>}
             
-            {!isPlayingAd && (!isActualSong ? (
-                <button onClick={handleRadarClick} disabled={isRecognizing || !isPlaying} className={`p-3 rounded-full transition-all active:scale-90 ${isRecognizing ? 'text-[#ccff00] animate-pulse' : 'text-white'}`}>
-                  {isRecognizing ? <Loader2 size={24} className="animate-spin" /> : <ScanSearch size={24} />}
+            {!isPlayingAd&&isActualSong&&(
+                <button onClick={handleSpotifyClick} aria-label="Άνοιγμα στο Spotify"
+                  className={'rounded-full p-3 transition-all active:scale-90 '+(isPremium?'text-[#1DB954]':'text-zinc-500')}>
+                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.84.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.84.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.6.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.48-1.02.659-1.56.3z"/></svg>
                 </button>
-              ) : (
-                <button onClick={handleSpotifyClick} className={`p-3 rounded-full transition-all active:scale-90 ${isPremium ? 'text-[#1DB954]' : 'text-zinc-600 hover:text-zinc-400'}`}>
-                  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.84.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.84.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.6.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.48-1.02.659-1.56.3z"/></svg>
-                </button>
-              )
             )}
 
             {isPremium && !isPlayingAd && <button onClick={onOpenCarMode} className="p-3 text-orange-500 rounded-full active:scale-90 transition-all"><Car size={24} /></button>}
