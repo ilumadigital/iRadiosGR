@@ -1,243 +1,359 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { User, Search as SearchIcon, X, Menu, Bell, BellOff, Sun, Cloud, CloudRain, Snowflake } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Bell, BellOff, Check, ChevronRight, Clock3, Cloud, CloudRain, CloudSun,
+  MapPin, Menu, Mic, MicOff, Music2, Newspaper, Radio, Search, Snowflake,
+  Sparkles, Sun, UserRound, X
+} from 'lucide-react';
+import { createSearchIndex, directVoiceMatch, groupedSearch, SEARCH_TYPES, spokenQuery } from '../utils/smartSearch';
+import './smart-header.css';
+
+const ICONS = { station: Radio, region: MapPin, genre: Music2, news: Newspaper };
+const WEATHER_ICONS = { Sun, Cloud, CloudRain, Snowflake, CloudSun };
+const equalizer = [1, 2, 3, 4, 5];
 
 export default function TopBar({
-  setIsMobileMenuOpen,
-  searchTerm,
-  setSearchTerm,
-  showSearchResults,
-  setShowSearchResults,
-  filteredSearch,
-  handleSearchResultClick,
-  currentUser,
-  weather,
-  onLogout
+  setIsMobileMenuOpen, stations = [], handleSearchResultClick,
+  currentUser, weather = {}, onLogout
 }) {
-  // --- NOTIFICATION STATUS LOGIC ---
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [expanded, setExpanded] = useState(false);
+  const [query, setQuery] = useState('');
+  const [scope, setScope] = useState('all');
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [articles, setArticles] = useState([]);
+  const [newsError, setNewsError] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [speechMessage, setSpeechMessage] = useState('');
+  const [clock, setClock] = useState(() => new Date());
   const [notifStatus, setNotifStatus] = useState(
-    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+    typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
-  const searchRef = useRef(null);
-  const [activeResult,setActiveResult]=useState(-1);
-  const closeSearch=()=>{setShowSearchResults(false);setActiveResult(-1);};
-  const chooseStation=id=>{
-    closeSearch();
-    setSearchTerm('');
-    handleSearchResultClick(id);
+  const wrapperRef = useRef(null);
+  const inputRef = useRef(null);
+  const triggerRef = useRef(null);
+  const speechRef = useRef(null);
+  const indexRef = useRef([]);
+  const newsFetchAt = useRef(0);
+
+  const index = useMemo(() => createSearchIndex(stations, articles), [stations, articles]);
+  indexRef.current = index;
+  const results = useMemo(() => groupedSearch(index, query, scope), [index, query, scope]);
+  const visibleResults = results.visible;
+  const suggestionCount = results.matches.length;
+  const WeatherIcon = WEATHER_ICONS[weather?.icon] || CloudSun;
+  const formattedTime = new Intl.DateTimeFormat('el-GR', { hour: '2-digit', minute: '2-digit' }).format(clock);
+  const formattedDate = new Intl.DateTimeFormat('el-GR', { weekday: 'short', day: 'numeric', month: 'short' }).format(clock);
+  const speechSupported = typeof window !== 'undefined'
+    && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  const close = (restoreFocus = false) => {
+    speechRef.current?.abort();
+    speechRef.current = null;
+    setListening(false);
+    setSpeechMessage('');
+    setExpanded(false);
+    setQuery('');
+    setScope('all');
+    setActiveIndex(-1);
+    if (restoreFocus) triggerRef.current?.focus();
   };
-  useEffect(()=>{
-    const outside=e=>{if(searchRef.current&&!searchRef.current.contains(e.target))closeSearch();};
-    document.addEventListener('pointerdown',outside);
-    return ()=>document.removeEventListener('pointerdown',outside);
-  },[setShowSearchResults]);
-  const searchKeyDown=e=>{
-    if(e.key==='Escape'){closeSearch();e.currentTarget.blur();}
-    else if(e.key==='ArrowDown'&&filteredSearch.length){
-      e.preventDefault();setShowSearchResults(true);setActiveResult(i=>(i+1)%filteredSearch.length);
-    }else if(e.key==='ArrowUp'&&filteredSearch.length){
-      e.preventDefault();setShowSearchResults(true);
-      setActiveResult(i=>i<=0?filteredSearch.length-1:i-1);
-    }else if(e.key==='Enter'&&showSearchResults&&filteredSearch.length){
-      e.preventDefault();chooseStation(filteredSearch[activeResult>=0?activeResult:0]._id);
+
+  const selectResult = item => {
+    if (!item) return;
+    close();
+    if (item.type === 'station' && handleSearchResultClick) {
+      handleSearchResultClick(item.stationId);
+      return;
     }
+    navigate(item.path);
   };
 
   useEffect(() => {
-    if (!("Notification" in window)) return;
-    const interval = setInterval(() => {
-      if (Notification.permission !== notifStatus) {
-        setNotifStatus(Notification.permission);
-      }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [notifStatus]);
-
-  const handleNotificationClick = async (e) => {
-    // Αν δεν έχουμε ρωτήσει ακόμα, ζητάμε άδεια επί τόπου αντί να αλλάξουμε σελίδα
-    if (notifStatus === 'default' && "Notification" in window) {
-      e.preventDefault();
-      const permission = await Notification.requestPermission();
-      setNotifStatus(permission);
-    }
-    // Αν είναι ήδη granted/denied, το Link θα συνεχίσει κανονικά προς το /profile
-  };
-
-  // --- CLOCK LOGIC ---
-  const [time, setTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
+    const timer = setInterval(() => setClock(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
 
-  const formattedTime = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  useEffect(() => {
+    const refreshPermission = () => {
+      if (typeof Notification !== 'undefined') setNotifStatus(Notification.permission);
+    };
+    document.addEventListener('visibilitychange', refreshPermission);
+    return () => document.removeEventListener('visibilitychange', refreshPermission);
+  }, []);
 
-  // Δυναμική επιλογή εικονιδίου
-  const WeatherIcon = {
-    Sun: Sun,
-    Cloud: Cloud,
-    CloudRain: CloudRain,
-    Snowflake: Snowflake
-  }[weather?.icon] || Sun;
+  useEffect(() => {
+    if (!expanded) return undefined;
+    inputRef.current?.focus();
+    const outside = event => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) close();
+    };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [expanded]);
+
+  useEffect(() => {
+    if (!expanded || (articles.length && Date.now() - newsFetchAt.current < 120000)) return undefined;
+    const controller = new AbortController();
+    fetch('/api/newsfeed', { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error('Newsfeed unavailable');
+        return response.json();
+      })
+      .then(data => {
+        if (controller.signal.aborted) return;
+        setArticles(Array.isArray(data.articles) ? data.articles : []);
+        newsFetchAt.current = Date.now();
+        setNewsError(false);
+      })
+      .catch(error => {
+        if (!controller.signal.aborted && error.name !== 'AbortError') setNewsError(true);
+      });
+    return () => controller.abort();
+  }, [expanded, articles.length]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    setActiveIndex(-1);
+  }, [query, scope, expanded]);
+
+  useEffect(() => {
+    if (expanded) close();
+    // Reset the search whenever another page is opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, location.search]);
+
+  useEffect(() => () => {
+    speechRef.current?.abort();
+  }, []);
+
+  const open = () => {
+    setExpanded(true);
+    setSpeechMessage('');
+  };
+
+  const startSpeech = () => {
+    if (listening) {
+      speechRef.current?.stop();
+      return;
+    }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition || !window.isSecureContext) {
+      setSpeechMessage('Η φωνητική αναζήτηση απαιτεί συμβατό browser και ασφαλή σύνδεση HTTPS.');
+      return;
+    }
+    speechRef.current?.abort();
+    const recognition = new Recognition();
+    recognition.lang = 'el-GR';
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+    speechRef.current = recognition;
+    recognition.onstart = () => { setListening(true); setSpeechMessage('Σε ακούω…'); };
+    recognition.onresult = event => {
+      const heard = Array.from(event.results).map(result => result[0]?.transcript || '').join(' ').trim();
+      if (!heard) return;
+      const cleaned = spokenQuery(heard) || heard;
+      setQuery(cleaned);
+      setScope('all');
+      const direct = directVoiceMatch(indexRef.current, heard);
+      if (direct) {
+        selectResult(direct);
+      } else {
+        setSpeechMessage('Επίλεξε το σωστό αποτέλεσμα από τη λίστα.');
+        setExpanded(true);
+      }
+    };
+    recognition.onerror = event => {
+      const messages = {
+        'not-allowed': 'Δεν δόθηκε άδεια μικροφώνου. Ενεργοποίησέ την από τον browser.',
+        'service-not-allowed': 'Η αναγνώριση φωνής δεν επιτρέπεται σε αυτή τη συσκευή.',
+        'no-speech': 'Δεν ακούστηκε ομιλία. Δοκίμασε ξανά.',
+        'audio-capture': 'Δεν βρέθηκε διαθέσιμο μικρόφωνο.',
+        network: 'Η υπηρεσία φωνής δεν είναι διαθέσιμη αυτή τη στιγμή.'
+      };
+      setSpeechMessage(messages[event.error] || 'Η φωνητική αναζήτηση δεν ολοκληρώθηκε.');
+    };
+    recognition.onend = () => {
+      if (speechRef.current === recognition) speechRef.current = null;
+      setListening(false);
+    };
+    try { recognition.start(); }
+    catch { setSpeechMessage('Το μικρόφωνο δεν ξεκίνησε. Δοκίμασε ξανά.'); setListening(false); }
+  };
+
+  const handleKeyDown = event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close(true);
+    } else if (event.key === 'ArrowDown' && visibleResults.length) {
+      event.preventDefault();
+      setActiveIndex(old => (old + 1) % visibleResults.length);
+    } else if (event.key === 'ArrowUp' && visibleResults.length) {
+      event.preventDefault();
+      setActiveIndex(old => (old <= 0 ? visibleResults.length - 1 : old - 1));
+    } else if (event.key === 'Enter' && visibleResults.length) {
+      event.preventDefault();
+      selectResult(visibleResults[activeIndex >= 0 ? activeIndex : 0]);
+    }
+  };
+
+  const handleNotifications = async event => {
+    if (notifStatus === 'default' && typeof Notification !== 'undefined') {
+      event.preventDefault();
+      try { setNotifStatus(await Notification.requestPermission()); }
+      catch { setNotifStatus('denied'); }
+    }
+  };
 
   return (
-    <>
-      {/* 💡 CSS για το Equalizer Animation */}
-      <style>
-        {`
-          @keyframes eq-bar {
-            0% { height: 4px; }
-            50% { height: 16px; }
-            100% { height: 4px; }
-          }
-          .eq-bar-1 { animation: eq-bar 0.6s infinite ease-in-out alternate; }
-          .eq-bar-2 { animation: eq-bar 0.9s infinite ease-in-out alternate 0.2s; }
-          .eq-bar-3 { animation: eq-bar 0.7s infinite ease-in-out alternate 0.4s; }
-          .eq-bar-4 { animation: eq-bar 0.5s infinite ease-in-out alternate 0.1s; }
-          .eq-bar-5 { animation: eq-bar 0.8s infinite ease-in-out alternate 0.3s; }
-        `}
-      </style>
-
-      <header className="ir-app-topbar h-[66px] sticky top-0 z-50 flex items-center justify-between gap-3 px-4 lg:px-7">
-        
-        {/* LEFT: MOBILE MENU & LOGO */}
-        <div className="flex items-center gap-4">
-          <button type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Άνοιγμα μενού πλοήγησης" className="lg:hidden rounded-xl p-2 text-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ccff00]">
-            <Menu size={24} />
-          </button>
-
-          <Link to="/" className="lg:hidden flex items-center gap-2 shrink-0 group">
-            <div className="flex items-end gap-[3px] h-[20px]">
-              <div className="w-[4px] bg-[#ccff00] rounded-full eq-bar-1" />
-              <div className="w-[4px] bg-white rounded-full eq-bar-2" />
-              <div className="w-[4px] bg-[#ccff00] rounded-full eq-bar-3" />
-              <div className="w-[4px] bg-white rounded-full eq-bar-4" />
-              <div className="w-[4px] bg-[#ccff00] rounded-full eq-bar-5" />
-            </div>
-            <img 
-              src="/noicon-iradios-app-logo.png" 
-              alt="iRadios" 
-              className="h-[22px] w-auto object-contain mt-1 group-hover:opacity-80 transition-opacity" 
-            />
-          </Link>
+    <header className={'ir-app-topbar ir-header sticky top-0 z-50 flex h-[70px] items-center gap-2 px-3 sm:px-5 lg:px-6 ' +
+      (expanded ? 'ir-header--searching' : '')}>
+      <div className="ir-header__left flex min-w-0 items-center gap-2">
+        <button type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Άνοιγμα μενού πλοήγησης"
+          className="ir-header__icon-button lg:hidden"><Menu size={21}/></button>
+        <Link to="/" className="ir-header__mobile-brand flex min-w-0 items-center gap-2 lg:hidden" aria-label="iRadiosGR αρχική">
+          <span className="ir-header__equalizer flex h-6 shrink-0 items-end gap-[3px]" aria-hidden="true">
+            {equalizer.map(i => <span className={'ir-header__eq-bar ir-header__eq-bar--' + i} key={i}/>)}
+          </span>
+          <img src="/noicon-iradios-app-logo.png" alt="iRadiosGR" className="ir-header__brand-image h-6 w-auto max-w-[118px] object-contain"/>
+        </Link>
+        <div className="ir-header__desktop-intro hidden min-w-0 items-center gap-3 2xl:flex">
+          <span className="ir-header__live-dot" aria-hidden="true"/>
+          <span className="whitespace-nowrap text-[11px] font-extrabold uppercase tracking-[.17em] text-zinc-400">Discover live radio</span>
         </div>
-        
-        {/* CENTER: SEARCH BAR */}
-        <div ref={searchRef} className="relative ml-1 w-full min-w-0 max-w-[240px] sm:max-w-[370px] lg:ml-0 lg:max-w-[510px] 2xl:max-w-[580px]">
-          <div className="relative group">
-            <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#ccff00]" />
-            <input 
-              type="search"
-              autoComplete="off"
-              aria-label="Αναζήτηση ραδιοφωνικού σταθμού"
-              aria-autocomplete="list"
-              aria-controls="ir-topbar-search-list"
-              aria-expanded={Boolean(showSearchResults && searchTerm.trim())}
-              placeholder="Βρες έναν σταθμό…"
-              value={searchTerm}
-              onFocus={() => setShowSearchResults(true)}
-              onKeyDown={searchKeyDown}
-              onChange={(e) => {setSearchTerm(e.target.value);setActiveResult(-1);setShowSearchResults(true);}} 
-              className="ir-search-field w-full h-11 pl-12 pr-10 text-sm transition-all text-white" 
-            />
-            {searchTerm && (
-              <button type="button" onClick={() => {setSearchTerm('');closeSearch();}} aria-label="Καθαρισμός αναζήτησης"
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-500 hover:text-white">
-                <X size={16}/>
-              </button>
-            )}
-          </div>
+      </div>
 
-          {showSearchResults && searchTerm.trim() && (
-            <div id="ir-topbar-search-list" role="listbox" aria-label="Αποτελέσματα αναζήτησης" className="absolute top-full left-0 right-0 mt-2 overflow-y-auto rounded-2xl border border-[#ccff00]/25 bg-[#11171d] p-1 shadow-[0_24px_50px_rgba(0,0,0,.7)] z-[80] max-h-[min(350px,55dvh)] custom-scrollbar">
-              {filteredSearch.length ? filteredSearch.map((s,index) => (
-                <button role="option" aria-selected={index===activeResult} type="button" key={s._id} onClick={() => chooseStation(s._id)}
-                  className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-colors focus:bg-white/10 ${index===activeResult?'bg-[#ccff00]/10 text-[#ccff00]':'hover:bg-white/5'}`}>
-                  <img src={s.logo} className="w-10 h-10 rounded-lg object-cover bg-white" alt="" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold text-white truncate">{s.name}</div>
-                    <div className="text-[10px] text-zinc-500 font-bold tracking-wider">{s.genre}</div>
-                  </div>
+      <div ref={wrapperRef} className={'ir-smart-search relative flex min-w-0 items-center ' + (expanded ? 'ir-smart-search--open' : '')}>
+        <button ref={triggerRef} type="button" onClick={() => expanded ? close(true) : open()}
+          aria-label={expanded ? 'Κλείσιμο αναζήτησης' : 'Άνοιγμα έξυπνης αναζήτησης'} aria-expanded={expanded}
+          aria-controls="ir-smart-search-panel" className="ir-smart-search__trigger ir-header__icon-button">
+          {expanded ? <X size={19}/> : <><Search size={20}/><Sparkles size={10} className="ir-smart-search__spark"/></>}
+        </button>
+        <div className="ir-smart-search__field-wrap">
+          <div className="ir-smart-search__field">
+            <Sparkles size={17} className="ir-smart-search__field-spark" aria-hidden="true"/>
+            <input ref={inputRef} type="search" autoComplete="off" autoCorrect="off" spellCheck={false}
+              value={query} onChange={event => setQuery(event.target.value)}
+              onKeyDown={handleKeyDown} aria-label="Αναζήτηση σταθμών, περιοχών, μουσικής και ειδήσεων"
+              aria-autocomplete="list" aria-controls="ir-smart-search-panel"
+              aria-expanded={expanded && Boolean(query.trim())}
+              aria-activedescendant={activeIndex >= 0 ? 'ir-smart-search-option-' + activeIndex : undefined}
+              placeholder="Σταθμοί, περιοχές, μουσική, ειδήσεις…"/>
+            <span className="ir-smart-search__ai-label" aria-hidden="true">AI</span>
+            <button type="button" onClick={startSpeech} title={listening ? 'Διακοπή ακρόασης' : 'Φωνητική αναζήτηση'}
+              aria-label={listening ? 'Διακοπή φωνητικής αναζήτησης' : 'Φωνητική αναζήτηση'}
+              className={'ir-smart-search__mic ' + (listening ? 'ir-smart-search__mic--listening' : '')}>
+              {listening ? <MicOff size={17}/> : <Mic size={17}/>}
+            </button>
+            {query && <button type="button" aria-label="Καθαρισμός" onClick={() => { setQuery(''); setSpeechMessage(''); inputRef.current?.focus(); }}
+              className="ir-smart-search__clear"><X size={16}/></button>}
+          </div>
+        </div>
+
+        {expanded && (
+          <div id="ir-smart-search-panel" className="ir-smart-search__panel" role="region" aria-label="Έξυπνη αναζήτηση">
+            <div className="ir-smart-search__panel-head">
+              <span className="inline-flex items-center gap-2 text-xs font-black tracking-wide text-white"><Sparkles size={15} className="text-[#ccff00]"/> Smart Search</span>
+              <span className="text-[10px] font-semibold text-zinc-500">{query.trim() ? suggestionCount + ' αποτελέσματα' : 'iRadiosGR'}</span>
+            </div>
+            <div className="ir-smart-search__scopes" role="group" aria-label="Φίλτρα αναζήτησης">
+              {SEARCH_TYPES.map(type => (
+                <button type="button" key={type.id} onClick={() => { setScope(type.id); inputRef.current?.focus(); }}
+                  aria-pressed={scope === type.id} className={'ir-smart-search__scope ' + (scope === type.id ? 'ir-smart-search__scope--active' : '')}>
+                  {type.label}
                 </button>
-              )) : (
-                <p className="px-3 py-5 text-center text-xs text-zinc-400">Δεν βρήκαμε σταθμό με αυτό το όνομα.</p>
-              )}
+              ))}
             </div>
-          )}
-        </div>
-
-        {/* RIGHT: USER ACTIONS & NOTIFICATIONS */}
-        <div className="hidden lg:flex items-center gap-4">
-          
-          {/* 🟢 WEATHER & CLOCK WIDGET */}
-          <div className="flex items-center gap-5 pr-4">
-            
-            {/* Καιρός */}
-            <div className="flex items-center gap-2.5">
-              <WeatherIcon size={22} className="text-[#ccff00] drop-shadow-[0_0_8px_rgba(204,255,0,0.3)]" />
-              <div className="flex flex-col justify-center">
-                <span className="text-[13px] text-white font-medium leading-tight">{weather.city}</span>
-                <span className="text-[11px] text-zinc-400 font-bold leading-tight">{weather.temp !== null ? `${weather.temp}°C` : '...'}</span>
-              </div>
+            <div role="status" aria-live="polite" className="ir-smart-search__speech-status">
+              {listening && <span className="ir-smart-search__listening-dot"/>}{speechMessage}
+              {!speechMessage && !query && 'Γράψε τι ψάχνεις ή μίλησε στο μικρόφωνο.'}
             </div>
-
-            {/* Διαχωριστικό */}
-            <div className="h-6 w-px bg-white/10"></div>
-
-            {/* Ρολόι */}
-            <div className="text-lg font-black text-white tracking-wider tabular-nums">
-              {formattedTime}
-            </div>
-
-          </div>
-
-          {currentUser ? (
-            <div className="flex items-center gap-4 pl-4 border-l border-white/10">
-              
-              {/* NOTIFICATION INDICATOR */}
-              <Link 
-                to="/profile"
-                onClick={handleNotificationClick}
-                className="flex items-center justify-center p-2.5 rounded-xl bg-zinc-900/50 border border-white/5 shadow-inner hover:bg-white/5 transition-all group"
-                title={notifStatus === 'granted' ? 'Ειδοποιήσεις Ενεργές (Ρυθμίσεις)' : 'Ειδοποιήσεις Ανενεργές (Ρυθμίσεις)'}
-              >
-                {notifStatus === 'granted' ? (
-                  <Bell size={18} className="text-[#ccff00] drop-shadow-[0_0_8px_rgba(204,255,0,0.4)] animate-pulse-slow group-hover:scale-110 transition-transform" />
-                ) : (
-                  <BellOff size={18} className="text-zinc-600 group-hover:text-white transition-colors" />
+            {query.trim() ? (
+              <div role="listbox" aria-label="Αποτελέσματα αναζήτησης" className="ir-smart-search__scroll custom-scrollbar">
+                {results.groups.length ? results.groups.map(group => {
+                  const GroupIcon = ICONS[group.id];
+                  return (
+                    <section key={group.id} aria-label={group.label} className="ir-smart-search__group">
+                      <div className="ir-smart-search__group-label">
+                        <span className="flex items-center gap-2"><GroupIcon size={14}/>{group.label}</span>
+                        <span>{group.total}</span>
+                      </div>
+                      {group.items.map(item => {
+                        const index = visibleResults.findIndex(entry => entry.id === item.id);
+                        const SelectedIcon = ICONS[item.type];
+                        return (
+                          <button type="button" role="option" id={'ir-smart-search-option-' + index}
+                            aria-selected={index === activeIndex} key={item.id}
+                            onMouseEnter={() => setActiveIndex(index)} onClick={() => selectResult(item)}
+                            className={'ir-smart-search__result ' + (activeIndex === index ? 'ir-smart-search__result--active' : '')}>
+                            {item.image ? <img src={item.image} alt="" loading="lazy" className="ir-smart-search__result-image"/>
+                              : <span className="ir-smart-search__result-icon"><SelectedIcon size={18}/></span>}
+                            <span className="min-w-0 flex-1">
+                              <span className="ir-smart-search__result-title">{item.label}</span>
+                              <span className="ir-smart-search__result-subtitle">{item.subtitle}{item.offline ? ' · OFFLINE' : ''}</span>
+                            </span>
+                            <ChevronRight size={16} className="shrink-0 text-zinc-500"/>
+                          </button>
+                        );
+                      })}
+                    </section>
+                  );
+                }) : (
+                  <p className="p-7 text-center text-xs leading-6 text-zinc-400">
+                    Δεν βρέθηκε αντιστοιχία. Δοκίμασε διαφορετικό όνομα ή κατηγορία.
+                    {scope === 'news' && newsError && <span className="mt-2 block text-amber-300">Οι ειδήσεις δεν φορτώθηκαν. Δοκίμασε ξανά.</span>}
+                  </p>
                 )}
-              </Link>
+              </div>
+            ) : (
+              <div className="ir-smart-search__empty">
+                <span className="ir-smart-search__empty-icon"><Search size={24}/></span>
+                <p>Βρες ακριβώς αυτό που θέλεις να ακούσεις ή να διαβάσεις.</p>
+                <span className="text-[11px] text-zinc-500">Ραδιόφωνα · Πόλεις · Μουσικά είδη · Ειδήσεις</span>
+              </div>
+            )}
+            <div className="ir-smart-search__footer"><Check size={13}/> Αποτελέσματα από το iRadiosGR · χωρίς εικασίες</div>
+          </div>
+        )}
+      </div>
 
-              {/* USER INFO */}
-              <Link to="/profile" aria-label="Το προφίλ μου" className="group flex items-center gap-3">
-                <div className="hidden flex-col items-end sm:flex">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500">Το προφίλ σου</span>
-                  <span className="max-w-[120px] truncate text-sm font-bold text-white group-hover:text-[#ccff00]">
-                    {currentUser?.fname || currentUser?.username || 'User'}
-                  </span>
-                </div>
-                <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/25 bg-gradient-to-br from-[#272e31] to-[#13191d] text-sm font-black text-white group-hover:border-[#ccff00]/55">
-                  {String(currentUser?.fname||currentUser?.username||'U').charAt(0).toLocaleUpperCase('el-GR')}
-                </span>
-              </Link>
+      <div className="ir-header__right ml-auto flex shrink-0 items-center gap-2 lg:gap-3">
+        <div className="ir-header__weather" title="Τοπικός καιρός">
+          <WeatherIcon size={18} className="shrink-0 text-[#ccff00]"/>
+          <span className="ir-header__weather-text">
+            <span className="ir-header__weather-city">{weather?.city || 'Καιρός'}</span>
+            <span className="ir-header__weather-temp">{Number.isFinite(weather?.temp) ? weather.temp + '°C' : '—°C'}</span>
+          </span>
+        </div>
+        <div className="ir-header__clock" title={formattedDate}>
+          <Clock3 size={15} className="text-[#ccff00]"/>
+          <span className="ir-header__clock-time">{formattedTime}</span>
+          <span className="ir-header__clock-date">{formattedDate}</span>
+        </div>
 
-              {/* LOGOUT */}
-              <button 
-                onClick={onLogout} 
-                className="text-[10px] font-black text-red-500 uppercase tracking-widest hover:text-red-400 transition-colors bg-red-500/5 px-4 py-2 rounded-lg border border-red-500/10 hover:border-red-500/30"
-              >
-                LOGOUT
-              </button>
-            </div>
+        <div className="ir-header__account hidden items-center gap-2 lg:flex">
+          {currentUser ? (
+            <>
+              <Link to="/profile" onClick={handleNotifications} className="ir-header__icon-button"
+                aria-label="Ρυθμίσεις ειδοποιήσεων" title="Ειδοποιήσεις">
+                {notifStatus === 'granted' ? <Bell size={18} className="text-[#ccff00]"/> : <BellOff size={18}/>}
+              </Link>
+              <Link to="/profile" className="ir-header__profile" title="Το προφίλ μου">
+                <UserRound size={17}/>
+                <span className="hidden max-w-24 truncate 2xl:inline">{currentUser.fname || currentUser.username || 'Προφίλ'}</span>
+              </Link>
+              <button type="button" onClick={onLogout} className="ir-header__logout">Έξοδος</button>
+            </>
           ) : (
-            <div className="flex items-center gap-3">
-              <Link to="/login" className="bg-[#ccff00] text-black text-xs font-black px-6 py-2.5 rounded-full hover:brightness-110 transition-all shadow-lg">Σύνδεση</Link>
-              <Link to="/register" className="ir-action-primary text-xs px-6 py-2.5 rounded-full transition-all">Εγγραφή</Link>
-            </div>
+            <>
+              <Link to="/login" className="ir-header__login">Σύνδεση</Link>
+              <Link to="/register" className="ir-header__register">Εγγραφή</Link>
+            </>
           )}
         </div>
-      </header>
-    </>
+      </div>
+    </header>
   );
 }

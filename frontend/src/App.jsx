@@ -495,7 +495,7 @@ function MainApp() {
         setWeather({ temp, city, icon });
       } catch (error) {
         console.error("Weather fetch error:", error);
-        setWeather(prev => ({ ...prev, temp: '-', icon: 'Cloud' })); 
+        setWeather(prev => ({ ...prev, city: prev.city === 'Φόρτωση...' ? 'Ελλάδα' : prev.city, temp: null, icon: 'Cloud' })); 
       }
     };
 
@@ -1797,7 +1797,7 @@ function MainApp() {
       <Sidebar isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} currentUser={currentUser} stations={stations} unreadBroadcasterChat={unreadBroadcasterChat} setUnreadBroadcasterChat={setUnreadBroadcasterChat} API_URL={API_URL} />
       
       <main className="flex-1 flex flex-col min-w-0 bg-zinc-950/20 relative">
-        <TopBar setIsMobileMenuOpen={setIsMobileMenuOpen} searchTerm={searchTerm} weather={weather} setSearchTerm={setSearchTerm} showSearchResults={showSearchResults} setShowSearchResults={setShowSearchResults} filteredSearch={filteredSearch} handleSearchResultClick={(id) => { const s = stations.find(x => x._id === id); if (s) handleStationSelectWithAds(s); navigate(`/station/${id}`); }} currentUser={currentUser} onLogout={handleLogout} />
+        <TopBar setIsMobileMenuOpen={setIsMobileMenuOpen} stations={stations} weather={weather} handleSearchResultClick={(id) => { const s = stations.find(x => String(x._id) === String(id)); if (s) handleStationSelectWithAds(s); navigate(`/station/${s?.slug || id}`); }} currentUser={currentUser} onLogout={handleLogout} />
         <div id="main-scroll-area" className="flex-1 overflow-y-auto custom-scrollbar pb-44 lg:pb-32" onClick={() => setShowSearchResults(false)}>
         <ScrollToTop />
           <Routes>
