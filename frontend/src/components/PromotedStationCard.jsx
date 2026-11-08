@@ -43,7 +43,7 @@ export default function PromotedStationCard({
   const station=useMemo(()=>stations.find(s=>
     String(s._id)===String(feature?.stationId) && (s.status==='approved'||!s.status)),[stations,feature?.stationId]);
   const show=useMemo(()=>activeStationShow(station,clock),[station,clock]);
-  useEffect(()=>{onAvailabilityChange?.(Boolean(station));},[station,onAvailabilityChange]);
+  useEffect(()=>{onAvailabilityChange?.(station?._id||null);},[station?._id,onAvailabilityChange]);
   if(!station)return null;
   const song=parseMusicMetadata(feature?.nowPlaying?.title,station.name);
   const producerPhoto=show&&validShowImage(show.imageUrl)?show.imageUrl:null;
