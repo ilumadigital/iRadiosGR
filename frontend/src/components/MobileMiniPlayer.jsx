@@ -545,7 +545,7 @@ export default function MobileMiniPlayer({
         onClick={() => setIsMaximized(true)} 
         role="button" tabIndex={0} aria-label={`Άνοιγμα player: ${currentStation.name}`}
         onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setIsMaximized(true); } }}
-        className={`ir-mini-player fixed bottom-[84px] left-2 right-2 h-[68px] flex items-center justify-between px-3 lg:hidden z-[90] cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
+        className={`ir-mini-player ${location.pathname.startsWith('/station/') ? 'ir-mini-player--station-page' : ''} fixed bottom-[84px] left-2 right-2 h-[68px] flex items-center justify-between px-3 lg:hidden z-[90] cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
           isMaximized ? 'translate-y-[150%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}
       >

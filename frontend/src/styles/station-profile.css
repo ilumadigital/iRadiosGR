@@ -98,7 +98,7 @@
   border-radius:26px;background:linear-gradient(145deg,rgba(21,28,30,.92),rgba(10,15,18,.98));
   box-shadow:0 25px 65px rgba(0,0,0,.15)}
 .ir-station-playlist-aside .ir-playlist-panel{padding:clamp(16px,2.2vw,27px)!important;max-height:none}
-.ir-station-playlist-aside .ir-playlist-panel--station-sidebar>div:nth-of-type(3){
+.ir-station-playlist-aside .ir-playlist-panel--station-sidebar .ir-playlist-tracks{
   max-height:460px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(204,255,0,.28) transparent}
 .ir-station-playlist-aside .ir-station-playlist-track{min-width:0}
 .ir-station-playlist-aside .ir-station-playlist-song{min-width:0}
@@ -225,4 +225,313 @@
 @media(prefers-reduced-motion:reduce){
   .ir-program-equalizer i{animation:none}
   .ir-station-page *{scroll-behavior:auto!important}
+}
+
+
+/* iOS-inspired mobile station identity: only the station route is transformed.
+   The desktop layout and the shared audio transport are intentionally untouched. */
+.ir-station-mobile-showcase,.ir-playlist-mobile-heading,.ir-playlist-track-more-wrap{display:none}
+
+@media (max-width:767px){
+  .ir-station-page{background:#080b0e!important;overflow-x:clip}
+  .ir-station-page>.absolute:first-of-type{display:none}
+  .ir-station-page .ir-station-responsive-shell{
+    padding:0 13px 78px!important;max-width:100%;overflow:visible
+  }
+  .ir-station-page .ir-station-profile-nav,
+  .ir-station-page .ir-station-top-grid{display:none!important}
+  .ir-station-mobile-showcase{
+    --ir-station-ambient:134 165 56;
+    position:relative;display:block;isolation:isolate;min-width:0;
+    margin:0 -13px;padding:12px 17px 7px;
+    color:#f9fafa;background:#0b0e10;overflow:visible
+  }
+  .ir-mobile-station-backdrop{
+    position:absolute;z-index:-1;top:0;left:0;right:0;height:305px;
+    overflow:hidden;pointer-events:none;
+    background:radial-gradient(ellipse 78% 55% at 50% 20%,
+      rgb(var(--ir-station-ambient) / .48),transparent 90%),#111517
+  }
+  .ir-mobile-station-backdrop img{
+    position:absolute;inset:-13%;width:126%;height:126%;
+    object-fit:cover;object-position:center 38%;
+    filter:blur(1px) saturate(1.18) brightness(.67);
+    opacity:.86;transform:scale(1.015)
+  }
+  .ir-mobile-station-backdrop.is-logo img{
+    filter:blur(35px) saturate(1.5) brightness(.58);opacity:.8;
+    transform:scale(1.3)
+  }
+  .ir-mobile-station-backdrop:after{
+    position:absolute;inset:0;content:"";display:block;
+    background:linear-gradient(to bottom,
+      rgba(4,6,9,.30) 0%,rgba(5,8,10,.14) 23%,rgba(8,11,14,.25) 43%,
+      rgba(8,11,14,.83) 77%,#0b0e10 100%)
+  }
+  .ir-mobile-station-backdrop-glow{
+    position:absolute;top:54px;left:12%;right:12%;height:155px;
+    border-radius:50%;background:rgb(var(--ir-station-ambient) / .22);
+    filter:blur(63px)
+  }
+  .ir-mobile-station-toolbar{
+    position:relative;z-index:4;display:grid;grid-template-columns:46px 1fr 46px;
+    align-items:center;min-height:42px;gap:8px
+  }
+  .ir-mobile-station-nav-button{
+    display:grid;place-items:center;width:42px;height:42px;
+    border:1px solid rgba(255,255,255,.12);border-radius:50%;
+    color:white;background:rgba(13,17,21,.32);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    transition:background .22s ease,transform .22s ease
+  }
+  .ir-mobile-station-nav-button:active{transform:scale(.94)}
+  .ir-mobile-station-brand{
+    display:flex;align-items:center;justify-content:center;gap:5px;
+    color:white;font-size:14px;font-weight:750;letter-spacing:-.04em;
+    text-shadow:0 1px 6px rgba(0,0,0,.7)
+  }
+  .ir-mobile-station-brand svg,.ir-mobile-station-brand strong{color:#caff00}
+  .ir-mobile-station-brand strong{font-weight:900}
+  .ir-mobile-station-more-wrap{position:relative;justify-self:end}
+  .ir-mobile-station-more-menu{
+    position:absolute;top:calc(100% + 9px);right:0;z-index:60;
+    display:flex;flex-direction:column;gap:2px;width:221px;padding:7px;
+    border-radius:17px;border:1px solid rgba(255,255,255,.19);
+    background:rgba(19,24,27,.93);
+    -webkit-backdrop-filter:blur(30px) saturate(170%);
+    backdrop-filter:blur(30px) saturate(170%);
+    box-shadow:0 25px 60px rgba(0,0,0,.55)
+  }
+  .ir-mobile-station-more-menu button{
+    display:flex;align-items:center;gap:9px;width:100%;min-height:43px;
+    padding:9px 10px;border-radius:10px;text-align:left;color:#f2f5f6;
+    font-size:12px;font-weight:720
+  }
+  .ir-mobile-station-more-menu button:hover{background:rgba(255,255,255,.1)}
+  .ir-mobile-station-more-menu button:disabled{opacity:.5}
+
+  .ir-mobile-station-identity{
+    position:relative;z-index:1;display:flex;flex-direction:column;
+    align-items:center;text-align:center;min-width:0;margin-top:10px
+  }
+  .ir-mobile-station-logo-frame{
+    display:grid;place-items:center;width:121px;height:121px;aspect-ratio:1;
+    overflow:hidden;border-radius:50%;padding:0;
+    background:rgb(var(--ir-station-ambient) / .64);
+    border:2px solid rgb(var(--ir-station-ambient) / .95);
+    box-shadow:0 0 0 6px rgba(255,255,255,.035),
+      0 12px 42px rgb(var(--ir-station-ambient) / .32),
+      0 22px 40px rgba(0,0,0,.46)
+  }
+  .ir-mobile-station-logo-frame img{
+    width:100%;height:100%;object-fit:contain;border-radius:50%
+  }
+  .ir-mobile-station-status{
+    position:relative;z-index:2;display:flex;align-items:center;gap:5px;
+    height:24px;padding:0 12px;margin-top:-10px;
+    border:1px solid rgba(0,0,0,.27);border-radius:999px;
+    background:#ccff00;box-shadow:0 2px 13px rgba(204,255,0,.28);
+    color:#111b00;font-size:10px;font-weight:950;letter-spacing:.04em
+  }
+  .ir-mobile-station-status>span{
+    width:6px;height:6px;background:#243800;border-radius:50%;
+    box-shadow:0 0 0 2px rgba(0,0,0,.08)
+  }
+  .ir-mobile-station-status.is-offline{color:#fff;background:#cc3434;box-shadow:none}
+  .ir-mobile-station-status.is-offline>span{background:white}
+  .ir-mobile-station-identity h1{
+    max-width:100%;margin-top:7px;overflow-wrap:anywhere;
+    font-size:clamp(23px,7vw,32px);line-height:1.1;
+    font-weight:950;letter-spacing:-.045em;
+    text-shadow:0 4px 18px rgba(0,0,0,.54)
+  }
+  .ir-mobile-station-slogan{
+    max-width:92%;margin-top:4px;color:#b8bdc1;
+    font-size:12px;font-weight:560;line-height:1.45
+  }
+  .ir-mobile-station-genres{
+    display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+    gap:7px;margin-top:11px;max-width:100%
+  }
+  .ir-mobile-station-genres>span{
+    display:inline-flex;align-items:center;gap:5px;min-height:25px;
+    max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    padding:4px 11px;border:1px solid rgba(255,255,255,.10);
+    border-radius:100px;background:rgba(92,100,105,.27);
+    -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+    color:#e3e6e8;font-size:10px;font-weight:650;
+    box-shadow:inset 0 1px rgba(255,255,255,.06)
+  }
+  .ir-mobile-station-actions{
+    position:relative;z-index:2;display:grid;
+    grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr);
+    align-items:center;gap:13px;max-width:390px;
+    margin:18px auto 15px;padding:0 1px
+  }
+  .ir-mobile-station-side-action{
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    min-width:0;min-height:37px;padding:7px 9px;border-radius:100px;
+    border:1px solid rgba(255,255,255,.18);background:rgba(122,132,138,.19);
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    box-shadow:inset 0 1px rgba(255,255,255,.09),0 6px 24px rgba(0,0,0,.14);
+    font-size:10px;font-weight:730;color:#eef1f3;
+    transition:transform .2s ease,background .2s ease
+  }
+  .ir-mobile-station-side-action span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .ir-mobile-station-side-action.is-active{color:#ccff00;border-color:rgba(204,255,0,.4)}
+  .ir-mobile-station-side-action:active{transform:scale(.96)}
+  .ir-mobile-station-main-play{
+    display:grid;place-items:center;width:64px;height:64px;
+    justify-self:center;border-radius:50%;background:#cbff00;
+    box-shadow:0 0 0 7px rgba(204,255,0,.085),
+      0 0 33px rgba(204,255,0,.5),0 10px 25px rgba(0,0,0,.35);
+    color:#090d00;transition:transform .2s ease,box-shadow .2s ease
+  }
+  .ir-mobile-station-main-play:active{transform:scale(.94)}
+  .ir-mobile-station-main-play:disabled{box-shadow:none;cursor:not-allowed}
+  .ir-mobile-station-main-play.is-offline{background:#b32a35;color:white}
+  .ir-mobile-station-main-play.is-offline span{font-size:12px;font-weight:850}
+  .ir-mobile-station-play-symbol{margin-left:3px}
+  .ir-mobile-station-now-card{
+    position:relative;z-index:1;display:flex;align-items:center;gap:13px;
+    min-height:84px;max-width:590px;margin:0 auto;padding:8px 12px 8px 8px;
+    border:1px solid rgba(255,255,255,.12);border-radius:16px;
+    background:linear-gradient(110deg,
+      rgb(var(--ir-station-ambient) / .18),rgba(50,58,57,.43) 72%);
+    -webkit-backdrop-filter:blur(28px) saturate(135%);
+    backdrop-filter:blur(28px) saturate(135%);
+    box-shadow:inset 0 1px rgba(255,255,255,.12),0 12px 32px rgba(0,0,0,.27);
+    overflow:hidden
+  }
+  .ir-mobile-station-now-card>img{
+    width:65px;height:65px;flex:none;object-fit:cover;
+    border-radius:12px;background:#151a1d
+  }
+  .ir-mobile-station-now-text{min-width:0;flex:1;text-align:left}
+  .ir-mobile-station-now-label{
+    display:flex;align-items:center;gap:5px;min-width:0;
+    color:#caff00;font-size:10px;font-weight:900;line-height:1.2
+  }
+  .ir-mobile-station-now-text h2{
+    margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:15px;font-weight:850;line-height:1.3;letter-spacing:-.015em
+  }
+  .ir-mobile-station-now-text p{
+    margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    color:#bdc4c8;font-size:11px;font-weight:600
+  }
+  .ir-mobile-station-login{margin-top:5px;color:#ccff00;font-size:12px;font-weight:800}
+  .ir-mobile-station-equalizer{display:inline-flex;align-items:flex-end;gap:2px;height:12px}
+  .ir-mobile-station-equalizer i{
+    width:2px;height:5px;border-radius:2px;background:currentColor;
+    animation:ir-mobile-station-eq .9s ease-in-out infinite alternate
+  }
+  .ir-mobile-station-equalizer i:nth-child(2){height:11px;animation-delay:.24s}
+  .ir-mobile-station-equalizer i:nth-child(3){height:7px;animation-delay:.4s}
+  @keyframes ir-mobile-station-eq{to{transform:scaleY(.4)}}
+  .ir-mobile-station-live-show{
+    display:flex;align-items:center;justify-content:center;gap:5px;
+    margin-top:9px;padding:0 5px;
+    color:#a6b0b5;font-size:10px;font-weight:550
+  }
+  .ir-mobile-station-live-show strong{
+    max-width:69%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    color:#d7dbdd;font-weight:800
+  }
+
+  .ir-station-lower-grid{display:flex;flex-direction:column;gap:19px;margin-top:11px}
+  .ir-station-playlist-aside{order:0;width:100%;min-width:0}
+  .ir-station-about{order:1;width:100%}
+  .ir-station-playlist-aside .ir-playlist-panel--showcase{
+    padding:0!important;max-height:none!important;min-height:0;
+    border:none!important;border-radius:0!important;background:transparent!important;
+    box-shadow:none!important;overflow:visible!important
+  }
+  .ir-playlist-panel--showcase .ir-playlist-default-heading,
+  .ir-playlist-panel--showcase .ir-playlist-station-summary{display:none!important}
+  .ir-playlist-panel--showcase .ir-playlist-mobile-heading{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:8px;min-height:36px;margin:0 2px 5px
+  }
+  .ir-playlist-mobile-heading h2{
+    display:flex;align-items:center;gap:8px;color:#f3f5f6;
+    font-size:14px;line-height:1.3;font-weight:900;letter-spacing:-.025em
+  }
+  .ir-playlist-mobile-heading h2 svg{color:#ccff00}
+  .ir-playlist-mobile-heading button{
+    display:grid;place-items:center;width:35px;height:35px;
+    border-radius:50%;color:#aeb8be;border:1px solid rgba(255,255,255,.1);
+    background:rgba(255,255,255,.04)
+  }
+  .ir-playlist-mobile-heading button:disabled{opacity:.45}
+  .ir-playlist-panel--showcase .ir-playlist-tracks{
+    max-height:none!important;overflow:visible!important;
+    margin-top:2px;padding:0
+  }
+  .ir-playlist-panel--showcase .ir-playlist-tracks>.ir-station-playlist-track:nth-child(n+13){display:none}
+  .ir-playlist-panel--showcase .ir-station-playlist-track{
+    position:relative;min-height:52px;gap:9px;margin-bottom:3px;
+    padding:5px 7px!important;border:1px solid rgba(255,255,255,.035);
+    border-radius:12px!important;
+    background:linear-gradient(100deg,rgba(46,51,55,.44),rgba(28,34,39,.62));
+    box-shadow:inset 0 1px rgba(255,255,255,.025)
+  }
+  .ir-playlist-panel--showcase .ir-station-playlist-track:first-child{
+    background:linear-gradient(100deg,
+      rgb(var(--ir-station-ambient) / .18),rgba(35,42,43,.62))
+  }
+  .ir-playlist-panel--showcase .ir-station-playlist-track>img{
+    width:41px;height:41px;border-radius:9px;object-fit:cover;
+    border:0;background:#101619
+  }
+  .ir-playlist-panel--showcase .ir-station-playlist-song p:first-child{
+    font-size:12px;font-weight:850;line-height:1.35
+  }
+  .ir-playlist-panel--showcase .ir-station-playlist-song p:nth-child(2){
+    font-size:10px;line-height:1.45
+  }
+  .ir-playlist-panel--showcase .ir-station-playlist-song .text-\[9px\]{font-size:8px}
+  .ir-playlist-panel--showcase .ir-station-playlist-time{font-size:10px;color:#929b9e}
+  .ir-playlist-track-more-wrap{display:block;position:relative;flex:none}
+  .ir-playlist-track-more{
+    display:grid;place-items:center;width:26px;height:34px;
+    color:#b1b8bb;border-radius:8px
+  }
+  .ir-playlist-track-more:hover{background:rgba(255,255,255,.09);color:#fff}
+  .ir-playlist-track-menu{
+    position:absolute;right:0;top:100%;z-index:20;display:flex;flex-direction:column;
+    min-width:190px;gap:2px;padding:6px;border:1px solid rgba(255,255,255,.17);
+    border-radius:12px;background:rgba(24,31,34,.97);
+    -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+    box-shadow:0 12px 28px rgba(0,0,0,.5)
+  }
+  .ir-playlist-track-menu button,.ir-playlist-track-menu a{
+    display:flex;align-items:center;gap:7px;width:100%;min-height:38px;
+    padding:8px;border-radius:8px;color:#e7eceb;text-align:left;
+    font-size:11px;font-weight:650
+  }
+  .ir-playlist-track-menu button:hover,.ir-playlist-track-menu a:hover{
+    background:rgba(255,255,255,.085)
+  }
+  #ir-station-program{scroll-margin-top:20px}
+}
+@media (max-width:360px){
+  .ir-station-mobile-showcase{padding-left:12px;padding-right:12px}
+  .ir-mobile-station-logo-frame{width:109px;height:109px}
+  .ir-mobile-station-actions{grid-template-columns:minmax(0,1fr) 62px minmax(0,1fr);gap:7px}
+  .ir-mobile-station-main-play{width:58px;height:58px}
+  .ir-mobile-station-side-action{font-size:9px;padding:6px}
+  .ir-mobile-station-now-card>img{width:56px;height:56px}
+  .ir-mobile-station-now-card{min-height:73px}
+}
+@media (max-width:767px) and (prefers-reduced-motion:reduce){
+  .ir-mobile-station-equalizer i{animation:none}
+  .ir-mobile-station-main-play,.ir-mobile-station-nav-button,
+  .ir-mobile-station-side-action{transition:none}
+}
+
+/* The station page supplies its own top toolbar and transport at phone widths. */
+@media (max-width:767px){
+  .ir-app-topbar.ir-header--station-page{display:none!important}
+  .ir-mini-player.ir-mini-player--station-page{display:none!important}
 }
