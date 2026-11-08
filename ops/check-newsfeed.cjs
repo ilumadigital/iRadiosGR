@@ -6,7 +6,7 @@ const rss=require('../backend/utils/rssNews');
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 assert.equal(rss.validateUrl(rss.DEFAULT_FEED_URL),rss.DEFAULT_FEED_URL);
 for(const url of [
-  'http://rss.app/feeds/a.xml','https://example.com/feeds/a.xml',
+  'http://rss.app/feeds/a.xml','http://www.newsbeast.gr/feed',
   'https://rss.app.evil.test/feeds/a.xml','https://rss.app@evil.test/feeds/a.xml',
   'https://rss.app/feeds/../admin','https://rss.app/feeds/a.xml?callback=x'
 ])assert.throws(()=>rss.validateUrl(url),'RSS source SSRF guard rejects '+url);
@@ -30,6 +30,59 @@ assert.equal(parsed.articles[1].summary,'Πρώτο & δεύτερο');
 assert.equal(parsed.articles[1].imageUrl,'https://news.example/photo.jpg');
 assert.equal(parsed.articles[1].publishedAt.toISOString(),'2026-11-08T17:00:00.000Z');
 assert.throws(()=>rss.parse('<html>not RSS</html>'));
+const directTransport=require('../backend/utils/publicRssTransport');
+assert.equal(rss.normalizeSource('https://www.newsbeast.gr/feed').type,'direct_rss');
+assert.equal(rss.normalizeSource('https://www.newsbeast.gr/feed').domain,'www.newsbeast.gr');
+assert.equal(rss.validateUrl('https://www.newsbeast.gr/greece/feed'),'https://www.newsbeast.gr/greece/feed');
+assert.equal(rss.normalizeSource('https://www.example-news.gr/feed.xml').type,'direct_rss');
+for(const bad of [
+  'https://localhost/feed','https://127.0.0.1/feed','https://169.254.169.254/feed',
+  'https://192.168.1.1/rss','https://[::1]/feed','https://newsbeast.gr:8443/feed',
+  'https://newsbeast.gr@127.0.0.1/feed','https://newsbeast.gr.evil.local/feed',
+  'https://newsbeast.gr/private','ftp://www.newsbeast.gr/feed',
+  'https://www.newsbeast.gr/feed#tracking'
+])assert.throws(()=>rss.normalizeSource(bad),'external RSS URL is safely constrained: '+bad);
+for(const ip of ['127.0.0.1','169.254.169.254','10.0.0.4','172.16.2.3',
+  '192.168.1.4','100.100.100.100','0.0.0.0','192.0.2.1','203.0.113.4',
+  '::1','fc00::123','fe80::1','::ffff:127.0.0.1','2001:db8::2'])
+  assert.equal(directTransport.publicIp(ip),false,'local/reserved DNS IP rejected: '+ip);
+for(const ip of ['1.1.1.1','8.8.8.8','2606:4700:4700::1111'])
+  assert.equal(directTransport.publicIp(ip),true,'public DNS IP allowed: '+ip);
+const newsbeastXml=String.raw`<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<channel><title>Newsbeast</title>
+<item><title><![CDATA[Πρώτη είδηση – Ελλάδα]]></title>
+<link>https://www.newsbeast.gr/greece/arthro1</link>
+<category><![CDATA[ΕΛΛΑΔΑ]]></category>
+<description><![CDATA[<p>Το νέο σημαντικό γεγονός.</p>]]></description>
+<media:content url="https://www.newsbeast.gr/photos/greece.webp" medium="image" />
+<pubDate>Sun, 08 Nov 2026 18:30:00 +0000</pubDate></item>
+<item><title><![CDATA[Οικονομικές ειδήσεις]]></title>
+<link>https://www.newsbeast.gr/financial/arthro2</link>
+<category><![CDATA[ΟΙΚΟΝΟΜΙΑ]]></category>
+<content:encoded><![CDATA[<p>Η σημερινή οικονομία</p>]]></content:encoded>
+<pubDate>Sun, 08 Nov 2026 18:15:00 +0000</pubDate></item>
+<item><title>Νέα στην τεχνολογία</title>
+<link>https://www.newsbeast.gr/technology/arthro3</link>
+<description><![CDATA[<img data-src="https://www.newsbeast.gr/photos/tech.webp" /><p>Καινοτομία.</p>]]></description>
+<pubDate>Sun, 08 Nov 2026 18:00:00 +0000</pubDate></item>
+</channel></rss>`;
+const extracted=rss.parse(newsbeastXml,{feedUrl:'https://www.newsbeast.gr/feed'});
+assert.equal(extracted.feedTitle,'Newsbeast');
+assert.deepEqual(extracted.articles.map(a=>a.category),['Ελλάδα','Business','Τεχνολογία']);
+assert.deepEqual(extracted.articles.map(a=>a.title),['Πρώτη είδηση – Ελλάδα','Οικονομικές ειδήσεις','Νέα στην τεχνολογία']);
+assert.equal(extracted.articles[0].imageUrl,'https://www.newsbeast.gr/photos/greece.webp');
+assert.equal(extracted.articles[1].imageUrl,'');
+assert.equal(extracted.articles[2].imageUrl,'https://www.newsbeast.gr/photos/tech.webp');
+assert.equal(extracted.articles[1].summary,'Η σημερινή οικονομία');
+assert.equal(extracted.articles[0].publishedAt.toISOString(),'2026-11-08T18:30:00.000Z');
+const atomWithCategory=`<feed xmlns="http://www.w3.org/2005/Atom">
+<title>Atom Publisher</title>
+<entry><title>Article title</title><link href="https://site.example.com/post"/>
+<category term="Sports"/><updated>2026-11-08T18:30:00+02:00</updated></entry>
+</feed>`;
+assert.equal(rss.parse(atomWithCategory).articles[0].category,'Αθλητικά');
+
 assert.ok(read('backend/utils/stagePublicAccess.js').includes("'/api/newsfeed'"));
 assert.ok(read('backend/routes/newsFeedRoutes.js').includes("authorizeRoles('admin')"));
 const ui=read('frontend/src/pages/NewsFeed.jsx');
@@ -176,8 +229,36 @@ console.log('Newsfeed RSS parsing, safety, image, dates, deduplication, placemen
     assert.ok(requests.some(u=>u.includes('/news-')),'original publisher article pages used for image metadata');
     assert.ok(!requests.some(u=>new URL(u).hostname==='rssnews.io'),'preset is not falsely fetched as XML');
   }finally{global.fetch=originalPresetFetch;}
+  const originalDirectFetch=directTransport.requestText;
+  const directCalls=[];
+  directTransport.requestText=async (url,options)=>{
+    directCalls.push({url,options});
+    return options?.feed?newsbeastXml:
+      '<html><head><meta property="og:image" content="https://www.newsbeast.gr/photos/finance.webp"/></head></html>';
+  };
+  try{
+    const feed=await rss.download({url:'https://www.newsbeast.gr/feed'});
+    assert.equal(feed.retrievalMode,'direct-rss');
+    assert.equal(feed.articles.length,3);
+    assert.deepEqual(feed.articles.map(a=>a.category),['Ελλάδα','Business','Τεχνολογία']);
+    assert.equal(feed.articles[1].imageUrl,'https://www.newsbeast.gr/photos/finance.webp',
+      'missing RSS image is fetched from actual publisher OG metadata');
+    assert.equal(directCalls.filter(x=>x.options?.html).length,1,'only missing publisher image needs extra fetch');
+    assert.ok(directCalls.every(c=>new URL(c.url).hostname==='www.newsbeast.gr'),
+      'image source is restricted to the original publisher');
+  }finally{directTransport.requestText=originalDirectFetch;}
+  const dns=require('node:dns');
+  const oldLookup=dns.lookup;
+  try{
+    dns.lookup=(host,options,callback)=>callback(null,[{address:'127.0.0.1',family:4}]);
+    await assert.rejects(new Promise((resolve,reject)=>directTransport.safeLookup('sample-public.com',{},(e,ip)=>e?reject(e):resolve(ip))),
+      /DNS.*δημόσια/,'DNS-rebinding to private IP is prevented');
+    dns.lookup=(host,options,callback)=>callback(null,[{address:'1.1.1.1',family:4}]);
+    const pinned=await new Promise((resolve,reject)=>directTransport.safeLookup('sample-public.com',{},(e,ip)=>e?reject(e):resolve(ip)));
+    assert.equal(pinned,'1.1.1.1','public DNS result is explicitly pinned');
+  }finally{dns.lookup=oldLookup;}
   const model=read('backend/models/NewsFeed.js');
-  assert.ok(model.includes('sources:{type:[source]')&&model.includes('sourceId:')&&model.includes("'rssnews_preset'"));
+  assert.ok(model.includes('sources:{type:[source]')&&model.includes('sourceId:')&&model.includes("'rssnews_preset'")&&model.includes("'direct_rss'"));
   const controller=read('backend/controllers/newsFeedController.js');
   assert.ok(controller.includes('Promise.all(sources.map'),'sources sync independently');
   assert.ok(controller.includes('configRevision'),'changed source sets cannot be overwritten by old import');
