@@ -28,8 +28,15 @@ async function main(){
     'song + missing producer is not a complete programme');
   assert.equal(catalogStationInfo(full,null,{day:1,minute:15*60}).tier,3,
     'off-air programme does not count even if it has a stored photo');
+  assert.equal(catalogStationInfo(full,{broadcastHint:'DJZONE'},clock).tier,0,
+    'complete DJ programme with on-air broadcast metadata ranks first even without a song');
+  assert.equal(catalogStationInfo(full,{broadcastHint:'RadioShow'},clock).tier,0,
+    'RadioShow metadata and live producer photo are sufficient for the first tier');
   assert.equal(catalogStationInfo(noInfo,{broadcastHint:'DJZONE'},clock).tier,3,
     'unscheduled live metadata hint is not a verified programme');
+  assert.equal(catalogStationInfo(station('7',[{...programme,imageUrl:''}]),
+    {broadcastHint:'DJZONE'},clock).tier,2,
+    'a radio-show hint without a DJ picture is not a full programme');
   assert.equal(catalogStationInfo(noInfo,{song:{artist:'',title:'Track'}},clock).tier,3,
     'incomplete song metadata cannot raise rank');
   assert.equal(catalogStationInfo(showOnly,{broadcastHint:'RADIOSHOW'},clock).tier,2,

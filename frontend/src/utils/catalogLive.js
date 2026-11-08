@@ -1,4 +1,4 @@
-import {activeStationShow,validShowImage} from './liveBroadcast.js';
+import {activeStationShow,validShowImage,isBroadcastMetadata} from './liveBroadcast.js';
 
 // All catalogue modes share four strict quality tiers. A title/song is only
 // trusted when the shared now-playing endpoint reports a current parsed song.
@@ -14,11 +14,16 @@ export function catalogStationInfo(station,snapshot,clock){
   const hasShowPhoto=Boolean(liveProgramme&&validShowImage(show.imageUrl));
   const showTitle=liveProgramme?show.title.trim():'';
   const broadcastHint=typeof snapshot?.broadcastHint==='string'?snapshot.broadcastHint.trim():'';
-  // 0: complete live programme + DJ photo + verified song metadata
-  // 1: verified song metadata (with or without a partial programme)
-  // 2: currently airing programme, without song metadata
-  // 3: no confirmed song and no currently airing programme
-  const tier=song&&liveProgramme&&host&&hasShowPhoto?0:song?1:liveProgramme?2:3;
+  // A live DJ/radio-show metadata marker also counts as metadata for a
+  // complete programme. It must match a real on-air schedule and valid photo.
+  const hasBroadcastMetadata=Boolean(broadcastHint&&
+    isBroadcastMetadata(broadcastHint,station?.name,show));
+  // 0: complete live programme + host + photo + verified song OR broadcast metadata
+  // 1: verified song metadata (without a complete programme)
+  // 2: active programme without current verified metadata
+  // 3: no verified metadata and no active programme
+  const tier=liveProgramme&&host&&hasShowPhoto&&(song||hasBroadcastMetadata)
+    ?0:song?1:liveProgramme?2:3;
   return {song,host,showTitle:showTitle||broadcastHint,tier,hasShowPhoto,
     foundWithAI:snapshot?.foundWithAI===true};
 }
