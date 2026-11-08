@@ -15,6 +15,7 @@ import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import HomeRadioShortlist from '../components/HomeRadioShortlist';
 import HomeRecommendationDeck from '../components/HomeRecommendationDeck';
 import HomeTopStations from '../components/HomeTopStations';
+import HomeNewsFeed from '../components/HomeNewsFeed';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 import {compareCatalogPopularity} from '../utils/catalogLive';
 
