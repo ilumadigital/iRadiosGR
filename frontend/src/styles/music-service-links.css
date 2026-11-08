@@ -1,0 +1,60 @@
+/* Brand-correct music discovery, reusable in the station profile and both players. */
+.ir-music-service-links {
+  display:flex;align-items:center;justify-content:flex-start;
+  gap:9px;max-width:100%;min-width:0;margin-top:12px;flex-wrap:wrap;
+}
+.ir-music-service {
+  display:inline-flex;align-items:center;justify-content:center;
+  gap:9px;min-width:0;min-height:39px;padding:8px 14px;border-radius:100px;
+  border:1px solid transparent;line-height:1.2;white-space:nowrap;
+  font-size:12px;font-weight:850;letter-spacing:-.012em;
+  -webkit-backdrop-filter:blur(17px) saturate(135%);
+  backdrop-filter:blur(17px) saturate(135%);
+  box-shadow:inset 0 1px rgba(255,255,255,.10),0 6px 20px rgba(0,0,0,.12);
+  transition:transform .18s ease,background .18s ease,border-color .18s ease;
+}
+.ir-music-service svg {width:20px;height:20px;flex:none}
+.ir-music-service--spotify {
+  color:#1ed760;border-color:rgba(30,215,96,.36);
+  background:rgba(30,215,96,.11);
+}
+.ir-music-service--spotify:hover,.ir-music-service--spotify:focus-visible {
+  background:rgba(30,215,96,.20);border-color:rgba(30,215,96,.65)
+}
+.ir-music-service--apple {
+  color:#ff5274;border-color:rgba(250,45,72,.38);
+  background:linear-gradient(135deg,rgba(250,45,72,.14),rgba(253,68,99,.08));
+}
+.ir-music-service--apple:hover,.ir-music-service--apple:focus-visible {
+  background:rgba(250,45,72,.22);border-color:rgba(250,45,72,.68)
+}
+.ir-music-service:hover {transform:translateY(-1px)}
+.ir-music-service:active {transform:scale(.97)}
+.ir-music-service:focus-visible {outline:2px solid #ccff00;outline-offset:3px}
+.ir-music-service-links--compact {
+  justify-content:center;gap:8px;margin-top:7px
+}
+.ir-music-service-links--compact .ir-music-service {
+  min-height:32px;padding:5px 11px;gap:7px;font-size:11px
+}
+.ir-music-service-links--compact .ir-music-service svg {width:17px;height:17px}
+.ir-station-mobile-showcase .ir-music-service-links {
+  justify-content:center;margin:11px auto 1px
+}
+.ir-desktop-player .ir-music-service-links--compact {
+  justify-content:flex-start;margin-top:clamp(4px,1.1dvh,12px);
+}
+.ir-full-player .ir-music-service-links {
+  margin-top:clamp(3px,.65dvh,8px);
+}
+@media (max-height:720px) and (max-width:1023px) {
+  .ir-full-player .ir-music-service-links--compact .ir-music-service {
+    min-height:29px;padding:4px 10px;font-size:10px
+  }
+  .ir-full-player .ir-music-service-links--compact .ir-music-service svg {
+    width:15px;height:15px
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  .ir-music-service{transition:none}
+}
