@@ -31,8 +31,8 @@ jobs:
         run: node ops/check-stage-public-access.cjs
       - name: Verify versioned broadcaster consent behavior
         run: node ops/check-phase1-broadcaster-consent.cjs
-      - name: Test authenticated staging metadata and ACRCloud safety
-        run: node ops/check-stage-metadata-acrcloud.cjs
+      - name: Test authenticated staging metadata and SonoVault safety
+        run: node ops/check-stage-metadata-sonovault.cjs
       - name: Validate Phase 2 design-system tokens and accessibility
         run: node ops/check-phase2-design-system.cjs
       - name: Validate Phase 2 listener player and station UI contracts
@@ -57,12 +57,12 @@ jobs:
         run: node ops/check-phase32-listener-polish.cjs
       - name: Validate precise radio map marker positions and geographic anchors
         run: node ops/check-radio-map-geography.cjs
-      - name: Validate staging ACRCloud recognition diagnostics without remote requests
-        run: node ops/check-stage-acrcloud-diagnostics.cjs
+      - name: Validate staging SonoVault recognition diagnostics without remote requests
+        run: node ops/check-stage-sonovault-diagnostics.cjs
       - name: Validate shared ACR song provenance and five-minute device metadata
         run: node ops/check-phase33-smart-nowplaying.cjs
-      - name: Validate Top-5 per music genre automatic recognition and billing cap
-        run: node ops/check-phase33-auto-acr.cjs
+      - name: Validate zero automatic paid recognitions
+        run: node ops/check-manual-only-recognition.cjs
       - name: Verify shared network recognition and rolling playlist history
         run: node ops/check-phase34-network-nowplaying.cjs
       - name: Test Phase 4 player-free backoffice, station ownership and approval workflow

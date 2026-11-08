@@ -34,9 +34,9 @@ for key in SMTP_HOST SMTP_PORT; do
   fi
 done
 # Staging mailer forces mailpit independently of these SMTP values.
-if grep -Eq '^STAGE_ENABLE_ACRCLOUD=' "$ENV_FILE"; then
-  if [[ "$(count_key STAGE_ENABLE_ACRCLOUD)" != "1" ]] || ! grep -Eq '^STAGE_ENABLE_ACRCLOUD=[01]$' "$ENV_FILE"; then
-    echo 'STOP: STAGE_ENABLE_ACRCLOUD must be declared once as 0 or 1.' >&2
+if grep -Eq '^STAGE_ENABLE_SONOVAULT=' "$ENV_FILE"; then
+  if [[ "$(count_key STAGE_ENABLE_SONOVAULT)" != "1" ]] || ! grep -Eq '^STAGE_ENABLE_SONOVAULT=[01]$' "$ENV_FILE"; then
+    echo 'STOP: STAGE_ENABLE_SONOVAULT must be declared once as 0 or 1.' >&2
     exit 1
   fi
 fi

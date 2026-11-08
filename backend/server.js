@@ -72,9 +72,8 @@ app.use(express.json());
 // This is installed after JSON parsing and before any API router.
 if (process.env.APP_ENV === 'staging') {
   app.use('/api', require('./utils/stagePublicAccess').stagePublicAccess);
-  const smartAuto=require('./utils/stageAutoAcrcloud');
-  app.post('/api/listen/heartbeat', smartAuto.heartbeat);
-  smartAuto.start(); // opt-in only; no external calls without both server switches
+  // The heartbeat remains compatible; it never invokes paid recognition.
+  app.post('/api/listen/heartbeat', require('./utils/stageListenerHeartbeat').heartbeat);
   require('./utils/stageNativeScanner').start();
 }
 

@@ -16,7 +16,7 @@ const safe = [
   'STRIPE_WEBHOOK_SECRET=whsec_disabled',
   'SMTP_HOST=mailpit',
   'SMTP_PORT=1025',
-  'STAGE_ENABLE_ACRCLOUD=0'
+  'STAGE_ENABLE_SONOVAULT=0'
 ].join('\n') + '\n';
 function verify(content, success, label) {
   fs.writeFileSync(target,content,{mode:0o600});
@@ -35,8 +35,8 @@ try {
   verify(safe.replace('STRIPE_WEBHOOK_SECRET=whsec_disabled','STRIPE_WEBHOOK_SECRET='),false,'empty webhook secret rejected');
   verify(safe+'STRIPE_SECRET_KEY=sk_test_disabled_no_payments\n',false,'duplicate Stripe setting');
   verify(safe.replace('APP_ENV=staging','APP_ENV=production'),false,'wrong app environment');
-  verify(safe.replace('STAGE_ENABLE_ACRCLOUD=0','STAGE_ENABLE_ACRCLOUD=maybe'),false,'invalid ACRCloud enablement');
-  verify(safe.replace('STAGE_ENABLE_ACRCLOUD=0','STAGE_ENABLE_ACRCLOUD=1'),true,'intentional staging ACRCloud enablement');
+  verify(safe.replace('STAGE_ENABLE_SONOVAULT=0','STAGE_ENABLE_SONOVAULT=maybe'),false,'invalid SonoVault enablement');
+  verify(safe.replace('STAGE_ENABLE_SONOVAULT=0','STAGE_ENABLE_SONOVAULT=1'),true,'intentional staging SonoVault enablement');
   // Prevent regression: SDK initialization must be conditional on not staging.
   const controller=readFile('backend/controllers/paymentController.js');
   assert.match(controller,/process\.env\.APP_ENV\s*===\s*'staging'\s*\?\s*null\s*:\s*require\('stripe'\)/);
