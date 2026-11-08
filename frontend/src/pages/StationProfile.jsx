@@ -428,7 +428,7 @@ export default function StationProfile({
                   }
                 }} 
                 className={`w-full h-full transition-all duration-700 z-10 
-                  ${stationSongCover ? 'object-cover group-hover:scale-105' : 'object-contain bg-white group-hover:scale-105'}
+                  ${stationSongCover ? 'ir-station-art-is-song object-cover group-hover:scale-105' : 'ir-station-art-is-logo object-contain bg-white group-hover:scale-105'}
                   ${isThisPlaying && isPlaying && !showArtwork ? 'animate-audio-pulse shadow-[0_0_50px_-12px_var(--station-accent)]' : ''}
                 `}
               />
@@ -570,11 +570,9 @@ export default function StationProfile({
                   Συνδέσου στο iRadios για NowPlaying
                 </button>
               ) : (
-                station.slogan && (
-                  <h2 className="text-lg lg:text-xl text-[#ffffff55] tracking-tight mt-1 animate-fade-in">
-                    "{station.slogan}"
-                  </h2>
-                )
+                <p className="ir-station-empty-meta">
+                  {station.isOffline===true?'Ο σταθμός είναι προσωρινά εκτός σύνδεσης':'Συντονίσου ζωντανά στο '+station.name}
+                </p>
               )}
               </RdsCrossfade>
               
