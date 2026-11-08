@@ -83,20 +83,23 @@ exports.inviteProducer = async (req, res) => {
 // 2. Αποδοχή πρόσκλησης και ορισμός κωδικού (Από τον Producer)
 exports.acceptInvite = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, newPassword } = req.body || {};
+    if(typeof token!=='string'||typeof newPassword!=='string'||
+       newPassword.length<10||newPassword.length>128)
+      return res.status(400).json({message:'Ο κωδικός χρειάζεται 10 έως 128 χαρακτήρες.'});
 
     // Επαλήθευση Token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    const user = await User.findById(decoded.userId);
-    if (!user || user.role !== 'producer') {
-      return res.status(400).json({ message: 'Μη έγκυρος λογαριασμός ή πρόσκληση.' });
-    }
-
-    // Ορισμός νέου κωδικού και ενεργοποίηση
-    user.password = await bcrypt.hash(newPassword, 10);
-    user.isVerified = true;
-    await user.save();
+    // Atomic compare-and-set closes the replay race when the same invitation
+    // is submitted concurrently from two tabs: only one can set a password.
+    const hashed=await bcrypt.hash(newPassword,10);
+    const activated=await User.findOneAndUpdate({
+      _id:decoded.userId,role:'producer',email:decoded.email,isVerified:false
+    },{$set:{password:hashed,isVerified:true}},{new:false});
+    if(!activated)return res.status(400).json({
+      message:'Η πρόσκληση έχει λήξει, χρησιμοποιηθεί ή είναι άκυρη.'
+    });
 
     res.json({ message: 'Ο λογαριασμός ενεργοποιήθηκε! Μπορείτε πλέον να συνδεθείτε.' });
   } catch (error) {

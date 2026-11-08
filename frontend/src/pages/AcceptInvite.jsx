@@ -27,8 +27,8 @@ export default function AcceptInvite({ API_URL }) {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες.");
+    if (password.length < 10) {
+      setError("Ο κωδικός πρέπει να έχει τουλάχιστον 10 χαρακτήρες.");
       return;
     }
 

@@ -62,8 +62,26 @@ function stagePublicAccess(req, res, next) {
     return next();
   }
 
+  // A producer invitation is proven by a signed one-time JWT in the body.
+  // The existing guest-facing invite page must remain accessible without
+  // granting anonymous access to any other producer management operation.
+  if(req.method==='POST' && path==='/api/producers/accept-invite'){
+    const token=req.body?.token,pass=req.body?.newPassword;
+    if(typeof token!=='string'||token.length<40||token.length>2048||
+      typeof pass!=='string'||pass.length<10||pass.length>128)
+      return res.status(400).json({error:'Μη έγκυρα στοιχεία πρόσκλησης.'});
+    if(!loginRateLimit(req,res))return;
+    return next();
+  }
+
   // A user may read their own profile and favorites, never another user's.
   if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
+
+  // Phase 4 Backoffice: signed-in operational roles only. Each backoffice
+  // route additionally enforces station ownership and action-specific roles.
+  if (path === '/api/backoffice' || path.startsWith('/api/backoffice/')) {
+    return protect(req,res,()=>authorizeRoles('admin','broadcaster','producer')(req,res,next));
+  }
 
   // Listener-only song metadata, station playlist history and ACRCloud recognition.
   if (req.method === 'GET' && /^\/api\/stations\/[0-9a-fA-F]{24}\/playlist$/.test(path)) return protect(req,res,next);

@@ -45,6 +45,12 @@ assert.equal(consentWithoutJwt.res.code,401);
 const recognizeWithoutJwt=call('POST','/recognize-proxy',{stationId:'000000000000000000000000'});
 assert.equal(recognizeWithoutJwt.reached,false,'cloud recognition requires JWT');
 assert.equal(recognizeWithoutJwt.res.code,401);
+const inviteWithoutToken=call('POST','/producers/accept-invite',{token:'short',newPassword:'some-long-password'});
+assert.equal(inviteWithoutToken.res.code,400,'invite endpoint needs signed token-shaped input');
+const validInvite=call('POST','/producers/accept-invite',{
+ token:'abc.def.ghi'.padEnd(64,'a'),newPassword:'secure-long-password'
+});
+assert.equal(validInvite.reached,true,'signed invite verification endpoint is reachable for guests');
 const blocked=call('POST','/stations');
 assert.equal(blocked.res.code,401);
 (async()=>{

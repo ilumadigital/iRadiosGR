@@ -58,8 +58,7 @@ export default function Login({ API_URL, setCurrentUser }) {
         localStorage.setItem('iluma_token', data.token);
         setCurrentUser(data.user);
         
-        if (data.user.role === 'admin') navigate('/admin');
-        else if (data.user.role === 'broadcaster') navigate('/studio');
+        if (['admin','broadcaster','producer'].includes(data.user.role)) navigate('/backoffice');
         else navigate('/');
       } 
       else if (res.status === 403 && data.requireOtp) {
@@ -102,8 +101,7 @@ export default function Login({ API_URL, setCurrentUser }) {
         
         setShowOtpModal(false);
         
-        if (data.user.role === 'admin') navigate('/admin');
-        else if (data.user.role === 'broadcaster') navigate('/my-radios');
+        if (['admin','broadcaster','producer'].includes(data.user.role)) navigate('/backoffice');
         else navigate('/');
       } else {
         setError(data.error || 'Λάθος κωδικός OTP.');
