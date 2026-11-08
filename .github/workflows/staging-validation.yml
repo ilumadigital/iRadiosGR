@@ -49,6 +49,8 @@ jobs:
         run: node ops/check-newsfeed.cjs
       - name: Verify in-app news article RSS preview and safe share links
         run: node ops/check-news-article.cjs
+      - name: Validate smart search relevance, voice routes and header breakpoints
+        run: node ops/check-smart-search.mjs
       - name: Validate rssnews.io selected publishers and article image attribution
         run: node ops/check-rssnews-selected-publishers.cjs
       - name: Verify 1200x630 catalog slides and scoped promoted station
