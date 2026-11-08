@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import StationCatalogCard from './StationCatalogCard';
 import EditorialPlacement from './EditorialPlacement';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
+import {catalogStationInfo,compareCatalogPopularity} from '../utils/catalogLive';
 import {
   Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
   Play, MapPin, X, Headphones, Disc3, Music2, Grid2X2, MapPinned
@@ -28,7 +29,7 @@ const tabs=[
   {id:'all',label:'Όλοι',Icon:Grid2X2}
 ];
 
-export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery}) {
+export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery, catalogNowPlaying={}, catalogClock}) {
   const navigate=useNavigate();
   const location=useLocation();
   const [tab,setTab]=useState('for-you');
@@ -79,11 +80,22 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
     let result=eligible;
     if(tab==='favorites')result=result.filter(s=>favIds.has(String(s._id)));
     if(tab==='recent')result=result.filter(s=>recentIds.has(String(s._id)));
-    if(tab==='for-you')result=[...result].sort((a,b)=>
-      (Number(prefGenres.has(b.genre))*20+Number(favIds.has(String(b._id)))*15+Number(b.isFeatured)*7+Number(b.plays||0)/10000)-
-      (Number(prefGenres.has(a.genre))*20+Number(favIds.has(String(a._id)))*15+Number(a.isFeatured)*7+Number(a.plays||0)/10000));
-    if(tab==='top')result=[...result].sort((a,b)=>
-      (Number(b.plays||0)+Number(b.isFeatured)*100)-(Number(a.plays||0)+Number(a.isFeatured)*100));
+    // Strict metadata/programme tiers across discovery tabs; personal preference
+    // only reorders stations WITHIN the same quality tier.
+    const personalized=station=>
+      Number(prefGenres.has(station.genre))*20+
+      Number(favIds.has(String(station._id)))*15+
+      Number(station.isFeatured)*7+Number(station.plays||0)/10000;
+    result=[...result].sort((a,b)=>{
+      const aTier=catalogStationInfo(a,catalogNowPlaying[String(a._id)],catalogClock).tier;
+      const bTier=catalogStationInfo(b,catalogNowPlaying[String(b._id)],catalogClock).tier;
+      if(aTier!==bTier)return aTier-bTier;
+      if(tab==='for-you'){
+        const preference=personalized(b)-personalized(a);
+        if(preference)return preference;
+      }
+      return compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock);
+    });
     if(genre)result=result.filter(s=>s.genre===genre);
     if(region)result=result.filter(s=>s.region===region);
     if(query.trim()){
@@ -91,7 +103,7 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
       result=result.filter(s=>[s.name,s.genre,s.secondaryGenre,s.region,s.city,s.slogan].some(t=>normalize(t).includes(q)));
     }
     return result;
-  },[eligible,tab,genre,region,query,favIds,recentIds,prefGenres]);
+  },[eligible,tab,genre,region,query,favIds,recentIds,prefGenres,catalogNowPlaying,catalogClock]);
   const displayed=showAll?filtered.slice(0,48):filtered.slice(0,12);
   const clear=()=>{setGenre('');setRegion('');setQuery('');};
   return (
@@ -196,7 +208,8 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
       </div>
       {!!displayed.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
         {displayed.map(s=><StationCatalogCard key={s._id} station={s} currentStation={currentStation}
-          isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>)}
+          isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}
+          nowPlaying={catalogNowPlaying[String(s._id)]} clock={catalogClock}/>)}
       </div>:<div className="rounded-2xl border border-dashed border-white/15 p-8 text-center">
         <Radio size={30} className="mx-auto text-zinc-500"/>
         <p className="mt-3 text-sm text-zinc-300">{tab==='favorites'?'Δεν έχεις προσθέσει αγαπημένους σταθμούς.':'Δεν βρέθηκαν σταθμοί με αυτά τα φίλτρα.'}</p>

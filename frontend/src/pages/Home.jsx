@@ -14,6 +14,8 @@ import HomeExplore from '../components/HomeExplore';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import HomeRadioShortlist from '../components/HomeRadioShortlist';
 import HomeRecommendationDeck from '../components/HomeRecommendationDeck';
+import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
+import {catalogStationInfo,compareCatalogPopularity} from '../utils/catalogLive';
 
 // 🌍 Αλγόριθμος Haversine: Υπολογίζει την απόσταση μεταξύ 2 συντεταγμένων σε χιλιόμετρα
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
@@ -92,6 +94,9 @@ const CITY_COORDINATES = {
 export default function Home({ stations, weather, currentStation, setCurrentStation, userLocation, checkGeoMatch, isPlaying, onPlayPause, currentUser, analyser, onOpenDiscovery, API_URL }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying();
+  const rankedStations=useMemo(()=>[...stations].sort((a,b)=>
+    compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock)),[stations,catalogNowPlaying,catalogClock]);
   const [heroStationId,setHeroStationId] = useState(null);
   useEffect(()=>{
     if(new URLSearchParams(location.search).get('explore')==='playlist'){
@@ -365,53 +370,52 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
 
     let localStations = [];
     if (userLocation && (userLocation.region || userLocation.city)) {
-      localStations = stations.filter(s => 
+      localStations = rankedStations.filter(s => 
         (s.region === userLocation.region || s.region === userLocation.city) && 
         !playedIds.includes(s._id)
       ).slice(0, 2);
       
       if (localStations.length === 0) {
-        localStations = stations.filter(s => s.region === userLocation.region || s.region === userLocation.city).slice(0, 2);
+        localStations = rankedStations.filter(s => s.region === userLocation.region || s.region === userLocation.city).slice(0, 2);
       }
     }
 
     const localIds = localStations.map(s => s._id);
     
     // 🟢 Ψάχνουμε σταθμούς που ανήκουν ΣΕ ΕΝΑ ΑΠΟ ΤΑ ΠΟΛΛΑ GENRES του moodMatch!
-    let discoveryStations = stations.filter(s => 
+    let discoveryStations = rankedStations.filter(s => 
       (moodMatch.genres.includes(s.genre) || moodMatch.genres.includes(s.secondaryGenre)) && 
       !playedIds.includes(s._id) && 
       !localIds.includes(s._id)
-    ).sort(() => 0.5 - Math.random()); // Ανακάτεμα για να παίρνει λίγο από το κάθε είδος!
+    ); // Ranking priority is shared with the catalog.
 
     let combined = [...localStations, ...discoveryStations].slice(0, 8);
 
     if (combined.length < 8) {
       const chosenIds = new Set(combined.map(s => String(s._id)));
-      const preferred = stations.filter(s =>
+      const preferred = rankedStations.filter(s =>
         s._id && (s.status === 'approved' || !s.status) &&
         !chosenIds.has(String(s._id)) && (moodMatch.genres.includes(s.genre) || moodMatch.genres.includes(s.secondaryGenre))
       );
-      const others = stations.filter(s =>
+      const others = rankedStations.filter(s =>
         s._id && (s.status === 'approved' || !s.status) &&
         !chosenIds.has(String(s._id)) && !(moodMatch.genres.includes(s.genre) || moodMatch.genres.includes(s.secondaryGenre))
       );
-      const fillIns = [...preferred, ...others]
-        .sort((a,b)=>Number(Boolean(b.isFeatured))-Number(Boolean(a.isFeatured)));
+      const fillIns = [...preferred, ...others];
       combined = [...combined, ...fillIns].filter((station,index,all) =>
         all.findIndex(s => String(s._id) === String(station._id)) === index
       ).slice(0, 8);
     }
 
     return combined;
-  }, [stations, moodMatch.genres, recentlyPlayed, userLocation]);
+  }, [rankedStations, moodMatch.genres, recentlyPlayed, userLocation]);
 
   // --- 📍 NEARBY STATIONS LOGIC (ΕΝΤΟΣ 40 ΧΛΜ ΜΕ ΤΥΧΑΙΑ ΣΕΙΡΑ) ---
   const nearbyStations = useMemo(() => {
     if (!userCoords || !stations || stations.length === 0) return [];
     
     // 1. Υπολογίζουμε την απόσταση για κάθε σταθμό
-    const stationsWithDistance = stations.map(s => {
+    const stationsWithDistance = rankedStations.map(s => {
       let sLat = s.latitude || s.lat; 
       let sLon = s.longitude || s.lng || s.lon;
       
@@ -431,27 +435,28 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       return { ...s, distance };
     });
 
-    // 2. Φιλτράρουμε αυτούς που είναι <= 40 χλμ, ΤΟΥΣ ΑΝΑΚΑΤΕΥΟΥΜΕ (Randomize) και κρατάμε 8
+    // Quality tier before distance; no random order that hides verified metadata.
     const closeStations = stationsWithDistance
       .filter(s => s.distance <= 40)
-      .sort(() => 0.5 - Math.random()) // 🎲 Το μαγικό τρικ για να ανακατεύεται η λίστα σε κάθε reload!
       .slice(0, 8);
 
     return closeStations;
-  }, [userCoords, stations]);
+  }, [userCoords, rankedStations]);
 
   const isMobile = window.innerWidth <= 768;
   const itemsPerPage = isMobile ? 2 : 4;
 
   const favoriteStations = currentUser?.favorites ? stations.filter(s => currentUser.favorites.includes(s._id || s.id)) : [];
-  const eligibleTopStations = stations.filter(s => s._id && (s.status === 'approved' || !s.status));
-  const featuredTopStations = eligibleTopStations.filter(s =>
-    s.isFeatured === true || (s.boostStatus === true && s.position === 1));
-  const topStations = [
-    ...featuredTopStations,
-    ...eligibleTopStations.filter(s => !featuredTopStations.includes(s))
-      .sort((a,b)=>Number(b.plays||0)-Number(a.plays||0))
-  ].slice(0,7);
+  const eligibleTopStations = rankedStations.filter(s => s._id && (s.status === 'approved' || !s.status));
+  const topStations = [...eligibleTopStations].sort((a,b)=>{
+    const aTier=catalogStationInfo(a,catalogNowPlaying[String(a._id)],catalogClock).tier;
+    const bTier=catalogStationInfo(b,catalogNowPlaying[String(b._id)],catalogClock).tier;
+    if(aTier!==bTier)return aTier-bTier;
+    // Editorial featured stations retain preference only inside the same tier.
+    const featured=Number(Boolean(b.isFeatured||b.boostStatus&&b.position===1))-
+      Number(Boolean(a.isFeatured||a.boostStatus&&a.position===1));
+    return featured||compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock);
+  }).slice(0,7);
   const homeDisplayStation = stations.find(s=>String(s._id)===String(heroStationId)) ||
     currentStation || recentlyPlayed[0] || topStations[0] || stations[0];
   const topRegions = ['Αττική', 'Αθήνα', 'Θεσσαλονίκη', 'WebRadios']; 
@@ -658,6 +663,8 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         onPlayPause={onPlayPause}
         onPlayStation={setCurrentStation}
         onOpenDiscovery={onOpenDiscovery}
+        catalogNowPlaying={catalogNowPlaying}
+        catalogClock={catalogClock}
       />
 
       {/* Existing paid home banners remain separate and clearly labelled as sponsored. */}
