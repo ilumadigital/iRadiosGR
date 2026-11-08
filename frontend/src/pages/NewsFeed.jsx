@@ -17,16 +17,18 @@ export function newsAge(value,now=Date.now()){
 function Article({item,view,now,source,backTo}){
   const [broken,setBroken]=useState(false),time=newsAge(item.publishedAt,now);
   const href='/newsfeed/'+item.key;
-  return <article className={'group min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#12171b] shadow-[0_16px_32px_rgba(0,0,0,.16)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ccff00]/35 '+(view==='list'?'flex flex-col sm:flex-row':'flex h-full flex-col')}>
-    <Link to={href} state={{backTo}} aria-label={'Προεπισκόπηση: '+item.title}
-      className={'relative block shrink-0 overflow-hidden bg-[#202628] '+(view==='list'?'aspect-[16/9] sm:aspect-auto sm:w-[235px] lg:w-[290px]':'aspect-[16/10]')}>
+  // The entire article tile is one internal navigation target, including the
+  // image and whitespace. External publisher links exist only in single view.
+  return <Link to={href} state={{backTo}} aria-label={'Προεπισκόπηση: '+item.title}
+    className={'group min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#12171b] shadow-[0_16px_32px_rgba(0,0,0,.16)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ccff00]/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ccff00] '+(view==='list'?'flex flex-col sm:flex-row':'flex h-full flex-col')}>
+    <div className={'relative block shrink-0 overflow-hidden bg-[#202628] '+(view==='list'?'aspect-[16/9] sm:aspect-auto sm:w-[235px] lg:w-[290px]':'aspect-[16/10]')}>
       {item.imageUrl&&!broken?<img src={item.imageUrl} alt="" loading="lazy" onError={()=>setBroken(true)} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"/>:
         <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#1d292b] to-[#0a1213] px-4 text-center">
           <Newspaper size={42} className="text-[#ccff00]/45"/>
           <span className="max-w-full truncate text-[10px] font-black uppercase tracking-[.15em] text-zinc-400">{item.source||source||'News'}</span>
         </div>}
       <span className="absolute bottom-3 left-3 max-w-[90%] truncate rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#ccff00] backdrop-blur">{item.source||source||'Ειδήσεις'}</span>
-    </Link>
+    </div>
     <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-zinc-400">
         <Clock3 size={13} className="shrink-0 text-[#ccff00]"/>
@@ -35,12 +37,12 @@ function Article({item,view,now,source,backTo}){
         {item.category&&<span className="rounded-full border border-[#ccff00]/20 px-2 py-0.5 text-[10px] text-[#ccff00]">{item.category}</span>}
       </div>
       <h2 className={'line-clamp-3 font-black leading-snug tracking-tight text-white transition-colors group-hover:text-[#ccff00] '+(view==='list'?'text-lg sm:text-xl':'text-base sm:text-lg')}>
-        <Link to={href} state={{backTo}}>{item.title}</Link>
+        {item.title}
       </h2>
       {item.summary&&<p className="mt-3 line-clamp-3 text-xs leading-6 text-zinc-400 sm:text-sm">{item.summary}</p>}
-      <Link to={href} state={{backTo}} className="mt-auto inline-flex w-fit items-center gap-1.5 pt-5 text-xs font-black text-[#ccff00] hover:text-white">Δες την προεπισκόπηση <ExternalLink size={14}/></Link>
+      <span className="mt-auto inline-flex w-fit items-center gap-1.5 pt-5 text-xs font-black text-[#ccff00] group-hover:text-white">Δες την προεπισκόπηση <ExternalLink size={14}/></span>
     </div>
-  </article>;
+  </Link>;
 }
 function AdLink({banner,children,className}){
   const ref=React.useRef(null),tracked=React.useRef(false);
