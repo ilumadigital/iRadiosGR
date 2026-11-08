@@ -14,6 +14,8 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
 
   const [sortBy, setSortBy] = useState('popularity');
   const [viewMode, setViewMode] = useState('grid');
+  const [promotedStationId,setPromotedStationId] = useState(null);
+  useEffect(()=>setPromotedStationId(null),[genreName]);
   
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedTransmission, setSelectedTransmission] = useState('all'); 
@@ -100,6 +102,10 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
       return 0;
     });
   }, [baseStations, selectedRegion, selectedTransmission, sortBy]);
+
+  const displayStations=useMemo(()=>viewMode==='grid' && promotedStationId
+    ? filteredAndSorted.filter(s=>String(s._id)!==String(promotedStationId))
+    : filteredAndSorted,[filteredAndSorted,viewMode,promotedStationId]);
 
   const handleBannerView = async (bannerId) => {
     try {
@@ -202,14 +208,14 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
         </div>
       </div>
 
-      <EditorialPlacement placement="genre" value={genreName} viewMode={viewMode}
+      <EditorialPlacement placement="genre" value={genreName} viewMode={viewMode} onPromotedStationChange={setPromotedStationId}
         currentUser={currentUser} stations={stations} fallbackStation={baseStations[0]}
         currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
       {filteredAndSorted.length > 0 ? (
         <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex flex-col gap-3 max-w-4xl"}>
-          {filteredAndSorted.map((station, index) => {
+          {displayStations.map((station, index) => {
             const isCurrent = currentStation && (currentStation._id === station._id);
             const isCurrentlyPlaying = isCurrent && isPlaying;
 
