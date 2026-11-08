@@ -25,6 +25,9 @@ export function catalogStationInfo(station,snapshot,clock){
     foundWithAI:snapshot?.foundWithAI===true};
 }
 
+// Availability overrides every other ranking mode.
+export const stationIsOffline = station => station?.isOffline === true;
+const compareAvailability = (a,b) => Number(stationIsOffline(a))-Number(stationIsOffline(b));
 function stationPosition(station){
   const raw=station?.position;
   if(raw===null||raw===undefined||raw==='')return 999;
@@ -46,6 +49,8 @@ function frequency(station){
 // "Δημοτικότητα": the saved editorial position comes FIRST. Listener counts
 // are only a deterministic tiebreaker (e.g. stations with default position 999).
 export function compareCatalogPopularity(a,b){
+  const offline=compareAvailability(a,b);
+  if(offline)return offline;
   const positions=stationPosition(a)-stationPosition(b);
   if(positions)return positions;
   return popularity(b)-popularity(a)||stationName(a,b);
@@ -54,11 +59,13 @@ export function compareCatalogPopularity(a,b){
 export function compareCatalogCompleteness(a,b,byId={},clock){
   const aTier=catalogStationInfo(a,byId?.[String(a?._id)],clock).tier;
   const bTier=catalogStationInfo(b,byId?.[String(b?._id)],clock).tier;
-  return aTier-bTier||compareCatalogPopularity(a,b);
+  return compareAvailability(a,b)||aTier-bTier||compareCatalogPopularity(a,b);
 }
 // Every sort choice is independent; selecting alphabetical, frequency or date
 // must not secretly promote a station because of its metadata quality.
 export function compareCatalogStations(a,b,byId={},clock,sortBy='popularity'){
+  const offline=compareAvailability(a,b);
+  if(offline)return offline;
   if(sortBy==='completeness')return compareCatalogCompleteness(a,b,byId,clock);
   if(sortBy==='alphabetical')return stationName(a,b);
   if(sortBy==='frequency'){
