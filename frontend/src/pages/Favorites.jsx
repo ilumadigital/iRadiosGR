@@ -27,9 +27,9 @@ export default function Favorites({
     const q=normalize(query.trim());
     const filtered=favorites.filter(s=>(!genre||s.genre===genre) &&
       (!q||[s.name,s.genre,s.city,s.region,s.frequency].some(v=>normalize(v).includes(q))));
-    return [...filtered].sort((a,b)=>sort==='recent'
+    return [...filtered].sort((a,b)=>Number(a.isOffline===true)-Number(b.isOffline===true)|| (sort==='recent'
       ? (Number(b.plays||0)-Number(a.plays||0)||a.name.localeCompare(b.name,'el-GR'))
-      : a.name.localeCompare(b.name,'el-GR'));
+      : a.name.localeCompare(b.name,'el-GR')));
   },[favorites,query,genre,sort]);
   const clear=()=>{setQuery('');setGenre('');};
 
