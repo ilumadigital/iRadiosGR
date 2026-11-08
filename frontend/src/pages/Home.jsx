@@ -15,6 +15,7 @@ import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import HomeRadioShortlist from '../components/HomeRadioShortlist';
 import HomeRecommendationDeck from '../components/HomeRecommendationDeck';
 import HomeTopStations from '../components/HomeTopStations';
+import HomeNewsFeed from '../components/HomeNewsFeed';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 import {compareCatalogPopularity} from '../utils/catalogLive';
 
@@ -673,6 +674,9 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
 
       {/* Existing paid home banners remain separate and clearly labelled as sponsored. */}
       {isFreeOrGuest && homeBanners.map(banner => <HomeAdBanner key={banner._id} banner={banner} />)}
+
+      <HomeNewsFeed stations={stations} currentStation={currentStation} isPlaying={isPlaying}
+        onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
       {/* 🟢 BROADCASTER PROMO BANNER (Bottom) */}
       {(!currentUser || currentUser?.role === 'user') && (
