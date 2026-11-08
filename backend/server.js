@@ -116,6 +116,7 @@ app.get('/station/:slug', injectStationSeo);
 app.get('/genre/:genreName', injectGenreSeo);
 app.get('/region/:regionName', injectRegionSeo);
 app.get('/map', injectMapSeo);
+app.get('/newsfeed/:key', require('./utils/newsArticleSeo').injectNewsArticleSeo);
 app.get('/', injectHomeSeo);
 
 
