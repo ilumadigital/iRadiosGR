@@ -53,7 +53,7 @@ jobs:
         run: node ops/check-stage-acrcloud-diagnostics.cjs
       - name: Validate shared ACR song provenance and five-minute device metadata
         run: node ops/check-phase33-smart-nowplaying.cjs
-      - name: Validate Top 10 music-only automatic recognition and billing cap
+      - name: Validate Top-5 per music genre automatic recognition and billing cap
         run: node ops/check-phase33-auto-acr.cjs
       - name: Verify shared network recognition and rolling playlist history
         run: node ops/check-phase34-network-nowplaying.cjs
