@@ -7,7 +7,7 @@ function musicParts(value){
   const match=value.trim().match(/^(.{1,150}?)\s+[-–—]\s+(.{1,150})$/);
   if(!match)return null;
   const artist=match[1].trim(),title=match[2].trim();
-  if(/(?:dj\\s*set|djset|live\\s*(?:show|session|set|mix)|on\\s*air|radio\\s*show|podcast|εκπομπ[ήη]|δελτ[ιί]ο\\s*ειδ[ήη]σεων)/i.test(artist+' '+title))return null;
+  if(/(?:dj\s*set|djset|live\s*(?:show|session|set|mix)|on\s*air|radio\s*show|podcast|εκπομπ[ήη]|δελτ[ιί]ο\s*ειδ[ήη]σεων)/i.test(artist+' '+title))return null;
   return {artist,title};
 }
 function artworkType(url){
