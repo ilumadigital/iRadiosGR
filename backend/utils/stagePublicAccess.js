@@ -65,6 +65,12 @@ function stagePublicAccess(req, res, next) {
   // A user may read their own profile and favorites, never another user's.
   if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
 
+  // Phase 4 Backoffice: signed-in operational roles only. Each backoffice
+  // route additionally enforces station ownership and action-specific roles.
+  if (path === '/api/backoffice' || path.startsWith('/api/backoffice/')) {
+    return protect(req,res,()=>authorizeRoles('admin','broadcaster','producer')(req,res,next));
+  }
+
   // Listener-only song metadata, station playlist history and ACRCloud recognition.
   if (req.method === 'GET' && /^\/api\/stations\/[0-9a-fA-F]{24}\/playlist$/.test(path)) return protect(req,res,next);
   if (req.method === 'GET' && path === '/api/metadata') return protect(req,res,next);
