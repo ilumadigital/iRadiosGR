@@ -14,7 +14,7 @@ async function main(){
     await import(pathToFileURL(path.join(root,'frontend/src/utils/liveBroadcast.js')).href);
   const {parseMusicMetadata}=await import(pathToFileURL(
     path.join(root,'frontend/src/utils/musicMetadata.js')).href);
-  const {showProducerNow,TEN_MINUTES}=await import(pathToFileURL(
+  const {showProducerNow,RDS_INTERVAL_MS}=await import(pathToFileURL(
     path.join(root,'frontend/src/utils/rdsPresentation.js')).href);
 
   const schedule=[{day:7,startTime:'03:00',endTime:'05:00',
@@ -44,18 +44,20 @@ async function main(){
     nowPlayingInfo:{broadcastHint:'DJZONE'},clock});
   assert.equal(song.imageUrl,schedule[0].imageUrl,
     'song and live DJ photo must both be available for RDS rotation');
-  assert.equal(TEN_MINUTES,600000);
+  assert.equal(RDS_INTERVAL_MS,20000);
   const rds={currentUser:{_id:'u'},stationName:station.name,
     nowPlaying:'Ajna - Attract',liveBroadcast:song};
-  assert.equal(showProducerNow({...rds,at:0}),false,'first 10-minute slot is song');
-  assert.equal(showProducerNow({...rds,at:TEN_MINUTES}),true,'next slot is DJ');
-  assert.equal(showProducerNow({...rds,at:2*TEN_MINUTES}),false,'third slot returns to song');
-  assert.equal(showProducerNow({...rds,at:TEN_MINUTES-1}),false,'switches only at boundary');
+  assert.equal(showProducerNow({...rds,at:0}),false,'first 20-second slot is song');
+  assert.equal(showProducerNow({...rds,at:RDS_INTERVAL_MS}),true,'next slot is DJ');
+  assert.equal(showProducerNow({...rds,at:2*RDS_INTERVAL_MS}),false,'third slot returns to song');
+  assert.equal(showProducerNow({...rds,at:RDS_INTERVAL_MS-1}),false,'switches only at boundary');
+  assert.equal(showProducerNow({...rds,at:2*RDS_INTERVAL_MS-1}),true,
+    'DJ stays visible until the next 20-second boundary');
   assert.equal(showProducerNow({...rds,nowPlaying:'',at:0}),true,
     'DJ-only metadata always shows the producer photo');
-  assert.equal(showProducerNow({...rds,currentUser:null,at:TEN_MINUTES}),false,
+  assert.equal(showProducerNow({...rds,currentUser:null,at:RDS_INTERVAL_MS}),false,
     'guests keep the existing private-metadata behavior');
-  assert.equal(showProducerNow({...rds,liveBroadcast:missingImage,at:TEN_MINUTES}),false,
+  assert.equal(showProducerNow({...rds,liveBroadcast:missingImage,at:RDS_INTERVAL_MS}),false,
     'without a DJ photo never hide verified AI/song');
   assert.equal(isBroadcastMetadata('DJ Snake - Let Me Love You',station.name,show),false);
   assert.ok(parseMusicMetadata('DJ Snake - Let Me Love You',station.name));
@@ -144,7 +146,19 @@ async function main(){
   assert.match(read('frontend/src/App.jsx'),/liveBroadcast=\{liveBroadcast\}/);
   assert.match(read('frontend/src/components/DesktopFullPlayer.jsx'),/showProducerArt/);
   assert.match(read('frontend/src/components/MobileMiniPlayer.jsx'),/showProducerArt/);
+  assert.match(read('frontend/src/App.jsx'),/setRdsSlot/,'App owns a shared 20s ticker');
+  assert.match(read('frontend/src/App.jsx'),/setInterval\(refresh,1000\)/,
+    'check wall-clock boundary every second, without polling remote metadata');
+  const rdsCss=read('frontend/src/styles/rds-transition.css');
+  assert.match(rdsCss,/ease-in-out/);
+  assert.match(rdsCss,/prefers-reduced-motion/);
+  for(const path of ['frontend/src/components/DesktopFullPlayer.jsx',
+    'frontend/src/components/MobileMiniPlayer.jsx','frontend/src/pages/StationProfile.jsx']){
+    assert.match(read(path),/ir-rds-image-overlay/,'DJ artwork must crossfade in '+path);
+    assert.match(read(path),/RdsCrossfade/,'DJ details must crossfade in '+path);
+  }
+  assert.match(read('frontend/src/components/Footer.jsx'),/RdsCrossfade/);
   assert.match(read('backend/utils/stageMetadata.js'),/nativeShow/);
-  console.info('PASS: responsive station layout, ten-minute song/DJ RDS, Greek show time, DJ artwork and iOS media fields.');
+  console.info('PASS: responsive station layout, 20-second song/DJ RDS, Greek show time, DJ artwork and iOS media fields.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

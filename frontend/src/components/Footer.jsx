@@ -9,6 +9,7 @@ import ShareStory from './ShareStory';
 import LiveChat from './LiveChat';
 import DesktopFullPlayer from './DesktopFullPlayer';
 import FoundWithAI from './FoundWithAI';
+import RdsCrossfade from './RdsCrossfade';
 import {parseMusicMetadata,spotifySongLink} from '../utils/musicMetadata'; 
 import { useAlert } from '../context/AlertContext';
 
@@ -83,8 +84,8 @@ export default function Footer({
   const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
 
   // 2. Maximized Player (Full Screen): Δείχνει Cover Art ΑΝ υπάρχει ΚΑΙ είναι πραγματικό τραγούδι.
-  const showProducerArt=Boolean(!isPlayingAd&&currentUser&&!isRecognizing&&
-    liveBroadcast?.imageUrl&&rdsShowProducer);
+  const canShowDj=Boolean(!isPlayingAd&&currentUser&&!isRecognizing&&liveBroadcast?.imageUrl);
+  const showProducerArt=Boolean(canShowDj&&rdsShowProducer);
   const showCoverArt = isRealSong && !showProducerArt && globalCoverArt && !isPlayingAd;
   const maximizedImage = isPlayingAd && currentAdInfo?.logoUrl 
     ? currentAdInfo.logoUrl 
@@ -297,9 +298,15 @@ export default function Footer({
               ) : (
                 <div className="flex items-center gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full ${isRecognizing ? 'bg-blue-400 animate-ping' : isPlaying ? 'bg-[#ccff00] shadow-[0_0_8px_#ccff00]' : 'bg-red-500'}`}></div>
-                  <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all ${isRecognizing ? 'text-blue-400' : 'text-[#ccff00]'}`}>
-                    {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying : (!isRealSong||showProducerArt ? (isPlaying ? (showProducerArt?liveBroadcast.title:'ΠΑΙΖΕΙ ΤΩΡΑ') : 'STOPPED') : nowPlaying)}
-                  </span>
+                  <div className={`min-w-0 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest ${isRecognizing?'text-blue-400':'text-[#ccff00]'}`}>
+                    {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying :
+                      !isPlaying?'STOPPED':(
+                        <RdsCrossfade showSecondary={showProducerArt}
+                          secondary={canShowDj?<span>{liveBroadcast.title}</span>:null}>
+                          <span>{isRealSong?nowPlaying:'ΠΑΙΖΕΙ ΤΩΡΑ'}</span>
+                        </RdsCrossfade>
+                      )}
+                  </div>
                   {currentUser&&nowPlayingInfo?.foundWithAI&&isRealSong&&!showProducerArt&&!isPlayingAd&&<FoundWithAI compact/>}
                 </div>
               )}

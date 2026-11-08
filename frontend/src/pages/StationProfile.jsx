@@ -14,6 +14,7 @@ import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import StationScheduleTimeline from '../components/StationScheduleTimeline';
 import {resolveLiveShowArtwork} from '../utils/liveBroadcast';
 import {showProducerNow} from '../utils/rdsPresentation';
+import RdsCrossfade from '../components/RdsCrossfade';
 import '../styles/station-profile.css';
 import StationCatalogCard from '../components/StationCatalogCard';
 import FoundWithAI from '../components/FoundWithAI';
@@ -372,11 +373,12 @@ export default function StationProfile({
       nowPlaying:effectiveNowPlaying,liveBroadcast:broadcast}));
   const liveProducerImage=currentUser&&showProducer&&broadcast.imageUrl?
     broadcast.imageUrl:null;
-  const showCoverArt=Boolean(currentUser&&isThisPlaying&&isPlaying&&validatedMusic&&
-    globalCoverArt&&!isCurrentlyLoadingMeta&&!liveProducerImage);
-  // No producer photo: the verified native/AI song remains visible.
-  const showArtwork=Boolean(showCoverArt||liveProducerImage);
-  const currentImage=showCoverArt?globalCoverArt:(liveProducerImage||station.logo);
+  const stationSongCover=Boolean(currentUser&&isThisPlaying&&isPlaying&&validatedMusic&&
+    globalCoverArt&&!isCurrentlyLoadingMeta);
+  const showCoverArt=Boolean(stationSongCover&&!liveProducerImage);
+  const showArtwork=Boolean(stationSongCover||liveProducerImage);
+  const baseImage=stationSongCover?globalCoverArt:station.logo;
+  const currentImage=liveProducerImage||baseImage;
 
   return (
     <div className="ir-station-page relative flex flex-col pb-40 w-full min-h-screen">
@@ -415,9 +417,8 @@ export default function StationProfile({
             <div className="ir-station-hero-art w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72 overflow-hidden group relative z-10 transition-all duration-500">
               
               <img 
-                key={currentImage}
-                src={currentImage}
-                alt={showCoverArt ? effectiveNowPlaying : (liveProducerImage?broadcast.show?.title:station.name)}
+                src={baseImage}
+                alt={stationSongCover ? effectiveNowPlaying : station.name}
                 onError={e=>{
                   if(e.currentTarget.src!==new URL(station.logo,window.location.href).href){
                     e.currentTarget.src=station.logo;
@@ -426,10 +427,23 @@ export default function StationProfile({
                   }
                 }} 
                 className={`w-full h-full transition-all duration-700 z-10 
-                  ${showArtwork ? 'object-cover group-hover:scale-105' : 'object-contain bg-white group-hover:scale-105'}
+                  ${stationSongCover ? 'object-cover group-hover:scale-105' : 'object-contain bg-white group-hover:scale-105'}
                   ${isThisPlaying && isPlaying && !showArtwork ? 'animate-audio-pulse shadow-[0_0_50px_-12px_var(--station-accent)]' : ''}
                 `}
               />
+              {currentUser&&broadcast.imageUrl&&<img
+                src={broadcast.imageUrl}
+                alt=""
+                aria-hidden="true"
+                onError={e=>{
+                  if(e.currentTarget.src!==new URL(station.logo,window.location.href).href){
+                    e.currentTarget.src=station.logo;
+                    e.currentTarget.style.objectFit='contain';
+                    e.currentTarget.style.background='#fff';
+                  }
+                }}
+                className={`ir-rds-image-overlay z-[11] ${liveProducerImage?'is-active':''}`}
+              />}
 
               {/* 🟢 AI RADAR BUTTON (Top Right) */}
               <div className="absolute top-4 right-4 z-20 flex justify-end">
@@ -518,18 +532,20 @@ export default function StationProfile({
             
             {/* Real authenticated station metadata (no fabricated song history). */}
             <div className="ir-station-now mb-5 min-h-[60px] w-full min-w-0">
-              {liveProducerImage ? (
-                <div className="animate-fade-in flex min-w-0 flex-col items-start text-left">
-                  <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[.13em] text-[#ccff00]">
-                    <Disc3 size={14}/> ΖΩΝΤΑΝΑ ΣΤΟΝ ΑΕΡΑ
+              <RdsCrossfade showSecondary={Boolean(liveProducerImage)}
+                secondary={currentUser&&broadcast.imageUrl?(
+                  <div className="flex min-w-0 flex-col items-start text-left">
+                    <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[.13em] text-[#ccff00]">
+                      <Disc3 size={14}/> ΖΩΝΤΑΝΑ ΣΤΟΝ ΑΕΡΑ
+                    </div>
+                    <h2 className="break-words text-xl font-black leading-tight tracking-tight text-white sm:text-2xl">
+                      {broadcast.title}
+                    </h2>
+                    {broadcast.artist&&<p className="mt-2 text-sm font-semibold text-zinc-300">{broadcast.artist}</p>}
                   </div>
-                  <h2 className="break-words text-xl font-black leading-tight tracking-tight text-white sm:text-2xl">
-                    {broadcast.title}
-                  </h2>
-                  {broadcast.artist&&<p className="mt-2 text-sm font-semibold text-zinc-300">{broadcast.artist}</p>}
-                </div>
-              ) : effectiveNowPlaying ? (
-                <div className="animate-fade-in flex min-w-0 flex-col items-start text-left">
+                ):null}>
+              {effectiveNowPlaying ? (
+                <div className="flex min-w-0 flex-col items-start text-left">
                   <div className="inline-flex items-center gap-2 mb-2">
                     {!isCurrentlyLoadingMeta ? (
                        <Disc3 size={14} className="text-[#ccff00] animate-spin-slow" />
@@ -559,6 +575,7 @@ export default function StationProfile({
                   </h2>
                 )
               )}
+              </RdsCrossfade>
               
               <div className="ir-station-now-shows mt-4 flex flex-wrap justify-start gap-3">
                 {currentShow && (

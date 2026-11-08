@@ -10,6 +10,7 @@ import {
 import LiveChat from './LiveChat'; 
 import ShareStory from './ShareStory';
 import FoundWithAI from './FoundWithAI';
+import RdsCrossfade from './RdsCrossfade';
 import {parseMusicMetadata,spotifySongLink} from '../utils/musicMetadata';
 import { useAlert } from '../context/AlertContext';
 
@@ -135,7 +136,10 @@ export default function MobileMiniPlayer({
     ?(spotifyUrl||spotifySongLink(currentTrack.raw,currentStation?.name)):null;
 
   const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
-  const showCoverArt = Boolean(visibleSong && globalCoverArt && !isPlayingAd);
+  const showCoverArt = Boolean(isActualSong && globalCoverArt && !isPlayingAd);
+  const canShowDj=Boolean(currentUser&&!isPlayingAd&&!isRecognizing&&liveBroadcast?.imageUrl);
+  const rdsBaseImage=isPlayingAd&&currentAdInfo?.logoUrl?currentAdInfo.logoUrl:
+    showCoverArt?globalCoverArt:(currentStation?.logo||'');
   const largeArtwork=Boolean(showCoverArt||showProducerArt);
   const maximizedImage = isPlayingAd && currentAdInfo?.logoUrl 
     ? currentAdInfo.logoUrl 
@@ -368,9 +372,8 @@ export default function MobileMiniPlayer({
             <div className="relative mb-[clamp(.5rem,2dvh,1.25rem)] flex aspect-square w-full max-w-[min(72vw,37dvh,310px)] justify-center sm:max-w-[min(340px,37dvh)]">
               <img 
                 onClick={handleAdClick}
-                key={maximizedImage}
-                src={maximizedImage}
-                alt={showProducerArt?'Εικόνα παραγωγού '+(liveBroadcast?.artist||''):currentStation.name}
+                src={rdsBaseImage}
+                alt={showCoverArt?'Εξώφυλλο τρέχοντος τραγουδιού':currentStation.name}
                 onError={e=>{
                   if(e.currentTarget.src!==new URL(currentStation.logo,window.location.href).href){
                     e.currentTarget.src=currentStation.logo;
@@ -380,11 +383,20 @@ export default function MobileMiniPlayer({
                   }
                 }}
                 className={`ir-full-player-art w-full h-full transition-all duration-500 mx-auto ${
-                  largeArtwork ? 'object-cover shadow-2xl' : 'bg-white object-contain p-4'
+                  showCoverArt ? 'object-cover shadow-2xl' : 'bg-white object-contain p-4'
                 } ${isPlayingAd ? 'cursor-pointer' : 'pointer-events-none'} ${
                   isPlaying && !isBuffering ? 'scale-100 shadow-[0_30px_60px_rgba(0,0,0,0.6)]' : 'scale-95 grayscale-[30%] opacity-80'
                 }`}
               />
+              {canShowDj&&<img src={liveBroadcast.imageUrl} alt="" aria-hidden="true"
+                onError={e=>{
+                  if(e.currentTarget.src!==new URL(currentStation.logo,window.location.href).href){
+                    e.currentTarget.src=currentStation.logo;
+                    e.currentTarget.style.objectFit='contain';
+                    e.currentTarget.style.background='#fff';
+                  }
+                }}
+                className={'ir-rds-image-overlay z-[1] rounded-[32px] '+(showProducerArt?'is-active':'')}/>}
 
               {largeArtwork && (
                 <>
@@ -403,12 +415,20 @@ export default function MobileMiniPlayer({
             </div>
             
             <div className="flex flex-col items-center text-center gap-1 w-full max-w-sm px-2">
+              <RdsCrossfade showSecondary={showProducerArt} className="w-full"
+                secondary={canShowDj?(<>
+                  <h2 className="text-2xl sm:text-3xl font-black text-white truncate tracking-tight w-full">{liveBroadcast.title||currentStation.name}</h2>
+                  <p className="text-base sm:text-lg font-medium truncate w-full text-zinc-400">{liveBroadcast.artist||currentStation.name}</p>
+                </>):null}>
+                <>
               <h2 onClick={handleAdClick} className="text-2xl sm:text-3xl font-black text-white truncate tracking-tight w-full">
-                {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : displayTrackTitle}
+                {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : (isActualSong?currentTrack?.title:currentStation.name)}
               </h2>
               <p className={`text-base sm:text-lg font-medium truncate w-full ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                {isPlayingAd ? `${currentAdInfo?.title || 'Διαφήμιση'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (visibleSong ? (displayTrackArtist || currentStation.name) : (showProducerArt?displayTrackArtist:(currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying'))))}
+                {isPlayingAd ? `${currentAdInfo?.title || 'Διαφήμιση'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (currentTrack?.artist || currentStation.name) : (currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
               </p>
+                </>
+              </RdsCrossfade>
               {visibleSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI compact className="mt-1"/>}
               {!isPlayingAd && (
                 <div className="mt-3 flex items-center gap-3">
@@ -606,7 +626,13 @@ export default function MobileMiniPlayer({
               <>
                 <div className="text-sm font-bold text-white truncate tracking-tight">{currentStation.name}</div>
                 <div className={`text-[11px] font-medium truncate max-w-[140px] mt-0.5 ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                  {isRecognizing ? "Αναγνώριση..." : (visibleSong ? nowPlaying : (showProducerArt?liveBroadcast.title:(currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
+                  {isRecognizing ? "Αναγνώριση..." : (
+                    <RdsCrossfade showSecondary={showProducerArt}
+                      secondary={canShowDj?<span className="block truncate">{liveBroadcast.title}</span>:null}>
+                      <span className="block truncate">{isActualSong?nowPlaying:
+                        (currentUser?'Ζωντανό ραδιόφωνο':'Συνδέσου στο iRadios για NowPlaying')}</span>
+                    </RdsCrossfade>
+                  )}
                 </div>
                 {visibleSong&&nowPlayingInfo?.foundWithAI&&<span className="text-[9px] font-bold text-[#ccff00]">✦ Found with AI</span>}
               </>

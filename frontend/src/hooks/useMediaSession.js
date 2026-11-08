@@ -27,7 +27,7 @@ export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUse
     ?parseMusicMetadata(nowPlaying,name):null;
   const ai=Boolean(parts&&nowPlayingInfo?.source==='acrcloud'&&nowPlayingInfo?.foundWithAI);
   // DJ-only metadata shows the producer. When a real track also exists,
-  // use the shared ten-minute RDS slot instead of always preferring music.
+  // use the shared 20-second RDS slot instead of always preferring music.
   if(liveBroadcast?.recognizedShow&&liveBroadcast.imageUrl&&(!parts||rdsShowProducer))return {
     title:liveBroadcast.title||'Τώρα Ακούς',
     artist:liveBroadcast.artist||name,
