@@ -3,6 +3,8 @@ const router = express.Router();
 
 const paymentController = require('../controllers/paymentController');
 const notificationController = require('../controllers/notificationController');
+const {protect}=require('../utils/authMiddleware');
+const {authorizeRoles}=require('../utils/roleMiddleware');
 const analyticsController = require('../controllers/analyticsController');
 const miscController = require('../controllers/miscController');
 
@@ -19,9 +21,14 @@ router.post('/payments/create-stripe-subscription', paymentController.createStri
 
 // Notifications (Web Push)
 router.get('/notifications/vapidPublicKey', notificationController.getVapidKey);
+// Legacy anonymous device subscriptions remain supported for guests. They may
+// not claim arbitrary user IDs; authenticated profile devices use my-device.
 router.post('/notifications/subscribe', notificationController.subscribe);
-router.get('/notifications/stats', notificationController.getStats);
-router.post('/notifications/send', notificationController.sendNotification);
+router.put('/notifications/my-device', protect, notificationController.registerMyDevice);
+router.post('/notifications/my-device/status', protect, notificationController.checkMyDevice);
+router.delete('/notifications/my-device', protect, notificationController.removeMyDevice);
+router.get('/notifications/stats', protect, authorizeRoles('admin'), notificationController.getStats);
+router.post('/notifications/send', protect, authorizeRoles('admin'), notificationController.sendNotification);
 
 // Analytics & Metadata
 router.get('/broadcaster/:userId/analytics', analyticsController.getBroadcasterAnalytics);
