@@ -61,10 +61,14 @@ test('photo from programme is preferred and logo is the fallback', () => {
   });
   const result = getOnAirProducers([station('Logo', '19:00'), withPhoto],
     { day: 1, minute: 18 * 60 + 9 });
-  assert.equal(result[0].backgroundUrl, result[0].station.logo);
-  assert.equal(result[0].hasProducerPhoto, false);
-  assert.equal(result[1].backgroundUrl, photo);
-  assert.equal(result[1].hasProducerPhoto, true);
+  // A later-ending show with a real programme photo outranks an earlier
+  // show with logo fallback.
+  assert.equal(result[0].station.name, 'Photo');
+  assert.equal(result[0].backgroundUrl, photo);
+  assert.equal(result[0].hasProducerPhoto, true);
+  assert.equal(result[1].station.name, 'Logo');
+  assert.equal(result[1].backgroundUrl, result[1].station.logo);
+  assert.equal(result[1].hasProducerPhoto, false);
 });
 
 test('24:00 is displayed as 00:00 and sorted by remaining minutes', () => {
@@ -73,4 +77,18 @@ test('24:00 is displayed as 00:00 and sorted by remaining minutes', () => {
   })], { day: 1, minute: 23 * 60 + 59 });
   assert.equal(result[0].endLabel, '00:00');
   assert.equal(result[0].endsInMinutes, 1);
+});
+
+test('within photo and logo groups, programmes ending soonest come first', () => {
+  const withPhoto = (id, end) => station(id, end, {
+    schedule: [{ day: 1, startTime: '18:00', endTime: end, title: 'Show', host: 'DJ ' + id, imageUrl: 'https://images.example.com/' + id + '.jpg' }]
+  });
+  const result = getOnAirProducers([
+    station('Logo seven', '19:00'),
+    withPhoto('Photo nine', '21:00'),
+    station('Logo eight', '20:00'),
+    withPhoto('Photo eight', '20:00')
+  ], { day: 1, minute: 18 * 60 + 9 });
+  assert.deepEqual(result.map(x => x.station.name),
+    ['Photo eight', 'Photo nine', 'Logo seven', 'Logo eight']);
 });
