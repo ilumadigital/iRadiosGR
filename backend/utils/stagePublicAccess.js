@@ -92,6 +92,7 @@ function stagePublicAccess(req, res, next) {
     (req.method === 'PATCH' && path === '/api/users/me/notification-preferences') ||
     (req.method === 'POST' && path === '/api/users/me/follows') ||
     (req.method === 'POST' && path === '/api/users/me/inbox/read-all') ||
+    (req.method === 'DELETE' && path === '/api/users/me/inbox') ||
     (req.method === 'POST' && /^\/api\/users\/me\/inbox\/[a-f0-9]{24}\/read$/i.test(path)) ||
     (req.method === 'DELETE' && /^\/api\/users\/me\/follows\/[a-f0-9]{24}$/i.test(path)) ||
     (req.method === 'DELETE' && /^\/api\/users\/me\/inbox\/[a-f0-9]{24}$/i.test(path))
