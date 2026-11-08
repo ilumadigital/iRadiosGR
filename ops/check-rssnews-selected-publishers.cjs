@@ -68,6 +68,13 @@ transport.requestText=async (url,{feed,html}={})=>{
   try{
     const imported=await rss.download({id:'preset-1',url:userUrl});
     assert.equal(imported.retrievalMode,'selected-publisher-rss');
+    assert.equal(imported.publisherReports.length,25,'diagnostic status for every configured publisher');
+    assert.ok(imported.publisherReports.some(r=>r.domain==='feeds.feedburner.com'&&r.status==='error'));
+    assert.ok(imported.publisherReports.some(r=>r.domain==='newsbeast.gr'&&r.status==='ok'));
+    assert.ok(selection.publisherPlans(normalized,preset.CATEGORIES).find(p=>
+      p.domain==='capital.gr').candidates.some(c=>c.url.includes('/api/tags/all')),
+      'known Capital.gr RSS endpoint is discovered');
+
     assert.equal(imported.articles.length,9,'7 Newsbeast sections plus CNN and in.gr RSS');
     assert.ok(imported.articles.every(a=>cats.includes(a.category)));
     assert.ok(imported.articles.every(a=>
