@@ -7,7 +7,7 @@ import {
   CircleAlert,Clock3,CloudUpload,Copy,ExternalLink,FileCheck2,
   Globe2,Headphones,Home,Image,LayoutDashboard,LogOut,Menu,Mic2,
   Music2,Plus,Radio,RefreshCw,Save,Search,Settings2,Shield,ShieldCheck,
-  SlidersHorizontal,Sparkles,Trash2,Users,Waveform,X
+  SlidersHorizontal,Sparkles,Trash2,Users,X
 } from 'lucide-react';
 
 const AdminDashboard=lazy(()=>import('./AdminDashboard'));
@@ -66,7 +66,7 @@ function NavItem({to,icon:Icon,label,close,end=false}){
 }
 function Logo(){
   return <div className="flex items-center gap-2.5">
-    <div className="flex size-10 items-center justify-center rounded-xl bg-[#caff00] text-[#101300] shadow-[0_0_26px_rgba(202,255,0,.18)]"><Waveform size={23} strokeWidth={3}/></div>
+    <div className="flex size-10 items-center justify-center rounded-xl bg-[#caff00] text-[#101300] shadow-[0_0_26px_rgba(202,255,0,.18)]"><Radio size={23} strokeWidth={3}/></div>
     <div className="leading-none"><div className="text-[19px] font-black tracking-[-.07em] text-white">iRadios<span className="text-[#caff00]">GR</span></div>
       <p className="mt-1.5 text-[8px] font-black uppercase tracking-[.26em] text-zinc-500">Business Console</p></div>
   </div>;
@@ -258,7 +258,7 @@ function StationEditor({data,reload,notify}){
           </div>
         </section>
         <section className={panel+' p-5 md:p-7'}>
-          <div className="mb-6 flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><Waveform size={19}/></div>
+          <div className="mb-6 flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><Radio size={19}/></div>
             <div><h3 className="text-lg font-black text-white">Ήχος & Streaming</h3><p className="text-xs text-zinc-500">Stream και προαιρετικό metadata URL</p></div></div>
           <div className="grid gap-5">
             <Field label="Stream URL *" help="Επιτρέπονται δημόσιες διευθύνσεις HTTP/HTTPS."><input required className={inputClass} type="url" maxLength={1200} placeholder="https://radio.example/live" value={form.stream} onChange={e=>update('stream',e.target.value)}/></Field>
