@@ -56,9 +56,10 @@ const billing=read(paths[6]);
 assert.ok(billing.includes('Καθαρισμός αναζήτησης'),
   'billing must allow easy reset of search');
 const boost=read(paths[9]);
-assert.ok(boost.includes('moveStation=(id,direction)')&&
-  boost.includes('Μετακίνηση ')&&boost.includes('role="switch"'),
-  'boost supports accessible up/down ordering and toggle labels');
+assert.ok(boost.includes('const reorder = (id, toIndex)')&&
+  boost.includes('commitPosition')&&boost.includes('chooseScope')&&
+  boost.includes('role="switch"'),
+  'boost supports scoped position editing, accessible ordering and boost toggles');
 const push=read(paths[10]);
 assert.ok(push.includes('Προεπισκόπηση ειδοποίησης')&&
   push.includes('window.confirm(')&&push.includes('maxLength={300}'),

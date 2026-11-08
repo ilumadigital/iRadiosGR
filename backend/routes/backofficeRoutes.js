@@ -173,6 +173,16 @@ router.get('/backoffice/overview',async(req,res)=>{
     });
   }catch(error){return fail(res,error);}
 });
+// Ranking Studio reads the COMPLETE approved catalog, not the overview's
+// 1000-record dashboard preview. Keep this endpoint admin-only and read-only.
+router.get('/backoffice/admin/station-ranking',authorizeRoles('admin'),async(req,res)=>{
+  try{
+    const items=await Station.find({status:'approved'})
+      .select('_id name genre secondaryGenre region city frequency logo status position rankings boostStatus boostExpiresAt')
+      .sort({position:1,_id:1}).lean();
+    return res.json(items);
+  }catch(error){return fail(res,error);}
+});
 router.get('/backoffice/stations/:id',async(req,res)=>{
   try{
     const station=await ownedStation(req,res);

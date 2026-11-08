@@ -1,329 +1,463 @@
-import {adminFetch as fetch} from '../utils/adminFetch';
-import React, { useState, useEffect, useRef } from 'react';
-import { Rocket, Search, GripVertical, Save, Info, Filter, Zap, Clock, ZapOff, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Check,
+  GripVertical, Info, Layers3, MapPin, Music2, Radio, RotateCcw,
+  Rocket, Save, Search, SlidersHorizontal, Zap
+} from 'lucide-react';
+import { adminFetch } from '../utils/adminFetch';
 
-export default function Boost({ API_URL, stations, refreshStations }) {
+const control = 'w-full min-w-0 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white outline-none transition focus:border-[#ccff00]/60 focus:ring-2 focus:ring-[#ccff00]/10';
+const miniButton = 'inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-zinc-300 transition hover:border-[#ccff00]/45 hover:text-[#ccff00] disabled:cursor-not-allowed disabled:opacity-25';
+const durations = [
+  [1, '1 ημέρα'], [3, '3 ημέρες'], [7, '7 ημέρες'], [14, '14 ημέρες'],
+  [30, '1 μήνας'], [90, '3 μήνες'], [180, '6 μήνες'], [365, '1 έτος']
+];
+const stationId = station => String(station._id);
+const matchesScope = (station, scope, value) => scope === 'global' ||
+  (scope === 'genre' && (station.genre === value || station.secondaryGenre === value)) ||
+  (scope === 'region' && (station.region === value || station.city === value));
+const orderOf = (station, scope, value) => {
+  const scopePosition = scope !== 'global' && station.rankings?.find(rank =>
+    rank.scope === scope && rank.value === value)?.position;
+  if (scopePosition != null && Number.isFinite(Number(scopePosition)) &&
+      Number(scopePosition) > 0) return Number(scopePosition);
+  const global = Number(station.position);
+  return (scope === 'global' ? 0 : 1000000) +
+    (Number.isFinite(global) && global >= 0 ? global : 999);
+};
+const initialOrder = (stations, scope, value) => [
+  ...stations.filter(s => matchesScope(s, scope, value)).sort((a, b) =>
+    orderOf(a, scope, value) - orderOf(b, scope, value) ||
+    a.name.localeCompare(b.name, 'el')),
+  ...stations.filter(s => !matchesScope(s, scope, value))
+];
+const remaining = date => {
+  if (!date) return null;
+  const diff = new Date(date).getTime() - Date.now();
+  if (!Number.isFinite(diff) || diff <= 0) return 'Έληξε';
+  const days = Math.floor(diff / 86400000);
+  if (days) return `${days} ημέρ.`;
+  return `${Math.max(1, Math.ceil(diff / 3600000))} ώρ.`;
+};
+
+export default function Boost({ API_URL = '/api', stations = [], refreshStations }) {
+  const [scope, setScope] = useState('global');
+  const [scopeValue, setScopeValue] = useState('');
   const [localStations, setLocalStations] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGenre, setSelectedGenre] = useState('');
-  const [selectedRegion, setSelectedRegion] = useState('');
-  const [showOnlyBoosted, setShowOnlyBoosted] = useState(false); // 🟢 ΝΕΟ ΦΙΛΤΡΟ
+  const [rankSource, setRankSource] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [search, setSearch] = useState('');
+  const [onlyBoosted, setOnlyBoosted] = useState(false);
+  const [shown, setShown] = useState(60);
+  const [positionInputs, setPositionInputs] = useState({});
+  const [boostChanged, setBoostChanged] = useState(() => new Set());
+  const [dirty, setDirty] = useState(false);
+  const [orderDirty, setOrderDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [notice, setNotice] = useState(null);
+  const draggedId = useRef(null);
+  const approved = useMemo(() => rankSource.filter(s => s.status === 'approved'), [rankSource]);
+  const genres = useMemo(() => [...new Set(approved.flatMap(s => [s.genre, s.secondaryGenre])
+    .filter(Boolean))].sort((a, b) => a.localeCompare(b, 'el')), [approved]);
+  const regions = useMemo(() => [...new Set(approved.flatMap(s => [s.region, s.city])
+    .filter(Boolean))].sort((a, b) => a.localeCompare(b, 'el')), [approved]);
 
-  const dragItemIndex = useRef(null);
-  const dragOverItemIndex = useRef(null);
-
+  // Overview data is limited and lacks ranking fields. Always load the full
+  // authorized catalog from the dedicated backoffice endpoint.
+  const reloadRankings = async () => {
+    const response = await adminFetch('/api/backoffice/admin/station-ranking');
+    const data = await response.json();
+    if (!response.ok || !Array.isArray(data)) {
+      throw new Error(data?.error || 'Δεν φορτώθηκαν οι σταθμοί κατάταξης.');
+    }
+    setRankSource(data);
+  };
   useEffect(() => {
-    if (stations) {
-      // Ταξινομούμε by default βάσει position (όπως τα φέρνει η βάση)
-      const approved = [...stations].filter(s => s.status === 'approved').sort((a, b) => a.position - b.position);
-      setLocalStations(approved);
+    let live = true;
+    adminFetch('/api/backoffice/admin/station-ranking')
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok || !Array.isArray(data))
+          throw new Error(data?.error || 'Αποτυχία φόρτωσης κατάταξης.');
+        return data;
+      }).then(data => { if (live) setRankSource(data); })
+      .catch(error => { if (live) setLoadError(error.message); })
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, []);
+
+  // Props refresh and scope changes rebuild the local order from the saved scope.
+  useEffect(() => {
+    setLocalStations(initialOrder(approved, scope, scopeValue));
+    setPositionInputs({});
+    setBoostChanged(new Set());
+    setDirty(false);
+    setOrderDirty(false);
+  }, [approved, scope, scopeValue]);
+
+  const scopedStations = useMemo(() => localStations.filter(s =>
+    matchesScope(s, scope, scopeValue)), [localStations, scope, scopeValue]);
+  const scopePositions = useMemo(() =>
+    new Map(scopedStations.map((station, index) => [stationId(station), index])),
+    [scopedStations]);
+  const searchKey = search.trim().toLocaleLowerCase('el');
+  const matches = scopedStations.filter(s =>
+    (!searchKey || [s.name, s.genre, s.secondaryGenre, s.region, s.city, s.frequency]
+      .some(value => String(value || '').toLocaleLowerCase('el').includes(searchKey))) &&
+    (!onlyBoosted || s.boostStatus === true));
+  const visible = matches.slice(0, shown);
+  useEffect(() => { setShown(60); }, [scope, scopeValue, search, onlyBoosted]);
+  const boostedCount = scopedStations.filter(s => s.boostStatus &&
+    (!s.boostExpiresAt || new Date(s.boostExpiresAt).getTime() > Date.now())).length;
+  const scopeLabel = scope === 'global' ? 'Όλο το δίκτυο' :
+    scope === 'genre' ? `Κατηγορία · ${scopeValue}` : `Περιοχή · ${scopeValue}`;
+
+  const chooseScope = (nextScope, nextValue) => {
+    if (scope === nextScope && scopeValue === nextValue) return;
+    if (dirty && !window.confirm('Υπάρχουν μη αποθηκευμένες αλλαγές. Να απορριφθούν για να αλλάξεις κατάταξη;')) return;
+    setScope(nextScope);
+    setScopeValue(nextValue);
+    setSearch('');
+    setOnlyBoosted(false);
+    setNotice(null);
+  };
+  const reorder = (id, toIndex) => {
+    const current = localStations.filter(s => matchesScope(s, scope, scopeValue));
+    const source = current.findIndex(s => stationId(s) === String(id));
+    const destination = Math.max(0, Math.min(current.length - 1, Number(toIndex)));
+    if (source < 0 || !Number.isInteger(destination) || source === destination) return;
+    const [selected] = current.splice(source, 1);
+    current.splice(destination, 0, selected);
+    setLocalStations([...current, ...localStations.filter(s => !matchesScope(s, scope, scopeValue))]);
+    setDirty(true);
+    setOrderDirty(true);
+    setNotice(null);
+  };
+  const updateStation = (id, changes) => {
+    setLocalStations(prev => prev.map(s => stationId(s) === String(id) ? { ...s, ...changes } : s));
+    setBoostChanged(prev => new Set(prev).add(String(id)));
+    setDirty(true);
+    setNotice(null);
+  };
+  const toggleBoost = station => {
+    const enabled = !station.boostStatus;
+    const future = new Date(station.boostExpiresAt).getTime() > Date.now();
+    updateStation(station._id, {
+      boostStatus: enabled,
+      boostExpiresAt: enabled ? (future ? station.boostExpiresAt :
+        new Date(Date.now() + 86400000).toISOString()) : null
+    });
+  };
+  const setDuration = (id, days) => {
+    if (!days) return;
+    updateStation(id, {
+      boostStatus: true,
+      boostExpiresAt: new Date(Date.now() + Number(days) * 86400000).toISOString()
+    });
+  };
+  const commitPosition = (id, currentIndex) => {
+    const draft = positionInputs[String(id)];
+    if (draft === undefined) return;
+    const parsed = Number(draft);
+    if (!/^\d+$/.test(String(draft)) || !Number.isInteger(parsed) ||
+        parsed < 1 || parsed > scopedStations.length) {
+      setNotice({ error: true, text: `Η θέση πρέπει να είναι από 1 έως ${scopedStations.length}.` });
+    } else if (parsed - 1 !== currentIndex) {
+      reorder(id, parsed - 1);
     }
-  }, [stations]);
-
-  const genres = [...new Set(localStations.map(s => s.genre))].filter(Boolean).sort();
-  const regions = [...new Set(localStations.map(s => s.region))].filter(Boolean).sort();
-
-  const filteredStations = localStations.filter(s => {
-    const matchSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchGenre = selectedGenre ? s.genre === selectedGenre : true;
-    const matchRegion = selectedRegion ? s.region === selectedRegion : true;
-    const matchBoosted = showOnlyBoosted ? s.boostStatus === true : true;
-    return matchSearch && matchGenre && matchRegion && matchBoosted;
-  });
-
-  const isSearchActive = searchTerm.length > 0 || selectedGenre !== '' || selectedRegion !== '' || showOnlyBoosted;
-
-  // Υπολογισμός χρόνου που απομένει
-  const getTimeLeft = (expiresAt) => {
-    if (!expiresAt) return null;
-    const diff = new Date(expiresAt) - new Date();
-    if (diff <= 0) return 'Έληξε';
-    
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days > 0) return `${days} μέρες`;
-    
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    return `${hours} ώρες`;
-  };
-
-  // --- BOOST HANDLERS ---
-  const handleBoostToggle = (stationId) => {
-    setLocalStations(prev => prev.map(s => {
-      if (s._id === stationId) {
-        const newStatus = !s.boostStatus;
-        // Αν το ανοίγει χειροκίνητα ο Admin, βάζουμε default 1 μέρα
-        let newExpiresAt = s.boostExpiresAt;
-        if (newStatus && !newExpiresAt) {
-          newExpiresAt = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString();
-        }
-        return { ...s, boostStatus: newStatus, boostExpiresAt: newStatus ? newExpiresAt : null };
-      }
-      return s;
-    }));
-  };
-
-  const handleBoostDurationChange = (stationId, days) => {
-    const newExpiresAt = new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000).toISOString();
-    setLocalStations(prev => prev.map(s => 
-      s._id === stationId ? { ...s, boostExpiresAt: newExpiresAt, boostStatus: true } : s
-    ));
-  };
-
-  // --- DRAG & DROP LOGIC ---
-  const handleDragStart = (e, index) => {
-    dragItemIndex.current = index;
-    setTimeout(() => { e.target.style.opacity = '0.4'; }, 0);
-  };
-  const handleDragEnter = (e, index) => {
-    e.preventDefault();
-    dragOverItemIndex.current = index;
-  };
-  const handleDragOver = (e) => { e.preventDefault(); };
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.target.style.opacity = '1';
-
-    if (isSearchActive || dragItemIndex.current === null || dragOverItemIndex.current === null) return;
-    if (dragItemIndex.current === dragOverItemIndex.current) return; 
-
-    const reorderedFiltered = [...filteredStations];
-    const draggedItem = reorderedFiltered[dragItemIndex.current];
-    
-    reorderedFiltered.splice(dragItemIndex.current, 1);
-    reorderedFiltered.splice(dragOverItemIndex.current, 0, draggedItem);
-
-    const newLocalStations = [...localStations];
-    const originalIndexes = filteredStations.map(station => newLocalStations.findIndex(s => s._id === station._id));
-    originalIndexes.sort((a, b) => a - b);
-
-    reorderedFiltered.forEach((station, index) => {
-      newLocalStations[originalIndexes[index]] = station;
-    });
-
-    setLocalStations(newLocalStations);
-    dragItemIndex.current = null;
-    dragOverItemIndex.current = null;
-  };
-  const handleDragEnd = (e) => {
-    e.target.style.opacity = '1';
-    dragItemIndex.current = null;
-    dragOverItemIndex.current = null;
-  };
-
-  // Accessible alternative to drag-and-drop; never reorder a filtered subset.
-  const moveStation=(id,direction)=>{
-    if(isSearchActive)return;
-    setLocalStations(prev=>{
-      const current=prev.findIndex(item=>item._id===id);
-      const destination=current+direction;
-      if(current<0||destination<0||destination>=prev.length)return prev;
-      const updated=[...prev];
-      [updated[current],updated[destination]]=[updated[destination],updated[current]];
-      return updated;
+    setPositionInputs(prev => {
+      const next = { ...prev };
+      delete next[String(id)];
+      return next;
     });
   };
-
-  // --- SAVE LOGIC ---
-  const handleSaveOrder = async () => {
+  const onDrop = (event, targetId) => {
+    event.preventDefault();
+    const id = draggedId.current;
+    draggedId.current = null;
+    if (!id || id === targetId) return;
+    // Reorder in the entire scope, never only in the searched subset.
+    reorder(id, scopePositions.get(targetId) ?? -1);
+  };
+  const discard = () => {
+    setLocalStations(initialOrder(approved, scope, scopeValue));
+    setPositionInputs({});
+    setBoostChanged(new Set());
+    setDirty(false);
+    setOrderDirty(false);
+    setNotice(null);
+  };
+  const save = async () => {
+    if (!dirty || saving || loading || loadError) return;
     setSaving(true);
-    setMessage('');
+    setNotice(null);
     try {
-      const stationsData = localStations.map((s, index) => ({
-        id: s._id,
-        position: index + 1,
-        boostStatus: s.boostStatus || false,
-        boostExpiresAt: s.boostExpiresAt || null,
-        isFeatured: s.isFeatured || false
-      }));
-      
-      const res = await fetch(`${API_URL}/admin/stations/reorder`, {
+      const response = await adminFetch(`${API_URL}/admin/stations/reorder`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('iluma_token')}`
-        },
-        body: JSON.stringify({ stationsData })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scope,
+          scopeValue: scope === 'global' ? '' : scopeValue,
+          updateOrder: orderDirty,
+          // Always submit the complete scope. Searching or filtering is view-only.
+          stationsData: scopedStations.map((station, index) => ({
+            id: station._id, position: index + 1,
+            // Do not overwrite boosts from a concurrent admin when only sorting.
+            ...(boostChanged.has(stationId(station)) ? {
+              boostStatus: Boolean(station.boostStatus),
+              boostExpiresAt: station.boostExpiresAt || null
+            } : {})
+          }))
+        })
       });
-
-      if (res.ok) {
-        setMessage('Οι αλλαγές (Σειρά & Boost) αποθηκεύτηκαν επιτυχώς!');
-        await refreshStations(); 
-        setTimeout(() => setMessage(''), 4000);
-      } else {
-        setMessage('Σφάλμα αποθήκευσης.');
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Δεν αποθηκεύτηκε η κατάταξη.');
+      setDirty(false);
+      setOrderDirty(false);
+      setBoostChanged(new Set());
+      // Read back the server's final persisted order (and boost expirations).
+      try { await reloadRankings(); }
+      catch { /* The write succeeded; the next visit will reload saved state. */ }
+      if (typeof refreshStations === 'function') {
+        try { await refreshStations(); }
+        catch { /* Backoffice overview refresh is best-effort. */ }
       }
-    } catch (err) {
-      setMessage('Σφάλμα δικτύου.');
+      setNotice({ error: false, text: `Αποθηκεύτηκε η κατάταξη «${scopeLabel}» για ${scopedStations.length} σταθμούς.` });
+    } catch (error) {
+      setNotice({ error: true, text: error.message || 'Σφάλμα δικτύου.' });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
-    <div className="admin-legacy-page space-y-6 w-full">
-      
-      {/* HEADER SECTION */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 mb-8 border-b border-white/5 pb-6">
-        <div className="flex flex-col shrink-0">
-          <div className="flex items-center gap-3">
-            <Rocket className="text-[#ccff00]" size={36} />
-            <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">Προβολή & Boost σταθμών</h1>
+    <div className="admin-legacy-page mx-auto w-full max-w-[1600px] space-y-5 pb-24 text-white">
+      {loading && <p role="status" className="text-sm text-zinc-400">Φόρτωση κατάταξης σταθμών…</p>}
+      {loadError && <div role="alert" className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-300">
+        {loadError} <button type="button" onClick={() => {
+          setLoadError('');
+          setLoading(true);
+          reloadRankings().catch(error => setLoadError(error.message)).finally(() => setLoading(false));
+        }} className="ml-2 font-bold underline">Επανάληψη</button>
+      </div>}
+      <header className="ir-glass relative overflow-hidden rounded-[30px] p-5 sm:p-7">
+        <div className="pointer-events-none absolute -right-14 -top-20 size-64 rounded-full bg-[#ccff00]/10 blur-3xl" />
+        <div className="relative flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-widest text-[#ccff00]">
+              <Rocket size={14} /> Station Ranking Studio
+            </div>
+            <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">Σειρά & Boost σταθμών</h1>
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              Καθόρισε ποιος σταθμός εμφανίζεται πρώτος. Πληκτρολόγησε θέση,
+              μετακίνησε με τα βελάκια ή σύρε από τη λαβή. Κάθε κατηγορία και περιοχή έχει ανεξάρτητη σειρά.
+            </p>
           </div>
-          <span className="text-zinc-500 font-bold text-sm tracking-widest uppercase mt-2">
-            Επίλεξε διάρκεια, άλλαξε σειρά και αποθήκευσε με ασφάλεια
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Σταθμοί</p>
+              <p className="mt-1 text-2xl font-black tabular-nums">{scopedStations.length}</p>
+            </div>
+            <div className="rounded-2xl border border-[#ccff00]/20 bg-[#ccff00]/5 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Ενεργά Boost</p>
+              <p className="mt-1 text-2xl font-black tabular-nums text-[#ccff00]">{boostedCount}</p>
+            </div>
+          </div>
         </div>
+      </header>
 
-        <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
-          
-          {/* 🟢 ΝΕΟ ΚΟΥΜΠΙ: Μόνο Ενεργά Boosts */}
-          <button 
-            onClick={() => setShowOnlyBoosted(!showOnlyBoosted)}
-            className={`flex items-center gap-2 px-4 h-12 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${showOnlyBoosted ? 'bg-[#ccff00] text-black shadow-[0_0_20px_rgba(204,255,0,0.3)]' : 'bg-zinc-900 text-zinc-500 border border-white/5 hover:text-white'}`}
-          >
-            {showOnlyBoosted ? <Zap size={16} /> : <ZapOff size={16} />}
-            {showOnlyBoosted ? 'ΟΛΑ ΤΑ ΡΑΔΙΟΦΩΝΑ' : 'ΕΝΕΡΓΑ BOOSTS'}
-          </button>
-
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input 
-              type="text" placeholder="Αναζήτηση..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-zinc-900 border border-white/5 h-12 rounded-xl pl-12 pr-4 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-colors"
-            />
-          </div>
-          <div className="relative flex-1 min-w-[160px]">
-            <select value={selectedGenre} onChange={(e) => setSelectedGenre(e.target.value)} className="w-full bg-zinc-900 border border-white/5 h-12 rounded-xl px-4 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-colors appearance-none cursor-pointer">
-              <option value="">Όλα τα Είδη</option>
-              {genres.map(genre => <option key={genre} value={genre}>{genre}</option>)}
+      <section className="ir-glass space-y-4 rounded-[28px] p-4 sm:p-5" aria-label="Επιλογή κατάταξης">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-sm font-bold"><SlidersHorizontal size={17} className="text-[#ccff00]" /> Πού θέλεις να αλλάξεις τη σειρά;</h2>
+          <span className="text-xs text-zinc-500">{scopeLabel}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-black/30 p-1.5">
+          {[
+            { id: 'global', name: 'Γενικά', Icon: Layers3 },
+            { id: 'genre', name: 'Κατηγορία', Icon: Music2 },
+            { id: 'region', name: 'Περιοχή', Icon: MapPin }
+          ].map(({ id, name, Icon }) => (
+            <button type="button" key={id} aria-pressed={scope === id}
+              onClick={() => chooseScope(id, id === 'genre' ? (scope === id ? scopeValue : genres[0] || '') :
+                id === 'region' ? (scope === id ? scopeValue : regions[0] || '') : '')}
+              className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-2 text-xs font-bold transition sm:text-sm ${scope === id
+                ? 'bg-[#ccff00] text-black shadow-[0_8px_30px_rgba(204,255,0,.16)]'
+                : 'text-zinc-400 hover:bg-white/10 hover:text-white'}`}>
+              <Icon size={16} /> {name}
+            </button>
+          ))}
+        </div>
+        {scope !== 'global' && (
+          <label className="block max-w-xl">
+            <span className="mb-1.5 block text-xs font-semibold text-zinc-400">
+              {scope === 'genre' ? 'Επιλογή κατηγορίας' : 'Επιλογή περιοχής'}
+            </span>
+            <select className={control} value={scopeValue}
+              onChange={event => chooseScope(scope, event.target.value)}>
+              {(scope === 'genre' ? genres : regions).map(value => (
+                <option key={value} value={value}>{value}</option>
+              ))}
             </select>
-            <Filter size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+          </label>
+        )}
+        <p className="flex items-start gap-2 text-xs leading-5 text-zinc-400">
+          <Info size={15} className="mt-0.5 shrink-0 text-[#ccff00]" />
+          {scope === 'global'
+            ? 'Η γενική σειρά ισχύει στο δίκτυο και ως εφεδρική κατάταξη για τις σελίδες που δεν έχουν ειδική ρύθμιση.'
+            : 'Οι αλλαγές εδώ επηρεάζουν μόνο τη συγκεκριμένη προβολή. Η γενική σειρά και οι άλλες κατηγορίες/περιοχές παραμένουν ανέπαφες.'}
+        </p>
+      </section>
+
+      <section className="space-y-4" aria-label="Επεξεργασία σειράς">
+        <div className="ir-glass grid gap-3 rounded-[24px] p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="relative min-w-0">
+            <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input type="search" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Βρες σταθμό με όνομα, είδος ή περιοχή…" aria-label="Αναζήτηση σταθμών"
+              className={control + ' pl-11'} />
           </div>
-          
-          <button onClick={handleSaveOrder} disabled={saving || isSearchActive} className="flex items-center justify-center gap-2 px-8 h-12 bg-[#ccff00] text-black text-xs font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 whitespace-nowrap">
-            <Save size={16} /> {saving ? 'Αποθηκευση...' : 'Αποθηκευση Σειρας'}
+          <button type="button" aria-pressed={onlyBoosted}
+            onClick={() => setOnlyBoosted(value => !value)}
+            className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl border px-4 text-xs font-bold transition ${onlyBoosted
+              ? 'border-[#ccff00]/40 bg-[#ccff00]/15 text-[#ccff00]'
+              : 'border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10'}`}>
+            <Zap size={16} /> {onlyBoosted ? 'Εμφάνιση όλων' : 'Μόνο Boost'}
           </button>
         </div>
-      </div>
 
-      {message && (
-        <div className="mb-6 p-4 rounded-xl bg-[#ccff00]/10 border border-[#ccff00]/20 text-[#ccff00] text-sm font-bold flex items-center gap-2">
-          <Info size={16} /> {message}
-        </div>
-      )}
-
-      <p className="mb-3 text-xs leading-5 text-zinc-400">Άλλαξε θέση με τα βέλη πάνω/κάτω ή σύρε έναν σταθμό. Για να αποθηκεύσεις τη σειρά, αφαίρεσε πρώτα τα φίλτρα.</p>
-      {/* DRAG & DROP LIST */}
-      <div className="bg-[#0f0f0f] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-        <div className="grid grid-cols-12 gap-3 p-4 border-b border-white/5 bg-black/50 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
-          <div className="col-span-1 text-center">Θεση</div>
-          <div className="col-span-4 md:col-span-3">Σταθμος</div>
-          <div className="col-span-2 hidden md:block">Ειδος</div>
-          <div className="col-span-6 md:col-span-5 text-center">Ρυθμισεις Boost</div>
-          <div className="col-span-1 text-right pr-4">Drag</div>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+          <p className="text-xs text-zinc-400">
+            <strong className="text-white">{matches.length}</strong> από {scopedStations.length} σταθμούς
+            {(search || onlyBoosted) && ' · Η θέση αφορά ολόκληρη την επιλεγμένη κατάταξη.'}
+          </p>
+          {dirty && <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300">
+            <span className="size-2 rounded-full bg-amber-300" /> Μη αποθηκευμένες αλλαγές
+          </span>}
         </div>
 
-        <div className="flex flex-col">
-          {filteredStations.map((station, filterIndex) => {
-            const realIndex = localStations.findIndex(s => s._id === station._id);
-            const isBoosted = station.boostStatus;
-            const timeLeft = getTimeLeft(station.boostExpiresAt);
-            const isExpired = timeLeft === 'Έληξε';
-
+        <div className="space-y-2.5">
+          {visible.map(station => {
+            const index = scopePositions.get(stationId(station)) ?? -1;
+            const boosted = Boolean(station.boostStatus);
+            const time = boosted ? remaining(station.boostExpiresAt) : null;
+            const id = stationId(station);
             return (
-              <div 
-                key={station._id} draggable={!isSearchActive} 
-                onDragStart={(e) => handleDragStart(e, filterIndex)} onDragEnter={(e) => handleDragEnter(e, filterIndex)}
-                onDragOver={handleDragOver} onDrop={handleDrop} onDragEnd={handleDragEnd}
-                className={`grid grid-cols-12 gap-4 p-4 border-b border-white/5 items-center hover:bg-white/5 transition-colors group bg-black ${!isSearchActive ? 'cursor-grab active:cursor-grabbing' : ''}`}
-              >
-                {/* Position */}
-                <div className="col-span-1 flex justify-center pointer-events-none">
-                  <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${isBoosted && !isExpired ? 'bg-[#ccff00]/10 border-[#ccff00]/30 text-[#ccff00]' : 'bg-zinc-900 border-white/5 text-zinc-400 group-hover:border-[#ccff00]/30 group-hover:text-[#ccff00]'}`}>
-                    {realIndex + 1}
-                  </span>
-                </div>
-                
-                {/* Station Info */}
-                <div className="col-span-4 md:col-span-3 flex items-center gap-4 pointer-events-none">
+              <article key={id} onDragOver={event => event.preventDefault()}
+                onDrop={event => onDrop(event, id)}
+                className="group grid min-w-0 gap-3 rounded-[22px] border border-white/10 bg-white/[.035] p-3 transition hover:border-white/20 hover:bg-white/[.06] sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:p-4">
+                <div className="flex items-center gap-2">
                   <div className="relative">
-                    <img src={station.logo} className="w-10 h-10 rounded-xl object-cover bg-white" alt="" />
-                    {isBoosted && !isExpired && <Zap size={14} className="absolute -top-2 -right-2 text-black bg-[#ccff00] rounded-full p-0.5 shadow-[0_0_10px_rgba(204,255,0,0.5)]" />}
+                    <label htmlFor={`boost-position-${id}`} className="sr-only">Θέση του {station.name}</label>
+                    <input id={`boost-position-${id}`} type="number" inputMode="numeric"
+                      min="1" max={scopedStations.length} step="1"
+                      title="Γράψε θέση και πάτησε Enter ή έξοδο από το πεδίο"
+                      value={positionInputs[id] ?? index + 1}
+                      onChange={event => setPositionInputs(prev => ({ ...prev, [id]: event.target.value }))}
+                      onBlur={() => commitPosition(id, index)}
+                      onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+                      className="h-12 w-16 rounded-xl border border-[#ccff00]/25 bg-[#ccff00]/10 text-center text-base font-black tabular-nums text-[#ccff00] outline-none focus:border-[#ccff00] sm:w-[70px]" />
                   </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-white text-sm truncate">{station.name}</span>
-                    <span className="text-[10px] text-zinc-500 md:hidden truncate">{station.genre}</span>
-                  </div>
+                  <span className="text-[10px] font-semibold text-zinc-500">/ {scopedStations.length}</span>
                 </div>
 
-                <div className="col-span-2 hidden md:flex flex-col min-w-0 pointer-events-none">
-                  <span className="text-xs text-zinc-300 truncate">{station.genre}</span>
-                  <span className="text-[10px] text-zinc-500 truncate">{station.region}</span>
-                </div>
-
-                {/* Boost Controls */}
-                <div className="col-span-6 md:col-span-5 flex items-center justify-center gap-2 md:gap-4 bg-zinc-900/50 p-2 rounded-xl border border-white/5">
-                  {/* Toggle */}
-                  <button type="button" role="switch" aria-checked={Boolean(isBoosted)}
-                    aria-label={'Boost '+station.name} onClick={() => handleBoostToggle(station._id)} className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none ${isBoosted ? 'bg-[#ccff00]' : 'bg-zinc-700'}`}>
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-black transition duration-300 ${isBoosted ? 'translate-x-6' : 'translate-x-1'}`} />
-                  </button>
-
-                  {/* Select Duration */}
-                  <select
-                    aria-label={'Διάρκεια boost '+station.name}
-                    disabled={!isBoosted}
-                    defaultValue=""
-                    onChange={(e) => handleBoostDurationChange(station._id, e.target.value)}
-                    className="bg-black border border-white/10 h-8 rounded-lg px-2 text-[11px] font-bold text-white outline-none disabled:opacity-30 cursor-pointer"
-                  >
-                    <option value="" disabled>Διάρκεια…</option>
-                    <option value="1">1 Ημέρα</option>
-                    <option value="3">3 Ημέρες</option>
-                    <option value="7">7 Ημέρες</option>
-                    <option value="14">14 Ημέρες</option>
-                    <option value="30">1 Μήνας</option>
-                    <option value="90">3 Μήνες</option>
-                    <option value="180">6 Μήνες</option>
-                    <option value="365">1 Έτος</option>
-                  </select>
-
-                  {/* Remaining Time */}
-                  <div className="hidden lg:flex items-center gap-1.5 w-24">
-                    {isBoosted && station.boostExpiresAt && (
-                      <>
-                        <Clock size={12} className={isExpired ? "text-red-500" : "text-[#ccff00]"} />
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${isExpired ? "text-red-500" : "text-[#ccff00]"}`}>
-                          {timeLeft}
-                        </span>
-                      </>
-                    )}
+                <div className="flex min-w-0 items-center gap-3">
+                  {station.logo
+                    ? <img src={station.logo} alt="" loading="lazy"
+                        className="size-12 shrink-0 rounded-xl bg-white object-contain p-1 sm:size-14" />
+                    : <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-zinc-900"><Radio size={23} /></div>}
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-bold text-white sm:text-base">{station.name}</h3>
+                    <p className="mt-0.5 truncate text-xs text-zinc-400">
+                      {[station.genre, station.region || station.city].filter(Boolean).join(' · ')}
+                    </p>
+                    {boosted && <span className={`mt-1 inline-flex items-center gap-1 text-[11px] font-semibold ${time === 'Έληξε' ? 'text-rose-400' : 'text-[#ccff00]'}`}>
+                      <Zap size={11} /> {time || 'Boost ενεργό'}
+                    </span>}
                   </div>
                 </div>
 
-                <div className="col-span-1 flex flex-col items-end gap-1 text-zinc-400">
-                  <button type="button" disabled={isSearchActive||realIndex===0}
-                    aria-label={'Μετακίνηση '+station.name+' μία θέση πάνω'}
-                    title="Μία θέση πάνω" onClick={()=>moveStation(station._id,-1)}
-                    className="rounded-lg border border-white/10 p-1.5 hover:border-[#caff00]/40 hover:text-[#caff00]">
-                    <ArrowUp size={15}/></button>
-                  <button type="button" disabled={isSearchActive||realIndex===localStations.length-1}
-                    aria-label={'Μετακίνηση '+station.name+' μία θέση κάτω'}
-                    title="Μία θέση κάτω" onClick={()=>moveStation(station._id,1)}
-                    className="rounded-lg border border-white/10 p-1.5 hover:border-[#caff00]/40 hover:text-[#caff00]">
-                    <ArrowDown size={15}/></button>
-                  <GripVertical size={16} aria-hidden="true" className="hidden lg:block opacity-50" />
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3 sm:justify-end sm:border-0 sm:pt-0">
+                  <div className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-2.5 py-2">
+                    <button type="button" role="switch" aria-checked={boosted}
+                      aria-label={`Boost για ${station.name}`} onClick={() => toggleBoost(station)}
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition ${boosted ? 'bg-[#ccff00]' : 'bg-zinc-700'}`}>
+                      <span className={`absolute left-1 top-1 size-4 rounded-full bg-black transition-transform ${boosted ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                    <select aria-label={`Διάρκεια Boost για ${station.name}`} value=""
+                      onChange={event => setDuration(id, event.target.value)}
+                      className="max-w-[130px] bg-transparent py-1 text-xs text-zinc-300 outline-none">
+                      <option value="">Διάρκεια Boost</option>
+                      {durations.map(([days, title]) => <option key={days} value={days}>{title}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button type="button" className={miniButton} title="Στην κορυφή"
+                      aria-label={`Μετακίνηση ${station.name} στην κορυφή`} disabled={!index}
+                      onClick={() => reorder(id, 0)}><ArrowUpToLine size={16} /></button>
+                    <button type="button" className={miniButton} title="Μία θέση πάνω"
+                      aria-label={`Μετακίνηση ${station.name} πάνω`} disabled={!index}
+                      onClick={() => reorder(id, index - 1)}><ArrowUp size={16} /></button>
+                    <button type="button" className={miniButton} title="Μία θέση κάτω"
+                      aria-label={`Μετακίνηση ${station.name} κάτω`}
+                      disabled={index === scopedStations.length - 1}
+                      onClick={() => reorder(id, index + 1)}><ArrowDown size={16} /></button>
+                    <button type="button" className={miniButton} title="Στο τέλος"
+                      aria-label={`Μετακίνηση ${station.name} στο τέλος`}
+                      disabled={index === scopedStations.length - 1}
+                      onClick={() => reorder(id, scopedStations.length - 1)}><ArrowDownToLine size={16} /></button>
+                    <span draggable aria-hidden="true"
+                      title="Σύρε για αλλαγή θέσης"
+                      onDragStart={event => {
+                        draggedId.current = id;
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', id);
+                      }}
+                      onDragEnd={() => { draggedId.current = null; }}
+                      className="hidden cursor-grab rounded-lg p-1.5 text-zinc-500 hover:text-white lg:inline-flex">
+                      <GripVertical size={19} />
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </article>
             );
           })}
-          
-          {filteredStations.length === 0 && (
-            <div className="p-12 text-center text-zinc-500 font-bold uppercase tracking-widest text-xs">
-              Δεν βρέθηκαν σταθμοί με αυτά τα κριτήρια.
+          {!visible.length && (
+            <div className="ir-glass rounded-3xl p-12 text-center text-sm text-zinc-400">
+              Δεν βρέθηκαν σταθμοί. Δοκίμασε άλλη αναζήτηση ή κατάταξη.
             </div>
           )}
+          {matches.length > shown && <button type="button"
+            onClick={() => setShown(value => value + 60)}
+            className="w-full rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-bold text-zinc-200 transition hover:border-[#ccff00]/40 hover:text-[#ccff00]">
+            Εμφάνιση περισσότερων ({matches.length - shown} ακόμη)
+          </button>}
+        </div>
+      </section>
+
+      <div className="sticky bottom-3 z-20 rounded-[23px] border border-white/15 bg-zinc-950/90 p-3 shadow-[0_14px_60px_rgba(0,0,0,.6)] backdrop-blur-2xl sm:bottom-5 sm:p-4">
+        {notice && <p role={notice.error ? 'alert' : 'status'}
+          className={`mb-3 flex items-start gap-2 rounded-xl px-3 py-2 text-xs ${notice.error
+            ? 'bg-rose-500/10 text-rose-300' : 'bg-[#ccff00]/10 text-[#ccff00]'}`}>
+          {notice.error ? <Info size={15} /> : <Check size={15} />}{notice.text}
+        </p>}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-white">{scopeLabel}</p>
+            <p className="text-xs text-zinc-500">{dirty
+              ? 'Έχεις αλλαγές που δεν αποθηκεύτηκαν.'
+              : 'Όλες οι αλλαγές σε αυτήν την προβολή είναι αποθηκευμένες.'}</p>
+          </div>
+          <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
+            <button type="button" onClick={discard} disabled={saving || !dirty}
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-3 text-xs font-bold text-zinc-300 transition hover:bg-white/10 disabled:opacity-30 sm:px-4">
+              <RotateCcw size={15} /> <span className="hidden sm:inline">Αναίρεση</span>
+            </button>
+            <button type="button" onClick={save} disabled={!dirty || saving || loading || Boolean(loadError)}
+              className="ir-action-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-xs font-black disabled:cursor-not-allowed disabled:opacity-40 sm:px-6">
+              <Save size={16} /> {saving ? 'Αποθήκευση…' : 'Αποθήκευση σειράς'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

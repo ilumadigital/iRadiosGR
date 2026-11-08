@@ -28,7 +28,16 @@ export function catalogStationInfo(station,snapshot,clock){
 // Availability overrides every other ranking mode.
 export const stationIsOffline = station => station?.isOffline === true;
 const compareAvailability = (a,b) => Number(stationIsOffline(a))-Number(stationIsOffline(b));
-function stationPosition(station){
+function stationPosition(station,scope='global',scopeValue=''){
+  // Saved scope orders override the default global list. New, unranked stations
+  // follow the ranked ones until the admin next saves this category/region.
+  if(scope!=='global'&&scopeValue){
+    const ranked=station?.rankings?.find(item=>item.scope===scope&&item.value===scopeValue);
+    const rank=Number(ranked?.position);
+    if(ranked&&Number.isInteger(rank)&&rank>0)return rank;
+    const fallback=Number(station?.position);
+    return 1000000+(Number.isFinite(fallback)&&fallback>=0?fallback:999);
+  }
   const raw=station?.position;
   if(raw===null||raw===undefined||raw==='')return 999;
   const value=Number(raw);
@@ -48,25 +57,26 @@ function frequency(station){
 }
 // "Δημοτικότητα": the saved editorial position comes FIRST. Listener counts
 // are only a deterministic tiebreaker (e.g. stations with default position 999).
-export function compareCatalogPopularity(a,b){
+export function compareCatalogPopularity(a,b,_byId={},_clock=null,scope='global',scopeValue=''){
   const offline=compareAvailability(a,b);
   if(offline)return offline;
-  const positions=stationPosition(a)-stationPosition(b);
+  const positions=stationPosition(a,scope,scopeValue)-stationPosition(b,scope,scopeValue);
   if(positions)return positions;
   return popularity(b)-popularity(a)||stationName(a,b);
 }
 // "Πληρότητα": independent, live four-tier ranking, then saved position.
-export function compareCatalogCompleteness(a,b,byId={},clock){
+export function compareCatalogCompleteness(a,b,byId={},clock,scope='global',scopeValue=''){
   const aTier=catalogStationInfo(a,byId?.[String(a?._id)],clock).tier;
   const bTier=catalogStationInfo(b,byId?.[String(b?._id)],clock).tier;
-  return compareAvailability(a,b)||aTier-bTier||compareCatalogPopularity(a,b);
+  return compareAvailability(a,b)||aTier-bTier||
+    compareCatalogPopularity(a,b,byId,clock,scope,scopeValue);
 }
 // Every sort choice is independent; selecting alphabetical, frequency or date
 // must not secretly promote a station because of its metadata quality.
-export function compareCatalogStations(a,b,byId={},clock,sortBy='popularity'){
+export function compareCatalogStations(a,b,byId={},clock,sortBy='popularity',scope='global',scopeValue=''){
   const offline=compareAvailability(a,b);
   if(offline)return offline;
-  if(sortBy==='completeness')return compareCatalogCompleteness(a,b,byId,clock);
+  if(sortBy==='completeness')return compareCatalogCompleteness(a,b,byId,clock,scope,scopeValue);
   if(sortBy==='alphabetical')return stationName(a,b);
   if(sortBy==='frequency'){
     const aFrequency=frequency(a),bFrequency=frequency(b);
@@ -77,5 +87,5 @@ export function compareCatalogStations(a,b,byId={},clock,sortBy='popularity'){
     const bDate=new Date(b?.createdAt||0).getTime()||0;
     if(aDate!==bDate)return bDate-aDate;
   }
-  return compareCatalogPopularity(a,b);
+  return compareCatalogPopularity(a,b,byId,clock,scope,scopeValue);
 }

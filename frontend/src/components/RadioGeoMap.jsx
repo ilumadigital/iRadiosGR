@@ -21,10 +21,10 @@ function loadMapLibre() {
   return maplibrePromise;
 }
 
-function sortRadioStations(stations, sortBy, nowPlayingById, catalogClock) {
+function sortRadioStations(stations, sortBy, nowPlayingById, catalogClock, rankingScope, rankingValue) {
   return [...(stations || [])].sort((a,b)=>sortBy==='popularity'
-    ? compareCatalogPopularity(a,b,nowPlayingById,catalogClock)
-    : compareCatalogStations(a,b,nowPlayingById,catalogClock,sortBy));
+    ? compareCatalogPopularity(a,b,nowPlayingById,catalogClock,rankingScope,rankingValue)
+    : compareCatalogStations(a,b,nowPlayingById,catalogClock,sortBy,rankingScope,rankingValue));
 }
 
 export default function RadioGeoMap({
@@ -37,6 +37,8 @@ export default function RadioGeoMap({
   nowPlayingById,
   catalogClock,
   sortMode,
+  rankingScope = 'global',
+  rankingValue = '',
   initialZoom = 6,
   showFilters = false,
   className = ''
@@ -54,8 +56,8 @@ export default function RadioGeoMap({
   // On the standalone map, keep the visible local sorting dropdown.
   const effectiveSortBy=showFilters?sortBy:(sortMode||sortBy);
   const sortedStations=useMemo(()=>
-    sortRadioStations(stations,effectiveSortBy,nowPlayingById,catalogClock),
-    [stations,effectiveSortBy,nowPlayingById,catalogClock]);
+    sortRadioStations(stations,effectiveSortBy,nowPlayingById,catalogClock,rankingScope,rankingValue),
+    [stations,effectiveSortBy,nowPlayingById,catalogClock,rankingScope,rankingValue]);
   const { places, unlocated } = useMemo(() => {
     const byCoordinates = new Map();
     const unknown = [];

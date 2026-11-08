@@ -81,6 +81,13 @@ const stationSchema = new mongoose.Schema({
   // Excluded from public station documents; only read by authenticated backoffice.
   scheduleFeed: {type:scheduleFeedSchema,default:undefined,select:false},
   position: { type: Number, default: 999 },
+  // Independent manual rankings for genre and region catalogs; global order is "position".
+  // Each station can have one entry per catalog scope. Existing stations require no migration.
+  rankings: [{
+    scope: { type: String, enum: ['genre', 'region'], required: true },
+    value: { type: String, required: true },
+    position: { type: Number, min: 1, required: true }
+  }],
   boostStatus: { type: Boolean, default: false },
   boostExpiresAt: { type: Date, default: null },
   disableNetworkAds: { type: Boolean, default: false } 

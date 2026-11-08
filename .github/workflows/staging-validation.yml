@@ -103,6 +103,8 @@ jobs:
         run: node ops/check-music-service-links.cjs
       - name: Verify all Phase 4.3 Admin screens and responsive design integration
         run: node ops/check-phase43-admin-ux.cjs
+      - name: Validate independently scoped station ranking and Boost editor
+        run: node ops/check-boost-scoped-ranking.cjs
       - name: Validate one-minute native song cache, instant Home and safe Spotify links
         run: node ops/check-phase36-native-cache.cjs
       - name: Validate one-minute staging background metadata scanner and round-robin

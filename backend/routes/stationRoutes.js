@@ -123,23 +123,74 @@ router.put('/admin/stations/:id/assign', protect, authorizeRoles('admin'), async
   }
 });
 
-router.put('/admin/stations/reorder', async (req, res) => {
+// Scope-aware editorial ordering. All writes require admin permission, a complete
+// approved station set for the selected scope, and unique valid station IDs.
+router.put('/admin/stations/reorder', protect, authorizeRoles('admin'), async (req, res) => {
   try {
-    const { stationsData } = req.body; 
-    const bulkOps = stationsData.map((st) => ({
-      updateOne: { 
-        filter: { _id: st.id }, 
-        update: { 
-          position: st.position, 
-          boostStatus: st.boostStatus, 
-          boostExpiresAt: st.boostExpiresAt 
-        } 
+    const { stationsData, scope = 'global', scopeValue = '', updateOrder = true } = req.body || {};
+    if (typeof updateOrder !== 'boolean') {
+      return res.status(400).json({ error: 'Μη έγκυρη εντολή ταξινόμησης.' });
+    }
+    if (!['global', 'genre', 'region'].includes(scope) ||
+        (scope !== 'global' && (typeof scopeValue !== 'string' ||
+          !scopeValue.trim() || scopeValue.length > 120))) {
+      return res.status(400).json({ error: 'Μη έγκυρη κατηγορία ή περιοχή κατάταξης.' });
+    }
+    const value = scope === 'global' ? '' : scopeValue.trim();
+    if (!Array.isArray(stationsData) || stationsData.length > 20000 ||
+        stationsData.some(item => !item || !mongoose.isValidObjectId(item.id))) {
+      return res.status(400).json({ error: 'Μη έγκυρη λίστα σταθμών.' });
+    }
+    const ids = stationsData.map(item => String(item.id));
+    if (new Set(ids).size !== ids.length) {
+      return res.status(400).json({ error: 'Υπάρχουν διπλοί σταθμοί στην κατάταξη.' });
+    }
+    const query = { status: 'approved' };
+    if (scope === 'genre') query.$or = [{ genre: value }, { secondaryGenre: value }];
+    if (scope === 'region') query.$or = [{ region: value }, { city: value }];
+    const existing = await Station.find(query).select('_id rankings boostExpiresAt').lean();
+    const expected = new Set(existing.map(s => String(s._id)));
+    if (ids.length !== expected.size || ids.some(id => !expected.has(id))) {
+      return res.status(409).json({
+        error: 'Η λίστα σταθμών άλλαξε. Κάνε ανανέωση πριν αποθηκεύσεις.'
+      });
+    }
+    const byId = new Map(existing.map(s => [String(s._id), s]));
+    const now = Date.now();
+    const bulkOps = stationsData.map((item, index) => {
+      const original = byId.get(String(item.id));
+      const fields = !updateOrder ? {} : scope === 'global'
+        ? { position: index + 1 }
+        : { rankings: [
+            ...(original.rankings || []).filter(rank =>
+              !(rank.scope === scope && rank.value === value)),
+            { scope, value, position: index + 1 }
+          ] };
+      // Boost is an independent, network-wide setting, even when editing
+      // a genre/region list. Legacy clients can still omit the boost fields.
+      if (typeof item.boostStatus === 'boolean') {
+        fields.boostStatus = item.boostStatus;
+        if (!item.boostStatus) fields.boostExpiresAt = null;
+        else {
+          const requested = item.boostExpiresAt ? new Date(item.boostExpiresAt) : null;
+          fields.boostExpiresAt = requested && Number.isFinite(requested.getTime()) &&
+            requested.getTime() > now ? requested :
+            (original.boostExpiresAt && new Date(original.boostExpiresAt).getTime() > now
+              ? original.boostExpiresAt : new Date(now + 86400000));
+        }
       }
-    }));
-    await Station.bulkWrite(bulkOps);
-    res.json({ message: 'Επιτυχής αποθήκευση!' });
-  } catch (err) { 
-    res.status(500).json({ error: 'Σφάλμα αποθήκευσης.' }); 
+      if (!Object.keys(fields).length) return null;
+      return { updateOne: {
+        filter: { _id: item.id, status: 'approved' },
+        update: { $set: fields }
+      } };
+    }).filter(Boolean);
+    if (bulkOps.length) await Station.bulkWrite(bulkOps, { ordered: true });
+    return res.json({ message: 'Η κατάταξη αποθηκεύτηκε.', scope, scopeValue: value,
+      count: bulkOps.length });
+  } catch (err) {
+    console.error('Station reorder failed:', err);
+    return res.status(500).json({ error: 'Σφάλμα αποθήκευσης.' });
   }
 });
 

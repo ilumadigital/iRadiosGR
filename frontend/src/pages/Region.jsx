@@ -91,9 +91,9 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     if (selectedTransmission !== 'all') result = result.filter(s => (s.transmissionType || 'Web Radio') === selectedTransmission);
 
     return result.sort((a,b)=>sortBy==='popularity'
-      ? compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock)
-      : compareCatalogStations(a,b,catalogNowPlaying,catalogClock,sortBy));
-  }, [baseStations, selectedGenre, selectedTransmission, sortBy, catalogNowPlaying, catalogClock]);
+      ? compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock,'region',regionName)
+      : compareCatalogStations(a,b,catalogNowPlaying,catalogClock,sortBy,'region',regionName));
+  }, [baseStations, selectedGenre, selectedTransmission, sortBy, catalogNowPlaying, catalogClock, regionName]);
 
   const formatGenre = (text) => text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
@@ -289,6 +289,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
           nowPlayingById={catalogNowPlaying}
           catalogClock={catalogClock}
           sortMode={sortBy}
+          rankingScope="region" rankingValue={regionName}
           currentStation={currentStation}
           onPlayStation={setCurrentStation}
           isPlaying={isPlaying}
