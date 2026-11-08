@@ -50,7 +50,7 @@ function Toggle({checked,onChange,label,disabled=false}){
 function ProfileField({label,name,type='text',value,onChange,required=false}){
   return <label className="flex min-w-0 flex-col gap-2">
     <span className="text-xs font-bold text-zinc-400">{label}</span>
-    <input className="ir-profile-input" type={type} value={value} required={required}
+    <input className="ir-profile-input" type={type} lang="el-GR" value={value} required={required}
       onChange={e=>onChange(name,e.target.value)} maxLength={name==='phone'?30:120}/>
   </label>;
 }
@@ -440,9 +440,9 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null}){
         <SectionHeading icon={Crown} title="Συνδρομές & προνόμια" description="Όλα τα πλάνα και η κατάσταση ανανέωσης, χωρίς κρυφές αλλαγές."/>
         <div className="ir-profile-plan-hero mb-5 flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between">
           <div><span className="text-[10px] font-black uppercase tracking-[.15em] text-[#ccff00]">Το τωρινό σου πλάνο</span>
-            <h3 className="mt-2 flex items-center gap-2 text-2xl font-black text-white"><Crown size={23} className="text-[#ccff00]"/>{premium?'iRadios Premium':'iRadios Free'}</h3>
-            <p className="mt-2 text-xs text-zinc-400">{premium?'Έχεις ενεργοποιημένη premium πρόσβαση.':'Ανακάλυψε περισσότερες δυνατότητες με Premium.'}</p></div>
-          {!premium&&<button type="button" onClick={()=>navigate('/premium')} className="ir-profile-primary"><Zap size={17}/> Δες το Premium</button>}
+            <h3 className="mt-2 flex items-center gap-2 text-2xl font-black text-white"><Crown size={23} className="text-[#ccff00]"/>{premium?'iRadios Premium':broadcasterPremium?'Broadcaster Premium':'iRadios Free'}</h3>
+            <p className="mt-2 text-xs text-zinc-400">{premium?'Έχεις ενεργοποιημένη premium πρόσβαση.':broadcasterPremium?'Η επαγγελματική premium πρόσβαση του σταθμού σου είναι ενεργή.':'Ανακάλυψε περισσότερες δυνατότητες με Premium.'}</p></div>
+          {!premium&&!broadcasterPremium&&<button type="button" onClick={()=>navigate('/premium')} className="ir-profile-primary"><Zap size={17}/> Δες το Premium</button>}
         </div>
         {hasManualPremium&&<div className="ir-profile-subscription-row mb-3"><ShieldCheck size={18} className="text-[#ccff00]"/><div className="flex-1"><p className="text-sm font-black text-white">Premium πρόσβαση</p><p className="mt-1 text-xs text-zinc-400">Παραχωρημένη πρόσβαση · χωρίς Stripe χρέωση.</p></div></div>}
         {subscriptions.length>0?<div className="space-y-3">{subscriptions.map((sub,index)=>{
