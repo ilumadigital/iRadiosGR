@@ -9,7 +9,7 @@ const { protect } = require('../utils/authMiddleware');
 const { authorizeRoles } = require('../utils/roleMiddleware');
 const { hasAcceptedCurrentBroadcasterTerms, withBroadcasterTermsStatus } = require('../utils/broadcasterTerms');
 const { sendEmail } = require('../utils/myMailer');
-const { renderBrandedEmail, actionButton, infoPanel } = require('../utils/emailDesign');
+const { broadcasterInvitationEmail: invitationEmail } = require('../utils/invitationEmailTemplates');
 
 const router = express.Router();
 const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
@@ -34,33 +34,6 @@ async function loadUnownedStation(id) {
   return Station.findOne({ _id: id, broadcasterId: null }).select('_id name logo broadcasterId');
 }
 
-function invitationEmail(station, link) {
-  const stationName = escapeHtml(station.name);
-  const content =
-    '<h3>Ο σταθμός σου. Το δικό σου studio.</h3>' +
-    '<p>Έχεις λάβει μία προσωπική πρόσκληση για τη διαχείριση του <strong>' +
-      stationName + '</strong> στο iRadiosGR.</p>' +
-    infoPanel('ΣΤΑΘΜΟΣ ΠΡΟΣ ΑΝΑΘΕΣΗ', station.name, { highlight: true }) +
-    '<p>Δημιούργησε ή σύνδεσε τον λογαριασμό σου ως Broadcaster, επαλήθευσε το email σου ' +
-    'και αποδέξου τους όρους. Ο σταθμός και τα υπάρχοντα στοιχεία του θα εμφανιστούν ' +
-    'αυτόματα στο Broadcaster Backoffice.</p>' +
-    actionButton('Αποδοχή πρόσκλησης', link) +
-    '<p style="color:#95A2B5;font-size:12px;line-height:20px;margin-top:23px;">' +
-    'Ο προσωπικός σύνδεσμος ισχύει για <strong>7 ημέρες</strong> και μπορεί να χρησιμοποιηθεί μία φορά. ' +
-    'Αν δεν περίμενες αυτή την πρόσκληση, αγνόησε το μήνυμα.</p>';
-
-  return {
-    subject: 'Πρόσκληση διαχείρισης ' + station.name + ' | iRadiosGR',
-    text: 'Έχεις προσκληθεί να διαχειριστείς τον σταθμό ' + station.name +
-      ' στο iRadiosGR. Ολοκλήρωσε την εγγραφή ως broadcaster, επιβεβαίωσε το email και αποδέξου τους όρους: ' +
-      link + '\nΟ σύνδεσμος λήγει σε 7 ημέρες. Αν δεν περίμενες πρόσκληση, αγνόησε το μήνυμα.',
-    html: renderBrandedEmail({
-      preheader: 'Προσωπική πρόσκληση για τον σταθμό ' + station.name,
-      category: 'BROADCASTER · YOUR STATION',
-      content
-    })
-  };
-}
 
 async function sendStationInvite(req, res) {
   const email = normalizeEmail(req.body?.email);
