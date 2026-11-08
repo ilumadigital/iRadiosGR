@@ -21,7 +21,7 @@ const PRIMARY_CATEGORY_GROUPS=[
     ]
   },
   {
-    "label": "Ραδιόφωνα με Ομιλία",
+    "label": "Ειδήσεις, Αθλητικά & More",
     "items": [
       "Ειδησεογραφικά",
       "Αθλητικά",
