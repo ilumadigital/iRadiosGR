@@ -48,7 +48,13 @@ export default function StationProfile({
   // Legacy schedules use 0=Monday; new backoffice saves 1=Monday.
   // The station is never rewritten by public reads.
   const canonicalSchedule = useMemo(()=>toCanonical(station?.schedule||[],
-    scheduleDayBase(station?.schedule,station?.scheduleDayBase)),
+    scheduleDayBase(station?.schedule,station?.scheduleDayBase))
+    .map((show,index)=>({
+      ...show,
+      // Preserve the exclusive midnight boundary for LIVE/next detection;
+      // editor time inputs may use 00:00 but public playback must use 24:00.
+      endTime:station?.schedule?.[index]?.endTime==='24:00'?'24:00':show.endTime
+    })),
     [station?.schedule,station?.scheduleDayBase]);
   const isFreeOrGuest = !currentUser || (!currentUser.isPremium && currentUser?.broadcasterProfile?.tier !== 'premium');
   const isThisPlaying = currentStation && (currentStation._id === station?._id);
