@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Loader2, MailCheck, Radio, ShieldCheck, AlertTriangle } from 'lucide-react';
 
 // Accepting a station never uses the URL by itself as proof of ownership.
 // The backend additionally requires a verified matching email, broadcaster role
 // and current B2B terms acceptance.
-export default function BroadcasterInvitation({ API_URL, currentUser }) {
+export default function BroadcasterInvitation({ API_URL, currentUser, setCurrentUser }) {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const token = params.get('token') || '';
   const next = encodeURIComponent(token);
   const [invitation, setInvitation] = useState(null);
@@ -65,8 +66,8 @@ export default function BroadcasterInvitation({ API_URL, currentUser }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Αποτυχία ενεργοποίησης.');
-      // Force /auth/me rehydration so the role and required terms are current.
-      window.location.assign(`/broadcaster-terms?invite=${next}`);
+      if (data.user && setCurrentUser) setCurrentUser(data.user);
+      navigate(`/broadcaster-terms?invite=${next}`);
     } catch (error) { setMessage(error.message); setUpgradeBusy(false); }
   };
 
