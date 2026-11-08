@@ -50,44 +50,44 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
     finally{setBusy('');}
   };
   const check=async()=>{
-    if(!form.url.trim()){setError('Βάλε πρώτα ένα δημόσιο XML URL.');return;}
+    if(!form.url.trim()){setError('Βάλε πρώτα ένα δημόσιο XML ή JSON URL.');return;}
     setBusy('preview');setError('');
     try{
       const data=await api('/stations/'+station._id+'/schedule-feed/preview',
         {method:'POST',body:JSON.stringify(form)});
-      if(!data?.preview)throw new Error('Το XML δεν επέστρεψε εκπομπές.');
+      if(!data?.preview)throw new Error('Το feed δεν επέστρεψε εκπομπές.');
       setPreview(data.preview);setPreviewReady(Boolean(data.preview.valid));
       setForm(prev=>({...prev,rowTag:data.preview.rowTag,
         mapping:data.preview.mapping,dayFormat:data.preview.dayFormat||prev.dayFormat}));
-    }catch(e){setError(e.message||'Αποτυχία ελέγχου XML.');}
+    }catch(e){setError(e.message||'Αποτυχία ελέγχου feed.');}
     finally{setBusy('');}
   };
   const connect=async()=>{
     if(!preview||!previewReady)return;
-    if(!window.confirm('Το XML θα αντικαταστήσει το υπάρχον εβδομαδιαίο πρόγραμμα αυτού του σταθμού και θα συγχρονίζεται καθημερινά στις 03:00 ώρα Ελλάδας. Συνέχεια;'))return;
+    if(!window.confirm('Το feed θα αντικαταστήσει το υπάρχον εβδομαδιαίο πρόγραμμα αυτού του σταθμού και θα συγχρονίζεται καθημερινά στις 03:00 ώρα Ελλάδας. Συνέχεια;'))return;
     const result=await action('connect','/stations/'+station._id+'/schedule-feed',
       {method:'POST',body:JSON.stringify(form)});
     if(result){setPreview(null);setPreviewReady(false);}
   };
   const refresh=()=>action('refresh','/stations/'+station._id+'/schedule-feed/sync',{method:'POST'});
   const disable=()=>{
-    if(!window.confirm('Να σταματήσει ο καθημερινός συγχρονισμός XML; Το τελευταίο αποθηκευμένο πρόγραμμα θα παραμείνει.'))return;
+    if(!window.confirm('Να σταματήσει ο καθημερινός συγχρονισμός feed; Το τελευταίο αποθηκευμένο πρόγραμμα θα παραμείνει.'))return;
     action('disable','/stations/'+station._id+'/schedule-feed',{method:'DELETE'});
   };
   return <section className="mb-6 overflow-hidden rounded-[25px] border border-[#caff00]/15 bg-gradient-to-br from-[#111a19] to-[#101316]">
     <div className="flex flex-wrap items-center justify-between gap-3 p-5 md:p-6">
       <div className="flex items-center gap-3">
         <div className="flex size-11 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><FileCode2 size={21}/></div>
-        <div><h3 className="font-black text-white">XML πρόγραμμα & αυτόματος συγχρονισμός</h3>
-          <p className="mt-1 text-xs text-zinc-400">Αντιστοίχιση πεδίων, προεπισκόπηση και ενημέρωση κάθε μέρα στις 03:00 (Europe/Athens).</p></div>
+        <div><h3 className="font-black text-white">XML / JSON πρόγραμμα & αυτόματος συγχρονισμός</h3>
+          <p className="mt-1 text-xs text-zinc-400">XML ή JSON, προεπισκόπηση και ενημέρωση κάθε μέρα στις 03:00 (Europe/Athens).</p></div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className={'rounded-full px-3 py-1.5 text-[10px] font-black '+(connected?
           'bg-[#caff00]/10 text-[#caff00]':'bg-white/5 text-zinc-400')}>
-          {connected?'● ΕΝΕΡΓΟ XML':'ΧΕΙΡΟΚΙΝΗΤΟ ΠΡΟΓΡΑΜΜΑ'}</span>
+          {connected?'● ΕΝΕΡΓΟ FEED':'ΧΕΙΡΟΚΙΝΗΤΟ ΠΡΟΓΡΑΜΜΑ'}</span>
         {canManage&&<button type="button" onClick={()=>setExpanded(v=>!v)} aria-expanded={expanded}
           className={BTN+' border border-white/10 text-white hover:bg-white/5'}>
-          {expanded?'Κλείσιμο':'Ρύθμιση XML'} <ChevronDown size={15} className={expanded?'rotate-180':''}/></button>}
+          {expanded?'Κλείσιμο':'Ρύθμιση feed'} <ChevronDown size={15} className={expanded?'rotate-180':''}/></button>}
       </div>
     </div>
     {connected&&<div className="grid gap-3 border-t border-white/5 px-5 py-4 text-[11px] text-zinc-300 sm:grid-cols-3">
@@ -97,21 +97,21 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
       {status.lastError&&<div role="alert" className="sm:col-span-3 flex items-start gap-2 text-rose-300"><TriangleAlert size={15}/>{status.lastError}</div>}
     </div>}
     {expanded&&canManage&&<div className="space-y-5 border-t border-white/10 p-5 md:p-6">
-      <p className="min-w-0 break-words text-xs leading-6 text-zinc-400">1. Βάλε δημόσιο XML link. 2. Πάτησε «Έλεγχος XML» για να εμφανιστούν τα πεδία. 3. Διάλεξε το σωστό mapping και έλεγξε ξανά. 4. Επιβεβαίωσε την προεπισκόπηση και ενεργοποίησε. <strong className="text-zinc-200">Δεν χρειάζεται να σβήσεις πρώτα το υπάρχον πρόγραμμα:</strong> αντικαθίσταται αυτόματα μόνο μετά από έγκυρη εισαγωγή.</p>
+      <p className="min-w-0 break-words text-xs leading-6 text-zinc-400">1. Βάλε δημόσιο XML ή JSON link. 2. Πάτησε «Έλεγχος feed» για να εμφανιστούν τα πεδία. 3. Διάλεξε το σωστό mapping και έλεγξε ξανά. 4. Επιβεβαίωσε την προεπισκόπηση και ενεργοποίησε. <strong className="text-zinc-200">Δεν χρειάζεται να σβήσεις πρώτα το υπάρχον πρόγραμμα:</strong> αντικαθίσταται αυτόματα μόνο μετά από έγκυρη εισαγωγή.</p>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
-        <label className="space-y-2"><span className="text-xs font-bold text-zinc-200">XML feed URL *</span>
+        <label className="space-y-2"><span className="text-xs font-bold text-zinc-200">URL προγράμματος (XML ή JSON) *</span>
           <input className={INPUT} type="url" spellCheck={false} placeholder="https://radio.example.com/schedule.xml"
             value={form.url} onChange={e=>change('url',e.target.value)} maxLength={1600}/>
         </label>
         <label className="space-y-2"><span className="text-xs font-bold text-zinc-200">XML row tag (προαιρετικό)</span>
-          <input className={INPUT} value={form.rowTag} placeholder="π.χ. show / programme / item"
+          <input className={INPUT} value={form.rowTag} disabled={preview?.format==='json'} placeholder="π.χ. show / programme / item"
             list="ir-schedule-rowtags" onChange={e=>change('rowTag',e.target.value)} maxLength={100}/>
           <datalist id="ir-schedule-rowtags">{preview?.rowTags?.map(item=><option key={item.tag} value={item.tag}/>)}</datalist>
         </label>
       </div>
       <div className="grid items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
         <label className="space-y-2"><span className="text-xs font-bold text-zinc-200">Αρίθμηση ημερών στο XML</span>
-          <select className={INPUT} value={form.dayFormat} onChange={e=>change('dayFormat',e.target.value)}>
+          <select className={INPUT} value={form.dayFormat} disabled={preview?.format==='json'} onChange={e=>change('dayFormat',e.target.value)}>
             <option value="iso">1=Δευτέρα έως 7=Κυριακή (προτεινόμενο)</option>
             <option value="monday0">0=Δευτέρα έως 6=Κυριακή (legacy)</option>
             <option value="sunday0">0=Κυριακή έως 6=Σάββατο (JavaScript)</option>
@@ -120,18 +120,18 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
         <button type="button" className={BTN+' bg-white/10 text-white hover:bg-white/15'}
           disabled={Boolean(busy)||!form.url.trim()} onClick={check}>
           {busy==='preview'?<RefreshCw size={15} className="animate-spin"/>:<CloudDownload size={15}/>}
-          Έλεγχος XML</button>
+          Έλεγχος feed</button>
       </div>
       {preview&&!previewReady&&<p role="status" className="break-words rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-5 text-amber-200">{preview.validationError?
-        'Τα πεδία XML εντοπίστηκαν, αλλά χρειάζεται διόρθωση: '+preview.validationError+' Διάλεξε τις αντιστοιχίσεις παρακάτω και πάτησε ξανά «Έλεγχος XML».':
-        'Το mapping άλλαξε. Πάτησε ξανά «Έλεγχος XML» για νέα προεπισκόπηση πριν ενεργοποιήσεις.'}</p>}
+        'Τα πεδία εντοπίστηκαν, αλλά χρειάζεται διόρθωση: '+preview.validationError+' Διάλεξε τις αντιστοιχίσεις παρακάτω και πάτησε ξανά «Έλεγχος feed».':
+        'Το mapping άλλαξε. Πάτησε ξανά «Έλεγχος feed» για νέα προεπισκόπηση πριν ενεργοποιήσεις.'}</p>}
       {preview&&<>
         <div className="border-t border-white/10 pt-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h4 className="text-sm font-black text-white">Αντιστοίχιση πεδίων (Mapping)</h4>
-            <span className="rounded-full bg-[#caff00]/10 px-3 py-1 text-[11px] text-[#caff00]">{preview.sourceCount} γραμμές XML, {preview.count} εγγραφές μετά τον διαχωρισμό</span>
+            <span className="rounded-full bg-[#caff00]/10 px-3 py-1 text-[11px] text-[#caff00]">{preview.sourceCount} γραμμές {preview.format==='json'?'JSON':'XML'}, {preview.count} εγγραφές μετά τον διαχωρισμό</span>
           </div>
-          <p className="mb-4 text-xs leading-5 text-zinc-400">Αν η αυτόματη επιλογή δεν είναι σωστή, άλλαξέ την από τις λίστες και πάτησε ξανά «Έλεγχος XML». Τα πεδία με * είναι υποχρεωτικά. Τίτλος ή παραγωγός πρέπει να υπάρχει.</p>
+          <p className="mb-4 text-xs leading-5 text-zinc-400">Αν η αυτόματη επιλογή δεν είναι σωστή, άλλαξέ την από τις λίστες και πάτησε ξανά «Έλεγχος feed». Τα πεδία με * είναι υποχρεωτικά. Τίτλος ή παραγωγός πρέπει να υπάρχει.</p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {Object.entries(FIELD_LABELS).map(([name,label])=><label key={name} className="space-y-2">
               <span className="text-[11px] font-bold text-zinc-300">{label}{REQUIRED.includes(name)?' *':''}</span>
@@ -146,7 +146,7 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
         <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
           <h4 className="mb-3 text-xs font-black text-white">Προεπισκόπηση εβδομαδιαίου προγράμματος</h4>
           <div className="max-h-72 space-y-2 overflow-y-auto">
-            {!preview.sample.length&&<p className="py-3 text-xs text-zinc-400">Η προεπισκόπηση θα εμφανιστεί μόλις διορθώσεις το mapping και πατήσεις «Έλεγχος XML».</p>}
+            {!preview.sample.length&&<p className="py-3 text-xs text-zinc-400">Η προεπισκόπηση θα εμφανιστεί μόλις διορθώσεις το mapping και πατήσεις «Έλεγχος feed».</p>}
             {preview.sample.map((show,i)=><div key={i} className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[.025] p-2.5">
               <img src={show.imageUrl||station.logo} alt="" loading="lazy"
                 onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src=station.logo;}}
@@ -165,7 +165,7 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
       </>}
       {error&&<p role="alert" className="flex items-center gap-2 rounded-xl border border-rose-400/20 bg-rose-400/5 p-3 text-xs text-rose-300"><TriangleAlert size={16}/>{error}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-        <p className="flex items-center gap-2 text-[11px] text-zinc-500"><ShieldCheck size={15} className="text-[#caff00]"/> Σε αποτυχία XML το τελευταίο έγκυρο πρόγραμμα διατηρείται.</p>
+        <p className="flex items-center gap-2 text-[11px] text-zinc-500"><ShieldCheck size={15} className="text-[#caff00]"/> Σε αποτυχία feed το τελευταίο έγκυρο πρόγραμμα διατηρείται.</p>
         <div className="flex flex-wrap gap-2">
           {connected&&<button type="button" className={BTN+' border border-white/10 text-zinc-200 hover:bg-white/5'}
             onClick={refresh} disabled={Boolean(busy)}>
@@ -174,7 +174,7 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
             onClick={disable} disabled={Boolean(busy)}><Link2Off size={15}/> Απενεργοποίηση</button>}
           <button type="button" className={BTN+' bg-[#caff00] text-black hover:bg-[#e5ff80]'}
             disabled={!preview||!previewReady||Boolean(busy)} onClick={connect}>
-            <Check size={15}/>{busy==='connect'?'Αποθήκευση…':'Ενεργοποίηση XML & εισαγωγή'}</button>
+            <Check size={15}/>{busy==='connect'?'Αποθήκευση…':'Εισαγωγή & συγχρονισμός'}</button>
         </div>
       </div>
     </div>}
