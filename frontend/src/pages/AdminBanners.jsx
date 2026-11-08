@@ -291,6 +291,7 @@ export default function AdminBanners() {
     { id: 'hero', label: 'Hero (Top)', icon: <LayoutPanelTop size={14} />, color: 'bg-blue-500' },
     { id: 'home', label: 'Home Feed', icon: <Rows3 size={14} />, color: 'bg-emerald-500' },
     { id: 'radio_feed', label: 'Radio Grid', icon: <LayoutGrid size={14} />, color: 'bg-purple-500' },
+    { id: 'news_feed', label: 'Newsfeed', icon: <Rows3 size={14} />, color: 'bg-orange-600' },
   ];
 
   return (
@@ -416,7 +417,7 @@ export default function AdminBanners() {
               
               <div className="space-y-3">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] pl-1">Τοποθεσίες Προβολής</label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {placementOptions.map(opt => {
                     const isSelected = formData.placement.includes(opt.id);
                     return (

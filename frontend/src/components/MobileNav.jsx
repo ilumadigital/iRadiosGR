@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Heart, User, Radio } from 'lucide-react';
+import { Home, Heart, User, Radio, Newspaper } from 'lucide-react';
 
-// Four-item listener dock, mirroring the approved v6.1 mobile concept.
+// Listener dock with Newsfeed immediately after Home.
 // Discovery still opens the existing modal; do not introduce a new route.
 export default function MobileNav({ currentUser, onOpenDiscovery }) {
   const { pathname } = useLocation();
@@ -20,6 +20,10 @@ export default function MobileNav({ currentUser, onOpenDiscovery }) {
       <Link to="/" className={navItemClass(pathname === '/')} aria-current={pathname === '/' ? 'page' : undefined}>
         <Home size={21} fill={pathname === '/' ? 'currentColor' : 'none'} aria-hidden="true" />
         <span>Αρχική</span>
+      </Link>
+      <Link to="/newsfeed" className={navItemClass(pathname === '/newsfeed')} aria-current={pathname === '/newsfeed' ? 'page' : undefined}>
+        <Newspaper size={21} aria-hidden="true" />
+        <span>Ειδήσεις</span>
       </Link>
       <button
         type="button"

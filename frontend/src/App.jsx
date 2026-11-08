@@ -57,6 +57,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import MyRadios from './pages/MyRadios';
 import Genre from './pages/Genre';
 import Region from './pages/Region';
+import NewsFeed from './pages/NewsFeed';
+import AdminNewsFeed from './pages/AdminNewsFeed';
 import NewPush from './pages/NewPush';
 import AdminAds from './pages/AdminAds';
 import GoPremium from './pages/GoPremium';
@@ -1806,6 +1808,7 @@ function MainApp() {
             <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} onLogout={handleLogout} /> : <Navigate to="/login" />} />
             <Route path="/settings" element={<Settings API_URL={API_URL} currentUser={currentUser} />} />
             <Route path="/press-kit" element={<PressKit />} />
+            <Route path="/newsfeed" element={<NewsFeed stations={stations} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
             <Route path="/map" element={<MapMode stations={stations} currentStation={currentStation} onPlayStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} />} />
 
             <Route path="/studio" element={
@@ -1863,6 +1866,7 @@ function MainApp() {
               </RequireTerms>
             } />
 
+            <Route path="/admin/newsfeed" element={currentUser?.role === 'admin' ? <AdminNewsFeed /> : <Navigate to="/" />} />
             <Route path="/admin/home-slides" element={currentUser?.role === 'admin' ? <AdminHomeSlides /> : <Navigate to="/" />} />
             <Route path="/admin/banners" element={currentUser?.role === 'admin' ? <AdminBanners /> : <Navigate to="/" />} />
             <Route path="/admin" element={currentUser?.role === 'admin' ? <AdminDashboard API_URL={API_URL}/> : <Navigate to="/" />} />

@@ -23,7 +23,7 @@ export default function HomeHeroSlider({
     const controller=new AbortController();
     setIndex(0);
     setSlides([]);
-    if(placement!=='home'&&!value)return()=>controller.abort();
+    if(!['home','news'].includes(placement)&&!value)return()=>controller.abort();
     const query=placement==='home'?'':'?'+new URLSearchParams({placement,value}).toString();
     fetch('/api/home-slides'+query,{signal:controller.signal})
       .then(r=>r.ok?r.json():[])

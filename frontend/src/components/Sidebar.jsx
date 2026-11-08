@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
-import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, MessageSquare, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy } from 'lucide-react';
+import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, MessageSquare, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Newspaper, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy } from 'lucide-react';
 
 function SidebarItem({ icon, label, to, currentPath, onClick, className = "", isCollapsed }) {
   const active = currentPath === to || decodeURIComponent(currentPath) === to;
@@ -186,6 +186,7 @@ export default function Sidebar({
               {!isProducer && (
                 <>
                   <SidebarItem isCollapsed={isCollapsed} to="/" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Compass size={20} />} label="Αρχική" />
+                   <SidebarItem isCollapsed={isCollapsed} to="/newsfeed" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Newspaper size={20} />} label="Ειδήσεις" />
                   <SidebarItem isCollapsed={isCollapsed} to="/?explore=categories" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Grid2X2 size={20} />} label="Κατηγορίες" />
                   <nav aria-label="Είδη ραδιοφώνων" className={`mb-4 mt-3 space-y-4 pl-4 pr-2 ${isCollapsed?'lg:hidden':''}`}>
                     {PRIMARY_CATEGORY_GROUPS.map(group=><div key={group.label}>
@@ -231,7 +232,8 @@ export default function Sidebar({
                   <SidebarItem isCollapsed={isCollapsed} to="/admin" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Activity size={20} className="text-[#ccff00]" />} label="Dashboard" />
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/radios" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<LayoutGrid size={20} />} label="Ραδιόφωνα iRadios" />
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/radioset" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Radio size={20} className="text-[#ccff00]" />} label="Radio Set" />
-                  <SidebarItem isCollapsed={isCollapsed} to="/admin/home-slides" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Image size={20} className="text-[#ccff00]" />} label="Slides Αρχικής" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/admin/home-slides" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Image size={20} className="text-[#ccff00]" />} label="Slides & Καμπάνιες" />
+                   <SidebarItem isCollapsed={isCollapsed} to="/admin/newsfeed" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Newspaper size={20} className="text-[#ccff00]" />} label="Newsfeed RSS" />
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/banners" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Megaphone size={20} className="text-[#ccff00]" />} label="Banners Ακροατών" />
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/boost" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Rocket size={20} className="text-[#ccff00]" />} label="Έλεγχος Boost" />
                   <SidebarItem isCollapsed={isCollapsed} to="/admin/users" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Users size={20} />} label="Χρήστες iRadios" />

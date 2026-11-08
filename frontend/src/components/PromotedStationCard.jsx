@@ -15,7 +15,7 @@ export default function PromotedStationCard({
   const [feature,setFeature]=useState(null);
   const [clock,setClock]=useState(()=>getAthensClock());
   useEffect(()=>{
-    if(!value || !['genre','region'].includes(placement)){setFeature(null);return;}
+    if(!['genre','region','news'].includes(placement) || (placement!=='news'&&!value)){setFeature(null);return;}
     let live=true,inFlight=false;
     const controller=new AbortController();
     setFeature(null);

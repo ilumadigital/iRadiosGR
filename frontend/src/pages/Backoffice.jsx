@@ -20,6 +20,7 @@ const AdminUsers=lazy(()=>import('./AdminUsers'));
 const AdminAds=lazy(()=>import('./AdminAds'));
 const AdminBanners=lazy(()=>import('./AdminBanners'));
 const AdminHomeSlides=lazy(()=>import('./AdminHomeSlides'));
+const AdminNewsFeed=lazy(()=>import('./AdminNewsFeed'));
 const AdminPromotedStations=lazy(()=>import('../components/AdminPromotedStations'));
 const AdminEmails=lazy(()=>import('./AdminEmails'));
 const AdminPaid=lazy(()=>import('./AdminPaid'));
@@ -921,7 +922,8 @@ const ADMIN_TOOLS=[
   {id:'ads',name:'Audio διαφημίσεις',desc:'Διαχείριση ηχητικών καμπανιών',icon:Activity,group:'Διαφημίσεις'},
   {id:'banners',name:'Banners',desc:'Οπτικές διαφημίσεις και θέσεις',icon:Image,group:'Διαφημίσεις'},
   {id:'adcontrol',name:'Τοπικές διαφημίσεις',desc:'Ρυθμίσεις διαφημίσεων ανά σταθμό',icon:SlidersHorizontal,group:'Διαφημίσεις'},
-  {id:'slides',name:'Slides αρχικής',desc:'Προβολές και περιεχόμενο αρχικής',icon:LayoutDashboard,group:'Περιεχόμενο'},
+  {id:'slides',name:'Slides & καμπάνιες',desc:'Πολλαπλές θέσεις προβολής ανά slide',icon:LayoutDashboard,group:'Περιεχόμενο'},
+  {id:'newsfeed',name:'Newsfeed RSS',desc:'XML πηγή και συγχρονισμός ειδήσεων',icon:Image,group:'Περιεχόμενο'},
   {id:'push',name:'Push ειδοποιήσεις',desc:'Μηνύματα σε συνδεδεμένες συσκευές',icon:Bell,group:'Επικοινωνία'},
   {id:'emails',name:'Emails',desc:'Επικοινωνία και ιστορικό μηνυμάτων',icon:Globe2,group:'Επικοινωνία'},
   {id:'billing',name:'Πληρωμές',desc:'Συναλλαγές και στοιχεία τιμολόγησης',icon:FileCheck2,group:'Οικονομικά'}
@@ -1007,6 +1009,7 @@ const ADMIN_GUIDES={
     steps:['Φίλτραρε ανά τοποθέτηση','Άνοιξε banner','Έλεγξε εικόνα και στόχευση']},
   adcontrol:{intro:'Έλεγξε τους σταθμούς χωρίς network ads και τις τοπικές καμπάνιες.',
     steps:['Έλεγξε τις εξαιρέσεις','Βρες το τοπικό σποτ','Επιβεβαίωσε πριν αλλάξεις ρυθμίσεις']},
+  newsfeed:{intro:'Διαχείριση RSS.app XML ειδήσεων.',steps:['Πέρασε RSS XML','Αποθήκευσε','Πάτησε Συγχρονισμός τώρα']},
   slides:{intro:'Δημιούργησε editorial slides με προεπισκόπηση πριν τη δημοσίευση.',
     steps:['Επίλεξε σημείο προβολής','Συμπλήρωσε εικόνα και σύνδεσμο','Αποθήκευσε και έλεγξε την προεπισκόπηση']},
   push:{intro:'Σύνταξε ειδοποίηση και έλεγξε τα στοιχεία πριν την τελική αποστολή.',
@@ -1044,7 +1047,7 @@ function Operations({data,section,reload}){
   const views={
     analytics:<AdminDashboard {...common}/>,users:<AdminUsers {...common}/>,
     ads:<AdminAds {...common}/>,banners:<AdminBanners {...common}/>,
-    slides:<AdminHomeSlides {...common}/>,promoted:<AdminPromotedStations stations={data.stations}/>,
+    slides:<AdminHomeSlides {...common}/>,newsfeed:<AdminNewsFeed {...common}/>,promoted:<AdminPromotedStations stations={data.stations}/>,
     emails:<AdminEmails {...common}/>,
     billing:<AdminPaid {...common}/>,radioset:<AdminRadioSet {...common}/>,
     adcontrol:<AdminAdControl {...common}/>,boost:<Boost {...common}/>,
@@ -1128,7 +1131,8 @@ export default function Backoffice(){
         {to:'/backoffice/admin/adcontrol',label:'Τοπικές διαφημίσεις',icon:SlidersHorizontal}
       ]},
       {section:'ΠΕΡΙΕΧΟΜΕΝΟ & ΛΕΙΤΟΥΡΓΙΑ',items:[
-        {to:'/backoffice/admin/slides',label:'Slides αρχικής',icon:Sparkles},
+        {to:'/backoffice/admin/slides',label:'Slides & καμπάνιες',icon:Sparkles},
+        {to:'/backoffice/admin/newsfeed',label:'Newsfeed RSS',icon:Image},
         {to:'/backoffice/admin/push',label:'Push ειδοποιήσεις',icon:Bell},
         {to:'/backoffice/admin/emails',label:'Emails',icon:Globe2},
         {to:'/backoffice/admin/billing',label:'Πληρωμές',icon:FileCheck2}
@@ -1206,7 +1210,7 @@ export default function Backoffice(){
           <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
           <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify}/>}/>
           <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
-          {['analytics','users','ads','banners','slides','promoted','emails','billing','radioset','boost','adcontrol','push'].map(section=>
+          {['analytics','users','ads','banners','slides','newsfeed','promoted','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
           <Route path="/backoffice/*" element={<Navigate to="/backoffice" replace/>}/>
         </Routes>
