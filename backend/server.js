@@ -147,6 +147,7 @@ app.use('/api', adminRoutes);
 app.use('/api', extraRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api', require('./routes/homeSlideRoutes'));
+app.use('/api', require('./routes/promotedStationRoutes'));
 app.use('/api', require('./routes/stationPlaylistRoutes'));
 app.use('/api/agency', agencyRoutes);
 app.use('/api/uploads', uploadRoutes);
