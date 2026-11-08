@@ -1,4 +1,5 @@
 const Station = require('../models/Station');
+const {validateStationCategories}=require('../utils/stationCategories');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
@@ -29,7 +30,7 @@ exports.getApprovedStations = async (req, res) => {
     // Public stage may expose station metadata, never broadcaster personal
     // information or private pending edits imported from production.
     if (process.env.APP_ENV === 'staging') {
-      query.select('name slogan description genre region city transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule scheduleDayBase position isFeatured dspPreset disableNetworkAds');
+      query.select('name slogan description genre secondaryGenre region city transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule scheduleDayBase position isFeatured dspPreset disableNetworkAds');
     }
     const stations = await query;
     res.json(stations);
@@ -55,6 +56,8 @@ exports.getBroadcasterStations = async (req, res) => {
 exports.createStation = async (req, res) => {
   try {
     const stationData = req.body;
+    const categoryError = validateStationCategories(stationData,{required:true});
+    if(categoryError)return res.status(400).json({error:categoryError});
 
     // Αν υπάρχει αρχείο, φτιάχνουμε το URL
     if (req.file) {
@@ -91,6 +94,8 @@ exports.createBroadcasterStation = async (req, res) => {
     }
 
     const stationData = { ...req.body, status: 'pending' };
+    const categoryError = validateStationCategories(stationData,{required:true});
+    if(categoryError)return res.status(400).json({error:categoryError});
 
     // Αν ο Broadcaster ανέβασε αρχείο, φτιάχνουμε το URL
     if (req.file) {
@@ -109,6 +114,8 @@ exports.createBroadcasterStation = async (req, res) => {
 exports.updateStation = async (req, res) => {
   try {
     const updateData = req.body;
+    const categoryError = validateStationCategories(updateData);
+    if(categoryError)return res.status(400).json({error:categoryError});
 
     // Αν ο Admin ανέβασε νέο αρχείο
     if (req.file) {
@@ -127,6 +134,8 @@ exports.requestEdit = async (req, res) => {
     delete editData._id; 
     delete editData.broadcasterId; 
     delete editData.status;
+    const categoryError = validateStationCategories(editData);
+    if(categoryError)return res.status(400).json({error:categoryError});
 
     // Αν ο Broadcaster ανέβασε νέο αρχείο
     if (req.file) {

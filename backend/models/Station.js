@@ -31,6 +31,8 @@ const stationSchema = new mongoose.Schema({
   slogan: { type: String },
   description: { type: String },
   genre: { type: String, required: true },
+  // Old records are left as-is until manually classified.
+  secondaryGenre: { type: String, default: '' },
   region: { type: String },
   city: { type: String },
   

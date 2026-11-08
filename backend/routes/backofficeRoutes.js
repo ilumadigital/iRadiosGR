@@ -8,6 +8,7 @@ const crypto=require('node:crypto');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const Station=require('../models/Station');
+const {validateStationCategories}=require('../utils/stationCategories');
 const User=require('../models/User');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
@@ -26,9 +27,9 @@ router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'
     next();
   });
 
-const fields='name slogan description genre region city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase scheduleFeed createdAt';
+const fields='name slogan description genre secondaryGenre region city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase scheduleFeed createdAt';
 const textFields=Object.freeze({
-  name:100,slogan:240,description:4000,genre:100,region:100,city:100,
+  name:100,slogan:240,description:4000,genre:100,secondaryGenre:100,region:100,city:100,
   transmissionType:30,frequency:30,website:450,stream:1200,metadata:1200,
   facebook:450,instagram:450,twitter:450,tiktok:450,phone:60,viber:60,email:254
 });
@@ -72,6 +73,8 @@ function cleanEdits(payload,{ignoreUnknown=false}={}){
       throw validationError('Μη έγκυρος τύπος μετάδοσης.');
     result[key]=trimmed;
   }
+  const categoryError=validateStationCategories(result);
+  if(categoryError)throw validationError(categoryError);
   if(Object.keys(result).length===0)throw validationError('Δεν υπάρχουν αλλαγές προς αποθήκευση.');
   return result;
 }
@@ -143,9 +146,9 @@ router.post('/backoffice/stations',async(req,res)=>{
   try{
     if(req.user.role==='producer')return res.status(403).json({error:'Η προσθήκη σταθμού δεν επιτρέπεται.'});
     const cleaned=cleanEdits(req.body);
-    if(!cleaned.name||!cleaned.genre||!cleaned.stream)return res.status(400).json({
-      error:'Χρειάζονται όνομα, μουσική κατηγορία και stream URL.'
-    });
+    const categoryError=validateStationCategories(cleaned,{required:true});
+    if(categoryError)return res.status(400).json({error:categoryError});
+    if(!cleaned.name||!cleaned.stream)return res.status(400).json({error:'Χρειάζονται όνομα και stream URL.'});
     if(req.user.role==='broadcaster'){
       const total=await Station.countDocuments({broadcasterId:req.user._id});
       const max=Number(req.user.broadcasterProfile?.maxStations||3);
