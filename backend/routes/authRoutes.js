@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const center = require('../controllers/listenerCenterController');
 const User = require('../models/User'); // Ίσως χρειαστεί για το reminder route
 const { protect } = require('../utils/authMiddleware');
 
@@ -24,7 +25,16 @@ router.put('/users/me/accept-terms', protect, authController.acceptTerms);
 router.put('/users/me', protect, authController.updateMe);
 router.get('/users/me/notification-preferences', protect, authController.getNotificationPreferences);
 router.patch('/users/me/notification-preferences', protect, authController.updateNotificationPreferences);
-router.delete('/users/me', authController.deleteMe); // ΔΙΑΓΡΑΦΗ ΛΟΓΑΡΙΑΣΜΟΥ
+router.get('/users/me/follows', protect, center.listFollows);
+router.post('/users/me/follows', protect, center.follow);
+router.delete('/users/me/follows/:id', protect, center.unfollow);
+router.get('/users/me/inbox/count', protect, center.unreadCount);
+router.get('/users/me/inbox', protect, center.inbox);
+router.post('/users/me/inbox/read-all', protect, center.markAllRead);
+router.post('/users/me/inbox/:id/read', protect, center.markRead);
+router.delete('/users/me/inbox/:id', protect, center.remove);
+router.delete('/users/me/inbox', protect, center.clear);
+router.delete('/users/me', protect, authController.deleteMe); // ΔΙΑΓΡΑΦΗ ΛΟΓΑΡΙΑΣΜΟΥ
 router.post('/users/:userId/favorites', authController.toggleFavorite);
 
 // POST /api/reminders/toggle

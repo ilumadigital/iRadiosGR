@@ -1,11 +1,14 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
-import {Link,useNavigate} from 'react-router-dom';
+import {Link,useNavigate,useLocation} from 'react-router-dom';
 import {
   ArrowRight,Bell,BellRing,CalendarDays,Check,ChevronRight,Clock3,Compass,
   CreditCard,Crown,Headphones,Heart,Loader2,LogOut,Mail,MapPin,Mic2,
   Music2,Newspaper,Radio,Save,Settings2,ShieldCheck,Sparkles,UserRound,
   Volume2,Wallet,XCircle,Zap
 } from 'lucide-react';
+import ProfileFollows from '../components/ProfileFollows';
+import ProfileInbox from '../components/ProfileInbox';
+import ProfileSecurity from '../components/ProfileSecurity';
 import '../styles/profile.css';
 
 const TOPICS=[
@@ -47,7 +50,7 @@ function Toggle({checked,onChange,label,disabled=false}){
 function ProfileField({label,name,type='text',value,onChange,required=false}){
   return <label className="flex min-w-0 flex-col gap-2">
     <span className="text-xs font-bold text-zinc-400">{label}</span>
-    <input className="ir-profile-input" type={type} value={value} required={required}
+    <input className="ir-profile-input" type={type} lang="el-GR" value={value} required={required}
       onChange={e=>onChange(name,e.target.value)} maxLength={name==='phone'?30:120}/>
   </label>;
 }
@@ -59,11 +62,27 @@ function SectionHeading({icon:Icon,title,description}){
   </div>;
 }
 
-export default function Profile({API_URL='/api',onLogout}){
+export default function Profile({API_URL='/api',onLogout,currentUser=null}){
   const navigate=useNavigate();
-  const [tab,setTab]=useState('notifications');
-  const [user,setUser]=useState(null);
-  const [fields,setFields]=useState(toFields({}));
+  const location=useLocation();
+  const allowedTabs=['details','notifications','follows','inbox','subscription'];
+  const fromQuery=()=>{
+    const requested=new URLSearchParams(location.search).get('tab');
+    return requested==='security'||requested==='settings'?'details':
+      allowedTabs.includes(requested)?requested:'details';
+  };
+  const [tab,setTab]=useState(fromQuery);
+  const [inboxUnread,setInboxUnread]=useState(0);
+  const selectTab=id=>{
+    if(!allowedTabs.includes(id))return;
+    setTab(id);
+    navigate('/profile?tab='+id,{replace:true});
+  };
+  useEffect(()=>{setTab(fromQuery());},[location.search]);
+  // Display the authenticated session instantly; refresh only from /auth/me.
+  // Failure of notification-preferences must NEVER erase account/premium details.
+  const [user,setUser]=useState(currentUser||null);
+  const [fields,setFields]=useState(toFields(currentUser||{}));
   const [preferences,setPreferences]=useState(INITIAL_PREFS);
   const [newsCategories,setNewsCategories]=useState([]);
   const [pushAvailable,setPushAvailable]=useState(false);
@@ -75,21 +94,30 @@ export default function Profile({API_URL='/api',onLogout}){
   const [deviceBusy,setDeviceBusy]=useState(false);
   const [cancelId,setCancelId]=useState('');
   const [notice,setNotice]=useState(null);
-  const [loading,setLoading]=useState(true);
+  const [loading,setLoading]=useState(!currentUser);
 
   const refreshUser=useCallback(async(signal)=>{
-    const [userResponse,prefsResponse]=await Promise.all([
-      fetch(API_URL+'/auth/me',{headers:authHeaders(),signal}),
-      fetch(API_URL+'/users/me/notification-preferences',{headers:authHeaders(),signal})
-    ]);
-    if(!userResponse.ok||!prefsResponse.ok)throw Error('Δεν ήταν δυνατή η φόρτωση του προφίλ.');
-    const [loaded,settings]=await Promise.all([userResponse.json(),prefsResponse.json()]);
+    // Keep independent API calls independent: the Profile is sourced from
+    // /auth/me; preference failure only affects the notification panel.
+    const response=await fetch(API_URL+'/auth/me',{headers:authHeaders(),signal,cache:'no-store'});
+    if(!response.ok)throw Error(response.status===401?'Η συνεδρία έληξε. Συνδέσου ξανά.':'Δεν φορτώθηκαν τα στοιχεία λογαριασμού.');
+    const loaded=await response.json();
+    if(!loaded||(!loaded._id&&!loaded.id))throw Error('Ο server δεν επέστρεψε έγκυρο λογαριασμό.');
+    if(signal.aborted)return;
     setUser(loaded);
     setFields(toFields(loaded));
-    setPreferences(settings.preferences||INITIAL_PREFS);
-    setPushAvailable(Boolean(settings.pushDeliveryAvailable));
+    try{
+      const prefsResponse=await fetch(API_URL+'/users/me/notification-preferences',{
+        headers:authHeaders(),signal,cache:'no-store'});
+      if(!prefsResponse.ok)throw Error('Οι επιλογές ειδοποιήσεων δεν είναι προσωρινά διαθέσιμες.');
+      const settings=await prefsResponse.json();
+      if(signal.aborted)return;
+      setPreferences(settings.preferences||INITIAL_PREFS);
+      setPushAvailable(Boolean(settings.pushDeliveryAvailable));
+    }catch(error){
+      if(!signal.aborted)setNotice({type:'error',text:error.message||'Δεν φορτώθηκαν οι προτιμήσεις.'});
+    }
   },[API_URL]);
-
   useEffect(()=>{
     const controller=new AbortController();
     refreshUser(controller.signal).catch(err=>{
@@ -249,16 +277,33 @@ export default function Profile({API_URL='/api',onLogout}){
   };
 
   const subscriptions=useMemo(()=>Array.isArray(user?.activeSubscriptions)?user.activeSubscriptions:[],[user]);
-  const premium=Boolean(user?.isPremium||subscriptions.some(sub=>sub.planId==='listener_premium'&&sub.status==='active'));
-  const hasManualPremium=premium&&!subscriptions.some(sub=>sub.planId==='listener_premium');
+  const premium=Boolean(user?.isPremium===true ||
+    subscriptions.some(sub=>sub.planId==='listener_premium' &&
+      (['active','trialing'].includes(sub.status) ||
+        (['canceled','cancelled'].includes(sub.status) && new Date(sub.currentPeriodEnd).getTime()>Date.now()))) ||
+    (user?.stripeSubscriptionId&&user?.subscriptionStatus==='active'));
+  const broadcasterPremium=Boolean(user?.broadcasterProfile?.tier==='premium');
+  const tierLabel=premium?'Premium μέλος':broadcasterPremium?'Broadcaster Premium':'Free μέλος';
+  const hasManualPremium=premium&&!subscriptions.some(sub=>sub.planId==='listener_premium')&&!user?.stripeSubscriptionId;
   const favoriteCount=user?.favorites?.length||0;
   const tabs=[
     {id:'details',label:'Λογαριασμός',Icon:UserRound},
     {id:'notifications',label:'Ειδοποιήσεις',Icon:BellRing},
+    {id:'follows',label:'DJs & Εκπομπές',Icon:Mic2},
+    {id:'inbox',label:'Inbox',Icon:Mail},
     {id:'subscription',label:'Συνδρομή',Icon:Crown}
   ];
 
   if(loading)return <div className="mx-auto flex min-h-[55dvh] items-center justify-center gap-3 text-zinc-400"><Loader2 className="animate-spin text-[#ccff00]"/> Φόρτωση προφίλ…</div>;
+  if(!user)return <div className="ir-profile-page mx-auto w-full max-w-2xl px-4 py-20 text-center">
+    <div className="ir-profile-panel p-8">
+      <ShieldCheck size={30} className="mx-auto mb-4 text-[#ccff00]"/>
+      <h1 className="text-xl font-black text-white">Τα στοιχεία του λογαριασμού δεν φορτώθηκαν.</h1>
+      <p className="mt-3 text-sm text-zinc-400">Δεν θα εμφανιστούν άδεια προσωπικά δεδομένα ή λανθασμένο πλάνο.</p>
+      <button type="button" className="ir-profile-primary mt-5" onClick={()=>window.location.reload()}>Δοκίμασε ξανά</button>
+      <Link to="/login" className="mt-4 block text-xs text-[#ccff00]">Σύνδεση</Link>
+    </div>
+  </div>;
 
   return <div className="ir-profile-page mx-auto w-full max-w-[1250px] px-4 pb-44 pt-5 sm:px-6 sm:pt-7 xl:px-9">
     <div className="ir-profile-hero relative overflow-hidden rounded-[30px] p-5 sm:p-8">
@@ -277,20 +322,21 @@ export default function Profile({API_URL='/api',onLogout}){
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="ir-profile-pill"><Crown size={15}/>{premium?'Premium μέλος':'Free μέλος'}</span>
+          <span className="ir-profile-pill"><Crown size={15}/>{tierLabel}</span>
           <Link to="/favorites" className="ir-profile-pill ir-profile-pill--muted"><Heart size={15}/>{favoriteCount} αγαπημένα <ChevronRight size={13}/></Link>
         </div>
       </div>
       <div className="relative mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        <button type="button" onClick={()=>setTab('notifications')} className="ir-profile-quick"><Bell size={17}/><span>Οι ειδοποιήσεις μου</span><ArrowRight size={14} className="ml-auto"/></button>
-        <button type="button" onClick={()=>setTab('subscription')} className="ir-profile-quick"><Wallet size={17}/><span>Το πλάνο μου</span><ArrowRight size={14} className="ml-auto"/></button>
-        <Link to="/favorites" className="ir-profile-quick col-span-2 sm:col-span-1"><Headphones size={17}/><span>Τα αγαπημένα μου</span><ArrowRight size={14} className="ml-auto"/></Link>
+        <button type="button" onClick={()=>selectTab('inbox')} className="ir-profile-quick"><Bell size={17}/><span>Notification Center</span><ArrowRight size={14} className="ml-auto"/></button>
+        <button type="button" onClick={()=>selectTab('subscription')} className="ir-profile-quick"><Wallet size={17}/><span>Το πλάνο μου</span><ArrowRight size={14} className="ml-auto"/></button>
+        <button type="button" onClick={()=>selectTab('follows')} className="ir-profile-quick col-span-2 sm:col-span-1">
+          <Mic2 size={17}/><span>Οι παραγωγοί & εκπομπές μου</span><ArrowRight size={14} className="ml-auto"/></button>
       </div>
     </div>
 
     <div className="ir-profile-tabs mt-6 flex gap-1 overflow-x-auto rounded-2xl p-1.5" role="tablist" aria-label="Ενότητες προφίλ">
       {tabs.map(({id,label,Icon})=><button type="button" role="tab" key={id} aria-selected={tab===id}
-        onClick={()=>{setTab(id);setNotice(null);}}
+        onClick={()=>{selectTab(id);setNotice(null);}}
         className={'ir-profile-tab '+(tab===id?'ir-profile-tab--active':'')}>
         <Icon size={17}/><span>{label}</span></button>)}
     </div>
@@ -315,12 +361,7 @@ export default function Profile({API_URL='/api',onLogout}){
         </form>
       </section>
       <aside className="flex flex-col gap-5">
-        <section className="ir-profile-panel p-5">
-          <SectionHeading icon={ShieldCheck} title="Ασφάλεια & απόρρητο"/>
-          <p className="text-xs leading-6 text-zinc-400">Οι αλλαγές ειδοποιήσεων αποθηκεύονται στον λογαριασμό σου. Τα δικαιώματα του browser ρυθμίζονται ξεχωριστά στη συσκευή.</p>
-          <Link to="/privacy" className="ir-profile-link mt-4">Πολιτική απορρήτου <ChevronRight size={15}/></Link>
-          <Link to="/settings" className="ir-profile-link mt-3">Ασφάλεια & διαγραφή λογαριασμού <ChevronRight size={15}/></Link>
-        </section>
+        <ProfileSecurity API_URL={API_URL} onLogout={onLogout} user={user} actionsAvailable={pushAvailable}/>
         <button type="button" onClick={onLogout} className="ir-profile-logout"><LogOut size={17}/> Αποσύνδεση</button>
       </aside>
     </div>}
@@ -391,14 +432,17 @@ export default function Profile({API_URL='/api',onLogout}){
       </div>
     </div>}
 
+    {tab==='follows'&&<div role="tabpanel" className="mt-6"><ProfileFollows API_URL={API_URL}/></div>}
+    {tab==='inbox'&&<div role="tabpanel" className="mt-6"><ProfileInbox API_URL={API_URL} onUnread={setInboxUnread}/></div>}
+
     {tab==='subscription'&&<div role="tabpanel" className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
       <section className="ir-profile-panel p-5 sm:p-7">
         <SectionHeading icon={Crown} title="Συνδρομές & προνόμια" description="Όλα τα πλάνα και η κατάσταση ανανέωσης, χωρίς κρυφές αλλαγές."/>
         <div className="ir-profile-plan-hero mb-5 flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between">
           <div><span className="text-[10px] font-black uppercase tracking-[.15em] text-[#ccff00]">Το τωρινό σου πλάνο</span>
-            <h3 className="mt-2 flex items-center gap-2 text-2xl font-black text-white"><Crown size={23} className="text-[#ccff00]"/>{premium?'iRadios Premium':'iRadios Free'}</h3>
-            <p className="mt-2 text-xs text-zinc-400">{premium?'Έχεις ενεργοποιημένη premium πρόσβαση.':'Ανακάλυψε περισσότερες δυνατότητες με Premium.'}</p></div>
-          {!premium&&<button type="button" onClick={()=>navigate('/premium')} className="ir-profile-primary"><Zap size={17}/> Δες το Premium</button>}
+            <h3 className="mt-2 flex items-center gap-2 text-2xl font-black text-white"><Crown size={23} className="text-[#ccff00]"/>{premium?'iRadios Premium':broadcasterPremium?'Broadcaster Premium':'iRadios Free'}</h3>
+            <p className="mt-2 text-xs text-zinc-400">{premium?'Έχεις ενεργοποιημένη premium πρόσβαση.':broadcasterPremium?'Η επαγγελματική premium πρόσβαση του σταθμού σου είναι ενεργή.':'Ανακάλυψε περισσότερες δυνατότητες με Premium.'}</p></div>
+          {!premium&&!broadcasterPremium&&<button type="button" onClick={()=>navigate('/premium')} className="ir-profile-primary"><Zap size={17}/> Δες το Premium</button>}
         </div>
         {hasManualPremium&&<div className="ir-profile-subscription-row mb-3"><ShieldCheck size={18} className="text-[#ccff00]"/><div className="flex-1"><p className="text-sm font-black text-white">Premium πρόσβαση</p><p className="mt-1 text-xs text-zinc-400">Παραχωρημένη πρόσβαση · χωρίς Stripe χρέωση.</p></div></div>}
         {subscriptions.length>0?<div className="space-y-3">{subscriptions.map((sub,index)=>{
@@ -432,7 +476,7 @@ export default function Profile({API_URL='/api',onLogout}){
           </div>
           <Link to="/premium" className="ir-profile-link mt-5">Δες όλα τα προνόμια <ArrowRight size={15}/></Link>
         </section>
-        <Link to="/settings" className="ir-profile-panel flex items-center gap-3 p-5 hover:border-[#ccff00]/35"><ShieldCheck size={18} className="text-[#ccff00]"/><span className="flex-1 text-sm font-bold">Ρυθμίσεις λογαριασμού</span><ChevronRight size={16}/></Link>
+        <button type="button" onClick={()=>selectTab('details')} className="ir-profile-panel flex items-center gap-3 p-5 text-left hover:border-[#ccff00]/35"><ShieldCheck size={18} className="text-[#ccff00]"/><span className="flex-1 text-sm font-bold">Ρυθμίσεις λογαριασμού</span><ChevronRight size={16}/></button>
       </aside>
     </div>}
   </div>;

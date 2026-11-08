@@ -7,6 +7,7 @@ const NewsFeed=require('../models/NewsFeed');
 const NotificationDispatch=require('../models/NotificationDispatch');
 const {keyFor}=require('./newsFeedArticle');
 const {canNotify}=require('./notificationPreferences');
+const {followKey}=require('./programFollows');
 const {deliver}=require('./notificationDelivery');
 let started=false;
 const WEEKDAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -49,7 +50,12 @@ async function upcomingShows(now){
       const title='Σε 5′ ξεκινά: '+row.title;
       const body=station.name+(row.host?' · '+row.host:'');
       const key='show:'+station._id+':'+row._id+':'+target.date+':'+target.time;
-      jobs.push(()=>once(key,()=>deliver({topic:'shows',title,body,path,recipientFilter:{favorites:station._id}})));
+      const followKeys=[followKey('show',station._id,row.title),
+        row.host?followKey('dj',station._id,row.host):null].filter(Boolean);
+      jobs.push(()=>once(key,()=>deliver({
+        topic:'shows',title,body,path,eventKey:key,
+        recipientFilter:{$or:[{favorites:station._id},{'followedPrograms.key':{$in:followKeys}}]}
+      })));
     }
   }
   for(const job of jobs.slice(0,200))await job();
@@ -77,7 +83,7 @@ async function todayFavoritePrograms(now){
     await once('program:'+user._id+':'+target.date,()=>deliver({
       topic:'favoriteSchedule',title:'Σήμερα στους αγαπημένους σου σταθμούς',
       body:selected.map(({station,first})=>station.name+' '+first.startTime+' – '+first.title).join(' | '),
-      path:'/favorites',recipientFilter:{_id:user._id}
+      path:'/favorites',eventKey:'program:'+user._id+':'+target.date,recipientFilter:{_id:user._id}
     }));
   }
 }
@@ -108,6 +114,7 @@ async function dailyNews(now){
       await deliver({topic:'news',title:article.title,
         body:article.summary||'Οι σημαντικότερες ειδήσεις, στο iRadiosGR.',
         path:'/newsfeed/'+keyFor(article.url),category:article.category||'',
+        eventKey:'news:'+target.date+':'+keyFor(article.url),
         recipientFilter:{_id:{$in:ids}}
       });
     }
