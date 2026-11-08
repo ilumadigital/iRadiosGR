@@ -88,7 +88,9 @@ try{
     assert.ok(mediaHook.includes('FIVE_MINUTES=5*60*1000'));
     assert.ok(mediaHook.includes('navigator.mediaSession.metadata=new window.MediaMetadata'));
     assert.ok(mediaHook.includes("playbackState=data.isPlaying?'playing':'paused'"));
-    assert.ok(mediaHook.includes('firstAI'),'first recognized song updates device before it expires');
+    assert.ok(mediaHook.includes('trackChanged'),'confirmed song replaces lock-screen fallback immediately');
+    assert.ok(mediaHook.includes('artworkChanged'),'album artwork refreshes without waiting five minutes');
+    assert.ok(mediaHook.includes('sourceChanged'),'AI album provenance refreshes immediately');
     for(const file of ['frontend/src/pages/PlayingNow.jsx','frontend/src/pages/StationProfile.jsx',
       'frontend/src/components/StationPlaylistPanel.jsx','frontend/src/components/Footer.jsx',
       'frontend/src/components/MobileMiniPlayer.jsx','frontend/src/components/DesktopFullPlayer.jsx']){
@@ -101,6 +103,62 @@ try{
       'API metadata uses the pre-fetched shared MongoDB snapshot');
     assert.equal(media({...signed,nowPlaying:'LIVE SHOW'}).artist,'Deseo Radio',
       'logged-in iPhone fallback artist is always the station name');
+    // Exercise the real hook's update gates without opening audio, network or iOS APIs.
+    // The previous 5-minute gate kept "Τώρα Ακούς" despite a real player song.
+    const refs=[];
+    let refIndex=0;
+    const writes=[];
+    const nav={mediaSession:{metadata:null,playbackState:'none',setActionHandler(){}}};
+    const env={
+      navigator:nav,
+      window:{
+        location:{origin:'https://stage.iradios.gr',protocol:'https:'},
+        MediaMetadata:class {
+          constructor(fields){Object.assign(this,fields);writes.push(fields);}
+        }
+      },
+      URL,setInterval:()=>1,clearInterval:()=>{},
+      useRef(initial){
+        const i=refIndex++;
+        if(!refs[i])refs[i]={current:initial};
+        return refs[i];
+      },
+      useEffect(callback){callback();}
+    };
+    const hook=vm.runInNewContext(parser+'\\n'+source+'\\nuseMediaSession;',env);
+    const render=(props)=>{
+      refIndex=0;
+      hook({currentStation:station,currentUser:{_id:'user'},isPlaying:true,
+        isPlayingAd:false,currentAdInfo:null,globalCoverArt:null,
+        nowPlayingInfo:{source:'none',foundWithAI:false},
+        ...props});
+    };
+    render({nowPlaying:''});
+    assert.equal(writes.at(-1).title,'Τώρα Ακούς');
+    const countBeforeTrack=writes.length;
+    render({nowPlaying:'Paul Anthonee - Inertia',
+      nowPlayingInfo:{source:'station',foundWithAI:false}});
+    assert.equal(writes.length,countBeforeTrack+1,'new native metadata updates immediately');
+    assert.equal(writes.at(-1).title,'Inertia');
+    assert.equal(writes.at(-1).artist,'Paul Anthonee');
+    assert.equal(writes.at(-1).album,'Deseo Radio - iRadios');
+    const cover='https://cdn.example.com/inertia.jpg';
+    render({nowPlaying:'Paul Anthonee - Inertia',globalCoverArt:cover,
+      nowPlayingInfo:{source:'station',foundWithAI:false}});
+    assert.equal(writes.at(-1).artwork[0].src,cover,'cover arrival updates lock screen');
+    render({nowPlaying:'Paul Anthonee - Inertia',globalCoverArt:cover,
+      nowPlayingInfo:{source:'acrcloud',foundWithAI:true}});
+    assert.equal(writes.at(-1).album,'Deseo Radio - iRadios AI',
+      'AI recognition supersedes native provenance');
+    render({nowPlaying:'New Artist - New Track',
+      nowPlayingInfo:{source:'station',foundWithAI:false}});
+    assert.equal(writes.at(-1).title,'New Track','next real song replaces previous title');
+    assert.equal(writes.at(-1).artwork.length,0,
+      'old song cover is never kept when a new track arrives');
+    render({nowPlaying:''});
+    assert.equal(writes.at(-1).title,'Τώρα Ακούς',
+      'missing metadata resets the lock-screen title');
+
     assert.ok(read('backend/models/StationPlaylist.js').includes('source:'),
       'playlist entries persist their source');
     assert.ok(writes>0,'successful recognition saves playlist history');
