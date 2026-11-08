@@ -68,7 +68,7 @@ export default function Sidebar({
   const isFullPremium = currentUser?.broadcasterProfile?.tier === 'premium';
   const isListenerPremium = currentUser?.isPremium;
   
-  const homeRoute = isAgency ? '/agency/dashboard' : (isBroadcaster || isProducer) ? '/studio' : '/';
+  const homeRoute = isAgency ? '/agency/dashboard' : (isAdmin || isBroadcaster || isProducer) ? '/backoffice' : '/';
 
   const [appVersion, setAppVersion] = useState('');
   useEffect(() => {
@@ -144,6 +144,13 @@ export default function Sidebar({
             
             <nav className={`space-y-1 transition-all duration-300 ${isCollapsed ? 'lg:px-3 px-4' : 'px-4'}`}>
               
+              {(isAdmin || isBroadcaster || isProducer) && (
+                <SidebarItem isCollapsed={isCollapsed} to="/backoffice"
+                  currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)}
+                  icon={<LayoutDashboard size={20} className="text-[#ccff00]" />}
+                  label="iRadios Backoffice" className="bg-[#ccff00]/10 text-[#ccff00]" />
+              )}
+
               {/* 🚀 TOP MENU (Panel) */}
               {(isBroadcaster || isProducer || isAgency) ? ( 
                 <>
