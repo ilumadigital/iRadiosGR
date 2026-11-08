@@ -122,6 +122,6 @@ async function run(now=new Date()){
 function start(){
   if(started||process.env.APP_ENV==='staging')return;
   started=true;
-  cron.schedule('*/5 * * * *',()=>run().catch(e=>console.error('[NOTIFY] Scheduled job:',e.message)));
+  cron.schedule('* * * * *',()=>run().catch(e=>console.error('[NOTIFY] Scheduled job:',e.message)));
 }
 module.exports={start,run,athensParts,scheduledToday};
