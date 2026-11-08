@@ -1,0 +1,76 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { getOnAirProducers } from './onAirProducers.js';
+
+const station = (id, endTime, overrides = {}) => ({
+  _id: id,
+  name: id,
+  status: 'approved',
+  isOffline: false,
+  stream: 'https://radio.example/stream',
+  logo: 'https://radio.example/logo.png',
+  scheduleDayBase: 1,
+  schedule: [{ day: 1, startTime: '18:00', endTime, host: 'DJ ' + id, title: 'Evening show', imageUrl: '' }],
+  ...overrides
+});
+
+test('active producers are ordered by earliest end, not station position', () => {
+  const result = getOnAirProducers([
+    station('Ends at nine', '21:00', { position: 1 }),
+    station('Ends at seven', '19:00', { position: 100 }),
+    station('Ends at eight', '20:00', { position: 2 })
+  ], { day: 1, minute: 18 * 60 + 9 });
+  assert.deepEqual(result.map(({station: s}) => s.name), ['Ends at seven', 'Ends at eight', 'Ends at nine']);
+  assert.deepEqual(result.map(x => x.endsInMinutes), [51, 111, 171]);
+});
+
+test('programme end is exclusive and a missing host is not a producer', () => {
+  const noHost = station('Automatic', '20:00', {
+    schedule: [{ day: 1, startTime: '18:00', endTime: '20:00', title: 'Music', host: '' }]
+  });
+  const result = getOnAirProducers([station('Ended', '19:00'), noHost],
+    { day: 1, minute: 19 * 60 });
+  assert.equal(result.length, 0);
+});
+
+test('offline and unapproved stations never become playable on-air cards', () => {
+  const result = getOnAirProducers([
+    station('Offline', '20:00', { isOffline: true }),
+    station('Pending', '20:00', { status: 'pending' }),
+    station('Online', '20:00')
+  ], { day: 1, minute: 18 * 60 + 9 });
+  assert.deepEqual(result.map(x => x.station.name), ['Online']);
+});
+
+test('legacy Monday 0 and a normalized programme after midnight are supported', () => {
+  const legacy = station('Legacy', '19:00', {
+    scheduleDayBase: 0,
+    schedule: [{ day: 0, startTime: '18:00', endTime: '19:00', title: 'Show', host: 'DJ Legacy' }]
+  });
+  const afterMidnight = station('Night', '01:00', {
+    schedule: [{ day: 2, startTime: '00:00', endTime: '01:00', title: 'Night', host: 'DJ Night' }]
+  });
+  assert.equal(getOnAirProducers([legacy], { day: 1, minute: 18 * 60 + 9 }).length, 1);
+  assert.equal(getOnAirProducers([afterMidnight], { day: 2, minute: 15 }).length, 1);
+});
+
+test('photo from programme is preferred and logo is the fallback', () => {
+  const photo = 'https://images.example.com/producer.jpg';
+  const withPhoto = station('Photo', '20:00', {
+    schedule: [{ day: 1, startTime: '18:00', endTime: '20:00', title: 'Show', host: 'DJ Photo', imageUrl: photo }]
+  });
+  const result = getOnAirProducers([station('Logo', '19:00'), withPhoto],
+    { day: 1, minute: 18 * 60 + 9 });
+  assert.equal(result[0].backgroundUrl, result[0].station.logo);
+  assert.equal(result[0].hasProducerPhoto, false);
+  assert.equal(result[1].backgroundUrl, photo);
+  assert.equal(result[1].hasProducerPhoto, true);
+});
+
+test('24:00 is displayed as 00:00 and sorted by remaining minutes', () => {
+  const result = getOnAirProducers([station('Midnight', '24:00', {
+    schedule: [{ day: 1, startTime: '22:00', endTime: '24:00', title: 'Late', host: 'Night DJ' }]
+  })], { day: 1, minute: 23 * 60 + 59 });
+  assert.equal(result[0].endLabel, '00:00');
+  assert.equal(result[0].endsInMinutes, 1);
+});
