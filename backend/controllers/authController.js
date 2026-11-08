@@ -155,7 +155,7 @@ exports.verifyOtp = async (req, res) => {
       message: "Επιτυχής επαλήθευση!", 
       token, 
       user: withBroadcasterTermsStatus({
-        _id: user._id, username: user.username, role: user.role, isPremium: user.isPremium,
+        _id: user._id, username: user.username, email: user.email, isVerified: user.isVerified, role: user.role, isPremium: user.isPremium,
         broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile,
         hasAcceptedTerms: user.hasAcceptedTerms, termsAcceptedAt: user.termsAcceptedAt,
         termsAcceptedVersion: user.termsAcceptedVersion
@@ -193,7 +193,7 @@ exports.login = async (req, res) => {
     res.json({
       token,
       user: withBroadcasterTermsStatus({
-        _id: user._id, username: user.username, fname: user.fname, lname: user.lname,
+        _id: user._id, username: user.username, email: user.email, isVerified: user.isVerified, fname: user.fname, lname: user.lname,
         birthdate: user.birthdate, isPremium: user.isPremium, favorites: user.favorites, role: user.role,
         broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile,
         hasAcceptedTerms: user.hasAcceptedTerms, termsAcceptedAt: user.termsAcceptedAt,
