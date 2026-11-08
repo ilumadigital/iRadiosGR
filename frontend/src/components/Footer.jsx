@@ -8,7 +8,8 @@ import {
 import ShareStory from './ShareStory';
 import LiveChat from './LiveChat';
 import DesktopFullPlayer from './DesktopFullPlayer';
-import FoundWithAI from './FoundWithAI'; 
+import FoundWithAI from './FoundWithAI';
+import {parseMusicMetadata,spotifySongLink} from '../utils/musicMetadata'; 
 import { useAlert } from '../context/AlertContext';
 
 export default function Footer({ 
@@ -41,14 +42,11 @@ export default function Footer({
 
   const utmParams = "ref=iradiosapp&utm_campaign=ft_player_ir&utm_content=ft_player_ir&utm_medium=ilumadigitalagencyiradios&utm_source=iradios";
   
-  const isRealSong = 
-    Boolean(currentUser) && isPlaying && !isPlayingAd && !adWarning && 
-    nowPlaying && typeof nowPlaying === 'string' &&
-    nowPlaying !== "ΠΑΙΖΕΙ ΤΩΡΑ" && nowPlaying !== "Stopped" && 
-    !isRecognizing && !nowPlaying.toLowerCase().includes("σύνδεση") &&
-    !nowPlaying.toLowerCase().includes("ανάλυση");
-
-  const finalSpotifyUrl = spotifyUrl || (isRealSong ? `https://open.spotify.com/search/${encodeURIComponent(nowPlaying)}` : null);
+  const realTrack=parseMusicMetadata(nowPlaying,currentStation?.name);
+  const isRealSong=Boolean(currentUser&&isPlaying&&!isPlayingAd&&!adWarning&&
+    !isRecognizing&&realTrack);
+  const finalSpotifyUrl=isRealSong
+    ?(spotifyUrl||spotifySongLink(realTrack.raw,currentStation?.name)):null;
 
   const currentShow = useMemo(() => {
     try {
@@ -131,6 +129,7 @@ export default function Footer({
 
   const handleSpotifyClick = (e) => {
     e.stopPropagation();
+    if(!finalSpotifyUrl)return;
     if (isPremium) {
       window.open(finalSpotifyUrl, '_blank', 'noopener,noreferrer');
     } else {
