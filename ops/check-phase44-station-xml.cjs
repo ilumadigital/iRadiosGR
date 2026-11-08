@@ -53,7 +53,8 @@ assert.equal(publicPreview(repaired).count,1);
 // Real published Deseo CMS data shape: ISO days, nested shows and title/time fields.
 const deseoFeed=JSON.stringify({ok:true,timezone:'Europe/Athens',days:[
   {day_of_week:1,shows:[{name:'Noir',start_time:'00:00',end_time:'03:00'}]},
-  {day_of_week:7,shows:[{name:'Rokhai',start_time:'23:00',end_time:'23:59'}]}
+  {day_of_week:7,shows:[{name:'Rokhai',start_time:'23:00',end_time:'23:59',
+    start_at:'2026-11-08T23:00:00+02:00',end_at:'2026-11-09T00:00:00+02:00'}]}
 ]});
 const deseoRows=rowsFromJson(deseoFeed);
 assert.equal(deseoRows.format,'json');
@@ -63,6 +64,7 @@ assert.equal(deseoPreview.valid,true);
 assert.equal(deseoPreview.schedule.length,2);
 assert.equal(deseoPreview.schedule[0].day,1);
 assert.equal(deseoPreview.schedule[1].day,7);
+assert.equal(deseoPreview.schedule[1].endTime,'24:00');
 assert.equal(deseoPreview.mapping.title,'name');
 assert.equal(deseoPreview.mapping.day,'day_of_week');
 assert.equal(deseoPreview.mapping.start,'start_time');
