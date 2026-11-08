@@ -369,6 +369,9 @@ exports.cancelSubscription = async (req, res) => {
     const { subscriptionId } = req.body; 
 
     if (!subscriptionId) return res.status(400).json({ error: "Λείπει το ID της συνδρομής (Stripe)." });
+    // The Stripe subscription must belong to the authenticated account.
+    const owned=req.user?.activeSubscriptions?.some(sub=>sub.stripeSubscriptionId===subscriptionId);
+    if(!owned)return res.status(403).json({error:'Η συνδρομή δεν ανήκει στον λογαριασμό σου.'});
 
     let currentPeriodEnd = null;
 
