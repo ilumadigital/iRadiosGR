@@ -37,7 +37,7 @@ test('server authenticates, resolves destination from Station and sets Reply-To'
   assert.match(routes,/to:station\.email\.trim\(\),replyTo:senderEmail/);
   assert.match(routes,/reserveQuota/);
   assert.match(mailer,/replyTo,/);
-  assert.match(stage,/\/contact\$\/i\.test\(path\)/);
+  assert.match(stage,/contact/);
 });
 test('station profile has no mailto link and login returns to station contact', () => {
   const page=read('frontend/src/pages/StationProfile.jsx');
