@@ -60,6 +60,16 @@ function publicHttpUrl(value){
     return net.isIP(host)?publicIp(host):!host.includes(':')&&!/^\d+(?:\.\d+)*$/.test(host);
   }catch{return false;}
 }
+// Node.js 20+ may request DNS lookup({all:true}) for network-family selection.
+// Returning (address, family) in that case triggers ERR_INVALID_IP_ADDRESS.
+// Always pin the connection to the already-validated DNS address while
+// respecting Node's requested lookup callback shape.
+function createPinnedLookup(pinned){
+  return (_hostname,options,callback)=>{
+    if(options?.all)callback(null,[{address:pinned.address,family:pinned.family}]);
+    else callback(null,pinned.address,pinned.family);
+  };
+}
 async function fetchXml(url,hops=0){
   if(!publicHttpUrl(url))throw invalid('Το XML URL πρέπει να είναι δημόσιο HTTP/HTTPS χωρίς ιδιωτικό host ή μη επιτρεπτή θύρα.');
   const u=new URL(url),host=u.hostname.replace(/^\[|\]$/g,'');
@@ -73,7 +83,7 @@ async function fetchXml(url,hops=0){
     const driver=u.protocol==='https:'?https:http;
     const request=driver.get(u,{
       agent:false,timeout:10000,
-      lookup:(_name,_options,cb)=>cb(null,pinned.address,pinned.family),
+      lookup:createPinnedLookup(pinned),
       headers:{'Accept':'application/xml,text/xml,application/json,text/plain;q=0.8',
         'User-Agent':'iRadiosGR-Schedule-Sync/1.0'}
     },res=>{
@@ -397,4 +407,5 @@ function startCron(){
   console.info('[SCHEDULE XML] Daily sync scheduled 03:00 Europe/Athens');
 }
 module.exports={loadFeed,previewFeed,publicPreview,publicHttpUrl,syncOne,syncAll,startCron,
-  __testing:{parseXml,rowsFromXml,rowsFromJson,mapRows,previewRows,dayNumber,timeString}};
+  __testing:{parseXml,rowsFromXml,rowsFromJson,mapRows,previewRows,dayNumber,timeString,
+    createPinnedLookup}};
