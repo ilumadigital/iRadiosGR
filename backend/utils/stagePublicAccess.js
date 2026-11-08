@@ -43,6 +43,9 @@ function stagePublicAccess(req, res, next) {
   // The middleware is mounted at /api, and Express req.path excludes the mount prefix.
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
+  // Public radio playback can report an anonymous, bounded listening heartbeat.
+  // This endpoint cannot read metadata, choose streams or trigger recognition directly.
+  if (req.method === 'POST' && path === '/api/listen/heartbeat') return next();
 
   // The normal login form sends {identifier,password}. Allow existing verified
   // listeners/broadcasters/admins to sign in with their staging JWT; never
@@ -65,6 +68,7 @@ function stagePublicAccess(req, res, next) {
   // Listener-only song metadata, station playlist history and ACRCloud recognition.
   if (req.method === 'GET' && /^\/api\/stations\/[0-9a-fA-F]{24}\/playlist$/.test(path)) return protect(req,res,next);
   if (req.method === 'GET' && path === '/api/metadata') return protect(req,res,next);
+  if (req.method === 'GET' && path === '/api/metadata/live') return protect(req,res,next);
   if (req.method === 'POST' && path === '/api/recognize-proxy') return protect(req,res,next);
 
   // Signed-in users can accept terms for their own JWT identity only.

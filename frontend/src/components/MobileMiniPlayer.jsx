@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import LiveChat from './LiveChat'; 
 import ShareStory from './ShareStory';
+import FoundWithAI from './FoundWithAI';
 import { useAlert } from '../context/AlertContext';
 
 export default function MobileMiniPlayer({
@@ -18,6 +19,7 @@ export default function MobileMiniPlayer({
   adTimeRemaining,
   adWarning,
   nowPlaying,
+  nowPlayingInfo,
   isPlaying,
   isBuffering, 
   togglePlayPause,
@@ -400,6 +402,7 @@ export default function MobileMiniPlayer({
               <p className={`text-base sm:text-lg font-medium truncate w-full ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
                 {isPlayingAd ? `${currentAdInfo?.title || 'Διαφήμιση'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (displayTrackArtist || currentStation.name) : (currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
               </p>
+              {isActualSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI compact className="mt-1"/>}
               {!isPlayingAd && (
                 <div className="mt-3 flex items-center gap-3">
                   <span className="ir-live-indicator">LIVE RADIO</span>
@@ -598,6 +601,7 @@ export default function MobileMiniPlayer({
                 <div className={`text-[11px] font-medium truncate max-w-[140px] mt-0.5 ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
                   {isRecognizing ? "Αναγνώριση..." : (isActualSong ? nowPlaying : (currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying'))}
                 </div>
+                {isActualSong&&nowPlayingInfo?.foundWithAI&&<span className="text-[9px] font-bold text-[#ccff00]">✦ Found with AI</span>}
               </>
             )}
           </div>

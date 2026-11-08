@@ -6,9 +6,9 @@ const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
 const now=read('frontend/src/pages/PlayingNow.jsx');
-assert.ok(now.includes('liveStations.length===1?"σταθμός LIVE":"σταθμοί LIVE"'),
+assert.ok(now.includes('displayStations.length===1?"σταθμός LIVE":"σταθμοί LIVE"'),
   'Now Playing count must say N σταθμοί LIVE, not a technical metadata label');
-assert.ok(now.includes('(!isLoading || liveStations.length>0)'),
+assert.ok(now.includes('(!isLoading || displayStations.length>0)'),
   'do not flash an incorrect zero during the initial scan');
 assert.ok(!now.includes('0 με metadata') && !now.includes('με επιβεβαιωμένα μουσικά metadata'),
   'remove engineering labels from Now Playing');
@@ -42,7 +42,7 @@ assert.ok(!home.includes('DSP Engine</strong>') && !home.includes('LIVE Analytic
   'broadcaster promotion should speak to people rather than software engineers');
 
 const playlist=read('frontend/src/components/StationPlaylistPanel.jsx');
-assert.ok(playlist.includes("Τα τελευταία Tracks του {chosen?.name"),
+assert.ok(playlist.includes("Τα τραγούδια των τελευταίων 30 λεπτών του {chosen?.name"),
   'retain the explicitly approved station name in the playlist caption');
 assert.ok(!playlist.includes('έγκυρα metadata τραγουδιών'), 'history copy should be natural');
 

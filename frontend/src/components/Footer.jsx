@@ -7,12 +7,13 @@ import {
 } from 'lucide-react';
 import ShareStory from './ShareStory';
 import LiveChat from './LiveChat';
-import DesktopFullPlayer from './DesktopFullPlayer'; 
+import DesktopFullPlayer from './DesktopFullPlayer';
+import FoundWithAI from './FoundWithAI'; 
 import { useAlert } from '../context/AlertContext';
 
 export default function Footer({ 
   currentStation, isPlayingAd, currentAdInfo, adTimeRemaining, adWarning, 
-  isPlaying, isBuffering, nowPlaying, volume, setVolume, togglePlayPause, 
+  isPlaying, isBuffering, nowPlaying, nowPlayingInfo, volume, setVolume, togglePlayPause, 
   toggleFavorite, isFavorite, handleNextStation, handlePrevStation,
   currentUser, userOverrides, onUserDSPChange,
   unreadListenerChat, setUnreadListenerChat,
@@ -178,6 +179,7 @@ export default function Footer({
           currentAdInfo={currentAdInfo}
           adTimeRemaining={adTimeRemaining}
           nowPlaying={nowPlaying}
+          nowPlayingInfo={nowPlayingInfo}
           globalCoverArt={globalCoverArt}
           currentShow={currentShow}
           volume={volume}
@@ -313,6 +315,7 @@ export default function Footer({
                   <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all ${isRecognizing ? 'text-blue-400' : 'text-[#ccff00]'}`}>
                     {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying : (!isRealSong ? (isPlaying ? 'ΠΑΙΖΕΙ ΤΩΡΑ' : 'STOPPED') : nowPlaying)}
                   </span>
+                  {currentUser&&nowPlayingInfo?.foundWithAI&&isRealSong&&!isPlayingAd&&<FoundWithAI compact/>}
                 </div>
               )}
             </div>

@@ -530,6 +530,7 @@ function MainApp() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [nowPlaying, setNowPlaying] = useState('');
+  const [nowPlayingInfo,setNowPlayingInfo] = useState({source:'none',foundWithAI:false});
   const [volume, setVolume] = useState(0.7);
   const [globalCoverArt, setGlobalCoverArt] = useState(null);
 
@@ -553,6 +554,8 @@ function MainApp() {
   
   const audioRef = useRef(null); 
   const lastMetaFetch = useRef(0);
+  const metadataRequest = useRef(0);
+  const lastStationRefresh=useRef(0);
   const intendedPlayState = useRef(false);
 
   const recognitionLock = useRef(false);
@@ -575,6 +578,9 @@ function MainApp() {
       return saved ? JSON.parse(saved) : null;
     } catch (e) { return null; }
   });
+
+  const activeStationIdRef=useRef('');
+  activeStationIdRef.current=String(currentStation?._id||currentStation?.id||'');
 
   const [isCarModeActive, setIsCarModeActive] = useState(false);
 
@@ -851,6 +857,27 @@ function MainApp() {
     return () => globalSocket.off('receive_message', handleNewMessage);
   }, [globalSocket, currentStation, currentUser, location.pathname]);
 
+  // The stage Socket.IO gateway is intentionally closed to public traffic.
+  // Report only an anonymous, ephemeral heartbeat while the real audio element
+  // is actually playing. No station URL, token, user ID or music data is sent.
+  useEffect(()=>{
+    if(window.location.hostname!=='stage.iradios.gr')return;
+    const stationId=String(currentStation?._id||'');
+    if(!/^[a-f0-9]{24}$/i.test(stationId)||!isPlaying||isPlayingAd||
+       isBuffering||!audioRef.current||audioRef.current.readyState<2)return;
+    if(!crypto?.randomUUID)return;
+    const sessionId=crypto.randomUUID();
+    const report=playing=>{
+      fetch(`${API_URL}/listen/heartbeat`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({stationId,sessionId,playing}),keepalive:true
+      }).catch(()=>{});
+    };
+    report(true);
+    const timer=setInterval(()=>{if(!audioRef.current?.paused)report(true);},60000);
+    return ()=>{clearInterval(timer);report(false);};
+  },[API_URL,currentStation?._id,isPlaying,isBuffering,isPlayingAd]);
+
   useEffect(() => {
     if (globalSocket && currentStation && isPlaying && !isPlayingAd) {
       globalSocket.emit('start_listen', { stationId: currentStation._id, location: userLocation });
@@ -942,6 +969,7 @@ function MainApp() {
     setCurrentStation(station);
     setIsPlayingAd(false);
     setNowPlaying('');
+    setNowPlayingInfo({source:'none',foundWithAI:false});
     intendedPlayState.current = true;
 
     audioRef.current.src = finalStreamUrl;
@@ -1223,8 +1251,12 @@ function MainApp() {
 
       if (isRecognizing || isPlayingAd) return;
 
+      // Invalidate older requests so they cannot overwrite a fresh AI match.
+      metadataRequest.current += 1;
       setIsRecognizing(true);
       const previousNowPlaying = nowPlaying;
+      const previousInfo=nowPlayingInfo;
+      const recognizingStationId=String(currentStation?._id||currentStation?.id||'');
       
       setNowPlaying("Βρίσκουμε το τραγούδι…");
 
@@ -1284,7 +1316,9 @@ function MainApp() {
         if (Number(data?.status?.code)===0 && track?.title && artist) {
           const songTitle = `${artist} - ${track.title}`;
           
+          if(activeStationIdRef.current!==recognizingStationId)return;
           setNowPlaying(songTitle);
+          setNowPlayingInfo({source:'acrcloud',foundWithAI:true});
           
           const sId = track.external_metadata?.spotify?.track?.id;
           
@@ -1298,24 +1332,30 @@ function MainApp() {
             setSpotifyUrl(`https://open.spotify.com/search/${encodeURIComponent(songTitle)}`);
           }
 
-          recognitionLock.current = true;
-          if (recognitionTimeout.current) clearTimeout(recognitionTimeout.current);
-          
-          recognitionTimeout.current = setTimeout(() => { 
-            recognitionLock.current = false; 
+          // The server publishes this result for FOUR minutes to every listener.
+          // A local lock is unnecessary and would hide subsequent shared updates.
+          recognitionLock.current=false;
+          if(recognitionTimeout.current)clearTimeout(recognitionTimeout.current);
+          recognitionTimeout.current=setTimeout(()=>{
             setSpotifyUrl(null);
-            fetchMetadata(); 
-          }, 60000);
+            if(activeStationIdRef.current===recognizingStationId)fetchMetadata();
+          },4*60*1000);
 
         } else {
-          setNowPlaying(previousNowPlaying);
+          if(activeStationIdRef.current===recognizingStationId){
+            setNowPlaying(previousNowPlaying);
+            setNowPlayingInfo(previousInfo);
+          }
           showAlert("Δεν αναγνωρίστηκε τραγούδι αυτή τη στιγμή. Ίσως παίζει ομιλία ή διαφήμιση.");
         }
       } catch (err) {
         clearInterval(intervalId);
         // No secrets, stream URLs or upstream response bodies are printed.
         console.warn("Song recognition unavailable");
-        setNowPlaying(previousNowPlaying);
+        if(activeStationIdRef.current===recognizingStationId){
+          setNowPlaying(previousNowPlaying);
+          setNowPlayingInfo(previousInfo);
+        }
         showAlert(err?.message || "Δεν μπορέσαμε να βρούμε το τραγούδι. Δοκίμασε ξανά σε λίγο.");
       } finally {
         clearInterval(intervalId); 
@@ -1327,58 +1367,57 @@ function MainApp() {
     if (currentStation) localStorage.setItem('iluma_last_station', JSON.stringify(currentStation));
   }, [currentStation]);
 
-  const fetchMetadata = async () => {
-  if (!currentStation || !currentUser || isPlayingAd || isRecognizing || recognitionLock.current) return;
-
-  try {
-    const res = await fetch(`${API_URL}/metadata?stream=${encodeURIComponent(currentStation.stream)}`, {
-      headers: { 'Authorization': `Bearer ${localStorage.getItem('iluma_token') || ''}` }
-    });
-    const data = await res.json();
-    
-    if (data && data.title) {
-      // Παίρνουμε τον αρχικό τίτλο (βγάζοντας κενά και παύλες στο τέλος)
-      const rawTitle = data.title.replace(/-$/, '').trim();
-      
-      // Τον περνάμε από το πλυντήριο
-      const cleanTitle = cleanMetadata(rawTitle);
-      
-      // Αν το πλυντήριο επιστρέψει κενό, κρατάμε τον rawTitle!
-      setNowPlaying(cleanTitle || rawTitle); 
-    } else {
-      setNowPlaying('');
+  const fetchMetadata=async()=>{
+    if(!currentStation?._id||!currentUser||isPlayingAd||isRecognizing||recognitionLock.current)return;
+    const stationId=String(currentStation._id);
+    const requestId=++metadataRequest.current;
+    const matches=()=>activeStationIdRef.current===stationId && metadataRequest.current===requestId;
+    try{
+      const res=await fetch(`${API_URL}/metadata?stationId=${encodeURIComponent(stationId)}`,{
+        headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`}
+      });
+      if(!res.ok)throw new Error('Music data unavailable');
+      const data=await res.json();
+      if(!matches())return;
+      const title=typeof data?.title==='string'?data.title.trim():'';
+      setNowPlaying(title?cleanMetadata(title):'');
+      setNowPlayingInfo({source:data?.source==='acrcloud'?'acrcloud':title?'station':'none',
+        foundWithAI:Boolean(title&&data?.foundWithAI)});
+    }catch{
+      if(matches()){setNowPlaying('');setNowPlayingInfo({source:'none',foundWithAI:false});}
     }
-  } catch (e) { 
-    setNowPlaying(''); 
-  }
 
-    try {
-      const stationId = currentStation._id || currentStation.id;
-      const stationRes = await fetch(`${API_URL}/stations`);
-      
-      if (stationRes.ok) {
-        const allStations = await stationRes.json();
-        const updatedStation = allStations.find(s => s._id === stationId || s.id === stationId);
-        
-        if (updatedStation) {
-          setCurrentStation(prev => {
-            if (updatedStation.dspPreset && updatedStation.dspPreset !== prev.dspPreset) {
-              return { ...prev, dspPreset: updatedStation.dspPreset };
-            }
-            return prev; 
-          });
-        }
+    // Avoid refetching the entire station catalog with every 10-second audio event.
+    if(!matches()||Date.now()-lastStationRefresh.current<5*60*1000)return;
+    lastStationRefresh.current=Date.now();
+    try{
+      const response=await fetch(`${API_URL}/stations`);
+      if(!response.ok)return;
+      const available=await response.json();
+      const updated=Array.isArray(available)?available.find(x=>String(x._id)===stationId):null;
+      if(updated&&matches()){
+        setCurrentStation(prev=>prev&&String(prev._id)===stationId&&
+          updated.dspPreset && updated.dspPreset!==prev.dspPreset
+          ? {...prev,dspPreset:updated.dspPreset} : prev);
       }
-    } catch (e) {}
+    }catch{ /* a station settings refresh must never interrupt playback */ }
   };
 
   useEffect(() => {
     if (isPlaying && currentStation && !isPlayingAd && !isRecognizing && !recognitionLock.current) fetchMetadata(); 
-    else if (!isRecognizing && !recognitionLock.current) setNowPlaying('');
+    else if (!isRecognizing && !recognitionLock.current) {setNowPlaying('');setNowPlayingInfo({source:'none',foundWithAI:false});}
   }, [currentStation, currentUser, isPlaying, isPlayingAd, isRecognizing]);
 
+  // Live streams do not always fire timeupdate (especially in iOS Safari).
+  // Poll independently so another listener's AI match reaches this player.
+  useEffect(()=>{
+    if(!currentStation?._id||!currentUser||!isPlaying||isPlayingAd||isRecognizing)return;
+    const timer=setInterval(()=>{if(!recognitionLock.current)fetchMetadata();},30000);
+    return ()=>clearInterval(timer);
+  },[currentStation?._id,currentUser?._id,isPlaying,isPlayingAd,isRecognizing]);
+
   useMediaSession({
-    currentStation, nowPlaying, isPlayingAd, currentAdInfo,
+    currentStation, nowPlaying, nowPlayingInfo, isPlaying, isPlayingAd, currentAdInfo,
     togglePlayPause, handleNextStation, handlePrevStation, globalCoverArt, currentUser
   });
 
@@ -1712,7 +1751,7 @@ function MainApp() {
 
             <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
@@ -1794,7 +1833,7 @@ function MainApp() {
         
         <MobileMiniPlayer 
           currentStation={currentStation} isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo}
-          adTimeRemaining={adTimeRemaining} adWarning={adWarning} nowPlaying={nowPlaying}
+          adTimeRemaining={adTimeRemaining} adWarning={adWarning} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo}
           isPlaying={isPlaying} togglePlayPause={togglePlayPause} isBuffering={isBuffering}
           toggleFavorite={handleToggleFavorite} isFavorite={isFavorite}
           currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))}
@@ -1813,7 +1852,7 @@ function MainApp() {
       <Footer 
         currentStation={currentStation} isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo} isBuffering={isBuffering}    
         adTimeRemaining={adTimeRemaining} adWarning={adWarning} isPlaying={isPlaying} 
-        nowPlaying={isPlayingAd ? `Sponsored: ${currentAdInfo?.title}` : nowPlaying} 
+        nowPlaying={isPlayingAd ? `Sponsored: ${currentAdInfo?.title}` : nowPlaying} nowPlayingInfo={nowPlayingInfo} 
         volume={volume} setVolume={setVolume} togglePlayPause={togglePlayPause} 
         toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} 
         handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}  

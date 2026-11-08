@@ -28,6 +28,9 @@ router.get('/broadcaster/:userId/analytics', analyticsController.getBroadcasterA
 // The original metadata extractor performs arbitrary upstream fetches.
 // Keep the staging response deterministic until that endpoint gets the
 // same approved-station SSRF protection as the stream proxy.
+if(process.env.APP_ENV==='staging'){
+  router.get('/metadata/live',require('../utils/stageSmartTracks').stageLiveAI);
+}
 router.get('/metadata', process.env.APP_ENV === 'staging'
   ? require('../utils/stageMetadata').stageMetadata
   : miscController.getMetadata);

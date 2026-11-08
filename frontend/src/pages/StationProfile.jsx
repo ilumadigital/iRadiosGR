@@ -10,14 +10,15 @@ import {
 import { Helmet } from 'react-helmet-async';
 import CircularVU from '../components/CircularVU';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
-import StationCatalogCard from '../components/StationCatalogCard'; 
+import StationCatalogCard from '../components/StationCatalogCard';
+import FoundWithAI from '../components/FoundWithAI'; 
 import { useAlert } from '../context/AlertContext';
 
 const DAYS_OF_WEEK = ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'];
 
 export default function StationProfile({ 
   stations, currentStation, isPlaying, onPlayPause, setCurrentStation, 
-  toggleFavorite, isFavorite, nowPlaying: globalNowPlaying, analyser,
+  toggleFavorite, isFavorite, nowPlaying: globalNowPlaying, nowPlayingInfo: globalNowPlayingInfo, analyser,
   currentUser, userOverrides, onUserDSPChange, API_URL,
   isRecognizing, handleRecognizeTrack, globalCoverArt // 🟢 Λαμβάνουμε το έτοιμο cover από το App.jsx
 }) {
@@ -31,6 +32,7 @@ export default function StationProfile({
   const eqMenuRef = useRef(null);
 
   const [localNowPlaying, setLocalNowPlaying] = useState(null);
+  const [localNowPlayingInfo,setLocalNowPlayingInfo]=useState({source:'none',foundWithAI:false});
   const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
   
   // Station metadata must never update the page after the station changes.
@@ -48,9 +50,11 @@ export default function StationProfile({
     "ΠΑΙΖΕΙ ΤΩΡΑ"
   ];
 
-  const effectiveNowPlaying = (currentUser && isThisPlaying && isPlaying) 
-    ? ((globalNowPlaying && globalNowPlaying !== "ΠΑΙΖΕΙ ΤΩΡΑ") ? globalNowPlaying : localNowPlaying)
-    : null;
+  const useGlobal=Boolean(currentUser&&isThisPlaying&&isPlaying&&globalNowPlaying&&
+    !LOADING_MESSAGES.includes(globalNowPlaying));
+  const effectiveNowPlaying=currentUser?(useGlobal?globalNowPlaying:localNowPlaying):null;
+  const foundWithAI=Boolean(effectiveNowPlaying&&
+    (useGlobal?globalNowPlayingInfo?.foundWithAI:localNowPlayingInfo.foundWithAI));
 
   const isCurrentlyLoadingMeta = LOADING_MESSAGES.includes(effectiveNowPlaying) || isRecognizing;
 
@@ -72,8 +76,9 @@ export default function StationProfile({
     let intervalId;
     let inFlight=false;
     setLocalNowPlaying(null);
+    setLocalNowPlayingInfo({source:'none',foundWithAI:false});
     setIsSearchingMetadata(false);
-    if (!station?._id || !currentUser || !isThisPlaying || !isPlaying || isRecognizing) {
+    if (!station?._id || !currentUser) {
       return () => controller.abort();
     }
     const read=async()=>{
@@ -87,11 +92,14 @@ export default function StationProfile({
         });
         if(!response.ok)throw new Error('Song information unavailable');
         const data=await response.json();
-        if(!controller.signal.aborted)setLocalNowPlaying(
-          typeof data?.title==='string' && data.title.trim() ? data.title.trim() : null
-        );
+        if(!controller.signal.aborted){
+          const title=typeof data?.title==='string'&&data.title.trim()?data.title.trim():null;
+          setLocalNowPlaying(title);
+          setLocalNowPlayingInfo({source:data?.source||'none',
+            foundWithAI:Boolean(title&&data?.foundWithAI)});
+        }
       }catch{
-        if(!controller.signal.aborted)setLocalNowPlaying(null);
+        if(!controller.signal.aborted){setLocalNowPlaying(null);setLocalNowPlayingInfo({source:'none',foundWithAI:false});}
       }finally{
         inFlight=false;
         if(!controller.signal.aborted)setIsSearchingMetadata(false);
@@ -100,7 +108,7 @@ export default function StationProfile({
     read();
     intervalId=setInterval(read,45000);
     return ()=>{controller.abort();clearInterval(intervalId);};
-  }, [station?._id, currentUser?._id, isThisPlaying, isPlaying, API_URL, isRecognizing]);
+  }, [station?._id, currentUser?._id, API_URL]);
 
   // 🟢 ΚΛΙΚ ΣΤΟ AI RADAR
   const onRadarClick = (e) => {
@@ -475,6 +483,7 @@ export default function StationProfile({
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ccff00]">
                       {isCurrentlyLoadingMeta ? 'ΑΝΑΓΝΩΡΙΣΗ' : 'ΤΩΡΑ ΠΑΙΖΕΙ'}
                     </span>
+                     {foundWithAI&&<FoundWithAI compact/>}
                   </div>
                   <h2 className="text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug drop-shadow-md">
                     {/* Box clone styling to hug the text */}
