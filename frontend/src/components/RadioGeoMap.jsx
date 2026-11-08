@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Globe2, MapPin, Play, RadioTower, SortDesc, X } from 'lucide-react';
 import { formatFMFrequency } from '../utils/stationFrequency';
-import { locationMapCenter, stationMapPosition } from '../utils/mapLocations';
+import { locationMapCenter, stationMapLocation } from '../utils/mapLocations';
 import './RadioGeoMap.css';
 
 // Ο renderer φορτώνεται μόνο όταν ο χρήστης ανοίγει προβολή χάρτη.
@@ -58,18 +58,19 @@ export default function RadioGeoMap({
     const byCoordinates = new Map();
     const unknown = [];
     for (const station of sortedStations) {
-      const position = stationMapPosition(station);
+      const location = stationMapLocation(station);
+      const position = location?.position;
       if (!position) {
         unknown.push(station);
         continue;
       }
       const id = position[0].toFixed(4) + ':' + position[1].toFixed(4);
       if (!byCoordinates.has(id)) {
-        byCoordinates.set(id, { id, lat: position[0], lng: position[1], cityNames: new Set(), stations: [] });
+        byCoordinates.set(id, { id, lat: position[0], lng: position[1], cityNames: new Set(), approximate: false, stations: [] });
       }
       const group = byCoordinates.get(id);
-      const name = station.city && station.city !== 'Άλλη' ? station.city : (station.region || 'Περιοχή');
-      group.cityNames.add(name);
+      group.cityNames.add(location.label);
+      group.approximate ||= location.precision === 'region';
       group.stations.push(station);
     }
     return {
@@ -147,7 +148,7 @@ export default function RadioGeoMap({
         element.type = 'button';
         element.className = 'ir-radio-map-marker';
         element.setAttribute('aria-label', group.title + ': ' + group.stations.length + ' σταθμοί');
-        element.title = group.title + ' · ' + group.stations.length + ' σταθμοί';
+        element.title = group.title + ' · ' + group.stations.length + ' σταθμοί' + (group.approximate ? ' · Ενδεικτικό κέντρο περιοχής' : '');
         const dot = document.createElement('span');
         dot.className = 'ir-radio-map-dot';
         element.appendChild(dot);
@@ -168,7 +169,7 @@ export default function RadioGeoMap({
             essential: true
           });
         });
-        const marker = new maplibre.Marker({ element, anchor: 'center' })
+        const marker = new maplibre.Marker({ element, anchor: 'center', subpixelPositioning: true })
           .setLngLat([group.lng, group.lat])
           .addTo(map);
         markerRefs.current.push({ id: group.id, marker, element });
@@ -263,6 +264,11 @@ export default function RadioGeoMap({
               onClick={() => { setSelectedPlace(''); setShowUnmapped(false); }}
               className="rounded-lg p-1.5 hover:bg-black/10"><X size={16} /></button>
           </div>
+          {activeGroup.approximate && (
+            <p className="border-b border-white/10 px-3 py-2 text-[10px] leading-relaxed text-zinc-400">
+              Ενδεικτικό κέντρο περιοχής · δεν αποτελεί ακριβή θέση στούντιο ή πομπού.
+            </p>
+          )}
           <div className="custom-scrollbar max-h-[min(40vh,330px)] space-y-1 overflow-y-auto p-2">
             {activeGroup.stations.map(station => {
               const isCurrent = String(currentStation?._id) === String(station._id);
@@ -276,7 +282,7 @@ export default function RadioGeoMap({
                     <span className={'block truncate text-xs font-black ' + (playing ? 'text-[#ccff00]' : 'text-white')}>{station.name}</span>
                     <span className="mt-1 block truncate text-[10px] text-zinc-400">
                       {station.transmissionType === 'Επίγειο' && station.frequency
-                        ? formatFMFrequency(station.frequency) + ' FM · ' : ''}
+                        ? formatFMFrequency(station.frequency) + ' · ' : ''}
                       {station.genre || station.region || 'Live Radio'}
                     </span>
                   </button>
