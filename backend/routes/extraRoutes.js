@@ -21,6 +21,8 @@ router.post('/payments/create-stripe-subscription', paymentController.createStri
 
 // Notifications (Web Push)
 router.get('/notifications/vapidPublicKey', notificationController.getVapidKey);
+router.get('/notifications/unsubscribe', notificationController.unsubscribePage);
+router.post('/notifications/unsubscribe', express.urlencoded({extended:false}), notificationController.unsubscribeSubmit);
 // Legacy anonymous device subscriptions remain supported for guests. They may
 // not claim arbitrary user IDs; authenticated profile devices use my-device.
 router.post('/notifications/subscribe', notificationController.subscribe);
