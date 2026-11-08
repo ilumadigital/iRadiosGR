@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Play, Pause, Heart, SkipBack, Car, SkipForward, MessageSquare, 
+  Play, Pause, Heart, SkipBack, Car, SkipForward, 
   ScanSearch, Loader2, ChevronUp, ChevronDown, Radio, SignalHigh, 
   AlertTriangle, CalendarDays, MonitorSpeaker, Headphones, PowerOff, 
   SlidersHorizontal, Waves, Laptop, Smartphone, X, Ellipsis, RefreshCw 
 } from 'lucide-react';
-import LiveChat from './LiveChat'; 
 import ShareStory from './ShareStory';
 import FoundWithAI from './FoundWithAI';
 import MusicServiceLinks from './MusicServiceLinks';
@@ -34,7 +33,6 @@ export default function MobileMiniPlayer({
   currentUser,
   handleNextStation,
   handlePrevStation,
-  unreadListenerChat, setUnreadListenerChat,
   isRecognizing, handleRecognizeTrack,
   onOpenCarMode,
   userOverrides, onUserDSPChange,
@@ -51,7 +49,6 @@ export default function MobileMiniPlayer({
   const navigate = useNavigate();
   const location = useLocation(); 
   
-  const [showChat, setShowChat] = useState(false); 
   const [isMaximized, setIsMaximized] = useState(false);
   const fullscreenRef = useRef(null);
   
@@ -82,7 +79,7 @@ export default function MobileMiniPlayer({
     return () => window.removeEventListener('minify_player', handleMinify);
   }, []);
 
-  useEffect(() => { setShowChat(false); setShowMoreMenu(false); setShowDevicesMenu(false); setShowEQMenu(false); }, [currentStation?._id]);
+  useEffect(() => { setShowMoreMenu(false); setShowDevicesMenu(false); setShowEQMenu(false); }, [currentStation?._id]);
   useEffect(()=>{
     if(!isMaximized)return;
     const previousOverflow=document.body.style.overflow;
@@ -91,8 +88,7 @@ export default function MobileMiniPlayer({
     fullscreenRef.current?.querySelector('[aria-label="Ελαχιστοποίηση player"]')?.focus();
     const onEscape=e=>{
       if(e.key==='Escape'){
-        if(showChat)setShowChat(false);
-        else if(showEQMenu)setShowEQMenu(false);
+        if(showEQMenu)setShowEQMenu(false);
         else if(showDevicesMenu)setShowDevicesMenu(false);
         else if(showMoreMenu)setShowMoreMenu(false);
         else setIsMaximized(false);
@@ -104,7 +100,7 @@ export default function MobileMiniPlayer({
       document.removeEventListener('keydown',onEscape);
       if(previousFocus?.isConnected)previousFocus.focus();
     };
-  },[isMaximized,showChat,showEQMenu,showDevicesMenu,showMoreMenu]);
+  },[isMaximized,showEQMenu,showDevicesMenu,showMoreMenu]);
 
   useEffect(() => {
     if (isPlayingAd && currentAdInfo?._id && lastTrackedAdId.current !== currentAdInfo._id) {
@@ -182,7 +178,7 @@ export default function MobileMiniPlayer({
   };
 
   const handleTouchMoveMaximized = (e) => {
-    if (touchStartY === null || touchStartX === null || showChat || showEQMenu || showDevicesMenu || showMoreMenu) return; 
+    if (touchStartY === null || touchStartX === null || showEQMenu || showDevicesMenu || showMoreMenu) return; 
 
     const currentY = e.touches[0].clientY;
     const currentX = e.touches[0].clientX;
@@ -458,15 +454,6 @@ export default function MobileMiniPlayer({
               <button type="button" onClick={openStationProfile} className="ir-glass-more-tile">
                 <CalendarDays size={24}/><span>Σταθμός &amp; πρόγραμμα</span>
               </button>
-              {currentUser && isCurrentlyFavorite && !isPlayingAd &&
-                <button type="button" onClick={() => { setShowMoreMenu(false); setShowChat(true); setUnreadListenerChat(false); }}
-                  className="ir-glass-more-tile">
-                  <span className="ir-glass-more-tile__icon">
-                    <MessageSquare size={24}/>
-                    {unreadListenerChat && <i className="ir-glass-notification-dot"/>}
-                  </span>
-                  <span>Live chat</span>
-                </button>}
               {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={nowPlaying}
                 label="Κοινοποίηση Story" className="ir-glass-more-tile ir-glass-more-tile--share"/>}
               {canUseCustomEQ && !isPlayingAd && !isIOS &&
@@ -529,9 +516,6 @@ export default function MobileMiniPlayer({
           </section>
         </div>}
 
-        {showChat && currentStation && currentUser && <div className="absolute inset-0 z-50 bg-black/95">
-          <LiveChat currentStation={currentStation} currentUser={currentUser} onClose={() => setShowChat(false)}/>
-        </div>}
       </div>
 
       {/* --- 2. MINIFIED PLAYER (ΚΑΤΩ ΜΠΑΡΑ) --- */}
