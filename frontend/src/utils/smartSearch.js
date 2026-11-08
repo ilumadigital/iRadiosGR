@@ -160,10 +160,13 @@ export function groupedSearch(index, query, scope = 'all') {
 }
 
 export function spokenQuery(transcript) {
-  return String(transcript || '').trim().replace(
-    /^(?:(?:σε παρακαλω|παρακαλω)\s+)?(?:ανοιξε|ανοιξε μου|δειξε μου|βρες μου|ψαξε|αναζητησε|βαλε|παιξε|πηγαινε(?: με)?(?: στο| στην| σε)?|θελω να ακουσω|θελω να δω)\s+/i,
-    ''
-  ).trim();
+  // Normalize accents before stripping Greek voice commands.
+  const phrase = normalizeSearch(transcript);
+  return phrase
+    .replace(/^(?:σε παρακαλω |παρακαλω )?(?:ανοιξε μου|ανοιξε|δειξε μου|δειξε|βρεσ μου|βρεσ|ψαξε|αναζητησε|βαλε|παιξε|πηγαινε με|πηγαινε|θελω να ακουσω|θελω να δω)\s+/, '')
+    .replace(/^(?:την|τον|τις|τουσ|τα|τη|το|στο|στην|σε|ενα|εναν|μια|ενασ)\s+/, '')
+    .replace(/^(?:ραδιοφωνικο σταθμο|ραδιοφωνο|σταθμο)\s+/, '')
+    .trim();
 }
 
 export function directVoiceMatch(index, transcript) {
@@ -171,12 +174,17 @@ export function directVoiceMatch(index, transcript) {
   const matches = rankSearch(index, query);
   const normalized = normalizeSearch(query);
   const latin = greeklish(query);
-  const exact = matches.filter(item => item.aliases?.some(field => {
-    const value = normalizeSearch(field);
-    return value === normalized || greeklish(field) === latin;
-  }) || normalizeSearch(item.label) === normalized);
+  const equals = value => normalizeSearch(value) === normalized || greeklish(value) === latin;
+  // Generic station genre/city fields must NOT steal voice navigation from the
+  // actual genre/region page. Only exact destination names/known aliases count.
+  const exact = matches.filter(item => {
+    if (equals(item.label)) return true;
+    if (item.type === 'station') return equals(item.aliases?.[1] || '');
+    if (item.type === 'news' && item.id !== 'news:feed') return false;
+    return (item.aliases || []).some(equals);
+  });
   if (exact.length === 1) return exact[0];
-  if (exact.length > 1) return null; // Never jump to the wrong station/page.
+  if (exact.length > 1) return null; // Never jump to an ambiguous destination.
   if (matches[0]?.score >= 110 && (!matches[1] || matches[0].score - matches[1].score >= 28)) return matches[0];
   return null;
 }
