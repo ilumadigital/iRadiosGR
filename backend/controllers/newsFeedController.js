@@ -73,7 +73,7 @@ async function sync(doc,force=false){
       try{return {id:s.id,data:await download(s,{existingImages})};}
       catch(e){return {id:s.id,error:String(e.message||e).slice(0,220)};}
     }));
-    const current=await NewsFeed.findById('primary');
+    let current=await NewsFeed.findById('primary');
     if(!current||(current.configRevision||0)!==revision)return current||doc;
     const matched=new Map(results.map(r=>[r.id,r]));
     const fresh=[],failed=[],successful=new Set();
@@ -113,7 +113,16 @@ async function sync(doc,force=false){
     if(successful.size)current.lastSyncedAt=started;
     current.lastError=failed.length?failed.length+' πηγές με σφάλμα. Δες λεπτομέρειες ανά εκδότη.':'';
     current.feedTitle=current.sources.length===1?current.sources[0].feedTitle:'Ειδήσεις από επιλεγμένους εκδότες';
-    await current.save();
+    // A deletion/change made while remote RSS requests were running must win.
+    // Atomic revision comparison also prevents deleted articles being resurrected.
+    const committed=await NewsFeed.findOneAndUpdate(
+      {_id:'primary',configRevision:revision},
+      {$set:{sources:current.sources,articles:current.articles,
+        lastAttemptAt:current.lastAttemptAt,lastSyncedAt:current.lastSyncedAt,
+        lastError:current.lastError,feedTitle:current.feedTitle}},
+      {new:true,runValidators:true});
+    if(!committed)return await NewsFeed.findById('primary')||current;
+    current=committed;
     // Preserve evicted RSS previews for up to fourteen days so copied links
     // continue to work after newer articles displace them from the live list.
     const currentKeys=new Set(current.articles.map(a=>keyFor(a.url)));
@@ -190,12 +199,15 @@ exports.save=async(req,res)=>{
       return normalized;
     });
     if(new Set(items.map(s=>s.url)).size!==items.length)throw error('Η ίδια πηγή υπάρχει δύο φορές.');
-    doc.enabled=req.body.enabled;doc.sources=items;doc.configRevision=(doc.configRevision||0)+1;
     const ids=new Set(items.map(x=>x.id));
-    doc.articles=doc.articles.filter(a=>ids.has(a.sourceId)&&items.some(s=>s.enabled&&s.id===a.sourceId&&s.url===previous.get(s.id)?.url));
-    doc.feedUrl=items[0]?.url||'';doc.lastError='';doc.lastAttemptAt=null;
-    if(!items.length){doc.feedTitle='';doc.lastSyncedAt=null;}
-    await doc.save();res.json(currentView(doc));
+    const articles=doc.articles.filter(a=>ids.has(a.sourceId)&&
+      items.some(s=>s.enabled&&s.id===a.sourceId&&s.url===previous.get(s.id)?.url));
+    const fields={enabled:req.body.enabled,sources:items,articles,
+      feedUrl:items[0]?.url||'',lastError:'',lastAttemptAt:null};
+    if(!items.length){fields.feedTitle='';fields.lastSyncedAt=null;}
+    const updated=await NewsFeed.findOneAndUpdate({_id:'primary'},
+      {$set:fields,$inc:{configRevision:1}},{new:true,runValidators:true});
+    res.json(currentView(updated));
   }catch(e){fail(res,e);}
 };
 exports.refresh=async(_req,res)=>{
