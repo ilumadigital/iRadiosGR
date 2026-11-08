@@ -1,21 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Play, Pause, ArrowLeft, MapPin, LayoutGrid, List, Music, Map as MapIcon, X, Zap, Globe, Activity, Megaphone, ExternalLink, SignalHigh } from 'lucide-react';
+import { ArrowLeft, MapPin, LayoutGrid, List, Map as MapIcon, Globe, Megaphone, ExternalLink } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import RadioGeoMap from '../components/RadioGeoMap';
-import { CITY_COORDINATES } from '../utils/mapLocations';
-import CircularVU from '../components/CircularVU';
 import EditorialPlacement from '../components/EditorialPlacement';
 import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
  
-
-const REGIONS = [
-  "Web Radio", "Αθήνα", "Θεσσαλονίκη",
-  "Ανατολική Μακεδονία & Θράκη", "Κεντρική Μακεδονία", "Δυτική Μακεδονία",
-  "Ήπειρος", "Θεσσαλία", "Ιόνια Νησιά", "Δυτική Ελλάδα", "Στερεά Ελλάδα",
-  "Πελοπόννησος", "Βόρειο Αιγαίο", "Νότιο Αιγαίο", "Κρήτη", "Κύπρος", "Εξωτερικό"
-];
 
 export default function Region({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
   const { regionName } = useParams();
@@ -109,11 +100,8 @@ export default function Region({ stations, currentStation, setCurrentStation, is
 
   const formatGenre = (text) => text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
-  const canShowMap = CITY_COORDINATES[regionName] !== undefined;
-
-  useEffect(() => {
-    if (!canShowMap && viewMode === 'map') setViewMode('grid');
-  }, [regionName, canShowMap, viewMode]);
+  // Όλα τα region pages έχουν map view. Χωρίς γεωγραφικό σημείο δείχνουμε ξεχωριστή λίστα.
+  const canShowMap = Boolean(regionName);
 
   const displayStations=useMemo(()=>viewMode==='grid' && promotedStationId
     ? filteredAndSorted.filter(s=>String(s._id)!==String(promotedStationId))
