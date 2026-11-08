@@ -104,3 +104,38 @@ exports.sendNotification = async (req,res)=>{
     res.status(500).json({error:'Η αποστολή δεν ολοκληρώθηκε.'});
   }
 };
+
+async function verifyUnsubscribe(token){
+  const User=require('../models/User');
+  const {verifyToken}=require('../utils/notificationUnsubscribe');
+  const id=typeof token==='string'?token.split('.')[0]:'';
+  if(!/^[a-f\\d]{24}$/i.test(id))return null;
+  const user=await User.findById(id).select('email');
+  return user&&verifyToken(token,user.email)===String(user._id)?user:null;
+}
+exports.unsubscribePage=async(req,res)=>{
+  const user=await verifyUnsubscribe(req.query?.token).catch(()=>null);
+  res.set('Cache-Control','no-store');
+  if(!user)return res.status(400).send('Ο σύνδεσμος διακοπής δεν είναι έγκυρος.');
+  const token=req.query.token;
+  const html='<!doctype html><html lang="el"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
+    '<title>iRadiosGR · Διακοπή επικοινωνιών</title><body style="background:#101617;color:white;font-family:Arial,sans-serif;min-height:100vh;display:grid;place-items:center">'+
+    '<main style="max-width:460px;padding:30px;border:1px solid #526319;border-radius:24px;background:#1b2425">'+
+    '<h1>iRadiosGR</h1><h2>Διακοπή προωθητικών</h2><p>Δεν θέλεις πλέον να λαμβάνεις εμπορικές ενημερώσεις; Θα διατηρήσεις τις υπόλοιπες ειδοποιήσεις σου.</p>'+
+    '<form method="POST" action="/api/notifications/unsubscribe"><input type="hidden" name="token" value="'+token+'">'+
+    '<button style="padding:13px 20px;background:#ccff00;color:#101600;border:0;border-radius:12px;font-weight:bold" type="submit">Διακοπή προωθητικών μηνυμάτων</button></form></main></body></html>';
+  return res.type('html').send(html);
+};
+exports.unsubscribeSubmit=async(req,res)=>{
+  const user=await verifyUnsubscribe(req.body?.token).catch(()=>null);
+  res.set('Cache-Control','no-store');
+  if(!user)return res.status(400).send('Ο σύνδεσμος διακοπής δεν είναι έγκυρος.');
+  await require('../models/User').updateOne({_id:user._id},{$set:{
+    'notificationPreferences.topics.promotions':false,
+    'notificationPreferences.marketingConsentAt':null
+  }});
+  return res.type('html').send('<!doctype html><html lang="el"><meta charset="utf-8">'+
+    '<body style="background:#101617;color:white;font-family:Arial,sans-serif;text-align:center;padding:60px">'+
+    '<h1>iRadiosGR</h1><p>Η αποστολή προωθητικών μηνυμάτων διακόπηκε επιτυχώς.</p>'+
+    '<a style="color:#ccff00" href="/profile">Επιστροφή στο προφίλ</a></body></html>');
+};
