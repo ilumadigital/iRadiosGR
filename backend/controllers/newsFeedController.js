@@ -2,7 +2,8 @@
 const crypto=require('crypto');
 const NewsFeed=require('../models/NewsFeed');
 const {DEFAULT_FEED_URL,normalizeSource,download}=require('../utils/rssNews');
-const CACHE_MS=5*60*1000,RETRY_MS=60*1000,MAX_SOURCES=12;
+// Ten-minute server refresh; public requests serve the persisted cache.
+const CACHE_MS=10*60*1000,RETRY_MS=10*60*1000,MAX_SOURCES=12;
 let pending=null;
 const error=(message,status=400)=>Object.assign(new Error(message),{status});
 const sourceOf=(input,id)=>({
@@ -79,13 +80,26 @@ async function sync(doc,force=false){
 exports.publicFeed=async(_req,res)=>{
   try{
     let doc=await settings();
+    // First load may bootstrap if the cache has not been populated yet.
+    if(doc.enabled&&!doc.articles.length)doc=await sync(doc);
+    const active=doc.sources.filter(s=>s.enabled);
+    const articles=doc.enabled?doc.articles.filter(a=>active.some(s=>s.id===a.sourceId)):[];
+    const categories=[],seen=new Set();
+    const add=category=>{
+      if(typeof category==='string'&&category.trim()&&!seen.has(category.trim())){
+        seen.add(category.trim());categories.push(category.trim());
+      }
+    };
     if(doc.enabled){
-      if(doc.articles.length)sync(doc).catch(()=>{}); // serve cached feed immediately; refresh in shared process
-      else doc=await sync(doc); // first load has no stale feed to serve
+      for(const source of active){
+        if(source.type!=='rssnews_preset')continue;
+        try{(normalizeSource(source).categories||[]).forEach(add);}catch{/* invalid old source */}
+      }
+      articles.forEach(a=>add(a.category));
     }
     res.setHeader('Cache-Control','public, max-age=30');
-    res.json({enabled:doc.enabled,feedTitle:doc.feedTitle,
-      articles:doc.enabled?doc.articles.filter(a=>doc.sources.some(s=>s.enabled&&s.id===a.sourceId)):[],lastSyncedAt:doc.lastSyncedAt});
+    res.json({enabled:doc.enabled,feedTitle:doc.feedTitle,articles,categories,
+      lastSyncedAt:doc.lastSyncedAt,refreshIntervalSeconds:600});
   }catch(e){fail(res,e);}
 };
 exports.adminFeed=async(_req,res)=>{try{res.json(currentView(await settings()));}catch(e){fail(res,e);}};
@@ -122,4 +136,11 @@ exports.refresh=async(_req,res)=>{
     let doc=await settings();doc=await sync(doc,true);
     res.json(currentView(doc));
   }catch(e){fail(res,e);}
+};
+
+// Shared backend scheduler. This never triggers paid song recognition.
+exports.refreshInBackground=async()=>{
+  const doc=await settings();
+  if(!doc.enabled)return doc;
+  return sync(doc,true);
 };

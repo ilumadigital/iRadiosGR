@@ -7,4 +7,7 @@ router.get('/newsfeed',c.publicFeed);
 router.get('/admin/newsfeed',protect,authorizeRoles('admin'),c.adminFeed);
 router.put('/admin/newsfeed',protect,authorizeRoles('admin'),c.save);
 router.post('/admin/newsfeed/refresh',protect,authorizeRoles('admin'),c.refresh);
+// Route loaded once by the backend. Schedule independently of website visitors.
+// Both staging and production use the same ten-minute schedule and MongoDB cache.
+require('../utils/newsFeedScheduler').start();
 module.exports=router;
