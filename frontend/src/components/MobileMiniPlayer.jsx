@@ -465,10 +465,8 @@ export default function MobileMiniPlayer({
                   </span>
                   <span>Live chat</span>
                 </button>}
-              {!isPlayingAd && <div className="ir-glass-more-tile ir-glass-more-tile--share">
-                <ShareStory currentStation={currentStation} nowPlaying={nowPlaying} isMaximized={true}/>
-                <span>Κοινοποίηση Story</span>
-              </div>}
+              {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={nowPlaying}
+                label="Κοινοποίηση Story" className="ir-glass-more-tile ir-glass-more-tile--share"/>}
               {canUseCustomEQ && !isPlayingAd && !isIOS &&
                 <button type="button" onClick={() => setShowEQMenu(value => !value)}
                   className={'ir-glass-more-tile ' + (showEQMenu ? 'is-selected' : '')}
