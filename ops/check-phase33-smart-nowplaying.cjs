@@ -53,8 +53,7 @@ try{
       'automatic result is removed on valid native metadata');
 
     const parser=read('frontend/src/utils/musicMetadata.js')
-      .replace('export const parseMusicMetadata','const parseMusicMetadata')
-      .replace('export const spotifySongLink','const spotifySongLink');
+      .replaceAll('export const ','const ');
     const source=read('frontend/src/hooks/useMediaSession.js')
       .replace("import {useEffect,useRef} from 'react';",'')
       .replace("import {parseMusicMetadata} from '../utils/musicMetadata';",'')
