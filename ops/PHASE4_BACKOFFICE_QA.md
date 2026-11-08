@@ -15,6 +15,8 @@ Standalone player-free business area for Admin, Broadcaster and Producer in the 
 | Create a station | https://stage.iradios.gr/backoffice/stations/new |
 | Edit station | https://stage.iradios.gr/backoffice/stations/STATION_OBJECT_ID/edit |
 | Weekly schedules | https://stage.iradios.gr/backoffice/schedules |
+| Broadcaster insights | https://stage.iradios.gr/backoffice/insights |
+| Broadcaster producers / team | https://stage.iradios.gr/backoffice/team |
 | Admin approvals | https://stage.iradios.gr/backoffice/review |
 | Analytics | https://stage.iradios.gr/backoffice/admin/analytics |
 | Users | https://stage.iradios.gr/backoffice/admin/users |
@@ -32,6 +34,7 @@ An edit screen has Public profile, Copy link and return-to-stations navigation. 
 
 - Admin: network-wide station listing, immediate approved edits, review/reject broadcaster pending edits, approve pending station submissions, any weekly programme, legacy admin tools within isolated shell.
 - Broadcaster: only stations with matching broadcasterId derived from authenticated JWT, account station limit, pending directory/stream/social/logo/cover changes, own weekly programme.
+- Broadcaster team: can invite Producers for an owned, approved station, view their assigned roles, and revoke access. Invitations are 7-day signed JWTs, accepted once through a rate-limited guest endpoint. **Staging captures invitations in internal Mailpit and does not send real emails.**
 - Producer: only assigned station, weekly programme edit; not allowed to edit a station profile, create new radios or review changes.
 - Guests, listeners and agencies: no backoffice API access.
 - Legal: current-version Broadcaster terms required; an already accepted current version is not requested repeatedly.
@@ -56,6 +59,7 @@ Sign in via /login. Admin/Broadcaster/Producer login automatically opens /backof
 - [ ] Admin approve publishes changes; reject clears pending changes.
 - [ ] New broadcaster station remains pending, subject to max station count.
 - [ ] Producer cannot edit station profile or another station's schedule.
+- [ ] Broadcaster can invite/revoke a Producer. Stage email stays in Mailpit only; the one-use invite link sets a password and its replay fails.
 - [ ] Weekly schedule accepts valid days/hours and rejects overlaps.
 - [ ] Logo/cover uploads work in browser and the public Nginx radioassets path.
 - [ ] Admin legacy analytics, users, ads, banners, slides, emails and billing load without player.
