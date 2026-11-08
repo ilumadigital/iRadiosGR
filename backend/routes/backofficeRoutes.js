@@ -29,7 +29,7 @@ router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'
 
 const fields='name slogan description genre secondaryGenre region city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase scheduleFeed createdAt';
 const textFields=Object.freeze({
-  name:100,slogan:240,description:4000,genre:100,secondaryGenre:100,region:100,city:100,
+  name:100,slug:100,slogan:240,description:4000,genre:100,secondaryGenre:100,region:100,city:100,
   transmissionType:30,frequency:30,website:450,stream:1200,metadata:1200,
   facebook:450,instagram:450,twitter:450,tiktok:450,phone:60,viber:60,email:254
 });
@@ -65,6 +65,8 @@ function cleanEdits(payload,{ignoreUnknown=false}={}){
     if(typeof value!=='string'||value.length>(textFields[key]||1400))
       throw validationError('Μη έγκυρη τιμή στο πεδίο '+key);
     const trimmed=value.trim();
+    if(key==='slug'&&!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmed))
+      throw validationError('Το slug πρέπει να περιέχει μόνο πεζά λατινικά γράμματα, αριθμούς και παύλες.');
     if(urlFields.has(key)&&!validExternalUrl(trimmed))
       throw validationError('Το URL στο πεδίο '+key+' δεν είναι δημόσιο HTTP/HTTPS.');
     if(imageFields.has(key)&&trimmed&&!/^\/media\/radioassets\/[a-f0-9]{24}\/[a-zA-Z0-9._-]+$/.test(trimmed)&&
@@ -77,6 +79,16 @@ function cleanEdits(payload,{ignoreUnknown=false}={}){
   if(categoryError)throw validationError(categoryError);
   if(Object.keys(result).length===0)throw validationError('Δεν υπάρχουν αλλαγές προς αποθήκευση.');
   return result;
+}
+async function ensureSlugAvailable(slug,excludeStationId){
+  if(!slug)return;
+  const query={$or:[{slug},{'pendingEdits.slug':slug}]};
+  if(excludeStationId)query._id={$ne:excludeStationId};
+  if(await Station.exists(query)){
+    const error=new Error('Το συγκεκριμένο slug χρησιμοποιείται ήδη από άλλον σταθμό ή εκκρεμεί προς έγκριση.');
+    error.status=409;
+    throw error;
+  }
 }
 function safeStation(station,role){
   const s=station.toObject?station.toObject():station;
@@ -105,24 +117,50 @@ async function ownedStation(req,res,{writer=false}={}){
   return station;
 }
 function fail(res,error){
+  if(error?.code===11000&&(error?.keyPattern?.slug||error?.keyValue?.slug))
+    return res.status(409).json({error:'Το slug υπάρχει ήδη. Επίλεξε διαφορετικό.'});
   if(error?.status)return res.status(error.status).json({error:error.message});
   console.error('[BACKOFFICE]',error?.name||'server');
   return res.status(500).json({error:'Η ενέργεια δεν ολοκληρώθηκε. Δοκίμασε ξανά.'});
 }
+router.get('/backoffice/review-queue',authorizeRoles('admin'),async(req,res)=>{
+  try{
+    const page=value=>Math.max(1,Math.min(100000,Math.trunc(Number(value)||1)));
+    const pendingPage=page(req.query.pendingPage);
+    const editsPage=page(req.query.editsPage);
+    const pageSize=50;
+    const search=String(req.query.q||'').trim().slice(0,100);
+    const safeSearch=search.replace(/[.*+?^$()|[\]{}\\]/g,'\\$&');
+    const nameFilter=search?{name:{$regex:safeSearch,$options:'i'}}:{};
+    const pendingFilter={status:'pending',...nameFilter};
+    const editsFilter={pendingEdits:{$type:'object',$ne:{}},...nameFilter};
+    const [pendingTotal,editsTotal,pendingItems,editsItems]=await Promise.all([
+      Station.countDocuments(pendingFilter),
+      Station.countDocuments(editsFilter),
+      Station.find(pendingFilter).select(fields).sort({createdAt:-1,_id:-1})
+        .skip((pendingPage-1)*pageSize).limit(pageSize).lean(),
+      Station.find(editsFilter).select(fields).sort({createdAt:-1,_id:-1})
+        .skip((editsPage-1)*pageSize).limit(pageSize).lean()
+    ]);
+    return res.json({
+      pending:{items:pendingItems.map(s=>safeStation(s,'admin')),total:pendingTotal,
+        page:pendingPage,pageSize},
+      edits:{items:editsItems.map(s=>safeStation(s,'admin')),total:editsTotal,
+        page:editsPage,pageSize}
+    });
+  }catch(error){return fail(res,error);}
+});
 router.get('/backoffice/overview',async(req,res)=>{
   try{
     const query=stationQuery(req.user);
-    const [items,total,pending]=await Promise.all([
+    const [items,total,pendingEdits,pendingApproval,approved]=await Promise.all([
       Station.find(query).select(fields).sort({popularity:-1,plays:-1,_id:1}).limit(1000).lean(),
       Station.countDocuments(query),
-      req.user.role==='admin'?Station.countDocuments({pendingEdits:{$ne:null}}):
-        Station.countDocuments({...query,pendingEdits:{$ne:null}})
+      Station.countDocuments({...query,pendingEdits:{$type:'object',$ne:{}}}),
+      Station.countDocuments({...query,status:'pending'}),
+      Station.countDocuments({...query,status:'approved'})
     ]);
-    const counts={
-      total,approved:items.filter(s=>s.status==='approved').length,
-      pendingApproval:items.filter(s=>s.status==='pending').length,
-      pendingEdits:pending
-    };
+    const counts={total,approved,pendingApproval,pendingEdits};
     if(req.user.role==='admin'){
       counts.users=await User.countDocuments({});
       counts.broadcasters=await User.countDocuments({role:'broadcaster'});
@@ -149,6 +187,8 @@ router.post('/backoffice/stations',async(req,res)=>{
     const categoryError=validateStationCategories(cleaned,{required:true});
     if(categoryError)return res.status(400).json({error:categoryError});
     if(!cleaned.name||!cleaned.stream)return res.status(400).json({error:'Χρειάζονται όνομα και stream URL.'});
+    if(!cleaned.slug)return res.status(400).json({error:'Συμπλήρωσε το δημόσιο slug του σταθμού.'});
+    await ensureSlugAvailable(cleaned.slug);
     if(req.user.role==='broadcaster'){
       const total=await Station.countDocuments({broadcasterId:req.user._id});
       const max=Number(req.user.broadcasterProfile?.maxStations||3);
@@ -168,6 +208,8 @@ router.patch('/backoffice/stations/:id',async(req,res)=>{
     const station=await ownedStation(req,res,{writer:true});
     if(!station)return;
     const edits=cleanEdits(req.body);
+    if(Object.hasOwn(edits,'slug')&&edits.slug!==station.slug)
+      await ensureSlugAvailable(edits.slug,station._id);
     if(req.user.role==='admin'){
       station.set(edits);
       await station.save();
@@ -191,6 +233,8 @@ router.post('/backoffice/stations/:id/review',authorizeRoles('admin'),async(req,
     if(!['approve','reject'].includes(action))return res.status(400).json({error:'Μη έγκυρη ενέργεια.'});
     if(action==='approve'){
       const cleaned=cleanEdits(station.pendingEdits,{ignoreUnknown:true});
+      if(Object.hasOwn(cleaned,'slug')&&cleaned.slug!==station.slug)
+        await ensureSlugAvailable(cleaned.slug,station._id);
       station.set(cleaned);
     }
     station.pendingEdits=null;
