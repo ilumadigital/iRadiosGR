@@ -14,7 +14,8 @@ factory(name=>{
   if(name==='../utils/scheduleNormalization')return {normalize};
   return require(name);
 },sandbox.module,sandbox.exports);
-const {parseXml,rowsFromXml,rowsFromJson,mapRows,previewRows,dayNumber,timeString}=sandbox.module.exports.__testing;
+const {parseXml,rowsFromXml,rowsFromJson,mapRows,previewRows,dayNumber,timeString,
+  createPinnedLookup}=sandbox.module.exports.__testing;
 const {publicHttpUrl,publicPreview}=sandbox.module.exports;
 
 const example='<?xml version="1.0" encoding="UTF-8"?>'+
@@ -110,4 +111,48 @@ assert.match(backoffice,/Διαγραφή όλου του προγράμματο
 const profile=fs.readFileSync(path.join(root,'frontend/src/pages/StationProfile.jsx'),'utf8');
 assert.match(profile,/ir-station-top-grid/);
 assert.match(profile,/StationScheduleTimeline/);
-console.log('PASS: XML/JSON discovery, Deseo ISO days, mapping, atomic replacement, scoped clear, SSRF guard, station profile');
+// Reproduce Node 20+/22's default {all:true} lookup contract against a local
+// HTTP server. The prior (address,family) callback failed with ERR_INVALID_IP_ADDRESS.
+const http=require('node:http');
+async function verifyPinnedDNS(){
+  const lookup=createPinnedLookup({address:'127.0.0.1',family:4});
+  await new Promise((resolve,reject)=>lookup('feed.test.invalid',{all:true},(error,addresses)=>{
+    if(error)return reject(error);
+    try{
+      assert.deepEqual(JSON.parse(JSON.stringify(addresses)),
+        [{address:'127.0.0.1',family:4}]);
+      resolve();
+    }catch(e){reject(e);}
+  }));
+  await new Promise((resolve,reject)=>lookup('feed.test.invalid',{all:false},(error,address,family)=>{
+    if(error)return reject(error);
+    try{assert.equal(address,'127.0.0.1');assert.equal(family,4);resolve();}
+    catch(e){reject(e);}
+  }));
+  const server=http.createServer((_req,res)=>res.end('schedule-feed-ok'));
+  await new Promise((resolve,reject)=>{
+    server.once('error',reject);
+    server.listen(0,'127.0.0.1',resolve);
+  });
+  try{
+    const result=await new Promise((resolve,reject)=>{
+      const request=http.get({
+        hostname:'feed.test.invalid',port:server.address().port,path:'/weekly',
+        lookup,autoSelectFamily:true,timeout:3000
+      },response=>{
+        let body='';
+        response.on('data',chunk=>body+=chunk);
+        response.on('end',()=>resolve({status:response.statusCode,body}));
+        response.on('error',reject);
+      });
+      request.on('error',reject);
+      request.on('timeout',()=>request.destroy(new Error('Local pinned lookup timed out')));
+    });
+    assert.equal(result.status,200);
+    assert.equal(result.body,'schedule-feed-ok');
+  }finally{await new Promise((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
+}
+verifyPinnedDNS().then(
+  ()=>console.log('PASS: XML/JSON import, SSRF guards and Node dual-form pinned DNS lookup'),
+  error=>{console.error('FAIL: pinned DNS lookup regression',error);process.exitCode=1;}
+);
