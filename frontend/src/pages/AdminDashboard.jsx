@@ -89,7 +89,14 @@ export default function AdminDashboard({API_URL='/api',globalSocket}){
     };
   },[globalSocket]);
   const totals=stats?.totals||{};
-  const role=stats?.roleCounts||{};
+  const rolesFallback=Array.isArray(stats?.roleData)?stats.roleData:[];
+  const fromRole=(...labels)=>Number(rolesFallback.find(item=>
+    labels.includes(String(item.name||'').toLocaleLowerCase('el')))?.value)||0;
+  const role=stats?.roleCounts||{
+    broadcasters:fromRole('broadcasters','broadcaster'),
+    producers:fromRole('producers','producer'),
+    agencies:fromRole('agencies','agency')
+  };
   const audio=stats?.adStats?.audio||{};
   const banner=stats?.adStats?.banner||{};
   const revenue=Array.isArray(stats?.revenueData)?stats.revenueData:[];
