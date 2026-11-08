@@ -276,6 +276,7 @@ export default function RadioGeoMap({
             {activeGroup.stations.map(station => {
               const isCurrent = String(currentStation?._id) === String(station._id);
               const playing = isCurrent && isPlaying;
+               const offline = station.isOffline === true;
               const live=nowPlayingById?catalogStationInfo(station,nowPlayingById[String(station._id)],catalogClock):null;
               return (
                 <div key={station._id} className="flex items-center gap-2 rounded-xl p-2 transition-colors hover:bg-white/5">
@@ -297,11 +298,12 @@ export default function RadioGeoMap({
                     </span>}
                   </button>
                   <button type="button"
-                    aria-label={(playing ? 'Παύση' : 'Αναπαραγωγή') + ' ' + station.name}
-                    onClick={() => isCurrent ? onPlayPause?.() : onPlayStation?.(station)}
+                    disabled={offline}
+                     aria-label={(offline ? 'OFFLINE' : playing ? 'Παύση' : 'Αναπαραγωγή') + ' ' + station.name}
+                    onClick={() => { if(!offline) (isCurrent ? onPlayPause?.() : onPlayStation?.(station)); }}
                     className={'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ' +
-                      (playing ? 'bg-[#ccff00] text-black' : 'bg-white/10 text-white hover:bg-[#ccff00] hover:text-black')}>
-                    {playing ? <Activity size={17} className="animate-pulse" /> : <Play size={16} fill="currentColor" />}
+                      (offline ? 'cursor-not-allowed bg-red-600 text-white' : playing ? 'bg-[#ccff00] text-black' : 'bg-white/10 text-white hover:bg-[#ccff00] hover:text-black')}>
+                    {offline ? <span className="text-[8px] font-black">OFF</span> : playing ? <Activity size={17} className="animate-pulse" /> : <Play size={16} fill="currentColor" />}
                   </button>
                 </div>
               );
