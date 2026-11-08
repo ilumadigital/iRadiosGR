@@ -643,7 +643,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         <HomeRadioShortlist kind="favorites" stations={favoriteStations} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
       </div>
 
-      <HomeRecommendationDeck moodStations={moodStations} topStations={topStations} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+      <HomeRecommendationDeck moodStations={moodStations} topStations={topStations} stations={stations} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
 
       {/* The visual genre / region finder is the single browsing surface (no native selects). */}
       <HomeExplore
