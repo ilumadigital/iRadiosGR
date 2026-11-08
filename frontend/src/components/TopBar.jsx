@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bell, BellOff, Check, ChevronRight, Clock3, Cloud, CloudRain, CloudSun,
+  Bell, Check, ChevronRight, Clock3, Cloud, CloudRain, CloudSun,
   MapPin, Menu, Mic, MicOff, Music2, Newspaper, Radio, Search, Snowflake,
   Sparkles, Sun, UserRound, X
 } from 'lucide-react';
@@ -27,9 +27,7 @@ export default function TopBar({
   const [listening, setListening] = useState(false);
   const [speechMessage, setSpeechMessage] = useState('');
   const [clock, setClock] = useState(() => new Date());
-  const [notifStatus, setNotifStatus] = useState(
-    typeof Notification !== 'undefined' ? Notification.permission : 'default'
-  );
+  const [unreadCount,setUnreadCount]=useState(0);
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
   const triggerRef = useRef(null);
@@ -75,22 +73,30 @@ export default function TopBar({
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const refreshPermission = () => {
-      if (typeof Notification !== 'undefined') setNotifStatus(Notification.permission);
+  useEffect(()=>{
+    if(!currentUser?._id){setUnreadCount(0);return undefined;}
+    let alive=true;
+    const refresh=async()=>{
+      try{
+        const response=await fetch('/api/users/me/inbox/count',{
+          headers:{Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')},
+          cache:'no-store'});
+        if(!response.ok)return;
+        const data=await response.json();
+        if(alive)setUnreadCount(Number(data.unread)||0);
+      }catch{/* A notification outage must never affect playback. */}
     };
-    document.addEventListener('visibilitychange', refreshPermission);
-    return () => document.removeEventListener('visibilitychange', refreshPermission);
-  }, []);
-
-  // The Home greeting opens this same search panel, not a second search UI.
-  // A request counter supports repeated activations without route navigation.
-  useEffect(() => {
-    if (!openSmartSearchRequest) return;
-    setExpanded(true);
-    setSpeechMessage('');
-    inputRef.current?.focus();
-  }, [openSmartSearchRequest]);
+    refresh();
+    const timer=setInterval(refresh,60000);
+    const onVisibility=()=>{if(document.visibilityState==='visible')refresh();};
+    document.addEventListener('visibilitychange',onVisibility);
+    window.addEventListener('ir-inbox-changed',refresh);
+    return()=>{
+      alive=false;clearInterval(timer);
+      document.removeEventListener('visibilitychange',onVisibility);
+      window.removeEventListener('ir-inbox-changed',refresh);
+    };
+  },[currentUser?._id,location.pathname,location.search]);
 
   useEffect(() => {
     if (!expanded) return undefined;
@@ -208,14 +214,6 @@ export default function TopBar({
     }
   };
 
-  const handleNotifications = async event => {
-    if (notifStatus === 'default' && typeof Notification !== 'undefined') {
-      event.preventDefault();
-      try { setNotifStatus(await Notification.requestPermission()); }
-      catch { setNotifStatus('denied'); }
-    }
-  };
-
   return (
     <header className={'ir-app-topbar ir-header sticky top-0 z-50 flex h-[70px] items-center gap-2 px-3 sm:px-5 lg:px-6 ' +
       (expanded ? 'ir-header--searching' : '')}>
@@ -329,6 +327,11 @@ export default function TopBar({
       </div>
 
       <div className="ir-header__right ml-auto flex shrink-0 items-center gap-2 lg:gap-3">
+        {currentUser&&<Link to="/profile?tab=inbox" aria-label={'Κέντρο ειδοποιήσεων'+(unreadCount?' · '+unreadCount+' μη αναγνωσμένες':'')}
+          title="Notification Center" className="ir-header__icon-button ir-header__inbox-shortcut">
+          <Bell size={18} className={unreadCount?'text-[#ccff00]':'text-zinc-200'}/>
+          {unreadCount>0&&<span className="ir-header__inbox-count">{unreadCount>99?'99+':unreadCount}</span>}
+        </Link>}
         <div className="ir-header__weather" title="Τοπικός καιρός">
           <WeatherIcon size={18} className="shrink-0 text-[#ccff00]"/>
           <span className="ir-header__weather-text">
@@ -345,10 +348,7 @@ export default function TopBar({
         <div className="ir-header__account hidden items-center gap-2 lg:flex">
           {currentUser ? (
             <>
-              <Link to="/profile" onClick={handleNotifications} className="ir-header__icon-button"
-                aria-label="Ρυθμίσεις ειδοποιήσεων" title="Ειδοποιήσεις">
-                {notifStatus === 'granted' ? <Bell size={18} className="text-[#ccff00]"/> : <BellOff size={18}/>}
-              </Link>
+
               <Link to="/profile" className="ir-header__profile" title="Το προφίλ μου">
                 <UserRound size={17}/>
                 <span className="hidden max-w-24 truncate 2xl:inline">{currentUser.fname || currentUser.username || 'Προφίλ'}</span>
