@@ -61,6 +61,8 @@ jobs:
         run: node ops/check-phase4-backoffice.cjs
       - name: Check Phase 4.1 Backoffice simplicity, schedules and admin authorization
         run: node ops/check-phase41-backoffice-ux.cjs
+      - name: Validate canonical weekdays, midnight schedule splits and station display
+        run: node ops/check-phase42-schedules.cjs
       - name: Validate two-minute native song cache, instant Home and safe Spotify links
         run: node ops/check-phase36-native-cache.cjs
       - name: Validate two-minute staging background metadata scanner and round-robin
