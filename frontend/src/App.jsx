@@ -1902,7 +1902,7 @@ function MainApp() {
             <Route path="/admin/ad-control" element={currentUser?.role === 'admin' ? <AdminAdControl API_URL={API_URL} /> : <Navigate to="/" />} />
 
             <Route path="/accept-invite" element={<AcceptInvite API_URL={API_URL} />} />
-            <Route path="/broadcaster-invite" element={<BroadcasterInvitation API_URL={API_URL} currentUser={currentUser} />} />
+            <Route path="/broadcaster-invite" element={<BroadcasterInvitation API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
             <Route path="/go-ads" element={<GoAgency API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
 
             <Route path="/agency/dashboard" element={
