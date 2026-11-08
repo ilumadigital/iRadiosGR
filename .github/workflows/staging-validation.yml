@@ -45,6 +45,8 @@ jobs:
         run: node ops/check-home-mockup-navigation.cjs
       - name: Validate Phase 3.1 editorial CMS, branded hero, playback and catalog
         run: node ops/check-phase31-editorial.cjs
+      - name: Verify 1200x630 catalog slides and scoped promoted station
+        run: node ops/check-catalog-promoted-station.cjs
       - name: Validate simple Greek listener copy and expanded station recommendations
         run: node ops/check-listener-copy-home-counts.cjs
       - name: Validate Phase 3.2 listener polish and single FM frequency
