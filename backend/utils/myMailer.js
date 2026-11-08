@@ -58,7 +58,7 @@ async function getTransporter() {
 /**
  * Κεντρική συνάρτηση αποστολής email
  */
-async function sendEmail({ to, bcc, subject, text, html }) {
+async function sendEmail({ to, bcc, subject, text, html, replyTo }) {
   try {
     const transporter = await getTransporter();
 
@@ -79,6 +79,7 @@ async function sendEmail({ to, bcc, subject, text, html }) {
       from,
       to,
       bcc,
+      replyTo,
       subject,
       text,
       html: finalHtml,
