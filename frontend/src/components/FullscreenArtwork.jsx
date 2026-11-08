@@ -5,7 +5,7 @@ import '../styles/fullscreen-player.css';
 // Keep the artwork and DJ portrait mounted for a smooth, synchronized 20s RDS fade.
 export default function FullscreenArtwork({
   station, songCover, producerImage, showProducer=false, adImage=null,
-  onAdClick, className=''
+  onAdClick, onStationClick, className=''
 }) {
   const [failedCover,setFailedCover]=useState('');
   const [failedProducer,setFailedProducer]=useState('');
@@ -23,9 +23,18 @@ export default function FullscreenArtwork({
         alt="" aria-hidden="true" className={'ir-showcase-art__dj '+(showProducer?'is-active':'')}
         onError={()=>setFailedProducer(producerImage)}/>}
       <div className="ir-showcase-art__scrim" aria-hidden="true"/>
-      {!adImage&&station?.logo&&<div className="ir-showcase-art__brand" title={station.name}>
-        <img src={station.logo} alt={'Λογότυπο '+station.name}/>
-      </div>}
+      {!adImage&&station?.logo&&(
+        onStationClick
+          ? <button type="button" className="ir-showcase-art__brand ir-showcase-art__brand--link"
+              title={'Άνοιγμα προφίλ '+station.name}
+              aria-label={'Άνοιγμα προφίλ σταθμού '+station.name}
+              onClick={event=>{event.stopPropagation();onStationClick();}}>
+              <img src={station.logo} alt="" aria-hidden="true"/>
+            </button>
+          : <div className="ir-showcase-art__brand" title={station.name}>
+              <img src={station.logo} alt={'Λογότυπο '+station.name}/>
+            </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import {
   Play, Pause, Heart, SkipBack, Car, SkipForward, 
   ScanSearch, Loader2, ChevronUp, ChevronDown, Radio, SignalHigh, 
   AlertTriangle, CalendarDays, MonitorSpeaker, Headphones, PowerOff, 
-  SlidersHorizontal, Waves, Laptop, Smartphone, X 
+  SlidersHorizontal, Waves, Laptop, Smartphone, X, Ellipsis, RefreshCw 
 } from 'lucide-react';
 import ShareStory from './ShareStory';
 import FoundWithAI from './FoundWithAI';
@@ -15,6 +15,7 @@ import FullscreenArtwork from './FullscreenArtwork';
 import OnAirShowCard from './OnAirShowCard';
 import {parseMusicMetadata} from '../utils/musicMetadata';
 import { useAlert } from '../context/AlertContext';
+import '../styles/mobile-player-glass.css';
 
 export default function MobileMiniPlayer({
   currentStation,
@@ -59,7 +60,8 @@ export default function MobileMiniPlayer({
   const [swipeDirection, setSwipeDirection] = useState(null);
 
   const [showEQMenu, setShowEQMenu] = useState(false); 
-  const [showDevicesMenu, setShowDevicesMenu] = useState(false); 
+  const [showDevicesMenu, setShowDevicesMenu] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false); 
 
   const eqMenuRef = useRef(null);
   const devicesMenuRef = useRef(null);
@@ -77,6 +79,7 @@ export default function MobileMiniPlayer({
     return () => window.removeEventListener('minify_player', handleMinify);
   }, []);
 
+  useEffect(() => { setShowMoreMenu(false); setShowDevicesMenu(false); setShowEQMenu(false); }, [currentStation?._id]);
   useEffect(()=>{
     if(!isMaximized)return;
     const previousOverflow=document.body.style.overflow;
@@ -87,6 +90,7 @@ export default function MobileMiniPlayer({
       if(e.key==='Escape'){
         if(showEQMenu)setShowEQMenu(false);
         else if(showDevicesMenu)setShowDevicesMenu(false);
+        else if(showMoreMenu)setShowMoreMenu(false);
         else setIsMaximized(false);
       }
     };
@@ -96,7 +100,7 @@ export default function MobileMiniPlayer({
       document.removeEventListener('keydown',onEscape);
       if(previousFocus?.isConnected)previousFocus.focus();
     };
-  },[isMaximized,showEQMenu,showDevicesMenu]);
+  },[isMaximized,showEQMenu,showDevicesMenu,showMoreMenu]);
 
   useEffect(() => {
     if (isPlayingAd && currentAdInfo?._id && lastTrackedAdId.current !== currentAdInfo._id) {
@@ -174,7 +178,7 @@ export default function MobileMiniPlayer({
   };
 
   const handleTouchMoveMaximized = (e) => {
-    if (!touchStartY || !touchStartX || showEQMenu || showDevicesMenu) return; 
+    if (touchStartY === null || touchStartX === null || showEQMenu || showDevicesMenu || showMoreMenu) return; 
 
     const currentY = e.touches[0].clientY;
     const currentX = e.touches[0].clientX;
@@ -258,6 +262,33 @@ export default function MobileMiniPlayer({
     setSwipeDirection(null);
   };
 
+
+  const openStationProfile = () => {
+    setIsMaximized(false);
+    setShowMoreMenu(false);
+    navigate('/station/' + (currentStation.slug || currentStation._id));
+  };
+
+  const openCarMode = () => {
+    if (!isPremium) {
+      showAlert('Αναβαθμίστε σε Premium για να χρησιμοποιήσετε το Car Mode.');
+      return;
+    }
+    setShowMoreMenu(false);
+    setIsMaximized(false);
+    onOpenCarMode?.();
+  };
+
+  const openDevices = () => {
+    if (!isPremium) {
+      showAlert('Αναβαθμίστε σε Premium για να αλλάζετε συσκευή αναπαραγωγής.');
+      return;
+    }
+    setShowMoreMenu(false);
+    setShowDevicesMenu(true);
+    onRequestDevices?.();
+  };
+
   const handleTouchEndMinified = () => {
     setTouchStartY(null);
     setTouchStartX(null);
@@ -277,230 +308,213 @@ export default function MobileMiniPlayer({
         `}
       </style>
 
-      {/* --- 1. FULL SCREEN (MAXIMIZED) PLAYER --- */}
+
+      {/* --- 1. FULL SCREEN: liquid glass, single-purpose controls --- */}
       <div
         ref={fullscreenRef}
         role="dialog"
-        aria-label={`Πλήρης αναπαραγωγή: ${currentStation.name}`}
+        aria-label={'Πλήρης αναπαραγωγή: ' + currentStation.name}
         aria-modal={isMaximized}
         aria-hidden={!isMaximized}
         inert={!isMaximized}
         tabIndex={-1}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMoveMaximized}
-        onTouchEnd={handleTouchEndMaximized}
-        className={`ir-full-player fixed inset-0 z-[100] flex h-[100vh] h-[100dvh] min-h-0 flex-col overflow-hidden overscroll-contain transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:hidden ${
-          isMaximized ? 'translate-y-0' : 'translate-y-full'
-        }`}
+        className={'ir-full-player ir-full-player--glass fixed inset-0 z-[100] flex h-[100vh] h-[100dvh] min-h-0 flex-col overflow-hidden overscroll-contain transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:hidden ' +
+          (isMaximized ? 'translate-y-0' : 'translate-y-full')}
       >
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-          <div 
-             className={`absolute top-0 left-0 w-full h-[60%] transition-all duration-1000 ${isPlaying ? 'opacity-30 blur-3xl scale-150' : 'opacity-0'}`}
-             style={{ backgroundImage: `url(${maximizedImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/90 to-transparent" />
+        <div className="ir-glass-backdrop" aria-hidden="true">
+          <div className="ir-glass-backdrop__art" style={{ backgroundImage: 'url("' + maximizedImage + '")' }} />
+          <div className="ir-glass-backdrop__veil" />
         </div>
 
-        <div className="ir-mobile-player-content relative z-10 flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-8">
-          
-          <div className="relative mb-[clamp(.65rem,2dvh,2rem)] flex min-h-[36px] shrink-0 items-center justify-between">
-            <div className="flex-1 flex justify-start z-10 relative">
-              <button onClick={() => setIsMaximized(false)} aria-label="Ελαχιστοποίηση player" className="p-2 -ml-2 text-white/70 hover:text-white transition-colors active:scale-90">
-                <ChevronDown size={28} />
-              </button>
-              
-              
-            </div>
-
-            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center z-0 w-3/5 pointer-events-none">
-              <span className="text-[9px] font-black text-white/50 tracking-[0.25em] uppercase mb-0.5">ΖΩΝΤΑΝΑ ΣΤΟ iRadios</span>
-              <span className="text-sm font-bold text-white tracking-wide truncate w-full text-center">{currentStation.name}</span>
-            </div>
-
-            <div className="flex-1 flex flex-col items-end gap-1.5 z-10">
-              <div className="inline-flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-[8px] font-black tracking-[0.1em] border shadow-md bg-zinc-800/80 text-zinc-300 border-white/10">
-                {currentStation.transmissionType === 'Επίγειο' ? <Radio size={10} strokeWidth={3} /> : <SignalHigh size={10} strokeWidth={3} />}
-                <span>{currentStation.transmissionType === 'Επίγειο' && currentStation.frequency ? formatFMFrequency(currentStation.frequency) : 'WEB'}</span>
+        <div className="ir-mobile-player-content ir-glass-layout relative z-10 flex h-full min-h-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain">
+          <header className="ir-glass-header">
+            <button type="button" onClick={() => setIsMaximized(false)}
+              aria-label="Ελαχιστοποίηση player" className="ir-glass-header__close">
+              <ChevronDown size={25} />
+            </button>
+            <button type="button" onClick={openStationProfile}
+              className="ir-glass-header__station" aria-label={'Άνοιγμα προφίλ σταθμού ' + currentStation.name}>
+              <span className="ir-glass-header__eyebrow"><span className="ir-glass-live-dot"/> ΖΩΝΤΑΝΑ ΣΤΟ iRadios</span>
+              <strong>{currentStation.name}</strong>
+            </button>
+            <div className="ir-glass-header__right">
+              <div className="ir-glass-broadcast-pill">
+                {currentStation.transmissionType === 'Επίγειο' ? <Radio size={12} /> : <SignalHigh size={12} />}
+                <span>{currentStation.transmissionType === 'Επίγειο' && currentStation.frequency
+                  ? formatFMFrequency(currentStation.frequency) : 'WEB'}</span>
               </div>
-
-              {currentStation.explicit && (
-                <div className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-red-500/15 text-red-400 border border-red-500/30 text-[8px] font-black tracking-[0.1em] uppercase rounded-full">
-                  <AlertTriangle size={10} strokeWidth={3} />
-                  <span>Explicit</span>
-                </div>
-              )}
+              {currentStation.explicit && <span className="ir-glass-explicit"><AlertTriangle size={11}/> Explicit</span>}
             </div>
-          </div>
+          </header>
 
-          {/* 🟢 Κεντρική Εικόνα Maximized Player ΜΕ SWIPE ANIMATION */}
-          <div 
-            className="relative z-10 flex min-h-0 w-full flex-1 flex-col items-center justify-center will-change-transform"
-            style={{
-              transform: `translateX(${swipeX}px)`,
-              transition: isAnimatingX ? 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)' : 'none'
-            }}
-          >
-            <div className="ir-mobile-player-artwrap relative z-10 mx-auto mb-[clamp(.35rem,1.4dvh,.8rem)] aspect-square shrink-0">
-               <FullscreenArtwork station={currentStation}
-                 songCover={showCoverArt?globalCoverArt:null}
-                 producerImage={canShowDj?liveBroadcast.imageUrl:null}
-                 showProducer={showProducerArt}
-                 adImage={isPlayingAd?currentAdInfo?.logoUrl:null}
-                 onAdClick={handleAdClick}
-                 className="h-full w-full"/>
-             </div>
-            
-            <div className="flex flex-col items-center text-center gap-1 w-full max-w-sm px-2">
-              <h2 onClick={handleAdClick} className="w-full truncate text-[clamp(1.3rem,3dvh,2rem)] font-black leading-tight tracking-tight text-white">
-                 {isPlayingAd?(currentAdInfo?.client||'Διαφήμιση'):(isActualSong?currentTrack.title:(liveBroadcast?.show?.title||currentStation.name))}
-               </h2>
-               <p className="w-full truncate text-[clamp(.85rem,2dvh,1.05rem)] font-medium text-zinc-300">
-                 {isPlayingAd?(currentAdInfo?.title||'Διαφημιστικό διάλειμμα'):
-                   isRecognizing?'Αναγνώριση…':
-                   isActualSong?currentTrack.artist:
-                   (liveBroadcast?.show?.host||(currentUser?'Ζωντανό ραδιόφωνο':'Συνδέσου στο iRadios για NowPlaying'))}
-               </p>
-               {visibleSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI compact className="mt-1"/>}
-               {!isPlayingAd&&<OnAirShowCard show={liveBroadcast?.show} stationName={currentStation.name} className="ir-mobile-show-card"/>}
-
-            </div>
-          </div>
-
-          {/* Decorative motion only; live radio has no track progress bar. */}
-          {!isPlayingAd && (
-            <div className={`ir-live-visualizer mb-2 shrink-0 ${(!isPlaying || isBuffering) ? 'ir-live-visualizer--paused' : ''}`} aria-hidden="true">
-              {Array.from({ length: 23 }, (_, i) => <span key={i} style={{ '--i': i }} />)}
-            </div>
-          )}
-
-          {/* MAIN CONTROLS - MAXIMIZED PLAYER */}
-          <div className="ir-full-player-actions mb-[clamp(.35rem,1.3dvh,1rem)] flex w-full shrink-0 items-center justify-between gap-1 px-1 sm:px-2">
-            <div className="flex justify-start">
-              {!isPlayingAd && (
-                <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} aria-label={isCurrentlyFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"} className={`p-2 rounded-full transition-all active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-white/40 hover:text-white'}`}>
-                  <Heart size={28} fill={isCurrentlyFavorite ? "currentColor" : "none"} />
-                </button>
-              )}
-            </div>
-
-            <div className="flex min-w-0 items-center justify-center gap-0.5 sm:gap-5">
-              <button 
-                onClick={(e) => { e.stopPropagation(); handlePrevStation(); }} aria-label="Προηγούμενος σταθμός" 
-                onTouchStart={(e) => e.stopPropagation()} 
-                disabled={isPlayingAd || adWarning || !isPremium} 
-                className={`p-2 sm:p-3 transition-all ${(!isPremium || isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
-              >
-                <SkipBack size={32} fill="currentColor" />
-              </button>
-
-              <button 
-                onClick={(e) => { e.stopPropagation(); togglePlayPause(); }} 
-                onTouchStart={(e) => e.stopPropagation()} 
-                disabled={isPlayingAd} 
-                aria-label={isPlaying ? 'Παύση ραδιοφώνου' : 'Αναπαραγωγή ραδιοφώνου'}
-                className={`ir-player-transport w-[72px] h-[72px] sm:w-20 sm:h-20 mx-1 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-95 ${isPlayingAd ? 'opacity-50' : ''}`}
-              >
-                {isBuffering ? (
-                  <div className="flex items-center justify-center gap-1.5">
-                    <div className="w-2.5 h-2.5 bg-black rounded-full dot-1"></div>
-                    <div className="w-2.5 h-2.5 bg-black rounded-full dot-2"></div>
-                    <div className="w-2.5 h-2.5 bg-black rounded-full dot-3"></div>
-                  </div>
-                ) : isPlaying ? (
-                  <Pause size={36} fill="currentColor" />
-                ) : (
-                  <Play size={36} fill="currentColor" className="ml-1" />
-                )}
-              </button>
-
-              <button 
-                onClick={(e) => { e.stopPropagation(); handleNextStation(); }} aria-label="Επόμενος σταθμός" 
-                onTouchStart={(e) => e.stopPropagation()} 
-                disabled={isPlayingAd || adWarning} 
-                className={`p-2 sm:p-3 transition-all ${(isPlayingAd || adWarning) ? 'opacity-20' : 'text-white active:scale-90'}`}
-              >
-                <SkipForward size={32} fill="currentColor" />
-              </button>
-            </div>
-
-            <div className="flex justify-end relative" ref={devicesMenuRef}>
-              {isPremium ? (
-                <>
-                  <button onClick={(e) => { e.stopPropagation(); setShowDevicesMenu(!showDevicesMenu); if (!showDevicesMenu && onRequestDevices) onRequestDevices(); }} className={`p-2 rounded-full transition-all active:scale-90 ${isPlaying ? 'text-[#ccff00]' : 'text-white/40 hover:text-white'}`}>
-                    <MonitorSpeaker size={28} />
-                  </button>
-                  {showDevicesMenu && (
-                    <div className="absolute bottom-full right-0 mb-4 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-4 z-[100] animate-in zoom-in-95 text-left">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00]">Συσκευες</span>
-                        <button onClick={(e) => { e.stopPropagation(); setShowDevicesMenu(false); }} className="text-zinc-500 hover:text-white"><X size={16}/></button>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        {availableDevices.length === 0 && (
-                           <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#ccff00]/10 border border-[#ccff00]/20 cursor-default">
-                             <div className="flex items-center gap-3"><Smartphone size={16} className="text-[#ccff00]" /><span className="text-xs font-bold text-[#ccff00]">Αυτό το κινητό</span></div>
-                           </button>
-                        )}
-                        {availableDevices.map(device => {
-                          const isLocal = device.deviceId === localDeviceId;
-                          const isMobileDev = /iphone|ipad|android|mobile/i.test(device.deviceName);
-                          const DeviceIcon = isMobileDev ? Smartphone : Laptop;
-                          return (
-                            <button key={device.deviceId} onClick={(e) => { e.stopPropagation(); onTransferPlayback(device.deviceId); setShowDevicesMenu(false); }} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all ${device.isPlaying ? 'bg-[#ccff00]/10 border border-[#ccff00]/20' : 'bg-zinc-950/50 border border-white/5 hover:bg-white/5'}`}>
-                              <div className="flex items-center gap-3">
-                                <DeviceIcon size={16} className={device.isPlaying ? 'text-[#ccff00]' : 'text-zinc-400'} />
-                                <span className={`text-xs font-bold ${device.isPlaying ? 'text-[#ccff00]' : 'text-zinc-300'}`}>{isLocal ? 'Αυτό το κινητό' : device.deviceName}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (!isPlayingAd && <button onClick={() => { setIsMaximized(false); navigate(`/station/${currentStation.slug || currentStation._id}`); }} className="p-2 rounded-full transition-all active:scale-90 text-white/40 hover:text-white"><CalendarDays size={28} /></button>)}
-            </div>
-          </div>
-
-          {!isPlayingAd && (
-            <div className="mb-4 flex justify-center">
-              <button type="button" onClick={handleRadarClick} disabled={isRecognizing || !isPlaying}
-                className="ir-recognize-button" aria-label="Βρες ποιο τραγούδι παίζει">
-                {isRecognizing ? <Loader2 size={17} className="animate-spin" /> : <ScanSearch size={17} />}
-                {isRecognizing ? 'Ψάχνουμε το τραγούδι…' : 'Βρες το τραγούδι'}
-              </button>
-            </div>
-          )}
-          {isActualSong && (
-            <MusicServiceLinks song={nowPlaying} stationName={currentStation.name}
-              currentUser={currentUser} compact className="ir-music-links--mobile-player" />
-          )}
-          <div className="ir-mobile-player-controls flex items-center justify-evenly py-2.5 px-2">
-            {isPremium && !isPlayingAd && <button onClick={() => { setIsMaximized(false); navigate(`/station/${currentStation.slug || currentStation._id}`); }} className="p-3 text-white/80 hover:text-white rounded-full active:scale-90 transition-all"><CalendarDays size={24} /></button>}
-            
-            {isPremium && !isPlayingAd && <button onClick={onOpenCarMode} className="p-3 text-orange-500 rounded-full active:scale-90 transition-all"><Car size={24} /></button>}
-
-            {canUseCustomEQ && !isPlayingAd && !isIOS && (
-              <div className="relative" ref={eqMenuRef}>
-                <button onClick={(e) => { e.stopPropagation(); setShowEQMenu(!showEQMenu); }} className={`p-3 transition-all duration-300 hover:scale-110 rounded-full ${showEQMenu || currentPreset !== 'Station Default' ? 'bg-[#ccff00]/20 text-[#ccff00]' : 'text-zinc-500 hover:text-white'}`}>
-                  <SlidersHorizontal size={24} />
-                </button>
-                {showEQMenu && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-56 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-in zoom-in-95">
-                    <div className="px-3 py-2 mb-2 border-b border-white/5 text-center"><span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00]">Audio Studio</span></div>
-                    {[{ id: 'Station Default', label: 'Προεπιλογή Σταθμού', icon: Radio }, { id: 'HomeTheater', label: 'Home Theater', icon: MonitorSpeaker }, { id: 'HiRes', label: 'Hi-Res Audio (Studio)', icon: Headphones }, { id: 'Immersive3D', label: 'Immersive 3D (Spatial)', icon: Waves }].map(preset => (
-                      <button key={preset.id} onClick={(e) => { e.stopPropagation(); onUserDSPChange(currentStation._id, preset.id); setShowEQMenu(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${currentPreset === preset.id ? 'bg-[#ccff00]/10 text-[#ccff00]' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}><preset.icon size={14} /> <span>{preset.label}</span></button>
-                    ))}
-                    <div className="my-1 border-t border-white/5"></div>
-                    <button onClick={(e) => { e.stopPropagation(); onUserDSPChange(currentStation._id, 'OFF'); setShowEQMenu(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${currentPreset === 'OFF' ? 'bg-red-500/10 text-red-500' : 'text-zinc-500 hover:text-white'}`}><PowerOff size={14} /> <span>DSP Off</span></button>
-                  </div>
-                )}
+          {/* Only the artwork/track stage owns swipes; scrolling and bottom controls remain predictable. */}
+          <section className="ir-glass-stage" aria-label="Εξώφυλλο και πληροφορίες σταθμού"
+            onTouchStart={handleTouchStart} onTouchMove={handleTouchMoveMaximized}
+            onTouchEnd={handleTouchEndMaximized}
+            onTouchCancel={() => { setSwipeX(0); setTouchStartX(null); setTouchStartY(null); setSwipeDirection(null); }}>
+            <div className="ir-glass-swipe-surface"
+              style={{ transform: 'translateX(' + swipeX + 'px)',
+                transition: isAnimatingX ? 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)' : 'none' }}>
+              <div className="ir-mobile-player-artwrap ir-glass-artwrap">
+                <FullscreenArtwork station={currentStation}
+                  songCover={showCoverArt ? globalCoverArt : null}
+                  producerImage={canShowDj ? liveBroadcast.imageUrl : null}
+                  showProducer={showProducerArt}
+                  adImage={isPlayingAd ? currentAdInfo?.logoUrl : null}
+                  onAdClick={handleAdClick}
+                  onStationClick={openStationProfile}
+                  className="h-full w-full"/>
               </div>
+              <div className="ir-glass-track-copy">
+                <h2 onClick={handleAdClick} title={isActualSong ? currentTrack.title : currentStation.name}>
+                  {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') :
+                    (isActualSong ? currentTrack.title : (liveBroadcast?.show?.title || currentStation.name))}
+                </h2>
+                <p>{isPlayingAd ? (currentAdInfo?.title || 'Διαφημιστικό διάλειμμα') :
+                    isRecognizing ? 'Αναγνώριση…' :
+                    isActualSong ? currentTrack.artist :
+                    (liveBroadcast?.show?.host || (currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying'))}</p>
+                {visibleSong && !isPlayingAd && nowPlayingInfo?.foundWithAI &&
+                  <FoundWithAI compact className="ir-glass-found-ai"/>}
+              </div>
+              {!isPlayingAd && <OnAirShowCard show={liveBroadcast?.show} stationName={currentStation.name}
+                className="ir-mobile-show-card ir-glass-on-air"/>}
+            </div>
+            <span className="ir-glass-swipe-help" aria-hidden="true">‹ &nbsp; Σύρε για αλλαγή σταθμού &nbsp; ›</span>
+          </section>
+
+          {!isPlayingAd && <div className={'ir-live-visualizer ir-glass-visualizer ' +
+            ((!isPlaying || isBuffering) ? 'ir-live-visualizer--paused' : '')} aria-hidden="true">
+            {Array.from({ length: 23 }, (_, i) => <span key={i} style={{ '--i': i }} />)}
+          </div>}
+
+          <nav className="ir-full-player-actions ir-glass-transport" aria-label="Χειριστήρια αναπαραγωγής">
+            <button type="button" onClick={() => toggleFavorite(currentStation._id)}
+              disabled={isPlayingAd} aria-label={isCurrentlyFavorite ? 'Αφαίρεση από αγαπημένα' : 'Προσθήκη στα αγαπημένα'}
+              className={'ir-glass-transport__side ' + (isCurrentlyFavorite ? 'is-active' : '')}>
+              <Heart size={25} fill={isCurrentlyFavorite ? 'currentColor' : 'none'} />
+            </button>
+            <button type="button" onClick={handlePrevStation} disabled={isPlayingAd || adWarning}
+              aria-label="Προηγούμενος σταθμός" className="ir-glass-transport__skip">
+              <SkipBack size={29} fill="currentColor" />
+            </button>
+            <button type="button" onClick={togglePlayPause} disabled={isPlayingAd}
+              aria-label={isPlaying ? 'Παύση ραδιοφώνου' : 'Αναπαραγωγή ραδιοφώνου'}
+              className="ir-player-transport ir-glass-transport__play">
+              {isBuffering ? <span className="ir-glass-buffering"><i className="dot-1"/><i className="dot-2"/><i className="dot-3"/></span> :
+                isPlaying ? <Pause size={33} fill="currentColor"/> :
+                <Play size={33} fill="currentColor" className="ml-1"/>}
+            </button>
+            <button type="button" onClick={handleNextStation} disabled={isPlayingAd || adWarning}
+              aria-label="Επόμενος σταθμός" className="ir-glass-transport__skip">
+              <SkipForward size={29} fill="currentColor" />
+            </button>
+            <button type="button" onClick={() => setShowMoreMenu(true)} aria-label="Περισσότερες λειτουργίες"
+              className="ir-glass-transport__side"><Ellipsis size={28}/></button>
+          </nav>
+
+          <div className="ir-glass-quick-access" aria-label="Γρήγορες λειτουργίες">
+            <button type="button" onClick={openCarMode} className="ir-glass-quick-access__button">
+              <Car size={22} aria-hidden="true"/>
+              <span>Car Mode</span>
+            </button>
+            <button type="button" onClick={openDevices} className="ir-glass-quick-access__button">
+              <MonitorSpeaker size={21} aria-hidden="true"/>
+              <span>Συσκευές</span>
+              {isPremium && availableDevices.length > 1 && <span className="ir-glass-device-count">{availableDevices.length}</span>}
+            </button>
+          </div>
+
+          <div className="ir-glass-song-actions">
+            {!isPlayingAd && <button type="button" onClick={handleRadarClick}
+              disabled={isRecognizing || !isPlaying} className="ir-recognize-button"
+              aria-label="Βρες ποιο τραγούδι παίζει">
+              {isRecognizing ? <Loader2 size={17} className="animate-spin"/> : <ScanSearch size={17}/>}
+              {isRecognizing ? 'Ψάχνουμε το τραγούδι…' : 'Βρες το τραγούδι'}
+            </button>}
+            {isActualSong && (
+              <MusicServiceLinks song={nowPlaying} stationName={currentStation.name}
+                currentUser={currentUser} compact className="ir-music-links--mobile-player"/>
             )}
-
-            {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={nowPlaying} isMaximized={true} />}
           </div>
         </div>
+
+        {showMoreMenu && <div className="ir-glass-sheet-layer">
+          <button type="button" className="ir-glass-sheet-scrim" aria-label="Κλείσιμο μενού"
+            onClick={() => { setShowMoreMenu(false); setShowEQMenu(false); }}/>
+          <section role="dialog" aria-modal="true" aria-label="Περισσότερες λειτουργίες"
+            className="ir-glass-sheet">
+            <div className="ir-glass-sheet__handle" aria-hidden="true"/>
+            <div className="ir-glass-sheet__header">
+              <div><span className="ir-glass-sheet__eyebrow">iRadios PLAYER</span><h3>Περισσότερα</h3></div>
+              <button type="button" onClick={() => { setShowMoreMenu(false); setShowEQMenu(false); }}
+                aria-label="Κλείσιμο μενού" className="ir-glass-sheet__close"><X size={21}/></button>
+            </div>
+            <div className="ir-glass-more-grid">
+              <button type="button" onClick={openStationProfile} className="ir-glass-more-tile">
+                <CalendarDays size={24}/><span>Σταθμός &amp; πρόγραμμα</span>
+              </button>
+              {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={nowPlaying}
+                label="Κοινοποίηση Story" className="ir-glass-more-tile ir-glass-more-tile--share"/>}
+              {canUseCustomEQ && !isPlayingAd && !isIOS &&
+                <button type="button" onClick={() => setShowEQMenu(value => !value)}
+                  className={'ir-glass-more-tile ' + (showEQMenu ? 'is-selected' : '')}
+                  aria-expanded={showEQMenu}><SlidersHorizontal size={24}/><span>Audio Studio</span></button>}
+            </div>
+            {canUseCustomEQ && !isPlayingAd && !isIOS && showEQMenu &&
+              <div className="ir-glass-eq-list" aria-label="Προεπιλογές ήχου">
+                <span className="ir-glass-sheet__eyebrow">ΕΠΙΛΟΓΗ ΗΧΟΥ</span>
+                {[
+                  { id:'Station Default', label:'Προεπιλογή Σταθμού', icon:Radio },
+                  { id:'HomeTheater', label:'Home Theater', icon:MonitorSpeaker },
+                  { id:'HiRes', label:'Hi-Res Audio', icon:Headphones },
+                  { id:'Immersive3D', label:'Immersive 3D', icon:Waves },
+                  { id:'OFF', label:'DSP Off', icon:PowerOff }
+                ].map(preset => <button type="button" key={preset.id}
+                  className={'ir-glass-eq-option ' + (currentPreset === preset.id ? 'is-selected' : '')}
+                  aria-pressed={currentPreset === preset.id}
+                  onClick={() => { onUserDSPChange(currentStation._id, preset.id); setShowEQMenu(false); setShowMoreMenu(false); }}>
+                  <preset.icon size={18}/><span>{preset.label}</span>
+                </button>)}
+              </div>}
+          </section>
+        </div>}
+
+        {showDevicesMenu && <div className="ir-glass-sheet-layer">
+          <button type="button" className="ir-glass-sheet-scrim" aria-label="Κλείσιμο συσκευών"
+            onClick={() => setShowDevicesMenu(false)}/>
+          <section role="dialog" aria-modal="true" aria-label="Επιλογή συσκευής αναπαραγωγής"
+            className="ir-glass-sheet ir-glass-sheet--devices">
+            <div className="ir-glass-sheet__handle" aria-hidden="true"/>
+            <div className="ir-glass-sheet__header">
+              <div><span className="ir-glass-sheet__eyebrow">iRadios CONNECT</span><h3>Οι συσκευές σου</h3></div>
+              <div className="ir-glass-sheet__header-actions">
+                <button type="button" onClick={() => onRequestDevices?.()} aria-label="Ανανέωση συσκευών"
+                  className="ir-glass-sheet__close"><RefreshCw size={19}/></button>
+                <button type="button" onClick={() => setShowDevicesMenu(false)}
+                  aria-label="Κλείσιμο συσκευών" className="ir-glass-sheet__close"><X size={21}/></button>
+              </div>
+            </div>
+            <p className="ir-glass-device-hint">Συνέχισε την ακρόαση σε άλλη συνδεδεμένη συσκευή.</p>
+            <div className="ir-glass-device-list">
+              {availableDevices.length === 0 &&
+                <div className="ir-glass-device-row is-selected"><Smartphone size={22}/>
+                  <span>Αυτό το κινητό</span><small>Τρέχουσα συσκευή</small></div>}
+              {availableDevices.map(device => {
+                const local = device.deviceId === localDeviceId;
+                const mobile = /iphone|ipad|android|mobile/i.test(device.deviceName || '');
+                const DeviceIcon = mobile ? Smartphone : Laptop;
+                return <button type="button" key={device.deviceId}
+                  onClick={() => { if (!local) onTransferPlayback?.(device.deviceId); setShowDevicesMenu(false); }}
+                  className={'ir-glass-device-row ' + (device.isPlaying || local ? 'is-selected' : '')}>
+                  <DeviceIcon size={22}/>
+                  <span>{local ? 'Αυτό το κινητό' : (device.deviceName || 'Συσκευή')}</span>
+                  {(device.isPlaying || local) && <small>Ενεργή</small>}
+                </button>;
+              })}
+            </div>
+          </section>
+        </div>}
 
       </div>
 

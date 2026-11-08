@@ -43,6 +43,8 @@ jobs:
         run: node ops/check-stage-metadata-sonovault.cjs
       - name: Validate Phase 2 design-system tokens and accessibility
         run: node ops/check-phase2-design-system.cjs
+      - name: Verify mobile fullscreen glass navigation and preserved RDS/player controls
+        run: node ops/check-mobile-fullscreen-glass.cjs
       - name: Validate responsive auth screens and retry after wrong credentials
         run: node ops/check-auth-glass-retry.cjs
       - name: Validate Phase 2 listener player and station UI contracts
