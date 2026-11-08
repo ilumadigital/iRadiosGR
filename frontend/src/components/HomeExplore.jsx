@@ -149,12 +149,12 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
               const count=eligible.filter(station=>station.genre===g).length;
               const slide=genreSlideFor(g);
               return <button type="button" key={g} aria-pressed={genre===g} onClick={()=>{setGenre(genre===g?'':g);setTab('all');setShowAll(false);}}
-                className={`ir-genre-tile relative flex aspect-[1.3] min-h-[104px] flex-col justify-between overflow-hidden rounded-2xl border bg-gradient-to-br p-3 text-left transition-all hover:-translate-y-0.5 ${gradients[(i+groupIndex*5)%gradients.length]} ${genre===g?'border-[#ccff00] ring-1 ring-[#ccff00]':'border-white/15 hover:border-white/40'}`}>
+                className={`ir-genre-tile relative flex aspect-[1.8] min-h-[102px] flex-col justify-between overflow-hidden rounded-2xl border bg-gradient-to-br p-3 sm:aspect-[2.05] text-left transition-all hover:-translate-y-0.5 ${gradients[(i+groupIndex*5)%gradients.length]} ${genre===g?'border-[#ccff00] ring-1 ring-[#ccff00]':'border-white/15 hover:border-white/40'}`}>
                 {slide?.imageUrl&&<>
                   <img src={slide.imageUrl} alt="" loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-65"/>
                   <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10"/>
                 </>}
-                <Music2 size={21} className="relative z-10 text-white/90"/>
+                <Music2 size={19} className="relative z-10 text-white/90"/>
                 <span className="relative z-10"><span className="block line-clamp-2 text-xs font-black leading-snug text-white">{g}</span><span className="mt-1 block text-[10px] text-zinc-300">{count} σταθμοί</span></span>
                 <span aria-hidden="true" className="absolute -bottom-6 -right-3 h-20 w-20 rounded-full border-[14px] border-white/10"/>
               </button>;
@@ -167,11 +167,11 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {editorialTiles.region.filter((s,i,a)=>canSeeSlide(s)&&regionList.includes(s.placementValue)&&a.findIndex(x=>x.placementValue===s.placementValue)===i).slice(0,3).map(slide=>
             <button type="button" key={slide._id} onClick={()=>{setRegion(slide.placementValue);setShowRegions(true);setTab('all');setShowAll(false);}}
-              className={`group relative min-h-28 overflow-hidden rounded-2xl border text-left transition-colors ${region===slide.placementValue?'border-[#ccff00]':'border-white/10 hover:border-[#ccff00]/40'}`}>
-              <img src={slide.imageUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover opacity-70 transition-transform group-hover:scale-105"/>
-              <span className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent"/>
-              <span className="relative z-10 flex h-full flex-col justify-end p-4">
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#ccff00]">Προτεινόμενη περιοχή</span>
+              className={`group relative aspect-[40/21] min-w-0 overflow-hidden rounded-2xl border bg-[#101419] text-left transition-colors ${region===slide.placementValue?'border-[#ccff00]':'border-white/10 hover:border-[#ccff00]/40'}`}>
+              <img src={slide.imageUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-contain opacity-90"/>
+              <span className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/35 to-black/10"/>
+              <span className="relative z-10 flex h-full flex-col justify-end p-3 sm:p-4">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#ccff00]">Συμβαίνει τώρα στην περιοχή</span>
                 <span className="mt-1 text-sm font-black text-white">{slide.placementValue}</span>
               </span>
             </button>
