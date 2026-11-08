@@ -23,9 +23,9 @@ assert.ok(now.includes('if (!currentUser) return null'),
 assert.ok(now.includes('setLiveStations(prev=>{'), 'keep same song cached, replace it on track changes');
 
 const deck=read('frontend/src/components/HomeRecommendationDeck.jsx');
-assert.ok(deck.includes('moodStations.filter(Boolean).slice(0,8)'),
+assert.ok(deck.includes('moodStations.filter(Boolean)') && deck.includes('.slice(0,8)') && deck.includes('Number(a.isOffline===true)'),
   'For You must display up to 8 real stations');
-assert.ok(deck.includes('topStations.filter(Boolean).slice(0,7)'),
+assert.ok(deck.includes('topStations.filter(Boolean)') && deck.includes('.slice(0,7)') && deck.includes('Number(b.isOffline===true)'),
   'Top stations must display up to 7 real stations');
 assert.ok(deck.includes('grid grid-cols-2 gap-3 sm:grid-cols-4'),
   'eight picks must create two balanced rows on desktop');
