@@ -1,13 +1,14 @@
 'use strict';
 // Stage-only, free one-minute metadata prefetch. Never invokes the paid ACRCloud
 // vendor and never requires a listener to be present.
-// Bounded round-robin batches prevent a large catalog from exhausting egress.
+// Bounded round-robin batches cover ordinary catalogs each minute while
+// preventing an unusually large station list from exhausting network egress.
 const mongoose=require('mongoose');
 const Station=require('../models/Station');
 const {readCachedNativeMetadata}=require('./stageMetadata');
 
 const EVERY_MS=60*1000;
-const PER_PASS=160;
+const PER_PASS=256;
 const CONCURRENCY=20;
 let lastId=null,inTick=false;
 
