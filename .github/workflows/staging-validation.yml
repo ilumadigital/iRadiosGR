@@ -16,6 +16,8 @@ jobs:
           node-version: '22'
       - name: Check known live references and .env files
         run: bash ops/check-stage-source.sh
+      - name: Ensure deprecated Live Chat is completely retired
+        run: node ops/check-no-legacy-chat.cjs
       - name: Validate deployment shell scripts
         run: |
           for script in ilumadev.sh ops/*.sh; do
