@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { 
   Radio, Mic2, BarChart3, Globe, Building2, User, CheckCircle2, Loader2, X, ShieldCheck, 
@@ -15,6 +15,7 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
   const [vatLoading, setVatLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [cfToken, setCfToken] = useState('');
+  const turnstileRef = useRef(null);
 
   // --- OTP STATES ---
   const [showOtpModal, setShowOtpModal] = useState(false);
@@ -23,6 +24,7 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
   const [otpError, setOtpError] = useState('');
 
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
+  const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
   const euCountries = [
     { code: 'EL', name: 'Ελλάδα' },
@@ -112,8 +114,9 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    if (loading) return;
     if (!cfToken) {
+      turnstileRef.current?.reset();
       setFeedback({ show: true, type: 'error', message: 'Παρακαλώ επιβεβαιώστε ότι δεν είστε ρομπότ.' });
       return;
     }
@@ -152,11 +155,11 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
         }
       } else {
         setFeedback({ show: true, type: 'error', message: data.error || 'Σφάλμα εγγραφής' });
-        setCfToken(''); 
+        resetTurnstile();
       }
     } catch (error) {
       setFeedback({ show: true, type: 'error', message: 'Σφάλμα σύνδεσης με τον Server' });
-      setCfToken(''); 
+      resetTurnstile(); 
     }
     setLoading(false);
   };
@@ -211,9 +214,9 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
 
       {/* --- OTP MODAL --- */}
       {showOtpModal && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in zoom-in-95">
-          <div className="bg-[#111] border border-blue-500/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(59,130,246,0.15)] text-center relative">
-            <button onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
+        <div className="ir-auth-overlay fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in zoom-in-95">
+          <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-blue-500/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(59,130,246,0.15)] text-center relative">
+            <button aria-label="Κλείσιμο επαλήθευσης" onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
               <X size={20} />
             </button>
             <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -227,7 +230,7 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
 
             <form onSubmit={handleVerifyOtp} className="space-y-6">
               <input 
-                type="text" 
+                type="text" autoComplete="one-time-code" inputMode="numeric" aria-label="Κωδικός επιβεβαίωσης"
                 maxLength="6"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
@@ -236,7 +239,7 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
                 autoFocus
               />
               
-              {otpError && <div className="text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-xl">{otpError}</div>}
+              {otpError && <div role="alert" className="ir-auth-feedback text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-xl">{otpError}</div>}
 
               <button 
                 type="submit" 
@@ -252,16 +255,16 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
 
       {/* --- REGISTRATION MODAL --- */}
       {showModal && !showOtpModal && (
-        <div className="fixed inset-0 z-[200] flex items-start justify-center p-4 pt-12 md:pt-20 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300 overflow-y-auto custom-scrollbar">
+        <div className="ir-auth-overlay fixed inset-0 z-[200] flex items-start justify-center p-4 pt-12 md:pt-20 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300 overflow-y-auto custom-scrollbar">
           
-          <div className="bg-[#111] border border-white/10 p-6 md:p-8 rounded-[40px] w-full max-w-xl relative shadow-2xl mb-12 shrink-0">
-            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full z-10">
+          <div className="ir-auth-modal ir-auth-modal--wide bg-[#111] border border-white/10 p-6 md:p-8 rounded-[40px] w-full max-w-xl relative shadow-2xl mb-12 shrink-0">
+            <button aria-label="Κλείσιμο φόρμας" onClick={() => { setShowModal(false); resetTurnstile(); }} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full z-10">
               <X size={20} />
             </button>
             
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-[#ccff00]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Radio size={32} className="text-[#ccff00]" />
+                <img src="/iradios-app-logo.png" alt="iRadiosGR" className="w-12 h-12 object-contain" />
               </div>
               <h3 className="text-3xl font-black text-white tracking-tight uppercase italic">Broadcaster Portal</h3>
               <p className="text-sm text-zinc-400 mt-2">Δημιουργήστε το προφίλ του σταθμού σας στο Network.</p>
@@ -368,8 +371,9 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
                 </button>
               </div>
 
-              <div className="flex justify-center mt-6 mb-2">
+              <div className="ir-auth-turnstile flex justify-center mt-6 mb-2">
                 <Turnstile
+                  ref={turnstileRef}
                   siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY} 
                   onSuccess={(token) => setCfToken(token)}
                   onError={() => setCfToken('')}
@@ -379,13 +383,13 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
               </div>
 
               {feedback.show && (
-                <div className={`p-4 rounded-xl text-sm font-bold text-center border ${feedback.type === 'success' ? 'bg-[#ccff00]/10 text-[#ccff00] border-[#ccff00]/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                <div role="status" className={`ir-auth-feedback p-4 rounded-xl text-sm font-bold text-center border ${feedback.type === 'success' ? 'bg-[#ccff00]/10 text-[#ccff00] border-[#ccff00]/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
                   {feedback.message}
                 </div>
               )}
 
               <button 
-                disabled={loading || !cfToken} 
+                disabled={loading} 
                 className="w-full bg-[#ccff00] hover:bg-[#b3e600] text-black font-black py-4.5 rounded-2xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed tracking-widest uppercase mt-4 shadow-[0_10px_30px_rgba(204,255,0,0.2)]"
               >
                 {loading ? <Loader2 className="animate-spin" size={20} /> : <><Mic2 size={20} /> Ολοκληρωση Εγγραφης</>}
