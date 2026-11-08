@@ -35,7 +35,10 @@ async function settings(){
     },{new:true});
     doc=updated||await NewsFeed.findById('primary');
     // The requested reset also discards previews archived for old staging feeds.
-    if(updated)await NewsFeedArchive.deleteMany({sourceId:{$ne:seed.id}});
+    if(updated){
+      try{await NewsFeedArchive.deleteMany({sourceId:{$ne:seed.id}});}
+      catch(e){console.warn('[NEWSFEED] Staging archive cleanup failed:',e.message);}
+    }
   }
   if(!doc.sources?.length && !doc.configRevision){
     const legacyUrl=doc.feedUrl||DEFAULT_FEED_URL;
