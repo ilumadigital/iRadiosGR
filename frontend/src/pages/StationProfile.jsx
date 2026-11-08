@@ -385,7 +385,7 @@ export default function StationProfile({
   const currentImage=liveProducerImage||baseImage;
 
   return (
-    <div className="ir-station-page relative flex flex-col pb-40 w-full min-h-screen">
+    <div className="ir-station-page relative flex flex-col pb-40 w-full min-h-screen" style={{ '--ir-station-ambient': stationAmbient }}>
       
       <Helmet>
         <title>{`${station.name} στο iRadios. ${currentShow ? 'ON Air: ' + currentShow.title : ''} ${station.slogan ? ' | ' + station.slogan : ''}`}</title>
