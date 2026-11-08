@@ -20,7 +20,15 @@ assert.equal(formatStationTransmission({transmissionType:'Web Radio',frequency:'
 const catalog=read('frontend/src/components/StationCatalogCard.jsx');
 assert.ok(catalog.includes('formatStationTransmission(station)'), 'Home/genre/region/favorites grid and list use the normalized frequency');
 assert.ok(!catalog.includes("station.frequency+' FM'"),'never concatenate an FM suffix blindly');
-for(const p of ['frontend/src/pages/Region.jsx','frontend/src/pages/StationProfile.jsx','frontend/src/components/MobileMiniPlayer.jsx']){
+const regionMap=read('frontend/src/pages/Region.jsx');
+assert.ok(regionMap.includes('<RadioGeoMap'),'region map must use the shared MapLibre player/marker UI');
+const radioMap=read('frontend/src/components/RadioGeoMap.jsx');
+assert.ok(radioMap.includes('formatFMFrequency(station.frequency)'),'shared map popup must normalize FM frequency');
+assert.ok(radioMap.includes('onPlayStation?.(station)'),'shared map popup must use global playback state');
+assert.ok(radioMap.includes('tiles.openfreemap.org/styles/dark'),'shared map must use key-free dark vector basemap');
+assert.ok(read('frontend/src/components/MapMode.jsx').includes('<RadioGeoMap'),'global map must use shared engine');
+assert.ok(!regionMap.includes('basemaps.cartocdn.com'),'region must not load old CARTO tiles');
+for(const p of ['frontend/src/pages/StationProfile.jsx','frontend/src/components/MobileMiniPlayer.jsx']){
   assert.ok(read(p).includes('formatFMFrequency('),p+' must normalize visible frequency');
 }
 const favorites=read('frontend/src/pages/Favorites.jsx');
