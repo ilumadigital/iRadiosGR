@@ -1,7 +1,7 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Mail, Send, Plus, X, Clock, User, AlignLeft, Type, Search, Link as LinkIcon, CalendarDays, Filter, Users, Star } from 'lucide-react';
+import { Mail, Send, Plus, X, Clock, User, AlignLeft, Type, Search, Link as LinkIcon, CalendarDays, Filter, Users, Star, Eye, Palette, Monitor, Smartphone, Loader2 } from 'lucide-react';
 
 export default function AdminEmails({ API_URL }) {
   const [history, setHistory] = useState([]);
@@ -9,6 +9,29 @@ export default function AdminEmails({ API_URL }) {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewSubject, setPreviewSubject] = useState('');
+  const [previewType, setPreviewType] = useState('broadcasterInvite');
+  const [previewDevice, setPreviewDevice] = useState('desktop');
+  const emailTypes = [
+    {id:'broadcasterInvite',label:'Πρόσκληση Broadcaster'},
+    {id:'producerInvite',label:'Πρόσκληση Producer'},
+    {id:'otp',label:'Επαλήθευση OTP'},
+    {id:'welcome',label:'Καλωσόρισμα'},
+    {id:'passwordReset',label:'Επαναφορά κωδικού'},
+    {id:'adPayment',label:'Πληρωμή διαφήμισης'},
+    {id:'adminTransaction',label:'Ενημέρωση διαχειριστή'},
+    {id:'stationApproved',label:'Έγκριση σταθμού'},
+    {id:'stationRejected',label:'Διόρθωση σταθμού'},
+    {id:'broadcasterPremium',label:'Premium Broadcaster'},
+    {id:'listenerPremium',label:'Premium Listener'},
+    {id:'notification',label:'Email ειδοποίησης'},
+    {id:'custom',label:'Δικό μου email'}
+  ];
+
 
   // --- Search & Filter State ---
   const [searchTerm, setSearchTerm] = useState('');
@@ -62,6 +85,29 @@ export default function AdminEmails({ API_URL }) {
       console.error('Σφάλμα φόρτωσης δεδομένων:', err);
     }
     setLoading(false);
+  };
+
+  const openPreview = async (type = 'broadcasterInvite') => {
+    setPreviewType(type);
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewError('');
+    setPreviewHtml('');
+    try {
+      const res = await fetch(`${API_URL}/admin/emails/preview`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ type, subject, body })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Αδυναμία προεπισκόπησης.');
+      setPreviewSubject(data.subject);
+      setPreviewHtml(data.html);
+    } catch (error) {
+      setPreviewError(error.message || 'Αδυναμία σύνδεσης με τον server.');
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handleInsertLink = () => {
@@ -208,12 +254,16 @@ export default function AdminEmails({ API_URL }) {
           <p className="text-zinc-500 text-sm font-medium">Διαχείριση και αποστολή απευθείας emails στους χρήστες.</p>
         </div>
         
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-[#ccff00] hover:bg-white text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_20px_rgba(204,255,0,0.3)] active:scale-95 whitespace-nowrap"
-        >
-          <Plus size={18} /> Νέα αποστολή
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={() => openPreview()}
+            className="flex items-center gap-2 border border-white/10 hover:border-[#ccff00]/50 bg-white/5 hover:bg-white/10 text-white px-5 py-3 rounded-xl font-black text-xs transition-all">
+            <Palette size={18} className="text-[#ccff00]"/> Email Design Preview
+          </button>
+          <button onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 bg-[#ccff00] hover:bg-white text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_20px_rgba(204,255,0,0.3)] active:scale-95 whitespace-nowrap">
+            <Plus size={18} /> Νέα αποστολή
+          </button>
+        </div>
       </div>
 
       <div className="bg-zinc-900/50 border border-white/5 p-4 rounded-2xl mb-8 flex flex-col lg:flex-row gap-4 justify-between items-center">
@@ -297,6 +347,49 @@ export default function AdminEmails({ API_URL }) {
           </div>
         )}
       </div>
+
+      {/* Exact server-rendered templates, not a lookalike React mockup. */}
+      {previewOpen && (
+        <div className="fixed inset-0 z-[350] bg-black/90 backdrop-blur-xl flex items-center justify-center p-3 md:p-6" role="dialog" aria-modal="true" aria-label="Προεπισκόπηση email">
+          <div className="w-full max-w-6xl max-h-[96dvh] flex flex-col rounded-[28px] bg-[#0e121a] border border-white/10 overflow-hidden shadow-2xl">
+            <div className="p-4 md:p-5 border-b border-white/10 flex flex-wrap gap-3 items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase text-[#ccff00] tracking-widest font-black">iRadiosGR · Email Design System</p>
+                <h3 className="text-lg md:text-xl font-black text-white">Προεπισκόπηση branded email</h3>
+              </div>
+              <button type="button" onClick={() => setPreviewOpen(false)} aria-label="Κλείσιμο προεπισκόπησης"
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white"><X size={20}/></button>
+            </div>
+            <div className="px-4 md:px-5 py-3 border-b border-white/10 flex flex-wrap items-center gap-3">
+              <select aria-label="Επιλογή τύπου email" value={previewType} onChange={e => openPreview(e.target.value)}
+                className="bg-[#090d14] border border-white/10 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#ccff00] max-w-full">
+                {emailTypes.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+              <div className="flex rounded-xl p-1 bg-black/40 border border-white/10 gap-1" aria-label="Προεπισκόπηση συσκευής">
+                <button type="button" aria-label="Desktop" aria-pressed={previewDevice === 'desktop'} onClick={() => setPreviewDevice('desktop')}
+                  className={`p-2 rounded-lg ${previewDevice === 'desktop' ? 'bg-[#ccff00] text-black' : 'text-zinc-400 hover:text-white'}`}><Monitor size={17}/></button>
+                <button type="button" aria-label="Mobile" aria-pressed={previewDevice === 'mobile'} onClick={() => setPreviewDevice('mobile')}
+                  className={`p-2 rounded-lg ${previewDevice === 'mobile' ? 'bg-[#ccff00] text-black' : 'text-zinc-400 hover:text-white'}`}><Smartphone size={17}/></button>
+              </div>
+              <p className="text-xs text-zinc-400 flex-1 truncate">Θέμα: <span className="text-white">{previewSubject || '—'}</span></p>
+            </div>
+            <p className="px-5 py-2 text-xs bg-amber-500/5 text-amber-200 border-b border-white/5">
+              Δοκιμαστική προεπισκόπηση · Δεν αποστέλλεται email. Οι demo σύνδεσμοι δεν είναι ενεργές προσκλήσεις.
+            </p>
+            <div className="flex-1 overflow-auto flex justify-center bg-[#070a0f] p-3 md:p-6">
+              {previewLoading ? <div className="my-auto flex items-center gap-2 text-zinc-400"><Loader2 className="animate-spin" size={20}/> Φόρτωση προεπισκόπησης…</div> :
+                previewError ? <p role="alert" className="my-auto text-red-400">{previewError}</p> :
+                <iframe
+                  title="iRadiosGR HTML email preview"
+                  sandbox=""
+                  srcDoc={previewHtml}
+                  className="border-0 bg-[#080B12] rounded-xl shadow-2xl shrink-0 transition-all"
+                  style={{ width: previewDevice === 'mobile' ? 'min(100%, 390px)' : 'min(100%, 760px)', height: '700px' }}
+                />}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center pt-10 md:pt-20 pb-10 px-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto custom-scrollbar">
@@ -401,7 +494,11 @@ export default function AdminEmails({ API_URL }) {
               </form>
             </div>
 
-            <div className="p-6 bg-zinc-900/50 flex justify-end gap-3 rounded-b-[32px]">
+            <div className="p-6 bg-zinc-900/50 flex flex-wrap justify-end gap-3 rounded-b-[32px]">
+              <button type="button" onClick={() => openPreview('custom')}
+                className="px-5 py-3 rounded-xl font-bold text-sm text-[#ccff00] hover:bg-[#ccff00]/10 border border-[#ccff00]/30 flex items-center gap-2">
+                <Eye size={16}/> Προεπισκόπηση
+              </button>
               <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 rounded-xl font-bold text-sm text-zinc-400 hover:text-white hover:bg-white/5 transition-colors">Ακυρωση</button>
               <button type="submit" form="emailForm" disabled={sending} className={`flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg ${sendMethod === 'role' ? 'bg-purple-500 hover:bg-purple-600 text-white' : 'bg-[#ccff00] hover:bg-[#aacc00] text-black'}`}>
                 {sending ? 'Αποστολη...' : <><Send size={16}/> Αποστολη {sendMethod === 'role' && 'Ομαδας'}</>}
