@@ -18,6 +18,9 @@ const AdminHomeSlides=lazy(()=>import('./AdminHomeSlides'));
 const AdminEmails=lazy(()=>import('./AdminEmails'));
 const AdminPaid=lazy(()=>import('./AdminPaid'));
 const AdminRadioSet=lazy(()=>import('./AdminRadioSet'));
+const AdminAdControl=lazy(()=>import('./AdminAdControl'));
+const Boost=lazy(()=>import('./Boost'));
+const NewPush=lazy(()=>import('./NewPush'));
 const DAY_NAMES=['','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
 const EDIT_FIELDS=['name','slogan','description','genre','transmissionType','frequency',
   'region','city','website','email','phone','stream','metadata','facebook','instagram',
@@ -412,12 +415,13 @@ function Review({data,reload,notify}){
 }
 function Operations({data,section,reload}){
   if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
-  const common={API_URL:'/api',currentUser:data.user,refreshStations:reload,refreshGlobalAds:()=>{}};
+  const common={API_URL:'/api',currentUser:data.user,stations:data.stations,refreshStations:reload,refreshGlobalAds:()=>{}};
   const views={
     analytics:<AdminDashboard {...common}/>,users:<AdminUsers {...common}/>,
     ads:<AdminAds {...common}/>,banners:<AdminBanners {...common}/>,
     slides:<AdminHomeSlides {...common}/>,emails:<AdminEmails {...common}/>,
-    billing:<AdminPaid {...common}/>,radioset:<AdminRadioSet {...common}/>
+    billing:<AdminPaid {...common}/>,radioset:<AdminRadioSet {...common}/>,
+    adcontrol:<AdminAdControl {...common}/>,boost:<Boost {...common}/>,push:<NewPush {...common}/>
   };
   return <Suspense fallback={<div className={panel+' p-10 text-center text-[#caff00]'}>Φόρτωση εργαλείου…</div>}>
     {views[section]||<Navigate to="/backoffice" replace/>}
@@ -459,6 +463,9 @@ export default function Backoffice(){
       {to:'/backoffice/admin/banners',label:'Banners',icon:Image},
       {to:'/backoffice/admin/slides',label:'Slides αρχικής',icon:Sparkles},
       {to:'/backoffice/admin/radioset',label:'Radio Set',icon:SlidersHorizontal},
+      {to:'/backoffice/admin/boost',label:'Boost σταθμών',icon:Sparkles},
+      {to:'/backoffice/admin/adcontrol',label:'Local Ad Control',icon:Activity},
+      {to:'/backoffice/admin/push',label:'Push ειδοποιήσεις',icon:Bell},
       {to:'/backoffice/admin/billing',label:'Πληρωμές',icon:FileCheck2},
       {to:'/backoffice/admin/emails',label:'Emails',icon:Bell}
     ]}]:[])
@@ -521,7 +528,7 @@ export default function Backoffice(){
           <Route path="stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
           <Route path="schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
           <Route path="review" element={<Review data={data} reload={reload} notify={notify}/>}/>
-          {['analytics','users','ads','banners','slides','emails','billing','radioset'].map(section=>
+          {['analytics','users','ads','banners','slides','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
           <Route path="*" element={<Navigate to="/backoffice" replace/>}/>
         </Routes>
