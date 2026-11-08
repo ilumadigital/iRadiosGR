@@ -48,19 +48,31 @@ const noMatch=()=>({status:{code:1001},metadata:{music:[]}});
 // Adapter: Sonovault {matched,results} -> the exact ACR-shaped contract already
 // consumed by stageSmartTracks and frontend App.jsx. No UI changes required.
 function toExistingRecognitionShape(payload){
-  if(!payload||payload.matched!==true||!Array.isArray(payload.results)||
-     payload.results.length===0)return noMatch();
-  const first=payload.results[0];
-  const title=typeof first?.title==='string'?first.title.trim():'';
-  const artists=Array.isArray(first?.artists)?first.artists:[];
-  const artist=artists.find(value=>typeof value?.name==='string'&&value.name.trim())?.name?.trim();
-  if(!title||!artist||title.length>150||artist.length>150)return noMatch();
-  // Sonovault's confidence is 0..1; reject extremely weak results.
-  if(Number.isFinite(Number(first.confidence))&&first.confidence!==null &&
-     Number(first.confidence)<0.5)return noMatch();
-  return {status:{code:0},metadata:{music:[{
-    title,artists:[{name:artist}]
-  }]}};
+  // SonoVault's published response is {matched:boolean,results:[...]}, not
+  // ACRCloud's {status,metadata}. Missing fields are upstream failures, NOT
+  // honest "no match" results; otherwise a successful API call is discarded.
+  if(!payload || typeof payload!=='object' || Array.isArray(payload) ||
+     typeof payload.matched!=='boolean' || !Array.isArray(payload.results)){
+    throw recognitionError('ACR_UPSTREAM');
+  }
+  if(payload.matched===false)return noMatch();
+  if(payload.results.length===0)throw recognitionError('ACR_UPSTREAM');
+  for(const candidate of payload.results){
+    const title=typeof candidate?.title==='string'?candidate.title.trim():'';
+    const artists=Array.isArray(candidate?.artists)?candidate.artists:[];
+    const artist=artists.find(value=>typeof value?.name==='string'&&value.name.trim())?.name?.trim();
+    if(!title||!artist||title.length>150||artist.length>150)continue;
+    // Service already performs confidence gating. Do not turn a valid,
+    // higher-ranked track into a miss because of absent optional confidence.
+    if(candidate.confidence!=null &&
+       (!Number.isFinite(Number(candidate.confidence))||Number(candidate.confidence)<0.5))
+      continue;
+    return {status:{code:0},metadata:{music:[{
+      title,artists:[{name:artist}]
+    }]}};
+  }
+  // A malformed match must be diagnosable without logging song data or a key.
+  throw recognitionError('ACR_UPSTREAM');
 }
 async function performRecognition(station,{beforeVendorCall}={}){
   if(process.env.STAGE_ENABLE_SONOVAULT!=='1')throw recognitionError('ACR_DISABLED');
@@ -68,7 +80,9 @@ async function performRecognition(station,{beforeVendorCall}={}){
   let sample;
   try{
     sample=await readPublicUrl(station.stream,{
-      maxBytes:800000,timeoutMs:15000,allowPartialOnDeadline:true,
+      // ~30 seconds of continuous live audio are needed for reliable matching.
+      // Keep uploads below 1 MB, so the paid per-MB band stays unchanged.
+      maxBytes:900000,timeoutMs:30000,allowPartialOnDeadline:true,
       headers:{'Icy-MetaData':'0','Accept':'audio/*,application/octet-stream'}
     });
   }catch(error){
@@ -104,7 +118,19 @@ async function performRecognition(station,{beforeVendorCall}={}){
     console.warn('[STAGE_SONOVAULT] identify_failed',reason,status||'network');
     throw recognitionError(reason);
   }
-  return toExistingRecognitionShape(payload);
+  let normalized;
+  try{normalized=toExistingRecognitionShape(payload);}
+  catch(error){
+    console.warn('[STAGE_SONOVAULT] invalid_identify_response',
+      typeof payload?.matched==='boolean'?'matched_flag_present':'missing_matched_flag',
+      Array.isArray(payload?.results)?'results_array_present':'missing_results_array');
+    throw error;
+  }
+  // Safe diagnostics: no raw audio, keys, artist/title, URLs or response bodies.
+  console.info('[STAGE_SONOVAULT] identify_status',
+    normalized.status.code===0?'matched':'not_matched',
+    'sample_bytes',sample.buffer.length);
+  return normalized;
 }
 async function recognizeApprovedStation(station,options={}){
   const key=String(station?._id||'');
