@@ -9,7 +9,6 @@ import {
   MessageCircle, Loader2, ScanSearch
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
-import CircularVU from '../components/CircularVU';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import MusicServiceLinks from '../components/MusicServiceLinks';
 import MobileStationShowcase from '../components/MobileStationShowcase';
@@ -444,8 +443,8 @@ export default function StationProfile({
                   }
                 }} 
                 className={`w-full h-full transition-all duration-700 z-10 
-                  ${stationSongCover ? 'ir-station-art-is-song object-cover group-hover:scale-105' : 'ir-station-art-is-logo object-contain bg-white group-hover:scale-105'}
-                  ${isThisPlaying && isPlaying && !showArtwork ? 'animate-audio-pulse shadow-[0_0_50px_-12px_var(--station-accent)]' : ''}
+                  ${stationSongCover ? 'ir-station-art-is-song object-cover group-hover:scale-105' : 'ir-station-art-is-logo object-contain'}
+                  
                 `}
               />
               {currentUser&&broadcast.imageUrl&&<img
@@ -485,7 +484,7 @@ export default function StationProfile({
                   {/* Miniature Station Logo */}
                   <div className="ir-station-art-brand-wrap">
                     <div className="ir-station-art-brand">
-                      <img src={station.logo} alt={station.name} className="w-full h-full object-contain" />
+                      <img src={station.logo} alt={station.name} className="ir-station-art-brand-image" />
                     </div>
                   </div>
 
@@ -610,20 +609,16 @@ export default function StationProfile({
             <div className="ir-station-actions">
               <div className="ir-station-action-buttons">
                 
-                {/* VU METER & PLAY BUTTON */}
-                <div className="relative w-16 h-16 lg:w-20 lg:h-20 shrink-0 flex items-center justify-center">
-                  <div className="absolute inset-0 flex items-center justify-center scale-[1.3] lg:scale-[1.65] pointer-events-none z-0">
-                    <CircularVU analyser={analyser} isPlaying={isThisPlaying && isPlaying} />
-                  </div>
-                  
-                  <button 
-                    onClick={handlePlayClick}
-                    aria-label={isThisPlaying && isPlaying ? 'Παύση σταθμού' : 'Αναπαραγωγή σταθμού'}
-                    className={`ir-player-transport relative z-10 w-full h-full rounded-full flex items-center justify-center transition-transform ${station?.isOffline === true ? "cursor-not-allowed bg-red-600 text-white" : "hover:scale-105 active:scale-95"}`}
-                  >
-                    {station?.isOffline === true ? <span className="text-[10px] font-black">OFFLINE</span> : isThisPlaying && isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1.5" />}
-                  </button>
-                </div>
+                {/* Plain Play/Pause: intentionally no VU meter, ring or audio canvas. */}
+                <button
+                  type="button"
+                  onClick={handlePlayClick}
+                  disabled={station?.isOffline === true}
+                  aria-label={station?.isOffline === true ? 'Σταθμός εκτός σύνδεσης' : isThisPlaying && isPlaying ? 'Παύση σταθμού' : 'Αναπαραγωγή σταθμού'}
+                  className={`ir-player-transport ir-station-play-button relative z-10 shrink-0 rounded-full flex items-center justify-center transition-transform ${station?.isOffline === true ? "cursor-not-allowed bg-red-600 text-white" : "hover:scale-105 active:scale-95"}`}
+                >
+                  {station?.isOffline === true ? <span className="text-[10px] font-black">OFFLINE</span> : isThisPlaying && isPlaying ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" className="ml-1" />}
+                </button>
                 
                 {/* FAVORITE BUTTON */}
                 <button 
