@@ -195,6 +195,13 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
     setOtpLoading(false);
   };
 
+  const closeOtpModal = () => {
+    localStorage.removeItem('iradios_agency_pending_otp');
+    setShowOtpModal(false);
+    setOtp('');
+    setOtpError('');
+  };
+
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden pb-40">
       
@@ -556,6 +563,7 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
       {showOtpModal && (
         <div className="ir-auth-overlay fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in zoom-in-95">
           <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-purple-500/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(168,85,247,0.15)] text-center relative">
+            <button type="button" aria-label="Κλείσιμο επαλήθευσης" onClick={closeOtpModal} className="absolute right-5 top-5 rounded-full bg-white/5 p-2.5 text-zinc-400 hover:text-white"><X size={18} /></button>
             <div className="w-20 h-20 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
               <KeyRound size={40} className="text-purple-500" />
             </div>
