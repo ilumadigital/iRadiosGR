@@ -38,6 +38,34 @@ assert.ok(ui.includes("view==='grid'")&&ui.includes("view==='list'"),'grid and l
 assert.ok(!ui.includes('MapMode'),'news has no map');
 assert.ok(ui.includes('<EditorialPlacement placement="news"'),'existing slide and promoted presentation');
 assert.ok(read('frontend/src/pages/AdminNewsFeed.jsx').includes('Συγχρονισμός τώρα'));
+// Ten-minute feed scheduling must be independent of listener visits.
+const scheduler=read('backend/utils/newsFeedScheduler.js');
+const controllerText=read('backend/controllers/newsFeedController.js');
+const newsRoutes=read('backend/routes/newsFeedRoutes.js');
+assert.ok(scheduler.includes("cron.schedule('*/10 * * * *',run)"),'backend imports every ten minutes');
+assert.ok(scheduler.includes('mongoose.connection.asPromise().then(run)'),'initial refresh after MongoDB startup');
+assert.ok(newsRoutes.includes("require('../utils/newsFeedScheduler').start()"),'news scheduler wired to backend boot');
+assert.ok(controllerText.includes('exports.refreshInBackground=async()=>'),'shared backend refresh action');
+assert.ok(controllerText.includes('if(!doc.enabled)return doc'),'disabled newsfeeds are not polled');
+assert.ok(controllerText.includes('if(doc.enabled&&!doc.articles.length)doc=await sync(doc)'),
+  'public requests only bootstrap uncached newsfeeds');
+assert.ok(!controllerText.includes('if(doc.articles.length)sync(doc)'), 'visitor GETs do not refresh providers');
+assert.ok(controllerText.includes('refreshIntervalSeconds:600'),'public API advertises ten-minute schedule');
+assert.ok(controllerText.includes("(normalizeSource(source).categories||[]).forEach(add)"),
+  'filter options include every configured rssnews.io category, even if an article is unavailable');
+assert.ok(controllerText.includes('articles.forEach(a=>add(a.category))'),
+  'filter options support categories returned by additional sources');
+const heroAt=ui.indexOf('<EditorialPlacement placement="news"');
+const filterAt=ui.indexOf('<section aria-label="Φίλτρα κατηγοριών ειδήσεων"');
+const articlesAt=ui.indexOf('<section aria-label="Ροή ειδήσεων"');
+assert.ok(heroAt>=0&&filterAt>heroAt&&articlesAt>filterAt,'filters positioned below editorial advertisement');
+assert.ok(ui.includes("aria-pressed={active}")&&ui.includes("selectedCategory==='all'?ordered:ordered.filter"),
+  'accessible interactive filtering');
+assert.ok(ui.includes('overflow-x-auto')&&ui.includes('sm:flex-wrap'),'mobile horizontal filters');
+assert.ok(ui.includes('{filtered.map((item,index)'),'grid and list render only selected category');
+assert.ok(ui.includes("document.addEventListener('visibilitychange',onVisibility)"),
+  'returning to an open news tab revalidates the cached snapshot');
+console.log('Newsfeed ten-minute backend schedule and accessible category filter contracts passed.');
 console.log('Newsfeed RSS parsing, safety, image, dates, deduplication, placements and admin contracts passed.');
 
 (async()=>{
