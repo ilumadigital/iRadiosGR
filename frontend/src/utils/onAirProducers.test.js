@@ -24,13 +24,15 @@ test('active producers are ordered by earliest end, not station position', () =>
   assert.deepEqual(result.map(x => x.endsInMinutes), [51, 111, 171]);
 });
 
-test('programme end is exclusive and a missing host is not a producer', () => {
+test('programme end is exclusive and a title is shown if producer field is empty', () => {
   const noHost = station('Automatic', '20:00', {
     schedule: [{ day: 1, startTime: '18:00', endTime: '20:00', title: 'Music', host: '' }]
   });
   const result = getOnAirProducers([station('Ended', '19:00'), noHost],
     { day: 1, minute: 19 * 60 });
-  assert.equal(result.length, 0);
+  assert.deepEqual(result.map(x => x.station.name), ['Automatic']);
+  assert.equal(result[0].host, 'Music');
+  assert.equal(result[0].endsInMinutes, 60);
 });
 
 test('offline and unapproved stations never become playable on-air cards', () => {
@@ -91,4 +93,42 @@ test('within photo and logo groups, programmes ending soonest come first', () =>
   ], { day: 1, minute: 18 * 60 + 9 });
   assert.deepEqual(result.map(x => x.station.name),
     ['Photo eight', 'Photo nine', 'Logo seven', 'Logo eight']);
+});
+
+test('Deseo-like show with photo and no producer survives a 24-hour placeholder', () => {
+  const deseo = station('Deseo Radio', '23:59', {
+    schedule: [
+      { day: 1, startTime: '00:00', endTime: '23:59', title: 'Music 24/7', host: '', imageUrl: '' },
+      { day: 1, startTime: '18:00', endTime: '19:00', title: 'DJ Show', host: '', imageUrl: 'https://images.example.com/deseo-dj.jpg' }
+    ]
+  });
+  const result = getOnAirProducers([station('Early without photo', '18:50'), deseo],
+    { day: 1, minute: 18 * 60 + 9 });
+  assert.equal(result[0].station.name, 'Deseo Radio');
+  assert.equal(result[0].host, 'DJ Show');
+  assert.equal(result[0].endLabel, '19:00');
+  assert.equal(result[0].hasProducerPhoto, true);
+});
+
+test('photo first, then nearest ending show without photo, finally continuous programmes', () => {
+  const photo = station('Photo Show', '21:00', {
+    schedule: [{ day: 1, startTime: '18:00', endTime: '21:00', title: 'Photo', imageUrl: '/uploads/programme/photo.jpg' }]
+  });
+  const allDay = station('24-hour radio', '23:59', {
+    schedule: [{ day: 1, startTime: '00:00', endTime: '23:59', title: 'Best Music', host: '' }]
+  });
+  const result = getOnAirProducers([
+    allDay, station('No photo late', '22:00'), photo, station('No photo soon', '19:00')
+  ], { day: 1, minute: 18 * 60 + 9 });
+  assert.deepEqual(result.map(x => x.station.name),
+    ['Photo Show', 'No photo soon', 'No photo late', '24-hour radio']);
+  assert.equal(result[0].backgroundUrl, '/uploads/programme/photo.jpg');
+});
+
+test('overnight scheduled shows work before and after midnight', () => {
+  const night = station('Night', '02:00', {
+    schedule: [{ day: 7, startTime: '22:00', endTime: '02:00', title: 'Night DJ', host: 'DJ Night', imageUrl: '' }]
+  });
+  assert.equal(getOnAirProducers([night], { day: 7, minute: 23 * 60 })[0].endsInMinutes, 180);
+  assert.equal(getOnAirProducers([night], { day: 1, minute: 30 })[0].endsInMinutes, 90);
 });
