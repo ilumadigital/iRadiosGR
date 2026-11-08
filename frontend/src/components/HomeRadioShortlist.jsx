@@ -32,8 +32,8 @@ export default function HomeRadioShortlist({ kind='recent', stations=[], current
             </span>
           </button>
           <button type="button" disabled={item.isOffline===true||stationIsPlaying(item,currentStation,isPlaying)} onClick={()=>play(item)} title={item.isOffline===true?'OFFLINE':stationIsPlaying(item,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(stationIsPlaying(item,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+item.name}
-            className={item.isOffline===true?"flex h-9 w-9 shrink-0 cursor-not-allowed items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white":"flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-zinc-200 transition-colors hover:bg-[#ccff00] hover:text-black"}>
-            {item.isOffline===true?"OFF":<Play size={15} fill="currentColor"/>}
+            className={item.isOffline===true?"flex h-9 w-[70px] shrink-0 cursor-not-allowed items-center justify-center rounded-xl bg-red-600 text-[9px] font-black text-white":"flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-zinc-200 transition-colors hover:bg-[#ccff00] hover:text-black"}>
+            {item.isOffline===true?"OFFLINE":<Play size={15} fill="currentColor"/>}
           </button>
         </div>)}
         {!listed.length&&<div className="flex min-h-[172px] flex-col items-center justify-center gap-2 p-4 text-center">
