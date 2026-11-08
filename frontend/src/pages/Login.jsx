@@ -321,7 +321,7 @@ export default function Login({ API_URL, setCurrentUser }) {
               <Turnstile
                 ref={turnstileRef}
                 siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                onSuccess={(token) => { setCfToken(token); setError(''); }}
+                onSuccess={(token) => setCfToken(token)}
                 onError={() => setCfToken('')}
                 onExpire={() => setCfToken('')}
                 theme="dark"
