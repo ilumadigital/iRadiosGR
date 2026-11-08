@@ -82,7 +82,8 @@ async function sync(doc,force=false){
         s.feedTitle=r.data.feedTitle||s.label||s.domain||'';
         s.lastSyncedAt=started;s.lastError=(r.data.warnings||[]).join(' | ').slice(0,220);
         s.fetchedCount=r.data.articles.length;
-        s.retrievalMode=r.data.retrievalMode;successful.add(s.id);
+        s.retrievalMode=r.data.retrievalMode;
+        s.publisherReports=r.data.publisherReports||[];successful.add(s.id);
         fresh.push(...r.data.articles.map(article=>{
           const old=previousArticle.get(s.id+'|'+article.url);
           return {...article,sourceId:s.id,
@@ -178,7 +179,7 @@ exports.save=async(req,res)=>{
       const id=typeof item.id==='string'&&previous.has(item.id)?item.id:crypto.randomUUID();
       const normalized=sourceOf(item,id),old=previous.get(id);
       if(old&&old.url===normalized.url&&old.domain===normalized.domain){
-        for(const k of ['feedTitle','lastSyncedAt','lastAttemptAt','lastError','fetchedCount','retrievalMode'])
+        for(const k of ['feedTitle','lastSyncedAt','lastAttemptAt','lastError','fetchedCount','retrievalMode','publisherReports'])
           normalized[k]=old[k];
       }
       return normalized;
