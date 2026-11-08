@@ -39,7 +39,7 @@ function RankList({title,icon:Icon,items,label,value,meta,to}){
         </div>
         <p className="shrink-0 text-xs font-black tabular-nums text-[#caff00]">{value(item)}</p>
       </div>)}
-    </div>:<Empty message="Δεν υπάρχουν καταχωρημένες μετρήσεις."/ >}
+    </div>:<Empty message="Δεν υπάρχουν καταχωρημένες μετρήσεις." />}
   </section>;
 }
 export default function AdminDashboard({API_URL='/api',globalSocket}){
