@@ -139,9 +139,9 @@ async function main(){
   const profile=read('frontend/src/pages/StationProfile.jsx');
   const panel=read('frontend/src/components/StationPlaylistPanel.jsx');
   assert.match(css,/container-name:station-layout/);
-  assert.match(css,/@container station-layout \\(max-width:760px\\)/);
-  assert.match(css,/@container station-layout \\(max-width:460px\\)/);
-  assert.match(css,/grid-template-columns:minmax\\(0,1\\.05fr\\) minmax\\(0,\\.95fr\\)/);
+  assert.match(css,/@container station-layout \(max-width:760px\)/);
+  assert.match(css,/@container station-layout \(max-width:460px\)/);
+  assert.match(css,/grid-template-columns:minmax\(0,1\.05fr\) minmax\(0,\.95fr\)/);
   assert.match(profile,/ir-station-hero-visual/);
   assert.match(profile,/ir-station-hero-copy/);
   assert.match(profile,/ir-station-lower-grid/);
