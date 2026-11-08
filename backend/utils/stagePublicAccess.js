@@ -129,7 +129,10 @@ function stagePublicAccess(req, res, next) {
     (req.method === 'DELETE' && /^\/api\/users\/me\/inbox\/[a-f0-9]{24}$/i.test(path))
   );
   if (listenerSelfRead || listenerSelfWrite) return protect(req,res,next);
-  // Account deletion, Stripe, email and push transport remain blocked on staging.
+  // Authenticated station contact only; staging delivers to Mailpit, not production SMTP.
+  if (req.method === 'POST' && /^\/api\/stations\/[a-f0-9]{24}\/contact$/i.test(path))
+    return protect(req,res,next);
+  // All other sensitive email, payment and push APIs remain admin-only on staging.
 
   // Phase 4 Backoffice: signed-in operational roles only. Each backoffice
   // route additionally enforces station ownership and action-specific roles.
