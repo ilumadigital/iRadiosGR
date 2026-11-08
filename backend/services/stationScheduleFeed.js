@@ -299,7 +299,8 @@ async function syncOne(stationId){
   }
 }
 async function syncAll(){
-  const ids=await Station.find({'scheduleFeed.enabled':true}).select('_id').lean().limit(2000);
+  // All configured stations, with bounded concurrency; do not truncate the catalog.
+  const ids=await Station.find({'scheduleFeed.enabled':true}).select('_id').lean();
   let index=0;const summary={checked:0,changed:0,failed:0,skipped:0};
   await Promise.all(Array.from({length:Math.min(4,ids.length)},async()=>{
     while(index<ids.length){
