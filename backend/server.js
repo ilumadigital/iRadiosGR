@@ -146,6 +146,7 @@ app.use('/api', require('./routes/broadcasterInvitationRoutes'));
 app.use('/api', require('./routes/emailPreviewRoutes'));
 app.use('/api', authRoutes);
 app.use('/api', stationRoutes);
+app.use('/api', require('./routes/stationContactRoutes'));
 app.use('/api', adRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', extraRoutes);
