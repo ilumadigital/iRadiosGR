@@ -354,8 +354,9 @@ export default function Region({ stations, currentStation, setCurrentStation, is
         </div>
       </div>
 
-      <EditorialPlacement placement="region" value={regionName}
-        currentUser={currentUser} stations={stations} currentStation={currentStation} isPlaying={isPlaying}
+      <EditorialPlacement placement="region" value={regionName} viewMode={viewMode}
+        currentUser={currentUser} stations={stations} fallbackStation={baseStations[0]}
+        currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
       {viewMode !== 'map' && filteredAndSorted.length > 0 && (
