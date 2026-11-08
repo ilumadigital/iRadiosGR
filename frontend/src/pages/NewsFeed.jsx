@@ -14,7 +14,7 @@ export function newsAge(value,now=Date.now()){
   return {relative:new Intl.RelativeTimeFormat('el-GR',{numeric:'always'}).format(-number,unit),
     absolute:new Intl.DateTimeFormat(undefined,{dateStyle:'long',timeStyle:'short'}).format(date),iso:date.toISOString()};
 }
-function Article({item,view,now,source,backTo}){
+export function Article({item,view,now,source,backTo}){
   const [broken,setBroken]=useState(false),time=newsAge(item.publishedAt,now);
   const href='/newsfeed/'+item.key;
   // The entire article tile is one internal navigation target, including the
