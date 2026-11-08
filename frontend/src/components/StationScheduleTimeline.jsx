@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarDays, Clock3, Music2, Radio, ImageOff } from 'lucide-react';
+import { CalendarDays, Clock3, Music2, Radio } from 'lucide-react';
 
 const DAYS=['Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
 function Cover({imageUrl,fallback,title}){
