@@ -298,7 +298,7 @@ export default function ShareStory({ currentStation, nowPlaying, label = null, c
     <button 
       onClick={handleShare}
       disabled={isGenerating || !currentStation}
-      className={`transition-colors p-2 rounded-full ${isGenerating ? 'text-[#ccff00]' : 'text-zinc-400 hover:text-white hover:bg-white/5'} active:scale-95 ${className}`}
+      className={`transition-colors ${label ? '' : 'p-2 rounded-full'} ${isGenerating ? 'text-[#ccff00]' : 'text-zinc-400 hover:text-white hover:bg-white/5'} active:scale-95 ${className}`}
       title="Share to Story"
     >
       {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Instagram size={20} />}
