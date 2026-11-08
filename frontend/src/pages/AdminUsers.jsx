@@ -224,13 +224,13 @@ export default function AdminUsers({ API_URL, currentUser }) {
   });
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl mx-auto text-white">
+    <div className="admin-legacy-page space-y-6 text-white">
       
       {/* HEADER & SEARCH */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-[#ccff00]/10 rounded-xl"><UserIcon className="text-[#ccff00]" size={28} /></div>
-          <h1 className="text-3xl font-black italic uppercase tracking-wider">User Management</h1>
+          <h1 className="text-3xl font-black italic uppercase tracking-wider">Όλοι οι χρήστες</h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative w-full md:w-64">
@@ -244,14 +244,14 @@ export default function AdminUsers({ API_URL, currentUser }) {
             />
           </div>
           <div className="flex bg-zinc-900/50 border border-white/10 rounded-xl p-1">
-            <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[#ccff00] text-black' : 'text-zinc-500 hover:text-white'}`}><List size={18} /></button>
-            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[#ccff00] text-black' : 'text-zinc-500 hover:text-white'}`}><Grid size={18} /></button>
+            <button aria-label="Προβολή λίστας" title="Προβολή λίστας" onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[#ccff00] text-black' : 'text-zinc-500 hover:text-white'}`}><List size={18} /></button>
+            <button aria-label="Προβολή καρτών" title="Προβολή καρτών" onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[#ccff00] text-black' : 'text-zinc-500 hover:text-white'}`}><Grid size={18} /></button>
           </div>
         </div>
       </div>
 
       {/* 🟢 ROLE FILTERS (Προστέθηκε το premium) */}
-      <div className="flex flex-wrap items-center gap-2 mb-10 bg-zinc-900/30 p-2 rounded-2xl border border-white/5 w-fit">
+      <div className="flex flex-wrap items-center gap-2 mb-5 bg-zinc-900/30 p-2 rounded-2xl border border-white/5">
         {['all', 'admin', 'broadcaster', 'producer', 'agency', 'user', 'premium'].map(role => (
           <button
             key={role}
@@ -270,14 +270,14 @@ export default function AdminUsers({ API_URL, currentUser }) {
 
       {/* VIEW RENDER (LIST) */}
       {viewMode === 'list' ? (
-        <div className="bg-zinc-900/30 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
+        <div className="bo-legacy-scroll bg-zinc-900/30 border border-white/5 rounded-2xl backdrop-blur-sm">
           <table className="w-full text-left text-sm">
             <thead className="text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-white/5 bg-zinc-900/50">
               <tr>
-                <th className="px-6 py-4">User Details</th>
-                <th className="px-6 py-4">Role & Assigned</th>
-                <th className="px-6 py-4">Pro Modules</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-6 py-4">Στοιχεία χρήστη</th>
+                <th className="px-6 py-4">Ρόλος & σταθμός</th>
+                <th className="px-6 py-4">Πρόσβαση Premium</th>
+                <th className="px-6 py-4 text-right">Ενέργειες</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
