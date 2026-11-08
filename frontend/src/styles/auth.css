@@ -107,6 +107,7 @@
 @media (max-width: 480px) {
   .ir-auth-page { padding-inline: 12px; padding-top: 18px; }
   .ir-auth-card { padding: 23px 19px 25px; border-radius: 26px; }
+  .ir-auth-card .grid.grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
   .ir-auth-intro { margin-bottom: 23px; }
   .ir-auth-intro__icon { height: 43px; width: 43px; margin-bottom: 12px; }
   .ir-auth-modal { padding: 27px 18px 24px; max-height: 94dvh; }
