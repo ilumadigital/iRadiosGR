@@ -149,7 +149,7 @@ router.post('/broadcaster-invitations/activate-broadcaster', protect, async (req
         hasAcceptedTerms: false, termsAcceptedAt: null, termsAcceptedVersion: null,
         broadcasterProfile: {
           tier:'free', maxStations:3, features:{
-            adControl:false,dspEngine:false,betaAccess:false,liveChat:true,analytics:false
+            adControl:false,dspEngine:false,betaAccess:false,analytics:false
           }
         }
       } }, { new: true }

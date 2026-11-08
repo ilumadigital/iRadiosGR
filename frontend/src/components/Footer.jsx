@@ -2,11 +2,10 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Play, Pause, Heart, Volume2, SkipBack, SkipForward, SlidersHorizontal, 
-  MonitorSpeaker, Headphones, PowerOff, Radio, MessageSquare, ScanSearch, 
+  MonitorSpeaker, Headphones, PowerOff, Radio, ScanSearch, 
   Loader2, Waves, Maximize2, Minimize2, Laptop, Smartphone, X 
 } from 'lucide-react';
 import ShareStory from './ShareStory';
-import LiveChat from './LiveChat';
 import DesktopFullPlayer from './DesktopFullPlayer';
 import FoundWithAI from './FoundWithAI';
 import RdsCrossfade from './RdsCrossfade';
@@ -18,7 +17,6 @@ export default function Footer({
   isPlaying, isBuffering, nowPlaying, nowPlayingInfo, volume, setVolume, togglePlayPause, 
   toggleFavorite, isFavorite, handleNextStation, handlePrevStation,
   currentUser, userOverrides, onUserDSPChange,
-  unreadListenerChat, setUnreadListenerChat,
   isRecognizing, handleRecognizeTrack, spotifyUrl,  
   availableDevices = [],
   localDeviceId,
@@ -30,7 +28,6 @@ export default function Footer({
   const { showAlert } = useAlert();
   const navigate = useNavigate();
   const [showEQMenu, setShowEQMenu] = useState(false);
-  const [showChat, setShowChat] = useState(false); 
   const [isMaximized, setIsMaximized] = useState(false);
   const [showDevicesMenu, setShowDevicesMenu] = useState(false);
   const eqMenuRef = useRef(null);
@@ -61,8 +58,6 @@ export default function Footer({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  useEffect(() => { setShowChat(false); }, [currentStation?._id]);
 
   const lastTrackedAdId = useRef(null);
   useEffect(() => {
@@ -226,12 +221,6 @@ export default function Footer({
                   </div>
                 )}
                 <button onClick={() => toggleFavorite(currentStation._id)} className={`p-2 transition-all hover:scale-125 active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-zinc-500 hover:text-white'}`}><Heart size={20} fill={isCurrentlyFavorite ? "currentColor" : "none"} strokeWidth={isCurrentlyFavorite ? 2.5 : 2} /></button>
-                {currentUser && isCurrentlyFavorite && !isPlayingAd && (
-                  <button onClick={() => { setShowChat(!showChat); if (!showChat) setUnreadListenerChat(false); }} className={`relative p-2 transition-all duration-300 hover:scale-110 rounded-full ${showChat ? 'bg-blue-500/20 text-blue-400' : 'text-zinc-500 hover:text-white'}`}>
-                    <MessageSquare size={18} />
-                    {!showChat && unreadListenerChat && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#ccff00] rounded-full border-2 border-black animate-pulse"></span>}
-                  </button>
-                )}
                 {canUseCustomEQ && !isPlayingAd && (
                   <div className="relative" ref={eqMenuRef}>
                     <button onClick={() => setShowEQMenu(!showEQMenu)} className={`p-2 transition-all duration-300 hover:scale-110 rounded-full ${showEQMenu || currentPreset !== 'Station Default' ? 'bg-[#ccff00]/20 text-[#ccff00]' : 'text-zinc-500 hover:text-white'}`}>
@@ -367,9 +356,6 @@ export default function Footer({
         </div>
       </footer>
 
-      {showChat && currentStation && currentUser && (
-        <LiveChat currentStation={currentStation} currentUser={currentUser} onClose={() => setShowChat(false)} />
-      )}
     </>
   );
 }

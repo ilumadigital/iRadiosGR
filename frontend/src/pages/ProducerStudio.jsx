@@ -4,7 +4,7 @@ import confetti from 'canvas-confetti';
 import { 
   Radio, BarChart3, SlidersHorizontal, Activity, 
   Mic2, Play, FastForward, Clock, Zap, ShieldCheck,
-  Edit, Globe, Image as ImageIcon, X, Loader2, TrendingUp, Users, MessageSquare, RefreshCw, SignalHigh,
+  Edit, Globe, Image as ImageIcon, X, Loader2, TrendingUp, Users, RefreshCw, SignalHigh,
   MapPin, Volume2 // 🟢 Προστέθηκαν για το Radar
 } from 'lucide-react';
 
@@ -100,7 +100,6 @@ const GENRES = [
 // 🟢 ΠΡΟΣΤΕΘΗΚΑΝ: currentStation, isPlaying, analyser
 export default function ProducerStudio({ 
   currentUser, API_URL, 
-  unreadBroadcasterChat,
   currentStation, isPlaying, analyser 
 }) {
   const navigate = useNavigate();
@@ -132,8 +131,7 @@ export default function ProducerStudio({
     avgListenTime: "0m 0s",
     topOrigins: [],
     liveLocations: [],
-    adStats: { totalImpressions: 0, topAd: "-", clicks: 0 },
-    chatStats: { totalMessages: 0, activeChatters: 0 }
+    adStats: { totalImpressions: 0, topAd: "-", clicks: 0 }
   });
 
   const initialFormState = {
@@ -523,7 +521,7 @@ export default function ProducerStudio({
           <div className={`w-full transition-all duration-500 p-8 md:p-12 ${!hasAnalytics ? 'opacity-10 blur-xl pointer-events-none select-none' : 'opacity-100'}`}>
               
               {/* MAIN ANALYTICS ROW */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 
                 <div className="bg-black border border-white/5 p-8 rounded-[32px] relative overflow-hidden group">
                   <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
@@ -562,33 +560,6 @@ export default function ProducerStudio({
                   </div>
                 </div>
 
-                <div 
-                  onClick={() => navigate('/my-chat')}
-                  className={`bg-gradient-to-br from-black to-zinc-900 p-8 rounded-[32px] relative overflow-hidden cursor-pointer transition-all duration-300 ${
-                    unreadBroadcasterChat 
-                      ? 'border-2 border-[#ccff00] shadow-[0_0_30px_rgba(204,255,0,0.2)] animate-pulse scale-[1.02]' 
-                      : 'border border-white/5 hover:border-white/10'
-                  }`}
-                >
-                  <div className={`absolute top-0 left-0 w-full h-1 ${unreadBroadcasterChat ? 'bg-[#ccff00]' : 'bg-blue-400'}`}></div>
-                  <div className="flex items-center justify-between mb-6">
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${unreadBroadcasterChat ? 'text-[#ccff00]' : 'text-zinc-500'}`}>
-                      {unreadBroadcasterChat ? 'NEW MESSAGE!' : 'Live Chat Status'}
-                    </span>
-                    <MessageSquare size={20} className={`${unreadBroadcasterChat ? 'text-black fill-[#ccff00]' : 'text-blue-400'}`} />
-                  </div>
-                  <h4 className="text-4xl font-black text-white tracking-tighter mb-2">
-                    {analytics.chatStats?.totalMessages || 0} <span className="text-sm text-zinc-500 font-bold">Msgs</span>
-                  </h4>
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase flex items-center gap-1">
-                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
-                     {analytics.chatStats?.activeChatters || 0} Active Chatters
-                  </p>
-                  
-                  <div className="absolute -bottom-4 -right-4 opacity-5">
-                    <MessageSquare size={100} />
-                  </div>
-                </div>
 
               </div>
 

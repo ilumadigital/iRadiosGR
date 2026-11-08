@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { 
   Radio, Mic2, BarChart3, Globe, Building2, User, CheckCircle2, Loader2, X, ShieldCheck, 
-  Clock, KeyRound, MoveRight, MessageSquare, SlidersHorizontal, Target, Crown, Zap, Check, Eye, EyeOff, Activity, Volume2, Code2 
+  Clock, KeyRound, MoveRight, SlidersHorizontal, Target, Crown, Zap, Check, Eye, EyeOff, Activity, Volume2, Code2 
 } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 
@@ -471,11 +471,6 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
               <div className="flex items-center gap-3 text-xs font-bold text-zinc-200">
                 <Clock size={16} className="text-[#ccff00]" />
                 <span>LIVE Πρόγραμμα Παραγωγών & Εκπομπών</span>
-              </div>
-
-              <div className="flex items-center gap-4 text-sm font-bold text-white bg-blue-500/10 p-4 rounded-[24px] -mx-2 border border-blue-500/10 shadow-lg">
-                <MessageSquare size={18} className="text-blue-400" />
-                <span>Live Chat με τους Ακροατές</span>
               </div>
 
               {/* 🟢 NEW: BASIC WIDGETS */}

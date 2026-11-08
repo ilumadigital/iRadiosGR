@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Play, Pause, Heart, SkipBack, Car, SkipForward, MessageSquare, 
+  Play, Pause, Heart, SkipBack, Car, SkipForward, 
   ScanSearch, Loader2, ChevronUp, ChevronDown, Radio, SignalHigh, 
   AlertTriangle, CalendarDays, MonitorSpeaker, Headphones, PowerOff, 
   SlidersHorizontal, Waves, Laptop, Smartphone, X 
 } from 'lucide-react';
-import LiveChat from './LiveChat'; 
 import ShareStory from './ShareStory';
 import FoundWithAI from './FoundWithAI';
 import MusicServiceLinks from './MusicServiceLinks';
@@ -33,7 +32,6 @@ export default function MobileMiniPlayer({
   currentUser,
   handleNextStation,
   handlePrevStation,
-  unreadListenerChat, setUnreadListenerChat,
   isRecognizing, handleRecognizeTrack,
   onOpenCarMode,
   userOverrides, onUserDSPChange,
@@ -50,7 +48,6 @@ export default function MobileMiniPlayer({
   const navigate = useNavigate();
   const location = useLocation(); 
   
-  const [showChat, setShowChat] = useState(false); 
   const [isMaximized, setIsMaximized] = useState(false);
   const fullscreenRef = useRef(null);
   
@@ -80,7 +77,6 @@ export default function MobileMiniPlayer({
     return () => window.removeEventListener('minify_player', handleMinify);
   }, []);
 
-  useEffect(() => { setShowChat(false); }, [currentStation?._id]);
   useEffect(()=>{
     if(!isMaximized)return;
     const previousOverflow=document.body.style.overflow;
@@ -89,8 +85,7 @@ export default function MobileMiniPlayer({
     fullscreenRef.current?.querySelector('[aria-label="Ελαχιστοποίηση player"]')?.focus();
     const onEscape=e=>{
       if(e.key==='Escape'){
-        if(showChat)setShowChat(false);
-        else if(showEQMenu)setShowEQMenu(false);
+        if(showEQMenu)setShowEQMenu(false);
         else if(showDevicesMenu)setShowDevicesMenu(false);
         else setIsMaximized(false);
       }
@@ -101,7 +96,7 @@ export default function MobileMiniPlayer({
       document.removeEventListener('keydown',onEscape);
       if(previousFocus?.isConnected)previousFocus.focus();
     };
-  },[isMaximized,showChat,showEQMenu,showDevicesMenu]);
+  },[isMaximized,showEQMenu,showDevicesMenu]);
 
   useEffect(() => {
     if (isPlayingAd && currentAdInfo?._id && lastTrackedAdId.current !== currentAdInfo._id) {
@@ -179,7 +174,7 @@ export default function MobileMiniPlayer({
   };
 
   const handleTouchMoveMaximized = (e) => {
-    if (!touchStartY || !touchStartX || showChat || showEQMenu || showDevicesMenu) return; 
+    if (!touchStartY || !touchStartX || showEQMenu || showDevicesMenu) return; 
 
     const currentY = e.touches[0].clientY;
     const currentX = e.touches[0].clientX;
@@ -503,22 +498,10 @@ export default function MobileMiniPlayer({
               </div>
             )}
 
-            {currentUser && isCurrentlyFavorite && !isPlayingAd && (
-              <button onClick={() => { setShowChat(!showChat); if (!showChat) setUnreadListenerChat(false); }} className={`relative p-3 rounded-full transition-all active:scale-90 ${showChat ? 'text-blue-400' : 'text-white'}`}>
-                <MessageSquare size={24} />
-                {!showChat && unreadListenerChat && <span className="absolute top-2 right-2 w-3 h-3 bg-[#ccff00] rounded-full shadow-[0_0_10px_#ccff00] animate-pulse"></span>}
-              </button>
-            )}
-
             {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={nowPlaying} isMaximized={true} />}
           </div>
         </div>
 
-        {showChat && currentStation && currentUser && (
-          <div className="absolute inset-0 z-50 bg-black/90 animate-in fade-in slide-in-from-bottom-10">
-            <LiveChat currentStation={currentStation} currentUser={currentUser} onClose={() => setShowChat(false)} />
-          </div>
-        )}
       </div>
 
       {/* --- 2. MINIFIED PLAYER (ΚΑΤΩ ΜΠΑΡΑ) --- */}

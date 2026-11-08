@@ -2,7 +2,6 @@ const Station = require('../models/Station');
 const User = require('../models/User');
 const StationAnalytics = require('../models/StationAnalytics');
 const Ad = require('../models/Ad');
-const ChatMessage = require('../models/ChatMessage');
 
 exports.getBroadcasterAnalytics = async (req, res) => {
   try {
@@ -80,7 +79,7 @@ exports.getBroadcasterAnalytics = async (req, res) => {
       }))
       .sort((a, b) => b.percentage - a.percentage);
     
-    // Ad Stats & Chat Stats
+    // Advertising statistics
     const ads = await Ad.find({ broadcasterId: req.params.userId });
     let totalImpressions = 0;
     let topAdName = "N/A";
@@ -92,16 +91,13 @@ exports.getBroadcasterAnalytics = async (req, res) => {
         topAdName = ad.title;
       }
     });
-    const chatCount = await ChatMessage.countDocuments({ stationId: { $in: stationIds } });
-    const uniqueChatters = await ChatMessage.distinct('userId', { stationId: { $in: stationIds } });
 
     res.json({
       liveListeners,
       avgListenTime,
       topOrigins,     // 🟣 Πάνε στο Top Origins (Όλα τα ιστορικά)
       liveLocations,  // 🟢 Πάνε στο Live box
-      adStats: { totalImpressions, topAd: totalImpressions > 0 ? topAdName : "No Data" },
-      chatStats: { totalMessages: chatCount, activeChatters: uniqueChatters.length }
+      adStats: { totalImpressions, topAd: totalImpressions > 0 ? topAdName : "No Data" }
     });
 
   } catch (err) { res.status(500).json({ error: err.message }); }

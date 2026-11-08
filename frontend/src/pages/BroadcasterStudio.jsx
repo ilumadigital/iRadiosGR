@@ -4,13 +4,12 @@ import confetti from 'canvas-confetti';
 import { 
   Radio, BarChart3, SlidersHorizontal, Activity, 
   Mic2, ArrowRight, Play, Clock, Zap, ShieldCheck,
-  PlusCircle, Edit, Globe, X, Loader2, TrendingUp, Users, Megaphone, MessageSquare, RefreshCw,
+  PlusCircle, Edit, Globe, X, Loader2, TrendingUp, Users, Megaphone, RefreshCw,
   UserPlus, Trash2, Mail, User, MapPin, Volume2, Code2, Copy, CheckCircle2
 } from 'lucide-react';
 
 export default function BroadcasterStudio({ 
   currentUser, API_URL, 
-  unreadBroadcasterChat,
   currentStation, isPlaying, analyser 
 }) {
   const navigate = useNavigate();
@@ -88,8 +87,7 @@ const getDSPBackgroundCurve = (preset) => {
     avgListenTime: "0m 0s",
     topOrigins: [],
     liveLocations: [],
-    adStats: { totalImpressions: 0, topAd: "-", clicks: 0 },
-    chatStats: { totalMessages: 0, activeChatters: 0 }
+    adStats: { totalImpressions: 0, topAd: "-", clicks: 0 }
   });
 
   // ΣΥΝΟΛΙΚΑ PLAYS ΥΠΟΛΟΓΙΣΜΟΣ
@@ -715,7 +713,7 @@ const getDSPBackgroundCurve = (preset) => {
               <div className="col-span-full p-12 border border-white/5 rounded-[32px] bg-zinc-900/20 text-center">
                 <Users size={40} className="mx-auto text-zinc-700 mb-4" />
                 <p className="text-zinc-400 font-medium text-sm mb-2">Δεν έχετε προσθέσει παραγωγούς ακόμα.</p>
-                <p className="text-zinc-600 text-[10px] font-bold uppercase">Προσκαλέστε συνεργάτες για να διαχειρίζονται το πρόγραμμα και το Chat.</p>
+                <p className="text-zinc-600 text-[10px] font-bold uppercase">Προσκαλέστε συνεργάτες για να διαχειρίζονται το πρόγραμμα του σταθμού.</p>
               </div>
             ) : (
               producers.map(p => (
@@ -772,7 +770,7 @@ const getDSPBackgroundCurve = (preset) => {
           <div className={`w-full transition-all duration-500 p-8 md:p-12 ${!hasAnalytics ? 'opacity-10 blur-xl pointer-events-none select-none' : 'opacity-100'}`}>
               
               {/* PRIMARY ANALYTICS ROW */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 
                 <div className="bg-black border border-white/5 p-8 rounded-[32px] relative overflow-hidden group">
                   <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
@@ -811,33 +809,6 @@ const getDSPBackgroundCurve = (preset) => {
                   </div>
                 </div>
 
-                <div 
-                  onClick={() => navigate('/my-chat')}
-                  className={`bg-gradient-to-br from-black to-zinc-900 p-8 rounded-[32px] relative overflow-hidden cursor-pointer transition-all duration-300 ${
-                    unreadBroadcasterChat 
-                      ? 'border-2 border-[#ccff00] shadow-[0_0_30px_rgba(204,255,0,0.2)] animate-pulse scale-[1.02]' 
-                      : 'border border-white/5 hover:border-white/10'
-                  }`}
-                >
-                  <div className={`absolute top-0 left-0 w-full h-1 ${unreadBroadcasterChat ? 'bg-[#ccff00]' : 'bg-blue-400'}`}></div>
-                  <div className="flex items-center justify-between mb-6">
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${unreadBroadcasterChat ? 'text-[#ccff00]' : 'text-zinc-500'}`}>
-                      {unreadBroadcasterChat ? 'NEW MESSAGE!' : 'Live Chat Status'}
-                    </span>
-                    <MessageSquare size={20} className={`${unreadBroadcasterChat ? 'text-black fill-[#ccff00]' : 'text-blue-400'}`} />
-                  </div>
-                  <h4 className="text-4xl font-black text-white tracking-tighter mb-2">
-                    {analytics.chatStats?.totalMessages || 0} <span className="text-sm text-zinc-500 font-bold">Msgs</span>
-                  </h4>
-                  <p className="text-[10px] text-zinc-400 font-bold uppercase flex items-center gap-1">
-                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
-                     {analytics.chatStats?.activeChatters || 0} Active Chatters
-                  </p>
-                  
-                  <div className="absolute -bottom-4 -right-4 opacity-5">
-                    <MessageSquare size={100} />
-                  </div>
-                </div>
 
               </div>
 

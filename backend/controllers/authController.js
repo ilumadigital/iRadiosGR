@@ -115,7 +115,7 @@ exports.registerBroadcaster = async (req, res) => {
       username, email, password: hashedPassword, 
       fname, lname, phone: phone || "", 
       role: 'broadcaster', businessType, vatNumber, companyName,
-      broadcasterProfile: { tier: 'free', maxStations: 3, features: { adControl: false, dspEngine: false, betaAccess: false, liveChat: true, analytics: false } }, 
+      broadcasterProfile: { tier: 'free', maxStations: 3, features: { adControl: false, dspEngine: false, betaAccess: false, analytics: false } }, 
       isVerified: false, verificationOtp: otp, otpExpires
     });
 

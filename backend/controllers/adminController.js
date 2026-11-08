@@ -1,6 +1,5 @@
 const User = require('../models/User');
 const Station = require('../models/Station');
-const ChatMessage = require('../models/ChatMessage');
 const BannerAd = require('../models/BannerAd'); 
 const Ad = require('../models/Ad');
 const Transaction = require('../models/Transaction'); 
@@ -14,20 +13,6 @@ const path = require('path');
 // 🟢 Κάνουμε import τον Mailer
 const { sendEmail } = require('../utils/myMailer'); 
 const { customAdminEmail, broadcasterPremiumSuccessEmail, listenerPremiumSuccessEmail } = require('../utils/mailTemp');
-
-exports.cleanChat = async (req, res) => {
-  try {
-    const timeLimit = new Date(Date.now() - 3600 * 1000); 
-    const result = await ChatMessage.deleteMany({ createdAt: { $lt: timeLimit } });
-    await ChatMessage.syncIndexes();
-
-    res.json({ 
-      message: "Επιτυχία!", 
-      deletedMessages: result.deletedCount,
-      info: "Ο 'σκουπιδιάρης' της MongoDB ενεργοποιήθηκε."
-    });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-};
 
 exports.updateUserPassword = async (req, res) => {
   try {
