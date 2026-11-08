@@ -820,7 +820,7 @@ class AdminToolErrorBoundary extends React.Component {
       <CircleAlert className="mx-auto mb-3 text-rose-300" size={28}/>
       <h3 className="text-lg font-black text-white">Δεν φορτώθηκε το εργαλείο.</h3>
       <p className="mt-2 text-sm text-zinc-400">Δοκίμασε ανανέωση ή επίλεξε άλλο εργαλείο.
-        Δεν έγιναν αλλαγές στα δεδομένα.</p>
+        Πριν επαναλάβεις κάποια ενέργεια, έλεγξε αν αποθηκεύτηκε.</p>
       <div className="mt-5 flex flex-wrap justify-center gap-3">
         <button type="button" className={buttonPrimary} onClick={()=>window.location.reload()}>
           <RefreshCw size={15}/> Επανάληψη</button>
