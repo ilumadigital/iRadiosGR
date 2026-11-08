@@ -744,7 +744,7 @@ export default function StationProfile({
 
         <StationScheduleTimeline station={station} shows={canonicalSchedule}
           selectedDay={selectedDay} onSelectDay={setSelectedDay}
-          currentShow={currentShow} today={athensClock}/>
+          currentShow={currentShow} today={athensClock} currentUser={currentUser}/>
 
         {/* 🟢 AD BANNER */}
         {isFreeOrGuest && homeBanners.length > 0 && (
