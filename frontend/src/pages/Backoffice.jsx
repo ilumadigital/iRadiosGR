@@ -140,8 +140,9 @@ function Dashboard({data}){
   const pending=(Number(counts.pendingApproval)||0)+(Number(counts.pendingEdits)||0);
   const today=new Date(),day=today.getDay()||7;
   const currentTime=String(today.getHours()).padStart(2,'0')+':'+String(today.getMinutes()).padStart(2,'0');
-  const nextShows=stations.flatMap(station=>(station.schedule||[])
-    .filter(show=>Number(show.day)===day&&show.endTime>currentTime)
+  const nextShows=stations.flatMap(station=>toCanonical(station.schedule||[],
+    scheduleDayBase(station.schedule,station.scheduleDayBase))
+    .filter(show=>Number(show.day)===day&&minutes(show.endTime,true)>minutes(currentTime))
     .map(show=>({...show,stationName:station.name,stationId:station._id})))
     .sort((a,b)=>a.startTime.localeCompare(b.startTime)).slice(0,3);
   const cards=[
@@ -231,7 +232,7 @@ function Dashboard({data}){
         </div>
         {nextShows.length?nextShows.map((show,index)=><div key={show.stationId+'-'+index}
           className="border-t border-white/10 py-4 first:border-t-0">
-          <p className="text-xs font-black text-[#caff00]">{show.startTime} – {show.endTime}</p>
+          <p className="text-xs font-black text-[#caff00]">{show.startTime} – {show.endTime==='24:00'?'00:00':show.endTime}</p>
           <p className="mt-1 text-sm font-bold text-white">{show.title}</p>
           <p className="mt-1 text-[11px] text-zinc-500">{show.stationName}{show.host?' · '+show.host:''}</p>
         </div>):<p className="py-5 text-xs leading-6 text-zinc-400">
