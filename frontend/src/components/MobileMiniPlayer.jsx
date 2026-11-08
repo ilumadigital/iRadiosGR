@@ -294,7 +294,7 @@ export default function MobileMiniPlayer({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMoveMaximized}
         onTouchEnd={handleTouchEndMaximized}
-        className={`ir-full-player fixed inset-0 z-[100] flex h-[100vh] h-[100dvh] min-h-0 flex-col overflow-hidden overscroll-contain transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:hidden ${
+        className={`ir-full-player ${visibleSong ? 'ir-full-player--music-links' : ''} fixed inset-0 z-[100] flex h-[100vh] h-[100dvh] min-h-0 flex-col overflow-hidden overscroll-contain transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:hidden ${
           isMaximized ? 'translate-y-0' : 'translate-y-full'
         }`}
       >
