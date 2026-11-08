@@ -308,8 +308,13 @@
   .ir-header__clock-time { font-size: 12px; }
   .ir-header__clock svg { display: none; }
 }
+@media (min-width: 380px) {
+  .ir-header__weather { display: flex; gap: 4px; padding-inline: 6px; }
+  .ir-header__weather-city { display: none; }
+}
 @media (min-width: 620px) {
-  .ir-header__weather { display: flex; }
+  .ir-header__weather { gap: 8px; padding-inline: 10px; }
+  .ir-header__weather-city { display: block; }
 }
 @media (min-width: 1024px) {
   .ir-header__left { flex: 1 1 0; }
