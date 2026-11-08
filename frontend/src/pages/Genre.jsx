@@ -99,9 +99,9 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
     }
 
     return result.sort((a,b)=>sortBy==='popularity'
-      ? compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock)
-      : compareCatalogStations(a,b,catalogNowPlaying,catalogClock,sortBy));
-  }, [baseStations, selectedRegion, selectedTransmission, sortBy, catalogNowPlaying, catalogClock]);
+      ? compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock,'genre',genreName)
+      : compareCatalogStations(a,b,catalogNowPlaying,catalogClock,sortBy,'genre',genreName));
+  }, [baseStations, selectedRegion, selectedTransmission, sortBy, catalogNowPlaying, catalogClock, genreName]);
 
   const displayStations=useMemo(()=>viewMode==='grid' && promotedStationId
     ? filteredAndSorted.filter(s=>String(s._id)!==String(promotedStationId))
