@@ -612,17 +612,17 @@ export default function Backoffice(){
           <button aria-label="Κλείσιμο ειδοποίησης" onClick={()=>setNotice(null)}><X size={16}/></button>
         </div>}
         <Routes>
-          <Route index element={<Dashboard data={data}/>}/>
-          <Route path="stations" element={<Stations data={data}/>}/>
-          <Route path="stations/new" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
-          <Route path="stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
-          <Route path="schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
-          <Route path="insights" element={<BroadcasterInsights data={data}/>}/>
-          <Route path="team" element={<Team data={data} notify={notify}/>}/>
-          <Route path="review" element={<Review data={data} reload={reload} notify={notify}/>}/>
+          <Route path="/backoffice" element={<Dashboard data={data}/>}/>
+          <Route path="/backoffice/stations" element={<Stations data={data}/>}/>
+          <Route path="/backoffice/stations/new" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
+          <Route path="/backoffice/stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
+          <Route path="/backoffice/schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
+          <Route path="/backoffice/insights" element={<BroadcasterInsights data={data}/>}/>
+          <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
+          <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify}/>}/>
           {['analytics','users','ads','banners','slides','emails','billing','radioset','boost','adcontrol','push'].map(section=>
-            <Route key={section} path={'admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
-          <Route path="*" element={<Navigate to="/backoffice" replace/>}/>
+            <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
+          <Route path="/backoffice/*" element={<Navigate to="/backoffice" replace/>}/>
         </Routes>
       </main>
       <footer className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 border-t border-white/10 px-6 py-6 text-[10px] text-zinc-600 md:px-9">
