@@ -194,5 +194,5 @@ function plainTextContent(text) {
 
 module.exports = {
   ACCENT, BRAND_MARKER, escapeHtml, actionButton, infoPanel, renderBrandedEmail,
-  ensureBrandedEmail, plainTextContent, verifiedHref, brandLogoUrl
+  ensureBrandedEmail, plainTextContent, verifiedHref, brandLogoUrl, siteOrigin
 };
