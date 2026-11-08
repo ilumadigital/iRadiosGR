@@ -143,6 +143,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api', producerRoutes);
 app.use('/api', require('./routes/backofficeRoutes'));
 app.use('/api', require('./routes/broadcasterInvitationRoutes'));
+app.use('/api', require('./routes/emailPreviewRoutes'));
 app.use('/api', authRoutes);
 app.use('/api', stationRoutes);
 app.use('/api', adRoutes);
