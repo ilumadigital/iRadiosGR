@@ -615,6 +615,18 @@ function MainApp() {
     filteredSearch, zappingPlaylist, handleUpdateStationDSP, fetchGlobalStations 
   } = useStations(API_URL, currentUser, currentStation, setCurrentStation);
 
+  // A station may be marked offline while a listener is already tuned in.
+  // Stop the player on the next catalog refresh; do not start new ads or streams.
+  useEffect(() => {
+    if(!currentStation?._id || !stations.length)return;
+    const updated=stations.find(s=>String(s._id)===String(currentStation._id));
+    if(updated?.isOffline !== true || currentStation.isOffline === true)return;
+    audioRef.current?.pause();
+    intendedPlayState.current=false;
+    setIsPlaying(false);
+    setCurrentStation(updated);
+  }, [stations,currentStation?._id,currentStation?.isOffline]);
+
   // Radio show artwork follows the latest station schedule, not an outdated
   // station object persisted before the last daily XML sync.
   const metadataStation=useMemo(()=>stations.find(item=>
@@ -997,7 +1009,7 @@ function MainApp() {
 
     // 🚀 FIX: Βεβαιωνόμαστε ότι έχουμε το ΟΛΟΚΛΗΡΟ αντικείμενο του σταθμού πριν το παίξουμε!
     const station = stationsRef.current.find(s => s._id === rawStation._id) || rawStation;
-    if (!station.stream) return;
+    if (!station.stream || station.isOffline === true) return;
 
     const ua = navigator.userAgent;
     const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -1058,6 +1070,7 @@ function MainApp() {
   };
 
   const handleStationSelectWithAds = (station) => {
+    if(!station || station.isOffline === true || stationsRef.current.find(s=>String(s._id)===String(station._id))?.isOffline === true)return;
     if (isPlayingAd || !audioRef.current) return;
     if (currentStation && currentStation._id === station._id && isPlaying) return;
     
@@ -1257,6 +1270,7 @@ function MainApp() {
 
   const togglePlayPause = () => {
     if (isPlayingAd || !currentStation || !audioRef.current) return;
+    if(!isPlaying && (currentStation.isOffline === true || stationsRef.current.find(s=>String(s._id)===String(currentStation._id))?.isOffline === true))return;
     
     if (isPlaying) {
       intendedPlayState.current = false; 
