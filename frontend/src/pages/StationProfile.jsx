@@ -397,25 +397,25 @@ export default function StationProfile({
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/80 to-black"></div>
       </div>
 
-      <div className="ir-station-responsive-shell relative z-10 flex-1 px-4 sm:px-6 lg:px-7 py-6 lg:py-9 max-w-[1600px] mx-auto w-full">
+      <div className="ir-station-responsive-shell relative z-10 flex-1 mx-auto w-full">
         
         {/* BACK BUTTON */}
         <button 
           onClick={() => navigate(-1)} 
-          className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-8 lg:mb-12 group w-fit"
+          className="ir-station-profile-nav group"
         >
           <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
             <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" /> 
           </div>
-          <span className="text-[10px] font-black tracking-[0.2em] uppercase">Πίσω</span>
+          <span className="ir-station-back-label">Πίσω στους σταθμούς</span>
         </button>
 
         <div className="ir-station-top-grid">
-        <div className="ir-station-hero ir-station-profile-hero flex flex-col gap-7 items-center text-center mb-0 px-5 py-7 sm:p-8">
+        <section className="ir-station-hero ir-station-profile-hero" aria-label={`Ζωντανή ακρόαση ${station.name}`}>
           
           {/* 🟢 DYNAMIC LOGO / COVER ART AREA */}
-          <div className="flex flex-col items-center lg:items-start gap-4 shrink-0">
-            <div className="ir-station-hero-art w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72 overflow-hidden group relative z-10 transition-all duration-500">
+          <div className="ir-station-hero-visual">
+            <div className="ir-station-hero-art group relative z-10">
               
               <img 
                 src={baseImage}
@@ -464,16 +464,16 @@ export default function StationProfile({
 
               {showArtwork && (
                 <>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
+                  <div className="ir-station-art-scrim"></div>
                   
                   {/* Miniature Station Logo */}
-                  <div className="absolute bottom-4 left-4 z-20">
-                    <div className="bg-white p-1 rounded-[12px] shadow-lg w-20 h-20 flex items-center justify-center border border-black/5 overflow-hidden">
+                  <div className="ir-station-art-brand-wrap">
+                    <div className="ir-station-art-brand">
                       <img src={station.logo} alt={station.name} className="w-full h-full object-contain" />
                     </div>
                   </div>
 
-                   <div className="absolute top-4 left-4 z-20 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
+                   <div className="ir-station-art-badge">
                      <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]"></div>
                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">{liveProducerImage?'ON AIR · ΠΑΡΑΓΩΓΟΣ':'ΤΩΡΑ ΠΑΙΖΕΙ'}</span>
                    </div>
@@ -494,7 +494,7 @@ export default function StationProfile({
             {validatedMusic && !isCurrentlyLoadingMeta && !liveProducerImage && (
               <button 
                 onClick={onSpotifyClick}
-                className="w-full flex items-center justify-center gap-2 bg-[#1DB954]/10 hover:bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/20 px-6 py-3.5 rounded-2xl transition-all font-bold text-xs tracking-wider shrink-0"
+                className="ir-station-spotify flex items-center justify-center gap-2"
               >
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                   <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.84.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.84.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.6.18-1.2.72-1.38 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.56.3z"/>
@@ -505,15 +505,18 @@ export default function StationProfile({
           </div>
 
           {/* STATION INFO */}
-          <div className="flex flex-col flex-1 max-w-3xl w-full relative z-10">
+          <div className="ir-station-hero-copy">
             
-            <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-3 justify-center lg:justify-start">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white drop-shadow-2xl">
+            <div className="ir-station-identity">
+              <div className={`ir-station-live-kicker ${station.isOffline===true?'is-offline':''}`}>
+                <Radio size={16}/> {station.isOffline===true?'ΕΚΤΟΣ ΣΥΝΔΕΣΗΣ':'ΖΩΝΤΑΝΑ ΣΤΟΝ ΑΕΡΑ'}
+              </div>
+              <h1 className="ir-station-name">
                 {station.name}{station.boostStatus && new Date(station.boostExpiresAt) > new Date() && (<Zap size={14} className="inline ml-2 text-black bg-[#ccff00] rounded-full p-0.5 mb-0.5" />)}
               </h1>
               
               {/* TRANSMISSION BADGE */}
-              <div className="flex items-center justify-center lg:justify-start gap-2 flex-wrap">
+              <div className="ir-station-tags">
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border ${
                   station.transmissionType === 'Επίγειο' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
                   station.transmissionType === 'DAB' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 
@@ -529,10 +532,11 @@ export default function StationProfile({
                   </span>
                 )}
               </div>
+              {station.slogan&&<p className="ir-station-tagline">{station.slogan}</p>}
             </div>
-            
+
             {/* Real authenticated station metadata (no fabricated song history). */}
-            <div className="ir-station-now mb-5 min-h-[60px] w-full min-w-0">
+            <div className="ir-station-now w-full min-w-0">
               <RdsCrossfade showSecondary={Boolean(liveProducerImage)}
                 secondary={currentUser&&broadcast.imageUrl?(
                   <div className="flex min-w-0 flex-col items-start text-left">
@@ -558,12 +562,8 @@ export default function StationProfile({
                     </span>
                      {foundWithAI&&<FoundWithAI compact/>}
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug drop-shadow-md break-words">
-                    {/* Box clone styling to hug the text */}
-                    <span className="backdrop-blur-sm px-3 py-1 box-decoration-clone rounded-lg">
-                      {effectiveNowPlaying}
-                    </span>
-                  </h2>
+                  <h2 className="ir-station-track-title">{validatedMusic?.title||effectiveNowPlaying}</h2>
+                  {validatedMusic?.artist&&<p className="ir-station-track-artist">{validatedMusic.artist}</p>}
                 </div>
               ) : !currentUser ? (
                 <button type="button" onClick={()=>navigate('/login')} className="min-h-11 text-left text-sm font-bold text-[#ccff00] hover:underline">
@@ -599,8 +599,8 @@ export default function StationProfile({
             </div>
 
             {/* CONTROLS ROW */}
-            <div className="ir-station-actions flex flex-wrap items-center justify-start gap-5 mb-6">
-              <div className="ir-station-action-buttons flex items-center gap-3 sm:gap-4">
+            <div className="ir-station-actions">
+              <div className="ir-station-action-buttons">
                 
                 {/* VU METER & PLAY BUTTON */}
                 <div className="relative w-16 h-16 lg:w-20 lg:h-20 shrink-0 flex items-center justify-center">
@@ -686,7 +686,7 @@ export default function StationProfile({
                 )}
               </div>
 
-              <div className="ir-station-stats flex min-w-0 flex-wrap items-center gap-4 sm:gap-6 text-left">
+              <div className="ir-station-stats">
                 <div className="h-10 w-px bg-white/10 hidden sm:block"></div>
                 <div>
                   <span className="text-[10px] text-zinc-500 font-black mb-1 block uppercase tracking-widest">Τοποθεσια</span>
@@ -703,6 +703,20 @@ export default function StationProfile({
               </div>
             </div>
 
+
+          </div>
+        </section>
+        </div>
+
+        <div className="ir-station-lower-grid">
+        <aside className="ir-station-playlist-aside" aria-label="Playlist σταθμού">
+          <StationPlaylistPanel station={station} currentUser={currentUser}
+            currentStation={currentStation} isPlaying={isPlaying}
+            onPlayPause={onPlayPause} onPlayStation={setCurrentStation} sidebar/>
+        </aside>
+        <section className="ir-station-about" aria-label="Πληροφορίες σταθμού">
+          <div className="ir-station-about-eyebrow">ΓΝΩΡΙΣΕ ΤΟΝ ΣΤΑΘΜΟ</div>
+          <h2>Λίγα λόγια για τον {station.name}</h2>
             {/* DESCRIPTION */}
             <p className="ir-station-description break-words text-zinc-400 text-sm leading-relaxed mb-6 font-medium max-w-2xl text-left">
               {station.description || 'Δεν υπάρχει διαθέσιμη περιγραφή για αυτόν τον σταθμό. Πατήστε το Play για να συντονιστείτε ζωντανά.'}
@@ -727,14 +741,7 @@ export default function StationProfile({
               </div>
             )}
 
-          </div>
-        </div>
-
-        <aside className="ir-station-playlist-aside" aria-label="Playlist σταθμού">
-          <StationPlaylistPanel station={station} currentUser={currentUser}
-            currentStation={currentStation} isPlaying={isPlaying}
-            onPlayPause={onPlayPause} onPlayStation={setCurrentStation} sidebar/>
-        </aside>
+        </section>
         </div>
 
         <StationScheduleTimeline station={station} shows={canonicalSchedule}

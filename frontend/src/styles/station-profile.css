@@ -1,16 +1,113 @@
-/* iRadios v6.1 · premium station profile, responsive 75/25 desktop layout */
-.ir-station-page{background:radial-gradient(ellipse at 42% 0%,rgba(182,250,0,.075),transparent 54%),#080c0e}
-.ir-station-top-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:22px;align-items:start}
-.ir-station-top-grid>*{min-width:0}
-.ir-station-profile-hero{position:relative;overflow:visible;margin-bottom:0!important;background:radial-gradient(ellipse at 50% 0%,rgba(197,255,0,.085),transparent 70%),linear-gradient(142deg,#151c20,#090e11 95%)!important;border:1px solid rgba(206,233,246,.11)!important;box-shadow:0 34px 90px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.05);border-radius:28px!important}
-.ir-station-profile-hero::before{content:'';position:absolute;pointer-events:none;inset:0 0 auto;height:2px;background:linear-gradient(90deg,transparent,rgba(204,255,0,.65),transparent);opacity:.5;border-radius:100%}
-.ir-station-profile-hero .ir-station-now{background:radial-gradient(circle at 85% 20%,rgba(203,255,0,.07),transparent 52%),rgba(190,255,0,.055);border:1px solid rgba(204,255,0,.24);box-shadow:inset 0 1px rgba(255,255,255,.035)}
-.ir-station-playlist-aside{min-width:0}
-.ir-station-playlist-aside .ir-playlist-panel{border-radius:26px!important;background:linear-gradient(155deg,rgba(20,27,30,.97),rgba(9,15,19,.98));border:1px solid rgba(222,241,252,.1);box-shadow:0 25px 75px rgba(0,0,0,.26)}
-.ir-station-playlist-aside .ir-playlist-panel__tracks{scrollbar-width:thin;scrollbar-color:rgba(201,255,0,.25) transparent}
-.ir-station-playlist-aside .ir-playlist-panel--station-sidebar{max-height:710px}
-.ir-station-playlist-aside .ir-playlist-panel--station-sidebar>div:nth-of-type(3){scrollbar-width:thin;scrollbar-color:rgba(201,255,0,.24) transparent}
-.ir-station-hero-art{isolation:isolate}
+/* Station Profile · responsive music-first showcase.  The global App player
+   remains the only audio source; these rules never change playback semantics. */
+.ir-station-page{
+  background:radial-gradient(ellipse 52% 55% at 58% 5%,rgba(198,255,0,.065),transparent 75%),#090d0f;
+  color:#fff;
+  isolation:isolate
+}
+.ir-station-page .ir-station-responsive-shell{
+  container-type:inline-size;
+  container-name:station-layout;
+  width:100%;
+  max-width:1550px;
+  padding:clamp(14px,2.2vw,36px) clamp(16px,3vw,46px) 80px
+}
+.ir-station-profile-nav{
+  display:inline-flex;align-items:center;gap:10px;min-height:44px;margin-bottom:clamp(12px,2vw,28px);
+  color:#a3adb2;font-size:11px;font-weight:850;letter-spacing:.14em;text-transform:uppercase;
+  transition:color .2s ease
+}
+.ir-station-profile-nav:hover{color:#fff}
+.ir-station-profile-nav>div{width:42px;height:42px;border:1px solid rgba(255,255,255,.13);
+  border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.045)}
+.ir-station-top-grid{min-width:0;display:block}
+.ir-station-profile-hero{
+  position:relative;display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);
+  align-items:center!important;gap:clamp(24px,4vw,78px)!important;
+  width:100%;min-width:0;min-height:min(695px,calc(100dvh - 165px));
+  padding:clamp(26px,3vw,48px)!important;
+  border:1px solid rgba(255,255,255,.1)!important;
+  border-radius:32px!important;
+  background:radial-gradient(ellipse at 32% 48%,rgba(190,255,0,.064),transparent 48%),
+    linear-gradient(145deg,rgba(20,25,27,.9),rgba(8,12,15,.94))!important;
+  box-shadow:0 30px 100px rgba(0,0,0,.24);overflow:visible
+}
+.ir-station-profile-hero:before{
+  content:"";position:absolute;inset:0 0 auto;height:1px;opacity:.38;
+  background:linear-gradient(90deg,transparent,#ceff19,transparent);pointer-events:none
+}
+.ir-station-hero-copy{grid-column:1;grid-row:1;position:relative;z-index:2;display:flex;
+  flex-direction:column;justify-content:center;align-items:stretch;gap:clamp(20px,2.4vw,32px);
+  min-width:0;width:100%;text-align:left}
+.ir-station-hero-visual{grid-column:2;grid-row:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:14px;width:100%;min-width:0}
+.ir-station-profile-hero .ir-station-hero-art{
+  position:relative;width:min(100%,520px)!important;height:auto!important;aspect-ratio:1/1;
+  overflow:hidden;border-radius:clamp(22px,2.6vw,34px);
+  border:1px solid rgba(255,255,255,.17);background:#161d20;
+  box-shadow:0 30px 80px rgba(0,0,0,.5),inset 0 1px rgba(255,255,255,.1);
+  isolation:isolate
+}
+.ir-station-profile-hero .ir-station-hero-art>img:first-child{width:100%;height:100%;object-fit:cover}
+.ir-station-profile-hero .ir-station-hero-art .ir-rds-image-overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ir-station-art-scrim{position:absolute;z-index:12;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.42),transparent 45%);pointer-events:none}
+.ir-station-art-brand-wrap{position:absolute;z-index:20;left:4%;bottom:4%;width:21%;aspect-ratio:1}
+.ir-station-art-brand{width:100%;height:100%;display:grid;place-items:center;overflow:hidden;
+  padding:6%;border-radius:24%;border:1px solid rgba(255,255,255,.62);
+  background:rgba(255,255,255,.79);backdrop-filter:blur(18px) saturate(150%);
+  box-shadow:0 9px 28px rgba(0,0,0,.35)}
+.ir-station-art-badge{position:absolute;top:14px;left:14px;z-index:20;
+  display:flex;align-items:center;gap:7px;padding:8px 11px;border-radius:100px;
+  border:1px solid rgba(255,255,255,.2);background:rgba(5,9,11,.65);backdrop-filter:blur(12px);
+  color:white;font-size:9px;font-weight:900;letter-spacing:.12em}
+.ir-station-identity{display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0}
+.ir-station-live-kicker{display:inline-flex;align-items:center;gap:9px;color:#ccff00;
+  font-size:10px;font-weight:900;letter-spacing:.17em}
+.ir-station-live-kicker.is-offline{color:#f87171}
+.ir-station-name{max-width:100%;overflow-wrap:anywhere;font-weight:950;line-height:1.04;
+  letter-spacing:-.05em;font-size:clamp(32px,3.7vw,62px);color:#fff}
+.ir-station-tags{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ir-station-tagline{max-width:55ch;color:#aeb5b8;font-size:clamp(12px,1.1vw,15px);font-weight:600;line-height:1.6}
+.ir-station-profile-hero .ir-station-now{min-width:0;width:100%;padding:0!important;
+  border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.ir-station-profile-hero .ir-station-now .ir-rds-crossfade{min-width:0}
+.ir-station-profile-hero .ir-station-track-title{font-size:clamp(24px,3.3vw,50px);
+  font-weight:950;line-height:1.09;letter-spacing:-.045em;overflow-wrap:anywhere;color:#fff}
+.ir-station-track-artist{margin-top:8px;font-size:clamp(16px,1.6vw,22px);font-weight:650;color:#bbc5c8}
+.ir-station-now-shows{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px}
+.ir-station-now-shows>div{max-width:100%;min-width:0;border-radius:12px!important}
+.ir-station-now-shows span{overflow-wrap:anywhere}
+.ir-station-actions{display:flex;flex-wrap:wrap;align-items:center;gap:20px;min-width:0}
+.ir-station-action-buttons{display:flex;align-items:center;flex-wrap:wrap;gap:clamp(10px,1.2vw,18px)}
+.ir-station-action-buttons>button{border-radius:50%;display:grid;place-items:center}
+.ir-station-stats{display:flex;align-items:center;flex-wrap:wrap;gap:14px;color:#fff;min-width:0}
+.ir-station-stats>div{min-width:0}
+.ir-station-stats span{overflow-wrap:anywhere}
+.ir-station-profile-hero .ir-station-spotify{width:auto;min-height:40px;padding:9px 15px;
+  border:1px solid rgba(30,215,96,.24);border-radius:100px;background:rgba(30,215,96,.09);
+  color:#1ed760;font-size:12px;font-weight:800;transition:background .2s ease}
+.ir-station-profile-hero .ir-station-spotify:hover{background:rgba(30,215,96,.18)}
+.ir-station-lower-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.85fr);
+  gap:clamp(18px,3vw,34px);align-items:start;margin-top:clamp(22px,3vw,44px)}
+.ir-station-playlist-aside,.ir-station-about{min-width:0}
+.ir-station-playlist-aside .ir-playlist-panel,.ir-station-about{border:1px solid rgba(255,255,255,.1);
+  border-radius:26px;background:linear-gradient(145deg,rgba(21,28,30,.92),rgba(10,15,18,.98));
+  box-shadow:0 25px 65px rgba(0,0,0,.15)}
+.ir-station-playlist-aside .ir-playlist-panel{padding:clamp(16px,2.2vw,27px)!important;max-height:none}
+.ir-station-playlist-aside .ir-playlist-panel--station-sidebar>div:nth-of-type(3){
+  max-height:460px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(204,255,0,.28) transparent}
+.ir-station-playlist-aside .ir-station-playlist-track{min-width:0}
+.ir-station-playlist-aside .ir-station-playlist-song{min-width:0}
+.ir-station-about{padding:clamp(20px,2.7vw,35px)}
+.ir-station-about-eyebrow{margin-bottom:10px;font-size:10px;letter-spacing:.18em;
+  font-weight:900;color:#ccff00}
+.ir-station-about>h2{font-size:clamp(22px,2.2vw,31px);font-weight:950;
+  line-height:1.15;letter-spacing:-.045em;margin-bottom:18px}
+.ir-station-about .ir-station-description{max-width:unset;line-height:1.85;margin-bottom:16px}
+.ir-station-about .ir-station-description+div{margin-top:25px}
+.ir-station-about a{max-width:100%}
+.ir-station-about .flex.flex-wrap.items-center{justify-content:flex-start}
+.ir-station-program{margin-top:clamp(24px,3vw,44px)}
 .ir-station-program{border:1px solid rgba(225,239,255,.095);border-radius:28px;padding:clamp(18px,3vw,34px);background:radial-gradient(ellipse at 35% 0,rgba(205,255,0,.05),transparent 50%),linear-gradient(165deg,#101618,#080d10);box-shadow:0 28px 78px rgba(0,0,0,.25)}
 .ir-station-program-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:23px}
 .ir-station-program-header h2{color:#fff;font-size:clamp(22px,2vw,30px);letter-spacing:-.04em;font-weight:900}
@@ -52,152 +149,76 @@
 .ir-program-empty strong{color:#eef2ef}
 .ir-station-page .ir-catalog-card{transition:transform .2s ease}
 .ir-station-page .ir-catalog-card:hover{transform:translateY(-3px)}
-/*
- * The listener sidebar reduces usable width; viewport breakpoints alone do
- * not describe the station column. Container queries keep all content readable
- * on laptops and tablets while retaining the premium 75/25 layout on wide desktops.
- */
-.ir-station-responsive-shell{
-  container-name:station-layout;
-  container-type:inline-size;
-}
-.ir-station-top-grid{grid-template-columns:minmax(0,1fr);gap:22px}
-.ir-station-profile-hero{
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:stretch!important;
-  text-align:left!important;
-  padding:clamp(18px,2.1vw,30px)!important;
-  gap:clamp(19px,2vw,28px)!important;
-  min-width:0;
-}
-.ir-station-profile-hero>div:first-child{
-  width:100%;max-width:260px;min-width:0;
-  align-self:center;align-items:stretch;
-}
-.ir-station-profile-hero>div:last-child{
-  min-width:0;width:100%;max-width:none!important;
-  align-items:stretch!important;flex:1 1 auto;
-}
-.ir-station-profile-hero .ir-station-hero-art{
-  width:min(58vw,224px)!important;height:auto!important;aspect-ratio:1;
-  max-width:100%;margin-inline:auto;
-}
-.ir-station-profile-hero .ir-station-hero-art img{max-width:100%}
-.ir-station-profile-hero h1{overflow-wrap:anywhere;line-height:1.15;font-size:clamp(26px,2.65vw,42px)}
-.ir-station-profile-hero .ir-station-now h2{overflow-wrap:anywhere}
-.ir-station-profile-hero .ir-station-action-buttons{min-width:0;flex-wrap:wrap}
-.ir-station-profile-hero .ir-station-stats{min-width:0}
-.ir-station-profile-hero .ir-station-stats>div{min-width:0}
-.ir-station-profile-hero .ir-station-stats span{overflow-wrap:anywhere}
-.ir-station-profile-hero .ir-station-now-shows>div{max-width:100%;min-width:0}
-.ir-station-profile-hero .ir-station-hero-art+button{max-width:100%}
-.ir-station-playlist-aside{min-width:0;position:static}
-.ir-station-playlist-aside .ir-playlist-panel{
-  height:auto;max-height:none;min-width:0;padding:20px!important
-}
-.ir-station-playlist-aside .ir-playlist-panel .ir-station-playlist-track{
-  min-width:0
-}
-.ir-station-playlist-aside .ir-playlist-panel .ir-station-playlist-song{
-  min-width:0
-}
-.ir-station-related-grid{
-  grid-template-columns:repeat(auto-fit,minmax(min(100%,158px),1fr))!important;
-  gap:16px!important
-}
-@container station-layout (min-width:760px){
-  .ir-station-profile-hero{
-    display:grid!important;
-    grid-template-columns:minmax(175px,220px) minmax(0,1fr);
-    align-items:start!important;gap:clamp(18px,2vw,28px)!important;
-  }
-  .ir-station-profile-hero>div:first-child{width:100%;max-width:none;align-self:start}
-  .ir-station-profile-hero .ir-station-hero-art{width:100%!important;max-width:220px}
-  .ir-station-profile-hero>div:last-child{text-align:left}
-}
-@container station-layout (min-width:1160px){
-  .ir-station-top-grid{
-    grid-template-columns:minmax(0,3fr) minmax(280px,1fr);
-    gap:20px;
-  }
-  .ir-station-profile-hero{grid-template-columns:minmax(165px,205px) minmax(0,1fr)}
-  .ir-station-playlist-aside{position:sticky;top:88px}
-  .ir-station-playlist-aside .ir-playlist-panel--station-sidebar{
-    max-height:min(740px,calc(100dvh - 110px));overflow:hidden;
-  }
-  .ir-station-playlist-aside .ir-playlist-panel--station-sidebar>div:nth-of-type(3){
-    max-height:min(430px,calc(100dvh - 330px));
-    overflow-y:auto;
-  }
-  .ir-station-playlist-aside .ir-station-playlist-track{
-    display:grid;grid-template-columns:42px minmax(0,1fr);
-    gap:2px 10px;align-items:start;padding:10px 6px;
-  }
-  .ir-station-playlist-aside .ir-station-playlist-track>img{
-    grid-column:1;grid-row:1 / span 2;width:42px;height:42px
-  }
-  .ir-station-playlist-aside .ir-station-playlist-song{grid-column:2;grid-row:1}
-  .ir-station-playlist-aside .ir-station-playlist-time{
-    grid-column:2;grid-row:2;margin-top:1px;text-align:left
-  }
-  .ir-station-playlist-aside .ir-playlist-panel h2{
-    font-size:clamp(16px,1.5vw,20px);overflow-wrap:anywhere
-  }
-  .ir-station-playlist-aside .ir-playlist-panel p{overflow-wrap:anywhere}
-}
-/* A single column playlist gets comfortable horizontal spacing on tablets. */
-@container station-layout (min-width:700px) and (max-width:1159px){
-  .ir-station-playlist-aside .ir-playlist-panel--station-sidebar>div:nth-of-type(3){
-    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:4px 15px;max-height:450px;overflow-y:auto;
-  }
+@container station-layout (max-width:980px){
+  .ir-station-profile-hero{gap:clamp(22px,3vw,36px)!important;min-height:0;
+    padding:clamp(18px,2.8vw,30px)!important}
+  .ir-station-hero-copy{gap:18px}
+  .ir-station-name{font-size:clamp(30px,4.5vw,47px)}
+  .ir-station-profile-hero .ir-station-track-title{font-size:clamp(23px,3vw,38px)}
+  .ir-station-lower-grid{grid-template-columns:1fr 1fr}
 }
 @container station-layout (max-width:760px){
+  .ir-station-profile-hero{display:flex!important;flex-direction:column!important;
+    align-items:stretch!important;gap:20px!important;
+    padding:0 0 12px!important;border:0!important;box-shadow:none!important;
+    background:transparent!important;border-radius:0!important}
+  .ir-station-profile-hero:before{display:none}
+  .ir-station-hero-visual{order:0;width:100%;gap:12px}
+  .ir-station-profile-hero .ir-station-hero-art{width:min(100%,420px)!important;
+    max-width:100%;border-radius:25px}
+  .ir-station-hero-copy{order:1;gap:18px;text-align:center;align-items:center}
+  .ir-station-identity{align-items:center;text-align:center;gap:9px;width:100%}
+  .ir-station-name{font-size:clamp(31px,7vw,45px);text-align:center}
+  .ir-station-tags{justify-content:center}
+  .ir-station-tagline{font-size:13px;text-align:center}
+  .ir-station-actions{order:2;display:flex;flex-direction:column;gap:17px;
+    align-items:center;width:100%}
+  .ir-station-action-buttons{justify-content:center;gap:clamp(24px,7vw,50px)}
+  .ir-station-action-buttons>div:first-child{order:2}
+  .ir-station-action-buttons>button:nth-child(2){order:1}
+  .ir-station-action-buttons>button:nth-child(3){order:3}
+  .ir-station-action-buttons>div:not(:first-child){order:4}
+  .ir-station-profile-hero .ir-station-now{order:3;min-height:0;text-align:left;
+    padding:15px 16px!important;border-radius:18px!important;
+    border:1px solid rgba(204,255,0,.15)!important;
+    background:linear-gradient(110deg,rgba(203,255,0,.075),rgba(255,255,255,.025))!important}
+  .ir-station-profile-hero .ir-station-track-title{font-size:clamp(18px,4.9vw,23px);line-height:1.25}
+  .ir-station-track-artist{font-size:13px;margin-top:4px}
+  .ir-station-now-shows{justify-content:flex-start}
+  .ir-station-stats{justify-content:center;text-align:center;gap:15px}
+  .ir-station-stats>div{max-width:180px}
+  .ir-station-stats>div:nth-child(3){display:none}
+  .ir-station-lower-grid{grid-template-columns:1fr;gap:20px;margin-top:22px}
+  .ir-station-playlist-aside{order:0}
+  .ir-station-about{order:1}
   .ir-station-program{padding:20px 14px;border-radius:22px}
   .ir-program-day-tabs{display:flex;overflow-x:auto;gap:8px;scroll-snap-type:x proximity;padding-bottom:8px}
-  .ir-program-day-tab{min-width:110px;padding:0 10px;scroll-snap-align:start}
+  .ir-program-day-tab{min-width:100px;padding:0 10px;scroll-snap-align:start}
   .ir-program-row{grid-template-columns:100px 66px minmax(0,1fr) 22px;gap:12px}
   .ir-program-art{width:66px;height:60px}
-  .ir-station-profile-hero .ir-station-stats{justify-content:flex-start}
-  .ir-station-profile-hero .ir-station-actions{justify-content:flex-start}
 }
-@container station-layout (max-width:530px){
-  .ir-station-profile-hero{padding:18px!important;border-radius:23px!important}
-  .ir-station-profile-hero .ir-station-hero-art{width:min(56vw,200px)!important}
-  .ir-station-profile-hero h1{font-size:clamp(25px,7vw,34px)}
-  .ir-station-profile-hero .ir-station-action-buttons{gap:10px}
-  .ir-station-profile-hero .ir-station-action-buttons button{width:44px;height:44px}
-  .ir-station-profile-hero .ir-station-action-buttons>div:first-child{width:60px;height:60px}
-  .ir-station-profile-hero .ir-station-action-buttons>div:first-child button{width:100%;height:100%}
+@container station-layout (max-width:460px){
+  .ir-station-profile-hero .ir-station-hero-art{width:min(100%,370px)!important}
+  .ir-station-back-label{font-size:9px}
+  .ir-station-art-badge{top:12px;left:12px;font-size:8px}
+  .ir-station-name{font-size:clamp(28px,7.6vw,36px)}
+  .ir-station-hero-copy{gap:15px}
+  .ir-station-action-buttons>div:first-child{width:64px;height:64px}
+  .ir-station-action-buttons>button{width:48px;height:48px}
+  .ir-station-stats{font-size:12px}
+  .ir-station-playlist-aside .ir-playlist-panel{padding:15px!important}
   .ir-program-rows{padding:7px 8px}
-  .ir-program-rows::before{left:15px}
+  .ir-program-rows:before{left:15px}
   .ir-program-line-dot{left:-12px}
-  .ir-program-row{margin-left:8px;grid-template-columns:minmax(0,1fr) 52px;gap:10px;padding:12px 8px 12px 17px}
+  .ir-program-row{margin-left:8px;grid-template-columns:minmax(0,1fr) 52px;gap:10px;
+    padding:12px 8px 12px 17px}
   .ir-program-time{grid-column:1;grid-row:1}
   .ir-program-art{grid-column:2;grid-row:1 / span 2;width:52px;height:52px}
   .ir-program-show-info{grid-column:1;grid-row:2}
   .ir-program-equalizer{display:none}
   .ir-program-show-info h3{white-space:normal}
-  .ir-program-live-status{font-size:10px}
-  .ir-station-related-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
-@media(max-width:960px){
- .ir-program-day-tabs{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:8px}
- .ir-program-day-tab{min-width:104px;padding:0 13px;scroll-snap-align:start}
- .ir-program-row{grid-template-columns:100px 66px minmax(0,1fr) 22px;gap:12px}
- .ir-program-art{width:66px;height:60px}
+@media(prefers-reduced-motion:reduce){
+  .ir-program-equalizer i{animation:none}
+  .ir-station-page *{scroll-behavior:auto!important}
 }
-@media(max-width:600px){
- .ir-program-rows{padding:7px 8px}
- .ir-program-rows::before{left:15px}
- .ir-program-line-dot{left:-12px}
- .ir-program-row{margin-left:8px;grid-template-columns:1fr 52px;gap:10px;padding:12px 8px 12px 17px}
- .ir-program-time{grid-column:1;grid-row:1}
- .ir-program-art{grid-column:2;grid-row:1 / span 2;width:52px;height:52px}
- .ir-program-show-info{grid-column:1;grid-row:2}
- .ir-program-equalizer{display:none}
- .ir-program-show-info h3{white-space:normal}
- .ir-program-live-status{font-size:9px}
-}
-@media(prefers-reduced-motion:reduce){.ir-program-equalizer i{animation:none}}
