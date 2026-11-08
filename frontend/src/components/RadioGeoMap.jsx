@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Globe2, MapPin, Play, RadioTower, SortDesc, X } from 'lucide-react';
 import { formatFMFrequency } from '../utils/stationFrequency';
-import {catalogStationInfo,compareCatalogPopularity} from '../utils/catalogLive';
+import {catalogStationInfo,compareCatalogPopularity,compareCatalogStations} from '../utils/catalogLive';
 import { locationMapCenter, stationMapLocation } from '../utils/mapLocations';
 import './RadioGeoMap.css';
 
@@ -22,16 +22,9 @@ function loadMapLibre() {
 }
 
 function sortRadioStations(stations, sortBy, nowPlayingById, catalogClock) {
-  return [...(stations || [])].sort((a, b) => {
-    if (sortBy === 'frequency') {
-      const freq = station => station.transmissionType === 'Επίγειο' && station.frequency
-        ? (parseFloat(station.frequency) || Number.POSITIVE_INFINITY) : Number.POSITIVE_INFINITY;
-      return freq(a) - freq(b);
-    }
-    if (sortBy === 'alphabetical') return String(a.name || '').localeCompare(String(b.name || ''), 'el');
-    return nowPlayingById ? compareCatalogPopularity(a,b,nowPlayingById,catalogClock)
-      : Number(b.popularity || b.plays || 0) - Number(a.popularity || a.plays || 0);
-  });
+  return [...(stations || [])].sort((a,b)=>sortBy==='popularity'
+    ? compareCatalogPopularity(a,b,nowPlayingById,catalogClock)
+    : compareCatalogStations(a,b,nowPlayingById,catalogClock,sortBy));
 }
 
 export default function RadioGeoMap({
@@ -236,7 +229,7 @@ export default function RadioGeoMap({
             <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.13em] text-zinc-300"><SortDesc size={14} /> Ταξινόμηση</span>
             <select aria-label="Ταξινόμηση σταθμών στον χάρτη" value={sortBy} onChange={event => setSortBy(event.target.value)}
               className="min-h-10 w-full min-w-0 rounded-xl border border-white/10 bg-zinc-900 px-2 text-xs font-bold text-white outline-none focus:border-[#ccff00]/60">
-              <option value="popularity">Δημοτικότητα</option>
+              <option value="popularity">Πληρότητα & Δημοτικότητα</option>
               <option value="frequency">Συχνότητα</option>
               <option value="alphabetical">Αλφαβητικά</option>
             </select>

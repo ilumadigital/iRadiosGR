@@ -1,9 +1,11 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import RadioGeoMap from './RadioGeoMap';
+import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 
 // Η κεντρική προβολή /map και όλες οι περιοχές μοιράζονται την ίδια map engine.
 export default function MapMode({ stations, currentStation, onPlayStation, isPlaying, onPlayPause }) {
+  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying();
   return (
     <>
       <Helmet>
@@ -14,6 +16,8 @@ export default function MapMode({ stations, currentStation, onPlayStation, isPla
       </Helmet>
       <RadioGeoMap
         stations={stations}
+        nowPlayingById={catalogNowPlaying}
+        catalogClock={catalogClock}
         currentStation={currentStation}
         onPlayStation={onPlayStation}
         isPlaying={isPlaying}

@@ -7,7 +7,7 @@ import EditorialPlacement from '../components/EditorialPlacement';
 import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
-import {compareCatalogPopularity} from '../utils/catalogLive';
+import {compareCatalogPopularity,compareCatalogStations} from '../utils/catalogLive';
  
 
 export default function Region({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
@@ -90,15 +90,9 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     if (selectedGenre !== 'all') result = result.filter(s => s.genre === selectedGenre);
     if (selectedTransmission !== 'all') result = result.filter(s => (s.transmissionType || 'Web Radio') === selectedTransmission);
 
-    return result.sort((a, b) => {
-      if (sortBy === 'popularity') return compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock);
-      if (sortBy === 'alphabetical') return a.name.localeCompare(b.name);
-      if (sortBy === 'frequency') {
-        const getFreq = (st) => (st.transmissionType === 'Επίγειο' && st.frequency) ? parseFloat(st.frequency) || 9999 : 9999;
-        return getFreq(a) - getFreq(b);
-      }
-      return 0;
-    });
+    return result.sort((a,b)=>sortBy==='popularity'
+      ? compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock)
+      : compareCatalogStations(a,b,catalogNowPlaying,catalogClock,sortBy));
   }, [baseStations, selectedGenre, selectedTransmission, sortBy, catalogNowPlaying, catalogClock]);
 
   const formatGenre = (text) => text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
@@ -202,7 +196,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
           <CatalogFilterPopover label="Μετάδοση" value={selectedTransmission} onChange={setSelectedTransmission}
             options={availableTransmissions} allLabel="Όλες οι μεταδόσεις"/>
           <CatalogFilterPopover label="Ταξινόμηση" value={sortBy} onChange={setSortBy} searchable={false} includeAll={false}
-            options={[{value:'popularity',label:'Δημοτικότητα'},{value:'frequency',label:'Συχνότητα'},{value:'alphabetical',label:'Αλφαβητικά'}]}/>
+            options={[{value:'popularity',label:'Πληρότητα & Δημοτικότητα'},{value:'frequency',label:'Συχνότητα'},{value:'alphabetical',label:'Αλφαβητικά'}]}/>
           <div className="flex items-center bg-zinc-900 border border-white/10 rounded-xl p-1">
             {canShowMap && (
               <button type="button" aria-label="Προβολή χάρτη" onClick={() => setViewMode('map')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'map' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><MapIcon size={16} /></button>

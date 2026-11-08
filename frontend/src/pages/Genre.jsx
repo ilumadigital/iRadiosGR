@@ -7,7 +7,7 @@ import EditorialPlacement from '../components/EditorialPlacement';
 import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
-import {compareCatalogPopularity} from '../utils/catalogLive';
+import {compareCatalogPopularity,compareCatalogStations} from '../utils/catalogLive';
 
 
 export default function Genre({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
@@ -98,12 +98,9 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
       result = result.filter(s => (s.transmissionType || 'Web Radio') === selectedTransmission);
     }
 
-    return result.sort((a, b) => {
-      if (sortBy === 'popularity') return compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock);
-      if (sortBy === 'alphabetical') return a.name.localeCompare(b.name);
-      if (sortBy === 'date') return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-      return 0;
-    });
+    return result.sort((a,b)=>sortBy==='popularity'
+      ? compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock)
+      : compareCatalogStations(a,b,catalogNowPlaying,catalogClock,sortBy));
   }, [baseStations, selectedRegion, selectedTransmission, sortBy, catalogNowPlaying, catalogClock]);
 
   const displayStations=useMemo(()=>viewMode==='grid' && promotedStationId
@@ -203,7 +200,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
           <CatalogFilterPopover label="Μετάδοση" value={selectedTransmission} onChange={setSelectedTransmission}
             options={availableTransmissions} allLabel="Όλες οι μεταδόσεις"/>
           <CatalogFilterPopover label="Ταξινόμηση" value={sortBy} onChange={setSortBy} searchable={false} includeAll={false}
-            options={[{value:'popularity',label:'Δημοτικότητα'},{value:'alphabetical',label:'Αλφαβητικά'},{value:'date',label:'Νεότερα'}]}/>
+            options={[{value:'popularity',label:'Πληρότητα & Δημοτικότητα'},{value:'alphabetical',label:'Αλφαβητικά'},{value:'date',label:'Νεότερα'}]}/>
           <div className="flex items-center bg-zinc-900 border border-white/10 rounded-xl p-1">
             <button type="button" aria-label="Προβολή πλέγματος" onClick={() => setViewMode('grid')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><LayoutGrid size={16} /></button>
             <button type="button" aria-label="Προβολή λίστας" onClick={() => setViewMode('list')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><List size={16} /></button>
