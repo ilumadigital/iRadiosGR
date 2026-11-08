@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import StationCatalogCard from './StationCatalogCard';
 import EditorialPlacement from './EditorialPlacement';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
-import {catalogStationInfo,compareCatalogPopularity} from '../utils/catalogLive';
+import {catalogStationInfo,compareCatalogPopularity,compareCatalogCompleteness} from '../utils/catalogLive';
 import {
   Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
   Play, MapPin, X, Headphones, Disc3, Music2, Grid2X2, MapPinned
@@ -87,14 +87,14 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
       Number(favIds.has(String(station._id)))*15+
       Number(station.isFeatured)*7+Number(station.plays||0)/10000;
     result=[...result].sort((a,b)=>{
-      const aTier=catalogStationInfo(a,catalogNowPlaying[String(a._id)],catalogClock).tier;
-      const bTier=catalogStationInfo(b,catalogNowPlaying[String(b._id)],catalogClock).tier;
-      if(aTier!==bTier)return aTier-bTier;
       if(tab==='for-you'){
+        const aTier=catalogStationInfo(a,catalogNowPlaying[String(a._id)],catalogClock).tier;
+        const bTier=catalogStationInfo(b,catalogNowPlaying[String(b._id)],catalogClock).tier;
+        if(aTier!==bTier)return compareCatalogCompleteness(a,b,catalogNowPlaying,catalogClock);
         const preference=personalized(b)-personalized(a);
         if(preference)return preference;
       }
-      return compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock);
+      return compareCatalogPopularity(a,b);
     });
     if(genre)result=result.filter(s=>s.genre===genre);
     if(region)result=result.filter(s=>s.region===region);

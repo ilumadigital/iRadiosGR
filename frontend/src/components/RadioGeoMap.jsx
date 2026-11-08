@@ -36,6 +36,7 @@ export default function RadioGeoMap({
   centerName,
   nowPlayingById,
   catalogClock,
+  sortMode,
   initialZoom = 6,
   showFilters = false,
   className = ''
@@ -49,9 +50,12 @@ export default function RadioGeoMap({
   const [selectedPlace, setSelectedPlace] = useState('');
   const [showUnmapped, setShowUnmapped] = useState(false);
   const [sortBy, setSortBy] = useState('popularity');
-
-  const sortedStations = useMemo(() => sortRadioStations(stations, sortBy, nowPlayingById, catalogClock),
-    [stations, sortBy, nowPlayingById, catalogClock]);
+  // In Region map view, share the parent page's selected sorting mode.
+  // On the standalone map, keep the visible local sorting dropdown.
+  const effectiveSortBy=showFilters?sortBy:(sortMode||sortBy);
+  const sortedStations=useMemo(()=>
+    sortRadioStations(stations,effectiveSortBy,nowPlayingById,catalogClock),
+    [stations,effectiveSortBy,nowPlayingById,catalogClock]);
   const { places, unlocated } = useMemo(() => {
     const byCoordinates = new Map();
     const unknown = [];
@@ -229,7 +233,8 @@ export default function RadioGeoMap({
             <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.13em] text-zinc-300"><SortDesc size={14} /> Ταξινόμηση</span>
             <select aria-label="Ταξινόμηση σταθμών στον χάρτη" value={sortBy} onChange={event => setSortBy(event.target.value)}
               className="min-h-10 w-full min-w-0 rounded-xl border border-white/10 bg-zinc-900 px-2 text-xs font-bold text-white outline-none focus:border-[#ccff00]/60">
-              <option value="popularity">Πληρότητα & Δημοτικότητα</option>
+              <option value="popularity">Δημοτικότητα</option>
+              <option value="completeness">Πληρότητα</option>
               <option value="frequency">Συχνότητα</option>
               <option value="alphabetical">Αλφαβητικά</option>
             </select>

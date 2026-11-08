@@ -196,7 +196,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
           <CatalogFilterPopover label="Μετάδοση" value={selectedTransmission} onChange={setSelectedTransmission}
             options={availableTransmissions} allLabel="Όλες οι μεταδόσεις"/>
           <CatalogFilterPopover label="Ταξινόμηση" value={sortBy} onChange={setSortBy} searchable={false} includeAll={false}
-            options={[{value:'popularity',label:'Πληρότητα & Δημοτικότητα'},{value:'frequency',label:'Συχνότητα'},{value:'alphabetical',label:'Αλφαβητικά'}]}/>
+            options={[{value:'popularity',label:'Δημοτικότητα'},{value:'completeness',label:'Πληρότητα'},{value:'frequency',label:'Συχνότητα'},{value:'alphabetical',label:'Αλφαβητικά'}]}/>
           <div className="flex items-center bg-zinc-900 border border-white/10 rounded-xl p-1">
             {canShowMap && (
               <button type="button" aria-label="Προβολή χάρτη" onClick={() => setViewMode('map')} className={`p-1.5 rounded-lg transition-all ${viewMode === 'map' ? 'bg-[#ccff00] text-black shadow-md' : 'text-zinc-500 hover:text-white'}`}><MapIcon size={16} /></button>
@@ -288,6 +288,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
           stations={filteredAndSorted}
           nowPlayingById={catalogNowPlaying}
           catalogClock={catalogClock}
+          sortMode={sortBy}
           currentStation={currentStation}
           onPlayStation={setCurrentStation}
           isPlaying={isPlaying}

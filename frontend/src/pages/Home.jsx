@@ -15,7 +15,7 @@ import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import HomeRadioShortlist from '../components/HomeRadioShortlist';
 import HomeRecommendationDeck from '../components/HomeRecommendationDeck';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
-import {catalogStationInfo,compareCatalogPopularity} from '../utils/catalogLive';
+import {compareCatalogPopularity} from '../utils/catalogLive';
 
 // 🌍 Αλγόριθμος Haversine: Υπολογίζει την απόσταση μεταξύ 2 συντεταγμένων σε χιλιόμετρα
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
@@ -448,15 +448,8 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
 
   const favoriteStations = currentUser?.favorites ? stations.filter(s => currentUser.favorites.includes(s._id || s.id)) : [];
   const eligibleTopStations = rankedStations.filter(s => s._id && (s.status === 'approved' || !s.status));
-  const topStations = [...eligibleTopStations].sort((a,b)=>{
-    const aTier=catalogStationInfo(a,catalogNowPlaying[String(a._id)],catalogClock).tier;
-    const bTier=catalogStationInfo(b,catalogNowPlaying[String(b._id)],catalogClock).tier;
-    if(aTier!==bTier)return aTier-bTier;
-    // Editorial featured stations retain preference only inside the same tier.
-    const featured=Number(Boolean(b.isFeatured||b.boostStatus&&b.position===1))-
-      Number(Boolean(a.isFeatured||a.boostStatus&&a.position===1));
-    return featured||compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock);
-  }).slice(0,7);
+  // "Top σταθμοί" follows the explicit station position, not metadata completeness.
+  const topStations=eligibleTopStations.slice(0,7);
   const homeDisplayStation = stations.find(s=>String(s._id)===String(heroStationId)) ||
     currentStation || recentlyPlayed[0] || topStations[0] || stations[0];
   const topRegions = ['Αττική', 'Αθήνα', 'Θεσσαλονίκη', 'WebRadios']; 
