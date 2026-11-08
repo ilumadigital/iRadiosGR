@@ -1,11 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { formatFMFrequency } from '../utils/stationFrequency';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Play, Pause, ArrowLeft, MapPin, LayoutGrid, List, Music, Map as MapIcon, X, Zap, Globe, Activity, Megaphone, ExternalLink, SignalHigh } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import RadioGeoMap from '../components/RadioGeoMap';
+import { CITY_COORDINATES } from '../utils/mapLocations';
 import CircularVU from '../components/CircularVU';
 import EditorialPlacement from '../components/EditorialPlacement';
 import CatalogFilterPopover from '../components/CatalogFilterPopover';
@@ -18,131 +16,6 @@ const REGIONS = [
   "Ήπειρος", "Θεσσαλία", "Ιόνια Νησιά", "Δυτική Ελλάδα", "Στερεά Ελλάδα",
   "Πελοπόννησος", "Βόρειο Αιγαίο", "Νότιο Αιγαίο", "Κρήτη", "Κύπρος", "Εξωτερικό"
 ];
-
-// 🗺️ ΠΛΗΡΕΣ ΛΕΞΙΚΟ ΣΥΝΤΕΤΑΓΜΕΝΩΝ
-const CITY_COORDINATES = {
-  // --- ΓΕΝΙΚΑ ---
-  "Ελλάδα": [37.9838, 23.7275], "Web Radio": [37.9838, 23.7275], 
-  "Άλλη": [37.9838, 23.7275], "Άλλο": [37.9838, 23.7275], "Global": [37.9838, 23.7275],
-
-  // --- ΑΤΤΙΚΗ ---
-  "Αττική": [37.9838, 23.7275], "Αθήνα": [37.9838, 23.7275], "Πειραιάς": [37.9429, 23.6439], 
-  "Νέα Σμύρνη": [37.9450, 23.7136], "Καλλιθέα": [37.9531, 23.7006], "Παλαιό Φάληρο": [37.9250, 23.6931], 
-  "Άλιμος": [37.9111, 23.7228], "Ελληνικό": [37.8864, 23.7436], "Αργυρούπολη": [37.9022, 23.7461], 
-  "Γλυφάδα": [37.8628, 23.7561], "Βούλα": [37.8425, 23.7744], "Βουλιαγμένη": [37.8131, 23.7803], 
-  "Ηλιούπολη": [37.9306, 23.7556], "Άγιος Δημήτριος": [37.9333, 23.7333], "Ζωγράφου": [37.9733, 23.7667], 
-  "Καισαριανή": [37.9667, 23.7500], "Βύρωνας": [37.9500, 23.7500], "Γαλάτσι": [38.0167, 23.7500], 
-  "Νέα Ιωνία": [38.0417, 23.7583], "Νέο Ηράκλειο": [38.0500, 23.7667], "Νέα Φιλαδέλφεια": [38.0333, 23.7333], 
-  "Χαλάνδρι": [38.0222, 23.7997], "Μαρούσι": [38.0560, 23.8055], "Κηφισιά": [38.0733, 23.8122], 
-  "Πεύκη": [38.0667, 23.8000], "Μελίσσια": [38.0500, 23.8333], "Βριλήσσια": [38.0333, 23.8333], 
-  "Αγία Παρασκευή": [38.0167, 23.8167], "Περιστέρι": [38.0154, 23.6919], "Αιγάλεω": [37.9933, 23.6817], 
-  "Χαϊδάρι": [38.0167, 23.6500], "Ίλιον": [38.0333, 23.7000], "Πετρούπολη": [38.0333, 23.6833], 
-  "Αγία Βαρβάρα": [37.9833, 23.6500], "Νίκαια": [37.9667, 23.6333], "Κορυδαλλός": [37.9760, 23.6470], 
-  "Κερατσίνι": [37.9667, 23.6167], "Δραπετσώνα": [37.9500, 23.6167], "Πέραμα": [37.9667, 23.5667], 
-  "Σαλαμίνα": [37.9667, 23.5000], "Ελευσίνα": [38.0333, 23.5333], "Αχαρνές": [38.0833, 23.7333], 
-  "Παλλήνη": [38.0000, 23.8667], "Γέρακας": [38.0167, 23.8500], "Κορωπί": [37.9000, 23.8667], 
-  "Μαρκόπουλο": [37.8833, 23.9333], "Ραφήνα": [38.0167, 24.0000], "Λαύριο": [37.7167, 24.0500],
-
-  // --- ΘΕΣΣΑΛΟΝΙΚΗ ---
-  "Θεσσαλονίκη": [40.6401, 22.9444], "Καλαμαριά": [40.5828, 22.9547], "Εύοσμος": [40.6631, 22.9090], 
-  "Κορδελιό": [40.6667, 22.9000], "Αμπελόκηποι": [40.6500, 22.9333], "Μενεμένη": [40.6500, 22.9167], 
-  "Σταυρούπολη": [40.6667, 22.9333], "Πολίχνη": [40.6667, 22.9500], "Νεάπολη": [40.6500, 22.9500], 
-  "Συκιές": [40.6500, 22.9667], "Πυλαία": [40.6000, 22.9833], "Χορτιάτης": [40.6167, 23.1000], 
-  "Πανόραμα": [40.5833, 23.0333], "Θέρμη": [40.5422, 23.0189], "Ωραιόκαστρο": [40.7286, 22.9173], 
-  "Μηχανιώνα": [40.4667, 22.8333], "Περαία": [40.5000, 22.9333], "Σίνδος": [40.6667, 22.8000], 
-  "Χαλάστρα": [40.6333, 22.7333],
-
-  // --- ΥΠΟΛΟΙΠΗ ΕΛΛΑΔΑ ---
-  "Αιτωλοακαρνανία": [38.6259, 21.4116], "Μεσολόγγι": [38.3687, 21.4286], "Αγρίνιο": [38.6259, 21.4116], "Ναύπακτος": [38.3934, 21.8268],
-  "Αργολίδα": [37.5673, 22.8016], "Ναύπλιο": [37.5673, 22.8016], "Άργος": [37.6329, 22.7291],
-  "Αρκαδία": [37.5089, 22.3732], "Τρίπολη": [37.5089, 22.3732], "Μεγαλόπολη": [37.4011, 22.1378],
-  "Άρτα": [39.1611, 20.9856],
-  "Αχαΐα": [38.2466, 21.7346], "Πάτρα": [38.2466, 21.7346], "Αίγιο": [38.2511, 22.0822], "Καλάβρυτα": [38.0315, 22.1105],
-  "Βοιωτία": [38.4367, 22.8761], "Λιβαδειά": [38.4367, 22.8761], "Θήβα": [38.3243, 23.3182], "Αράχωβα": [38.4800, 22.5855],
-  "Γρεβενά": [40.0845, 21.4274],
-  "Δράμα": [41.1528, 24.1472],
-  "Δωδεκάνησα": [36.4341, 28.2236], "Ρόδος": [36.4341, 28.2236], "Κως": [36.8932, 27.2885], "Κάλυμνος": [36.9497, 26.9772], "Κάρπαθος": [35.5070, 27.2132],
-  "Έβρος": [40.8499, 25.8764], "Αλεξανδρούπολη": [40.8499, 25.8764], "Ορεστιάδα": [41.3811, 26.5333], "Διδυμότειχο": [41.3503, 26.4950],
-  "Εύβοια": [38.4623, 23.5950], "Χαλκίδα": [38.4623, 23.5950], "Κάρυστος": [38.0163, 24.4196],
-  "Ευρυτανία": [38.9135, 21.7954], "Καρπενήσι": [38.9135, 21.7954],
-  "Ζάκυνθος": [37.7885, 20.8986],
-  "Ηλεία": [37.6751, 21.4420], "Πύργος": [37.6751, 21.4420], "Αμαλιάδα": [37.7959, 21.3499],
-  "Ημαθία": [40.5235, 22.2023], "Βέροια": [40.5235, 22.2023], "Νάουσα": [40.6277, 22.0673], "Αλεξάνδρεια": [40.6277, 22.4435],
-  "Ηράκλειο": [35.3387, 25.1442], "Μοίρες": [35.0519, 24.8733], "Χερσόνησος": [35.3168, 25.3912],
-  "Θεσπρωτία": [39.5055, 20.2655], "Ηγουμενίτσα": [39.5055, 20.2655],
-  "Ιωάννινα": [39.6649, 20.8519], "Μέτσοβο": [39.7695, 21.1834],
-  "Καβάλα": [40.9396, 24.4069],
-  "Καρδίτσα": [39.3644, 21.9214],
-  "Καστοριά": [40.5222, 21.2678],
-  "Κέρκυρα": [39.6200, 19.9197],
-  "Κεφαλληνία": [38.1764, 20.4892], "Αργοστόλι": [38.1764, 20.4892], "Ληξούρι": [38.2017, 20.4357],
-  "Κιλκίς": [40.9930, 22.8743],
-  "Κοζάνη": [40.3000, 21.7833], "Πτολεμαΐδα": [40.5147, 21.6781],
-  "Κορινθία": [37.9396, 22.9271], "Κόρινθος": [37.9396, 22.9271], "Λουτράκι": [37.9747, 22.9754], "Κιάτο": [38.0131, 22.7483],
-  "Κυκλάδες": [37.4385, 24.9405], "Σύρος": [37.4385, 24.9405], "Νάξος": [37.1056, 25.3764], "Μύκονος": [37.4467, 25.3289], "Σαντορίνη": [36.3932, 25.4615], "Πάρος": [37.0855, 25.1488], "Τήνος": [37.5375, 25.1627], "Μήλος": [36.7431, 24.4253],
-  "Λακωνία": [37.0745, 22.4297], "Σπάρτη": [37.0745, 22.4297], "Γύθειο": [36.7621, 22.5647],
-  "Λάρισα": [39.6390, 22.4191], "Ελασσόνα": [39.8953, 22.1882], "Φάρσαλα": [39.2946, 22.3857],
-  "Λασίθι": [35.1906, 25.7155], "Άγιος Νικόλαος": [35.1906, 25.7155], "Ιεράπετρα": [35.0101, 25.7369], "Σητεία": [35.2057, 26.1050],
-  "Λέσβος": [39.1061, 26.5560], "Μυτιλήνη": [39.1061, 26.5560],
-  "Λευκάδα": [38.8313, 20.7061],
-  "Μαγνησία": [39.3621, 22.9424], "Βόλος": [39.3621, 22.9424], "Αλμυρός": [39.1818, 22.7592],
-  "Μεσσηνία": [37.0391, 22.1126], "Καλαμάτα": [37.0391, 22.1126], "Μεσσήνη": [37.0504, 22.0084],
-  "Ξάνθη": [41.1349, 24.8896],
-  "Πέλλα": [40.8016, 22.0461], "Έδεσσα": [40.8016, 22.0461], "Γιαννιτσά": [40.7937, 22.4118],
-  "Πιερία": [40.2696, 22.5061], "Κατερίνη": [40.2696, 22.5061],
-  "Πρέβεζα": [38.9562, 20.7431], "Πάργα": [39.2844, 20.4005],
-  "Ρέθυμνο": [35.3656, 24.4820],
-  "Ροδόπη": [41.1192, 25.4054], "Κομοτηνή": [41.1192, 25.4054],
-  "Σάμος": [37.7554, 26.9749],
-  "Σέρρες": [41.0921, 23.5498],
-  "Τρίκαλα": [39.5557, 21.7679], "Καλαμπάκα": [39.7042, 21.6263],
-  "Φθιώτιδα": [38.8953, 22.4336], "Λαμία": [38.8953, 22.4336],
-  "Φλώρινα": [40.7816, 21.4093], "Αμύνταιο": [40.6896, 21.6789],
-  "Φωκίδα": [38.5262, 22.3781], "Άμφισσα": [38.5262, 22.3781], "Δελφοί": [38.4805, 22.5029],
-  "Χαλκιδική": [40.3776, 23.4398], "Πολύγυρος": [40.3776, 23.4398], "Νέα Μουδανιά": [40.2407, 23.2825],
-  "Χανιά": [35.5138, 24.0180], "Κίσσαμος": [35.4947, 23.6543],
-  "Χίος": [38.3678, 26.1361],
-
-  // --- ΚΥΠΡΟΣ ---
-  "Κύπρος": [35.1666, 33.3666],
-  "Λευκωσία": [35.1856, 33.3823], "Στρόβολος": [35.1504, 33.3444], "Λακατάμεια": [35.1118, 33.3214],
-  "Λεμεσός": [34.6786, 33.0420],
-  "Λάρνακα": [34.9115, 33.6232],
-  "Πάφος": [34.7720, 32.4265],
-  "Αμμόχωστος": [35.0396, 33.9829], "Παραλίμνι": [35.0396, 33.9829], "Αγία Νάπα": [34.9915, 34.0017],
-  "Κερύνεια": [35.3333, 33.3167],
-
-  // --- ΕΞΩΤΕΡΙΚΟ ---
-  "Εξωτερικό": [51.5074, -0.1278],
-  "Ευρώπη": [51.5074, -0.1278], "Λονδίνο": [51.5074, -0.1278], "Παρίσι": [48.8566, 2.3522], "Βερολίνο": [52.5200, 13.4050],
-  "Αμερική": [40.7128, -74.0060], "Νέα Υόρκη": [40.7128, -74.0060], "Σικάγο": [41.8781, -87.6298],
-  "Αυστραλία": [-33.8688, 151.2093], "Σίδνεϊ": [-33.8688, 151.2093], "Μελβούρνη": [-37.8136, 144.9631]
-};
-
-const createNeonIcon = () => {
-  return L.divIcon({
-    className: 'custom-neon-marker',
-    html: `
-      <div class="relative w-6 h-6 flex items-center justify-center">
-        <div class="absolute inset-0 bg-[#ccff00] rounded-full opacity-40 animate-ping"></div>
-        <div class="w-3 h-3 bg-[#ccff00] border-2 border-black rounded-full shadow-[0_0_15px_#ccff00] z-10"></div>
-      </div>
-    `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-    popupAnchor: [0, -12]
-  });
-};
-
-function MapUpdater({ center }) {
-  const map = useMap();
-  useEffect(() => {
-    if (center) {
-      map.flyTo(center, 9, { animate: true, duration: 1.5 });
-    }
-  }, [center, map]);
-  return null;
-}
 
 export default function Region({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
   const { regionName } = useParams();
@@ -234,19 +107,8 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     });
   }, [baseStations, selectedGenre, selectedTransmission, sortBy]);
 
-  const cityGroups = useMemo(() => {
-    const groups = {};
-    filteredAndSorted.forEach(station => {
-      const city = station.city && station.city !== "Άλλη" ? station.city : (station.region || "Άγνωστη");
-      if (!groups[city]) groups[city] = [];
-      groups[city].push(station);
-    });
-    return groups;
-  }, [filteredAndSorted]);
-
   const formatGenre = (text) => text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
 
-  const mapCenter = useMemo(() => CITY_COORDINATES[regionName] || [38.2, 23.8], [regionName]);
   const canShowMap = CITY_COORDINATES[regionName] !== undefined;
 
   useEffect(() => {
@@ -435,119 +297,24 @@ export default function Region({ stations, currentStation, setCurrentStation, is
       )}
 
       {viewMode === 'map' && canShowMap && (
-        <div className="relative w-full h-[80vh] bg-zinc-950 rounded-[40px] border border-white/10 overflow-hidden shadow-2xl mt-4">
-          <MapContainer center={mapCenter} zoom={9} className="w-full h-full z-[10]" zoomControl={false}>
-            <MapUpdater center={mapCenter} />
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; CARTO' />
-            
-            {Object.entries(cityGroups).map(([city, stList]) => {
-              const position = CITY_COORDINATES[city] || [mapCenter[0], mapCenter[1]];
-              return (
-                <Marker key={city} position={position} icon={createNeonIcon()}>
-                  {/* 🪟 CUSTOM POPUP MODAL (Sexy, Dark & Wider) */}
-                  <Popup className="custom-popup" closeButton={false}>
-                    <div className="bg-zinc-950 border border-white/10 rounded-2xl w-[320px] overflow-hidden shadow-2xl p-0">
-                      
-                      {/* HEADER */}
-                      <div className="bg-[#ccff00] px-4 py-3 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-black">
-                          <MapPin size={16} className="fill-black" />
-                          <span className="font-black text-sm tracking-widest uppercase">{city}</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-black/70 bg-black/10 px-2.5 py-0.5 rounded-full">
-                          {stList.length} ΣΤΑΘΜΟΙ
-                        </span>
-                      </div>
-                      
-                      {/* STATIONS LIST */}
-                      <div className="max-h-[280px] overflow-y-auto custom-scrollbar p-2 space-y-1">
-                        {stList.map(station => {
-                          const isThisStationPlaying = currentStation?._id === station._id && isPlaying;
-
-                          return (
-                            <div 
-                              key={station._id} 
-                              className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-xl transition-colors cursor-pointer group" 
-                              onClick={() => navigate(`/station/${station.slug || station._id}`)}
-                            >
-                              {/* Station Logo */}
-                              <img src={station.logo} className="w-12 h-12 rounded-lg object-contain bg-white border border-white/10 bg-white shrink-0" alt="" />
-                              
-                              {/* Station Info */}
-                              <div className="flex-1 min-w-0 text-left">
-                                <h4 className={`font-bold text-sm truncate transition-colors ${isThisStationPlaying ? 'text-[#ccff00]' : 'text-white group-hover:text-[#ccff00]'}`}>
-                                  {station.name}
-                                </h4>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                  {station.transmissionType && station.transmissionType !== 'Web Radio' && (
-                                     <span className={`shrink-0 text-[8.5px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex items-center ${
-                                       station.transmissionType === 'Επίγειο' ? 'text-blue-400 bg-blue-500/10' : 'text-purple-400 bg-purple-500/10'
-                                     }`}>
-                                       {station.transmissionType === 'Επίγειο' && station.frequency ? formatFMFrequency(station.frequency) : station.transmissionType}
-                                     </span>
-                                  )}
-                                  <p className="text-[10px] text-zinc-500 font-medium truncate uppercase">{station.genre}</p>
-                                </div>
-                              </div>
-
-                              {/* Play / Pause Button */}
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (currentStation?._id === station._id) {
-                                    onPlayPause();
-                                  } else {
-                                    setCurrentStation(station); // Χρησιμοποιούμε το setCurrentStation εδώ
-                                  }
-                                }}
-                                className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors shrink-0 ${isThisStationPlaying ? 'bg-[#ccff00] text-black shadow-[0_0_10px_#ccff00]' : 'bg-white/10 text-white group-hover:bg-[#ccff00] group-hover:text-black'}`}
-                              >
-                                {isThisStationPlaying ? (
-                                  <Activity size={14} className="animate-pulse" />
-                                ) : (
-                                  <Play size={14} className="ml-0.5" fill="currentColor" />
-                                )}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      
-                    </div>
-                  </Popup>
-                </Marker>
-              );
-            })}
-          </MapContainer>
-        </div>
+        <RadioGeoMap
+          key={regionName}
+          stations={filteredAndSorted}
+          currentStation={currentStation}
+          onPlayStation={setCurrentStation}
+          isPlaying={isPlaying}
+          onPlayPause={onPlayPause}
+          centerName={regionName}
+          initialZoom={regionName === 'Κύπρος' ? 8 : 8.5}
+          className="mt-4 h-[min(76dvh,760px)] min-h-[440px]"
+        />
       )}
-      
+
       {filteredAndSorted.length === 0 && (
         <div className="text-zinc-500 font-bold italic py-20 text-center w-full bg-zinc-900/20 rounded-[32px] border border-white/5 mt-4">Δεν βρέθηκαν σταθμοί με αυτά τα κριτήρια.</div>
       )}
 
-      {/* 🚨 ΑΥΣΤΗΡΟ CSS ΓΙΑ ΤΟ LEAFLET POPUP - Σκοτώνει το λευκό φόντο! */}
-      <style dangerouslySetInnerHTML={{__html: `
-        .custom-popup .leaflet-popup-content-wrapper {
-          background: transparent !important;
-          padding: 0 !important;
-          border: none !important;
-          border-radius: 1rem !important;
-          box-shadow: none !important;
-        }
-        .custom-popup .leaflet-popup-content {
-          margin: 0 !important;
-          width: auto !important;
-        }
-        .custom-popup .leaflet-popup-tip {
-          background: #ccff00 !important;
-          border: none !important;
-          box-shadow: none !important;
-        }
-        .custom-popup a.leaflet-popup-close-button {
-          display: none !important;
-        }
-      `}} />
+
     </div>
   );
 }
