@@ -28,6 +28,9 @@ export function getOnAirProducers(stations = [], clock = getAthensClock()) {
       hasProducerPhoto: validShowImage(show.imageUrl)
     }];
   }).sort((a, b) =>
+    // Programme photos have absolute priority. Within each group, the show
+    // ending soonest appears first, regardless of the station's popularity.
+    Number(b.hasProducerPhoto) - Number(a.hasProducerPhoto) ||
     a.endsInMinutes - b.endsInMinutes ||
     a.station.name.localeCompare(b.station.name, 'el') ||
     a.host.localeCompare(b.host, 'el')
