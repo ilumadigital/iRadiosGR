@@ -48,7 +48,10 @@ export default function Admin({ API_URL, refreshStations }) {
 
   const loadAdminStations = async () => {
     try {
-      const res = await fetch(`${API_URL}/stations/all`); 
+      const token=localStorage.getItem('iluma_token');
+      const res = await fetch(`${API_URL}/stations/all`, {
+        headers:token?{Authorization:`Bearer ${token}`}:{}
+      }); 
       if (!res.ok) throw new Error('Network response was not ok');
       const data = await res.json();
       if(Array.isArray(data)) setAdminStations(data);
@@ -185,7 +188,7 @@ export default function Admin({ API_URL, refreshStations }) {
     try {
       const res = await fetch(`${API_URL}/stations`, {
         method: 'POST',
-        headers: { ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {}) },
+        headers: { ...(localStorage.getItem('iluma_token') ? { 'Authorization': `Bearer ${localStorage.getItem('iluma_token')}` } : {}) },
         body: prepareFormData(newStation)
       });
       if (res.ok) {
@@ -214,7 +217,7 @@ export default function Admin({ API_URL, refreshStations }) {
       const targetId = editingStation._id || editingStation.id; 
       const res = await fetch(`${API_URL}/admin/stations/${targetId}`, {
         method: 'PUT',
-        headers: { ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {}) },
+        headers: { ...(localStorage.getItem('iluma_token') ? { 'Authorization': `Bearer ${localStorage.getItem('iluma_token')}` } : {}) },
         body: prepareFormData(editingStation)
       });
       
@@ -289,7 +292,7 @@ export default function Admin({ API_URL, refreshStations }) {
       try {
         await fetch(`${API_URL}/admin/stations/${id}`, { 
           method: 'DELETE',
-          headers: { ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {}) }
+          headers: { ...(localStorage.getItem('iluma_token') ? { 'Authorization': `Bearer ${localStorage.getItem('iluma_token')}` } : {}) }
         });
         loadAdminStations();
         if (refreshStations) refreshStations();
@@ -299,7 +302,7 @@ export default function Admin({ API_URL, refreshStations }) {
 
   const stationAdminHeaders = () => ({
     'Content-Type': 'application/json',
-    ...(localStorage.getItem('token') ? {Authorization: `Bearer ${localStorage.getItem('token')}`} : {})
+    ...(localStorage.getItem('iluma_token') ? {Authorization: `Bearer ${localStorage.getItem('iluma_token')}`} : {})
   });
   const handleStatusUpdate = async (id, newStatus) => {
     try {
@@ -329,7 +332,7 @@ export default function Admin({ API_URL, refreshStations }) {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
-          ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
+          ...(localStorage.getItem('iluma_token') ? { 'Authorization': `Bearer ${localStorage.getItem('iluma_token')}` } : {})
         }
       });
       loadAdminStations();
@@ -342,7 +345,7 @@ export default function Admin({ API_URL, refreshStations }) {
       try {
         await fetch(`${API_URL}/admin/stations/${id}/approve-edit`, { 
           method: 'POST',
-          headers: { ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {}) }
+          headers: { ...(localStorage.getItem('iluma_token') ? { 'Authorization': `Bearer ${localStorage.getItem('iluma_token')}` } : {}) }
         });
         loadAdminStations();
         if (refreshStations) refreshStations();
@@ -355,7 +358,7 @@ export default function Admin({ API_URL, refreshStations }) {
       try {
         await fetch(`${API_URL}/admin/stations/${id}/reject-edit`, { 
           method: 'DELETE',
-          headers: { ...(localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {}) }
+          headers: { ...(localStorage.getItem('iluma_token') ? { 'Authorization': `Bearer ${localStorage.getItem('iluma_token')}` } : {}) }
         });
         loadAdminStations();
         if (refreshStations) refreshStations();
