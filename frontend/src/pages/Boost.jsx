@@ -148,17 +148,17 @@ export default function Boost({ API_URL, stations, refreshStations }) {
   };
 
   return (
-    <div className="p-6 lg:p-12 w-full mx-auto animate-fade-in pb-40">
+    <div className="admin-legacy-page space-y-6 w-full">
       
       {/* HEADER SECTION */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 mb-8 border-b border-white/5 pb-6">
         <div className="flex flex-col shrink-0">
           <div className="flex items-center gap-3">
             <Rocket className="text-[#ccff00]" size={36} />
-            <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">Premium Placements</h1>
+            <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">Προβολή & Boost σταθμών</h1>
           </div>
           <span className="text-zinc-500 font-bold text-sm tracking-widest uppercase mt-2">
-            Επίβλεψη & Χειροκίνητη Διαχείριση Boosts
+            Επίλεξε διάρκεια, άλλαξε σειρά και αποθήκευσε με ασφάλεια
           </span>
         </div>
 
@@ -202,7 +202,7 @@ export default function Boost({ API_URL, stations, refreshStations }) {
 
       {/* DRAG & DROP LIST */}
       <div className="bg-[#0f0f0f] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-        <div className="grid grid-cols-12 gap-4 p-4 border-b border-white/5 bg-black/50 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
+        <div className="grid grid-cols-12 gap-3 p-4 border-b border-white/5 bg-black/50 text-[10px] text-zinc-500 font-black uppercase tracking-widest">
           <div className="col-span-1 text-center">Θεση</div>
           <div className="col-span-4 md:col-span-3">Σταθμος</div>
           <div className="col-span-2 hidden md:block">Ειδος</div>
