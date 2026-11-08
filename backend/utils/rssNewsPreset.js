@@ -3,6 +3,8 @@
 // Use the selected category names as a preset for verified, public publisher RSS URLs.
 // No scraping or requests to undocumented rssnews.io endpoints.
 const CATEGORIES=Object.freeze({
+  'Πολιτική':[['https://www.newsbeast.gr/politiki/feed','Newsbeast']],
+  'Lifestyle':[['https://www.newsbeast.gr/lifestyle/feed','Newsbeast']],
   'Ελλάδα':[
     ['https://www.newsbeast.gr/greece/feed','Newsbeast'],
     ['https://www.pes.gr/c/greece/feed/','PES.gr']
@@ -29,6 +31,8 @@ const CATEGORIES=Object.freeze({
 });
 const ALIASES=new Map([
   ['Ελλάδα','Ελλάδα'],['Greece','Ελλάδα'],
+  ['Πολιτική','Πολιτική'],['Politics','Πολιτική'],
+  ['Lifestyle','Lifestyle'],['Διασκέδαση','Lifestyle'],
   ['Business','Business'],['Οικονομία','Business'],['Οικονομικά','Business'],
   ['Education','Education'],['Παιδεία','Education'],['Εκπαίδευση','Education'],
   ['Κόσμος','Κόσμος'],['World','Κόσμος'],
@@ -47,7 +51,7 @@ function normalizePreset(raw){
      url.searchParams.getAll('feed').length!==1||url.searchParams.getAll('c').length!==1)
     bad('Το rssnews.io link έχει μη υποστηριζόμενες παραμέτρους.');
   const entries=url.searchParams.get('c').split(',').map(c=>c.trim()).filter(Boolean);
-  if(!entries.length||entries.length>8)bad('Επίλεξε έως 8 κατηγορίες.');
+  if(!entries.length||entries.length>10)bad('Επίλεξε έως 10 κατηγορίες.');
   const categories=[...new Set(entries.map(c=>{
     const category=ALIASES.get(c);
     if(!category)bad('Μη υποστηριζόμενη κατηγορία rssnews.io: '+c.slice(0,60));
@@ -96,7 +100,7 @@ async function coverFromPage(article,feedUrl){
   const link=safePublisherPage(article.url,feedUrl);
   if(!link)return article;
   try{
-    const response=await fetch(link,{redirect:'error',signal:AbortSignal.timeout(4500),
+    const response=await fetch(link,{redirect:'error',signal:AbortSignal.timeout(2800),
       headers:{Accept:'text/html','User-Agent':'iRadiosGR-NewsFeed/2.1'}});
     if(!response.ok||!/text\/html/i.test(response.headers.get('content-type')||'')||
        Number(response.headers.get('content-length')||0)>1_000_000)return article;
@@ -119,8 +123,8 @@ async function mapLimited(items,limit,mapper){
 async function downloadPreset(source,{fetchXml}){
   const preset=normalizePreset(typeof source==='string'?source:source.url);
   const feeds=uniqueFeeds(preset);
-  // A maximum of 11 allowlisted feed URLs, with at most four concurrent connections.
-  const fetched=await mapLimited(feeds,4,async feed=>{
+  // A bounded set of allowlisted publisher RSS endpoints, up to six concurrent.
+  const fetched=await mapLimited(feeds,6,async feed=>{
     try{return {...feed,result:await fetchXml(feed.url)};}
     catch(e){return {...feed,error:String(e.message||e).slice(0,100)};}
   });
@@ -132,8 +136,8 @@ async function downloadPreset(source,{fetchXml}){
   const prioritized=all.sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0));
   // Only inspect publisher article pages to fill missing image metadata; bounded and allowlisted.
   let inspected=0;
-  const enriched=await mapLimited(prioritized,3,async article=>{
-    if(!article.imageUrl&&inspected<24){
+  const enriched=await mapLimited(prioritized,5,async article=>{
+    if(!article.imageUrl&&inspected<15){
       inspected++;
       article=await coverFromPage(article,article._feed);
     }

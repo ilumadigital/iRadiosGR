@@ -138,7 +138,7 @@ async function fetchXml(url,google=false,publisherDomain=''){
   if(!['rss.app','news.google.com','www.newsbeast.gr','www.pes.gr','www.esos.gr','www.alfavita.gr'].includes(host))
     throw new Error('Unsupported feed host');
   const response=await fetch(url,{
-    redirect:'error',signal:AbortSignal.timeout(9000),
+    redirect:'error',signal:AbortSignal.timeout(host==='news.google.com'||host==='rss.app'?9000:6000),
     headers:{Accept:'application/rss+xml, application/atom+xml, application/xml, text/xml',
       'User-Agent':'iRadiosGR-NewsFeed/2.0'}
   });

@@ -79,7 +79,10 @@ async function sync(doc,force=false){
 exports.publicFeed=async(_req,res)=>{
   try{
     let doc=await settings();
-    if(doc.enabled)doc=await sync(doc);
+    if(doc.enabled){
+      if(doc.articles.length)sync(doc).catch(()=>{}); // serve cached feed immediately; refresh in shared process
+      else doc=await sync(doc); // first load has no stale feed to serve
+    }
     res.setHeader('Cache-Control','public, max-age=30');
     res.json({enabled:doc.enabled,feedTitle:doc.feedTitle,
       articles:doc.enabled?doc.articles.filter(a=>doc.sources.some(s=>s.enabled&&s.id===a.sourceId)):[],lastSyncedAt:doc.lastSyncedAt});
