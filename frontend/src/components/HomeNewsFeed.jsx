@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Link, useNavigate} from 'react-router-dom';
 import {ArrowRight, Headphones, Newspaper, Pause, Play, Radio, RefreshCw} from 'lucide-react';
-import {Article} from '../pages/NewsFeed';
+import HomeNewsSlider from './HomeNewsSlider';
 import {compareCatalogPopularity} from '../utils/catalogLive';
 import {stationIsPlaying} from './StationListenButton';
 
@@ -221,11 +221,7 @@ export default function HomeNewsFeed({
             className="mx-auto mt-3 block text-xs font-black text-[#ccff00]">Προβολή όλων</button>
         </div>
       ) : (
-        <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-          {filtered.map(item => (
-            <Article key={item.key} item={item} view="grid" now={now} source="" backTo="/" />
-          ))}
-        </div>
+        <HomeNewsSlider articles={filtered} category={selectedCategory} now={now} />
       )}
       {latest.length > 0 && <div className="mt-5 flex justify-center">
         <Link to={allNewsLink} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-[#151b21] px-6 text-xs font-black text-white transition-colors hover:border-[#ccff00]/50 hover:text-[#ccff00]">
