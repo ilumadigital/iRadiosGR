@@ -41,7 +41,7 @@ export default function PromotedStationCard({
     return()=>clearInterval(timer);
   },[]);
   const station=useMemo(()=>stations.find(s=>
-    String(s._id)===String(feature?.stationId) && (s.status==='approved'||!s.status)),[stations,feature?.stationId]);
+    String(s._id)===String(feature?.stationId) && (s.status==='approved'||!s.status) && s.isOffline !== true),[stations,feature?.stationId]);
   const show=useMemo(()=>activeStationShow(station,clock),[station,clock]);
   useEffect(()=>{onAvailabilityChange?.(station?._id||null);},[station?._id,onAvailabilityChange]);
   if(!station)return null;
