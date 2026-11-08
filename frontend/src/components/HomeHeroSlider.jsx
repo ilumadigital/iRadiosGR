@@ -71,6 +71,8 @@ export default function HomeHeroSlider({
   const description=slide?.subtitle || stationFallback?.slogan ||
     'Χιλιάδες σταθμοί. Μία εμπειρία που προσαρμόζεται στις επιλογές σου.';
   const stationAction=(!slide||slide.targetType==='station')&&featuredStation;
+  const linkAction=slide?.targetType==='genre'||slide?.targetType==='external'||
+    (slide?.targetType==='none'&&Boolean(onOpenDiscovery));
 
   return (
     <section aria-roledescription="carousel" aria-label="Επιλεγμένοι σταθμοί και editorial slides iRadios"
@@ -104,10 +106,10 @@ export default function HomeHeroSlider({
             ?<StationListenButton station={featuredStation} currentStation={currentStation} isPlaying={isPlaying}
               onPlayStation={onPlayStation} onPlayPause={onPlayPause}
               className="min-h-9 px-3 sm:min-h-11 sm:px-8"/>
-            :<button type="button" onClick={activate} className="ir-action-primary min-h-9 px-3 text-xs sm:min-h-11 sm:px-8">
+            :linkAction?<button type="button" onClick={activate} className="ir-action-primary min-h-9 px-3 text-xs sm:min-h-11 sm:px-8">
               <ArrowUpRight size={18}/>{slide?.ctaLabel||'Ανακάλυψε'}
-            </button>}
-          {featuredStation&&<button type="button" onClick={()=>navigate('/station/'+(featuredStation.slug||featuredStation._id))}
+            </button>:null}
+          {stationAction&&<button type="button" onClick={()=>navigate('/station/'+(featuredStation.slug||featuredStation._id))}
             className="hidden min-h-11 rounded-xl border border-white/30 bg-black/35 px-5 text-xs font-bold text-white backdrop-blur hover:border-[#ccff00]/60 sm:inline-flex sm:items-center">
             Πληροφορίες σταθμού
           </button>}
