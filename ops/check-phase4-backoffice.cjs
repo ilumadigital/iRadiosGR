@@ -61,6 +61,8 @@ Module._load=function(name,parent,isMain){
     };
     if(name==='multer')return multer;
     if(name==='../models/Station')return Station;
+    // XML synchronizer is validated separately and must not boot cron/network during role-contract tests.
+    if(name==='../services/stationScheduleFeed')return {loadFeed:async()=>{},publicPreview:()=>({}),syncOne:async()=>({}),startCron:()=>{}};
     if(name==='../models/User')return User;
     if(name==='../utils/authMiddleware')return {protect:auth};
     if(name==='../utils/roleMiddleware')return {authorizeRoles:roles};
