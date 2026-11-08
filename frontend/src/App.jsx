@@ -82,7 +82,7 @@ import TermsListeners from './pages/TermsListeners';
 import TermsBroadcasters from './pages/TermsBroadcasters';
 import TermsAgency from './pages/TermsAgency';
 import ResetPassword from './pages/ResetPassword';
-import Settings from './pages/Settings'; 
+// Settings is unified into Profile; /settings remains a safe legacy redirect.
 import PressKit from './pages/PressKit';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 
@@ -1824,8 +1824,8 @@ function MainApp() {
                 </SmartHomeRoute>
               } 
             />
-            <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-            <Route path="/settings" element={<Settings API_URL={API_URL} currentUser={currentUser} />} />
+            <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} currentUser={currentUser} onLogout={handleLogout} /> : <Navigate to="/login" />} />
+            <Route path="/settings" element={<Navigate to="/profile?tab=details" replace />} />
             <Route path="/press-kit" element={<PressKit />} />
             <Route path="/newsfeed" element={<NewsFeed stations={stations} userLocation={userLocation} checkGeoMatch={checkGeoMatch} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
             <Route path="/newsfeed/:key" element={<NewsArticle />} />
