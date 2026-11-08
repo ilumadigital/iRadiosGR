@@ -3,6 +3,7 @@
 // is stored in MongoDB next to the station playlist (never audio samples).
 const Playlist=require('../models/StationPlaylist');
 const {parseTrack,recordStationTrack}=require('./recordStationTrack');
+const {VALID_FOR,snapshotSong}=require('./stageNativeNow');
 
 const results=new Map();
 const FOUR_MINUTES=4*60*1000;
@@ -94,16 +95,19 @@ function activeSharedAI(now=Date.now()){
 async function stageLiveAI(req,res){
   res.setHeader('Cache-Control','private, no-store');
   try{
-    const now=new Date();
-    const docs=await Playlist.find({'currentAI.expiresAt':{$gt:now}})
-      .select('stationId currentAI').limit(512).lean();
+    // A single database query serves ALL cached native songs + active AI
+    // recognitions. No browser scans 36 radio streams or metadata endpoints.
+    const now=Date.now();
+    const docs=await Playlist.find({$or:[
+      {'currentAI.expiresAt':{$gt:new Date(now)}},
+      {'nativeNow.confirmedAt':{$gt:new Date(now-VALID_FOR)}}
+    ]}).select('stationId nativeNow currentAI').limit(2000).lean();
     const tracks=docs.map(doc=>{
-      const ai=doc.currentAI;
-      if(!ai||!parseTrack(ai.raw))return null;
-      return {stationId:String(doc.stationId),title:ai.raw,source:'acrcloud',
-        foundWithAI:true,recognizedAt:new Date(ai.recognizedAt).toISOString(),
-        expiresAt:new Date(ai.expiresAt).toISOString()};
-    }).filter(Boolean).sort((a,b)=>b.recognizedAt.localeCompare(a.recognizedAt));
+      const item=snapshotSong(doc,now);
+      if(!item)return null;
+      return {stationId:String(doc.stationId),...item};
+    }).filter(Boolean).sort((a,b)=>String(b.recognizedAt||b.changedAt||'')
+      .localeCompare(String(a.recognizedAt||a.changedAt||'')));
     return res.json({tracks});
   }catch{
     return res.status(503).json({tracks:[],error:'Now Playing temporarily unavailable'});
