@@ -44,6 +44,12 @@ assert.match(header,/onKeyDown=\{handleKeyDown\}/);
 assert.match(header,/fetch\('\/api\/newsfeed'/);
 assert.match(header,/directVoiceMatch\(indexRef\.current, heard\)/);
 assert.match(css,/@media \(max-width: 430px\)/);
+assert.match(header,/ir-header__mobile-menu ir-header__icon-button lg:hidden/, 'mobile hamburger is explicitly scoped');
+assert.match(css,/\.ir-header \.ir-header__mobile-menu,\s*\.ir-header \.ir-header__mobile-brand \{ display: none; \}/,
+  'desktop must hide mobile-only menu and logo despite icon display rules');
+assert.match(css,/@media \(max-width: 1023px\)\s*\{[\s\S]*?\.ir-header__right \{ order: 1; margin-left: auto; \}[\s\S]*?\.ir-smart-search \{ order: 2; margin-left: 0; \}/,
+  'mobile search icon must follow all widgets at the far right');
+
 assert.match(css,/prefers-reduced-motion: reduce/);
 assert.match(app,/<TopBar[^>]*stations=\{stations\}/);
 console.log('Smart header/search: routing, grouping, speech confidence and responsive contracts passed.');
