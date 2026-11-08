@@ -554,6 +554,7 @@ function MainApp() {
   
   const audioRef = useRef(null); 
   const lastMetaFetch = useRef(0);
+  const metadataRequest = useRef(0);
   const lastStationRefresh=useRef(0);
   const intendedPlayState = useRef(false);
 
@@ -1250,6 +1251,8 @@ function MainApp() {
 
       if (isRecognizing || isPlayingAd) return;
 
+      // Invalidate older requests so they cannot overwrite a fresh AI match.
+      metadataRequest.current += 1;
       setIsRecognizing(true);
       const previousNowPlaying = nowPlaying;
       const previousInfo=nowPlayingInfo;
@@ -1367,7 +1370,8 @@ function MainApp() {
   const fetchMetadata=async()=>{
     if(!currentStation?._id||!currentUser||isPlayingAd||isRecognizing||recognitionLock.current)return;
     const stationId=String(currentStation._id);
-    const matches=()=>activeStationIdRef.current===stationId;
+    const requestId=++metadataRequest.current;
+    const matches=()=>activeStationIdRef.current===stationId && metadataRequest.current===requestId;
     try{
       const res=await fetch(`${API_URL}/metadata?stationId=${encodeURIComponent(stationId)}`,{
         headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`}
@@ -1403,6 +1407,14 @@ function MainApp() {
     if (isPlaying && currentStation && !isPlayingAd && !isRecognizing && !recognitionLock.current) fetchMetadata(); 
     else if (!isRecognizing && !recognitionLock.current) {setNowPlaying('');setNowPlayingInfo({source:'none',foundWithAI:false});}
   }, [currentStation, currentUser, isPlaying, isPlayingAd, isRecognizing]);
+
+  // Live streams do not always fire timeupdate (especially in iOS Safari).
+  // Poll independently so another listener's AI match reaches this player.
+  useEffect(()=>{
+    if(!currentStation?._id||!currentUser||!isPlaying||isPlayingAd||isRecognizing)return;
+    const timer=setInterval(()=>{if(!recognitionLock.current)fetchMetadata();},30000);
+    return ()=>clearInterval(timer);
+  },[currentStation?._id,currentUser?._id,isPlaying,isPlayingAd,isRecognizing]);
 
   useMediaSession({
     currentStation, nowPlaying, nowPlayingInfo, isPlaying, isPlayingAd, currentAdInfo,
