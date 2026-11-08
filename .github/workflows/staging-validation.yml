@@ -55,6 +55,8 @@ jobs:
         run: node ops/check-phase33-smart-nowplaying.cjs
       - name: Validate Top 10 music-only automatic recognition and billing cap
         run: node ops/check-phase33-auto-acr.cjs
+      - name: Verify shared network recognition and rolling playlist history
+        run: node ops/check-phase34-network-nowplaying.cjs
       - name: Validate frontend production build
         # Existing react-simple-maps@1.0.0 declares React 16 peers despite the React 19 app.
         # Use the same legacy resolution needed by the current project; track upgrade separately.
