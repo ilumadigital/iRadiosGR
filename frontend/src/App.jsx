@@ -58,6 +58,7 @@ import MyRadios from './pages/MyRadios';
 import Genre from './pages/Genre';
 import Region from './pages/Region';
 import NewsFeed from './pages/NewsFeed';
+import NewsArticle from './pages/NewsArticle';
 import AdminNewsFeed from './pages/AdminNewsFeed';
 import NewPush from './pages/NewPush';
 import AdminAds from './pages/AdminAds';
@@ -1824,6 +1825,7 @@ function MainApp() {
             <Route path="/settings" element={<Settings API_URL={API_URL} currentUser={currentUser} />} />
             <Route path="/press-kit" element={<PressKit />} />
             <Route path="/newsfeed" element={<NewsFeed stations={stations} userLocation={userLocation} checkGeoMatch={checkGeoMatch} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
+            <Route path="/newsfeed/:key" element={<NewsArticle />} />
             <Route path="/map" element={<MapMode stations={stations} currentStation={currentStation} onPlayStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} />} />
 
             <Route path="/studio" element={

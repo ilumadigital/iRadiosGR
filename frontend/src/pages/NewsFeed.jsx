@@ -1,5 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Helmet} from 'react-helmet-async';
+import {Link,useLocation,useSearchParams} from 'react-router-dom';
 import {Newspaper,LayoutGrid,List,ExternalLink,RefreshCw,Clock3,Megaphone} from 'lucide-react';
 import EditorialPlacement from '../components/EditorialPlacement';
 
@@ -13,11 +14,11 @@ export function newsAge(value,now=Date.now()){
   return {relative:new Intl.RelativeTimeFormat('el-GR',{numeric:'always'}).format(-number,unit),
     absolute:new Intl.DateTimeFormat(undefined,{dateStyle:'long',timeStyle:'short'}).format(date),iso:date.toISOString()};
 }
-function Article({item,view,now,source}){
+function Article({item,view,now,source,backTo}){
   const [broken,setBroken]=useState(false),time=newsAge(item.publishedAt,now);
-  const href=item.url;
+  const href='/newsfeed/'+item.key;
   return <article className={'group min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#12171b] shadow-[0_16px_32px_rgba(0,0,0,.16)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ccff00]/35 '+(view==='list'?'flex flex-col sm:flex-row':'flex h-full flex-col')}>
-    <a href={href} target="_blank" rel="noopener noreferrer" aria-label={'Διάβασε: '+item.title}
+    <Link to={href} state={{backTo}} aria-label={'Προεπισκόπηση: '+item.title}
       className={'relative block shrink-0 overflow-hidden bg-[#202628] '+(view==='list'?'aspect-[16/9] sm:aspect-auto sm:w-[235px] lg:w-[290px]':'aspect-[16/10]')}>
       {item.imageUrl&&!broken?<img src={item.imageUrl} alt="" loading="lazy" onError={()=>setBroken(true)} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"/>:
         <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#1d292b] to-[#0a1213] px-4 text-center">
@@ -25,7 +26,7 @@ function Article({item,view,now,source}){
           <span className="max-w-full truncate text-[10px] font-black uppercase tracking-[.15em] text-zinc-400">{item.source||source||'News'}</span>
         </div>}
       <span className="absolute bottom-3 left-3 max-w-[90%] truncate rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#ccff00] backdrop-blur">{item.source||source||'Ειδήσεις'}</span>
-    </a>
+    </Link>
     <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-zinc-400">
         <Clock3 size={13} className="shrink-0 text-[#ccff00]"/>
@@ -34,10 +35,10 @@ function Article({item,view,now,source}){
         {item.category&&<span className="rounded-full border border-[#ccff00]/20 px-2 py-0.5 text-[10px] text-[#ccff00]">{item.category}</span>}
       </div>
       <h2 className={'line-clamp-3 font-black leading-snug tracking-tight text-white transition-colors group-hover:text-[#ccff00] '+(view==='list'?'text-lg sm:text-xl':'text-base sm:text-lg')}>
-        <a href={href} target="_blank" rel="noopener noreferrer">{item.title}</a>
+        <Link to={href} state={{backTo}}>{item.title}</Link>
       </h2>
       {item.summary&&<p className="mt-3 line-clamp-3 text-xs leading-6 text-zinc-400 sm:text-sm">{item.summary}</p>}
-      <a href={href} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex w-fit items-center gap-1.5 pt-5 text-xs font-black text-[#ccff00] hover:text-white">Διάβασε το άρθρο <ExternalLink size={14}/></a>
+      <Link to={href} state={{backTo}} className="mt-auto inline-flex w-fit items-center gap-1.5 pt-5 text-xs font-black text-[#ccff00] hover:text-white">Δες την προεπισκόπηση <ExternalLink size={14}/></Link>
     </div>
   </article>;
 }
@@ -81,8 +82,22 @@ function AdUnit({banner,wide=false,view='grid'}){
   </AdLink>;
 }
 export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoMatch,currentStation,isPlaying,onPlayStation,onPlayPause}){
-  const [view,setView]=useState('grid'),[items,setItems]=useState([]),[source,setSource]=useState('');
-  const [categories,setCategories]=useState([]),[selectedCategory,setSelectedCategory]=useState('all');
+  const location=useLocation();
+  const [searchParams,setSearchParams]=useSearchParams();
+  const view=searchParams.get('view')==='list'?'list':'grid';
+  const selectedCategory=searchParams.get('category')||'all';
+  const setView=next=>setSearchParams(current=>{
+    const params=new URLSearchParams(current);
+    if(next==='list')params.set('view','list');else params.delete('view');
+    return params;
+  },{replace:true});
+  const setSelectedCategory=next=>setSearchParams(current=>{
+    const params=new URLSearchParams(current);
+    if(next==='all')params.delete('category');else params.set('category',next);
+    return params;
+  },{replace:true});
+  const [items,setItems]=useState([]),[source,setSource]=useState('');
+  const [categories,setCategories]=useState([]);
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[now,setNow]=useState(Date.now()),[banners,setBanners]=useState([]);
   const premium=Boolean(currentUser&&(currentUser.role==='admin'||currentUser.role==='agency'||currentUser.isPremium===true||currentUser.broadcasterProfile?.tier==='premium'));
   const refresh=useCallback(async signal=>{
@@ -123,8 +138,9 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
     return [...all];
   },[categories,ordered]);
   useEffect(()=>{
-    if(selectedCategory!=='all'&&!categoryOptions.includes(selectedCategory))setSelectedCategory('all');
-  },[selectedCategory,categoryOptions]);
+    if(!loading&&selectedCategory!=='all'&&!categoryOptions.includes(selectedCategory))
+      setSelectedCategory('all');
+  },[selectedCategory,categoryOptions,loading]);
   const categoryCounts=useMemo(()=>{
     const counts={};
     for(const item of ordered)if(item.category)counts[item.category]=(counts[item.category]||0)+1;
@@ -181,7 +197,7 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
       {filtered.map((item,index)=><React.Fragment key={item.id||item.url}>
         {banners.length>0&&index>0&&index%12===0&&view==='grid'&&<div className="col-span-full py-4 md:py-8"><AdUnit wide banner={banners[Math.floor(index/12)%banners.length]}/></div>}
         {banners.length>0&&index>0&&index%5===0&&<AdUnit banner={banners[Math.floor(index/5)%banners.length]} view={view}/>}
-        <Article item={item} view={view} now={now} source={source}/>
+        <Article item={item} view={view} now={now} source={source} backTo={location.pathname+location.search}/>
       </React.Fragment>)}
     </section>}
   </div>;
