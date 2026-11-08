@@ -1,6 +1,6 @@
 'use strict';
 // One stage backend worker, independent of browsers and without Socket.IO.
-// Auto ACRCloud is opt-in: Top-10 music radios plus actually listened approved music radios.
+// Auto ACRCloud is opt-in: the Top 5 of EACH music genre without listeners, plus listened music radios.
 const mongoose=require('mongoose');
 const Station=require('../models/Station');
 const Budget=require('../models/StageAcrDailyBudget');
@@ -10,12 +10,13 @@ const {recognizeApprovedStation,readyForAcr}=require('./stageAcrcloud');
 
 const listeners=new Map(); // session UUID -> station ID and expiry, no user data or IP addresses.
 const lastAutomatic=new Map();
-const lastNativeProbe=new Map(); // one upstream metadata check per Top-10 station per five minutes
+const lastNativeProbe=new Map(); // one upstream metadata check per station per five minutes
 const lastBeat=new Map();
 const LISTEN_TTL=155000;
 const TICK_MS=30000;
-const MAX_LISTENED_PER_TICK=20; // bound queries/vendor exposure beyond the Top 10
-let nextTopRefresh=0,top=[],inTick=false,listenedCursor=0;
+const MAX_LISTENED_PER_TICK=20; // bound queries/vendor exposure beyond category Top 5
+const TOP_PER_GENRE=5;
+let nextTopRefresh=0,top=[],topIds=new Set(),inTick=false,listenedCursor=0,topCursor=0;
 const excludeGenre=/(?:news|talk|speech|sport|ειδησ|ενημ[εέ]ρ|αθλητ|πολιτικ|θρησκ|ομιλ|οικονομικ|ενημερωτικ|δημοσιογραφ)/i;
 const excludeName=/(?:\bnews\b|\bsport(?:s)?\b|ειδησ|ενημερωτικ|αθλητικ)/i;
 function isMusicStation(station){
@@ -56,10 +57,43 @@ async function refreshTop(now=Date.now()){
   if(now<nextTopRefresh)return top;
   nextTopRefresh=now+5*60*1000;
   try{
-    const candidates=await Station.find({status:'approved'})
-      .select('_id name genre stream metadata plays status').sort({plays:-1,_id:1}).limit(500).lean();
-    top=candidates.filter(isMusicStation).slice(0,10);
-  }catch(error){console.warn('[AUTO_ACR] top_station_query_failed',error?.name||'query');}
+    // MongoDB ranks within each exact genre (the same genre field used by
+    // /genre/:genreName), without reading the whole catalog into Node memory.
+    // Filter non-music stations BEFORE ranking, so an excluded news station
+    // never occupies one of a music category's five slots.
+    const groups=await Station.aggregate([
+      {$match:{
+        status:'approved',
+        stream:{$type:'string',$ne:''},
+        genre:{$type:'string',$not:excludeGenre},
+        name:{$type:'string',$not:excludeName}
+      }},
+      {$group:{
+        _id:'$genre',
+        stations:{$topN:{
+          n:TOP_PER_GENRE,
+          sortBy:{popularity:-1,plays:-1,_id:1},
+          output:{
+            _id:'$_id',name:'$name',genre:'$genre',stream:'$stream',
+            metadata:'$metadata',popularity:'$popularity',
+            plays:'$plays',status:'$status'
+          }
+        }}
+      }}
+    ]);
+    // Interleave ranks across categories so low-budget processing does not
+    // always exhaust the quota on one genre before reaching another.
+    const categories=groups.sort((a,b)=>String(a._id).localeCompare(String(b._id),'el'));
+    const selected=[];
+    for(let rank=0;rank<TOP_PER_GENRE;rank++){
+      for(const category of categories){
+        const station=category.stations?.[rank];
+        if(isMusicStation(station))selected.push(station);
+      }
+    }
+    top=selected;
+    topIds=new Set(top.map(s=>String(s._id)));
+  }catch(error){console.warn('[AUTO_ACR] category_top_query_failed',error?.name||'query');}
   return top;
 }
 async function reserveDailyBudget(now=Date.now()){
@@ -90,7 +124,10 @@ async function inspectAndMaybeIdentify(station,now=Date.now()){
     await clearAutomaticAI(station._id);
     return;
   }
-  if(status==='missing'&&!listenerPresent(station._id,Date.now()))return;
+  // Selected category Top-5 radios are scanned on their own, even when
+  // metadata is completely absent and nobody is currently listening.
+  // Other music stations still need a recent anonymous playback heartbeat.
+  if(status==='missing'&&!topIds.has(id)&&!listenerPresent(station._id,Date.now()))return;
   if(shared?.kind==='manual')return;
 
   // Each station's clock starts BEFORE capture; even failures cannot spin.
@@ -118,10 +155,9 @@ async function tick(){
   try{
     await refreshTop();
     cleanupListeners();
-    // Listened non-Top-10 music stations also qualify, even with no/invalid
-    // metadata. Top-10 music stations stay first and retain their no-listener
-    // invalid-metadata exception. Rotate the bounded remainder for fairness.
-    const topIds=new Set(top.map(s=>String(s._id)));
+    // Top-5 in every non-news genre never needs a listener, regardless of
+    // missing or invalid native metadata. Non-selected music radios can still
+    // qualify with a playback heartbeat. Rotate both pools for fairness.
     const activeIds=[...new Set([...listeners.values()]
       .filter(item=>item.until>Date.now()).map(item=>item.stationId))]
       .filter(id=>!topIds.has(id)).sort();
@@ -135,8 +171,12 @@ async function tick(){
     const extra=chosen.length?await Station.find({
       _id:{$in:chosen},status:'approved'
     }).select('_id name genre stream metadata plays status').lean():[];
-    const worklist=[...top,...extra.filter(isMusicStation)];
-    // Concurrency=2, at most 10 Top-10 + 20 actually listened stations.
+    const rotate=top.length?topCursor%top.length:0;
+    const rotatedTop=top.slice(rotate).concat(top.slice(0,rotate));
+    if(top.length)topCursor=(topCursor+1)%top.length;
+    const worklist=[...rotatedTop,...extra.filter(isMusicStation)];
+    // Concurrency=2; daily MongoDB billing cap applies across every category
+    // and all other listened stations, not separately per category.
     let index=0;
     const worker=async()=>{
       while(index<worklist.length){
