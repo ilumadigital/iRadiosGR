@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
+import {useLocation} from 'react-router-dom';
 import {Radio, Save, Trash2, Pencil, Star} from 'lucide-react';
 import {adminFetch} from '../utils/adminFetch';
 
@@ -6,6 +7,7 @@ const field='w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3 text
 const label='mb-1 block text-xs font-bold text-zinc-300';
 
 export default function AdminPromotedStations({stations=[]}){
+  const location=useLocation();
   const [items,setItems]=useState([]);
   const [placement,setPlacement]=useState('region');
   const [placementValue,setPlacementValue]=useState('');
@@ -17,6 +19,19 @@ export default function AdminPromotedStations({stations=[]}){
   const genres=useMemo(()=>[...new Set(stations.map(s=>s.genre).filter(Boolean))].sort(),[stations]);
   const regions=useMemo(()=>[...new Set(stations.flatMap(s=>[s.region,s.city]).filter(Boolean))]
     .sort((a,b)=>a.localeCompare(b,'el-GR')),[stations]);
+  useEffect(()=>{
+    // "Promoted" links from the station directory/editor preselect that radio
+    // and its region, so admins don't have to search for it again.
+    const id=new URLSearchParams(location.search).get('station');
+    if(!id)return;
+    const candidate=stations.find(s=>String(s._id)===id&&s.status==='approved');
+    if(!candidate)return;
+    const homeRegion=candidate.region||candidate.city;
+    setPlacement(homeRegion?'region':'genre');
+    setPlacementValue(homeRegion||candidate.genre||'');
+    setStationId(id);
+    setEnabled(true);
+  },[location.search,stations]);
   const eligible=useMemo(()=>stations.filter(s=>
     (s.status==='approved'||!s.status)&&
     (placement==='genre'?s.genre===placementValue:
