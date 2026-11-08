@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Pause, Play, SkipBack, SkipForward, Volume2, Heart,
   ListMusic, Info, ScanSearch, Loader2, Radio, ExternalLink, X } from 'lucide-react';
 import StationPlaylistPanel from './StationPlaylistPanel';
+import MusicServiceLinks from './MusicServiceLinks';
 import FoundWithAI from './FoundWithAI';
 import FullscreenArtwork from './FullscreenArtwork';
 import OnAirShowCard from './OnAirShowCard';
@@ -95,6 +96,10 @@ export default function DesktopFullPlayer({
               className="mt-[clamp(0.45rem,1.8dvh,1rem)]"/>}
             {isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-300">{currentAdInfo?.title||'Διαφημιστικό διάλειμμα'}{Number.isFinite(adTimeRemaining)?' · '+adTimeRemaining+'″':''}</p>}
             {!isPlayingAd&&!validTitle&&!showProducerArt&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">{currentUser?'Δεν γνωρίζουμε ποιο τραγούδι παίζει αυτή τη στιγμή.':'Συνδέσου στο iRadios για NowPlaying'}</p>}
+            {!isPlayingAd && !isRecognizing && (
+              <MusicServiceLinks song={nowPlaying} stationName={station.name}
+                currentUser={currentUser} compact className="ir-music-links--desktop-player" />
+            )}
             <div className="mt-[clamp(0.5rem,2.2dvh,1.6rem)] flex shrink-0 flex-wrap items-center gap-[clamp(0.4rem,1.1vw,1.25rem)]">
               <button type="button" onClick={togglePlayPause} disabled={isPlayingAd} aria-label={isPlaying?'Παύση ραδιοφώνου':'Αναπαραγωγή ραδιοφώνου'}
                 className="ir-player-transport flex h-[clamp(48px,8dvh,80px)] w-[clamp(48px,8dvh,80px)] shrink-0 items-center justify-center rounded-full transition-transform hover:scale-105 disabled:opacity-40">
