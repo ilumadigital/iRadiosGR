@@ -1,3 +1,5 @@
+import {canonicalStationLocation} from './stationLocations';
+
 // Κοινές συντεταγμένες για ΟΛΟΥΣ τους χάρτες του iRadios.
 // Για τοποθεσίες χωρίς επαληθευμένο κέντρο δεν δημιουργούμε ψεύτικες καρφίτσες.
 export const CITY_COORDINATES = {
@@ -59,7 +61,7 @@ export const CITY_COORDINATES = {
   "Κιλκίς": [40.9930, 22.8743],
   "Κοζάνη": [40.3000, 21.7833], "Πτολεμαΐδα": [40.5147, 21.6781],
   "Κορινθία": [37.9396, 22.9271], "Κόρινθος": [37.9396, 22.9271], "Λουτράκι": [37.9747, 22.9754], "Κιάτο": [38.0131, 22.7483],
-  "Κυκλάδες": [37.4385, 24.9405], "Σύρος": [37.4385, 24.9405], "Νάξος": [37.1056, 25.3764], "Μύκονος": [37.4467, 25.3289], "Σαντορίνη": [36.3932, 25.4615], "Πάρος": [37.0855, 25.1488], "Τήνος": [37.5375, 25.1627], "Μήλος": [36.7431, 24.4253],
+  "Κυκλάδες": [37.4385, 24.9405], "Ερμούπολη": [37.4425, 24.9445], "Σύρος": [37.4385, 24.9405], "Νάξος": [37.1056, 25.3764], "Μύκονος": [37.4467, 25.3289], "Σαντορίνη": [36.3932, 25.4615], "Πάρος": [37.0855, 25.1488], "Τήνος": [37.5375, 25.1627], "Μήλος": [36.7431, 24.4253],
   "Λακωνία": [37.0745, 22.4297], "Σπάρτη": [37.0745, 22.4297], "Γύθειο": [36.7621, 22.5647],
   "Λάρισα": [39.6390, 22.4191], "Ελασσόνα": [39.8953, 22.1882], "Φάρσαλα": [39.2946, 22.3857],
   "Λασίθι": [35.1906, 25.7155], "Άγιος Νικόλαος": [35.1906, 25.7155], "Ιεράπετρα": [35.0101, 25.7369], "Σητεία": [35.2057, 26.1050],
@@ -148,7 +150,8 @@ function findRealPlace(value) {
 
 export function stationMapLocation(station) {
   // City coordinates indicate a municipality's center, not an exact studio address.
-  const city = findRealPlace(station?.city);
+  const canonical = canonicalStationLocation(station);
+  const city = findRealPlace(canonical?.city);
   if (city) return { position: city.point, label: city.name, precision: 'city' };
   // Missing / unsupported city: the regional administrative seat is only an approximation.
   const region = findRealPlace(station?.region);
