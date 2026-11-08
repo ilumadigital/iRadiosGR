@@ -1,309 +1,226 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
-import React, { useState, useEffect } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
-} from 'recharts';
-import { 
-  Euro, PlayCircle, MousePointerClick, Users, Activity, Crown, Radio, Mic, Briefcase, Puzzle,
-  TrendingUp, Award, RefreshCw, Image as ImageIcon, Percent
-} from 'lucide-react';
+import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {Link} from 'react-router-dom';
+import {ResponsiveContainer,BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip as ChartTooltip,PieChart,Pie,Cell} from 'recharts';
+import {Activity,ArrowRight,BarChart3,Briefcase,CheckCircle2,Clock3,Crown,Euro,Headphones,
+  Image as ImageIcon,LoaderCircle,MousePointerClick,Radio,RefreshCw,TrendingUp,Users} from 'lucide-react';
 
-export default function AdminDashboard({ API_URL, globalSocket }) {
-  const [stats, setStats] = useState({
-    revenueData: [], roleData: [], topStations: [], topAds: [], topBanners: [], activityFeed: [],
-    totals: { revenue: 0, users: 0, premiumUsers: 0 },
-    roleCounts: { listeners: 0, broadcasters: 0, producers: 0, agencies: 0 },
-    stationStats: { activeStations: 0 },
-    adStats: {
-      audio: { plays: 0, clicks: 0, ctr: 0 },
-      banner: { views: 0, clicks: 0, ctr: 0 }
-    }
-  });
-  
-  const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // 🟢 Live Listeners State
-  const [liveListeners, setLiveListeners] = useState(0);
-
-  const COLORS = ['#ccff00', '#ffffff', '#ff00cc', '#00e6ff', '#f97316'];
-
-  // 🟢 HTTP Polling για τα Συνολικά Στατιστικά (Network)
-  const fetchLiveNetworkStats = async () => {
-    try {
-      const res = await fetch(`${API_URL}/stats/network`); 
-      if (res.ok) {
-        const data = await res.json();
-        // Ενημερώνουμε τα live listeners. Τους χρήστες τους παίρνουμε και από το dashboard-stats,
-        // αλλά για απόλυτη σιγουριά τα ανανεώνουμε κι εδώ.
-        if (data.totals?.liveListeners !== undefined) {
-          setLiveListeners(data.totals.liveListeners);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to fetch live network stats", err);
-    }
-  };
-
-  const fetchDashboardData = async () => {
-    setIsRefreshing(true);
-    try {
-      const token = localStorage.getItem('iluma_token');
-      const res = await fetch(`${API_URL}/admin/dashboard-stats`, { headers: { 'Authorization': `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        
-        setStats(prev => ({
-          ...prev,
-          ...data,
-          adStats: data.adStats || {
-            audio: { plays: data.totals?.plays || 0, clicks: data.totals?.clicks || 0, ctr: data.totals?.plays ? ((data.totals.clicks / data.totals.plays) * 100).toFixed(2) : 0 },
-            banner: { views: data.totals?.bannerViews || 0, clicks: data.totals?.bannerClicks || 0, ctr: data.totals?.bannerViews ? ((data.totals.bannerClicks / data.totals.bannerViews) * 100).toFixed(2) : 0 }
-          },
-          roleCounts: data.roleCounts || {
-             listeners: data.roleData?.find(r => r.name === 'Ακροατές')?.value || 0,
-             broadcasters: data.roleData?.find(r => r.name === 'Broadcasters')?.value || 0,
-             producers: data.roleData?.find(r => r.name === 'Producers')?.value || 0,
-             agencies: data.roleData?.find(r => r.name === 'Agencies')?.value || 0,
-          }
-        }));
-      }
-    } catch (err) { 
-      console.error("Error fetching stats:", err); 
-    }
-
-    // Κλήση και στο public stats endpoint για το Live
-    await fetchLiveNetworkStats();
-
-    if (globalSocket && globalSocket.connected) {
-      globalSocket.emit('get_live_count');
-    }
-
-    setLoading(false);
-    setTimeout(() => setIsRefreshing(false), 600);
-  };
-
-  // 🟢 Initial Load & HTTP Polling Setup
-  useEffect(() => {
-    fetchDashboardData();
-    
-    // Ανανέωση κάθε 15 δευτερόλεπτα (backup σε περίπτωση που κοπεί το socket)
-    const interval = setInterval(fetchLiveNetworkStats, 15000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
-
-  // 🟢 Το Socket για την ακαριαία (real-time) ενημέρωση
-  useEffect(() => {
-    if (!globalSocket) return;
-
-    const handleLiveCount = (count) => {
-      setLiveListeners(count);
-    };
-
-    // Ακούμε και στα δύο events για απόλυτη σιγουριά
-    globalSocket.on('admin_live_listeners', handleLiveCount);
-    globalSocket.on('global_live_listeners', handleLiveCount);
-
-    if (globalSocket.connected) {
-      globalSocket.emit('get_live_count');
-    } else {
-      globalSocket.on('connect', () => globalSocket.emit('get_live_count'));
-    }
-
-    return () => {
-      globalSocket.off('admin_live_listeners', handleLiveCount);
-      globalSocket.off('global_live_listeners', handleLiveCount);
-    };
-  }, [globalSocket]);
-
-  if (loading) return <div className="p-12 text-[#ccff00] text-center animate-pulse font-black text-xl tracking-widest uppercase">Φορτωση Control Center...</div>;
-
-  const freePremiumData = [
-    { name: 'Free Users', value: Math.max(0, stats.totals.users - stats.totals.premiumUsers) },
-    { name: 'Premium', value: stats.totals.premiumUsers }
-  ];
-
-  const b2bData = [
-    { name: 'Broadcasters', value: stats.roleCounts.broadcasters },
-    { name: 'Producers', value: stats.roleCounts.producers },
-    { name: 'Agencies', value: stats.roleCounts.agencies }
-  ].filter(d => d.value > 0);
-
-  return (
-    <div className="p-4 lg:p-8 max-w-full pb-40 animate-fade-in">
-      
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-        <div className="flex items-center gap-3">
-          <Activity className="text-[#ccff00]" size={36} />
-          <h2 className="text-3xl lg:text-4xl font-black text-white uppercase italic tracking-tighter">Control Center</h2>
+const panel='rounded-[24px] border border-white/[.085] bg-[#15191b] p-5 md:p-6';
+const action='inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.045] px-4 py-2.5 text-xs font-bold text-zinc-100 transition hover:border-[#caff00]/40 hover:bg-white/[.07]';
+const fmt=value=>new Intl.NumberFormat('el-GR',{maximumFractionDigits:0}).format(Number(value)||0);
+const euros=value=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'}).format(Number(value)||0);
+const percent=value=>(Number(value)||0).toLocaleString('el-GR',{maximumFractionDigits:2})+'%';
+function Empty({message='Δεν υπάρχουν ακόμη δεδομένα για αυτή τη μέτρηση.'}){
+  return <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/10 p-5 text-center text-xs text-zinc-400">{message}</div>;
+}
+function Metric({icon:Icon,label,value,hint}){
+  return <div className={panel+' flex min-w-0 flex-col justify-between gap-5'}>
+    <div className="flex items-center justify-between gap-3">
+      <p className="text-xs font-semibold text-zinc-400">{label}</p>
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#caff00]/[.075] text-[#caff00]"><Icon size={19}/></div>
+    </div>
+    <div><p className="break-all text-3xl font-black tracking-[-.05em] text-white md:text-4xl">{value}</p>
+      <p className="mt-2 text-[11px] leading-5 text-zinc-500">{hint}</p>
+    </div>
+  </div>;
+}
+function RankList({title,icon:Icon,items,label,value,meta,to}){
+  return <section className={panel+' min-w-0'}>
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h3 className="flex items-center gap-2 text-base font-black text-white"><Icon size={18} className="text-[#caff00]"/>{title}</h3>
+      <Link to={to} className="rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-[#caff00]" aria-label={'Προβολή '+title}><ArrowRight size={18}/></Link>
+    </div>
+    {items.length?<div className="divide-y divide-white/[.07]">
+      {items.slice(0,10).map((item,index)=><div key={String(item._id||item.id||index)} className="flex items-center gap-3 py-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/[.045] text-[11px] font-black text-zinc-400">{index+1}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-bold text-zinc-200">{label(item)}</p>
+          {meta(item)&&<p className="mt-1 truncate text-[10px] text-zinc-500">{meta(item)}</p>}
         </div>
-        
-        <div className="flex items-center gap-3">
-          <div className="bg-red-500/10 border border-red-500/30 px-6 py-3 rounded-full flex items-center gap-3 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
-            <div className="w-3 h-3 bg-red-500 rounded-full animate-ping absolute"></div>
-            <div className="w-3 h-3 bg-red-500 rounded-full relative z-10"></div>
-            <span className="text-red-400 font-black tracking-widest text-sm hidden sm:inline">Ακροατές Live:</span>
-            <span className="text-white font-black text-xl font-mono">{liveListeners.toLocaleString()}</span>
+        <p className="shrink-0 text-xs font-black tabular-nums text-[#caff00]">{value(item)}</p>
+      </div>)}
+    </div>:<Empty message="Δεν υπάρχουν καταχωρημένες μετρήσεις."/ >}
+  </section>;
+}
+export default function AdminDashboard({API_URL='/api',globalSocket}){
+  const [stats,setStats]=useState(null);
+  const [live,setLive]=useState(null);
+  const [loading,setLoading]=useState(true);
+  const [refreshing,setRefreshing]=useState(false);
+  const [error,setError]=useState('');
+  const [lastUpdated,setLastUpdated]=useState(null);
+  const refresh=useCallback(async({silent=false,signal}={})=>{
+    if(!silent)setRefreshing(true);
+    try{
+      const res=await fetch(API_URL+'/admin/dashboard-stats',{signal});
+      if(!res.ok)throw new Error(res.status===403?'Ο λογαριασμός δεν έχει πρόσβαση στις αναλύσεις.':'Δεν μπόρεσαν να φορτωθούν τα στατιστικά.');
+      const data=await res.json();
+      if(signal?.aborted)return;
+      setStats(data);setError('');setLastUpdated(new Date());
+    }catch(err){
+      if(!signal?.aborted)setError(err.message||'Σφάλμα φόρτωσης αναλύσεων.');
+    }finally{
+      if(!signal?.aborted){setLoading(false);setRefreshing(false);}
+    }
+  },[API_URL]);
+  const refreshLive=useCallback(async(signal)=>{
+    try{
+      const res=await fetch(API_URL+'/stats/network',{signal});
+      if(!res.ok)return;
+      const result=await res.json();
+      if(!signal?.aborted&&result.totals?.liveListeners!==undefined)
+        setLive(Number(result.totals.liveListeners)||0);
+    }catch{/* Live counters are optional; do not replace them with invented data. */}
+  },[API_URL]);
+  useEffect(()=>{
+    const ctl=new AbortController();
+    refresh({signal:ctl.signal});refreshLive(ctl.signal);
+    const interval=setInterval(()=>refreshLive(ctl.signal),30000);
+    return ()=>{clearInterval(interval);ctl.abort();};
+  },[refresh,refreshLive]);
+  useEffect(()=>{
+    if(!globalSocket)return;
+    const update=count=>{if(Number.isFinite(Number(count)))setLive(Number(count));};
+    globalSocket.on('admin_live_listeners',update);
+    globalSocket.on('global_live_listeners',update);
+    return ()=>{
+      globalSocket.off('admin_live_listeners',update);
+      globalSocket.off('global_live_listeners',update);
+    };
+  },[globalSocket]);
+  const totals=stats?.totals||{};
+  const role=stats?.roleCounts||{};
+  const audio=stats?.adStats?.audio||{};
+  const banner=stats?.adStats?.banner||{};
+  const revenue=Array.isArray(stats?.revenueData)?stats.revenueData:[];
+  const stations=Array.isArray(stats?.topStations)?stats.topStations:[];
+  const ads=Array.isArray(stats?.topAds)?stats.topAds:[];
+  const banners=Array.isArray(stats?.topBanners)?stats.topBanners:[];
+  const premium=Math.min(Number(totals.premiumUsers)||0,Number(totals.users)||0);
+  const membership=useMemo(()=>[
+    {name:'Δωρεάν',value:Math.max(0,(Number(totals.users)||0)-premium)},
+    {name:'Premium',value:premium}
+  ],[totals.users,premium]);
+  const b2b=useMemo(()=>[
+    {name:'Broadcasters',value:Number(role.broadcasters)||0},
+    {name:'Producers',value:Number(role.producers)||0},
+    {name:'Agencies',value:Number(role.agencies)||0}
+  ],[role.broadcasters,role.producers,role.agencies]);
+  const totalMembership=membership.reduce((acc,item)=>acc+item.value,0);
+  const totalB2B=b2b.reduce((acc,item)=>acc+item.value,0);
+  const clickMetrics=[
+    {name:'Audio plays',value:fmt(audio.plays),icon:Headphones},
+    {name:'Audio clicks',value:fmt(audio.clicks),icon:MousePointerClick},
+    {name:'Audio CTR',value:percent(audio.ctr),icon:TrendingUp},
+    {name:'Banner views',value:fmt(banner.views),icon:ImageIcon},
+    {name:'Banner clicks',value:fmt(banner.clicks),icon:MousePointerClick},
+    {name:'Banner CTR',value:percent(banner.ctr),icon:TrendingUp}
+  ];
+  return <div className="admin-legacy-page space-y-6">
+    <section className="relative overflow-hidden rounded-[28px] border border-[#caff00]/15 bg-gradient-to-br from-[#1a2320] via-[#151a1b] to-[#111518] p-6 md:p-8">
+      <div className="pointer-events-none absolute -right-16 -top-24 size-80 rounded-full bg-[#caff00]/[.075] blur-[70px]"/>
+      <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-center">
+        <div className="max-w-xl">
+          <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.16em] text-[#caff00]"><Activity size={15}/> Στατιστικά δικτύου</p>
+          <h2 className="mt-3 text-2xl font-black tracking-[-.055em] text-white md:text-3xl">Όλο το iRadios σε μία εικόνα.</h2>
+          <p className="mt-3 text-sm leading-6 text-zinc-300">Χρήστες, έσοδα, ακροάσεις και διαφημίσεις — χωρίς περιττά γραφήματα και σύνθετες ενέργειες.</p>
+          <p className="mt-3 flex items-center gap-2 text-[11px] text-zinc-400"><Clock3 size={14}/>{lastUpdated?'Ενημερώθηκε '+lastUpdated.toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit'}):'Δεν έχει γίνει ακόμη ενημέρωση'}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-[#caff00]/20 bg-black/25 px-5 py-3">
+            <span className="size-2.5 rounded-full bg-[#caff00] shadow-[0_0_12px_rgba(202,255,0,.6)]"/>
+            <div><p className="text-[10px] font-bold text-zinc-400">Ακροατές τώρα</p>
+              <p className="mt-1 text-2xl font-black tabular-nums text-white">{live===null?'—':fmt(live)}</p></div>
           </div>
-          <button 
-            onClick={fetchDashboardData}
-            disabled={isRefreshing}
-            className={`p-3 bg-zinc-900 border border-white/10 rounded-full text-zinc-400 hover:text-white hover:bg-white/5 transition-all shadow-lg active:scale-90 ${isRefreshing ? 'animate-spin text-[#ccff00] border-[#ccff00]/50' : ''}`}
-          >
-            <RefreshCw size={20} />
+          <button type="button" onClick={()=>{refresh();refreshLive();}} disabled={refreshing}
+            className={action} aria-label="Ανανέωση στατιστικών">
+            {refreshing?<LoaderCircle size={17} className="animate-spin"/>:<RefreshCw size={17}/>} Ανανέωση
           </button>
         </div>
       </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
-        {[
-          { icon: <Euro/>, label: "Εσοδα", val: `€${stats.totals.revenue.toFixed(2)}`, c: "text-[#ccff00]" },
-          { icon: <Users/>, label: "Χρηστες", val: stats.totals.users.toLocaleString(), c: "text-emerald-400" },
-          { icon: <Crown/>, label: "Premium", val: stats.totals.premiumUsers.toLocaleString(), c: "text-orange-400" },
-          { icon: <Mic/>, label: "Broadcasters", val: stats.roleCounts.broadcasters.toLocaleString(), c: "text-purple-400" },
-          { icon: <Radio/>, label: "Σταθμοι", val: stats.stationStats.activeStations.toLocaleString(), c: "text-blue-400" },
-          { icon: <Puzzle/>, label: "Producers", val: stats.roleCounts.producers.toLocaleString(), c: "text-fuchsia-400" },
-          { icon: <Briefcase/>, label: "Agencies", val: stats.roleCounts.agencies.toLocaleString(), c: "text-pink-400" }
-        ].map((kpi, i) => (
-          <div key={i} className="bg-zinc-900/50 border border-white/5 p-4 rounded-[20px] flex flex-col items-center justify-center text-center hover:bg-white/5 transition-colors">
-            <div className={`mb-2 ${kpi.c}`}>{kpi.icon}</div>
-            <div className="text-2xl font-black text-white leading-none mb-1">{kpi.val}</div>
-            <div className="text-zinc-500 text-[9px] font-black uppercase tracking-widest">{kpi.label}</div>
-          </div>
-        ))}
+    </section>
+    {error&&<div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/[.07] px-5 py-4 text-xs text-amber-100">
+      <span>{error} {stats?'Εμφανίζονται τα τελευταία διαθέσιμα στοιχεία.':''}</span>
+      <button type="button" onClick={()=>refresh()} className={action}>Προσπάθησε ξανά</button>
+    </div>}
+    {loading&&!stats?<div className="flex min-h-60 items-center justify-center gap-3 text-sm text-[#caff00]" role="status">
+      <LoaderCircle size={24} className="animate-spin"/> Φόρτωση αναλύσεων…
+    </div>:!stats?<Empty message="Τα στατιστικά δεν είναι προσωρινά διαθέσιμα. Χρησιμοποίησε την Ανανέωση για νέα προσπάθεια."/>:
+    <>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Metric icon={Euro} label="Έσοδα δικτύου" value={euros(totals.revenue)} hint="Καταγεγραμμένα έσοδα"/>
+        <Metric icon={Users} label="Χρήστες" value={fmt(totals.users)} hint="Συνολικοί λογαριασμοί"/>
+        <Metric icon={Radio} label="Ενεργοί σταθμοί" value={fmt(stats.stationStats?.activeStations)} hint="Σταθμοί του δικτύου"/>
+        <Metric icon={Crown} label="Premium χρήστες" value={fmt(totals.premiumUsers)} hint="Εγγεγραμμένοι Premium"/>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-[24px]">
-          <h3 className="text-white font-bold uppercase tracking-widest text-sm mb-4 flex items-center gap-2"><TrendingUp size={16} className="text-[#ccff00]"/> Εσοδα ανα Μηνα</h3>
-          <div className="h-[200px] w-full">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <section className={panel}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="flex items-center gap-2 text-base font-black text-white"><TrendingUp size={19} className="text-[#caff00]"/> Έσοδα ανά μήνα</h3>
+            <span className="text-[11px] text-zinc-500">Ιστορικό από το σύστημα</span>
+          </div>
+          {revenue.length?<div className="h-64 w-full" role="img" aria-label="Ραβδόγραμμα εσόδων ανά μήνα">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.revenueData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="name" stroke="#666" fontSize={10} axisLine={false} tickLine={false} />
-                <YAxis stroke="#666" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => `€${v}`} />
-                <RechartsTooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: '#000', borderColor: 'rgba(204,255,0,0.3)', borderRadius: '12px', color: '#fff' }} itemStyle={{ color: '#ccff00' }} formatter={(v) => [`€${v}`, 'Έσοδα']} />
-                <Bar dataKey="amount" fill="#ccff00" radius={[4, 4, 0, 0]} maxBarSize={30} />
+              <BarChart data={revenue} margin={{top:10,right:5,left:-18,bottom:5}}>
+                <CartesianGrid stroke="rgba(255,255,255,.06)" strokeDasharray="4 4" vertical={false}/>
+                <XAxis dataKey="name" fontSize={11} stroke="#9ba3aa" axisLine={false} tickLine={false}/>
+                <YAxis fontSize={11} stroke="#9ba3aa" axisLine={false} tickLine={false} tickFormatter={v=>fmt(v)}/>
+                <ChartTooltip cursor={{fill:'rgba(202,255,0,.055)'}} contentStyle={{background:'#111618',border:'1px solid rgba(202,255,0,.25)',borderRadius:14,color:'#fff'}} formatter={v=>[euros(v),'Έσοδα']}/>
+                <Bar dataKey="amount" name="Έσοδα" fill="#caff00" maxBarSize={42} radius={[7,7,0,0]}/>
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* 🟢 ΔΙΟΡΘΩΜΕΝΟ PIE CHART 1 */}
-        <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-[24px] flex flex-col items-center justify-center">
-          <h3 className="text-white font-bold uppercase tracking-widest text-xs mb-2 self-start flex items-center gap-2"><Briefcase size={16} className="text-purple-400"/> B2B Πελατες</h3>
-          <div className="h-[200px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie cy="45%" data={b2bData.length ? b2bData : [{name: 'Κενό', value: 1}]} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none">
-                  {b2bData.map((e, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <RechartsTooltip contentStyle={{ backgroundColor: '#000', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} />
-                <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ paddingTop: '15px', fontSize: '11px', color: '#aaa' }}/>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* 🟢 ΔΙΟΡΘΩΜΕΝΟ PIE CHART 2 */}
-        <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-[24px] flex flex-col items-center justify-center">
-          <h3 className="text-white font-bold uppercase tracking-widest text-xs mb-2 self-start flex items-center gap-2"><Crown size={16} className="text-orange-400"/> Free vs Premium</h3>
-          <div className="h-[200px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie cy="45%" data={freePremiumData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none">
-                  <Cell fill="#ffffff" />
-                  <Cell fill="#f97316" />
-                </Pie>
-                <RechartsTooltip contentStyle={{ backgroundColor: '#000', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} />
-                <Legend verticalAlign="bottom" height={30} iconType="circle" wrapperStyle={{ paddingTop: '15px', fontSize: '11px', color: '#aaa' }}/>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        {[
-          { label: "Audio Plays", val: stats.adStats.audio.plays.toLocaleString(), icon: <PlayCircle size={18}/>, c: "text-blue-400" },
-          { label: "Audio Clicks", val: stats.adStats.audio.clicks.toLocaleString(), icon: <MousePointerClick size={18}/>, c: "text-blue-400" },
-          { label: "Audio CTR", val: `${stats.adStats.audio.ctr}%`, icon: <Percent size={18}/>, c: "text-blue-400" },
-          { label: "Banner Views", val: stats.adStats.banner.views.toLocaleString(), icon: <ImageIcon size={18}/>, c: "text-fuchsia-400" },
-          { label: "Banner Clicks", val: stats.adStats.banner.clicks.toLocaleString(), icon: <MousePointerClick size={18}/>, c: "text-fuchsia-400" },
-          { label: "Banner CTR", val: `${stats.adStats.banner.ctr}%`, icon: <Percent size={18}/>, c: "text-fuchsia-400" }
-        ].map((metric, i) => (
-          <div key={i} className="bg-zinc-900/30 border border-white/5 p-4 rounded-[16px] flex items-center justify-between">
-            <div>
-              <div className="text-zinc-500 text-[9px] font-black uppercase tracking-widest mb-1">{metric.label}</div>
-              <div className={`text-xl font-black ${metric.c}`}>{metric.val}</div>
+          </div>:<Empty message="Δεν υπάρχουν ακόμη μηνιαία στοιχεία εσόδων."/>}
+        </section>
+        <section className={panel}>
+          <h3 className="mb-5 flex items-center gap-2 text-base font-black text-white"><Briefcase size={18} className="text-[#caff00]"/> Επαγγελματικοί λογαριασμοί</h3>
+          {totalB2B?<div className="grid gap-4 sm:grid-cols-[150px_1fr] sm:items-center">
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={b2b} dataKey="value" innerRadius={49} outerRadius={72} stroke="none" paddingAngle={3}>
+                {b2b.map((entry,i)=><Cell key={entry.name} fill={['#caff00','#7ed4a0','#62859a'][i]}/>)}
+              </Pie><ChartTooltip contentStyle={{background:'#111618',color:'#fff',border:'1px solid #404b43',borderRadius:12}}/></PieChart></ResponsiveContainer>
             </div>
-            <div className={`opacity-20 ${metric.c}`}>{metric.icon}</div>
-          </div>
-        ))}
+            <div className="space-y-3">{b2b.map((item,i)=><div key={item.name} className="flex items-center justify-between gap-3 text-xs">
+              <span className="flex items-center gap-2 text-zinc-300"><span className="size-2.5 rounded-full" style={{background:['#caff00','#7ed4a0','#62859a'][i]}}/>{item.name}</span>
+              <strong className="tabular-nums text-white">{fmt(item.value)}</strong>
+            </div>)}</div>
+          </div>:<Empty message="Δεν υπάρχουν ακόμη επαγγελματικοί λογαριασμοί."/>}
+        </section>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        
-        <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-[24px]">
-          <h3 className="text-white font-bold uppercase tracking-widest text-sm mb-4 flex items-center gap-2"><Radio size={16} className="text-[#ccff00]"/> Top 10 Σταθμοι</h3>
-          <div className="divide-y divide-white/5">
-            {stats.topStations.length > 0 ? stats.topStations.map((s, i) => (
-              <div key={s.id || i} className="flex justify-between items-center py-2.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-zinc-600 font-black text-sm w-4 shrink-0">{i + 1}.</span>
-                  <span className="text-white font-bold text-xs truncate">{s.name}</span>
-                </div>
-                <span className="text-[#ccff00] font-mono text-[10px] font-bold shrink-0">{Number(s.plays || 0).toLocaleString()} plays</span>
-              </div>
-            )) : <div className="text-zinc-600 text-xs py-2">Δεν υπάρχουν δεδομένα</div>}
+      <section className={panel}>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="flex items-center gap-2 text-base font-black text-white"><BarChart3 size={18} className="text-[#caff00]"/> Απόδοση διαφημίσεων</h3>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/backoffice/admin/ads" className={action}>Audio ads <ArrowRight size={14}/></Link>
+            <Link to="/backoffice/admin/banners" className={action}>Banners <ArrowRight size={14}/></Link>
           </div>
         </div>
-
-        <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-[24px]">
-          <h3 className="text-white font-bold uppercase tracking-widest text-sm mb-4 flex items-center gap-2"><ImageIcon size={16} className="text-fuchsia-400"/> Top 10 Banners</h3>
-          <div className="divide-y divide-white/5">
-            {stats.topBanners && stats.topBanners.length > 0 ? stats.topBanners.map((b, i) => (
-              <div key={b.id || i} className="flex justify-between items-center py-2.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-zinc-600 font-black text-sm w-4 shrink-0">{i + 1}.</span>
-                  <div className="min-w-0">
-                    <div className="text-white font-bold text-xs truncate">{b.title}</div>
-                    <div className="text-zinc-500 text-[9px] uppercase truncate">{b.company}</div>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-fuchsia-400 font-black text-xs block">{b.ctr}%</span>
-                  <span className="text-zinc-600 text-[9px] font-mono">{Number(b.views || 0).toLocaleString()} views</span>
-                </div>
-              </div>
-            )) : <div className="text-zinc-600 text-xs py-2">Δεν υπάρχουν δεδομένα</div>}
-          </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">{clickMetrics.map(item=>
+          <div key={item.name} className="rounded-2xl border border-white/[.075] bg-black/15 p-4">
+            <item.icon size={16} className="mb-4 text-[#caff00]"/>
+            <p className="text-[11px] text-zinc-400">{item.name}</p>
+            <p className="mt-2 text-xl font-black tabular-nums text-white">{item.value}</p>
+          </div>)}
         </div>
-
-        <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-[24px]">
-          <h3 className="text-white font-bold uppercase tracking-widest text-sm mb-4 flex items-center gap-2"><Award size={16} className="text-blue-400"/> Top 10 Audio Ads</h3>
-          <div className="divide-y divide-white/5">
-            {stats.topAds.length > 0 ? stats.topAds.map((ad, i) => (
-              <div key={ad.id || i} className="flex justify-between items-center py-2.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="text-zinc-600 font-black text-sm w-4 shrink-0">{i + 1}.</span>
-                  <div className="min-w-0">
-                    <div className="text-white font-bold text-xs truncate">{ad.title}</div>
-                    <div className="text-zinc-500 text-[9px] uppercase truncate">{ad.company}</div>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-blue-400 font-black text-xs block">{ad.ctr}%</span>
-                  <span className="text-zinc-600 text-[9px] font-mono">{Number(ad.plays || 0).toLocaleString()} plays</span>
-                </div>
-              </div>
-            )) : <div className="text-zinc-600 text-xs py-2">Δεν υπάρχουν δεδομένα</div>}
-          </div>
-        </div>
-
+      </section>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <RankList title="Κορυφαίοι σταθμοί" icon={Radio} items={stations}
+          label={s=>s.name||'Χωρίς όνομα'} value={s=>fmt(s.plays)+' plays'}
+          meta={()=>''} to="/backoffice/stations"/>
+        <RankList title="Κορυφαία banners" icon={ImageIcon} items={banners}
+          label={s=>s.title||'Χωρίς τίτλο'} value={s=>percent(s.ctr)}
+          meta={s=>s.company||''} to="/backoffice/admin/banners"/>
+        <RankList title="Κορυφαία audio ads" icon={Headphones} items={ads}
+          label={s=>s.title||'Χωρίς τίτλο'} value={s=>percent(s.ctr)}
+          meta={s=>s.company||''} to="/backoffice/admin/ads"/>
       </div>
-    </div>
-  );
+      {totalMembership>0&&<div className={panel+' flex flex-wrap items-center justify-between gap-4'}>
+        <div><h3 className="text-sm font-black text-white">Σύνθεση λογαριασμών</h3>
+          <p className="mt-1 text-xs text-zinc-400">{fmt(membership[0].value)} δωρεάν · {fmt(membership[1].value)} premium</p></div>
+        <div className="h-2.5 w-full max-w-80 overflow-hidden rounded-full bg-white/10">
+          <div style={{width:(100*premium/Math.max(1,totalMembership))+'%'}} className="h-full rounded-full bg-[#caff00]"/>
+        </div>
+        <Link to="/backoffice/admin/users" className={action}>Διαχείριση χρηστών <ArrowRight size={15}/></Link>
+      </div>}
+    </>}
+  </div>;
 }
