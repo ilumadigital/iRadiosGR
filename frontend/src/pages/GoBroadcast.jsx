@@ -73,7 +73,10 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
       .then(data => {
         if (alive) {
           setFormData(prev => ({ ...prev, email: data.email }));
-          setShowModal(true);
+          const pending = localStorage.getItem('iradios_broadcaster_pending_otp');
+          const awaitingOtp = pending?.toLowerCase() === data.email.toLowerCase();
+          setShowOtpModal(Boolean(awaitingOtp));
+          setShowModal(!awaitingOtp);
         }
       })
       .catch(error => { if (alive) setFeedback({ show:true, type:'error', message:error.message || 'Η πρόσκληση δεν ισχύει.' }); });
