@@ -38,6 +38,7 @@ import WidgetNow from './components/WidgetNow';
 // --- PAGES ---
 import Home from './pages/Home';
 import BroadcasterStudio from './pages/BroadcasterStudio';
+import Backoffice from './pages/Backoffice';
 import ProducerStudio from './pages/ProducerStudio';
 import Admin from './pages/Admin';
 import AdminRadioSet from './pages/AdminRadioSet';
@@ -86,7 +87,7 @@ const SmartHomeRoute = ({ currentUser, children }) => {
   }
 
   if (currentUser?.role === 'admin') {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/backoffice" replace />;
   }
   if (currentUser?.role === 'agency') {
     return <Navigate to="/agency/dashboard" replace />;
@@ -1895,12 +1896,20 @@ function MainApp() {
   );
 }
 
+// Keep the business console completely isolated: no listener/audio hooks,
+ // station playback, ad engine, player widgets or Socket.IO are mounted there.
+function AppContent(){
+  const location=useLocation();
+  return location.pathname==='/backoffice'||location.pathname.startsWith('/backoffice/')
+    ? <Backoffice/> : <MainApp/>;
+}
+
 export default function App() { 
   return (
     <HelmetProvider>
       <Router>
         <AlertProvider>
-          <MainApp />
+          <AppContent />
         </AlertProvider>
       </Router>
     </HelmetProvider>
