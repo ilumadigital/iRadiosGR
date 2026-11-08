@@ -62,6 +62,7 @@ const userSchema = new mongoose.Schema({
       news: { type: Boolean, default: true },
       promotions: { type: Boolean, default: false } // Explicit marketing opt-in only.
     },
+    newsCategories: { type: [String], default: [] },
     marketingConsentAt: { type: Date, default: null }
   },
   businessType: { type: String, enum: ['individual', 'company'], default: 'individual' },
