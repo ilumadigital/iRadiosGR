@@ -152,11 +152,23 @@ async function main(){
   const rdsCss=read('frontend/src/styles/rds-transition.css');
   assert.match(rdsCss,/ease-in-out/);
   assert.match(rdsCss,/prefers-reduced-motion/);
+  // Both fullscreen players use one shared, mounted-image crossfade and show
+  // a separate persistent schedule card. StationProfile uses the RDS panes.
   for(const path of ['frontend/src/components/DesktopFullPlayer.jsx',
-    'frontend/src/components/MobileMiniPlayer.jsx','frontend/src/pages/StationProfile.jsx']){
-    assert.match(read(path),/ir-rds-image-overlay/,'DJ artwork must crossfade in '+path);
-    assert.match(read(path),/RdsCrossfade/,'DJ details must crossfade in '+path);
+    'frontend/src/components/MobileMiniPlayer.jsx']){
+    const player=read(path);
+    assert.match(player,/<FullscreenArtwork/,'shared DJ artwork for '+path);
+    assert.match(player,/showProducer=\{showProducerArt\}/,'RDS slot propagated to '+path);
+    assert.match(player,/<OnAirShowCard/,'persistent show card in '+path);
   }
+  assert.match(read('frontend/src/pages/StationProfile.jsx'),/ir-rds-image-overlay/);
+  assert.match(read('frontend/src/pages/StationProfile.jsx'),/RdsCrossfade/);
+  const art=read('frontend/src/components/FullscreenArtwork.jsx');
+  const artCss=read('frontend/src/styles/fullscreen-player.css');
+  assert.match(art,/ir-showcase-art__dj/);
+  assert.match(artCss,/\.ir-showcase-art__dj\s*\{[^}]*transition:\s*opacity\s*950ms/s);
+  assert.match(artCss,/@media\s*\(prefers-reduced-motion:reduce\)/);
+  assert.match(artCss,/\.ir-showcase-art__brand\s*\{[^}]*width:\s*20%/s);
   assert.match(read('frontend/src/components/Footer.jsx'),/RdsCrossfade/);
   assert.match(read('backend/utils/stageMetadata.js'),/nativeShow/);
   console.info('PASS: responsive station layout, 20-second song/DJ RDS, Greek show time, DJ artwork and iOS media fields.');
