@@ -311,7 +311,7 @@
   .ir-header__clock-time { font-size: 12px; }
   .ir-header__clock svg { display: none; }
 }
-@media (min-width: 380px) {
+@media (min-width: 540px) {
   .ir-header__weather { display: flex; gap: 4px; padding-inline: 6px; }
   .ir-header__weather-city { display: none; }
 }
@@ -341,4 +341,14 @@
 @media (prefers-reduced-motion: reduce) {
   .ir-header__eq-bar, .ir-smart-search__mic--listening { animation: none; }
   .ir-smart-search, .ir-smart-search__field-wrap, .ir-header__brand-image, .ir-smart-search__panel { transition: none; animation: none; }
+}
+
+.ir-header__inbox-shortcut{position:relative}
+.ir-header__inbox-count{
+  position:absolute;top:-6px;right:-6px;display:flex;align-items:center;
+  justify-content:center;min-width:19px;height:19px;padding:0 4px;border-radius:999px;
+  background:#ccff00;color:#0c1700;border:2px solid #101718;font-size:9px;font-weight:900;
+}
+@media(max-width:430px){
+  .ir-header__inbox-shortcut{width:35px;height:37px;flex-basis:35px}
 }
