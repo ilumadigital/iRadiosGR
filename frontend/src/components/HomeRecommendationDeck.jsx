@@ -36,8 +36,8 @@ export default function HomeRecommendationDeck({moodStations=[],topStations=[],c
                   className="mt-1 block max-w-full truncate text-left text-sm font-black text-white hover:text-[#ccff00]">{station.name}</button>
               </div>
               <button type="button" disabled={station.isOffline===true||stationIsPlaying(station,currentStation,isPlaying)} onClick={()=>play(station)} title={station.isOffline===true?'OFFLINE':stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(station.isOffline===true?'OFFLINE: ':stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+station.name}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white transition-colors hover:bg-[#ccff00] hover:text-black">
-                {station.isOffline===true?<span className="text-[9px] font-black text-red-400">OFF</span>:<Play size={17} fill="currentColor"/>}
+                className={station.isOffline===true?"flex h-9 min-w-[68px] shrink-0 cursor-not-allowed items-center justify-center rounded-xl border border-red-500 bg-red-600 text-white":"flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white transition-colors hover:bg-[#ccff00] hover:text-black"}>
+                {station.isOffline===true?<span className="text-[9px] font-black text-white">OFFLINE</span>:<Play size={17} fill="currentColor"/>}
               </button>
             </div>
           </article>)}
@@ -60,7 +60,7 @@ export default function HomeRecommendationDeck({moodStations=[],topStations=[],c
               <span className="block truncate text-[10px] text-zinc-500">{station.genre||station.region||'Radio'}</span>
             </div>
             <button type="button" disabled={station.isOffline===true||stationIsPlaying(station,currentStation,isPlaying)} onClick={()=>play(station)} title={station.isOffline===true?'OFFLINE':stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα':'Άκου τώρα'} aria-label={(station.isOffline===true?'OFFLINE: ':stationIsPlaying(station,currentStation,isPlaying)?'Παίζει τώρα: ':'Άκου τώρα: ')+station.name}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:border-[#ccff00]/50 hover:text-[#ccff00]">{station.isOffline===true?<span className="text-[9px] font-black text-red-400">OFF</span>:<Play size={15} fill="currentColor"/>}</button>
+              className={station.isOffline===true?"flex h-9 min-w-[68px] shrink-0 cursor-not-allowed items-center justify-center rounded-xl border border-red-500 bg-red-600 text-white":"flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-300 hover:border-[#ccff00]/50 hover:text-[#ccff00]"}>{station.isOffline===true?<span className="text-[9px] font-black text-white">OFFLINE</span>:<Play size={15} fill="currentColor"/>}</button>
           </div>)}
           {!top.length&&<div className="flex h-36 items-center justify-center text-xs text-zinc-500"><Radio size={20}/></div>}
         </div>
