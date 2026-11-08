@@ -115,8 +115,11 @@ async function sync(doc,force=false){
     current.feedTitle=current.sources.length===1?current.sources[0].feedTitle:'Ειδήσεις από επιλεγμένους εκδότες';
     // A deletion/change made while remote RSS requests were running must win.
     // Atomic revision comparison also prevents deleted articles being resurrected.
+    const revisionFilter=revision===0?
+      {_id:'primary',$or:[{configRevision:0},{configRevision:{$exists:false}}]}:
+      {_id:'primary',configRevision:revision};
     const committed=await NewsFeed.findOneAndUpdate(
-      {_id:'primary',configRevision:revision},
+      revisionFilter,
       {$set:{sources:current.sources,articles:current.articles,
         lastAttemptAt:current.lastAttemptAt,lastSyncedAt:current.lastSyncedAt,
         lastError:current.lastError,feedTitle:current.feedTitle}},
