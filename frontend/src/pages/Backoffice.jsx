@@ -818,6 +818,7 @@ export default function Backoffice(){
   const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(null);
   const [notice,setNotice]=useState(null),[sidebarOpen,setSidebarOpen]=useState(false);
+  const [navFilter,setNavFilter]=useState('');
   const notify=useCallback((message,type='success')=>{
     setNotice({message,type});
   },[]);
@@ -833,30 +834,39 @@ export default function Backoffice(){
       .finally(()=>{if(alive)setLoading(false);});
     return ()=>{alive=false;};
   },[reload]);
-  useEffect(()=>{setSidebarOpen(false);setNotice(null);},[location.pathname]);
+  useEffect(()=>{setSidebarOpen(false);setNotice(null);setNavFilter('');},[location.pathname]);
   const admin=data?.user.role==='admin',producer=data?.user.role==='producer';
   const logout=()=>{localStorage.removeItem('iluma_token');window.location.assign('/login');};
   const nav=[
-    {section:'WORKSPACE',items:[{to:'/backoffice',label:'Επισκόπηση',icon:LayoutDashboard,end:true},
-      {to:'/backoffice/stations',label:admin?'Δίκτυο σταθμών':'Οι σταθμοί μου',icon:Radio},
+    {section:'Ο ΧΩΡΟΣ ΜΟΥ',items:[
+      {to:'/backoffice',label:'Αρχική',icon:LayoutDashboard,end:true},
+      {to:'/backoffice/stations',label:admin?'Σταθμοί δικτύου':'Οι σταθμοί μου',icon:Radio},
       {to:'/backoffice/schedules',label:'Πρόγραμμα εκπομπών',icon:CalendarDays},
-      ...(!admin?[{to:'/backoffice/insights',label:'Insights σταθμών',icon:BarChart3}]:[]),
+      ...(!admin?[{to:'/backoffice/insights',label:'Στατιστικά σταθμών',icon:BarChart3}]:[]),
       ...(data?.user.role==='broadcaster'?[{to:'/backoffice/team',label:'Παραγωγοί & ομάδα',icon:Users}]:[]),
-      ...(!producer?[{to:'/backoffice/stations/new',label:'Προσθήκη σταθμού',icon:Plus}]:[])]},
-    ...(admin?[{section:'ADMIN CONTROL',items:[
-      {to:'/backoffice/review',label:'Εγκρίσεις',icon:FileCheck2},
-      {to:'/backoffice/admin/analytics',label:'Αναλύσεις',icon:BarChart3},
-      {to:'/backoffice/admin/users',label:'Χρήστες & ρόλοι',icon:Users},
-      {to:'/backoffice/admin/ads',label:'Διαφημίσεις',icon:Activity},
-      {to:'/backoffice/admin/banners',label:'Banners',icon:Image},
-      {to:'/backoffice/admin/slides',label:'Slides αρχικής',icon:Sparkles},
-      {to:'/backoffice/admin/radioset',label:'Radio Set',icon:SlidersHorizontal},
-      {to:'/backoffice/admin/boost',label:'Boost σταθμών',icon:Sparkles},
-      {to:'/backoffice/admin/adcontrol',label:'Local Ad Control',icon:Activity},
-      {to:'/backoffice/admin/push',label:'Push ειδοποιήσεις',icon:Bell},
-      {to:'/backoffice/admin/billing',label:'Πληρωμές',icon:FileCheck2},
-      {to:'/backoffice/admin/emails',label:'Emails',icon:Bell}
-    ]}]:[])
+      ...(!producer?[{to:'/backoffice/stations/new',label:'Προσθήκη σταθμού',icon:Plus}]:[])
+    ]},
+    ...(admin?[
+      {section:'ΔΙΑΧΕΙΡΙΣΗ',items:[
+        {to:'/backoffice/admin',label:'Όλα τα εργαλεία',icon:LayoutDashboard,end:true},
+        {to:'/backoffice/review',label:'Εγκρίσεις',icon:FileCheck2},
+        {to:'/backoffice/admin/analytics',label:'Αναλύσεις',icon:BarChart3},
+        {to:'/backoffice/admin/users',label:'Χρήστες & ρόλοι',icon:Users},
+        {to:'/backoffice/admin/radioset',label:'Αναθέσεις σταθμών',icon:Radio},
+        {to:'/backoffice/admin/boost',label:'Προβολή σταθμών',icon:Sparkles}
+      ]},
+      {section:'ΔΙΑΦΗΜΙΣΕΙΣ',items:[
+        {to:'/backoffice/admin/ads',label:'Audio διαφημίσεις',icon:Activity},
+        {to:'/backoffice/admin/banners',label:'Banners',icon:Image},
+        {to:'/backoffice/admin/adcontrol',label:'Τοπικές διαφημίσεις',icon:SlidersHorizontal}
+      ]},
+      {section:'ΠΕΡΙΕΧΟΜΕΝΟ & ΛΕΙΤΟΥΡΓΙΑ',items:[
+        {to:'/backoffice/admin/slides',label:'Slides αρχικής',icon:Sparkles},
+        {to:'/backoffice/admin/push',label:'Push ειδοποιήσεις',icon:Bell},
+        {to:'/backoffice/admin/emails',label:'Emails',icon:Globe2},
+        {to:'/backoffice/admin/billing',label:'Πληρωμές',icon:FileCheck2}
+      ]}
+    ]:[])
   ];
   if(loading)return <div className="flex min-h-screen items-center justify-center bg-[#080a0b] text-[#caff00]">
     <RefreshCw className="animate-spin" size={28}/><span className="ml-3 text-sm font-black">iRadios Business Console</span></div>;
@@ -881,9 +891,19 @@ export default function Backoffice(){
         <p className="mt-3 truncate text-sm font-black text-white">{data.user.fname||data.user.username||roleLabels[data.user.role]}</p>
         <p className="mt-1 text-[11px] text-zinc-500">{roleLabels[data.user.role]}</p>
       </div>
-      <nav className="flex-1 space-y-7">{nav.map(group=><div key={group.section}>
+      {admin&&<label className="relative mb-5 block">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"/>
+        <input aria-label="Αναζήτηση στο μενού" placeholder="Αναζήτηση εργαλείου…"
+          value={navFilter} onChange={e=>setNavFilter(e.target.value)}
+          className="w-full rounded-xl border border-white/10 bg-[#090b0d] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-[#caff00]/50"/>
+      </label>}
+      <nav className="flex-1 space-y-7">{nav.map(group=>{
+        const items=group.items.filter(item=>item.label.toLocaleLowerCase('el')
+          .includes(navFilter.toLocaleLowerCase('el')));
+        if(!items.length)return null;
+        return <div key={group.section}>
         <p className="mb-3 px-4 text-[9px] font-black tracking-[.24em] text-zinc-600">{group.section}</p>
-        <div className="space-y-1">{group.items.map(item=><NavItem key={item.to} {...item} close={()=>setSidebarOpen(false)}/>)}</div></div>)}</nav>
+        <div className="space-y-1">{items.map(item=><NavItem key={item.to} {...item} close={()=>setSidebarOpen(false)}/>)}</div></div>;})}</nav>
       <div className="mt-7 space-y-2 border-t border-white/10 pt-5">
         <a href="/" className="flex items-center gap-3 rounded-xl px-4 py-3 text-[12px] font-bold text-zinc-400 hover:bg-white/5 hover:text-white"><ExternalLink size={17}/> Άνοιγμα iRadios App</a>
         <button onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[12px] font-bold text-zinc-400 hover:bg-rose-500/10 hover:text-rose-300"><LogOut size={17}/> Αποσύνδεση</button>
@@ -918,6 +938,7 @@ export default function Backoffice(){
           <Route path="/backoffice/insights" element={<BroadcasterInsights data={data}/>}/>
           <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
           <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify}/>}/>
+          <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
           {['analytics','users','ads','banners','slides','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
           <Route path="/backoffice/*" element={<Navigate to="/backoffice" replace/>}/>
