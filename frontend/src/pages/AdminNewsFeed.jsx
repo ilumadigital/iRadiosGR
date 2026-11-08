@@ -24,7 +24,7 @@ function sourceName(item){
   return 'RSS.app';
 }
 export default function AdminNewsFeed(){
-  const [sources,setSources]=useState([fresh(DEFAULT)]),[enabled,setEnabled]=useState(true);
+  const [sources,setSources]=useState([]),[enabled,setEnabled]=useState(true);
   const [newLinks,setNewLinks]=useState(''),[data,setData]=useState(null);
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -36,49 +36,102 @@ export default function AdminNewsFeed(){
     }).then(response=>{
       if(!active)return;
       setData(response);
-      setSources(response.sources?.length?response.sources.map(s=>({...s})):
-        [fresh(response.feedUrl||DEFAULT)]);
+      setSources((response.sources||[]).map(s=>({...s})));
       setEnabled(Boolean(response.enabled));
     }).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[]);
+  const read=async (url,options={})=>{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),15000);
+    try{
+      const response=await adminFetch(url,{...options,signal:controller.signal});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(body.error||'Η ενέργεια απέτυχε. Δοκίμασε ξανά.');
+      return body;
+    }catch(e){
+      if(e.name==='AbortError')throw new Error('Η σύνδεση άργησε. Έλεγξε τη ροή και δοκίμασε ξανά.');
+      throw e;
+    }finally{clearTimeout(timeout);}
+  };
+  useEffect(()=>{
+    if(!data?.syncing)return;
+    let active=true,polling=false;
+    const timer=setInterval(async()=>{
+      if(polling)return;
+      polling=true;
+      try{
+        const latest=await read('/api/admin/newsfeed');
+        if(!active)return;
+        setData(latest);
+        if(!latest.syncing){
+          setSources((current)=>current.length===0?latest.sources||[]:current);
+          setNotice('Ο συγχρονισμός ολοκληρώθηκε. '+(latest.articles?.length||0)+' / 500 άρθρα.');
+        }
+      }catch(e){if(active)setError(e.message);}
+      finally{polling=false;}
+    },3000);
+    return()=>{active=false;clearInterval(timer);};
+  },[data?.syncing]);
   const update=(index,patch)=>setSources(previous=>previous.map((s,i)=>i===index?{...s,...patch}:s));
-  const add=()=>{
-    setError('');setNotice('');
-    const urls=newLinks.split(/[\n\r]+/).map(s=>s.trim()).filter(Boolean);
+  const persist=async(next,active=enabled,message='Οι πηγές αποθηκεύτηκαν.')=>{
+    setBusy(true);setError('');setNotice('');
+    try{
+      const response=await read('/api/admin/newsfeed',{method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({enabled:active,sources:next.map(item=>({
+          id:item.id||undefined,url:item.url,enabled:item.enabled!==false,
+          label:item.label||'',domain:item.domain||'',category:item.category||''
+        }))})});
+      setData(response);setSources(response.sources||[]);setEnabled(Boolean(response.enabled));
+      setNotice(message);
+      return true;
+    }catch(e){setError(e.message);return false;}
+    finally{setBusy(false);}
+  };
+  const add=async()=>{
+    if(busy||loading)return;
+    const urls=newLinks.split(/[\n\r]+/).map(u=>u.trim()).filter(Boolean);
     if(!urls.length){setError('Επικόλλησε έναν ή περισσότερους συνδέσμους.');return;}
     const existing=new Set(sources.map(s=>s.url));
     const added=[];
     for(const url of urls)if(!existing.has(url)){existing.add(url);added.push(fresh(url));}
-    if(existing.size>MAX_SOURCES){setError('Μέχρι '+MAX_SOURCES+' πηγές μπορούν να αποθηκευτούν.');return;}
-    if(!added.length){setError('Οι σύνδεσμοι έχουν ήδη προστεθεί.');return;}
-    setSources(old=>[...old,...added]);setNewLinks('');
-    setNotice('Προστέθηκαν '+added.length+' πηγές. Πάτησε «Αποθήκευση πηγών» και μετά «Συγχρονισμός τώρα».');
+    if(existing.size>MAX_SOURCES){setError('Μέχρι '+MAX_SOURCES+' πηγές.');return;}
+    if(!added.length){setError('Αυτοί οι σύνδεσμοι υπάρχουν ήδη.');return;}
+    if(await persist([...sources,...added],enabled,'Προστέθηκαν και αποθηκεύτηκαν '+added.length+' πηγές.'))setNewLinks('');
   };
-  const save=async e=>{
-    e.preventDefault();setBusy(true);setError('');setNotice('');
-    try{
-      if(!sources.length)throw Error('Πρόσθεσε τουλάχιστον μία πηγή.');
-      const r=await adminFetch('/api/admin/newsfeed',{method:'PUT',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({enabled,sources:sources.map(s=>({
-          id:s.id||undefined,url:s.url,enabled:s.enabled!==false,label:s.label||'',domain:s.domain||'',category:s.category||''
-        }))})});
-      const response=await r.json();if(!r.ok)throw Error(response.error||'Αποτυχία αποθήκευσης.');
-      setData(response);setSources(response.sources||[]);
-      setNotice('Αποθηκεύτηκαν '+response.sources.length+' πηγές. Επίλεξε «Συγχρονισμός τώρα» για εισαγωγή.');
-    }catch(e){setError(e.message);}finally{setBusy(false);}
+  const remove=async(index)=>{
+    if(busy||loading)return;
+    await persist(sources.filter((_,i)=>i!==index),enabled,'Η πηγή αφαιρέθηκε οριστικά από τη ροή.');
   };
+  const save=async e=>{e.preventDefault();if(!busy)await persist(sources);};
   const sync=async()=>{
+    if(busy||loading||data?.syncing)return;
     setBusy(true);setError('');setNotice('');
     try{
-      const r=await adminFetch('/api/admin/newsfeed/refresh',{method:'POST'});
-      const response=await r.json();if(!r.ok)throw Error(response.error||'Αδυναμία συγχρονισμού.');
-      setData(response);
-      setSources(response.sources||[]);
-      const count=(response.sources||[]).filter(s=>s.lastError).length;
-      setNotice('Ο συγχρονισμός ολοκληρώθηκε με '+response.articles.length+' άρθρα.'+
-        (count?' '+count+' πηγές εμφάνισαν σφάλμα — δες τις λεπτομέρειες παρακάτω.':''));
-    }catch(e){setError(e.message);}finally{setBusy(false);}
+      const response=await read('/api/admin/newsfeed/refresh',{method:'POST'});
+      setData(response);setNotice('Ο συγχρονισμός ξεκίνησε στο παρασκήνιο του server. Η σελίδα παραμένει διαθέσιμη.');
+    }catch(e){setError(e.message);}
+    finally{setBusy(false);}
+  };
+  const removeArticle=async(item)=>{
+    if(busy||loading)return;
+    setBusy(true);setError('');setNotice('');
+    try{
+      const response=await read('/api/admin/newsfeed/articles',{method:'DELETE',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({url:item.url})});
+      setData(response);setNotice('Το άρθρο αφαιρέθηκε. Δεν θα ξαναεισαχθεί αυτόματα.');
+    }catch(e){setError(e.message);}
+    finally{setBusy(false);}
+  };
+  const restoreHidden=async()=>{
+    if(busy||loading)return;
+    setBusy(true);setError('');setNotice('');
+    try{
+      const response=await read('/api/admin/newsfeed/hidden/restore',{method:'POST'});
+      setData(response);setNotice('Ο αποκλεισμός άρθρων καθαρίστηκε. Μπορούν να εισαχθούν ξανά στον επόμενο συγχρονισμό.');
+    }catch(e){setError(e.message);}
+    finally{setBusy(false);}
   };
   return <div className="admin-legacy-page space-y-6">
     <header className="flex flex-wrap items-start justify-between gap-3">
@@ -109,6 +162,7 @@ export default function AdminNewsFeed(){
         <label className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-200"><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)} className="size-4 accent-[#ccff00]"/> Newsfeed ενεργό</label>
       </div>
       <div className="space-y-3">
+        {!sources.length&&<p className="rounded-xl border border-dashed border-white/20 p-5 text-sm text-zinc-400">Δεν υπάρχουν ενεργές πηγές. Πρόσθεσε μία παραπάνω για να ξεκινήσει η ροή.</p>}
         {sources.map((source,index)=><div key={source.id||index} className="rounded-2xl border border-white/10 bg-black/25 p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
@@ -117,8 +171,8 @@ export default function AdminNewsFeed(){
             </div>
             <div className="flex items-center gap-3">
               <label className="inline-flex items-center gap-2 text-xs text-zinc-300"><input type="checkbox" checked={source.enabled!==false} onChange={e=>update(index,{enabled:e.target.checked})} className="accent-[#ccff00]"/> Ενεργό</label>
-              <button type="button" aria-label={'Αφαίρεση πηγής '+(index+1)} disabled={busy||sources.length===1}
-                onClick={()=>setSources(old=>old.filter((_,i)=>i!==index))} className="rounded-lg border border-white/10 p-2.5 text-rose-300 hover:border-rose-400/50 disabled:opacity-30"><Trash2 size={16}/></button>
+              <button type="button" aria-label={'Αφαίρεση πηγής '+(index+1)} disabled={busy||loading}
+                onClick={()=>remove(index)} className="rounded-lg border border-white/10 p-2.5 text-rose-300 hover:border-rose-400/50 disabled:opacity-30"><Trash2 size={16}/></button>
             </div>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -137,7 +191,7 @@ export default function AdminNewsFeed(){
             <p className="mt-2 text-xs leading-5 text-zinc-400">
               <span className="font-black text-[#ccff00]">{selectedPublishers(source.url).length} επιλεγμένοι εκδότες:</span>{' '}
               {selectedPublishers(source.url).join(' · ')}
-              <span className="mt-1 block text-zinc-500">Μόνο οι εκδότες με προσβάσιμο δημόσιο RSS και αναγνωρισμένες κατηγορίες επιστρέφουν άρθρα. Οι μη διαθέσιμοι εμφανίζονται ως προειδοποιήσεις ανά πηγή.</span>
+              <span className="mt-1 block text-zinc-500">Οι εκδότες με προσβάσιμο δημόσιο RSS επιστρέφουν άρθρα· οι υπόλοιποι καταγράφονται στις προειδοποιήσεις. Οι μη διαθέσιμοι εμφανίζονται ως προειδοποιήσεις ανά πηγή.</span>
             </p>}
           {source.retrievalMode==='domain-search'&&<p className="mt-3 text-xs leading-5 text-amber-200">Εναλλακτική λειτουργία: Google News αναζήτηση με το domain του εκδότη, επειδή δεν ήταν διαθέσιμο publisher RSS. Τα αποτελέσματα μπορεί να μην ταυτίζονται απόλυτα με τη σελίδα του publisher.</p>}
           {source.lastError&&<p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 p-3 text-xs text-rose-200">{source.lastError}</p>}
@@ -145,29 +199,34 @@ export default function AdminNewsFeed(){
       </div>
       <div className="flex flex-wrap gap-3">
         <button disabled={busy||loading} type="submit" className="ir-action-primary px-5"><Save size={17}/> Αποθήκευση πηγών</button>
-        <button disabled={busy||loading} type="button" onClick={sync}
+        <button disabled={busy||loading||data?.syncing||!sources.some(s=>s.enabled)} type="button" onClick={sync}
           className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/20 px-5 text-sm font-bold text-white hover:border-[#ccff00] disabled:opacity-50">
-          <RefreshCw size={16} className={busy?'animate-spin':''}/> Συγχρονισμός τώρα
+          <RefreshCw size={16} className={data?.syncing?'animate-spin':''}/> {data?.syncing?'Συγχρονισμός σε εξέλιξη':'Συγχρονισμός τώρα'}
         </button>
       </div>
+      <p className="text-xs leading-5 text-[#ccff00]">Οι προσθήκες και διαγραφές πηγών αποθηκεύονται αμέσως. Η επεξεργασία ονόματος, URL και κατηγορίας αποθηκεύεται με «Αποθήκευση πηγών».</p>
       <p className="text-xs leading-5 text-zinc-500">Ο συγχρονισμός γίνεται server-side με κοινή cache. Τα απευθείας feeds επιτρέπονται από δημόσια HTTPS domains, με έλεγχο DNS, χωρίς εσωτερικές διευθύνσεις ή redirects. Τα rssnews.io, Google News και RSS.app παραμένουν συμβατά. Τα απευθείας RSS εκδοτών επιλέγονται από ασφαλή λίστα και όπου δεν υπάρχει φωτογραφία εξετάζεται το Open Graph του άρθρου. Τα Google News feeds από μόνα τους συχνά δεν δίνουν φωτογραφία. Πριν τη δημόσια χρήση Google News περιεχομένου επιβεβαίωσε τους όρους και τα δικαιώματα προβολής.</p>
     </form>
     {data&&<section className="ir-glass p-5 sm:p-7">
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-white/10 bg-black/30 p-4"><p className="text-xs text-zinc-400">Άρθρα</p><strong className="mt-2 block text-2xl text-white">{data.articles?.length||0}</strong></div>
+      <div className="mb-5 grid gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-white/10 bg-black/30 p-4"><p className="text-xs text-zinc-400">Άρθρα / όριο 500</p><strong className="mt-2 block text-2xl text-white">{data.articles?.length||0} / 500</strong></div>
         <div className="rounded-xl border border-white/10 bg-black/30 p-4"><p className="text-xs text-zinc-400">Πηγές</p><strong className="mt-2 block text-2xl text-white">{data.sources?.length||0}</strong></div>
         <div className="rounded-xl border border-white/10 bg-black/30 p-4"><p className="text-xs text-zinc-400">Συγχρονίστηκε</p><strong className="mt-2 flex items-center gap-2 text-sm text-white"><Clock3 size={16}/>{fmt(data.lastSyncedAt)}</strong></div>
+        <div className="rounded-xl border border-white/10 bg-black/30 p-4"><p className="text-xs text-zinc-400">Ανανέωση</p><strong className="mt-2 block text-lg text-[#ccff00]">Κάθε 10 λεπτά</strong></div>
       </div>
       {data.lastError&&<p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">{data.lastError}</p>}
-      <h2 className="mb-4 text-lg font-black text-white">Προεπισκόπηση άρθρων</h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-black text-white">Διαχείριση άρθρων</h2>
+        {data.hiddenArticleCount>0&&<button type="button" disabled={busy} onClick={restoreHidden} className="rounded-xl border border-white/20 px-3 py-2 text-xs text-zinc-300 hover:text-white">Επαναφορά {data.hiddenArticleCount} κρυμμένων</button>}
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
-        {(data.articles||[]).slice(0,10).map(item=><a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer"
-          className="flex min-w-0 gap-3 rounded-2xl border border-white/10 bg-black/25 p-3 hover:border-[#ccff00]/40">
+        {(data.articles||[]).slice(0,30).map(item=><div key={item.url} className="flex min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-black/25 p-3 hover:border-[#ccff00]/40">
+          <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-1 gap-3">
           {item.imageUrl?<img src={item.imageUrl} alt="" loading="lazy" className="h-20 w-24 shrink-0 rounded-xl object-cover"/>:
             <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-xl bg-zinc-900"><ImageIcon className="text-zinc-600"/></div>}
           <div className="min-w-0"><p className="line-clamp-2 text-sm font-bold text-white">{item.title}</p>
-            <p className="mt-2 text-xs text-zinc-400">{item.source||'Ειδήσεις'} · {fmt(item.publishedAt)}</p></div>
-        </a>)}
+            <p className="mt-2 text-xs text-zinc-400">{item.source||'Ειδήσεις'} · {fmt(item.publishedAt)}</p></div></a>
+          <button type="button" disabled={busy} onClick={()=>removeArticle(item)} title="Διαγραφή άρθρου" aria-label={'Διαγραφή '+item.title} className="shrink-0 rounded-xl border border-rose-500/20 p-2.5 text-rose-300 hover:bg-rose-500/10 disabled:opacity-40"><Trash2 size={16}/></button>
+        </div>)}
         {!data.articles?.length&&<p className="text-sm text-zinc-400">Δεν υπάρχουν συγχρονισμένες ειδήσεις ακόμη. Πάτησε «Συγχρονισμός τώρα».</p>}
       </div>
     </section>}
