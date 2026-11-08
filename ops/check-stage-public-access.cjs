@@ -11,6 +11,8 @@ Module._load = function(name, parent, isMain) {
       return {authorizeRoles:()=>(req,res,next)=>next()};
     if (name === '../models/User')
       return {exists:async()=>false};
+    if (name === '../models/BroadcasterInvitation')
+      return {findOne:()=>({select:async()=>({_id:'invite-test-id'})})};
   }
   return originalLoad.call(this,name,parent,isMain);
 };
@@ -51,11 +53,22 @@ const validInvite=call('POST','/producers/accept-invite',{
  token:'abc.def.ghi'.padEnd(64,'a'),newPassword:'secure-long-password'
 });
 assert.equal(validInvite.reached,true,'signed invite verification endpoint is reachable for guests');
+const invitationPreview=call('GET','/broadcaster-invitations/preview');
+assert.equal(invitationPreview.reached,true,'invite-specific public preview is reachable');
+const forbiddenSignup=call('POST','/auth/register-broadcaster',{email:'invalid@example.com'});
+assert.equal(forbiddenSignup.res.code,403,'stage must never allow open broadcaster signup');
+const forbiddenOtp=call('POST','/auth/verify-otp',{email:'invalid@example.com',otp:'000000'});
+assert.equal(forbiddenOtp.res.code,403,'stage OTP must be scoped to an invitation');
 const blocked=call('POST','/stations');
 assert.equal(blocked.res.code,401);
 (async()=>{
  const result=call('POST','/auth/login',{identifier:'existing-user',password:'some-password'});
  await result.result;
  assert.equal(result.reached,true,'normal existing users may reach credential validation');
+ const validOnboarding=call('POST','/auth/register-broadcaster',{
+   email:'broadcaster@example.com',inviteToken:'a'.repeat(64)
+ });
+ await validOnboarding.result;
+ assert.equal(validOnboarding.reached,true,'token-validated registration may reach normal auth controller');
  console.log('Public stage route authorization tests passed.');
 })().catch(e=>{console.error(e);process.exitCode=1});
