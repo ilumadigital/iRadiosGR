@@ -1,0 +1,129 @@
+/* iRadiosGR auth: accessible, resilient, iOS-inspired dark glass surfaces. */
+.ir-auth-page {
+  --auth-accent: #ccff00;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  min-height: max(680px, calc(100dvh - 145px));
+  padding: clamp(20px, 4vw, 64px) clamp(12px, 3vw, 32px);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 65% 65% at 16% 18%, rgba(148, 198, 38, .11), transparent 80%),
+    radial-gradient(ellipse 48% 72% at 93% 91%, rgba(50, 104, 169, .12), transparent 82%),
+    linear-gradient(155deg, #080c10, #0e141b 55%, #070a0d);
+}
+.ir-auth-page::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(110deg, #000, transparent 80%);
+}
+.ir-auth-shell { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr); width: min(100%, 1030px); min-width: 0; min-height: 550px; gap: clamp(18px, 4vw, 46px); align-items: center; }
+.ir-auth-story { position: relative; align-self: stretch; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: clamp(26px, 3.2vw, 44px); border-radius: 36px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: radial-gradient(circle at 80% 78%, rgba(204,255,0,.11), transparent 43%),
+    linear-gradient(140deg, rgba(42,56,62,.75), rgba(15,25,30,.72) 55%, rgba(7,12,17,.9));
+  box-shadow: inset 0 1px rgba(255,255,255,.16), 0 25px 80px rgba(0,0,0,.23);
+  -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px);
+}
+.ir-auth-story::after { content: ""; position: absolute; width: 300px; height: 300px; border-radius: 50%; bottom: -200px; right: -90px; background: rgba(204,255,0,.21); filter: blur(90px); pointer-events: none; }
+.ir-auth-story__brand { display: flex; align-items: center; gap: 13px; font-size: 1.15rem; letter-spacing: -.04em; }
+.ir-auth-story__brand img, .ir-auth-mobile-brand img { object-fit: contain; flex: none; filter: drop-shadow(0 8px 15px rgba(0,0,0,.25)); }
+.ir-auth-story__brand strong, .ir-auth-story__brand small { display: block; }
+.ir-auth-story__brand small { color: #9faeaf; letter-spacing: .19em; font-size: .55rem; font-weight: 750; margin-top: 3px; }
+.ir-auth-eyebrow { color: #ccff00; letter-spacing: .18em; font-size: .65rem; font-weight: 800; }
+.ir-auth-story__body { position: relative; z-index: 1; margin-block: 32px; }
+.ir-auth-story__body h1 { margin: 15px 0 18px; font-weight: 850; letter-spacing: -.065em; line-height: 1.08; font-size: clamp(2rem, 3.5vw, 3.7rem); }
+.ir-auth-story__body h1 em { font-style: normal; color: #ccff00; }
+.ir-auth-story__body p { color: #c1cccf; line-height: 1.7; font-size: .93rem; max-width: 310px; }
+.ir-auth-story__foot { color: #869496; font-size: .74rem; }
+.ir-auth-story__foot span { color: #ccff00; margin-inline: 5px; }
+.ir-auth-wave { display: flex; height: 68px; align-items: center; gap: 5px; margin-top: 38px; opacity: .85; }
+.ir-auth-wave i { display: block; flex: 1; max-width: 8px; min-width: 2px; height: calc(12% + (var(--bar) * 13% / 9)); border-radius: 5px; background: linear-gradient(#dfff6e, rgba(204,255,0,.16)); transform: scaleY(calc(.45 + (var(--bar) * .05))); transform-origin: center; }
+.ir-auth-wave i:nth-child(3n) { height: 80%; }
+.ir-auth-wave i:nth-child(4n) { height: 55%; }
+.ir-auth-wave i:nth-child(5n) { height: 95%; }
+.ir-auth-content { min-width: 0; display: grid; place-items: center; width: 100%; }
+.ir-auth-mobile-brand { display: none; }
+.ir-auth-card { width: min(100%, 490px); padding: clamp(24px, 3.2vw, 42px); border: 1px solid rgba(233,246,255,.16);
+  border-radius: clamp(24px, 3vw, 34px); background: linear-gradient(150deg, rgba(37,45,54,.72), rgba(15,21,28,.83) 60%, rgba(18,27,34,.78));
+  box-shadow: inset 0 1px rgba(255,255,255,.17), 0 30px 80px rgba(0,0,0,.32), 0 0 50px rgba(204,255,0,.025);
+  -webkit-backdrop-filter: blur(32px) saturate(135%); backdrop-filter: blur(32px) saturate(135%);
+}
+.ir-auth-intro { text-align: left; margin-bottom: 29px; }
+.ir-auth-intro__icon { display: grid; place-items: center; width: 49px; height: 49px; border-radius: 17px; margin-bottom: 18px; color: #ccff00; background: linear-gradient(135deg, rgba(204,255,0,.16), rgba(204,255,0,.035)); border: 1px solid rgba(204,255,0,.2); }
+.ir-auth-intro h2 { margin: 7px 0 6px; color: #fff; font-weight: 800; font-size: clamp(1.65rem, 3vw, 2.2rem); line-height: 1.15; letter-spacing: -.05em; text-transform: none; font-style: normal; }
+.ir-auth-intro p { margin: 0; font-size: .88rem; color: #aab6bf; line-height: 1.55; }
+.ir-auth-card :is(input:not([type="checkbox"]), select), .ir-auth-modal :is(input:not([type="checkbox"]), select) {
+  width: 100%; max-width: 100%; min-width: 0; color: #fff; background-color: rgba(9,15,20,.65);
+  border: 1px solid rgba(227,240,255,.16); border-radius: 16px;
+  font-size: 16px; box-shadow: inset 0 1px 2px rgba(0,0,0,.12);
+  -webkit-appearance: none; appearance: none;
+}
+.ir-auth-modal select { appearance: auto; }
+.ir-auth-card :is(input,select):focus, .ir-auth-modal :is(input,select):focus {
+  outline: 0; border-color: rgba(204,255,0,.67);
+  box-shadow: 0 0 0 3px rgba(204,255,0,.1), inset 0 1px rgba(255,255,255,.04);
+}
+.ir-auth-card input::placeholder, .ir-auth-modal input::placeholder { color: #829099; opacity: 1; }
+.ir-auth-card button[type="submit"], .ir-auth-modal button[type="submit"], .ir-auth-modal form > button:not([type]) {
+  min-height: 52px; border-radius: 16px; font-size: .82rem; letter-spacing: .035em; font-weight: 800;
+  background: #ccff00; color: #101700; box-shadow: 0 10px 26px rgba(204,255,0,.13);
+}
+.ir-auth-card button[type="submit"]:not(:disabled):hover, .ir-auth-modal button[type="submit"]:not(:disabled):hover, .ir-auth-modal form > button:not([type]):not(:disabled):hover { background: #e2ff7d; transform: translateY(-1px); }
+.ir-auth-card button:disabled, .ir-auth-modal button:disabled { cursor: wait; opacity: .6; }
+.ir-auth-card a { color: #e6eff0; }
+.ir-auth-card a:hover { color: #ccff00; }
+.ir-auth-card p { overflow-wrap: anywhere; }
+.ir-auth-turnstile { display: flex; justify-content: center; min-width: 0; max-width: 100%; overflow: hidden; }
+.ir-auth-overlay { position: fixed; inset: 0; z-index: 300; display: flex; justify-content: center; align-items: safe center;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  background: rgba(3,8,11,.83); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.ir-auth-modal { --auth-accent: #ccff00; position: relative; width: min(100%, 560px); max-height: min(92dvh, 950px);
+  overflow-y: auto; overscroll-behavior: contain; padding: clamp(22px, 4vw, 36px);
+  border-radius: clamp(24px, 4vw, 36px); border: 1px solid rgba(255,255,255,.19);
+  background: radial-gradient(ellipse at 96% 0%, rgba(204,255,0,.07), transparent 55%), linear-gradient(140deg, rgba(34,43,53,.95), rgba(11,17,24,.97));
+  box-shadow: inset 0 1px rgba(255,255,255,.13), 0 35px 100px rgba(0,0,0,.55);
+  -webkit-backdrop-filter: blur(35px); backdrop-filter: blur(35px);
+}
+.ir-auth-modal--narrow { max-width: 440px; }
+.ir-auth-modal--wide { max-width: 610px; }
+.ir-auth-modal h2, .ir-auth-modal h3 { letter-spacing: -.045em; font-style: normal; text-transform: none; line-height: 1.14; font-size: clamp(1.5rem, 3vw, 2rem); }
+.ir-auth-modal input[placeholder="000000"] { font-variant-numeric: tabular-nums; letter-spacing: .28em; text-align: center; padding-left: 1rem; }
+.ir-auth-modal .grid > *, .ir-auth-modal .flex > * { min-width: 0; }
+.ir-auth-modal button[type="button"]:focus-visible, .ir-auth-card button[type="button"]:focus-visible { outline: 2px solid #ccff00; outline-offset: 3px; }
+.ir-auth-feedback { border-radius: 14px; padding: 13px 15px; font-size: .86rem; line-height: 1.5; }
+@media (max-width: 900px) {
+  .ir-auth-shell { display: block; width: min(100%, 540px); min-height: 0; }
+  .ir-auth-story { display: none; }
+  .ir-auth-mobile-brand { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; font-size: 1rem; margin-bottom: 22px; letter-spacing: -.035em; }
+  .ir-auth-page { min-height: calc(100dvh - 120px); padding-block: 25px 45px; }
+}
+@media (max-width: 480px) {
+  .ir-auth-page { padding-inline: 12px; padding-top: 18px; }
+  .ir-auth-card { padding: 23px 19px 25px; border-radius: 26px; }
+  .ir-auth-card .grid.grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
+  .ir-auth-intro { margin-bottom: 23px; }
+  .ir-auth-intro__icon { height: 43px; width: 43px; margin-bottom: 12px; }
+  .ir-auth-modal { padding: 27px 18px 24px; max-height: 94dvh; }
+  .ir-auth-modal .grid.grid-cols-2 { grid-template-columns: minmax(0,1fr); }
+  .ir-auth-modal .grid { gap: 10px; }
+  .ir-auth-modal .flex select { max-width: 112px; }
+  .ir-auth-modal :is(input,select) { font-size: 16px; }
+}
+@media (max-width: 350px) {
+  .ir-auth-turnstile { justify-content: flex-start; }
+  .ir-auth-modal input[placeholder="000000"] { letter-spacing: .1em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ir-auth-card, .ir-auth-modal, .ir-auth-wave i { animation: none !important; transform: none !important; }
+}
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .ir-auth-card, .ir-auth-modal { background: #131c25; }
+  .ir-auth-story { background: #1a262b; }
+}

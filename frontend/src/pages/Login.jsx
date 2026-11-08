@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { KeyRound, User, Mail, Loader2, CheckCircle2, X, Eye, EyeOff, Send } from 'lucide-react';
+import { KeyRound, User, Mail, LogIn, Loader2, CheckCircle2, X, Eye, EyeOff, Send } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
+import AuthShell, { AuthIntro } from '../components/AuthShell';
 
 export default function Login({ API_URL, setCurrentUser }) {
   const [identifier, setIdentifier] = useState(''); 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [cfToken, setCfToken] = useState('');
+  const turnstileRef = useRef(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -28,6 +30,7 @@ export default function Login({ API_URL, setCurrentUser }) {
   const [forgotMessage, setForgotMessage] = useState({ type: '', text: '' });
 
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
+  const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
   useEffect(() => {
     const pendingEmail = localStorage.getItem('iradios_pending_otp_email');
@@ -39,8 +42,9 @@ export default function Login({ API_URL, setCurrentUser }) {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    
+    if (loading) return;
     if (!cfToken) {
+      turnstileRef.current?.reset();
       setError('Παρακαλώ επιβεβαιώστε ότι δεν είστε ρομπότ.');
       return;
     }
@@ -71,11 +75,11 @@ export default function Login({ API_URL, setCurrentUser }) {
         setShowOtpModal(true);
       } else {
         setError(data.error || 'Λάθος στοιχεία');
-        setCfToken(''); 
+        resetTurnstile(); 
       }
     } catch (err) {
       setError('Σφάλμα σύνδεσης με τον server');
-      setCfToken('');
+      resetTurnstile();
     }
     setLoading(false);
   };
@@ -160,13 +164,13 @@ export default function Login({ API_URL, setCurrentUser }) {
   };
 
   return (
-    <div className="flex items-center justify-center h-full min-h-[70vh] p-8 relative">
+    <AuthShell>
       
       {/* --- OTP MODAL --- */}
       {showOtpModal && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-[#ccff00]/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(204,255,0,0.1)] text-center animate-in zoom-in-95 relative">
-            <button onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
+        <div className="ir-auth-overlay fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
+          <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-[#ccff00]/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(204,255,0,0.1)] text-center animate-in zoom-in-95 relative">
+            <button aria-label="Κλείσιμο επαλήθευσης" onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
               <X size={20} />
             </button>
             <div className="w-20 h-20 bg-[#ccff00]/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -184,12 +188,12 @@ export default function Login({ API_URL, setCurrentUser }) {
                 maxLength="6"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
+                placeholder="000000" autoComplete="one-time-code" inputMode="numeric" aria-label="Κωδικός επιβεβαίωσης"
                 className="w-full bg-black border-2 border-white/10 h-20 rounded-2xl text-center text-4xl font-black text-[#ccff00] tracking-[0.5em] focus:border-[#ccff00] outline-none transition-colors"
                 autoFocus
               />
               
-              {error && <div className="text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-xl">{error}</div>}
+              {error && <div role="alert" className="ir-auth-feedback text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-xl">{error}</div>}
 
               <button 
                 type="submit" 
@@ -205,9 +209,9 @@ export default function Login({ API_URL, setCurrentUser }) {
 
       {/* 🟢 FORGOT PASSWORD MODAL */}
       {showForgotModal && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-white/10 p-10 rounded-[40px] w-full max-w-md shadow-2xl text-center animate-in zoom-in-95 relative">
-            <button onClick={closeForgotModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
+        <div className="ir-auth-overlay fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
+          <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-white/10 p-10 rounded-[40px] w-full max-w-md shadow-2xl text-center animate-in zoom-in-95 relative">
+            <button aria-label="Κλείσιμο ανάκτησης" onClick={closeForgotModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
               <X size={20} />
             </button>
             
@@ -225,7 +229,7 @@ export default function Login({ API_URL, setCurrentUser }) {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-white transition-colors" size={20} />
                 <input 
                   type="email" 
-                  placeholder="Το Email σας" 
+                  placeholder="Το Email σας" autoComplete="email" aria-label="Email ανάκτησης" 
                   value={forgotEmail} 
                   onChange={(e) => setForgotEmail(e.target.value)} 
                   className="w-full bg-black/50 border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-white/50 text-white transition-colors" 
@@ -235,7 +239,7 @@ export default function Login({ API_URL, setCurrentUser }) {
               </div>
               
               {forgotMessage.text && (
-                <div className={`text-xs font-bold p-3 rounded-xl ${forgotMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                <div role="status" className={`ir-auth-feedback text-xs font-bold p-3 rounded-xl ${forgotMessage.type === 'success' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
                   {forgotMessage.text}
                 </div>
               )}
@@ -254,17 +258,11 @@ export default function Login({ API_URL, setCurrentUser }) {
 
       {/* --- STANDARD LOGIN FORM --- */}
       {!showOtpModal && !showForgotModal && (
-        <div className="w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-10 rounded-[40px] shadow-2xl relative z-10 animate-fade-in">
-          <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-[#ccff00]/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-               <User size={32} className="text-[#ccff00]" />
-            </div>
-            <h2 className="text-3xl font-black tracking-tight text-white mb-2 uppercase italic">Συνδεση</h2>
-            <p className="text-sm text-zinc-400 font-medium">Εισάγετε Username ή Email</p>
-          </div>
+        <div className="ir-auth-card w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-10 rounded-[40px] shadow-2xl relative z-10 animate-fade-in">
+          <AuthIntro icon={LogIn} eyebrow="WELCOME BACK" title="Καλώς ήρθες ξανά" description="Συνδέσου και συνέχισε να ακούς ό,τι αγαπάς." />
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm font-bold px-4 py-4 rounded-xl mb-6 text-center tracking-wide">
+            <div role="alert" className="ir-auth-feedback bg-red-500/10 border border-red-500/50 text-red-400 text-sm font-bold px-4 py-4 rounded-xl mb-6 text-center tracking-wide">
               {error}
             </div>
           )}
@@ -278,9 +276,9 @@ export default function Login({ API_URL, setCurrentUser }) {
               )}
               <input 
                 type="text" 
-                placeholder="Username ή Email" 
+                placeholder="Username ή Email" autoComplete="username" aria-label="Username ή Email" 
                 value={identifier} 
-                onChange={(e) => setIdentifier(e.target.value)} 
+                onChange={(e) => { setIdentifier(e.target.value); setError(''); }} 
                 className="w-full bg-black/50 border border-white/5 h-16 rounded-2xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-[#ccff00]/50 text-white transition-colors" 
                 required 
               />
@@ -291,14 +289,15 @@ export default function Login({ API_URL, setCurrentUser }) {
                 <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-[#ccff00] transition-colors" size={20} />
                 <input 
                   type={showPassword ? "text" : "password"} 
-                  placeholder="Κωδικός Πρόσβασης" 
+                  placeholder="Κωδικός Πρόσβασης" autoComplete="current-password" aria-label="Κωδικός πρόσβασης" 
                   value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
+                  onChange={(e) => { setPassword(e.target.value); setError(''); }} 
                   className="w-full bg-black/50 border border-white/5 h-16 rounded-2xl pl-12 pr-12 text-sm font-medium focus:outline-none focus:border-[#ccff00]/50 text-white transition-colors" 
                   required 
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Απόκρυψη κωδικού' : 'Εμφάνιση κωδικού'}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors outline-none focus:text-[#ccff00]"
                 >
@@ -319,8 +318,9 @@ export default function Login({ API_URL, setCurrentUser }) {
             </div>
 
             {/* Cloudflare Turnstile Widget */}
-            <div className="flex justify-center my-6">
+            <div className="ir-auth-turnstile flex justify-center my-6">
               <Turnstile
+                ref={turnstileRef}
                 siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
                 onSuccess={(token) => setCfToken(token)}
                 onError={() => setCfToken('')}
@@ -331,7 +331,7 @@ export default function Login({ API_URL, setCurrentUser }) {
 
             <button 
               type="submit" 
-              disabled={loading || !cfToken}
+              disabled={loading}
               className="w-full bg-[#ccff00] text-black font-black uppercase tracking-widest h-16 rounded-2xl hover:bg-[#b3e600] active:scale-95 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 size={20} className="animate-spin" /> : "Συνδεση"}
@@ -347,6 +347,6 @@ export default function Login({ API_URL, setCurrentUser }) {
           </p>
         </div>
       )}
-    </div>
+    </AuthShell>
   );
 }

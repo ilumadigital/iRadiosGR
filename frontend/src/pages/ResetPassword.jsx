@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { KeyRound, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import AuthShell, { AuthIntro } from '../components/AuthShell';
 
 export default function ResetPassword({ API_URL }) {
   const { token } = useParams(); // Παίρνουμε το token από το URL (π.χ. /reset-password/abc123xyz)
@@ -59,16 +60,10 @@ export default function ResetPassword({ API_URL }) {
   };
 
   return (
-    <div className="flex items-center justify-center h-full min-h-[70vh] p-8 relative animate-fade-in">
-      <div className="w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-10 rounded-[40px] shadow-2xl relative z-10">
+    <AuthShell>
+      <div className="ir-auth-card w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-10 rounded-[40px] shadow-2xl relative z-10">
         
-        <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-[#ccff00]/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-             <KeyRound size={32} className="text-[#ccff00]" />
-          </div>
-          <h2 className="text-3xl font-black tracking-tight text-white mb-2 uppercase italic">Νεος Κωδικος</h2>
-          <p className="text-sm text-zinc-400 font-medium">Δημιουργήστε έναν νέο κωδικό πρόσβασης.</p>
-        </div>
+        <AuthIntro icon={KeyRound} eyebrow="ACCOUNT SECURITY" title="Νέος κωδικός" description="Δημιούργησε έναν ασφαλή κωδικό για τον λογαριασμό σου." />
 
         {success ? (
           <div className="text-center space-y-6 animate-in zoom-in-95">
@@ -85,7 +80,7 @@ export default function ResetPassword({ API_URL }) {
           <form onSubmit={handleSubmit} className="space-y-4">
             
             {error && (
-              <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm font-bold px-4 py-4 rounded-xl mb-6 text-center tracking-wide animate-in fade-in">
+              <div role="alert" className="ir-auth-feedback bg-red-500/10 border border-red-500/50 text-red-400 text-sm font-bold px-4 py-4 rounded-xl mb-6 text-center tracking-wide animate-in fade-in">
                 {error}
               </div>
             )}
@@ -94,7 +89,7 @@ export default function ResetPassword({ API_URL }) {
               <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-[#ccff00] transition-colors" size={20} />
               <input 
                 type={showPassword ? "text" : "password"} 
-                placeholder="Νέος Κωδικός" 
+                placeholder="Νέος Κωδικός" aria-label="Νέος κωδικός" autoComplete="new-password" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
                 className="w-full bg-black/50 border border-white/5 h-16 rounded-2xl pl-12 pr-12 text-sm font-medium focus:outline-none focus:border-[#ccff00]/50 text-white transition-colors" 
@@ -102,7 +97,8 @@ export default function ResetPassword({ API_URL }) {
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Απόκρυψη κωδικού' : 'Εμφάνιση κωδικού'}
+                  onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors outline-none focus:text-[#ccff00]"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -113,7 +109,7 @@ export default function ResetPassword({ API_URL }) {
               <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-[#ccff00] transition-colors" size={20} />
               <input 
                 type={showPassword ? "text" : "password"} 
-                placeholder="Επιβεβαίωση Νέου Κωδικού" 
+                placeholder="Επιβεβαίωση Νέου Κωδικού" aria-label="Επιβεβαίωση νέου κωδικού" autoComplete="new-password" 
                 value={confirmPassword} 
                 onChange={(e) => setConfirmPassword(e.target.value)} 
                 className="w-full bg-black/50 border border-white/5 h-16 rounded-2xl pl-12 pr-12 text-sm font-medium focus:outline-none focus:border-[#ccff00]/50 text-white transition-colors" 
@@ -135,6 +131,6 @@ export default function ResetPassword({ API_URL }) {
           </form>
         )}
       </div>
-    </div>
+    </AuthShell>
   );
 }

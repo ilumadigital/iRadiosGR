@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Target, Crown, Clock, LayoutGrid, LayoutPanelTop, Rows3, Mic2, Check, ArrowRight, 
@@ -12,6 +12,7 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
+  const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
   const isGuest = !currentUser;
 
@@ -22,6 +23,7 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
 
   // --- REGISTRATION & OTP STATES ---
   const [cfToken, setCfToken] = useState('');
+  const turnstileRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [vatLoading, setVatLoading] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
@@ -112,7 +114,9 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
   // --- REGISTRATION SUBMIT ---
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     if (!cfToken) {
+      turnstileRef.current?.reset();
       setFeedback({ show: true, type: 'error', message: 'Παρακαλώ επιβεβαιώστε ότι δεν είστε ρομπότ.' });
       return;
     }
@@ -148,11 +152,11 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
         }
       } else {
         setFeedback({ show: true, type: 'error', message: data.error || 'Σφάλμα εγγραφής' });
-        setCfToken(''); 
+        resetTurnstile(); 
       }
     } catch (error) {
       setFeedback({ show: true, type: 'error', message: 'Σφάλμα σύνδεσης με τον Server' });
-      setCfToken(''); 
+      resetTurnstile(); 
     }
     setLoading(false);
   };
@@ -189,6 +193,13 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
       setOtpError('Σφάλμα κατά την επαλήθευση.');
     }
     setOtpLoading(false);
+  };
+
+  const closeOtpModal = () => {
+    localStorage.removeItem('iradios_agency_pending_otp');
+    setShowOtpModal(false);
+    setOtp('');
+    setOtpError('');
   };
 
   return (
@@ -401,16 +412,16 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
 
       {/* --- AGENCY REGISTRATION MODAL --- */}
       {showModal && !showOtpModal && (
-        <div className="fixed inset-0 z-[200] flex items-start justify-center p-4 pt-12 md:pt-20 bg-black/95 backdrop-blur-xl animate-in fade-in duration-300 overflow-y-auto custom-scrollbar">
+        <div className="ir-auth-overlay fixed inset-0 z-[200] flex items-start justify-center p-4 pt-12 md:pt-20 bg-black/95 backdrop-blur-xl animate-in fade-in duration-300 overflow-y-auto custom-scrollbar">
           
-          <div className="bg-zinc-950 border border-purple-500/20 p-6 md:p-8 rounded-[40px] w-full max-w-xl relative shadow-[0_0_80px_rgba(168,85,247,0.1)] mb-12 shrink-0">
-            <button onClick={() => setShowModal(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full z-10">
+          <div className="ir-auth-modal ir-auth-modal--wide bg-zinc-950 border border-purple-500/20 p-6 md:p-8 rounded-[40px] w-full max-w-xl relative shadow-[0_0_80px_rgba(168,85,247,0.1)] mb-12 shrink-0">
+            <button aria-label="Κλείσιμο φόρμας" onClick={() => { setShowModal(false); resetTurnstile(); }} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full z-10">
               <X size={20} />
             </button>
             
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-purple-500/20">
-                <Target size={32} className="text-purple-400" />
+                <img src="/iradios-app-logo.png" alt="iRadiosGR" className="w-12 h-12 object-contain" />
               </div>
               <h3 className="text-3xl font-black text-white tracking-tight uppercase italic">Agency Portal</h3>
               <p className="text-sm text-zinc-400 mt-2">Δημιουργήστε τον εταιρικό λογαριασμό διαφημιστή.</p>
@@ -469,18 +480,18 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Ονομα</label>
-                  <input type="text" required value={formData.fname} onChange={(e) => setFormData({...formData, fname: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
+                  <input type="text" aria-label="Όνομα" autoComplete="given-name" required value={formData.fname} onChange={(e) => setFormData({...formData, fname: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Επιθετο</label>
-                  <input type="text" required value={formData.lname} onChange={(e) => setFormData({...formData, lname: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
+                  <input type="text" aria-label="Επίθετο" autoComplete="family-name" required value={formData.lname} onChange={(e) => setFormData({...formData, lname: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Username</label>
-                  <input type="text" required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors font-mono" />
+                  <input type="text" aria-label="Username" autoComplete="username" required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors font-mono" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Τηλεφωνο</label>
@@ -488,14 +499,14 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
                     <select value={formData.phonePrefix} onChange={(e) => setFormData({...formData, phonePrefix: e.target.value})} className="bg-black border border-white/10 rounded-2xl px-2 py-3.5 text-white text-xs outline-none focus:border-purple-500 cursor-pointer">
                       {phoneCodes.map(c => <option key={c.code} value={c.prefix}>{c.code} ({c.prefix})</option>)}
                     </select>
-                    <input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/[^0-9]/g, '')})} className="flex-1 w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors min-w-0" />
+                    <input type="tel" aria-label="Τηλέφωνο" autoComplete="tel-national" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/[^0-9]/g, '')})} className="flex-1 w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors min-w-0" />
                   </div>
                 </div>
               </div>
 
               <div>
                 <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Email (Επαγγελματικο)</label>
-                <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
+                <input type="email" aria-label="Email" autoComplete="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
               </div>
               
               <div className="relative">
@@ -503,12 +514,13 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
                 <input 
                   type={showPassword ? "text" : "password"} 
                   required minLength="6" 
-                  value={formData.password} 
+                  value={formData.password} autoComplete="new-password"
                   onChange={(e) => setFormData({...formData, password: e.target.value})} 
                   className="w-full bg-black border border-white/10 rounded-2xl px-4 pr-12 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" 
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Απόκρυψη κωδικού' : 'Εμφάνιση κωδικού'}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 bottom-3.5 text-zinc-500 hover:text-white transition-colors outline-none focus:text-purple-400"
                 >
@@ -516,8 +528,9 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
                 </button>
               </div>
 
-              <div className="flex justify-center mt-6 mb-2">
+              <div className="ir-auth-turnstile flex justify-center mt-6 mb-2">
                 <Turnstile
+                  ref={turnstileRef}
                   siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY} 
                   onSuccess={(token) => setCfToken(token)}
                   onError={() => setCfToken('')}
@@ -527,13 +540,13 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
               </div>
 
               {feedback.show && (
-                <div className={`p-4 rounded-xl text-sm font-bold text-center border ${feedback.type === 'success' ? 'bg-[#ccff00]/10 text-[#ccff00] border-[#ccff00]/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                <div role="status" className={`ir-auth-feedback p-4 rounded-xl text-sm font-bold text-center border ${feedback.type === 'success' ? 'bg-[#ccff00]/10 text-[#ccff00] border-[#ccff00]/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
                   {feedback.message}
                 </div>
               )}
 
               <button 
-                disabled={loading || !cfToken} 
+                disabled={loading} 
                 className="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed tracking-widest uppercase mt-4 shadow-[0_10px_30px_rgba(168,85,247,0.3)]"
               >
                 {loading ? <Loader2 className="animate-spin" size={20} /> : <><Target size={20} /> Ολοκληρωση Εγγραφης</>}
@@ -549,8 +562,9 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
 
       {/* --- OTP MODAL --- */}
       {showOtpModal && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in zoom-in-95">
-          <div className="bg-[#111] border border-purple-500/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(168,85,247,0.15)] text-center relative">
+        <div className="ir-auth-overlay fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in zoom-in-95">
+          <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-purple-500/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(168,85,247,0.15)] text-center relative">
+            <button type="button" aria-label="Κλείσιμο επαλήθευσης" onClick={closeOtpModal} className="absolute right-5 top-5 rounded-full bg-white/5 p-2.5 text-zinc-400 hover:text-white"><X size={18} /></button>
             <div className="w-20 h-20 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
               <KeyRound size={40} className="text-purple-500" />
             </div>
@@ -562,11 +576,11 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
 
             <form onSubmit={handleVerifyOtp} className="space-y-6">
               <input 
-                type="text" maxLength="6" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="000000" autoFocus
+                type="text" autoComplete="one-time-code" inputMode="numeric" aria-label="Κωδικός επιβεβαίωσης" maxLength="6" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} placeholder="000000" autoFocus
                 className="w-full bg-black border-2 border-white/10 h-20 rounded-2xl text-center text-4xl font-black text-purple-400 tracking-[0.5em] focus:border-purple-500 outline-none transition-colors"
               />
               
-              {otpError && <div className="text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-xl">{otpError}</div>}
+              {otpError && <div role="alert" className="ir-auth-feedback text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-xl">{otpError}</div>}
 
               <button 
                 type="submit" disabled={otpLoading || otp.length !== 6}

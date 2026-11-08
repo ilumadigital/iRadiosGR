@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, ArrowRight, Loader2, KeyRound, CheckCircle2, X, Eye, EyeOff } from 'lucide-react';
-import { Turnstile } from '@marsidev/react-turnstile'; // 💡 NEW: Import Turnstile
+import { Turnstile } from '@marsidev/react-turnstile';
+import AuthShell, { AuthIntro } from '../components/AuthShell';
 
 export default function Register({ API_URL, setCurrentUser }) {
   const navigate = useNavigate();
@@ -11,7 +12,8 @@ export default function Register({ API_URL, setCurrentUser }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [cfToken, setCfToken] = useState(''); // 💡 NEW: State για το Cloudflare Token
+  const [cfToken, setCfToken] = useState('');
+  const turnstileRef = useRef(null);
   
   // --- OTP STATES ---
   const [showOtpModal, setShowOtpModal] = useState(false);
@@ -19,6 +21,7 @@ export default function Register({ API_URL, setCurrentUser }) {
   const [otpLoading, setOtpLoading] = useState(false);
 
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
+  const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
   useEffect(() => {
     const pendingEmail = localStorage.getItem('iradios_pending_otp_email');
@@ -30,9 +33,11 @@ export default function Register({ API_URL, setCurrentUser }) {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (loading) return;
 
     // 💡 NEW: Έλεγχος Turnstile πριν από οτιδήποτε άλλο
     if (!cfToken) {
+      turnstileRef.current?.reset();
       setError('Παρακαλώ επιβεβαιώστε ότι δεν είστε ρομπότ.');
       return;
     }
@@ -65,11 +70,11 @@ export default function Register({ API_URL, setCurrentUser }) {
         }
       } else {
         setError(data.error || 'Σφάλμα κατά την εγγραφή');
-        setCfToken(''); // 💡 NEW: Μηδενισμός του token αν αποτύχει (για να ξαναπατήσει)
+        resetTurnstile();
       }
     } catch (err) {
       setError('Αποτυχία σύνδεσης με τον διακομιστή.');
-      setCfToken(''); // 💡 NEW: Μηδενισμός του token
+      resetTurnstile();
     }
     setLoading(false);
   };
@@ -118,13 +123,13 @@ export default function Register({ API_URL, setCurrentUser }) {
   };
 
   return (
-    <div className="h-full max-h-screen overflow-y-auto flex flex-col items-center justify-start py-10 px-4 relative animate-fade-in">
+    <AuthShell>
       
       {/* --- OTP MODAL --- */}
       {showOtpModal && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#111] border border-[#ccff00]/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(204,255,0,0.1)] text-center animate-in zoom-in-95 relative">
-            <button onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
+        <div className="ir-auth-overlay fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
+          <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-[#ccff00]/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(204,255,0,0.1)] text-center animate-in zoom-in-95 relative">
+            <button aria-label="Κλείσιμο επαλήθευσης" onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
               <X size={20} />
             </button>
 
@@ -143,12 +148,12 @@ export default function Register({ API_URL, setCurrentUser }) {
                 maxLength="6"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
+                placeholder="000000" autoComplete="one-time-code" inputMode="numeric" aria-label="Κωδικός επιβεβαίωσης"
                 className="w-full bg-black border-2 border-white/10 h-20 rounded-2xl text-center text-4xl font-black text-[#ccff00] tracking-[0.5em] focus:border-[#ccff00] outline-none transition-colors"
                 autoFocus
               />
               
-              {error && <div className="text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-xl">{error}</div>}
+              {error && <div role="alert" className="ir-auth-feedback text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-xl">{error}</div>}
 
               <button 
                 type="submit" 
@@ -164,18 +169,12 @@ export default function Register({ API_URL, setCurrentUser }) {
 
       {/* --- REGISTRATION FORM --- */}
       {!showOtpModal && (
-        <div className="w-full max-w-md bg-zinc-900/50 border border-white/10 p-8 rounded-[40px] backdrop-blur-sm relative z-10 my-auto">
+        <div className="ir-auth-card w-full max-w-md bg-zinc-900/50 border border-white/10 p-8 rounded-[40px] backdrop-blur-sm relative z-10 my-auto">
           
-          <div className="flex justify-center mb-8">
-            <div className="p-4 bg-[#ccff00]/10 rounded-2xl">
-              <UserPlus size={32} className="text-[#ccff00]" />
-            </div>
-          </div>
-          <h2 className="text-3xl font-black text-white text-center mb-2 uppercase italic tracking-wider">Δημιουργια Λογαριασμου</h2>
-          <p className="text-center text-zinc-500 text-sm mb-8">Γίνε μέλος του iRadios Network</p>
+          <AuthIntro icon={UserPlus} eyebrow="JOIN THE EXPERIENCE" title="Φτιάξε τον λογαριασμό σου" description="Ένα προφίλ. Αμέτρητοι σταθμοί και μουσικές στιγμές." />
 
           {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-bold text-center">
+            <div role="alert" className="ir-auth-feedback mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 text-sm font-bold text-center">
               {error}
             </div>
           )}
@@ -184,26 +183,26 @@ export default function Register({ API_URL, setCurrentUser }) {
             <div className="grid grid-cols-2 gap-4">
               <div className="relative">
                 <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-                <input type="text" placeholder="Όνομα" required value={formData.fname} onChange={(e) => setFormData({...formData, fname: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none" />
+                <input type="text" placeholder="Όνομα" aria-label="Όνομα" autoComplete="given-name" required value={formData.fname} onChange={(e) => setFormData({...formData, fname: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none" />
               </div>
-              <input type="text" placeholder="Επίθετο" required value={formData.lname} onChange={(e) => setFormData({...formData, lname: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-4 text-white focus:border-[#ccff00] transition-colors outline-none" />
+              <input type="text" placeholder="Επίθετο" aria-label="Επίθετο" autoComplete="family-name" required value={formData.lname} onChange={(e) => setFormData({...formData, lname: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-4 text-white focus:border-[#ccff00] transition-colors outline-none" />
             </div>
 
             <div className="relative">
               <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input type="text" placeholder="Username" required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none font-mono" />
+              <input type="text" placeholder="Username" aria-label="Username" autoComplete="username" required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none font-mono" />
             </div>
 
             <div className="relative">
               <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input type="email" placeholder="Email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none" />
+              <input type="email" placeholder="Email" aria-label="Email" autoComplete="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none" />
             </div>
 
             <div className="relative">
               <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input 
                 type={showPassword ? "text" : "password"} 
-                placeholder="Κωδικός (Min 6 χαρακτήρες)" 
+                placeholder="Κωδικός (Min 6 χαρακτήρες)" aria-label="Κωδικός πρόσβασης" autoComplete="new-password" 
                 required 
                 minLength="6" 
                 value={formData.password} 
@@ -212,7 +211,8 @@ export default function Register({ API_URL, setCurrentUser }) {
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Απόκρυψη κωδικού' : 'Εμφάνιση κωδικού'}
+                  onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors outline-none focus:text-[#ccff00]"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -221,12 +221,13 @@ export default function Register({ API_URL, setCurrentUser }) {
 
             <div>
               <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Ημερομηνία Γέννησης</label>
-              <input type="date" required value={formData.birthdate} onChange={(e) => setFormData({...formData, birthdate: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-4 text-white focus:border-[#ccff00] transition-colors outline-none text-sm" />
+              <input type="date" aria-label="Ημερομηνία γέννησης" autoComplete="bday" required value={formData.birthdate} onChange={(e) => setFormData({...formData, birthdate: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-4 text-white focus:border-[#ccff00] transition-colors outline-none text-sm" />
             </div>
 
             {/* 💡 NEW: Cloudflare Turnstile Widget */}
-            <div className="flex justify-center mt-6 mb-2">
+            <div className="ir-auth-turnstile flex justify-center mt-6 mb-2">
               <Turnstile
+                ref={turnstileRef}
                 siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY} // Αν έχεις CRA, βάλε process.env.REACT_APP_TURNSTILE_SITE_KEY
                 onSuccess={(token) => setCfToken(token)}
                 onError={() => setCfToken('')}
@@ -237,7 +238,7 @@ export default function Register({ API_URL, setCurrentUser }) {
 
             <button 
               type="submit" 
-              disabled={loading || !cfToken} // 💡 NEW: Απενεργοποίηση αν λείπει το token
+              disabled={loading} // 💡 NEW: Απενεργοποίηση αν λείπει το token
               className="w-full mt-4 bg-white text-black font-black py-4 rounded-2xl uppercase tracking-widest text-sm hover:bg-[#ccff00] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <>ΕΓΓΡΑΦΗ <ArrowRight size={18} /></>}
@@ -253,6 +254,6 @@ export default function Register({ API_URL, setCurrentUser }) {
           </p>
         </div>
       )}
-    </div>
+    </AuthShell>
   );
 }
