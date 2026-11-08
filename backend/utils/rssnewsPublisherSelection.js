@@ -4,8 +4,9 @@
 // requests and no undocumented rssnews.io API or scraping.
 const transport=require('./publicRssTransport');
 const RSS_GUESS=Object.freeze({
-  'cnn.gr':['/rss','/feed/'],
-  'capital.gr':['/rss','/feed/'],
+  // Both are documented RSS endpoints although their URL paths are nonstandard.
+  'cnn.gr':['/eidhseis?format=feed&type=rss','/rss','/feed/'],
+  'capital.gr':['/api/tags/all','/rss','/feed/'],
   'in.gr':['/feed/','/rss'],
   'naftemporiki.gr':['/feed/','/rss'],
   'newsit.gr':['/feed/','/rss'],
@@ -45,8 +46,12 @@ function publisherPlans(preset,categoryFeeds){
       continue;
     }
     const paths=RSS_GUESS[domain]||['/feed/','/rss'];
-    const host='www.'+domain;
-    plans.push({domain,candidates:paths.map(path=>({url:'https://'+host+path,category:''}))});
+    const hosts=['www.'+domain,domain];
+    plans.push({domain,candidates:hosts.flatMap(host=>paths.map(path=>({
+      url:'https://'+host+path,category:'',
+      vettedNonstandard:domain==='cnn.gr'&&path.startsWith('/eidhseis?')||
+        domain==='capital.gr'&&path.startsWith('/api/tags/all')
+    })))});
   }
   return plans;
 }
@@ -64,7 +69,7 @@ async function parallel(items,max,iterator){
 function samePublisher(a,domain){
   try{
     const host=new URL(a).hostname.replace(/^www\./,'');
-    return host===domain;
+    return host===domain||host.endsWith('.'+domain);
   }catch{return false;}
 }
 async function collectSelected(preset,{categoryFeeds,parseFeed,existingImages,sourceId}){
@@ -77,9 +82,10 @@ async function collectSelected(preset,{categoryFeeds,parseFeed,existingImages,so
     const candidates=item.sectioned?[item]:item.candidates;
     // Alternative RSS paths can be checked in parallel instead of sequential
     // timeouts, keeping the admin's manual refresh reasonably responsive.
+    // Probe alternative endpoints in parallel, but keep the total work bounded.
     const attempts=await Promise.all(candidates.map(async candidate=>{
       try{
-        const xml=await transport.requestText(candidate.url,{feed:true,timeoutMs:4300});
+        const xml=await transport.requestText(candidate.url,{feed:!candidate.vettedNonstandard,timeoutMs:4300});
         const parsed=parseFeed(xml,{feedUrl:candidate.url});
         return {url:candidate.url,category:candidate.category,result:parsed};
       }catch(e){return {error:String(e.message||e).slice(0,120)};}
@@ -92,28 +98,30 @@ async function collectSelected(preset,{categoryFeeds,parseFeed,existingImages,so
   const valid=results.filter(r=>r.result);
   if(!valid.length)throw new Error('Δεν βρέθηκε διαθέσιμο RSS στους επιλεγμένους εκδότες. Δες τα επιμέρους RSS URLs ή δοκίμασε ξανά.');
   const categorySet=new Set(preset.categories);
-  const candidates=valid.flatMap(r=>r.result.articles.slice(0,35)
+  const candidates=valid.flatMap(r=>r.result.articles.slice(0,55)
     .filter(a=>samePublisher(a.url,r.domain))
     .map(a=>({
       ...a,
-      category:r.category||a.category,
-      source:r.result.feedTitle||r.domain,
+      // Publisher feeds often use tags instead of the rssnews.io seven
+      // categories. Do not discard valid articles solely for a tag mismatch.
+      category:categorySet.has(r.category||a.category)?(r.category||a.category):
+        (categorySet.has('Ελλάδα')?'Ελλάδα':preset.categories[0]),
+      source:r.domain,
       _publisher:r.domain,_feed:r.url
-    }))
-    .filter(a=>categorySet.has(a.category)));
+    })));
   candidates.sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0));
   const seen=new Set();
   const unique=candidates.filter(a=>{
     const key=a.url;
     if(seen.has(key))return false;
     seen.add(key);return true;
-  }).slice(0,220);
+  }).slice(0,500);
   let inspected=0;
   const articles=await parallel(unique,6,async article=>{
     let enriched=article;
     const cached=existingImages?.get(String(sourceId||'')+'|'+article.url);
     if(!article.imageUrl&&cached)enriched={...article,imageUrl:cached};
-    if(!enriched.imageUrl&&inspected<10&&samePublisher(article.url,article._publisher)){
+    if(!enriched.imageUrl&&inspected<8&&samePublisher(article.url,article._publisher)){
       inspected++;
       try{
         const url=new URL(article.url);
@@ -128,7 +136,7 @@ async function collectSelected(preset,{categoryFeeds,parseFeed,existingImages,so
     return publicItem;
   });
   const warnings=results.filter(r=>r.error).map(r=>r.domain+': '+r.error);
-  if(!articles.length)warnings.push('Τα feeds απάντησαν, αλλά δεν επέστρεψαν άρθρα στις επιλεγμένες κατηγορίες.');
+  if(!articles.length)warnings.push('Τα feeds απάντησαν, αλλά δεν επέστρεψαν δημοσιεύσεις από τους επιλεγμένους εκδότες.');
   return {feedTitle:preset.categories.join(' · '),articles,
     warnings,retrievalMode:'selected-publisher-rss',categoryCount:preset.categories.length};
 }
