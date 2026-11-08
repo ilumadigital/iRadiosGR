@@ -14,7 +14,7 @@ const equalizer = [1, 2, 3, 4, 5];
 
 export default function TopBar({
   setIsMobileMenuOpen, stations = [], handleSearchResultClick,
-  currentUser, weather = {}, onLogout
+  openSmartSearchRequest = 0, currentUser, weather = {}, onLogout
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -82,6 +82,15 @@ export default function TopBar({
     document.addEventListener('visibilitychange', refreshPermission);
     return () => document.removeEventListener('visibilitychange', refreshPermission);
   }, []);
+
+  // The Home greeting opens this same search panel, not a second search UI.
+  // A request counter supports repeated activations without route navigation.
+  useEffect(() => {
+    if (!openSmartSearchRequest) return;
+    setExpanded(true);
+    setSpeechMessage('');
+    inputRef.current?.focus();
+  }, [openSmartSearchRequest]);
 
   useEffect(() => {
     if (!expanded) return undefined;
