@@ -34,8 +34,9 @@ assert.ok(deck.includes('stationIsPlaying'), 'radio playback state must remain i
 const home=read('frontend/src/pages/Home.jsx');
 assert.ok(home.includes('chosenIds') && home.includes('all.findIndex'),
   'fill For You with real distinct stations if preferred genres are sparse');
-assert.ok(home.includes('featuredTopStations') && home.includes('.slice(0,7)'),
-  'fill Top with up to seven genuine approved radios');
+assert.ok(home.includes('eligibleTopStations') && home.includes('const topStations') &&
+  home.includes('.slice(0,7)') && home.includes('catalogStationInfo'),
+  'fill Top with up to seven approved stations, ranked by verified live information');
 assert.ok(!home.includes('Το iRadios AI αναλύει'), 'do not claim AI recommendations');
 assert.ok(!home.includes('άσε τον αλγόριθμο'), 'do not use synthetic marketing copy');
 assert.ok(!home.includes('DSP Engine</strong>') && !home.includes('LIVE Analytics</strong>'),
