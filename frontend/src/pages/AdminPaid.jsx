@@ -125,6 +125,12 @@ export default function AdminPaid({ API_URL }) {
         />
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p role="status" className="text-xs font-semibold text-zinc-400">{filteredTransactions.length} από {transactions.length} συναλλαγές</p>
+        {searchTerm&&<button type="button" onClick={()=>setSearchTerm('')}
+          className="rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-[#caff00]">
+          Καθαρισμός αναζήτησης</button>}
+      </div>
       {/* LIST / GRID */}
       {loading ? (
         <div className="flex justify-center p-20 text-[#ccff00] animate-pulse">Φόρτωση δεδομένων...</div>
