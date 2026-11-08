@@ -42,6 +42,7 @@ export default function NewPush({ API_URL }) {
       return;
     }
 
+    if(!window.confirm('Να σταλεί η ειδοποίηση στις εγγεγραμμένες συσκευές; Έλεγξε το κείμενο πριν συνεχίσεις.'))return;
     setIsSending(true);
     setFeedback({ show: false, type: '', message: '' });
 
@@ -118,6 +119,8 @@ export default function NewPush({ API_URL }) {
               <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Τίτλος ειδοποίησης</label>
               <input
                 type="text"
+                maxLength={90}
+                aria-label="Τίτλος push ειδοποίησης"
                 placeholder="π.χ. Νέος Διαγωνισμός στο iRadios!"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -128,6 +131,8 @@ export default function NewPush({ API_URL }) {
             <div>
               <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Μηνυμα</label>
               <textarea
+                maxLength={300}
+                aria-label="Κείμενο push ειδοποίησης"
                 placeholder="π.χ. Μπείτε τώρα και κερδίστε πλούσια δώρα..."
                 value={formData.body}
                 onChange={(e) => setFormData({ ...formData, body: e.target.value })}
@@ -135,6 +140,18 @@ export default function NewPush({ API_URL }) {
                 className="w-full bg-zinc-950/50 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none focus:border-[#ccff00]/50 transition-colors resize-none"
               ></textarea>
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#caff00]/20 bg-[#0d1112] p-5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] font-black uppercase tracking-widest text-[#caff00]">Προεπισκόπηση ειδοποίησης</p>
+              <span className="text-[11px] text-zinc-400">{formData.title.length}/90 · {formData.body.length}/300</span>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-[#1a1e21] p-4">
+              <p className="text-xs font-black text-white">{formData.title.trim()||'Τίτλος ειδοποίησης'}</p>
+              <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-zinc-300">{formData.body.trim()||'Το μήνυμα θα εμφανιστεί εδώ πριν την αποστολή.'}</p>
+            </div>
+            <p className="mt-3 text-[11px] leading-5 text-zinc-500">Η αποστολή δεν μπορεί να αναιρεθεί. Θα ζητηθεί τελική επιβεβαίωση.</p>
           </div>
 
           {/* Μηνύματα Επιτυχίας/Σφάλματος */}
