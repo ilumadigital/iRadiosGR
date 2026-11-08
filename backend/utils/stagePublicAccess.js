@@ -46,6 +46,7 @@ function stagePublicAccess(req, res, next) {
   // The middleware is mounted at /api, and Express req.path excludes the mount prefix.
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
+  if (req.method === 'GET' && /^\/api\/newsfeed\/articles\/[a-f0-9]{24}$/.test(path)) return next();
   // Public radio playback can report an anonymous, bounded listening heartbeat.
   // This endpoint cannot read metadata, choose streams or trigger recognition directly.
   if (req.method === 'POST' && path === '/api/listen/heartbeat') return next();

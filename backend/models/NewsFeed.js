@@ -2,7 +2,7 @@
 const mongoose=require('mongoose');
 const article=new mongoose.Schema({
   id:{type:String,required:true},title:{type:String,required:true},summary:String,
-  imageUrl:String,url:{type:String,required:true},publishedAt:Date,source:String,category:{type:String,default:''},
+  previewParagraphs:{type:[String],default:[]},imageUrl:String,url:{type:String,required:true},publishedAt:Date,source:String,category:{type:String,default:''},
   sourceId:{type:String,default:''}
 },{_id:false});
 const source=new mongoose.Schema({

@@ -4,6 +4,7 @@ const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const c=require('../controllers/newsFeedController');
 router.get('/newsfeed',c.publicFeed);
+router.get('/newsfeed/articles/:key',c.articleDetail);
 router.get('/admin/newsfeed',protect,authorizeRoles('admin'),c.adminFeed);
 router.put('/admin/newsfeed',protect,authorizeRoles('admin'),c.save);
 router.post('/admin/newsfeed/refresh',protect,authorizeRoles('admin'),c.refresh);

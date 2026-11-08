@@ -1,6 +1,8 @@
 'use strict';
 const crypto=require('crypto');
 const NewsFeed=require('../models/NewsFeed');
+const NewsFeedArchive=require('../models/NewsFeedArchive');
+const {keyFor,publicArticle,relatedArticles}=require('../utils/newsFeedArticle');
 const {DEFAULT_FEED_URL,normalizeSource,download}=require('../utils/rssNews');
 const newsbeast=require('../utils/newsbeastSources');
 // Ten-minute server refresh; public requests serve the persisted cache.
@@ -68,6 +70,7 @@ async function sync(doc,force=false){
     if(!current||(current.configRevision||0)!==revision)return current||doc;
     const matched=new Map(results.map(r=>[r.id,r]));
     const fresh=[],failed=[],successful=new Set();
+    const before=current.articles||[];
     const previousArticle=new Map((current.articles||[]).map(a=>[a.sourceId+'|'+a.url,a]));
     for(const s of current.sources){
       const r=matched.get(s.id);if(!r)continue;
@@ -82,6 +85,7 @@ async function sync(doc,force=false){
           const old=previousArticle.get(s.id+'|'+article.url);
           return {...article,sourceId:s.id,
             imageUrl:article.imageUrl||old?.imageUrl||'',
+            previewParagraphs:article.previewParagraphs?.length?article.previewParagraphs:(old?.previewParagraphs||[]),
             category:s.category||article.category||old?.category||''};
         }));
       }
@@ -100,6 +104,27 @@ async function sync(doc,force=false){
     current.lastError=failed.length?failed.length+' πηγές με σφάλμα. Δες λεπτομέρειες ανά εκδότη.':'';
     current.feedTitle=current.sources.length===1?current.sources[0].feedTitle:'Ειδήσεις από επιλεγμένους εκδότες';
     await current.save();
+    // Preserve evicted RSS previews for up to fourteen days so copied links
+    // continue to work after newer articles displace them from the live list.
+    const currentKeys=new Set(current.articles.map(a=>keyFor(a.url)));
+    const archived=new Set();
+    const expiresAt=new Date(Date.now()+14*86400000);
+    const writes=before.filter(a=>{
+      const key=keyFor(a.url);
+      if(currentKeys.has(key)||archived.has(key)||!a.url||!a.title)return false;
+      archived.add(key);return true;
+    }).slice(0,400).map(a=>({
+      updateOne:{filter:{_id:keyFor(a.url)},update:{$setOnInsert:{
+        _id:keyFor(a.url),title:a.title,summary:a.summary||'',
+        previewParagraphs:a.previewParagraphs||[],imageUrl:a.imageUrl||'',
+        url:a.url,source:a.source||'',category:a.category||'',
+        sourceId:a.sourceId,publishedAt:a.publishedAt||null,expiresAt
+      }},upsert:true}
+    }));
+    if(writes.length){
+      try{await NewsFeedArchive.bulkWrite(writes,{ordered:false});}
+      catch(e){console.warn('[NEWSFEED] Archive unavailable:',e.message);}
+    }
     return current;
   })().finally(()=>{pending=null;});
   return pending;
@@ -126,7 +151,7 @@ exports.publicFeed=async(_req,res)=>{
       articles.forEach(a=>add(a.category));
     }
     res.setHeader('Cache-Control','public, max-age=30');
-    res.json({enabled:doc.enabled,feedTitle:doc.feedTitle,articles,categories,
+    res.json({enabled:doc.enabled,feedTitle:doc.feedTitle,articles:articles.map(publicArticle),categories,
       lastSyncedAt:doc.lastSyncedAt,refreshIntervalSeconds:600});
   }catch(e){fail(res,e);}
 };
@@ -171,4 +196,22 @@ exports.refreshInBackground=async()=>{
   const doc=await settings();
   if(!doc.enabled)return doc;
   return sync(doc,true);
+};
+
+exports.articleDetail=async(req,res)=>{
+  try{
+    const key=String(req.params.key||'').toLowerCase();
+    if(!/^[a-f0-9]{24}$/.test(key))return res.status(404).json({error:'Το άρθρο δεν βρέθηκε.'});
+    const doc=await settings();
+    if(!doc.enabled)return res.status(404).json({error:'Το Newsfeed δεν είναι ενεργό.'});
+    const allowed=new Set(doc.sources.filter(s=>s.enabled).map(s=>s.id));
+    const articles=doc.articles.filter(a=>allowed.has(a.sourceId));
+    const item=articles.find(a=>keyFor(a.url)===key)||
+      await NewsFeedArchive.findById(key).lean();
+    if(!item||!allowed.has(item.sourceId)||keyFor(item.url)!==key)
+      return res.status(404).json({error:'Το άρθρο δεν είναι πλέον διαθέσιμο. Επίστρεψε στις ειδήσεις.'});
+    res.setHeader('Cache-Control','public, max-age=30');
+    res.json({article:publicArticle(item),
+      related:relatedArticles(articles,item,4)});
+  }catch(e){fail(res,e);}
 };

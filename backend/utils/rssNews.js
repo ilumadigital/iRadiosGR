@@ -151,6 +151,25 @@ function categoryFrom(item,articleUrl,feedUrl=''){
   const first=candidates.find(s=>s.length>=2&&s.length<=44&&!generic.has(categoryKey(s)));
   return first?first.slice(0,44):'';
 }
+// Store only an editorial-sized, text-only RSS preview; never copy an
+// entire publisher article or render third-party markup in the app.
+function rssPreview(html){
+  if(!html)return [];
+  const fragments=String(html).replace(/<(?:script|style)\b[^>]*>[\s\S]*?<\/(?:script|style)>/gi,' ')
+    .replace(/<\s*br\s*\/?\s*>/gi,'\n')
+    .replace(/<\/\s*(?:p|div|li|h[1-6])\s*>/gi,'\n')
+    .split(/\n+/);
+  let remaining=780;
+  const output=[];
+  for(const part of fragments){
+    const paragraph=plain(part).trim();
+    if(!paragraph||paragraph.length<8)continue;
+    const text=paragraph.slice(0,Math.min(350,remaining)).trim();
+    if(text){output.push(text);remaining-=text.length;}
+    if(output.length===4||remaining<30)break;
+  }
+  return output;
+}
 function parse(xml,{google=false,publisherDomain:domain='',feedUrl=''}={}){
   if(typeof xml!=='string'||!/<(?:rss|feed|rdf:RDF)\b/i.test(xml))throw new Error('Η πηγή δεν επέστρεψε RSS/Atom XML.');
   const channel=plain(field(xml,'title')).slice(0,120);
@@ -182,6 +201,7 @@ function parse(xml,{google=false,publisherDomain:domain='',feedUrl=''}={}){
       title,
       // Google News descriptions are related-article HTML lists, not summaries.
       summary:google?'':plain(rich).slice(0,420),
+      previewParagraphs:google?[]:rssPreview(field(raw,'description')||field(raw,'summary')||rich),
       imageUrl:picture(raw,google?'':rich),url,
       publishedAt:date&&Number.isFinite(date.getTime())?date:null,
       source:sourceName||channel||domain||'Ειδήσεις',
@@ -285,4 +305,4 @@ async function download(source,{existingImages}={}){
     return {...xml,retrievalMode:'domain-search'};
   }
 }
-module.exports={DEFAULT_FEED_URL,validateUrl,normalizeSource,publisherDomain,parse,categoryFrom,download,googleEndpoint,googleDomainEndpoint};
+module.exports={DEFAULT_FEED_URL,validateUrl,normalizeSource,publisherDomain,parse,rssPreview,categoryFrom,download,googleEndpoint,googleDomainEndpoint};
