@@ -144,7 +144,7 @@ router.put('/admin/stations/reorder', async (req, res) => {
 });
 
 router.put('/admin/stations/:id', uploadStationLogo.single('logoFile'), stationController.updateStation);
-router.delete('/admin/stations/:id', stationController.deleteStation);
+router.delete('/admin/stations/:id', protect, authorizeRoles('admin'), stationController.deleteStation);
 router.put('/admin/stations/:id/status', protect, authorizeRoles('admin'), stationController.updateStationStatus);
 router.patch('/admin/stations/:id/offline', protect, authorizeRoles('admin'), stationController.updateStationOffline);
 router.patch('/admin/stations/:id/featured', stationController.toggleFeatured);
