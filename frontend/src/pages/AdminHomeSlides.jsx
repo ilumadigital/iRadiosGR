@@ -1,6 +1,7 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useEffect, useState } from 'react';
 import { Image, Plus, Save, Trash2, Pencil, ArrowUp, ArrowDown, Upload, ExternalLink, EyeOff, Eye } from 'lucide-react';
+import AdminPromotedStations from '../components/AdminPromotedStations';
 
 const emptySlide = () => ({
   title:'', subtitle:'', eyebrow:'ΠΡΟΤΕΙΝΟΥΜΕ', imageUrl:'', ctaLabel:'Άκου τώρα',
@@ -11,6 +12,30 @@ const fieldClass='w-full rounded-xl border border-white/10 bg-zinc-950 px-3 py-3
 const labelClass='mb-1 block text-xs font-bold text-zinc-300';
 const toLocal = value => { if(!value)return ''; const d=new Date(value); return Number.isFinite(d.getTime()) ? new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16) : ''; };
 const credential = () => ({Authorization:`Bearer ${localStorage.getItem('iluma_token') || ''}`});
+// Uploads are saved in actual 1200×630 resolution; remote images retain their
+// original bytes but are displayed through the same fixed-ratio cover frame.
+async function normalizeSlideUpload(file){
+  if(typeof createImageBitmap!=='function')throw new Error('Ο browser δεν υποστηρίζει μετατροπή εικόνας. Χρησιμοποίησε JPG 1200×630.');
+  const image=await createImageBitmap(file);
+  try{
+    if(image.width>8192||image.height>8192||image.width<200||image.height<105)
+      throw new Error('Η εικόνα έχει μη υποστηριζόμενες διαστάσεις.');
+    const canvas=document.createElement('canvas');
+    canvas.width=1200;canvas.height=630;
+    const ctx=canvas.getContext('2d');
+    if(!ctx)throw new Error('Δεν είναι δυνατή η προετοιμασία της εικόνας.');
+    const sourceRatio=40/21, ratio=image.width/image.height;
+    const sw=ratio>sourceRatio?image.height*sourceRatio:image.width;
+    const sh=ratio>sourceRatio?image.height:image.width/sourceRatio;
+    const sx=(image.width-sw)/2,sy=(image.height-sh)/2;
+    ctx.fillStyle='#10161b';ctx.fillRect(0,0,1200,630);
+    ctx.drawImage(image,sx,sy,sw,sh,0,0,1200,630);
+    const blob=await new Promise((resolve,reject)=>canvas.toBlob(
+      value=>value?resolve(value):reject(new Error('Αποτυχία επεξεργασίας εικόνας.')),
+      'image/jpeg',0.9));
+    return new File([blob],'slide-1200x630.jpg',{type:'image/jpeg'});
+  }finally{image.close?.();}
+}
 
 export default function AdminHomeSlides() {
   const [slides,setSlides]=useState([]);
@@ -63,7 +88,8 @@ export default function AdminHomeSlides() {
       if(upload){
         if(upload.size>8*1024*1024||!['image/jpeg','image/png','image/webp'].includes(upload.type))
           throw new Error('Η εικόνα πρέπει να είναι JPG, PNG ή WebP έως 8MB.');
-        const form=new FormData();form.append('imageFile',upload);
+        const optimized=await normalizeSlideUpload(upload);
+        const form=new FormData();form.append('imageFile',optimized);
         const response=await fetch('/api/admin/home-slides/upload',{method:'POST',headers:credential(),body:form});
         const data=await response.json();
         if(!response.ok) throw new Error(data.error||'Αποτυχία ανεβάσματος εικόνας.');
@@ -113,6 +139,7 @@ export default function AdminHomeSlides() {
       </header>
       {error&&<p role="alert" className="rounded-xl border border-red-400/40 bg-red-950/40 p-4 text-sm text-red-200">{error}</p>}
       {notice&&<p role="status" className="rounded-xl border border-[#ccff00]/30 bg-[#ccff00]/10 p-4 text-sm text-[#ccff00]">{notice}</p>}
+      <AdminPromotedStations stations={stations}/>
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
         <form onSubmit={save} className="ir-glass space-y-5 p-5 sm:p-7">
           <h2 className="text-xl font-bold">{editingId?'Επεξεργασία slide':'Δημιουργία slide'}</h2>
@@ -140,10 +167,10 @@ export default function AdminHomeSlides() {
             <p className="text-[11px] text-zinc-400">Η τοποθέτηση ορίζει τη σελίδα προβολής. Το κουμπί CTA παρακάτω μπορεί να οδηγεί αλλού.</p>
           </div>
           <label><span className={labelClass}>Περιγραφή</span><textarea rows={3} maxLength={220} className={fieldClass} value={draft.subtitle} onChange={e=>change('subtitle',e.target.value)}/></label>
-          <label><span className={labelClass}>Εικόνα 16:9 (HTTPS URL ή ανεβάστε νέα)</span>
+          <label><span className={labelClass}>Εικόνα 1200×630 (HTTPS URL ή ανεβάστε νέα)</span>
             <input className={fieldClass} value={draft.imageUrl} onChange={e=>change('imageUrl',e.target.value)} placeholder="https://.../hero.webp"/></label>
           <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-white/20 px-4 py-3 text-sm text-zinc-300 hover:border-[#ccff00]/70">
-            <Upload size={18}/>{upload?upload.name:'Ανέβασμα JPG / PNG / WebP, έως 8MB'}
+            <Upload size={18}/>{upload?upload.name:'Ανέβασμα JPG / PNG / WebP, έως 8MB · Αυτόματο crop 1200×630'}
             <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={e=>setUpload(e.target.files?.[0]||null)}/>
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -173,7 +200,7 @@ export default function AdminHomeSlides() {
         </form>
         <div className="space-y-4">
           <div className="ir-glass overflow-hidden">
-            <div className="relative aspect-[16/9] bg-zinc-900">
+            <div className="relative aspect-[40/21] bg-zinc-900">
               {(upload||draft.imageUrl)?<img src={previewUrl||draft.imageUrl} alt="Προεπισκόπηση slide" className="absolute inset-0 h-full w-full object-cover"/>:<div className="absolute inset-0 flex items-center justify-center text-zinc-500"><Image size={48}/></div>}
               <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent"/>
               <div className="absolute bottom-0 left-0 w-full p-6">
