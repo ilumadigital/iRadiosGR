@@ -24,7 +24,7 @@ function response() {
 function call(method,path,body) {
  const res=response();let reached=false;
  const result=stagePublicAccess({method,baseUrl:'/api',path,body},res,()=>{reached=true;});
- return {res,reached,result};
+ return {res,get reached(){return reached;},result};
 }
 for(const p of ['/stations','/stations/discovery','/proxy-stream','/health','/cover-art','/home-slides']) {
  const result=call('GET',p);
