@@ -44,6 +44,8 @@ async function tick(){
       }
     };
     await Promise.all(Array.from({length:Math.min(CONCURRENCY,batch.length)},()=>run()));
+    // One privacy-safe operational line every two minutes, no stream URLs.
+    console.info('[NATIVE_SCAN] scanned',scanned,'failed',failed,'of',batch.length);
     return {scanned,failed,total:batch.length,rotationCursor:String(lastId||'')};
   }catch(error){
     console.warn('[NATIVE_SCAN] scan_failed',error?.name||'database');
