@@ -5,7 +5,7 @@ import AdminPromotedStations from '../components/AdminPromotedStations';
 
 const emptySlide = () => ({
   title:'', subtitle:'', eyebrow:'ΠΡΟΤΕΙΝΟΥΜΕ', imageUrl:'', ctaLabel:'Άκου τώρα',
-  placement:'home', placementValue:'', targetType:'station', stationId:'', genre:'', externalUrl:'', audience:'all',
+  placement:'home', placementValue:'', placements:[{placement:'home',placementValue:''}], targetType:'station', stationId:'', genre:'', externalUrl:'', audience:'all',
   priority:100, status:'draft', startsAt:'', endsAt:''
 });
 const fieldClass='w-full rounded-xl border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-white outline-none focus:border-[#ccff00]/70';
@@ -73,6 +73,7 @@ export default function AdminHomeSlides() {
   const edit=item=>{
     setEditingId(item._id);
     setDraft({...emptySlide(),...item,
+      placements:Array.isArray(item.placements)&&item.placements.length?item.placements.map(p=>({placement:p.placement,placementValue:p.placementValue||''})):[{placement:item.placement||'home',placementValue:item.placementValue||''}],
       stationId:item.stationId||'',
       startsAt:toLocal(item.startsAt),endsAt:toLocal(item.endsAt)});
     setUpload(null);setError('');setNotice('');
@@ -80,6 +81,8 @@ export default function AdminHomeSlides() {
   };
   const reset=()=>{setDraft(emptySlide());setEditingId(null);setUpload(null);setError('');setNotice('');};
   const change=(key,value)=>setDraft(prev=>({...prev,[key]:value}));
+  const updatePlace=(index,key,value)=>setDraft(prev=>({...prev,placements:prev.placements.map((p,i)=>i===index?{...p,[key]:value,...(key==='placement'?{placementValue:''}:{})}:p)}));
+  const removePlace=index=>setDraft(prev=>({...prev,placements:prev.placements.filter((_,i)=>i!==index)}));
 
   const save=async(e)=>{
     e.preventDefault();setBusy(true);setError('');setNotice('');
@@ -95,7 +98,9 @@ export default function AdminHomeSlides() {
         if(!response.ok) throw new Error(data.error||'Αποτυχία ανεβάσματος εικόνας.');
         imageUrl=data.url;
       }
-      const payload={...draft,imageUrl,placement:draft.placement||'home',placementValue:draft.placement==='home'?'':draft.placementValue,priority:Number(draft.priority),
+      const first=draft.placements[0];
+      if(!first)throw new Error('Επίλεξε τουλάχιστον μία θέση προβολής.');
+      const payload={...draft,imageUrl,placement:first.placement,placementValue:first.placementValue||'',placements:draft.placements,priority:Number(draft.priority),
         startsAt:draft.startsAt||null,endsAt:draft.endsAt||null};
       const response=await fetch(`/api/admin/home-slides${editingId?'/'+editingId:''}`,{
         method:editingId?'PUT':'POST',
@@ -104,7 +109,7 @@ export default function AdminHomeSlides() {
       });
       const data=await response.json();
       if(!response.ok) throw new Error(data.error||'Αποτυχία αποθήκευσης.');
-      await refresh();reset();setNotice('Το slide αποθηκεύτηκε. Τα δημοσιευμένα εμφανίζονται στην τοποθέτηση που επέλεξες.');
+      await refresh();reset();setNotice('Το slide αποθηκεύτηκε σε όλες τις επιλεγμένες θέσεις προβολής.');
     } catch(e){setError(e.message);} finally{setBusy(false);}
   };
   const remove=async(item)=>{
@@ -133,7 +138,7 @@ export default function AdminHomeSlides() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div><p className="text-xs font-black uppercase tracking-widest text-[#ccff00]">iRadiosGR CMS</p>
           <h1 className="mt-2 text-3xl font-black text-white">Slides και προτάσεις</h1>
-          <p className="mt-2 text-sm text-zinc-400">Προτάσεις για Αρχική, μουσικά είδη και περιοχές, ανεξάρτητα από τις διαφημίσεις.</p>
+          <p className="mt-2 text-sm text-zinc-400">Μία καμπάνια για Αρχική, Ειδήσεις, μουσικά είδη και περιοχές — επέλεξε όσες θέσεις θέλεις.</p>
         </div>
         <button type="button" onClick={reset} className="ir-action-primary px-5"><Plus size={17}/> Δημιουργία slide</button>
       </header>
@@ -149,22 +154,27 @@ export default function AdminHomeSlides() {
           </div>
           <div className="space-y-3 rounded-2xl border border-[#ccff00]/25 bg-[#ccff00]/[0.035] p-4">
             <p className="text-xs font-black uppercase tracking-wider text-[#ccff00]">Πού θα εμφανιστεί το slide;</p>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Τοποθέτηση slide">
-              {[['home','Αρχική'],['genre','Μουσικό είδος'],['region','Περιοχή']].map(([value,label])=>
-                <button key={value} type="button" aria-pressed={draft.placement===value}
-                  onClick={()=>{change('placement',value);change('placementValue','');}}
-                  className={`min-h-10 rounded-full border px-4 text-xs font-bold ${draft.placement===value?'border-[#ccff00] bg-[#ccff00] text-black':'border-white/15 bg-black/25 text-zinc-200'}`}>{label}</button>
-              )}
+            <div className="space-y-3" role="group" aria-label="Θέσεις προβολής slide">
+              {draft.placements.map((p,index)=><div key={index} className="flex flex-wrap items-center gap-2">
+                <select aria-label={'Τύπος θέσης '+(index+1)} className={fieldClass+' min-w-[140px] flex-1'} value={p.placement}
+                  onChange={e=>updatePlace(index,'placement',e.target.value)}>
+                  <option value="home">Αρχική</option><option value="news">Ειδήσεις</option>
+                  <option value="genre">Μουσικό είδος</option><option value="region">Περιοχή</option>
+                </select>
+                {['genre','region'].includes(p.placement)&&<select required aria-label={'Συγκεκριμένη σελίδα '+(index+1)}
+                  className={fieldClass+' min-w-[150px] flex-1'} value={p.placementValue}
+                  onChange={e=>updatePlace(index,'placementValue',e.target.value)}>
+                  <option value="">Επιλογή…</option>
+                  {(p.placement==='genre'?genres:regions).map(v=><option key={v} value={v}>{v}</option>)}
+                </select>}
+                <button type="button" disabled={draft.placements.length===1} onClick={()=>removePlace(index)}
+                  aria-label={'Αφαίρεση θέσης '+(index+1)} className="rounded-xl border border-white/15 p-3 text-red-300 disabled:opacity-30"><Trash2 size={16}/></button>
+              </div>)}
+              <button type="button" disabled={draft.placements.length>=12}
+                onClick={()=>change('placements',[...draft.placements,{placement:'news',placementValue:''}])}
+                className="inline-flex items-center gap-2 rounded-xl border border-[#ccff00]/35 px-4 py-2 text-xs font-bold text-[#ccff00]"><Plus size={15}/> Προσθήκη ακόμη μίας θέσης</button>
             </div>
-            {draft.placement!=='home'&&<label className="block">
-              <span className={labelClass}>{draft.placement==='genre'?'Μουσικό είδος':'Περιοχή'} προβολής *</span>
-              <select required className={fieldClass} value={draft.placementValue}
-                onChange={e=>change('placementValue',e.target.value)}>
-                <option value="">Επιλογή…</option>
-                {(draft.placement==='genre'?genres:regions).map(value=><option key={value} value={value}>{value}</option>)}
-              </select>
-            </label>}
-            <p className="text-[11px] text-zinc-400">Η τοποθέτηση ορίζει τη σελίδα προβολής. Το κουμπί CTA παρακάτω μπορεί να οδηγεί αλλού.</p>
+            <p className="text-[11px] text-zinc-400">Η ίδια εικόνα, οι ίδιες ημερομηνίες και το ίδιο CTA θα εμφανίζονται σε όλες τις θέσεις. Δεν χρειάζεται δεύτερη καμπάνια.</p>
           </div>
           <label><span className={labelClass}>Περιγραφή</span><textarea rows={3} maxLength={220} className={fieldClass} value={draft.subtitle} onChange={e=>change('subtitle',e.target.value)}/></label>
           <label><span className={labelClass}>Εικόνα 1200×630 (HTTPS URL ή ανεβάστε νέα)</span>
@@ -207,7 +217,7 @@ export default function AdminHomeSlides() {
                 <span className="text-xs font-black uppercase tracking-widest text-[#ccff00]">{draft.eyebrow}</span>
                 <h3 className="mt-2 text-2xl font-black text-white">{draft.title||'Προεπισκόπηση τίτλου'}</h3>
                 <p className="mt-2 max-w-sm text-sm text-zinc-200">{draft.subtitle}</p>
-                <p className="mt-3 text-[10px] font-bold text-[#ccff00]">Προβολή: {draft.placement==='home'?'Αρχική':(draft.placement==='genre'?'Είδος · ':'Περιοχή · ')+draft.placementValue}</p>
+                <p className="mt-3 text-[10px] font-bold text-[#ccff00]">Προβολή: {draft.placements.map(p=>p.placement==='home'?'Αρχική':p.placement==='news'?'Ειδήσεις':(p.placement==='genre'?'Είδος: ':'Περιοχή: ')+p.placementValue).join(' · ')}</p>
               </div>
             </div>
           </div>
@@ -217,7 +227,7 @@ export default function AdminHomeSlides() {
               {slides.map(item=><div key={item._id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/30 p-3">
                 <img className="h-14 w-20 shrink-0 rounded-lg object-cover bg-zinc-800" src={item.imageUrl} alt=""/>
                 <div className="min-w-0 flex-1"><h4 className="truncate text-sm font-bold">{item.title}</h4>
-                  <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">{item.status==='published'?<Eye size={12}/>:<EyeOff size={12}/>} {item.status==='published'?'Δημοσιευμένο':'Πρόχειρο'} · {item.placement==='region'?'Περιοχή: '+item.placementValue:item.placement==='genre'?'Είδος: '+item.placementValue:'Αρχική'} · Σειρά {item.priority||0}</p>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">{item.status==='published'?<Eye size={12}/>:<EyeOff size={12}/>} {item.status==='published'?'Δημοσιευμένο':'Πρόχειρο'} · {(item.placements?.length?item.placements:[{placement:item.placement||'home',placementValue:item.placementValue}]).map(p=>p.placement==='home'?'Αρχική':p.placement==='news'?'Ειδήσεις':(p.placement==='genre'?'Είδος: ':'Περιοχή: ')+p.placementValue).join(' · ')} · Σειρά {item.priority||0}</p>
                 </div>
                 <div className="flex gap-1">
                   <button disabled={busy} onClick={()=>reorder(item,10)} title="Ανέβασμα σειράς" className="rounded-lg p-2 hover:bg-white/10"><ArrowUp size={15}/></button>
