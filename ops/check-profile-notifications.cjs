@@ -62,7 +62,7 @@ assert.match(controller,/userId:null/,'anonymous push cannot attach arbitrary ac
 assert.match(controller,/req\.user\._id/,'device registration must use the authenticated user');
 const delivery=read('backend/utils/notificationDelivery.js');
 assert.match(delivery,/if\(isStaging\(\)\)return/);
-assert.match(delivery,/canNotify\(user,'push',topic\)/);
+assert.match(delivery,/canNotify\(u,'push',topic\)/);
 assert.match(delivery,/canNotify\(u,'email',topic\)/);
 assert.match(delivery,/newsCategories/);
 assert.match(delivery,/notificationUnsubscribe/);
