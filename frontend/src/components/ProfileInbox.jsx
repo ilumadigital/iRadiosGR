@@ -63,6 +63,7 @@ export default function ProfileInbox({API_URL='/api',onUnread}){
       }else if(kind==='clear'){
         setItems([]);setCursor(null);setUnread(0);onUnread?.(0);
       }
+      window.dispatchEvent(new Event('ir-inbox-changed'));
       if(kind==='read'&&item?.path?.startsWith('/')&&!item.path.startsWith('//')){
         navigate(item.path);
       }
