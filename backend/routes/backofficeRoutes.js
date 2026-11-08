@@ -8,6 +8,7 @@ const crypto=require('node:crypto');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const Station=require('../models/Station');
+const {deleteStationRecord}=require('../services/stationDeletion');
 const {validateStationCategories}=require('../utils/stationCategories');
 const User=require('../models/User');
 const {protect}=require('../utils/authMiddleware');
@@ -231,6 +232,17 @@ router.patch('/backoffice/stations/:id',async(req,res)=>{
     await station.save();
     return res.json({station:safeStation(station,req.user.role),
       message:'Οι αλλαγές στάλθηκαν στον διαχειριστή για έγκριση.'});
+  }catch(error){return fail(res,error);}
+});
+// Only an admin may permanently delete a station. The client must confirm its exact name.
+router.delete('/backoffice/stations/:id',authorizeRoles('admin'),async(req,res)=>{
+  try{
+    const removed=await deleteStationRecord({
+      Station,stationId:req.params.id,confirmationName:req.body?.confirmationName
+    });
+    console.info('[STATION DELETE]',JSON.stringify({stationId:removed._id,adminId:String(req.user._id)}));
+    return res.json({message:'Ο σταθμός «'+removed.name+'» διαγράφηκε από το δίκτυο.',
+      removedStationId:removed._id});
   }catch(error){return fail(res,error);}
 });
 router.post('/backoffice/stations/:id/review',authorizeRoles('admin'),async(req,res)=>{

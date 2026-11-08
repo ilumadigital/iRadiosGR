@@ -4,8 +4,7 @@ const {normalizeStationCity}=require('../utils/stationLocations');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-const fs = require('fs').promises;
-const path = require('path');
+const {deleteStationRecord}=require('../services/stationDeletion');
 
 // 🟢 IMPORT ΓΙΑ ΤΑ EMAILS
 const { sendEmail } = require('../utils/myMailer'); 
@@ -159,35 +158,20 @@ exports.requestEdit = async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Σφάλμα διακομιστή.' }); }
 };
 
-exports.deleteStation = async (req, res) => {
-  try {
-    // 1. Βρίσκουμε τον σταθμό πριν τον διαγράψουμε, για να πάρουμε το slug του
-    const station = await Station.findById(req.params.id);
-    
-    if (!station) {
-      return res.status(404).json({ error: 'Ο σταθμός δεν βρέθηκε.' });
-    }
-
-    // 2. Αν έχει slug, βρίσκουμε και διαγράφουμε τον φάκελό του
-    if (station.slug) {
-      const folderPath = path.join(process.cwd(), 'uploads', 'radioassets', station.slug);
-      
-      try {
-        // Το rm με recursive: true σβήνει τον φάκελο και ΟΛΑ τα περιεχόμενά του (λογότυπα, covers κλπ)
-        await fs.rm(folderPath, { recursive: true, force: true });
-        console.log(`[CLEANUP] Διαγράφηκε επιτυχώς ο φάκελος: ${folderPath}`);
-      } catch (fsError) {
-        // Αν ο φάκελος δεν υπάρχει, απλά το αγνοούμε και προχωράμε
-        console.error(`[CLEANUP ERROR] Σφάλμα διαγραφής φακέλου ${folderPath}:`, fsError.message);
-      }
-    }
-
-    // 3. Διαγράφουμε οριστικά τον σταθμό από τη Βάση Δεδομένων
-    await Station.findByIdAndDelete(req.params.id);
-    
-    res.json({ message: 'Ο σταθμός και τα αρχεία του διαγράφηκαν οριστικά!' });
-  } catch (err) { 
-    res.status(500).json({ error: err.message }); 
+exports.deleteStation = async (req,res) => {
+  // Legacy admin tool delegates to the same safe, exact-name-confirmed deletion.
+  if(req.user?.role!=='admin')return res.status(403).json({error:'Μόνο ο Admin μπορεί να διαγράψει σταθμό.'});
+  try{
+    const removed=await deleteStationRecord({
+      Station,stationId:req.params.id,confirmationName:req.body?.confirmationName
+    });
+    console.info('[STATION DELETE]',JSON.stringify({stationId:removed._id,adminId:String(req.user._id)}));
+    return res.json({message:'Ο σταθμός «'+removed.name+'» διαγράφηκε από το δίκτυο.',
+      removedStationId:removed._id});
+  }catch(error){
+    return res.status(error.status||500).json({
+      error:error.status?error.message:'Η διαγραφή του σταθμού απέτυχε.'
+    });
   }
 };
 

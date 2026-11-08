@@ -120,7 +120,72 @@ function Metric({icon:Icon,label,value,caption,rose=false}){
     <p className="relative mt-2 text-[11px] text-zinc-500">{caption}</p>
   </div>;
 }
-function StationCard({station,role}){
+function DeleteStationDialog({station,onClose,onDeleted,notify}){
+  const [typedName,setTypedName]=useState('');
+  const [busy,setBusy]=useState(false);
+  useEffect(()=>{setTypedName('');setBusy(false);},[station?._id]);
+  useEffect(()=>{
+    if(!station)return;
+    const onKeyDown=event=>{if(event.key==='Escape'&&!busy)onClose();};
+    document.addEventListener('keydown',onKeyDown);
+    return ()=>document.removeEventListener('keydown',onKeyDown);
+  },[station,busy,onClose]);
+  if(!station)return null;
+  const submit=async event=>{
+    event.preventDefault();
+    if(typedName!==station.name||busy)return;
+    setBusy(true);
+    try{
+      const result=await api('/stations/'+station._id,{
+        method:'DELETE',body:JSON.stringify({confirmationName:typedName})
+      });
+      onClose();
+      try{await onDeleted(station);}catch(error){notify('Ο σταθμός διαγράφηκε, αλλά απέτυχε η ανανέωση: '+error.message,'error');return;}
+      notify(result.message||'Ο σταθμός διαγράφηκε.');
+    }catch(error){notify(error.message,'error');}
+    finally{setBusy(false);}
+  };
+  return <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xl">
+    <div role="dialog" aria-modal="true" aria-labelledby="delete-station-title"
+      aria-describedby="delete-station-description"
+      className="w-full max-w-lg rounded-[28px] border border-rose-400/20 bg-[#171b1e]/95 p-6 shadow-[0_32px_90px_rgba(0,0,0,.65)] md:p-8">
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-300">
+            <Trash2 size={23}/></div>
+          <div><p className="text-[10px] font-black uppercase tracking-widest text-rose-300">Admin / Danger zone</p>
+            <h2 id="delete-station-title" className="mt-1 text-xl font-black text-white">Οριστική διαγραφή σταθμού</h2></div>
+        </div>
+        <button type="button" disabled={busy} onClick={onClose}
+          aria-label="Κλείσιμο" className="rounded-xl border border-white/10 p-2 text-zinc-400 hover:text-white"><X size={18}/></button>
+      </div>
+      <p id="delete-station-description" className="text-sm leading-6 text-zinc-300">
+        Ο σταθμός θα αφαιρεθεί από το δίκτυο iRadiosGR. Η ενέργεια δεν αναιρείται αυτόματα.
+        Τα αρχεία media και τα ιστορικά στοιχεία δεν διαγράφονται αυτόματα για λόγους ασφάλειας.
+      </p>
+      <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4">
+        <p className="break-words text-base font-black text-white">{station.name}</p>
+        <p className="mt-2 break-all text-[11px] text-zinc-400">/station/{station.slug||station._id}</p>
+        <p className="mt-1 break-all text-[10px] text-zinc-600">ID: {station._id}</p>
+      </div>
+      <form onSubmit={submit} className="mt-6 space-y-5">
+        <Field label="Πληκτρολόγησε ακριβώς το όνομα του σταθμού για επιβεβαίωση">
+          <input autoFocus className={inputClass+' border-rose-500/20 focus:border-rose-400'}
+            autoComplete="off" value={typedName} onChange={e=>setTypedName(e.target.value)}
+            placeholder={station.name} aria-label="Επιβεβαίωση ονόματος σταθμού"/>
+        </Field>
+        <div className="flex flex-wrap justify-end gap-3">
+          <button type="button" disabled={busy} onClick={onClose} className={buttonSecondary}>Ακύρωση</button>
+          <button type="submit" disabled={busy||typedName!==station.name}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-400/35 bg-rose-500 px-5 py-3 text-xs font-black text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-40">
+            {busy?<RefreshCw size={16} className="animate-spin"/>:<Trash2 size={16}/>} Οριστική διαγραφή
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>;
+}
+function StationCard({station,role,onDelete}){
   const to=role==='producer'?'/backoffice/schedules?station='+encodeURIComponent(station._id):'/backoffice/stations/'+station._id+'/edit';
   return <div className={panel+' group flex flex-col gap-4 p-4 transition hover:border-[#caff00]/30 md:flex-row md:items-center md:p-5'}>
     <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#070808]">
@@ -142,6 +207,10 @@ function StationCard({station,role}){
           className={buttonSecondary} title={'Προώθηση '+station.name}>
           <Sparkles size={15} className="text-[#caff00]"/> Promoted
         </Link>}
+      {role==='admin'&&onDelete&&<button type="button" onClick={()=>onDelete(station)}
+        className={buttonSecondary+' !border-rose-500/20 !text-rose-300 hover:!bg-rose-500/10'}
+        aria-label={'Διαγραφή σταθμού '+station.name} title="Διαγραφή σταθμού">
+        <Trash2 size={16}/></button>}
       {role!=='producer'&&<Link to={'/backoffice/schedules?station='+encodeURIComponent(station._id)} className={buttonSecondary}
         aria-label={'Πρόγραμμα '+station.name} title="Πρόγραμμα σταθμού">
         <CalendarDays size={16}/></Link>}
@@ -263,7 +332,7 @@ function Dashboard({data}){
     </div>
   </div>;
 }
-function Stations({data}){
+function Stations({data,requestDelete}){
   const [search,setSearch]=useState('');
   const [status,setStatus]=useState('all');
   const filtered=useMemo(()=>data.stations.filter(s=>{
@@ -293,11 +362,11 @@ function Stations({data}){
       {(search||status!=='all')&&<button type="button" className="text-xs font-bold text-[#caff00] hover:underline"
         onClick={()=>{setSearch('');setStatus('all');}}>Καθαρισμός φίλτρων</button>}
     </div>
-    <div className="space-y-3">{filtered.length?filtered.map(s=><StationCard key={s._id} station={s} role={data.user.role}/>):
+    <div className="space-y-3">{filtered.length?filtered.map(s=><StationCard key={s._id} station={s} role={data.user.role} onDelete={requestDelete}/>):
       <div className={panel+' p-12 text-center text-zinc-500'}>Δεν βρέθηκαν σταθμοί με αυτά τα κριτήρια.</div>}</div>
   </div>;
 }
-function StationEditor({data,reload,notify}){
+function StationEditor({data,reload,notify,requestDelete}){
   const {id}=useParams(),navigate=useNavigate();
   const isNew=id===undefined;
   const listedStation=data.stations.find(s=>String(s._id)===String(id));
@@ -377,6 +446,9 @@ function StationEditor({data,reload,notify}){
           <Sparkles size={16} className="text-[#caff00]"/> Promoted Station
         </Link>}
         <StationStatus station={station}/>
+        {isAdmin&&<button type="button" onClick={()=>requestDelete(station)}
+          className={buttonSecondary+' !border-rose-500/20 !text-rose-300 hover:!bg-rose-500/10'}>
+          <Trash2 size={16}/> Διαγραφή σταθμού</button>}
       </div>}/>
     {!isNew&&station.pendingEdits&&Object.keys(station.pendingEdits).length>0&&
       <div className="mb-6 flex gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/[.07] p-4 text-[12px] text-amber-200">
@@ -837,7 +909,7 @@ function Scheduler({data,reload,notify}){
     </>}
   </div>;
 }
-function Review({data,reload,notify}){
+function Review({data,reload,notify,requestDelete}){
   const empty={items:[],total:0,page:1,pageSize:50};
   const [queue,setQueue]=useState({pending:empty,edits:empty});
   const [pendingPage,setPendingPage]=useState(1);
@@ -924,7 +996,10 @@ function Review({data,reload,notify}){
               <p className="mt-1 truncate text-[11px] text-zinc-500">{s.slug?'/station/'+s.slug:'Χωρίς slug'}</p></div>
           </div>
           <div className="flex flex-wrap gap-2"><Link className={buttonSecondary} to={'/backoffice/stations/'+s._id+'/edit'}>Έλεγχος <ArrowRight size={14}/></Link>
-            <button onClick={()=>work(s,'approve',true)} disabled={Boolean(busy)} className={buttonPrimary}>Έγκριση σταθμού</button></div>
+            <button onClick={()=>work(s,'approve',true)} disabled={Boolean(busy)} className={buttonPrimary}>Έγκριση σταθμού</button>
+            <button type="button" onClick={()=>requestDelete(s)} disabled={Boolean(busy)}
+              className={buttonSecondary+' !border-rose-500/20 !text-rose-300 hover:!bg-rose-500/10'}>
+              <Trash2 size={15}/> Διαγραφή</button></div>
         </div>):!queueLoading&&<div className={panel+' p-7 text-sm text-zinc-500'}>Δεν υπάρχουν νέοι σταθμοί προς έγκριση.</div>}</div>
         {pager(queue.pending,setPendingPage)}
       </section>
@@ -1191,6 +1266,9 @@ export default function Backoffice(){
   const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true),[error,setError]=useState(null);
   const [notice,setNotice]=useState(null),[sidebarOpen,setSidebarOpen]=useState(false);
+  const [deleteTarget,setDeleteTarget]=useState(null);
+  const requestDelete=useCallback(station=>setDeleteTarget(station),[]);
+  const closeDelete=useCallback(()=>setDeleteTarget(null),[]);
   const [navFilter,setNavFilter]=useState('');
   const notify=useCallback((message,type='success')=>{
     setNotice({message,type});
@@ -1307,18 +1385,20 @@ export default function Backoffice(){
         </div>}
         <Routes>
           <Route path="/backoffice" element={<Dashboard data={data}/>}/>
-          <Route path="/backoffice/stations" element={<Stations data={data}/>}/>
-          <Route path="/backoffice/stations/new" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
-          <Route path="/backoffice/stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
+          <Route path="/backoffice/stations" element={<Stations data={data} requestDelete={requestDelete}/>}/>
+          <Route path="/backoffice/stations/new" element={<StationEditor data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
+          <Route path="/backoffice/stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
           <Route path="/backoffice/schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
           <Route path="/backoffice/insights" element={<BroadcasterInsights data={data}/>}/>
           <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
-          <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify}/>}/>
+          <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
           <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
           {['analytics','users','ads','banners','slides','newsfeed','promoted','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
           <Route path="/backoffice/*" element={<Navigate to="/backoffice" replace/>}/>
         </Routes>
+        {admin&&<DeleteStationDialog station={deleteTarget} onClose={closeDelete}
+          onDeleted={async()=>{await reload();navigate('/backoffice/stations');}} notify={notify}/>}
       </main>
       <footer className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 border-t border-white/10 px-6 py-6 text-[10px] text-zinc-600 md:px-9">
         <span>© 2026 iRadiosGR · Powered by ILUMA</span><span>PRIVATE BUSINESS CONSOLE · SECURE ROLE ACCESS</span>
