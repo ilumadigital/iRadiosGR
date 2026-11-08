@@ -9,6 +9,7 @@ const { protect } = require('../utils/authMiddleware');
 const { authorizeRoles } = require('../utils/roleMiddleware');
 const { hasAcceptedCurrentBroadcasterTerms, withBroadcasterTermsStatus } = require('../utils/broadcasterTerms');
 const { sendEmail } = require('../utils/myMailer');
+const { renderBrandedEmail, actionButton, infoPanel } = require('../utils/emailDesign');
 
 const router = express.Router();
 const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
@@ -34,19 +35,30 @@ async function loadUnownedStation(id) {
 }
 
 function invitationEmail(station, link) {
-  const name = escapeHtml(station.name);
-  const url = escapeHtml(link);
+  const stationName = escapeHtml(station.name);
+  const content =
+    '<h3>Ο σταθμός σου. Το δικό σου studio.</h3>' +
+    '<p>Έχεις λάβει μία προσωπική πρόσκληση για τη διαχείριση του <strong>' +
+      stationName + '</strong> στο iRadiosGR.</p>' +
+    infoPanel('ΣΤΑΘΜΟΣ ΠΡΟΣ ΑΝΑΘΕΣΗ', station.name, { highlight: true }) +
+    '<p>Δημιούργησε ή σύνδεσε τον λογαριασμό σου ως Broadcaster, επαλήθευσε το email σου ' +
+    'και αποδέξου τους όρους. Ο σταθμός και τα υπάρχοντα στοιχεία του θα εμφανιστούν ' +
+    'αυτόματα στο Broadcaster Backoffice.</p>' +
+    actionButton('Αποδοχή πρόσκλησης', link) +
+    '<p style="color:#95A2B5;font-size:12px;line-height:20px;margin-top:23px;">' +
+    'Ο προσωπικός σύνδεσμος ισχύει για <strong>7 ημέρες</strong> και μπορεί να χρησιμοποιηθεί μία φορά. ' +
+    'Αν δεν περίμενες αυτή την πρόσκληση, αγνόησε το μήνυμα.</p>';
+
   return {
     subject: 'Πρόσκληση διαχείρισης ' + station.name + ' | iRadiosGR',
     text: 'Έχεις προσκληθεί να διαχειριστείς τον σταθμό ' + station.name +
       ' στο iRadiosGR. Ολοκλήρωσε την εγγραφή ως broadcaster, επιβεβαίωσε το email και αποδέξου τους όρους: ' +
       link + '\nΟ σύνδεσμος λήγει σε 7 ημέρες. Αν δεν περίμενες πρόσκληση, αγνόησε το μήνυμα.',
-    html: '<div style="background:#101114;color:#f6f6f6;padding:36px;font-family:Arial,sans-serif;border-radius:20px">' +
-      '<h1 style="color:#ccff00">iRadiosGR</h1><h2>Πρόσκληση Broadcaster</h2>' +
-      '<p>Έχεις προσκληθεί να αναλάβεις τη διαχείριση του σταθμού <strong>' + name + '</strong>.</p>' +
-      '<p>Για να ενεργοποιηθεί η πρόσβαση, δημιούργησε ή σύνδεσε λογαριασμό Broadcaster, επαλήθευσε το email σου και αποδέξου τους όρους.</p>' +
-      '<p><a style="display:inline-block;background:#ccff00;color:#111;padding:15px 23px;border-radius:12px;text-decoration:none;font-weight:bold" href="' + url + '">Αποδοχή πρόσκλησης</a></p>' +
-      '<p style="color:#aaa;font-size:12px">Ο σύνδεσμος ισχύει για 7 ημέρες και μία μόνο ανάθεση. Αν δεν αναγνωρίζεις την πρόσκληση, αγνόησε το μήνυμα.</p></div>'
+    html: renderBrandedEmail({
+      preheader: 'Προσωπική πρόσκληση για τον σταθμό ' + station.name,
+      category: 'BROADCASTER · YOUR STATION',
+      content
+    })
   };
 }
 
