@@ -58,16 +58,22 @@ async function request(query){
  assert.equal(lastLimit,16);
  res=await request({placement:'genre',value:'House'});
  assert.equal(res.statusCode,200);
- assert.equal(lastFilter.placement,'genre');
- assert.equal(lastFilter.placementValue,'House');
+ assert.equal(lastFilter.$or[0].placement,'genre');
+ assert.equal(lastFilter.$or[0].placementValue,'House');
+ assert.deepEqual(lastFilter.$or[1].placements.$elemMatch,{placement:'genre',placementValue:'House'});
  res=await request({placement:'region',value:'Αττική'});
- assert.equal(lastFilter.placement,'region');
- assert.equal(lastFilter.placementValue,'Αττική');
+ assert.equal(lastFilter.$or[0].placement,'region');
+ assert.equal(lastFilter.$or[0].placementValue,'Αττική');
+ assert.deepEqual(lastFilter.$or[1].placements.$elemMatch,{placement:'region',placementValue:'Αττική'});
  res=await request({placement:'genre',tiles:'1'});
  assert.equal(res.statusCode,200);
- assert.equal(lastFilter.placement,'genre');
- assert.ok(!Object.hasOwn(lastFilter,'placementValue'),'batch tiles are scoped to placement');
+ assert.equal(lastFilter.$or[0].placement,'genre');
+ assert.ok(!Object.hasOwn(lastFilter.$or[0],'placementValue'),'batch tiles are scoped to placement');
+ assert.equal(lastFilter.$or[1]['placements.placement'],'genre');
  assert.equal(lastLimit,80);
+ res=await request({placement:'news'});
+ assert.equal(res.statusCode,200);
+ assert.equal(lastFilter.$or[1].placements.$elemMatch.placement,'news');
  for(const q of [{placement:'genre'},{placement:'region'},{placement:'home',tiles:'1'},{placement:'random'}]){
    res=await request(q);assert.equal(res.statusCode,400,'invalid scope should reject');
  }
@@ -91,11 +97,15 @@ async function request(query){
  assert.ok(explorer.includes('tiles:'),'home requests batched editorial category/region images');
  assert.ok(explorer.includes('slide.imageUrl'),'published editorial backgrounds in discovery');
  const admin=read('frontend/src/pages/AdminHomeSlides.jsx');
- assert.ok(admin.includes("placement:'home'")&&admin.includes("placement:'region'")==false);
- assert.ok(admin.includes("['home','Αρχική']"));
- assert.ok(admin.includes("['genre','Μουσικό είδος']"));
- assert.ok(admin.includes("['region','Περιοχή']"));
- assert.ok(admin.includes("placementValue:draft.placement==='home'?'':draft.placementValue"));
+ assert.ok(admin.includes("placement:'home'"),'legacy Home placement remains');
+ assert.ok(admin.includes('draft.placements.map'),'admin must edit many destinations');
+ for(const name of ['home','genre','region','news'])
+   assert.ok(admin.includes('<option value="'+name+'">'),'editor should offer '+name);
+ const destinations=controller.normalize({...valid,placements:[
+   {placement:'home'},{placement:'news'},{placement:'genre',placementValue:'House'}
+ ]});
+ assert.deepEqual(destinations.placements.map(item=>item.placement),['home','news','genre']);
+ assert.throws(()=>controller.normalize({...valid,placements:[{placement:'news'},{placement:'bad'}]}));
  for(const file of ['frontend/src/pages/Home.jsx','frontend/src/pages/StationProfile.jsx',
    'frontend/src/components/StationPlaylistPanel.jsx','frontend/src/components/DesktopFullPlayer.jsx',
    'frontend/src/components/MobileMiniPlayer.jsx','frontend/src/components/Footer.jsx']){
