@@ -1,4 +1,4 @@
-import { PRIMARY_CATEGORIES, SECONDARY_CATEGORIES } from './stationCategories';
+import { PRIMARY_CATEGORIES, SECONDARY_CATEGORIES } from './stationCategories.js';
 
 export const SEARCH_TYPES = [
   { id: 'all', label: 'Όλα' },
