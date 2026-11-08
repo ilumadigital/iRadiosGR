@@ -9,7 +9,8 @@ import {parseMusicMetadata} from '../utils/musicMetadata';
 // Purely editorial: one approved station per page, selected in admin.
 // Now Playing is a server-side DB snapshot, never a request to the radio stream.
 export default function PromotedStationCard({
-  placement,value,stations=[],currentStation,isPlaying,onPlayStation,onPlayPause
+  placement,value,stations=[],currentStation,isPlaying,onPlayStation,onPlayPause,
+  onAvailabilityChange
 }){
   const [feature,setFeature]=useState(null);
   const [clock,setClock]=useState(()=>getAthensClock());
@@ -42,6 +43,7 @@ export default function PromotedStationCard({
   const station=useMemo(()=>stations.find(s=>
     String(s._id)===String(feature?.stationId) && (s.status==='approved'||!s.status)),[stations,feature?.stationId]);
   const show=useMemo(()=>activeStationShow(station,clock),[station,clock]);
+  useEffect(()=>{onAvailabilityChange?.(Boolean(station));},[station,onAvailabilityChange]);
   if(!station)return null;
   const song=parseMusicMetadata(feature?.nowPlaying?.title,station.name);
   const producerPhoto=show&&validShowImage(show.imageUrl)?show.imageUrl:null;
@@ -51,7 +53,7 @@ export default function PromotedStationCard({
     <aside aria-label={'Promoted Station: '+station.name}
       className="ir-promoted-station group relative isolate flex h-full min-h-[240px] min-w-0 flex-col justify-between overflow-hidden rounded-[24px] border border-[#ccff00]/25 bg-[#101619] p-4 shadow-[0_15px_50px_rgba(0,0,0,.25)] sm:rounded-[28px] sm:p-6 xl:min-h-0">
       <img src={artwork} alt="" loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-40 transition-transform duration-700 group-hover:scale-105"
-        onError={e=>{if(e.currentTarget.src!==station.logo)e.currentTarget.src=station.logo||'/iradios-wall.png';}}/>
+        onError={e=>{if(e.currentTarget.dataset.fallback!=='1'){e.currentTarget.dataset.fallback='1';e.currentTarget.src='/iradios-wall.png';}}}/>
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#080e12]/65 via-[#080e12]/60 to-[#080e12]/95"/>
       <div className="relative z-10 flex items-start justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ccff00]/30 bg-black/50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[.1em] text-[#ccff00] backdrop-blur-md">
