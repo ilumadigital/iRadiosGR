@@ -58,3 +58,11 @@
 @media (prefers-reduced-motion:reduce) {
   .ir-music-service{transition:none}
 }
+.ir-full-player--music-links .ir-mobile-player-artwrap {
+  width:min(72vw,34dvh,310px);
+}
+@media (max-width:1023px) and (max-height:730px) {
+  .ir-full-player--music-links .ir-mobile-player-artwrap {
+    width:min(63vw,29dvh,250px);
+  }
+}
