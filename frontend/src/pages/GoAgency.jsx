@@ -480,18 +480,18 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Ονομα</label>
-                  <input type="text" required value={formData.fname} onChange={(e) => setFormData({...formData, fname: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
+                  <input type="text" aria-label="Όνομα" autoComplete="given-name" required value={formData.fname} onChange={(e) => setFormData({...formData, fname: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Επιθετο</label>
-                  <input type="text" required value={formData.lname} onChange={(e) => setFormData({...formData, lname: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
+                  <input type="text" aria-label="Επίθετο" autoComplete="family-name" required value={formData.lname} onChange={(e) => setFormData({...formData, lname: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Username</label>
-                  <input type="text" required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors font-mono" />
+                  <input type="text" aria-label="Username" autoComplete="username" required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors font-mono" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Τηλεφωνο</label>
@@ -499,14 +499,14 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
                     <select value={formData.phonePrefix} onChange={(e) => setFormData({...formData, phonePrefix: e.target.value})} className="bg-black border border-white/10 rounded-2xl px-2 py-3.5 text-white text-xs outline-none focus:border-purple-500 cursor-pointer">
                       {phoneCodes.map(c => <option key={c.code} value={c.prefix}>{c.code} ({c.prefix})</option>)}
                     </select>
-                    <input type="tel" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/[^0-9]/g, '')})} className="flex-1 w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors min-w-0" />
+                    <input type="tel" aria-label="Τηλέφωνο" autoComplete="tel-national" required value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/[^0-9]/g, '')})} className="flex-1 w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors min-w-0" />
                   </div>
                 </div>
               </div>
 
               <div>
                 <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Email (Επαγγελματικο)</label>
-                <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
+                <input type="email" aria-label="Email" autoComplete="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" />
               </div>
               
               <div className="relative">
@@ -514,12 +514,13 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
                 <input 
                   type={showPassword ? "text" : "password"} 
                   required minLength="6" 
-                  value={formData.password} 
+                  value={formData.password} autoComplete="new-password"
                   onChange={(e) => setFormData({...formData, password: e.target.value})} 
                   className="w-full bg-black border border-white/10 rounded-2xl px-4 pr-12 py-3.5 text-white outline-none focus:border-purple-500 transition-colors" 
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Απόκρυψη κωδικού' : 'Εμφάνιση κωδικού'}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 bottom-3.5 text-zinc-500 hover:text-white transition-colors outline-none focus:text-purple-400"
                 >
