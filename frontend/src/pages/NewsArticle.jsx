@@ -3,7 +3,7 @@ import {Helmet} from 'react-helmet-async';
 import {Link,useLocation,useParams} from 'react-router-dom';
 import {ArrowLeft,ArrowRight,Bookmark,BookmarkCheck,CalendarDays,Check,ChevronRight,Copy,ExternalLink,Newspaper,RefreshCw,Share2} from 'lucide-react';
 
-const validBack=path=>typeof path==='string'&&/^\/newsfeed(?:\?.*)?$/.test(path)?path:'/newsfeed';
+const validBack=path=>path==='/'?'/':typeof path==='string'&&/^\/newsfeed(?:\?.*)?$/.test(path)?path:'/newsfeed';
 const formatDate=value=>{
   const date=new Date(value);
   return value&&Number.isFinite(date.getTime())?
