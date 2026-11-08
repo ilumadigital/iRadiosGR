@@ -35,6 +35,8 @@ jobs:
         run: node ops/check-broadcaster-invitations.cjs
       - name: Validate universal branded transactional emails and admin previews
         run: node ops/check-branded-email-design.cjs
+      - name: Verify authenticated station contact and branded Reply-To
+        run: node --test ops/check-station-contact.test.cjs
       - name: Test authenticated staging metadata and SonoVault safety
         run: node ops/check-stage-metadata-sonovault.cjs
       - name: Validate Phase 2 design-system tokens and accessibility
