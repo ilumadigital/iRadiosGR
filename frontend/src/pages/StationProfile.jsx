@@ -12,6 +12,7 @@ import { Helmet } from 'react-helmet-async';
 import CircularVU from '../components/CircularVU';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import StationScheduleTimeline from '../components/StationScheduleTimeline';
+import {resolveLiveShowArtwork} from '../utils/liveBroadcast';
 import '../styles/station-profile.css';
 import StationCatalogCard from '../components/StationCatalogCard';
 import FoundWithAI from '../components/FoundWithAI';
@@ -22,7 +23,7 @@ export default function StationProfile({
   stations, currentStation, isPlaying, onPlayPause, setCurrentStation, 
   toggleFavorite, isFavorite, nowPlaying: globalNowPlaying, nowPlayingInfo: globalNowPlayingInfo, analyser,
   currentUser, userOverrides, onUserDSPChange, API_URL,
-  isRecognizing, handleRecognizeTrack, globalCoverArt // 🟢 Λαμβάνουμε το έτοιμο cover από το App.jsx
+  isRecognizing, handleRecognizeTrack, globalCoverArt, liveBroadcast
 }) {
   const { showAlert } = useAlert();
   const { id } = useParams();
@@ -68,9 +69,14 @@ export default function StationProfile({
     "ΠΑΙΖΕΙ ΤΩΡΑ"
   ];
 
-  const useGlobal=Boolean(currentUser&&isThisPlaying&&isPlaying&&globalNowPlaying&&
+  const useGlobal=Boolean(currentUser&&isThisPlaying&&isPlaying&&
+    (globalNowPlaying||globalNowPlayingInfo?.broadcastHint)&&
     !LOADING_MESSAGES.includes(globalNowPlaying));
   const effectiveNowPlaying=currentUser?(useGlobal?globalNowPlaying:localNowPlaying):null;
+  const currentMetadataInfo=useGlobal?globalNowPlayingInfo:localNowPlayingInfo;
+  const broadcast=resolveLiveShowArtwork({
+    station,nowPlaying:effectiveNowPlaying,nowPlayingInfo:currentMetadataInfo,clock:athensClock
+  });
   const validatedMusic=parseMusicMetadata(effectiveNowPlaying,station?.name);
   const foundWithAI=Boolean(validatedMusic&&
     (useGlobal?globalNowPlayingInfo?.foundWithAI:localNowPlayingInfo.foundWithAI));
@@ -115,7 +121,8 @@ export default function StationProfile({
           const title=typeof data?.title==='string'&&data.title.trim()?data.title.trim():null;
           setLocalNowPlaying(title);
           setLocalNowPlayingInfo({source:data?.source||'none',
-            foundWithAI:Boolean(title&&data?.foundWithAI)});
+            foundWithAI:Boolean(title&&data?.foundWithAI),
+            broadcastHint:typeof data?.broadcastHint==='string'?data.broadcastHint:''});
         }
       }catch{
         if(!controller.signal.aborted){setLocalNowPlaying(null);setLocalNowPlayingInfo({source:'none',foundWithAI:false});}
@@ -355,8 +362,14 @@ export default function StationProfile({
   };
 
   // 🟢 Απλή λογική: Αν παίζει ο σταθμός ΚΑΙ υπάρχει CoverArt από το App.jsx, το δείχνουμε. Αλλιώς, το Logo.
-  const showCoverArt = Boolean(currentUser && isThisPlaying && isPlaying && globalCoverArt && !isCurrentlyLoadingMeta);
-  const currentImage = showCoverArt ? globalCoverArt : station.logo;
+  const showCoverArt=Boolean(currentUser&&isThisPlaying&&isPlaying&&validatedMusic&&
+    globalCoverArt&&!isCurrentlyLoadingMeta);
+  const liveProducerImage=Boolean(currentUser&&broadcast.imageUrl&&!validatedMusic)?
+    broadcast.imageUrl:null;
+  // A live show is the fallback for generic DJ metadata; real songs keep their
+  // artwork and a station without a producer photo keeps its normal logo.
+  const showArtwork=Boolean(showCoverArt||liveProducerImage);
+  const currentImage=showCoverArt?globalCoverArt:(liveProducerImage||station.logo);
 
   return (
     <div className="ir-station-page relative flex flex-col pb-40 w-full min-h-screen">
@@ -374,7 +387,7 @@ export default function StationProfile({
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/80 to-black"></div>
       </div>
 
-      <div className="relative z-10 flex-1 px-4 sm:px-6 lg:px-7 py-6 lg:py-9 max-w-[1600px] mx-auto w-full">
+      <div className="ir-station-responsive-shell relative z-10 flex-1 px-4 sm:px-6 lg:px-7 py-6 lg:py-9 max-w-[1600px] mx-auto w-full">
         
         {/* BACK BUTTON */}
         <button 
@@ -388,18 +401,26 @@ export default function StationProfile({
         </button>
 
         <div className="ir-station-top-grid">
-        <div className="ir-station-hero ir-station-profile-hero flex flex-col lg:flex-row gap-8 lg:gap-7 items-center lg:items-start text-center lg:text-left mb-0 px-5 py-7 sm:p-8 lg:p-7">
+        <div className="ir-station-hero ir-station-profile-hero flex flex-col gap-7 items-center text-center mb-0 px-5 py-7 sm:p-8">
           
           {/* 🟢 DYNAMIC LOGO / COVER ART AREA */}
           <div className="flex flex-col items-center lg:items-start gap-4 shrink-0">
             <div className="ir-station-hero-art w-56 h-56 sm:w-64 sm:h-64 lg:w-72 lg:h-72 overflow-hidden group relative z-10 transition-all duration-500">
               
               <img 
-                src={currentImage} 
-                alt={showCoverArt ? effectiveNowPlaying : station.name} 
+                key={currentImage}
+                src={currentImage}
+                alt={showCoverArt ? effectiveNowPlaying : (liveProducerImage?broadcast.show?.title:station.name)}
+                onError={e=>{
+                  if(e.currentTarget.src!==new URL(station.logo,window.location.href).href){
+                    e.currentTarget.src=station.logo;
+                    e.currentTarget.style.objectFit='contain';
+                    e.currentTarget.style.background='#fff';
+                  }
+                }} 
                 className={`w-full h-full transition-all duration-700 z-10 
-                  ${showCoverArt ? 'object-cover group-hover:scale-110' : 'object-contain bg-white group-hover:scale-105'}
-                  ${isThisPlaying && isPlaying && !showCoverArt ? 'animate-audio-pulse shadow-[0_0_50px_-12px_var(--station-accent)]' : ''}
+                  ${showArtwork ? 'object-cover group-hover:scale-105' : 'object-contain bg-white group-hover:scale-105'}
+                  ${isThisPlaying && isPlaying && !showArtwork ? 'animate-audio-pulse shadow-[0_0_50px_-12px_var(--station-accent)]' : ''}
                 `}
               />
 
@@ -419,7 +440,7 @@ export default function StationProfile({
                 </button>
               </div>
 
-              {showCoverArt && (
+              {showArtwork && (
                 <>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
                   
@@ -432,7 +453,7 @@ export default function StationProfile({
 
                    <div className="absolute top-4 left-4 z-20 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
                      <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]"></div>
-                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">ΤΩΡΑ ΠΑΙΖΕΙ</span>
+                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">{liveProducerImage?'ON AIR · ΠΑΡΑΓΩΓΟΣ':'ΤΩΡΑ ΠΑΙΖΕΙ'}</span>
                    </div>
                 </>
               )}
@@ -489,9 +510,19 @@ export default function StationProfile({
             </div>
             
             {/* Real authenticated station metadata (no fabricated song history). */}
-            <div className="ir-station-now mb-6 min-h-[60px] w-full max-w-2xl">
-              {effectiveNowPlaying ? (
-                <div className="animate-fade-in flex flex-col items-center lg:items-start">
+            <div className="ir-station-now mb-5 min-h-[60px] w-full min-w-0">
+              {liveProducerImage ? (
+                <div className="animate-fade-in flex min-w-0 flex-col items-start text-left">
+                  <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[.13em] text-[#ccff00]">
+                    <Disc3 size={14}/> ΖΩΝΤΑΝΑ ΣΤΟΝ ΑΕΡΑ
+                  </div>
+                  <h2 className="break-words text-xl font-black leading-tight tracking-tight text-white sm:text-2xl">
+                    {broadcast.title}
+                  </h2>
+                  {broadcast.artist&&<p className="mt-2 text-sm font-semibold text-zinc-300">{broadcast.artist}</p>}
+                </div>
+              ) : effectiveNowPlaying ? (
+                <div className="animate-fade-in flex min-w-0 flex-col items-start text-left">
                   <div className="inline-flex items-center gap-2 mb-2">
                     {!isCurrentlyLoadingMeta ? (
                        <Disc3 size={14} className="text-[#ccff00] animate-spin-slow" />
@@ -503,7 +534,7 @@ export default function StationProfile({
                     </span>
                      {foundWithAI&&<FoundWithAI compact/>}
                   </div>
-                  <h2 className="text-2xl lg:text-3xl font-bold text-white tracking-tight leading-snug drop-shadow-md">
+                  <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug drop-shadow-md break-words">
                     {/* Box clone styling to hug the text */}
                     <span className="backdrop-blur-sm px-3 py-1 box-decoration-clone rounded-lg">
                       {effectiveNowPlaying}
@@ -522,11 +553,11 @@ export default function StationProfile({
                 )
               )}
               
-              <div className="mt-4 flex flex-wrap justify-center lg:justify-start gap-3">
+              <div className="ir-station-now-shows mt-4 flex flex-wrap justify-start gap-3">
                 {currentShow && (
                   <div className="inline-flex items-center gap-2 bg-[#ccff00]/10 border border-[#ccff00]/20 px-3 py-1.5 rounded-lg">
                     <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse"></div>
-                    <span className="text-[14px] font-black text-[#ccff00] tracking-widest">
+                    <span className="min-w-0 break-words text-xs font-black text-[#ccff00]">
                       LIVE: {currentShow.title} {currentShow.host && `• ${currentShow.host}`}
                     </span>
                   </div>
@@ -534,7 +565,7 @@ export default function StationProfile({
                 {nextShow && (
                   <div className="inline-flex items-center gap-2 bg-[#24242485]/10 border border-[#24242499]/20 px-3 py-1.5 rounded-lg">
                     <div className="w-2 h-2 rounded-full bg-[#7777778c]"></div>
-                    <span className="text-[12px] font-black text-[#9c9c9c] tracking-widest">
+                    <span className="min-w-0 break-words text-xs font-bold text-[#9c9c9c]">
                       NEXT: {nextShow.title} {nextShow.host && `• ${nextShow.host}`}
                     </span>
                   </div>
@@ -543,8 +574,8 @@ export default function StationProfile({
             </div>
 
             {/* CONTROLS ROW */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-6 sm:gap-8 mb-8">
-              <div className="flex items-center gap-4 lg:gap-6">
+            <div className="ir-station-actions flex flex-wrap items-center justify-start gap-5 mb-6">
+              <div className="ir-station-action-buttons flex items-center gap-3 sm:gap-4">
                 
                 {/* VU METER & PLAY BUTTON */}
                 <div className="relative w-16 h-16 lg:w-20 lg:h-20 shrink-0 flex items-center justify-center">
@@ -630,7 +661,7 @@ export default function StationProfile({
                 )}
               </div>
 
-              <div className="flex items-center gap-6 sm:gap-8 text-left">
+              <div className="ir-station-stats flex min-w-0 flex-wrap items-center gap-4 sm:gap-6 text-left">
                 <div className="h-10 w-px bg-white/10 hidden sm:block"></div>
                 <div>
                   <span className="text-[10px] text-zinc-500 font-black mb-1 block uppercase tracking-widest">Τοποθεσια</span>
@@ -647,7 +678,7 @@ export default function StationProfile({
             </div>
 
             {/* DESCRIPTION */}
-            <p className="text-zinc-400 text-sm lg:text-base leading-relaxed mb-6 font-medium max-w-2xl mx-auto lg:mx-0">
+            <p className="ir-station-description break-words text-zinc-400 text-sm leading-relaxed mb-6 font-medium max-w-2xl text-left">
               {station.description || 'Δεν υπάρχει διαθέσιμη περιγραφή για αυτόν τον σταθμό. Πατήστε το Play για να συντονιστείτε ζωντανά.'}
             </p>
 
