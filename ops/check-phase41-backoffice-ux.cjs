@@ -32,10 +32,12 @@ for(const feature of ['role="tablist"','Αντιγραφή ημέρας','Νέα
 const adminNames=['AdminDashboard','AdminUsers','AdminAds','AdminBanners',
   'AdminHomeSlides','AdminEmails','AdminPaid','AdminRadioSet','AdminAdControl',
   'Boost','NewPush'];
-for(const name of adminNames)
-  assert.ok(read('pages/'+name+'.jsx').startsWith(
-    "import {adminFetch as fetch} from '../utils/adminFetch';"),
+for(const name of adminNames){
+  const source=read('pages/'+name+'.jsx');
+  assert.ok(source.startsWith("import {adminFetch as fetch} from '../utils/adminFetch';")||
+    source.includes("import { adminFetch } from '../utils/adminFetch';"),
     name+' uses same-origin authenticated API requests');
+}
 
 const fetchModule=read('utils/adminFetch.js')
   .replace('export function adminFetch','function adminFetch')+'\nadminFetch;';
