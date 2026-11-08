@@ -21,7 +21,10 @@ export default function MusicServiceLinks({
 
   return (
     <div className={`ir-music-service-links ${compact ? 'ir-music-service-links--compact' : ''} ${className}`}
-      role="group" aria-label={`Βρες το τραγούδι ${song.title} σε μουσικές υπηρεσίες`}>
+      role="group" aria-label={`Βρες το τραγούδι ${song.title} σε μουσικές υπηρεσίες`}
+      onTouchStart={event => event.stopPropagation()}
+      onTouchMove={event => event.stopPropagation()}
+      onTouchEnd={event => event.stopPropagation()}>
       <a className="ir-music-service ir-music-service--spotify"
         href={spotifyLink} target="_blank" rel="noopener noreferrer"
         aria-label={`Βρες ${song.artist} - ${song.title} στο Spotify`}
