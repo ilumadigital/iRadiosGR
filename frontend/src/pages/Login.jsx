@@ -343,7 +343,7 @@ export default function Login({ API_URL, setCurrentUser }) {
           </form>
 
           <p className="text-center text-sm text-zinc-500 mt-8 font-medium">
-            Δεν έχετε λογαριασμό; <Link to="/register" className="text-white font-bold hover:text-[#ccff00] transition-colors">Εγγραφή</Link>
+            Δεν έχετε λογαριασμό; <Link to={inviteToken ? `/broadcast?invite=${encodeURIComponent(inviteToken)}` : "/register"} className="text-white font-bold hover:text-[#ccff00] transition-colors">Εγγραφή</Link>
           </p>
         </div>
       )}
