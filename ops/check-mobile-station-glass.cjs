@@ -28,6 +28,8 @@ assert.match(css, /\.ir-playlist-tracks>\.ir-station-playlist-track:nth-child\(n
 assert.match(css, /@media \(max-width:767px\)/, 'glass hero is restricted to phones');
 assert.match(css, /backdrop-filter:blur/, 'glassmorphism uses translucent blur');
 assert.match(header, /ir-header--station-page/, 'no duplicate main header');
-assert.match(mini, /ir-mini-player--station-page/, 'no duplicate mini player over the details');
+assert.match(mini, /ir-mini-player--station-page/, 'station route preserves its mini-player selector');
+assert.doesNotMatch(css, /\.ir-mini-player\.ir-mini-player--station-page\s*\{\s*display\s*:\s*none\s*!important/i, 'station page must not hide the shared mini-player');
+assert.match(mini, /setIsMaximized\(true\)/, 'mini-player can open the fullscreen player');
 
 console.log('Mobile station glass layout, data reuse and audio safety: OK');
