@@ -202,8 +202,9 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
         </div>
       </div>
 
-      <EditorialPlacement placement="genre" value={genreName}
-        currentUser={currentUser} stations={stations} currentStation={currentStation} isPlaying={isPlaying}
+      <EditorialPlacement placement="genre" value={genreName} viewMode={viewMode}
+        currentUser={currentUser} stations={stations} fallbackStation={baseStations[0]}
+        currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
       {filteredAndSorted.length > 0 ? (
