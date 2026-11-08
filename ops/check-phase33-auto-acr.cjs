@@ -11,7 +11,7 @@ const candidates=[
   ...ids.map((id,i)=>({_id:id,name:'Music '+i,genre:'Pop',stream:'https://radio.example/'+i,plays:10000-i}))
 ];
 const titles=new Map(ids.map(id=>[id,'Native Artist - Native Song']));
-titles.set(ids[1],'');titles.set(ids[2],'LIVE SHOW');titles.set(ids[3],'');
+titles.set(ids[1],'');titles.set(ids[2],'LIVE SHOW');titles.set(ids[3],'');titles.set(ids[10],'');
 const stations={find:query=>({select:()=>({
   lean:async()=>candidates.filter(s=>query?._id?.$in?.includes(s._id)),
   sort:()=>({limit:()=>({lean:async()=>candidates})})
