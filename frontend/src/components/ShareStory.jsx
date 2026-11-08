@@ -3,7 +3,7 @@ import { Instagram, Loader2 } from 'lucide-react';
 import { FastAverageColor } from 'fast-average-color';
 import { cleanMetadata } from '../utils/cleanMetadata';
 
-export default function ShareStory({ currentStation, nowPlaying }) {
+export default function ShareStory({ currentStation, nowPlaying, label = null, className = '' }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const API_URL = '__IRADIOS_SITE_ORIGIN__/api';
 
@@ -298,10 +298,11 @@ export default function ShareStory({ currentStation, nowPlaying }) {
     <button 
       onClick={handleShare}
       disabled={isGenerating || !currentStation}
-      className={`transition-colors p-2 rounded-full ${isGenerating ? 'text-[#ccff00]' : 'text-zinc-400 hover:text-white hover:bg-white/5'} active:scale-95`}
+      className={`transition-colors p-2 rounded-full ${isGenerating ? 'text-[#ccff00]' : 'text-zinc-400 hover:text-white hover:bg-white/5'} active:scale-95 ${className}`}
       title="Share to Story"
     >
       {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Instagram size={20} />}
+      {label && <span>{label}</span>}
     </button>
   );
 }
