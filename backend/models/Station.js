@@ -33,7 +33,9 @@ const stationSchema = new mongoose.Schema({
   genre: { type: String, required: true },
   // Old records are left as-is until manually classified.
   secondaryGenre: { type: String, default: '' },
+  country: { type: String, default: 'Ελλάδα' },
   region: { type: String },
+  prefecture: { type: String, default: '' },
   city: { type: String },
   
   // 🟢 ΝΕΑ ΠΕΔΙΑ: Τύπος Μετάδοσης & Συχνότητα
@@ -64,6 +66,8 @@ const stationSchema = new mongoose.Schema({
   email: { type: String },
   explicit: { type: Boolean, default: false },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
+  // Approval and stream availability are independent: offline stations remain visible.
+  isOffline: { type: Boolean, default: false },
   broadcasterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   isFeatured: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
