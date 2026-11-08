@@ -3,7 +3,8 @@ const User=require('../models/User');
 const Subscription=require('../models/Subscription');
 const webpush=require('web-push');
 const {sendEmail}=require('./myMailer');
-const {canNotify,notificationPreferencesOf,TOPICS}=require('./notificationPreferences');
+const {canNotify,TOPICS}=require('./notificationPreferences');
+const {tokenFor}=require('./notificationUnsubscribe');
 
 const escapeHtml=value=>String(value||'').replace(/[&<>"']/g,char=>({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -72,7 +73,17 @@ async function deliver({topic,title,body,path='/',recipientFilter={},category=''
   for(let i=0;i<emailUsers.length;i+=10){
     await Promise.all(emailUsers.slice(i,i+10).map(async user=>{
       try{
-        const result=await sendEmail({to:user.email,subject:safeTitle,text:safeBody+'\n'+fullLink+'\nΡυθμίσεις: '+profileLink,html});
+        const token=topic==='promotions'?tokenFor(user):'';
+        const unsubscribe=token?site()+'/api/notifications/unsubscribe?token='+encodeURIComponent(token):'';
+        const unsubscribeHtml=unsubscribe
+          ? '<p style="font-size:11px;color:#b6c3be">Προωθητικό μήνυμα · <a style="color:#ccff00" href="'+escapeHtml(unsubscribe)+'">Διακοπή προωθητικών email</a></p>'
+          : '';
+        const result=await sendEmail({
+          to:user.email,subject:safeTitle,
+          text:safeBody+'\\n'+fullLink+'\\nΡυθμίσεις: '+profileLink+
+            (unsubscribe?'\\nΔιακοπή προωθητικών: '+unsubscribe:''),
+          html:html.replace('</div>',unsubscribeHtml+'</div>')
+        });
         if(result?.success)sentEmail++;
       }catch(error){console.warn('[NOTIFY] Email failed:',error.message);}
     }));
