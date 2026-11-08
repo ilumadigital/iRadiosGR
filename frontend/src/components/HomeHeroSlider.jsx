@@ -80,7 +80,7 @@ export default function HomeHeroSlider({
       onFocusCapture={()=>setHover(true)}
       onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget))setHover(false);}}
       style={{'--ir-ambient-rgb':brandRgb}}
-      className="ir-home-hero ir-ambient-hero relative isolate aspect-[40/21] w-full max-w-[1200px] min-h-0 min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#10161b] sm:rounded-[28px]">
+      className="ir-home-hero ir-ambient-hero relative isolate h-[245px] w-full min-h-0 min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#10161b] sm:h-[295px] sm:rounded-[28px] lg:h-[340px] xl:h-[355px]">
       <img src={image} alt="" loading="eager"
         className={`pointer-events-none absolute inset-0 h-full w-full ${slide?'object-cover opacity-80':'object-cover opacity-20 blur-[2px]'}`}/>
       <div className="ir-ambient-hero-gradient pointer-events-none absolute inset-0"/>
@@ -92,7 +92,7 @@ export default function HomeHeroSlider({
         </span>
         <div className="flex min-w-0 items-center justify-between gap-4 sm:gap-8">
           <div className="min-w-0 flex-1">
-            <h2 className="line-clamp-2 break-words text-[clamp(1.2rem,3.2vw,3.1rem)] font-black leading-[1.07] tracking-tight text-white drop-shadow-lg">
+            <h2 className="line-clamp-2 break-words text-[clamp(1.25rem,2.55vw,2.5rem)] font-black leading-[1.07] tracking-tight text-white drop-shadow-lg">
               {title}
             </h2>
             <p className="mt-2 hidden max-w-xl text-xs font-medium leading-relaxed text-zinc-200 sm:line-clamp-2 sm:text-sm">{description}</p>
