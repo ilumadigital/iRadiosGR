@@ -5,7 +5,7 @@ const Station = require('../models/Station');
 const { recordStationTrack } = require('./recordStationTrack');
 const {statusFromNative,hydrateSharedAI} = require('./stageSmartTracks');
 const Playlist = require('../models/StationPlaylist');
-const {rememberNativeSong,clearInvalidNativeSong,snapshotSong} = require('./stageNativeNow');
+const {rememberNativeSong,clearInvalidNativeSong,rememberNativeShow,clearNativeShow,broadcastHint,snapshotSong} = require('./stageNativeNow');
 const { readPublicUrl } = require('./stageSafeRadioFetch');
 
 const cache = new Map();
@@ -149,9 +149,12 @@ async function readCachedNativeMetadata(station) {
     // erasing native metadata or adding native rows ahead of that AI song.
     if(status==='valid'){
       await rememberNativeSong(station,raw);
+      await clearNativeShow(station);
       if(manual?.kind!=='manual')await recordStationTrack(station,raw,{source:'station'});
     }else if(status==='invalid'){
       await clearInvalidNativeSong(station,raw);
+      if(broadcastHint(raw,station.name))await rememberNativeShow(station,raw);
+      else await clearNativeShow(station);
     }
     return raw;
   }).catch(()=>'');
@@ -175,7 +178,7 @@ async function stageMetadata(req,res){
     // Fast path: a single MongoDB read. NEVER contact station/stream/metadata
     // hosts from an API read. Background workers prefetch every two minutes.
     const snapshot=await Playlist.findOne({stationId:station._id})
-      .select('nativeNow currentAI').lean();
+      .select('nativeNow currentAI nativeShow').lean();
     return res.json(snapshotSong(snapshot)||{title:'',source:'none',foundWithAI:false});
   }catch{
     return res.status(503).json({title:'',source:'none',foundWithAI:false});

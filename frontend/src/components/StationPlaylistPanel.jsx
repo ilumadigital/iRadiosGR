@@ -69,18 +69,18 @@ export default function StationPlaylistPanel({
   return (
     <section className={`ir-playlist-panel ir-glass flex min-w-0 flex-col overflow-hidden p-4 sm:p-5 ${compact?'ir-playlist-panel--compact h-full':''} ${sidebar?'ir-playlist-panel--station-sidebar':''}`} aria-label="Πρόσφατα τραγούδια σταθμού">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#ccff00]"><Radio size={14}/> ΠΑΙΖΕΙ ΣΤΟ iRADIOS</p>
+        <div className="min-w-0"><p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#ccff00]"><Radio size={14}/> ΠΑΙΖΕΙ ΣΤΟ iRADIOS</p>
           <h2 className="mt-1 text-xl font-black text-white">{currentUser?'Playlist σταθμού':'Συνδέσου στο iRadios για NowPlaying'}</h2></div>
         <button type="button" title="Ανανέωση playlist" aria-label="Ανανέωση playlist" onClick={()=>setRefresh(n=>n+1)} disabled={!currentUser||loading} className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-[#ccff00] disabled:opacity-40"><RefreshCw size={17} className={loading?'animate-spin':''}/></button>
       </div>
-      <div className="mt-4 flex shrink-0 items-center gap-3 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/[0.045] p-3">
+      <div className={`mt-4 flex min-w-0 shrink-0 items-center gap-3 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/[0.045] p-3 ${sidebar?'flex-wrap':''}`}>
         {chosen?.logo&&<img src={chosen.logo} alt="" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"/>}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-black text-white">{chosen?.name||'Δεν έχει επιλεγεί σταθμός'}</div>
-          <span className="mt-1 block text-[11px] text-zinc-400">Τα τραγούδια των τελευταίων 30 λεπτών του {chosen?.name||'σταθμού'}</span>
+          <span className="mt-1 block text-[11px] leading-4 text-zinc-400">{sidebar?'Τα τελευταία 30 λεπτά':<>Τα τραγούδια των τελευταίων 30 λεπτών του {chosen?.name||'σταθμού'}</>}</span>
         </div>
         {onPlayStation&&chosen&&<StationListenButton station={chosen} currentStation={currentStation} isPlaying={isPlaying}
-          onPlayStation={onPlayStation} onPlayPause={onPlayPause} className="shrink-0"/>}
+          onPlayStation={onPlayStation} onPlayPause={onPlayPause} compact={sidebar} className={sidebar?'w-full':'shrink-0'}/>}
       </div>
       {!currentUser?(
         <div className="py-10 text-center"><ListMusic size={30} className="mx-auto mb-3 text-[#ccff00]"/>
@@ -95,14 +95,14 @@ export default function StationPlaylistPanel({
       </div>:null}
       {tracks.length>0&&<div className={`mt-3 min-h-0 divide-y divide-white/5 overflow-y-auto pr-1 ${compact?'flex-1':'max-h-[560px]'}`} aria-live="polite">
         {tracks.map((track,i)=><div key={track.raw+'-'+track.playedAt+'-'+i}
-          className={`flex items-center gap-3 rounded-lg px-2 py-2.5 ${i===0?'bg-[#ccff00]/10':''}`}>
+          className={`ir-station-playlist-track flex min-w-0 items-center gap-3 rounded-lg px-2 py-2.5 ${i===0?'bg-[#ccff00]/10':''}`}>
           <TrackCover track={track} fallback={chosen?.logo||'/iradios-app-logo.png'}/>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-white">{track.title}</p>
+          <div className="ir-station-playlist-song min-w-0 flex-1">
+            <p className="truncate text-sm font-bold text-white" title={track.title}>{track.title}</p>
             <p className="truncate text-xs text-zinc-400">{track.artist}</p>
             {track.source==='acrcloud'&&<FoundWithAI compact className="mt-1"/>}
           </div>
-          <time dateTime={track.playedAt} className="shrink-0 text-[11px] tabular-nums text-zinc-500">{resolveTime(track.playedAt)}</time>
+          <time dateTime={track.playedAt} className="ir-station-playlist-time shrink-0 text-[11px] tabular-nums text-zinc-500">{resolveTime(track.playedAt)}</time>
           {i===0&&<span className="sr-only">Πιο πρόσφατο τραγούδι</span>}
         </div>)}
       </div>}

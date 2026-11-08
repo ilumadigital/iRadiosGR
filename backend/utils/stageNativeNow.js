@@ -4,6 +4,31 @@
 const Playlist=require('../models/StationPlaylist');
 const {parseTrack}=require('./recordStationTrack');
 const VALID_FOR=8*60*1000;
+const SHOW_VALID_FOR=6*60*1000;
+// Explicit broadcast metadata, never music. Do not treat DJ artist names as shows.
+const showWords=/(?:\bdj[\s_-]*zone\b|\bradio[\s_-]*show\b|\bmix[\s_-]*show\b|\bdj[\s_-]*set\b|\blive[\s_-]*(?:dj|show|set|session|mix|broadcast|stream|radio)\b|\bon[\s_-]*air\b|\bin[\s_-]*the[\s_-]*mix\b|\b(?:live|dj|radioshow|djzone)\b|εκπομπ[ήη]|παραγωγ[όο]ς|ζωνταν[άα]|στον\s*α[έε]ρα)/i;
+function broadcastHint(raw,stationName=''){
+  const value=typeof raw==='string'?raw.trim():'';
+  return value.length<=300&&Boolean(value)&&!parseTrack(value,stationName)&&showWords.test(value)?value:'';
+}
+async function rememberNativeShow(station,raw,now=Date.now()){
+  const hint=broadcastHint(raw,station?.name);
+  if(!hint||!station?._id)return false;
+  const at=new Date(now);
+  await Playlist.updateOne({stationId:station._id},{$setOnInsert:{stationId:station._id}},{upsert:true});
+  await Playlist.updateOne({stationId:station._id},{$set:{nativeShow:{raw:hint,confirmedAt:at}}});
+  return true;
+}
+async function clearNativeShow(station){
+  if(!station?._id)return;
+  await Playlist.updateOne({stationId:station._id,'nativeShow.raw':{$exists:true}},{$unset:{nativeShow:''}});
+}
+function validNativeShow(doc,now=Date.now()){
+  const raw=doc?.nativeShow?.raw;
+  const checked=normTime(doc?.nativeShow?.confirmedAt);
+  return Number.isFinite(checked)&&checked<=now+30000&&now-checked<=SHOW_VALID_FOR?
+    broadcastHint(raw):'';
+}
 const normTime=value=>new Date(value).getTime();
 
 function nativeSongFromSnapshot(doc,now=Date.now()){
@@ -45,6 +70,7 @@ async function clearInvalidNativeSong(station,raw){
   return Boolean(result.modifiedCount);
 }
 function snapshotSong(doc,now=Date.now()){
+  const hint=validNativeShow(doc,now);
   const native=nativeSongFromSnapshot(doc,now);
   const ai=doc?.currentAI;
   const aiExpiry=normTime(ai?.expiresAt);
@@ -57,10 +83,11 @@ function snapshotSong(doc,now=Date.now()){
   // Native metadata has priority when it was confirmed more recently than
   // automatic recognition. A short-lived manual AI result always wins.
   if(music&&(ai.kind==='manual'||!native||aiTime>normTime(native.confirmedAt)))
-    return music;
+    return {...music,...(hint?{broadcastHint:hint}:{})};
   if(native)return {title:native.raw,source:'station',foundWithAI:false,
     changedAt:new Date(native.changedAt).toISOString()};
-  return music;
+  return music?{...music,...(hint?{broadcastHint:hint}:{})}:
+    hint?{title:'',source:'none',foundWithAI:false,broadcastHint:hint}:null;
 }
-module.exports={VALID_FOR,nativeSongFromSnapshot,rememberNativeSong,
-  clearInvalidNativeSong,snapshotSong};
+module.exports={VALID_FOR,SHOW_VALID_FOR,nativeSongFromSnapshot,rememberNativeSong,
+  rememberNativeShow,clearNativeShow,broadcastHint,clearInvalidNativeSong,snapshotSong};

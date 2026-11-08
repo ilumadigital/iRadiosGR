@@ -10,7 +10,7 @@ function artworkType(url){
   return undefined;
 }
 export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUser,
-  isPlayingAd,currentAdInfo,globalCoverArt}){
+  isPlayingAd,currentAdInfo,globalCoverArt,liveBroadcast}){
   const name=currentStation?.name||'iRadios';
   if(!currentUser)return {
     title:'Login στο iRadios για NowPlaying',
@@ -33,6 +33,15 @@ export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUse
     trackKey:parts.raw,
     foundWithAI:ai
   };
+  // A genuine scheduled show can provide artwork even when the native stream
+  // sends generic DJZONE/LIVE/RadioShow text and no song is identified.
+  if(liveBroadcast?.recognizedShow&&liveBroadcast.imageUrl)return {
+    title:liveBroadcast.title||'Τώρα Ακούς',
+    artist:liveBroadcast.artist||name,
+    album:`${name} - iRadios`,image:liveBroadcast.imageUrl,
+    trackKey:'show:'+String(liveBroadcast.show?.day||'')+':'+
+      String(liveBroadcast.show?.startTime||'')+':'+String(liveBroadcast.show?.title||'')
+  };
   return {title:'Τώρα Ακούς',artist:name,album:'iRadios',image:currentStation?.logo};
 }
 // Browser/iOS Media Session controls are one shared audio session; the source
@@ -41,11 +50,11 @@ export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUse
 // metadata (iOS background scheduling remains best effort).
 export default function useMediaSession({
   currentStation,nowPlaying,nowPlayingInfo,isPlaying,isPlayingAd,currentAdInfo,
-  togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser
+  togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser,liveBroadcast
 }){
   const latest=useRef({});
   latest.current={currentStation,nowPlaying,nowPlayingInfo,isPlaying,isPlayingAd,currentAdInfo,
-    togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser};
+    togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser,liveBroadcast};
   const last=useRef({key:null,at:0,ai:false,image:null,imageSrc:null,trackKey:null});
   const write=()=>{
     if(typeof navigator==='undefined'||!('mediaSession' in navigator)||
@@ -88,8 +97,7 @@ export default function useMediaSession({
     // Never keep an old song/cover after a confirmed track change or song expiry.
     const trackChanged=(fields.trackKey||null)!==last.current.trackKey;
     const sourceChanged=Boolean(fields.foundWithAI)!==last.current.ai;
-    const artworkChanged=Boolean(fields.trackKey)&&
-      (fields.image||null)!==last.current.imageSrc;
+    const artworkChanged=(fields.image||null)!==last.current.imageSrc;
     if(last.current.key!==key||trackChanged||sourceChanged||artworkChanged||
        Date.now()-last.current.at>=FIVE_MINUTES){
       write();
@@ -97,7 +105,8 @@ export default function useMediaSession({
       navigator.mediaSession.playbackState=isPlaying?'playing':'paused';
     }
   },[currentStation?._id,currentUser?._id,isPlaying,isPlayingAd,currentAdInfo?._id,
-    nowPlaying,nowPlayingInfo?.foundWithAI,nowPlayingInfo?.source,globalCoverArt]);
+    nowPlaying,nowPlayingInfo?.foundWithAI,nowPlayingInfo?.source,nowPlayingInfo?.broadcastHint,
+    globalCoverArt,liveBroadcast?.imageUrl,liveBroadcast?.title,liveBroadcast?.artist]);
   useEffect(()=>{
     const timer=setInterval(()=>{
       if(latest.current.currentStation&&latest.current.isPlaying)write();

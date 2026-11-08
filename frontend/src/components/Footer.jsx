@@ -23,7 +23,7 @@ export default function Footer({
   localDeviceId,
   onTransferPlayback,
   onRequestDevices,
-  globalCoverArt // 🟢 Λαμβάνει το Cover Art από το App.jsx
+  globalCoverArt, liveBroadcast
 }) {
   
   const { showAlert } = useAlert();
@@ -48,27 +48,9 @@ export default function Footer({
   const finalSpotifyUrl=isRealSong
     ?(spotifyUrl||spotifySongLink(realTrack.raw,currentStation?.name)):null;
 
-  const currentShow = useMemo(() => {
-    try {
-      if (!currentStation || !currentStation.schedule || !Array.isArray(currentStation.schedule) || currentStation.schedule.length === 0) return null;
-      const now = new Date();
-      const jsDay = now.getDay();
-      const currentDayIdx = jsDay === 0 ? 6 : jsDay - 1; 
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-      const parseTime = (timeStr) => {
-        if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) return 0;
-        const [h, m] = timeStr.split(':').map(Number);
-        return (h || 0) * 60 + (m || 0);
-      };
-
-      return currentStation.schedule.find(s => 
-        s && s.day === currentDayIdx && 
-        parseTime(s.startTime) <= currentMinutes && 
-        parseTime(s.endTime) > currentMinutes
-      );
-    } catch(e) { return null; }
-  }, [currentStation]);
+  // Shared station schedule uses 1–7 ISO weekdays and Greece-local time.
+  // Avoid independently interpreting the legacy 0–6 format in the player.
+  const currentShow=liveBroadcast?.show||null;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -102,9 +84,10 @@ export default function Footer({
 
   // 2. Maximized Player (Full Screen): Δείχνει Cover Art ΑΝ υπάρχει ΚΑΙ είναι πραγματικό τραγούδι.
   const showCoverArt = isRealSong && globalCoverArt && !isPlayingAd;
+  const showProducerArt=Boolean(!isPlayingAd&&currentUser&&!isRealSong&&liveBroadcast?.imageUrl);
   const maximizedImage = isPlayingAd && currentAdInfo?.logoUrl 
     ? currentAdInfo.logoUrl 
-    : (showCoverArt ? globalCoverArt : (currentStation?.logo || ''));
+    : (showCoverArt ? globalCoverArt : (showProducerArt?liveBroadcast.imageUrl:(currentStation?.logo || '')));
 
 
   const handleLogoTitleClick = () => {
@@ -181,6 +164,7 @@ export default function Footer({
           nowPlayingInfo={nowPlayingInfo}
           globalCoverArt={globalCoverArt}
           currentShow={currentShow}
+          liveBroadcast={liveBroadcast}
           volume={volume}
           setVolume={setVolume}
           togglePlayPause={togglePlayPause}
@@ -312,7 +296,7 @@ export default function Footer({
                 <div className="flex items-center gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full ${isRecognizing ? 'bg-blue-400 animate-ping' : isPlaying ? 'bg-[#ccff00] shadow-[0_0_8px_#ccff00]' : 'bg-red-500'}`}></div>
                   <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all ${isRecognizing ? 'text-blue-400' : 'text-[#ccff00]'}`}>
-                    {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying : (!isRealSong ? (isPlaying ? 'ΠΑΙΖΕΙ ΤΩΡΑ' : 'STOPPED') : nowPlaying)}
+                    {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying : (!isRealSong ? (isPlaying ? (showProducerArt?liveBroadcast.title:'ΠΑΙΖΕΙ ΤΩΡΑ') : 'STOPPED') : nowPlaying)}
                   </span>
                   {currentUser&&nowPlayingInfo?.foundWithAI&&isRealSong&&!isPlayingAd&&<FoundWithAI compact/>}
                 </div>

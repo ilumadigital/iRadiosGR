@@ -10,6 +10,8 @@ import useAudioDSP from './hooks/useAudioDSP';
 import useStations from './hooks/useStations';
 import useAdEngine from './hooks/useAdEngine';
 import useMediaSession from './hooks/useMediaSession';
+import {getAthensClock} from './utils/schedule';
+import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
 
 // --- CONTEXT ---
 import { AlertProvider, useAlert } from './context/AlertContext';
@@ -612,6 +614,22 @@ function MainApp() {
     filteredSearch, zappingPlaylist, handleUpdateStationDSP, fetchGlobalStations 
   } = useStations(API_URL, currentUser, currentStation, setCurrentStation);
 
+  // Radio show artwork follows the latest station schedule, not an outdated
+  // station object persisted before the last daily XML sync.
+  const metadataStation=useMemo(()=>stations.find(item=>
+    String(item._id)===String(currentStation?._id))||currentStation,[stations,currentStation]);
+  const [broadcastClock,setBroadcastClock]=useState(()=>getAthensClock());
+  useEffect(()=>{
+    const refresh=()=>setBroadcastClock(getAthensClock());
+    const timer=setInterval(refresh,30000);
+    const onVisible=()=>{if(!document.hidden)refresh();};
+    document.addEventListener('visibilitychange',onVisible);
+    return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',onVisible);};
+  },[]);
+  const liveBroadcast=useMemo(()=>resolveLiveShowArtwork({
+    station:metadataStation,nowPlaying,nowPlayingInfo,clock:broadcastClock
+  }),[metadataStation,nowPlaying,nowPlayingInfo?.broadcastHint,
+    broadcastClock.day,broadcastClock.minute]);
   // 🚀 FIX: Κρατάμε τα stations σε ref για να τα βρίσκουν τα sockets χωρίς να κρασάρουν
   const stationsRef = useRef([]);
   useEffect(() => {
@@ -1393,7 +1411,9 @@ function MainApp() {
       const title=typeof data?.title==='string'?data.title.trim():'';
       setNowPlaying(title?cleanMetadata(title):'');
       setNowPlayingInfo({source:data?.source==='acrcloud'?'acrcloud':title?'station':'none',
-        foundWithAI:Boolean(title&&data?.foundWithAI)});
+        foundWithAI:Boolean(title&&data?.foundWithAI),
+        broadcastHint:typeof data?.broadcastHint==='string'?data.broadcastHint:
+          isBroadcastMetadata(title,currentStation.name)?title:''});
     }catch{
       // Keep the last confirmed UI title on a transient network failure.
       // The server's native snapshot will expire if validation stops.
@@ -1429,8 +1449,9 @@ function MainApp() {
   },[currentStation?._id,currentUser?._id,isPlaying,isPlayingAd,isRecognizing]);
 
   useMediaSession({
-    currentStation, nowPlaying, nowPlayingInfo, isPlaying, isPlayingAd, currentAdInfo,
-    togglePlayPause, handleNextStation, handlePrevStation, globalCoverArt, currentUser
+    currentStation:metadataStation, nowPlaying, nowPlayingInfo, isPlaying, isPlayingAd, currentAdInfo,
+    togglePlayPause, handleNextStation, handlePrevStation, globalCoverArt, currentUser,
+    liveBroadcast
   });
 
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
@@ -1763,7 +1784,7 @@ function MainApp() {
 
             <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
@@ -1854,6 +1875,7 @@ function MainApp() {
           isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} spotifyUrl={spotifyUrl}
           onOpenCarMode={() => setIsCarModeActive(true)}
           globalCoverArt={globalCoverArt}
+          liveBroadcast={liveBroadcast}
           availableDevices={availableDevices}
           localDeviceId={localDeviceId}
           onTransferPlayback={handleTransferPlayback}
@@ -1872,6 +1894,7 @@ function MainApp() {
         unreadListenerChat={unreadListenerChat} setUnreadListenerChat={setUnreadListenerChat}
         isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} spotifyUrl={spotifyUrl}
         globalCoverArt={globalCoverArt}
+        liveBroadcast={liveBroadcast}
         availableDevices={availableDevices}
         localDeviceId={localDeviceId}
         onTransferPlayback={handleTransferPlayback}

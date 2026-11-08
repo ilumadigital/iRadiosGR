@@ -52,16 +52,135 @@
 .ir-program-empty strong{color:#eef2ef}
 .ir-station-page .ir-catalog-card{transition:transform .2s ease}
 .ir-station-page .ir-catalog-card:hover{transform:translateY(-3px)}
-@media(min-width:1280px){
- .ir-station-top-grid{grid-template-columns:minmax(0,3fr) minmax(260px,1fr);gap:20px}
- .ir-station-profile-hero{padding:26px!important;gap:24px!important;align-items:flex-start!important}
- .ir-station-profile-hero .ir-station-hero-art{width:clamp(190px,17vw,240px)!important;height:clamp(190px,17vw,240px)!important}
- .ir-station-playlist-aside{position:sticky;top:88px}
+/*
+ * The listener sidebar reduces usable width; viewport breakpoints alone do
+ * not describe the station column. Container queries keep all content readable
+ * on laptops and tablets while retaining the premium 75/25 layout on wide desktops.
+ */
+.ir-station-responsive-shell{
+  container-name:station-layout;
+  container-type:inline-size;
 }
-@media(min-width:1280px) and (max-width:1500px){
- .ir-station-profile-hero{flex-direction:column!important;align-items:stretch!important}
- .ir-station-profile-hero>div:first-child{align-self:center}
- .ir-station-profile-hero>div:last-child{max-width:none!important}
+.ir-station-top-grid{grid-template-columns:minmax(0,1fr);gap:22px}
+.ir-station-profile-hero{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  text-align:left!important;
+  padding:clamp(18px,2.1vw,30px)!important;
+  gap:clamp(19px,2vw,28px)!important;
+  min-width:0;
+}
+.ir-station-profile-hero>div:first-child{
+  width:100%;max-width:260px;min-width:0;
+  align-self:center;align-items:stretch;
+}
+.ir-station-profile-hero>div:last-child{
+  min-width:0;width:100%;max-width:none!important;
+  align-items:stretch!important;flex:1 1 auto;
+}
+.ir-station-profile-hero .ir-station-hero-art{
+  width:min(58vw,224px)!important;height:auto!important;aspect-ratio:1;
+  max-width:100%;margin-inline:auto;
+}
+.ir-station-profile-hero .ir-station-hero-art img{max-width:100%}
+.ir-station-profile-hero h1{overflow-wrap:anywhere;line-height:1.15;font-size:clamp(26px,2.65vw,42px)}
+.ir-station-profile-hero .ir-station-now h2{overflow-wrap:anywhere}
+.ir-station-profile-hero .ir-station-action-buttons{min-width:0;flex-wrap:wrap}
+.ir-station-profile-hero .ir-station-stats{min-width:0}
+.ir-station-profile-hero .ir-station-stats>div{min-width:0}
+.ir-station-profile-hero .ir-station-stats span{overflow-wrap:anywhere}
+.ir-station-profile-hero .ir-station-now-shows>div{max-width:100%;min-width:0}
+.ir-station-profile-hero .ir-station-hero-art+button{max-width:100%}
+.ir-station-playlist-aside{min-width:0;position:static}
+.ir-station-playlist-aside .ir-playlist-panel{
+  height:auto;max-height:none;min-width:0;padding:20px!important
+}
+.ir-station-playlist-aside .ir-playlist-panel .ir-station-playlist-track{
+  min-width:0
+}
+.ir-station-playlist-aside .ir-playlist-panel .ir-station-playlist-song{
+  min-width:0
+}
+.ir-station-related-grid{
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,158px),1fr))!important;
+  gap:16px!important
+}
+@container station-layout (min-width:760px){
+  .ir-station-profile-hero{
+    display:grid!important;
+    grid-template-columns:minmax(175px,220px) minmax(0,1fr);
+    align-items:start!important;gap:clamp(18px,2vw,28px)!important;
+  }
+  .ir-station-profile-hero>div:first-child{width:100%;max-width:none;align-self:start}
+  .ir-station-profile-hero .ir-station-hero-art{width:100%!important;max-width:220px}
+  .ir-station-profile-hero>div:last-child{text-align:left}
+}
+@container station-layout (min-width:1160px){
+  .ir-station-top-grid{
+    grid-template-columns:minmax(0,3fr) minmax(280px,1fr);
+    gap:20px;
+  }
+  .ir-station-profile-hero{grid-template-columns:minmax(165px,205px) minmax(0,1fr)}
+  .ir-station-playlist-aside{position:sticky;top:88px}
+  .ir-station-playlist-aside .ir-playlist-panel--station-sidebar{
+    max-height:min(740px,calc(100dvh - 110px));overflow:hidden;
+  }
+  .ir-station-playlist-aside .ir-playlist-panel--station-sidebar>div:nth-of-type(3){
+    max-height:min(430px,calc(100dvh - 330px));
+    overflow-y:auto;
+  }
+  .ir-station-playlist-aside .ir-station-playlist-track{
+    display:grid;grid-template-columns:42px minmax(0,1fr);
+    gap:2px 10px;align-items:start;padding:10px 6px;
+  }
+  .ir-station-playlist-aside .ir-station-playlist-track>img{
+    grid-column:1;grid-row:1 / span 2;width:42px;height:42px
+  }
+  .ir-station-playlist-aside .ir-station-playlist-song{grid-column:2;grid-row:1}
+  .ir-station-playlist-aside .ir-station-playlist-time{
+    grid-column:2;grid-row:2;margin-top:1px;text-align:left
+  }
+  .ir-station-playlist-aside .ir-playlist-panel h2{
+    font-size:clamp(16px,1.5vw,20px);overflow-wrap:anywhere
+  }
+  .ir-station-playlist-aside .ir-playlist-panel p{overflow-wrap:anywhere}
+}
+/* A single column playlist gets comfortable horizontal spacing on tablets. */
+@container station-layout (min-width:700px) and (max-width:1159px){
+  .ir-station-playlist-aside .ir-playlist-panel--station-sidebar>div:nth-of-type(3){
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:4px 15px;max-height:450px;overflow-y:auto;
+  }
+}
+@container station-layout (max-width:760px){
+  .ir-station-program{padding:20px 14px;border-radius:22px}
+  .ir-program-day-tabs{display:flex;overflow-x:auto;gap:8px;scroll-snap-type:x proximity;padding-bottom:8px}
+  .ir-program-day-tab{min-width:110px;padding:0 10px;scroll-snap-align:start}
+  .ir-program-row{grid-template-columns:100px 66px minmax(0,1fr) 22px;gap:12px}
+  .ir-program-art{width:66px;height:60px}
+  .ir-station-profile-hero .ir-station-stats{justify-content:flex-start}
+  .ir-station-profile-hero .ir-station-actions{justify-content:flex-start}
+}
+@container station-layout (max-width:530px){
+  .ir-station-profile-hero{padding:18px!important;border-radius:23px!important}
+  .ir-station-profile-hero .ir-station-hero-art{width:min(56vw,200px)!important}
+  .ir-station-profile-hero h1{font-size:clamp(25px,7vw,34px)}
+  .ir-station-profile-hero .ir-station-action-buttons{gap:10px}
+  .ir-station-profile-hero .ir-station-action-buttons button{width:44px;height:44px}
+  .ir-station-profile-hero .ir-station-action-buttons>div:first-child{width:60px;height:60px}
+  .ir-station-profile-hero .ir-station-action-buttons>div:first-child button{width:100%;height:100%}
+  .ir-program-rows{padding:7px 8px}
+  .ir-program-rows::before{left:15px}
+  .ir-program-line-dot{left:-12px}
+  .ir-program-row{margin-left:8px;grid-template-columns:minmax(0,1fr) 52px;gap:10px;padding:12px 8px 12px 17px}
+  .ir-program-time{grid-column:1;grid-row:1}
+  .ir-program-art{grid-column:2;grid-row:1 / span 2;width:52px;height:52px}
+  .ir-program-show-info{grid-column:1;grid-row:2}
+  .ir-program-equalizer{display:none}
+  .ir-program-show-info h3{white-space:normal}
+  .ir-program-live-status{font-size:10px}
+  .ir-station-related-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 @media(max-width:960px){
  .ir-program-day-tabs{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:8px}

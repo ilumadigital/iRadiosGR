@@ -37,7 +37,8 @@ export default function MobileMiniPlayer({
   localDeviceId,
   onTransferPlayback,
   onRequestDevices,
-  globalCoverArt
+  globalCoverArt,
+  liveBroadcast
 }) {
 
   const { showAlert } = useAlert();
@@ -124,16 +125,18 @@ export default function MobileMiniPlayer({
 
   const currentTrack=parseMusicMetadata(nowPlaying,currentStation?.name);
   const isActualSong=Boolean(currentUser&&!isRecognizing&&!isPlayingAd&&currentTrack);
-  const displayTrackTitle=currentTrack?.title||currentStation.name;
-  const displayTrackArtist=currentTrack?.artist||'';
+  const showProducerArt=Boolean(currentUser&&!isPlayingAd&&!isActualSong&&liveBroadcast?.imageUrl);
+  const displayTrackTitle=currentTrack?.title||(showProducerArt?liveBroadcast.title:currentStation.name);
+  const displayTrackArtist=currentTrack?.artist||(showProducerArt?liveBroadcast.artist:'');
   const finalSpotifyUrl=isActualSong
     ?(spotifyUrl||spotifySongLink(currentTrack.raw,currentStation?.name)):null;
 
   const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
-  const showCoverArt = isActualSong && globalCoverArt && !isPlayingAd;
+  const showCoverArt = Boolean(isActualSong && globalCoverArt && !isPlayingAd);
+  const largeArtwork=Boolean(showCoverArt||showProducerArt);
   const maximizedImage = isPlayingAd && currentAdInfo?.logoUrl 
     ? currentAdInfo.logoUrl 
-    : (showCoverArt ? globalCoverArt : (currentStation?.logo || ''));
+    : (showCoverArt ? globalCoverArt : (showProducerArt?liveBroadcast.imageUrl:(currentStation?.logo || '')));
 
   const handleAdClick = (e) => {
     if (isPlayingAd && currentAdInfo?.linkUrl) {
@@ -362,16 +365,25 @@ export default function MobileMiniPlayer({
             <div className="relative mb-[clamp(.5rem,2dvh,1.25rem)] flex aspect-square w-full max-w-[min(72vw,37dvh,310px)] justify-center sm:max-w-[min(340px,37dvh)]">
               <img 
                 onClick={handleAdClick}
-                src={maximizedImage} 
-                alt={currentStation.name}
+                key={maximizedImage}
+                src={maximizedImage}
+                alt={showProducerArt?'Εικόνα παραγωγού '+(liveBroadcast?.artist||''):currentStation.name}
+                onError={e=>{
+                  if(e.currentTarget.src!==new URL(currentStation.logo,window.location.href).href){
+                    e.currentTarget.src=currentStation.logo;
+                    e.currentTarget.style.objectFit='contain';
+                    e.currentTarget.style.background='#fff';
+                    e.currentTarget.style.padding='1rem';
+                  }
+                }}
                 className={`ir-full-player-art w-full h-full transition-all duration-500 mx-auto ${
-                  showCoverArt ? 'object-cover shadow-2xl' : 'bg-white object-contain p-4'
+                  largeArtwork ? 'object-cover shadow-2xl' : 'bg-white object-contain p-4'
                 } ${isPlayingAd ? 'cursor-pointer' : 'pointer-events-none'} ${
                   isPlaying && !isBuffering ? 'scale-100 shadow-[0_30px_60px_rgba(0,0,0,0.6)]' : 'scale-95 grayscale-[30%] opacity-80'
                 }`}
               />
 
-              {showCoverArt && (
+              {largeArtwork && (
                 <>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none rounded-[32px]"></div>
                   <div className="absolute bottom-3 left-3 z-20">
@@ -381,7 +393,7 @@ export default function MobileMiniPlayer({
                   </div>
                   <div className="absolute top-3 left-3 z-20 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]"></div>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">NOW PLAYING</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">{showProducerArt?'ON AIR · DJ':'NOW PLAYING'}</span>
                   </div>
                 </>
               )}
@@ -392,7 +404,7 @@ export default function MobileMiniPlayer({
                 {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : displayTrackTitle}
               </h2>
               <p className={`text-base sm:text-lg font-medium truncate w-full ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                {isPlayingAd ? `${currentAdInfo?.title || 'Διαφήμιση'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (displayTrackArtist || currentStation.name) : (currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
+                {isPlayingAd ? `${currentAdInfo?.title || 'Διαφήμιση'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (displayTrackArtist || currentStation.name) : (showProducerArt?displayTrackArtist:(currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying'))))}
               </p>
               {isActualSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI compact className="mt-1"/>}
               {!isPlayingAd && (
@@ -591,7 +603,7 @@ export default function MobileMiniPlayer({
               <>
                 <div className="text-sm font-bold text-white truncate tracking-tight">{currentStation.name}</div>
                 <div className={`text-[11px] font-medium truncate max-w-[140px] mt-0.5 ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                  {isRecognizing ? "Αναγνώριση..." : (isActualSong ? nowPlaying : (currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying'))}
+                  {isRecognizing ? "Αναγνώριση..." : (isActualSong ? nowPlaying : (showProducerArt?liveBroadcast.title:(currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
                 </div>
                 {isActualSong&&nowPlayingInfo?.foundWithAI&&<span className="text-[9px] font-bold text-[#ccff00]">✦ Found with AI</span>}
               </>

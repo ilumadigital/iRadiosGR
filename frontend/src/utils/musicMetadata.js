@@ -1,7 +1,7 @@
 // Central client-side safety gate: Spotify and song UI only for credible
 // Artist - Title metadata. An unverified native title opens Spotify SEARCH,
 // not an asserted direct Spotify track link. ACR ID is the direct-link source.
-const radioText=/(?:\bdj\s*set\b|\bdjset\b|\blive\s*(?:show|set|session|mix|radio|stream|broadcast)\b|\bon\s*air\b|\bradio\s*show\b|\btalk\s*show\b|\bnon[-\s]?stop\s*(?:music|mix)\b|\bpodcast\b|\bplaylist\b|\b(?:mix|set)\s*(?:live|\d{1,2}[:.]\d{2})\b|εκπομπ[ήη]|δελτ[ιί]ο\s*ειδ[ήη]σεων|ραδι[όο]φωνο|στον\s*α[έε]ρα)/i;
+const radioText=/(?:\bdj[\s_-]*zone\b|\bradio[\s_-]*show\b|\bmix[\s_-]*show\b|\blive[\s_-]*dj\b|\bon[\s_-]*air\b|\bdj\s*set\b|\bdjset\b|\blive\s*(?:show|set|session|mix|radio|stream|broadcast)\b|\bon\s*air\b|\bradio\s*show\b|\btalk\s*show\b|\bnon[-\s]?stop\s*(?:music|mix)\b|\bpodcast\b|\bplaylist\b|\b(?:mix|set)\s*(?:live|\d{1,2}[:.]\d{2})\b|εκπομπ[ήη]|δελτ[ιί]ο\s*ειδ[ήη]σεων|ραδι[όο]φωνο|στον\s*α[έε]ρα)/i;
 const standaloneNoise=/^(?:radio|station|web radio|live|live now|on air|now playing|playing now|unknown|music|streaming|dj|news|talk|μουσική|δελτίο|παίζει τώρα|διαφήμιση|αναζήτηση|σύνδεση)$/i;
 const norm=value=>String(value||'').toLocaleLowerCase('el').normalize('NFD')
   .replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]/gu,'');

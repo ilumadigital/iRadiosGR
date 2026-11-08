@@ -3,11 +3,12 @@ import { ArrowLeft, Pause, Play, SkipBack, SkipForward, Volume2, Heart,
   ListMusic, Info, ScanSearch, Loader2, Radio, ExternalLink, X } from 'lucide-react';
 import StationPlaylistPanel from './StationPlaylistPanel';
 import FoundWithAI from './FoundWithAI';
+import {parseMusicMetadata} from '../utils/musicMetadata';
 
 // This visual layer never creates an <audio>. App.jsx remains the only stream player.
 export default function DesktopFullPlayer({
   station, currentUser, isPlaying, isBuffering, isPlayingAd, adWarning, currentAdInfo,
-  adTimeRemaining, nowPlaying, nowPlayingInfo, globalCoverArt, currentShow, volume, setVolume,
+  adTimeRemaining, nowPlaying, nowPlayingInfo, globalCoverArt, currentShow, liveBroadcast, volume, setVolume,
   togglePlayPause, handlePrevStation, handleNextStation, onClose, onFavorite, isFavorite,
   onRecognize, isRecognizing, onOpenStation
 }) {
@@ -18,16 +19,17 @@ export default function DesktopFullPlayer({
     return ()=>document.removeEventListener('keydown',onKey);
   },[onClose,showPlaylist]);
   if(!station)return null;
-  const validTitle=Boolean(currentUser && !isPlayingAd && !isRecognizing && typeof nowPlaying==='string'
-    && nowPlaying.trim() && !/^(ΠΑΙΖΕΙ ΤΩΡΑ|LIVE NOW|Stopped|Σύνδεση|Αναζήτηση)/i.test(nowPlaying.trim())
-    && !/σύνδεση|ανάλυση|scanning/i.test(nowPlaying));
-  const text=validTitle?nowPlaying.trim():'';
-  const parts=text?text.split(/\s+[-–—]\s+/):[];
-  const songTitle=parts.length>1?parts.slice(1).join(' — '):text;
-  const artist=parts.length>1?parts[0]:'';
+  // An unverified DJZONE / RadioShow marker is a live program, never a song.
+  const music=currentUser&&!isPlayingAd&&!isRecognizing?
+    parseMusicMetadata(nowPlaying,station.name):null;
+  const validTitle=Boolean(music);
+  const showProducerArt=Boolean(!validTitle&&currentUser&&!isPlayingAd&&liveBroadcast?.imageUrl);
+  const songTitle=music?.title||(showProducerArt?liveBroadcast.title:'');
+  const artist=music?.artist||(showProducerArt?liveBroadcast.artist:'');
   const image=isPlayingAd&&currentAdInfo?.logoUrl?currentAdInfo.logoUrl:
-    (validTitle&&globalCoverArt?globalCoverArt:station.logo);
-  const artwork=Boolean(validTitle&&globalCoverArt&&!isPlayingAd);
+    (validTitle&&globalCoverArt?globalCoverArt:
+      (showProducerArt?liveBroadcast.imageUrl:station.logo));
+  const artwork=Boolean((validTitle&&globalCoverArt||showProducerArt)&&!isPlayingAd);
   const showName=isPlayingAd?(currentAdInfo?.client||'Διαφήμιση'):
     (currentShow?.title||station.name);
   return (
@@ -80,7 +82,7 @@ export default function DesktopFullPlayer({
             </div>
             {currentShow&&!isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">Στον αέρα: <strong className="text-white">{currentShow.title}</strong>{currentShow.host?' · '+currentShow.host:''}</p>}
             {isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-300">{currentAdInfo?.title||'Διαφημιστικό διάλειμμα'}{Number.isFinite(adTimeRemaining)?' · '+adTimeRemaining+'″':''}</p>}
-            {!isPlayingAd&&!validTitle&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">{currentUser?'Δεν γνωρίζουμε ποιο τραγούδι παίζει αυτή τη στιγμή.':'Συνδέσου στο iRadios για NowPlaying'}</p>}
+            {!isPlayingAd&&!validTitle&&!showProducerArt&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">{currentUser?'Δεν γνωρίζουμε ποιο τραγούδι παίζει αυτή τη στιγμή.':'Συνδέσου στο iRadios για NowPlaying'}</p>}
             <div className="mt-[clamp(0.5rem,2.2dvh,1.6rem)] flex shrink-0 flex-wrap items-center gap-[clamp(0.4rem,1.1vw,1.25rem)]">
               <button type="button" onClick={togglePlayPause} disabled={isPlayingAd} aria-label={isPlaying?'Παύση ραδιοφώνου':'Αναπαραγωγή ραδιοφώνου'}
                 className="ir-player-transport flex h-[clamp(48px,8dvh,80px)] w-[clamp(48px,8dvh,80px)] shrink-0 items-center justify-center rounded-full transition-transform hover:scale-105 disabled:opacity-40">
@@ -106,7 +108,11 @@ export default function DesktopFullPlayer({
           </div>
           <div className="ir-desktop-player-artframe relative mx-auto flex h-full min-h-0 min-w-0 w-full max-w-[650px] items-center justify-center">
             <div className="ir-desktop-player-art relative aspect-square max-w-full shrink-0 overflow-hidden rounded-[clamp(16px,2.5vw,36px)] border border-white/15 bg-[#151b20] shadow-[0_22px_65px_rgba(0,0,0,0.6)]">
-              <img src={image} alt={artwork?'Εξώφυλλο τρέχοντος τραγουδιού':'Λογότυπο '+station.name}
+              <img src={image} alt={showProducerArt?'Εικόνα παραγωγού '+(currentShow?.host||''):artwork?'Εξώφυλλο τρέχοντος τραγουδιού':'Λογότυπο '+station.name}
+                onError={e=>{if(e.currentTarget.src!==new URL(station.logo,window.location.href).href){
+                  e.currentTarget.src=station.logo;e.currentTarget.style.objectFit='contain';
+                  e.currentTarget.style.background='#fff';e.currentTarget.style.padding='2rem';
+                }}}
                 className={`h-full w-full ${artwork?'object-cover':'bg-white object-contain p-12'}`}/>
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent"/>
               <div className="absolute bottom-6 left-6 flex items-center gap-2 rounded-full border border-white/15 bg-black/70 px-3 py-2 text-xs font-black text-[#ccff00]">
