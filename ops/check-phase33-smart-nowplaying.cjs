@@ -107,14 +107,14 @@ try{
     // The previous 5-minute gate kept "Τώρα Ακούς" despite a real player song.
     const refs=[];
     let refIndex=0;
-    const writes=[];
+    const mediaWrites=[];
     const nav={mediaSession:{metadata:null,playbackState:'none',setActionHandler(){}}};
     const env={
       navigator:nav,
       window:{
         location:{origin:'https://stage.iradios.gr',protocol:'https:'},
         MediaMetadata:class {
-          constructor(fields){Object.assign(this,fields);writes.push(fields);}
+          constructor(fields){Object.assign(this,fields);mediaWrites.push(fields);}
         }
       },
       URL,setInterval:()=>1,clearInterval:()=>{},
@@ -134,29 +134,29 @@ try{
         ...props});
     };
     render({nowPlaying:''});
-    assert.equal(writes.at(-1).title,'Τώρα Ακούς');
-    const countBeforeTrack=writes.length;
+    assert.equal(mediaWrites.at(-1).title,'Τώρα Ακούς');
+    const countBeforeTrack=mediaWrites.length;
     render({nowPlaying:'Paul Anthonee - Inertia',
       nowPlayingInfo:{source:'station',foundWithAI:false}});
-    assert.equal(writes.length,countBeforeTrack+1,'new native metadata updates immediately');
-    assert.equal(writes.at(-1).title,'Inertia');
-    assert.equal(writes.at(-1).artist,'Paul Anthonee');
-    assert.equal(writes.at(-1).album,'Deseo Radio - iRadios');
+    assert.equal(mediaWrites.length,countBeforeTrack+1,'new native metadata updates immediately');
+    assert.equal(mediaWrites.at(-1).title,'Inertia');
+    assert.equal(mediaWrites.at(-1).artist,'Paul Anthonee');
+    assert.equal(mediaWrites.at(-1).album,'Deseo Radio - iRadios');
     const cover='https://cdn.example.com/inertia.jpg';
     render({nowPlaying:'Paul Anthonee - Inertia',globalCoverArt:cover,
       nowPlayingInfo:{source:'station',foundWithAI:false}});
-    assert.equal(writes.at(-1).artwork[0].src,cover,'cover arrival updates lock screen');
+    assert.equal(mediaWrites.at(-1).artwork[0].src,cover,'cover arrival updates lock screen');
     render({nowPlaying:'Paul Anthonee - Inertia',globalCoverArt:cover,
       nowPlayingInfo:{source:'acrcloud',foundWithAI:true}});
-    assert.equal(writes.at(-1).album,'Deseo Radio - iRadios AI',
+    assert.equal(mediaWrites.at(-1).album,'Deseo Radio - iRadios AI',
       'AI recognition supersedes native provenance');
     render({nowPlaying:'New Artist - New Track',
       nowPlayingInfo:{source:'station',foundWithAI:false}});
-    assert.equal(writes.at(-1).title,'New Track','next real song replaces previous title');
-    assert.equal(writes.at(-1).artwork.length,0,
+    assert.equal(mediaWrites.at(-1).title,'New Track','next real song replaces previous title');
+    assert.equal(mediaWrites.at(-1).artwork.length,0,
       'old song cover is never kept when a new track arrives');
     render({nowPlaying:''});
-    assert.equal(writes.at(-1).title,'Τώρα Ακούς',
+    assert.equal(mediaWrites.at(-1).title,'Τώρα Ακούς',
       'missing metadata resets the lock-screen title');
 
     assert.ok(read('backend/models/StationPlaylist.js').includes('source:'),
