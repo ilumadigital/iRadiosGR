@@ -16,6 +16,7 @@ import { AlertProvider, useAlert } from './context/AlertContext';
 
 // --- UTILS  ---
 import { cleanMetadata } from './utils/cleanMetadata';
+import { parseMusicMetadata } from './utils/musicMetadata';
 
 // --- COMPONENTS ---
 import Preloader from './components/Preloader';
@@ -533,7 +534,7 @@ function MainApp() {
   const [nowPlaying, setNowPlaying] = useState('');
   const [nowPlayingInfo,setNowPlayingInfo] = useState({source:'none',foundWithAI:false});
   const [volume, setVolume] = useState(0.7);
-  const [globalCoverArt, setGlobalCoverArt] = useState(null);
+  const [coverArtState, setCoverArtState] = useState(null);
 
   const [sniperHit, setSniperHit] = useState(null);
 
@@ -585,6 +586,9 @@ function MainApp() {
 
   const activeStationIdRef=useRef('');
   activeStationIdRef.current=String(currentStation?._id||currentStation?.id||'');
+  // Artwork belongs to a specific station AND song, never to the previous track.
+  const globalCoverArt=coverArtState?.stationId===activeStationIdRef.current &&
+    coverArtState?.track===nowPlaying?coverArtState.url:null;
 
   const [isCarModeActive, setIsCarModeActive] = useState(false);
 
@@ -622,38 +626,42 @@ function MainApp() {
 
   const lastPlayedTimeAds = useRef({});
 
-  // 🟢 1. ΨΑΧΝΕΙ ΤΟ ΕΞΩΦΥΛΛΟ ΜΕΣΩ ΤΟΥ PROXY ΜΑΣ (CORS FIX)
+  // Fetch artwork only for a verified track, and bind the response to the
+  // exact station/song so a previous cover cannot leak into the iOS lock screen.
   useEffect(() => {
-    let isMounted = true;
-    const LOADING_MESSAGES = ["Ακούμε τον σταθμό…", "Ψάχνουμε το τραγούδι…", "Λίγο ακόμη…", "Σχεδόν έτοιμο…", "Βρίσκουμε το τραγούδι…", "ΠΑΙΖΕΙ ΤΩΡΑ", ""];
-    
-    if (!nowPlaying || LOADING_MESSAGES.includes(nowPlaying)) {
-      setGlobalCoverArt(null);
+    const stationId=String(currentStation?._id||currentStation?.id||'');
+    const song=parseMusicMetadata(nowPlaying,currentStation?.name);
+    if(!stationId||!song||!currentUser||!isPlaying||isPlayingAd){
+      setCoverArtState(null);
       return;
     }
-
-    const fetchCover = async () => {
-      try {
-        const res = await fetch(`${API_URL}/cover-art?term=${encodeURIComponent(nowPlaying)}`);
-        
-        if (!res.ok) throw new Error("Backend Proxy Error");
-        
-        const data = await res.json();
-        
-        if (data && data.artworkUrl && isMounted) {
-          setGlobalCoverArt(data.artworkUrl); 
-        } else if (isMounted) {
-          setGlobalCoverArt(null); 
+    let active=true;
+    const controller=new AbortController();
+    const fetchCover=async()=>{
+      try{
+        const res=await fetch(`${API_URL}/cover-art?term=${encodeURIComponent(song.raw)}`,{
+          signal:controller.signal
+        });
+        if(!res.ok)throw new Error('Cover lookup failed');
+        const data=await res.json();
+        let url=null;
+        if(typeof data?.artworkUrl==='string'&&data.artworkUrl.trim()){
+          try{
+            const parsed=new URL(data.artworkUrl);
+            if(parsed.protocol==='https:')url=parsed.href;
+          }catch{ /* malformed artwork */ }
         }
-      } catch (err) {
-        console.error("Cover Fetch Error:", err);
-        if (isMounted) setGlobalCoverArt(null); 
+        if(active)setCoverArtState({stationId,track:nowPlaying,url});
+      }catch(error){
+        if(active && error?.name!=='AbortError'){
+          setCoverArtState({stationId,track:nowPlaying,url:null});
+        }
       }
     };
-
     fetchCover();
-    return () => { isMounted = false; };
-  }, [nowPlaying]);
+    return ()=>{active=false;controller.abort();};
+  },[nowPlaying,currentStation?._id,currentStation?.id,currentStation?.name,
+    currentUser?._id,isPlaying,isPlayingAd]);
 
   const { analyserRef, fadeAudio, resetVolumeToZero, setVolumeToOne, resumeDSP } = useAudioDSP(
     audioRef, currentStation, currentAdInfo, isPlayingAd, isMobile, currentUser, userOverrides, volume
