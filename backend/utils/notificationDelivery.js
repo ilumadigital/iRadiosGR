@@ -3,7 +3,9 @@ const User=require('../models/User');
 const Subscription=require('../models/Subscription');
 const webpush=require('web-push');
 const {sendEmail}=require('./myMailer');
-const {canNotify,TOPICS}=require('./notificationPreferences');
+const {canNotify,notificationPreferencesOf,TOPICS}=require('./notificationPreferences');
+const Inbox=require('../models/ListenerInbox');
+const crypto=require('crypto');
 const {tokenFor}=require('./notificationUnsubscribe');
 
 const escapeHtml=value=>String(value||'').replace(/[&<>"']/g,char=>({
@@ -33,9 +35,9 @@ function initPush(){
  * - User selection always happens on the server, not through a userId in JSON.
  * - Query may scope recipients (e.g. favorites: stationId).
  */
-async function deliver({topic,title,body,path='/',recipientFilter={},category='',channels=['push','email']}={}){
+async function deliver({topic,title,body,path='/',recipientFilter={},category='',channels=['push','email'],eventKey=null}={}){
   if(!TOPICS.includes(topic))throw Error('Unsupported notification topic');
-  if(isStaging())return {disabled:true,sentPush:0,sentEmail:0};
+  // Staging keeps its inbox functional but never sends an external push or email.
   const safeTitle=String(title||'').trim().slice(0,140);
   const safeBody=String(body||'').trim().slice(0,600);
   if(!safeTitle||!safeBody)throw Error('Missing message');
@@ -46,8 +48,27 @@ async function deliver({topic,title,body,path='/',recipientFilter={},category=''
     if(topic==='news' && user.notificationPreferences?.newsCategories?.length) {
       if(!user.notificationPreferences.newsCategories.includes(category))return false;
     }
-    return channels.some(channel=>canNotify(user,channel,topic));
+    return notificationPreferencesOf(user).topics[topic] === true;
   });
+  // Inbox is an independent in-app channel, even if browser/email is disabled.
+  const canonicalKey=(eventKey&&String(eventKey).slice(0,155))||
+    ('manual:'+crypto.randomUUID());
+  if(target.length){
+    const ops=target.map(user=>({updateOne:{
+      filter:{recipient:user._id,eventKey:canonicalKey},
+      update:{$setOnInsert:{
+        recipient:user._id,topic,title:safeTitle,body:safeBody,
+        path:validPath,eventKey:canonicalKey,createdAt:new Date()
+      }},upsert:true
+    }}));
+    try{for(let offset=0;offset<ops.length;offset+=500)
+      await Inbox.bulkWrite(ops.slice(offset,offset+500),{ordered:false});
+    }catch(error){
+      console.error('[INBOX] Dispatch persistence error:',error.message);
+      throw error;
+    }
+  }
+  if(isStaging())return {disabled:true,recipients:target.length,inbox:target.length,sentPush:0,sentEmail:0};
   const pushUsers=target.filter(u=>channels.includes('push')&&canNotify(u,'push',topic));
   const emailUsers=target.filter(u=>channels.includes('email')&&canNotify(u,'email',topic)&&u.email);
   const pushIds=pushUsers.map(u=>u._id);
