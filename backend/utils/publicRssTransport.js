@@ -74,7 +74,7 @@ function redirectTarget(current,location,{feed}){
     throw new Error('Η πηγή RSS ανακατευθύνει σε διαφορετικό domain. Χρησιμοποίησε το τελικό HTTPS RSS URL.');
   return validatePublicUrl(target.href,{feed});
 }
-function requestText(value,{feed=false,html=false}={}){
+function requestText(value,{feed=false,html=false,timeoutMs}={}){
   const href=validatePublicUrl(value,{feed});
   const max=html?MAX_HTML_BYTES:MAX_XML_BYTES;
   const fetchHop=(url,hops)=>new Promise((resolve,reject)=>{
@@ -90,7 +90,7 @@ function requestText(value,{feed=false,html=false}={}){
         'Accept-Encoding':'gzip, deflate, br, identity',
         'User-Agent':'iRadiosGR-NewsFeed/3.1'
       },
-      timeout:html?4000:9000
+      timeout:Math.max(1500,Math.min(9000,Number.isFinite(timeoutMs)?timeoutMs:(html?4000:9000)))
     },res=>{
       const status=res.statusCode||0;
       if([301,302,303,307,308].includes(status)){

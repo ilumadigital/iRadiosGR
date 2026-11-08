@@ -75,21 +75,25 @@ async function collectSelected(preset,{categoryFeeds,parseFeed,existingImages,so
   const results=await parallel(requests,8,async item=>{
     if(item.note)return {...item,error:item.note};
     const candidates=item.sectioned?[item]:item.candidates;
-    let last='';
-    for(const candidate of candidates){
+    // Alternative RSS paths can be checked in parallel instead of sequential
+    // timeouts, keeping the admin's manual refresh reasonably responsive.
+    const attempts=await Promise.all(candidates.map(async candidate=>{
       try{
-        const xml=await transport.requestText(candidate.url,{feed:true});
+        const xml=await transport.requestText(candidate.url,{feed:true,timeoutMs:4300});
         const parsed=parseFeed(xml,{feedUrl:candidate.url});
-        return {...item,url:candidate.url,category:candidate.category,result:parsed};
-      }catch(e){last=String(e.message||e).slice(0,120);}
-    }
-    return {...item,error:last||'Δεν εντοπίστηκε δημόσιο RSS feed.'};
+        return {url:candidate.url,category:candidate.category,result:parsed};
+      }catch(e){return {error:String(e.message||e).slice(0,120)};}
+    }));
+    const success=attempts.find(result=>result.result);
+    if(success)return {...item,...success};
+    return {...item,error:attempts.map(a=>a.error).filter(Boolean).join(' / ').slice(0,160)||
+      'Δεν εντοπίστηκε δημόσιο RSS feed.'};
   });
   const valid=results.filter(r=>r.result);
   if(!valid.length)throw new Error('Δεν βρέθηκε διαθέσιμο RSS στους επιλεγμένους εκδότες. Δες τα επιμέρους RSS URLs ή δοκίμασε ξανά.');
   const categorySet=new Set(preset.categories);
   const candidates=valid.flatMap(r=>r.result.articles.slice(0,35)
-    .filter(a=>!r.sectioned||samePublisher(a.url,r.domain))
+    .filter(a=>samePublisher(a.url,r.domain))
     .map(a=>({
       ...a,
       category:r.category||a.category,
@@ -109,7 +113,7 @@ async function collectSelected(preset,{categoryFeeds,parseFeed,existingImages,so
     let enriched=article;
     const cached=existingImages?.get(String(sourceId||'')+'|'+article.url);
     if(!article.imageUrl&&cached)enriched={...article,imageUrl:cached};
-    if(!enriched.imageUrl&&inspected<12&&samePublisher(article.url,article._publisher)){
+    if(!enriched.imageUrl&&inspected<10&&samePublisher(article.url,article._publisher)){
       inspected++;
       try{
         const url=new URL(article.url);
