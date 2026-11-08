@@ -2,7 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { 
   Shield, Eye, Database, Share2, Cookie, UserCheck, Mail, 
-  MessageSquare, Bot, UserX, CreditCard, Lock
+  Bot, UserX, CreditCard, Lock
 } from 'lucide-react';
 
 export default function PrivacyPolicy() {
@@ -70,82 +70,66 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
-          {/* 5. UGC & LIVE CHAT */}
-          <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <MessageSquare className="w-5 h-5 text-[#ccff00]" />
-              5. Παραγόμενο Περιεχόμενο (UGC) & Live Chat
-            </h2>
-            <div className="space-y-4 text-zinc-400">
-              <p>Η εφαρμογή περιλαμβάνει λειτουργίες αλληλεπίδρασης μεταξύ χρηστών (Live Chat). Ως προς τη διαχείριση αυτού του περιεχομένου:</p>
-              <ul className="list-disc list-inside space-y-2 ml-2">
-                <li>Οι χρήστες είναι αποκλειστικά υπεύθυνοι για το περιεχόμενο που αναρτούν.</li>
-                <li>Παρέχεται ενσωματωμένος μηχανισμός <strong>Αναφοράς (Report)</strong> εντός της εφαρμογής, ώστε να μπορείτε να αναφέρετε κακόβουλο ή προσβλητικό περιεχόμενο.</li>
-                <li>Η ομάδα μας διατηρεί το δικαίωμα ενεργής επόπτευσης (moderation) και άμεσης διαγραφής περιεχομένου που παραβιάζει τους όρους χρήσης, προβαίνοντας σε αποκλεισμό λογαριασμών (ban) εφόσον κριθεί απαραίτητο.</li>
-              </ul>
-            </div>
-          </section>
-
-          {/* 6. AI FEATURES */}
+          {/* 5. AI FEATURES */}
           <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
               <Bot className="w-5 h-5 text-[#ccff00]" />
-              6. Τεχνητή Νοημοσύνη (Live Generative AI)
+              5. Τεχνητή Νοημοσύνη (Live Generative AI)
             </h2>
             <p className="text-zinc-400">
               Ορισμένες λειτουργίες του iRadios, όπως το AI Music Radar για την αναγνώριση μουσικής, χρησιμοποιούν μοντέλα μηχανικής μάθησης και παραγωγικής τεχνητής νοημοσύνης. Τα δεδομένα ήχου που αναλύονται, υφίστανται επεξεργασία τη δεδομένη χρονική στιγμή και δεν αποθηκεύονται ούτε συνδέονται με τον προσωπικό σας λογαριασμό. Οι χρήστες μπορούν να αναφέρουν τυχόν ανακριβή ή προβληματικά αποτελέσματα μέσω της φόρμας υποστήριξης.
             </p>
           </section>
 
-          {/* 7. ΠΡΟΣΤΑΣΙΑ ΑΝΗΛΙΚΩΝ */}
+          {/* 6. ΠΡΟΣΤΑΣΙΑ ΑΝΗΛΙΚΩΝ */}
           <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
               <UserX className="w-5 h-5 text-[#ccff00]" />
-              7. Προστασία Ανηλίκων (Child Safety)
+              6. Προστασία Ανηλίκων (Child Safety)
             </h2>
             <p className="text-zinc-400">
               Η εφαρμογή δεν απευθύνεται σε παιδιά κάτω των 13 ετών και δεν συλλέγουμε εν γνώσει μας προσωπικά δεδομένα από ανηλίκους. Επιπλέον, το iRadios εφαρμόζει πολιτική <strong>Μηδενικής Ανοχής</strong> σε περιεχόμενο που προάγει την εκμετάλλευση, κακοποίηση, διαδικτυακό εκφοβισμό (cyber bullying) ή προσωποποίηση ανηλίκων. Λογαριασμοί που εμπλέκονται σε τέτοιες δραστηριότητες διαγράφονται άμεσα και αναφέρονται στις αρμόδιες αρχές.
             </p>
           </section>
 
-          {/* 8. ΚΟΙΝΟΠΟΙΗΣΗ ΣΕ ΤΡΙΤΟΥΣ */}
+          {/* 7. ΚΟΙΝΟΠΟΙΗΣΗ ΣΕ ΤΡΙΤΟΥΣ */}
           <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
               <Share2 className="w-5 h-5 text-[#ccff00]" />
-              8. Κοινοποίηση σε Τρίτους
+              7. Κοινοποίηση σε Τρίτους
             </h2>
             <p className="text-zinc-400">
               <strong>Δεν πωλούμε, δεν ενοικιάζουμε και δεν ανταλλάσσουμε τα προσωπικά σας δεδομένα σε τρίτους.</strong> Η κοινοποίηση γίνεται αποκλειστικά σε εξουσιοδοτημένους παρόχους υποδομών (όπως Cloudflare, Stripe), οι οποίοι δεσμεύονται συμβατικά για την τήρηση των προτύπων ασφαλείας, αποκλειστικά και μόνο για την τεχνική λειτουργία και ασφάλεια της πλατφόρμας.
             </p>
           </section>
 
-          {/* 9. COOKIES & LOCAL STORAGE */}
+          {/* 8. COOKIES & LOCAL STORAGE */}
           <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
               <Cookie className="w-5 h-5 text-[#ccff00]" />
-              9. Cookies και Τοπικός Χώρος (Local Storage)
+              8. Cookies και Τοπικός Χώρος (Local Storage)
             </h2>
             <p className="text-zinc-400">
               Η εφαρμογή χρησιμοποιεί Local Storage και αυστηρά απαραίτητα cookies για να διατηρεί τη συνεδρία σας ενεργή και να αποθηκεύει τις προτιμήσεις αναπαραγωγής. Δεν γίνεται χρήση τεχνολογιών παρακολούθησης (tracking cookies) για στοχευμένη διαφήμιση.
             </p>
           </section>
 
-          {/* 10. ΤΑ ΔΙΚΑΙΩΜΑΤΑ ΣΑΣ */}
+          {/* 9. ΤΑ ΔΙΚΑΙΩΜΑΤΑ ΣΑΣ */}
           <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
               <UserCheck className="w-5 h-5 text-[#ccff00]" />
-              10. Τα Δικαιώματά Σας (GDPR)
+              9. Τα Δικαιώματά Σας (GDPR)
             </h2>
             <p className="text-zinc-400 mb-4">
               Έχετε το δικαίωμα να ζητήσετε πρόσβαση στα δεδομένα σας, διόρθωση ανακριβειών ή φορητότητα αυτών. Επίσης, παρέχεται η δυνατότητα <strong>πλήρους και οριστικής διαγραφής του λογαριασμού και των δεδομένων σας</strong> απευθείας μέσα από τις Ρυθμίσεις του προφίλ σας, εντός της εφαρμογής.
             </p>
           </section>
 
-          {/* 11. ΕΠΙΚΟΙΝΩΝΙΑ */}
+          {/* 10. ΕΠΙΚΟΙΝΩΝΙΑ */}
           <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
               <Mail className="w-5 h-5 text-[#ccff00]" />
-              11. Επικοινωνία
+              10. Επικοινωνία
             </h2>
             <p className="text-zinc-400">
               Εάν έχετε ερωτήσεις σχετικά με την παρούσα Πολιτική Απορρήτου ή την επεξεργασία των δεδομένων σας, μπορείτε να επικοινωνήσετε μαζί μας μέσω της φόρμας επικοινωνίας της εφαρμογής ή στέλνοντας email στο αρμόδιο τμήμα της ILUMA Digital Agency.
