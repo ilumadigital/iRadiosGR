@@ -8,6 +8,7 @@ router.get('/newsfeed/articles/:key',c.articleDetail);
 router.get('/admin/newsfeed',protect,authorizeRoles('admin'),c.adminFeed);
 router.put('/admin/newsfeed',protect,authorizeRoles('admin'),c.save);
 router.post('/admin/newsfeed/refresh',protect,authorizeRoles('admin'),c.refresh);
+router.delete('/admin/newsfeed/articles',protect,authorizeRoles('admin'),c.removeArticle);
 router.delete('/admin/newsfeed/articles/:key',protect,authorizeRoles('admin'),c.removeArticle);
 router.post('/admin/newsfeed/hidden/restore',protect,authorizeRoles('admin'),c.restoreHiddenArticles);
 // Route loaded once by the backend. Schedule independently of website visitors.
