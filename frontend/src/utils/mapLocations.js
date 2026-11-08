@@ -99,31 +99,67 @@ export const CITY_COORDINATES = {
   "Αυστραλία": [-33.8688, 151.2093], "Σίδνεϊ": [-33.8688, 151.2093], "Μελβούρνη": [-37.8136, 144.9631],
 
   // Ευρύτερες περιφέρειες για σωστό αρχικό κέντρο στις σελίδες Region.
-  "Ανατολική Μακεδονία & Θράκη": [41.04, 25.35],
-  "Κεντρική Μακεδονία": [40.65, 23.20],
-  "Δυτική Μακεδονία": [40.30, 21.50],
-  "Ήπειρος": [39.53, 20.86],
-  "Θεσσαλία": [39.50, 22.40],
-  "Ιόνια Νησιά": [38.70, 20.60],
-  "Δυτική Ελλάδα": [38.30, 21.60],
-  "Στερεά Ελλάδα": [38.60, 22.70],
-  "Πελοπόννησος": [37.40, 22.35],
-  "Βόρειο Αιγαίο": [39.40, 26.20],
-  "Νότιο Αιγαίο": [36.80, 26.00],
-  "Κρήτη": [35.20, 24.85],
+  "Ανατολική Μακεδονία & Θράκη": [41.1192, 25.4054],
+  "Κεντρική Μακεδονία": [40.6401, 22.9444],
+  "Δυτική Μακεδονία": [40.3000, 21.7833],
+  "Ήπειρος": [39.6649, 20.8519],
+  "Θεσσαλία": [39.6390, 22.4191],
+  "Ιόνια Νησιά": [39.6200, 19.9197],
+  "Δυτική Ελλάδα": [38.2466, 21.7346],
+  "Στερεά Ελλάδα": [38.8953, 22.4336],
+  "Πελοπόννησος": [37.5089, 22.3732],
+  "Βόρειο Αιγαίο": [39.1061, 26.5560],
+  "Νότιο Αιγαίο": [37.4385, 24.9405],
+  "Κρήτη": [35.3387, 25.1442],
 };
 
-const NON_GEOGRAPHIC = new Set(['', 'Άλλη', 'Άλλο', 'Global', 'Web Radio', 'WebRadios', 'Ελλάδα', 'Εξωτερικό', 'Ευρώπη', 'Αμερική', 'Αυστραλία']);
+// The point for a whole administrative region is a REPRESENTATIVE CITY (regional seat),
+// not the station's physical transmitter/studio. We never invent random offshore points.
+// If a station specifies a known municipality, its city center takes precedence.
+const NON_GEOGRAPHIC = new Set([
+  '', 'Άλλη', 'Άλλο', 'Global', 'Web Radio', 'WebRadios', 'Ελλάδα',
+  'Εξωτερικό', 'Ευρώπη', 'Αμερική', 'Αυστραλία', 'Άγνωστη', 'Unknown',
+  'Χωρίς πόλη'
+]);
+
 export const DEFAULT_MAP_CENTER = [38.2, 23.8]; // [latitude, longitude]
 
-export function stationMapPosition(station) {
-  const city = String(station?.city || '').trim();
-  const region = String(station?.region || '').trim();
-  if (!NON_GEOGRAPHIC.has(city) && CITY_COORDINATES[city]) return CITY_COORDINATES[city];
-  if (!NON_GEOGRAPHIC.has(region) && CITY_COORDINATES[region]) return CITY_COORDINATES[region];
+const normalizeLocation = value => String(value || '').trim()
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('el-GR').replace(/\s+/g, ' ');
+
+const COORDINATES_BY_NAME = new Map(
+  Object.entries(CITY_COORDINATES).map(([name, point]) => [normalizeLocation(name), { name, point }])
+);
+const NON_GEOGRAPHIC_NORMALIZED = new Set([...NON_GEOGRAPHIC].map(normalizeLocation));
+const ALIASES = {
+  athens: 'Αθήνα', thessaloniki: 'Θεσσαλονίκη', thessalonica: 'Θεσσαλονίκη',
+  patras: 'Πάτρα', heraklion: 'Ηράκλειο', crete: 'Κρήτη',
+  rhodes: 'Ρόδος', cyprus: 'Κύπρος', nicosia: 'Λευκωσία',
+  piraeus: 'Πειραιάς', larissa: 'Λάρισα', corfu: 'Κέρκυρα',
+  chania: 'Χανιά', mytilene: 'Μυτιλήνη'
+};
+
+function findRealPlace(value) {
+  const key = normalizeLocation(value);
+  if (!key || NON_GEOGRAPHIC_NORMALIZED.has(key)) return null;
+  return COORDINATES_BY_NAME.get(key) || COORDINATES_BY_NAME.get(normalizeLocation(ALIASES[key])) || null;
+}
+
+export function stationMapLocation(station) {
+  // City coordinates indicate a municipality's center, not an exact studio address.
+  const city = findRealPlace(station?.city);
+  if (city) return { position: city.point, label: city.name, precision: 'city' };
+  // Missing / unsupported city: the regional administrative seat is only an approximation.
+  const region = findRealPlace(station?.region);
+  if (region) return { position: region.point, label: region.name, precision: 'region' };
   return null;
 }
 
+export function stationMapPosition(station) {
+  return stationMapLocation(station)?.position || null;
+}
+
 export function locationMapCenter(name) {
-  return CITY_COORDINATES[name] || DEFAULT_MAP_CENTER;
+  return findRealPlace(name)?.point || DEFAULT_MAP_CENTER;
 }
