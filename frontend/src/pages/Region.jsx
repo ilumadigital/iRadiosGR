@@ -150,6 +150,8 @@ export default function Region({ stations, currentStation, setCurrentStation, is
 
   const [sortBy, setSortBy] = useState('popularity');
   const [viewMode, setViewMode] = useState('grid');
+  const [promotedStationId,setPromotedStationId] = useState(null);
+  useEffect(()=>setPromotedStationId(null),[regionName]);
   
   const [selectedGenre, setSelectedGenre] = useState('all'); 
   const [selectedTransmission, setSelectedTransmission] = useState('all');
@@ -250,6 +252,10 @@ export default function Region({ stations, currentStation, setCurrentStation, is
   useEffect(() => {
     if (!canShowMap && viewMode === 'map') setViewMode('grid');
   }, [regionName, canShowMap, viewMode]);
+
+  const displayStations=useMemo(()=>viewMode==='grid' && promotedStationId
+    ? filteredAndSorted.filter(s=>String(s._id)!==String(promotedStationId))
+    : filteredAndSorted,[filteredAndSorted,viewMode,promotedStationId]);
 
   const handleBannerView = async (bannerId) => {
     try { await fetch(`/api/banners/${bannerId}/impression`, { method: 'POST' }); } catch (e) {}
@@ -354,14 +360,14 @@ export default function Region({ stations, currentStation, setCurrentStation, is
         </div>
       </div>
 
-      <EditorialPlacement placement="region" value={regionName} viewMode={viewMode}
+      <EditorialPlacement placement="region" value={regionName} viewMode={viewMode} onPromotedStationChange={setPromotedStationId}
         currentUser={currentUser} stations={stations} fallbackStation={baseStations[0]}
         currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
       {viewMode !== 'map' && filteredAndSorted.length > 0 && (
         <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex flex-col gap-3 max-w-4xl"}>
-          {filteredAndSorted.map((station, index) => {
+          {displayStations.map((station, index) => {
             const isCurrent = currentStation && (currentStation._id === station._id);
             const isCurrentlyPlaying = isCurrent && isPlaying;
             
