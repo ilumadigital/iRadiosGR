@@ -3,7 +3,7 @@ const User=require('../models/User');
 const Subscription=require('../models/Subscription');
 const webpush=require('web-push');
 const {sendEmail}=require('./myMailer');
-const {renderBrandedEmail,actionButton}=require('./emailDesign');
+const {notificationEmailTemplate}=require('./notificationEmailTemplate');
 const {canNotify,notificationPreferencesOf,TOPICS}=require('./notificationPreferences');
 const Inbox=require('../models/ListenerInbox');
 const crypto=require('crypto');
@@ -87,36 +87,18 @@ async function deliver({topic,title,body,path='/',recipientFilter={},category=''
   }
   const fullLink=site()+validPath;
   const profileLink=site()+'/profile';
-  const categories = {
-    newStations: 'DISCOVER · NEW STATIONS',
-    favoriteSchedule: 'YOUR RADIO · SCHEDULE',
-    shows: 'FOLLOWING · ON AIR',
-    news: 'IRADIOSGR · NEWS',
-    promotions: 'IRADIOSGR · EXCLUSIVES'
-  };
-  const htmlContent =
-    '<h3>' + escapeHtml(safeTitle) + '</h3>' +
-    '<p>' + escapeHtml(safeBody).replace(/\\n/g, '<br>') + '</p>' +
-    actionButton('Άνοιγμα στο iRadiosGR', fullLink) +
-    '<p style="color:#94A3B8;font-size:12px;line-height:20px;">' +
-    'Μπορείς να επιλέγεις τις ενημερώσεις που λαμβάνεις από ' +
-    '<a href="' + escapeHtml(profileLink) + '" style="color:#CCFF00;text-decoration:none;">το προφίλ σου</a>.</p>';
   for(let i=0;i<emailUsers.length;i+=10){
     await Promise.all(emailUsers.slice(i,i+10).map(async user=>{
       try{
         const token=topic==='promotions'?tokenFor(user):'';
         const unsubscribe=token?site()+'/api/notifications/unsubscribe?token='+encodeURIComponent(token):'';
-        const unsubscribeHtml=unsubscribe
-          ? '<p style="font-size:11px;color:#b6c3be">Προωθητικό μήνυμα · <a style="color:#ccff00" href="'+escapeHtml(unsubscribe)+'">Διακοπή προωθητικών email</a></p>'
-          : '';
         const result=await sendEmail({
           to:user.email,subject:safeTitle,
-          text:safeBody+'\\n'+fullLink+'\\nΡυθμίσεις: '+profileLink+
-            (unsubscribe?'\\nΔιακοπή προωθητικών: '+unsubscribe:''),
-          html:renderBrandedEmail({
-            preheader:safeBody.slice(0,115),
-            category:categories[topic] || 'IRADIOSGR · UPDATE',
-            content:htmlContent + unsubscribeHtml
+          text:safeBody+'\n'+fullLink+'\nΡυθμίσεις: '+profileLink+
+            (unsubscribe?'\nΔιακοπή προωθητικών: '+unsubscribe:''),
+          html:notificationEmailTemplate({
+            topic, title:safeTitle, body:safeBody, link:fullLink, profileLink,
+            unsubscribeLink:unsubscribe
           })
         });
         if(result?.success)sentEmail++;
