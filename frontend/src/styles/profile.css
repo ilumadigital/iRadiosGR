@@ -126,3 +126,40 @@
   .ir-profile-quick,.ir-profile-tab,.ir-profile-switch,.ir-profile-switch__thumb,
   .ir-profile-primary,.ir-profile-input {transition:none;}
 }
+
+/* User-owned notification inbox and program follow list. */
+.ir-profile-tab-count{display:inline-flex;align-items:center;justify-content:center;
+  height:20px;min-width:20px;padding:0 5px;border-radius:999px;background:#d5ff36;
+  color:#172000;font-size:10px;font-weight:900}
+.ir-profile-tab--active .ir-profile-tab-count{background:#152105;color:#d5ff36}
+.ir-profile-icon-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  min-height:36px;padding:7px 11px;border:1px solid rgba(255,255,255,.14);
+  border-radius:12px;background:rgba(255,255,255,.045);
+  color:#dde6e9;font-size:11px;font-weight:800;transition:border-color .18s,background .18s}
+.ir-profile-icon-action:hover:not(:disabled){border-color:rgba(204,255,0,.36);background:rgba(204,255,0,.07)}
+.ir-profile-icon-action:disabled{cursor:not-allowed;opacity:.40}
+.ir-profile-icon-action--danger{border-color:rgba(248,113,113,.25);color:#fca5a5}
+.ir-profile-icon-action--danger:hover:not(:disabled){border-color:rgba(248,113,113,.65)!important;background:rgba(248,113,113,.11)!important}
+.ir-profile-inbox-item{display:flex;align-items:flex-start;gap:12px;padding:15px;
+  border-radius:16px;border:1px solid rgba(255,255,255,.085);background:rgba(255,255,255,.025);
+  transition:background .2s,border-color .2s}
+.ir-profile-inbox-item--unread{border-color:rgba(204,255,0,.24);
+  background:linear-gradient(100deg,rgba(204,255,0,.07),rgba(255,255,255,.035))}
+.ir-profile-inbox-item:hover{border-color:rgba(204,255,0,.3)}
+.ir-profile-inbox-icon{display:flex;align-items:center;justify-content:center;width:41px;height:41px;
+  flex:0 0 41px;border-radius:13px;background:rgba(204,255,0,.085);color:#ccff00}
+.ir-profile-inbox-remove{display:inline-flex;align-items:center;justify-content:center;
+  min-width:30px;min-height:30px;border-radius:9px;border:1px solid transparent;
+  color:#8d969c;transition:background .2s,color .2s}
+.ir-profile-inbox-remove:hover{background:rgba(244,63,94,.10);color:#fca5a5}
+.ir-profile-follow-card{display:flex;gap:12px;align-items:flex-start;min-width:0;padding:15px;
+  border:1px solid rgba(255,255,255,.09);border-radius:17px;background:rgba(255,255,255,.03)}
+.ir-profile-follow-card:hover{border-color:rgba(204,255,0,.22)}
+@media(max-width:480px){
+  .ir-profile-tab{padding:10px 12px;flex:0 0 auto}
+  .ir-profile-inbox-item{gap:8px;padding:11px}
+  .ir-profile-inbox-icon{width:34px;height:34px;flex-basis:34px}
+}
+@media(prefers-reduced-motion:reduce){
+ .ir-profile-icon-action,.ir-profile-inbox-item,.ir-profile-inbox-remove{transition:none}
+}
