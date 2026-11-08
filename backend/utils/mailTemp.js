@@ -1,120 +1,23 @@
 const FRONTEND_URL = process.env.FRONTEND_URL || '__IRADIOS_SITE_ORIGIN__';
 
-const baseTemplate = (content) => `
-<!DOCTYPE html>
-<html lang="el">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400..700&family=Manrope:wght@200..800&display=swap');
-    
-    body {
-      font-family: 'Google Sans', 'Manrope', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #000000;
-      color: #ffffff;
-      margin: 0;
-      padding: 20px;
-    }
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background-color: #111111;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 24px;
-      overflow: hidden;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-    }
-    .header {
-      background-color: #0a0a0a;
-      padding: 30px;
-      text-align: center;
-      border-bottom: 2px solid #ccff00;
-    }
-    .content {
-      padding: 40px 30px;
-      font-size: 16px;
-      line-height: 1.6;
-      color: #cccccc;
-    }
-    .content h3 {
-      color: #ffffff;
-      font-size: 22px;
-      margin-top: 0;
-    }
-    .otp-box {
-      background-color: #000000;
-      border: 1px dashed #ccff00;
-      color: #ccff00;
-      font-size: 32px;
-      font-weight: 900;
-      text-align: center;
-      padding: 20px;
-      border-radius: 16px;
-      margin: 30px 0;
-      letter-spacing: 8px;
-    }
-    .btn {
-      display: inline-block;
-      padding: 16px 32px;
-      background-color: #ccff00;
-      color: #000000 !important;
-      text-decoration: none;
-      border-radius: 50px;
-      font-weight: 900;
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-top: 10px;
-    }
-    .footer-wrapper {
-      background-color: #0a0a0a;
-      padding: 30px;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .footer-text {
-      font-size: 11px;
-      color: #666666;
-      text-align: center;
-      line-height: 1.5;
-    }
-    .neon-text {
-      color: #ccff00;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <img src="${FRONTEND_URL}/iradios-app-logo.png" alt="iRadios Network" style="max-height: 40px; object-fit: contain; display: block; margin: 0 auto;">
-    </div>
-    
-    <div class="content">
-      ${content}
-    </div>
-    
-    <div class="footer-wrapper">
-      <p style="margin:0; text-align: center; font-weight:800; font-size:14px; color: #fff;">iRadios - The Global Radio Network</p>
-      <div class="footer-text">
-        <a style="margin:5px 0 20px 0; text-align: center!important; font-size:12px; color:#888;" href="https://iluma.gr#utm_medium=ilumadigitalagencyiradios&utm_source=iradiosmails&utm_campaign=mailer_ir&utm_content=mailer_ir" target="_blank">Powered by ILUMA Digital Agency</a><br><br>
-        Αν δεν κάνατε εσείς αυτή την ενέργεια, παρακαλούμε αγνοήστε αυτό το email.<br><br>
-        <strong>Confidentiality:</strong> This communication is property of iRadios & ILUMA Digital O.E. Any unauthorized use is strictly prohibited.
-      </div>
-    </div>
-  </div>
-</body>
-</html>
-`;
+const { renderBrandedEmail, escapeHtml } = require('./emailDesign');
+
+// All existing transactional templates retain their message-specific content,
+// but share one premium, responsive, email-client-safe visual shell.
+const baseTemplate = (content, category = 'IRADIOS NETWORK') =>
+  renderBrandedEmail({ content, category });
+
 
 const otpVerificationEmail = (userName, otp) => {
   const content = `
-    <h3>Καλωσήρθες, ${userName}!</h3>
+    <h3>Καλωσήρθες, ${escapeHtml(userName)}!</h3>
     <p>Σε ευχαριστούμε για την εγγραφή σου στο <strong>iRadios Network</strong>. Για να ενεργοποιήσεις τον λογαριασμό σου και να αποκτήσεις πλήρη πρόσβαση, χρησιμοποίησε τον παρακάτω κωδικό επαλήθευσης (OTP):</p>
     
-    <div class="otp-box">${otp}</div>
+    <div class="otp-box">${escapeHtml(otp)}</div>
     
     <p style="font-size: 13px; color: #888;">Ο κωδικός λήγει σε 15 λεπτά. Μην τον μοιραστείτε με κανέναν.</p>
   `;
-  return { subject: `🔑 Ενεργοποίηση Λογαριασμού: Ο Κωδικός σας (OTP)`, html: baseTemplate(content) };
+  return { subject: `🔑 Ενεργοποίηση Λογαριασμού: Ο Κωδικός σας (OTP)`, html: baseTemplate(content, 'SECURE YOUR ACCOUNT') };
 };
 
 const welcomeEmail = (userName, isBroadcaster = false) => {
@@ -125,33 +28,33 @@ const welcomeEmail = (userName, isBroadcaster = false) => {
 
   const content = `
     <h3>Ο λογαριασμός σου είναι έτοιμος!</h3>
-    <p>Γεια σου ${userName}, η επαλήθευση του email σου ολοκληρώθηκε με επιτυχία.</p>
-    <p>${extraText}</p>
+    <p>Γεια σου ${escapeHtml(userName)}, η επαλήθευση του email σου ολοκληρώθηκε με επιτυχία.</p>
+    <p>${escapeHtml(extraText)}</p>
     <div style="text-align: center; margin-top: 30px;">
-      <a href="${loginUrl}" class="btn">ΕΙΣΟΔΟΣ ΣΤΟ IRADIOS</a>
+      <a href="${escapeHtml(loginUrl)}" class="btn">ΕΙΣΟΔΟΣ ΣΤΟ IRADIOS</a>
     </div>
   `;
-  return { subject: `Καλωσήρθες στο iRadios Network! 📻`, html: baseTemplate(content) };
+  return { subject: `Καλωσήρθες στο iRadios Network! 📻`, html: baseTemplate(content, 'WELCOME TO IRADIOSGR') };
 };
 
 const customAdminEmail = (htmlContent) => {
-  return baseTemplate(htmlContent);
+  return baseTemplate(htmlContent, 'A MESSAGE FROM IRADIOSGR');
 };
 
 // 🟢 ΝΕΟ: Template για Password Reset
 const passwordResetEmail = (userName, resetLink) => {
   const content = `
     <h3>Επαναφορά Κωδικού Πρόσβασης</h3>
-    <p>Γεια σου ${userName}, λάβαμε ένα αίτημα για αλλαγή του κωδικού πρόσβασης στο λογαριασμό σου.</p>
+    <p>Γεια σου ${escapeHtml(userName)}, λάβαμε ένα αίτημα για αλλαγή του κωδικού πρόσβασης στο λογαριασμό σου.</p>
     <p>Πάτησε το παρακάτω κουμπί για να δημιουργήσεις έναν νέο κωδικό. Το link είναι <strong>ενεργό για 1 ώρα</strong>.</p>
     
     <div style="text-align: center; margin-top: 30px;">
-      <a href="${resetLink}" class="btn">ΔΗΜΙΟΥΡΓΙΑ ΝΕΟΥ ΚΩΔΙΚΟΥ</a>
+      <a href="${escapeHtml(resetLink)}" class="btn">ΔΗΜΙΟΥΡΓΙΑ ΝΕΟΥ ΚΩΔΙΚΟΥ</a>
     </div>
 
     <p style="font-size: 13px; color: #888; margin-top: 30px;">Αν δεν έκανες εσύ το αίτημα, μπορείς να αγνοήσεις αυτό το email με ασφάλεια. Ο κωδικός σου παραμένει ο ίδιος.</p>
   `;
-  return { subject: `Ανάκτηση Κωδικού Πρόσβασης - iRadios`, html: baseTemplate(content) };
+  return { subject: `Ανάκτηση Κωδικού Πρόσβασης - iRadios`, html: baseTemplate(content, 'ACCOUNT SECURITY') };
 };
 
 // 🟢 ΝΕΟ: Template για Επιβεβαίωση Πληρωμής Διαφήμισης (Agency)
@@ -166,18 +69,18 @@ const adPaymentSuccessEmail = (userName, planName, amount) => {
     </div>
     
     <h3>Η καμπάνια σου είναι έτοιμη!</h3>
-    <p>Γεια σου <strong>${userName}</strong>,</p>
+    <p>Γεια σου <strong>${escapeHtml(userName)}</strong>,</p>
     <p>Σε ευχαριστούμε για την εμπιστοσύνη σου στο <strong>iRadios Ad Network</strong>. Η πληρωμή σου ολοκληρώθηκε επιτυχώς και η καμπάνια σου έχει σταλεί για τελικό έλεγχο από την ομάδα μας.</p>
     
     <div style="background-color: #000; padding: 25px; border-radius: 20px; border: 1px solid #222; margin: 25px 0;">
       <table width="100%" style="color: #ccc; font-size: 14px;">
         <tr>
           <td style="padding: 5px 0;">Πακέτο:</td>
-          <td style="text-align: right; color: #fff; font-weight: 800;">${planName}</td>
+          <td style="text-align: right; color: #fff; font-weight: 800;">${escapeHtml(planName)}</td>
         </tr>
         <tr>
           <td style="padding: 5px 0;">Ποσό:</td>
-          <td style="text-align: right; color: #ccff00; font-weight: 800;">${amount}€</td>
+          <td style="text-align: right; color: #ccff00; font-weight: 800;">${escapeHtml(amount)}€</td>
         </tr>
         <tr>
           <td style="padding: 5px 0;">Κατάσταση:</td>
@@ -189,7 +92,7 @@ const adPaymentSuccessEmail = (userName, planName, amount) => {
     <p>Μπορείς να παρακολουθείς την πορεία της διαφήμισής σου και τα στατιστικά (Views, Clicks, CTR) από το Dashboard σου.</p>
 
     <div style="text-align: center; margin-top: 30px;">
-      <a href="${dashboardUrl}" class="btn">ADVERTISER DASHBOARD</a>
+      <a href="${escapeHtml(dashboardUrl)}" class="btn">ADVERTISER DASHBOARD</a>
     </div>
 
     <p style="font-size: 12px; color: #666; margin-top: 30px;">
@@ -200,7 +103,7 @@ const adPaymentSuccessEmail = (userName, planName, amount) => {
   
   return { 
     subject: `✅ Επιβεβαίωση Πληρωμής & Ενεργοποίηση: ${planName} - iRadios`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'AD NETWORK · PAYMENT') 
   };
 };
 
@@ -222,19 +125,19 @@ const adminTransactionAlertEmail = (companyName, amount, planName, userEmail, ro
       <table width="100%" style="color: #ccc; font-size: 14px;">
         <tr>
           <td style="padding: 8px 0; border-bottom: 1px solid #222;">Πελάτης / Εταιρεία:</td>
-          <td style="text-align: right; color: #fff; font-weight: 800; border-bottom: 1px solid #222;">${companyName}</td>
+          <td style="text-align: right; color: #fff; font-weight: 800; border-bottom: 1px solid #222;">${escapeHtml(companyName)}</td>
         </tr>
         <tr>
           <td style="padding: 8px 0; border-bottom: 1px solid #222;">Email Πελάτη:</td>
-          <td style="text-align: right; color: #fff; font-weight: 800; border-bottom: 1px solid #222;">${userEmail}</td>
+          <td style="text-align: right; color: #fff; font-weight: 800; border-bottom: 1px solid #222;">${escapeHtml(userEmail)}</td>
         </tr>
         <tr>
           <td style="padding: 8px 0; border-bottom: 1px solid #222;">Υπηρεσία:</td>
-          <td style="text-align: right; color: #ccff00; font-weight: 800; border-bottom: 1px solid #222;">${planName}</td>
+          <td style="text-align: right; color: #ccff00; font-weight: 800; border-bottom: 1px solid #222;">${escapeHtml(planName)}</td>
         </tr>
         <tr>
           <td style="padding: 8px 0;">Ποσό:</td>
-          <td style="text-align: right; color: #ccff00; font-size: 18px; font-weight: 900;">${amount}€</td>
+          <td style="text-align: right; color: #ccff00; font-size: 18px; font-weight: 900;">${escapeHtml(amount)}€</td>
         </tr>
       </table>
     </div>
@@ -248,7 +151,7 @@ const adminTransactionAlertEmail = (companyName, amount, planName, userEmail, ro
   
   return { 
     subject: `💰 Νέα Είσπραξη ${amount}€ από ${companyName} (${role})`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'FINANCE · TRANSACTION') 
   };
 };
 
@@ -267,23 +170,23 @@ const stationApprovedEmail = (userName, stationName, stationSlug) => {
     
     <h3 style="text-align: center; font-style: italic;">Συγχαρητήρια, ο σταθμός σου είναι πλέον LIVE! 🎉</h3>
     
-    <p>Γεια σου <strong>${userName}</strong>,</p>
+    <p>Γεια σου <strong>${escapeHtml(userName)}</strong>,</p>
     
-    <p>Η ομάδα μας μόλις ολοκλήρωσε τον έλεγχο και ενέκρινε την καταχώρηση του σταθμού <strong style="color: #fff;">${stationName}</strong>!</p>
+    <p>Η ομάδα μας μόλις ολοκλήρωσε τον έλεγχο και ενέκρινε την καταχώρηση του σταθμού <strong style="color: #fff;">${escapeHtml(stationName)}</strong>!</p>
     
     <p>Ο σταθμός σου βρίσκεται πλέον στον επίσημο κατάλογο του <strong>iRadios</strong>, διαθέσιμος σε όλους τους ακροατές μας.</p>
     
     <div style="background-color: #000; padding: 25px; border-radius: 20px; border: 1px dashed rgba(204,255,0,0.4); margin: 30px 0; text-align: center; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
       <p style="margin-top: 0; font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Το επισημο link του σταθμου σου ειναι:</p>
-      <a href="${stationUrl}" style="color: #ccff00; font-size: 16px; font-weight: 800; text-decoration: none; word-break: break-all;">
-        ${stationUrl}
+      <a href="${escapeHtml(stationUrl)}" style="color: #ccff00; font-size: 16px; font-weight: 800; text-decoration: none; word-break: break-all;">
+        ${escapeHtml(stationUrl)}
       </a>
     </div>
 
     <p>Μπες στο <strong>Broadcaster Dashboard</strong> για να δεις τα πρώτα σου στατιστικά, να ενεργοποιήσεις το <strong>DSP Engine</strong> (αν δεν το έχεις κάνει ήδη) και να απαντήσεις στα μηνύματα των ακροατών σου στο <strong>Live Chat</strong>.</p>
 
     <div style="text-align: center; margin-top: 35px; margin-bottom: 40px;">
-      <a href="${dashboardUrl}" class="btn">BROADCASTER DASHBOARD</a>
+      <a href="${escapeHtml(dashboardUrl)}" class="btn">BROADCASTER DASHBOARD</a>
     </div>
 
     <div style="background-color: #1a1a1a; padding: 20px; border-radius: 12px; border-left: 4px solid #ccff00; margin-top: 20px;">
@@ -294,7 +197,7 @@ const stationApprovedEmail = (userName, stationName, stationSlug) => {
       <ul style="color: #ccc; font-size: 14px; padding-left: 20px; margin-bottom: 0;">
         <li style="margin-bottom: 8px;"><strong>Κοινοποιήσετε το link</strong> στα Social Media σας (Facebook, Instagram Stories, X/Twitter).</li>
         <li style="margin-bottom: 8px;"><strong>Χρησιμοποιήστε τον Widget Player στο Website σας</strong>  κάνοντας Copy-Paste τον κώδικά του, μέσα το Broadcaster Studio.</li>
-        <li style="margin-bottom: 8px;">Προσθέσετε το link και το υλικό στο <strong>επίσημο Website σας</strong>. Κατεβάστε τα επίσημα badges στο: <a href="${pressKitUrl}" style="color: #ccff00; text-decoration: none; font-weight: bold;">Press Kit & Badge</a>.</li>
+        <li style="margin-bottom: 8px;">Προσθέσετε το link και το υλικό στο <strong>επίσημο Website σας</strong>. Κατεβάστε τα επίσημα badges στο: <a href="${escapeHtml(pressKitUrl)}" style="color: #ccff00; text-decoration: none; font-weight: bold;">Press Kit & Badge</a>.</li>
         <li style="margin-bottom: 0;"><strong>Ανακοινώσετε on-air</strong> ότι πλέον εκπέμπετε και μέσα από το δίκτυο του iRadios.</li>
       </ul>
     </div>
@@ -306,7 +209,7 @@ const stationApprovedEmail = (userName, stationName, stationSlug) => {
   
   return { 
     subject: `🎉 Ο σταθμός ${stationName} είναι LIVE! - iRadios App`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'BROADCASTER · STATION LIVE') 
   };
 };
 
@@ -323,9 +226,9 @@ const stationRejectedEmail = (userName, stationName) => {
     
     <h3 style="text-align: center; font-style: italic;">Η καταχώρηση χρειάζεται διόρθωση ⚠️</h3>
     
-    <p>Γεια σου <strong>${userName}</strong>,</p>
+    <p>Γεια σου <strong>${escapeHtml(userName)}</strong>,</p>
     
-    <p>Η ομάδα μας έλεγξε την καταχώρηση για τον σταθμό <strong style="color: #fff;">${stationName}</strong>, αλλά δυστυχώς δεν μπορέσαμε να την εγκρίνουμε σε αυτή τη φάση.</p>
+    <p>Η ομάδα μας έλεγξε την καταχώρηση για τον σταθμό <strong style="color: #fff;">${escapeHtml(stationName)}</strong>, αλλά δυστυχώς δεν μπορέσαμε να την εγκρίνουμε σε αυτή τη φάση.</p>
     
     <div style="background-color: #000; padding: 25px; border-radius: 20px; border: 1px dashed #ff4d4d; margin: 30px 0; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
       <p style="margin-top: 0; color: #ff4d4d; font-weight: bold; text-transform: uppercase; font-size: 13px; letter-spacing: 1px;">Τι πηγε λαθος;</p>
@@ -342,7 +245,7 @@ const stationRejectedEmail = (userName, stationName) => {
     <p>Μπορείς να επεξεργαστείς τα στοιχεία του σταθμού σου μέσα από το Dashboard και να κάνεις <strong>ξανά υποβολή</strong> για έγκριση.</p>
 
     <div style="text-align: center; margin-top: 35px;">
-      <a href="${dashboardUrl}" class="btn" style="background-color: #ff4d4d; color: #fff !important;">ΔΙΟΡΘΩΣΗ ΣΤΟΙΧΕΙΩΝ</a>
+      <a href="${escapeHtml(dashboardUrl)}" class="btn" style="background-color: #ff4d4d; color: #fff !important;">ΔΙΟΡΘΩΣΗ ΣΤΟΙΧΕΙΩΝ</a>
     </div>
 
     <p style="font-size: 12px; color: #666; margin-top: 35px; line-height: 1.5;">
@@ -352,7 +255,7 @@ const stationRejectedEmail = (userName, stationName) => {
   
   return { 
     subject: `⚠️ Απαιτείται διόρθωση για τον σταθμό ${stationName} - iRadios App`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'BROADCASTER · ACTION REQUIRED') 
   };
 }; 
 
@@ -377,7 +280,7 @@ const broadcasterPremiumSuccessEmail = (userName, planName, amount) => {
     
     <h3 style="text-align: center; font-style: italic;">Οι νέες σας υπηρεσίες ενεργοποιήθηκαν! 🚀</h3>
     
-    <p>Γεια σου <strong>${userName}</strong>,</p>
+    <p>Γεια σου <strong>${escapeHtml(userName)}</strong>,</p>
     
     <p>Σε ευχαριστούμε για την προτίμηση και την αγορά σου. Η συναλλαγή ολοκληρώθηκε επιτυχώς και το πακέτο σου είναι ήδη ενεργό στον λογαριασμό σου.</p>
     
@@ -387,11 +290,11 @@ const broadcasterPremiumSuccessEmail = (userName, planName, amount) => {
       <table width="100%" style="color: #ccc; font-size: 14px;">
         <tr>
           <td style="padding: 5px 0;">Υπηρεσία:</td>
-          <td style="text-align: right; color: #fff; font-weight: 800;">${displayPlanName}</td>
+          <td style="text-align: right; color: #fff; font-weight: 800;">${escapeHtml(displayPlanName)}</td>
         </tr>
         <tr>
           <td style="padding: 5px 0;">Ποσό:</td>
-          <td style="text-align: right; color: #ccff00; font-weight: 800;">${amount}€</td>
+          <td style="text-align: right; color: #ccff00; font-weight: 800;">${escapeHtml(amount)}€</td>
         </tr>
         <tr>
           <td style="padding: 5px 0;">Κατάσταση:</td>
@@ -403,7 +306,7 @@ const broadcasterPremiumSuccessEmail = (userName, planName, amount) => {
     <p>Οι νέες λειτουργίες (εφόσον αφορούν το PRO Pack ή κάποιο Addon) είναι άμεσα διαθέσιμες μέσα από το Broadcaster Dashboard. Αν αγοράσατε κάποιο Station Boost, ο σταθμός σας βρίσκεται ήδη σε προβεβλημένη θέση.</p>
 
     <div style="text-align: center; margin-top: 35px;">
-      <a href="${dashboardUrl}" class="btn">ΜΕΤΑΒΑΣΗ ΣΤΟ DASHBOARD</a>
+      <a href="${escapeHtml(dashboardUrl)}" class="btn">ΜΕΤΑΒΑΣΗ ΣΤΟ DASHBOARD</a>
     </div>
 
     <p style="font-size: 12px; color: #666; margin-top: 35px; line-height: 1.5;">
@@ -413,7 +316,7 @@ const broadcasterPremiumSuccessEmail = (userName, planName, amount) => {
   
   return { 
     subject: `✅ Ενεργοποίηση Υπηρεσίας: ${displayPlanName} - iRadios`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'BROADCASTER · PREMIUM') 
   };
 };
 
@@ -430,7 +333,7 @@ const listenerPremiumSuccessEmail = (userName, amount) => {
     
     <h3 style="text-align: center; font-style: italic;">Καλωσήρθες στο iRadios Premium! 🎧</h3>
     
-    <p>Γεια σου <strong>${userName}</strong>,</p>
+    <p>Γεια σου <strong>${escapeHtml(userName)}</strong>,</p>
     
     <p>Η συνδρομή σου ενεργοποιήθηκε με επιτυχία! Πλέον ανήκεις στην ελίτ των ακροατών μας. Σε ευχαριστούμε που στηρίζεις το <strong>iRadios Network</strong>.</p>
     
@@ -444,7 +347,7 @@ const listenerPremiumSuccessEmail = (userName, amount) => {
         </tr>
         <tr>
           <td style="padding: 5px 0;">Ποσό:</td>
-          <td style="text-align: right; color: #ccff00; font-weight: 800;">${amount}€ /μήνα</td>
+          <td style="text-align: right; color: #ccff00; font-weight: 800;">${escapeHtml(amount)}€ /μήνα</td>
         </tr>
         <tr>
           <td style="padding: 5px 0;">Κατάσταση:</td>
@@ -492,7 +395,7 @@ const listenerPremiumSuccessEmail = (userName, amount) => {
     </div>
 
     <div style="text-align: center; margin-top: 40px;">
-      <a href="${appUrl}" class="btn">ΑΚΟΥΣΤΕ ΤΩΡΑ</a>
+      <a href="${escapeHtml(appUrl)}" class="btn">ΑΚΟΥΣΤΕ ΤΩΡΑ</a>
     </div>
 
     <p style="text-align: center; color: #555; font-size: 11px; margin-top: 30px;">
@@ -502,7 +405,7 @@ const listenerPremiumSuccessEmail = (userName, amount) => {
   
   return { 
     subject: `🎧 Καλωσήρθες στο iRadios Premium!`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'LISTENER · PREMIUM') 
   };
 };
 

@@ -9,6 +9,7 @@ const { protect } = require('../utils/authMiddleware');
 const { authorizeRoles } = require('../utils/roleMiddleware');
 const { hasAcceptedCurrentBroadcasterTerms, withBroadcasterTermsStatus } = require('../utils/broadcasterTerms');
 const { sendEmail } = require('../utils/myMailer');
+const { broadcasterInvitationEmail: invitationEmail } = require('../utils/invitationEmailTemplates');
 
 const router = express.Router();
 const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
@@ -33,22 +34,6 @@ async function loadUnownedStation(id) {
   return Station.findOne({ _id: id, broadcasterId: null }).select('_id name logo broadcasterId');
 }
 
-function invitationEmail(station, link) {
-  const name = escapeHtml(station.name);
-  const url = escapeHtml(link);
-  return {
-    subject: 'Πρόσκληση διαχείρισης ' + station.name + ' | iRadiosGR',
-    text: 'Έχεις προσκληθεί να διαχειριστείς τον σταθμό ' + station.name +
-      ' στο iRadiosGR. Ολοκλήρωσε την εγγραφή ως broadcaster, επιβεβαίωσε το email και αποδέξου τους όρους: ' +
-      link + '\nΟ σύνδεσμος λήγει σε 7 ημέρες. Αν δεν περίμενες πρόσκληση, αγνόησε το μήνυμα.',
-    html: '<div style="background:#101114;color:#f6f6f6;padding:36px;font-family:Arial,sans-serif;border-radius:20px">' +
-      '<h1 style="color:#ccff00">iRadiosGR</h1><h2>Πρόσκληση Broadcaster</h2>' +
-      '<p>Έχεις προσκληθεί να αναλάβεις τη διαχείριση του σταθμού <strong>' + name + '</strong>.</p>' +
-      '<p>Για να ενεργοποιηθεί η πρόσβαση, δημιούργησε ή σύνδεσε λογαριασμό Broadcaster, επαλήθευσε το email σου και αποδέξου τους όρους.</p>' +
-      '<p><a style="display:inline-block;background:#ccff00;color:#111;padding:15px 23px;border-radius:12px;text-decoration:none;font-weight:bold" href="' + url + '">Αποδοχή πρόσκλησης</a></p>' +
-      '<p style="color:#aaa;font-size:12px">Ο σύνδεσμος ισχύει για 7 ημέρες και μία μόνο ανάθεση. Αν δεν αναγνωρίζεις την πρόσκληση, αγνόησε το μήνυμα.</p></div>'
-  };
-}
 
 async function sendStationInvite(req, res) {
   const email = normalizeEmail(req.body?.email);

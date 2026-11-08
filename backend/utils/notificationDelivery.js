@@ -3,6 +3,7 @@ const User=require('../models/User');
 const Subscription=require('../models/Subscription');
 const webpush=require('web-push');
 const {sendEmail}=require('./myMailer');
+const {notificationEmailTemplate}=require('./notificationEmailTemplate');
 const {canNotify,notificationPreferencesOf,TOPICS}=require('./notificationPreferences');
 const Inbox=require('../models/ListenerInbox');
 const crypto=require('crypto');
@@ -86,24 +87,19 @@ async function deliver({topic,title,body,path='/',recipientFilter={},category=''
   }
   const fullLink=site()+validPath;
   const profileLink=site()+'/profile';
-  const html='<div style="background:#0c1215;padding:28px;color:#f8faf8;font-family:Arial,sans-serif;border-radius:18px">' +
-    '<p style="font-size:12px;letter-spacing:2px;color:#ccff00">iRadiosGR</p>' +
-    '<h2>'+escapeHtml(safeTitle)+'</h2><p style="line-height:1.65">'+escapeHtml(safeBody)+'</p>' +
-    '<p><a style="color:#ccff00" href="'+escapeHtml(fullLink)+'">Άνοιξε στο iRadiosGR</a></p>' +
-    '<hr style="border:0;border-top:1px solid #394347"><p style="color:#aeb8bb;font-size:11px">Οι ειδοποιήσεις διαχειρίζονται από <a style="color:#ccff00" href="'+escapeHtml(profileLink)+'">το προφίλ σου</a>.</p></div>';
   for(let i=0;i<emailUsers.length;i+=10){
     await Promise.all(emailUsers.slice(i,i+10).map(async user=>{
       try{
         const token=topic==='promotions'?tokenFor(user):'';
         const unsubscribe=token?site()+'/api/notifications/unsubscribe?token='+encodeURIComponent(token):'';
-        const unsubscribeHtml=unsubscribe
-          ? '<p style="font-size:11px;color:#b6c3be">Προωθητικό μήνυμα · <a style="color:#ccff00" href="'+escapeHtml(unsubscribe)+'">Διακοπή προωθητικών email</a></p>'
-          : '';
         const result=await sendEmail({
           to:user.email,subject:safeTitle,
-          text:safeBody+'\\n'+fullLink+'\\nΡυθμίσεις: '+profileLink+
-            (unsubscribe?'\\nΔιακοπή προωθητικών: '+unsubscribe:''),
-          html:html.replace('</div>',unsubscribeHtml+'</div>')
+          text:safeBody+'\n'+fullLink+'\nΡυθμίσεις: '+profileLink+
+            (unsubscribe?'\nΔιακοπή προωθητικών: '+unsubscribe:''),
+          html:notificationEmailTemplate({
+            topic, title:safeTitle, body:safeBody, link:fullLink, profileLink,
+            unsubscribeLink:unsubscribe
+          })
         });
         if(result?.success)sentEmail++;
       }catch(error){console.warn('[NOTIFY] Email failed:',error.message);}

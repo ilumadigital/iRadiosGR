@@ -33,6 +33,8 @@ jobs:
         run: node ops/check-phase1-broadcaster-consent.cjs
       - name: Verify admin broadcaster invitation and claim contracts
         run: node ops/check-broadcaster-invitations.cjs
+      - name: Validate universal branded transactional emails and admin previews
+        run: node ops/check-branded-email-design.cjs
       - name: Test authenticated staging metadata and SonoVault safety
         run: node ops/check-stage-metadata-sonovault.cjs
       - name: Validate Phase 2 design-system tokens and accessibility

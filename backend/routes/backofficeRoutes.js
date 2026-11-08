@@ -399,20 +399,13 @@ router.post('/backoffice/producers/invite',authorizeRoles('broadcaster'),async(r
       const token=jwt.sign({userId:producer._id,email:normalized},process.env.JWT_SECRET,{expiresIn:'7d'});
       const origin=(process.env.FRONTEND_URL||'__IRADIOS_SITE_ORIGIN__').replace(/\/+$/,'');
       const link=origin+'/accept-invite?token='+encodeURIComponent(token);
-      // Escaping prevents broadcaster-entered station/person names becoming HTML.
-      const escape=value=>String(value).replace(/[&<>"']/g,char=>({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      }[char]));
-      await sendEmail({
-        to:normalized,
-        subject:'Πρόσκληση Producer · '+station.name+' | iRadiosGR',
-        html:'<div style="font:16px Arial,sans-serif;background:#101214;color:#fff;padding:30px">'+
-          '<h2 style="color:#ccff00">iRadiosGR · Business Console</h2>'+
-          '<p>Γεια σου, '+escape(fname.trim())+'.</p>'+
-          '<p>Προσκλήθηκες στο πρόγραμμα του σταθμού <strong>'+escape(station.name)+'</strong>.</p>'+
-          '<p><a style="color:#ccff00" href="'+escape(link)+'">Αποδοχή πρόσκλησης / Ορισμός κωδικού</a></p>'+
-          '<p style="color:#ccc">Ο σύνδεσμος ισχύει 7 ημέρες και χρησιμοποιείται μία φορά.</p></div>'
+      const { producerInvitationEmail } = require('../utils/invitationEmailTemplates');
+      const delivery = await sendEmail({
+        to: normalized,
+        ...producerInvitationEmail({ firstName: fname.trim(), stationName: station.name, link })
       });
+      if (!delivery.success) throw new Error('Η πρόσκληση Producer δεν μπόρεσε να αποσταλεί.');
+
     }catch(error){
       await User.deleteOne({_id:producer._id,role:'producer',isVerified:false}).catch(()=>{});
       throw error;
