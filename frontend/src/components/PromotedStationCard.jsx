@@ -75,10 +75,17 @@ export default function PromotedStationCard({
           <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#ccff00]">
             <AudioLines size={13}/> Παίζει τώρα {song&&feature?.nowPlaying?.foundWithAI?'· iRadios AI':''}
           </p>
-          <p className="mt-2 line-clamp-2 text-sm font-bold leading-snug text-white sm:text-base">
-            {song?.title||show?.title||'Ζωντανό ραδιόφωνο'}
-          </p>
-          <p className="mt-1 truncate text-xs text-zinc-300">{song?.artist||(!show?'Συντονίσου στον σταθμό':show.host||station.name)}</p>
+          <div className="mt-2 flex min-w-0 items-center gap-3">
+            {producerPhoto&&<img src={producerPhoto} alt={show?.host||'Παραγωγός στον αέρα'}
+              className="size-[68px] shrink-0 rounded-xl border border-[#ccff00]/30 object-cover shadow-lg"
+              onError={e=>{e.currentTarget.style.display='none';}}/>}
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-2 text-sm font-bold leading-snug text-white sm:text-base">
+                {song?.title||show?.title||'Ζωντανό ραδιόφωνο'}
+              </p>
+              <p className="mt-1 truncate text-xs text-zinc-300">{song?.artist||(!show?'Συντονίσου στον σταθμό':show.host||station.name)}</p>
+            </div>
+          </div>
           {show&&(show.host||show.title)&&<p className="mt-2 flex items-center gap-1.5 truncate border-t border-white/10 pt-2 text-xs text-[#e5f2c9]">
             <UserRound size={13} className="shrink-0"/>{show.host||show.title} · Στον αέρα
           </p>}
