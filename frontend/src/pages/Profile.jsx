@@ -1,422 +1,439 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  User, Bell, Save, Shield, Mail, Phone, Calendar, AtSign, Crown, CreditCard, 
-  AlertCircle, XCircle, Zap, Megaphone, Loader2, Music, CheckCircle2, 
-  Settings as SettingsIcon, LogOut 
+import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {Link,useNavigate} from 'react-router-dom';
+import {
+  ArrowRight,Bell,BellRing,CalendarDays,Check,ChevronRight,Clock3,Compass,
+  CreditCard,Crown,Headphones,Heart,Loader2,LogOut,Mail,MapPin,Mic2,
+  Music2,Newspaper,Radio,Save,Settings2,ShieldCheck,Sparkles,UserRound,
+  Volume2,Wallet,XCircle,Zap
 } from 'lucide-react';
-import { useAlert } from '../context/AlertContext'; 
+import '../styles/profile.css';
 
-export default function Profile({ API_URL, onLogout }) {
-  const navigate = useNavigate();
-  const { showAlert } = useAlert() || { showAlert: alert }; 
-
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ text: '', type: '' });
-  const [activeTab, setActiveTab] = useState('details'); 
-  const [cancelLoading, setCancelLoading] = useState(false);
-  
-  const [subscriptionData, setSubscriptionData] = useState(null);
-  
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    fname: '',
-    lname: '',
-    phone: '',
-    birthdate: '',
-    pushNotifications: true,
-    isPremium: false,
-    stripeSubscriptionId: null 
-  });
-
-  const getAuthHeaders = () => ({
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${localStorage.getItem('iluma_token')}`
-  });
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const res = await fetch(`${API_URL}/auth/me`, { headers: getAuthHeaders() });
-        if (res.ok) {
-          const data = await res.json();
-          setFormData({
-            username: data.username || '',
-            email: data.email || '',
-            fname: data.fname || '',
-            lname: data.lname || '',
-            phone: data.phone || '',
-            birthdate: data.birthdate ? new Date(data.birthdate).toISOString().split('T')[0] : '',
-            pushNotifications: data.pushNotifications ?? true,
-            isPremium: data.isPremium || false,
-            stripeSubscriptionId: data.stripeSubscriptionId || null
-          });
-          
-          if (data.stripeSubscriptionId) {
-             setSubscriptionData({
-                status: data.subscriptionStatus || 'active', 
-                currentPeriodEnd: data.currentPeriodEnd || null
-             });
-          }
-        }
-      } catch (err) {
-        console.error("Σφάλμα φόρτωσης προφίλ:", err);
-      }
-    };
-    fetchUserData();
-  }, [API_URL]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage({ text: '', type: '' });
-    
-    try {
-      const res = await fetch(`${API_URL}/users/me`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(formData)
-      });
-      
-      const data = await res.json();
-
-      if (res.ok) {
-        setMessage({ text: 'Τα στοιχεία σου ενημερώθηκαν επιτυχώς!', type: 'success' });
-      } else {
-        setMessage({ text: data.error || 'Υπήρξε ένα πρόβλημα κατά την αποθήκευση.', type: 'error' });
-      }
-    } catch (err) {
-      setMessage({ text: 'Σφάλμα δικτύου.', type: 'error' });
-    }
-    setLoading(false);
-  };
-
-  const handleCancelSubscription = async () => {
-    if (!window.confirm("Είστε σίγουροι ότι θέλετε να ακυρώσετε την ανανέωση της συνδρομής σας; Θα διατηρήσετε τα προνόμια μέχρι τη λήξη της περιόδου.")) return;
-    
-    setCancelLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/payments/cancel-subscription`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      
-      if (res.ok) {
-        showAlert('Επιτυχία!', 'Η συνδρομή σας ακυρώθηκε. Δεν θα υπάρξει μελλοντική χρέωση.', 'success');
-        setSubscriptionData(prev => ({ ...prev, status: 'canceled' }));
-      } else {
-        const err = await res.json();
-        showAlert('Σφάλμα', err.error || 'Αποτυχία ακύρωσης.', 'error');
-      }
-    } catch (err) {
-      showAlert('Σφάλμα', 'Δεν ήταν δυνατή η επικοινωνία με τον server.', 'error');
-    }
-    setCancelLoading(false);
-  };
-
-  return (
-    <div className="p-6 lg:p-12 max-w-4xl mx-auto pb-40 animate-fade-in">
-      
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-[#ccff00]/10 flex items-center justify-center border border-[#ccff00]/20 shrink-0">
-            {formData.isPremium ? <Crown className="text-[#ccff00]" size={32} /> : <User className="text-[#ccff00]" size={32} />}
-          </div>
-          <div>
-            <h2 className="text-3xl md:text-4xl font-black text-white uppercase italic tracking-tighter">
-              {formData.username || 'Το Προφιλ μου'}
-            </h2>
-            <div className="flex items-center gap-2 mt-1">
-              {formData.isPremium ? (
-                 <span className="bg-[#ccff00]/20 text-[#ccff00] text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-[#ccff00]/30 flex items-center gap-1.5 w-fit">
-                    <Crown size={12} /> Premium Member
-                 </span>
-              ) : (
-                 <span className="bg-zinc-800 text-zinc-400 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border border-zinc-700 w-fit">
-                    Free Plan
-                 </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 🔴 ΚΟΥΜΠΙ LOGOUT */}
-        <button 
-          onClick={onLogout}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl border border-red-500/20 hover:border-red-500/40 transition-all font-black uppercase tracking-widest text-[10px] md:text-xs active:scale-95 shrink-0"
-        >
-          <LogOut size={16} />
-          Αποσυνδεση
-        </button>
-      </div>
-
-      {/* 🟢 TABS (Με το νέο κουμπί "Ρυθμίσεις") */}
-      <div className="flex items-center gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl w-fit border border-white/5 flex-wrap">
-        <button 
-          onClick={() => setActiveTab('details')} 
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'details' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
-        >
-          <Shield size={14}/> Στοιχεια Λογαριασμου
-        </button>
-        <button 
-          onClick={() => setActiveTab('subscription')} 
-          className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'subscription' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
-        >
-          <CreditCard size={14}/> Πλανο & Χρεωσεις
-        </button>
-        
-        {/* ΝΕΟ ΚΟΥΜΠΙ SETTINGS */}
-        <button 
-          onClick={() => navigate('/settings')} 
-          className="px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 text-zinc-500 hover:text-white hover:bg-white/5 ml-2"
-        >
-          <SettingsIcon size={14}/> Ρυθμισεις
-        </button>
-      </div>
-
-      <div className="bg-[#0f0f0f] border border-white/5 rounded-[32px] p-8 md:p-10 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 bottom-0 w-1 bg-[#ccff00]"></div>
-        
-        {message.text && (
-          <div className={`mb-8 p-4 rounded-xl border font-bold text-sm ${
-            message.type === 'success' 
-              ? 'bg-[#ccff00]/10 border-[#ccff00]/20 text-[#ccff00]' 
-              : 'bg-red-500/10 border-red-500/20 text-red-500'
-          }`}>
-            {message.text}
-          </div>
-        )}
-
-        {/* TAB 1: ACCOUNT DETAILS */}
-        {activeTab === 'details' && (
-          <form onSubmit={handleSubmit} className="space-y-10 animate-in slide-in-from-right-4">
-            
-            {/* BASIC DETAILS */}
-            <div className="space-y-6">
-              <h4 className="text-white font-black text-[12px] uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-white/5">
-                <Shield size={16} className="text-[#ccff00]" /> Στοιχεια Συνδεσης
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest ml-2 mb-2 block flex items-center gap-1">
-                    <AtSign size={10} /> Username
-                  </label>
-                  <input type="text" required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-colors" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest ml-2 mb-2 block flex items-center gap-1">
-                    <Mail size={10} /> Email
-                  </label>
-                  <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-colors" />
-                </div>
-              </div>
-            </div>
-
-            {/* PERSONAL DETAILS */}
-            <div className="space-y-6">
-              <h4 className="text-white font-black text-[12px] uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-white/5">
-                <User size={16} className="text-[#ccff00]" /> Προσωπικα Στοιχεια
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest ml-2 mb-2 block">Ονομα</label>
-                  <input type="text" required value={formData.fname} onChange={(e) => setFormData({...formData, fname: e.target.value})} className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-colors" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest ml-2 mb-2 block">Επωνυμο</label>
-                  <input type="text" value={formData.lname} onChange={(e) => setFormData({...formData, lname: e.target.value})} className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-colors" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest ml-2 mb-2 block flex items-center gap-1">
-                    <Phone size={10} /> Τηλεφωνο (Προαιρετικο)
-                  </label>
-                  <input type="tel" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-colors" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest ml-2 mb-2 block flex items-center gap-1">
-                    <Calendar size={10} /> Ημερομηνια Γεννησης
-                  </label>
-                  <input type="date" value={formData.birthdate} onChange={(e) => setFormData({...formData, birthdate: e.target.value})} className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-colors [color-scheme:dark]" />
-                </div>
-              </div>
-            </div>
-
-            {/* NOTIFICATIONS */}
-            <div className="space-y-6">
-              <h4 className="text-white font-black text-[12px] uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-white/5">
-                <Bell size={16} className="text-[#ccff00]" /> Ειδοποιησεις
-              </h4>
-              <div className="bg-black border border-white/5 rounded-2xl p-6 flex items-center justify-between group hover:border-white/10 transition-colors">
-                <div>
-                  <p className="text-white font-bold text-sm">Push Notifications</p>
-                  <p className="text-zinc-500 text-xs mt-1">Λάβε ειδοποιήσεις για νέα σποτ, εκπομπές και updates της ILUMA.</p>
-                </div>
-                <button type="button" onClick={() => setFormData({...formData, pushNotifications: !formData.pushNotifications})} className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors duration-300 focus:outline-none ${formData.pushNotifications ? 'bg-[#ccff00]' : 'bg-zinc-700'}`}>
-                  <span className={`inline-block h-6 w-6 transform rounded-full bg-black transition duration-300 ${formData.pushNotifications ? 'translate-x-9' : 'translate-x-1'}`} />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-8 mt-8 border-t border-white/10">
-              <button type="submit" disabled={loading} className="flex items-center gap-2 px-8 py-4 bg-[#ccff00] text-black text-xs font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all shadow-[0_10px_30px_rgba(204,255,0,0.2)] disabled:opacity-50 disabled:hover:scale-100">
-                <Save size={18} /> {loading ? 'Αποθηκευση...' : 'Αποθηκευση Αλλαγων'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* TAB 2: SUBSCRIPTION & BILLING */}
-        {activeTab === 'subscription' && (
-          <div className="animate-in slide-in-from-right-4 space-y-8">
-            
-            <h4 className="text-white font-black text-[12px] uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-white/5">
-              <CreditCard size={16} className="text-[#ccff00]" /> Πλανο & Διαχειριση
-            </h4>
-
-            {formData.isPremium ? (
-              <div className="space-y-6">
-                <div className="bg-gradient-to-br from-zinc-900 to-black border border-white/10 rounded-3xl p-8 relative overflow-hidden">
-                  <div className="absolute -top-20 -right-20 w-64 h-64 bg-[#ccff00]/10 blur-[80px] rounded-full pointer-events-none"></div>
-                  
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-full bg-[#ccff00]/20 flex items-center justify-center border border-[#ccff00]/30 shadow-[0_0_20px_rgba(204,255,0,0.2)]">
-                          <Crown size={20} className="text-[#ccff00]"/>
-                        </div>
-                        <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter">Premium Plan</h3>
-                      </div>
-                      <p className="text-zinc-400 text-sm font-medium">Έχετε πλήρη πρόσβαση σε όλα τα προνόμια του iRadios.</p>
-                    </div>
-
-                    {formData.stripeSubscriptionId ? (
-                      <div className="text-right">
-                        {subscriptionData?.status === 'canceled' ? (
-                          <div className="bg-red-500/10 border border-red-500/30 px-4 py-2 rounded-xl inline-block">
-                            <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1 flex items-center gap-1.5 justify-end"><AlertCircle size={12}/> Ακυρωθηκε</p>
-                            <p className="text-xs text-white">Λήγει στις {subscriptionData.currentPeriodEnd ? new Date(subscriptionData.currentPeriodEnd).toLocaleDateString('el-GR') : 'το τέλος του μήνα'}.</p>
-                          </div>
-                        ) : (
-                          <div className="bg-[#ccff00]/5 border border-[#ccff00]/20 px-4 py-2 rounded-xl inline-block">
-                            <p className="text-[10px] font-black text-[#ccff00] uppercase tracking-widest mb-1 flex items-center gap-1.5 justify-end"><Zap size={12}/> Ενεργη</p>
-                            <p className="text-xs text-white">Ανανεώνεται: {subscriptionData?.currentPeriodEnd ? new Date(subscriptionData.currentPeriodEnd).toLocaleDateString('el-GR') : '-'}</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="bg-purple-500/10 border border-purple-500/30 px-4 py-2 rounded-xl text-right inline-block">
-                        <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-1 flex items-center gap-1.5 justify-end"><Shield size={12}/> Admin Granted</p>
-                        <p className="text-xs text-white">Lifetime Πρόσβαση</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {formData.stripeSubscriptionId && subscriptionData?.status !== 'canceled' && (
-                  <div className="flex justify-end pt-4">
-                    <button 
-                      onClick={handleCancelSubscription}
-                      disabled={cancelLoading}
-                      className="text-red-500 hover:text-white hover:bg-red-500 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-red-500/30 disabled:opacity-50 disabled:hover:bg-transparent"
-                    >
-                      {cancelLoading ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
-                      Ακυρωση Ανανεωσης
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-[#050505] border border-white/5 rounded-[32px] p-10 md:p-12 relative overflow-hidden group">
-                <div className="absolute top-1/2 left-0 -translate-y-1/2 w-48 h-48 bg-orange-500/10 blur-[80px] rounded-full pointer-events-none transition-opacity group-hover:opacity-100 opacity-50"></div>
-                
-                <div className="flex flex-col items-start gap-10 relative z-10">
-                    <div className="flex-1 space-y-8">
-                        <div className="space-y-2">
-                            <h3 className="text-4xl md:text-5xl font-black italic tracking-tighter text-white uppercase leading-tight max-w-2xl">
-                                UNLEASH <span className="text-[#ccff00]">PURE</span> SOUND.
-                            </h3>
-                            <p className="text-zinc-400 text-base font-medium leading-relaxed max-w-2xl">
-                                Σταμάτα απλά να ακούς. Ξεκίνα να νιώθεις. Μηδέν διαφημίσεις, ζωντανή αναγνώριση τραγουδιών και απόλυτος έλεγχος στον ήχο σου.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="w-full">
-                      <button 
-                        onClick={() => navigate('/premium')}
-                        className="w-full px-10 py-5 bg-gradient-to-r from-[#ccff00] to-[#51ff00] text-black rounded-full font-black tracking-[0.2em] text-lg hover:scale-[1.03] active:scale-95 transition-all shadow-[0_15px_40px_rgba(204,255,0,0.25)] flex items-center justify-center gap-3"
-                      >
-                        Γίνε premium με 3.99€/μήνα <Zap size={14} className="animate-pulse" />
-                      </button>
-                    </div>
-
-                    <div className="flex-1 space-y-8 w-full">
-                        <div className="w-full h-px bg-white/5 my-6"></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
-                            {[
-                                { title: "ΜΗΔΕΝ ΔΙΑΦΗΜΙΣΕΙΣ", desc: "Σκοτώνουμε κάθε ηχητικό σποτ του app. Μόνο εσύ και η μουσική.", icon: <ZeroIcon size={18}/>},
-                                { title: "AI MUSIC RADAR", desc: "Τέρμα το \"Άγνωστο Κομμάτι\". Βρες ακαριαία τίτλο και καλλιτέχνη.", icon: <RadarIcon size={18}/>},
-                                { title: "CUSTOM DSP EQ", desc: "Studio-Grade 10-band ισοσταθμιστής για απόλυτο έλεγχο.", icon: <EqIcon size={18}/>},
-                                { title: "CAR MODE PRO", desc: "Minimal UI για μέγιστη ασφάλεια κατά την οδήγηση.", icon: <CarIcon size={18}/>},
-                                { title: "HI-RES THEATER", desc: "Βελτιστοποιημένος ήχος hi-fi για live arena εμπειρία.", icon: <SpeakerIcon size={18}/>},
-                            ].map((feat, i) => (
-                                <div key={i} className="flex items-start gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 mt-1 shrink-0 text-white group-hover:border-[#ccff00]/30 transition-colors group-hover:text-[#ccff00]">
-                                        {feat.icon}
-                                    </div>
-                                    <div className="flex-1">
-                                        <h5 className="text-[11px] font-black text-white uppercase tracking-widest">{feat.title}</h5>
-                                        <p className="text-zinc-500 text-xs mt-1 leading-relaxed">{feat.desc}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="w-full pt-4">
-                      <button 
-                        onClick={() => navigate('/premium')}
-                        className="w-full px-10 py-5 bg-gradient-to-r from-[#ccff00] to-[#51ff00] text-black rounded-full font-black tracking-[0.2em] text-lg hover:scale-[1.03] active:scale-95 transition-all shadow-[0_15px_40px_rgba(204,255,0,0.25)] flex items-center justify-center gap-3"
-                      >
-                        Γίνε premium με 3.99€/μήνα <Zap size={14} className="animate-pulse" />
-                      </button>
-                    </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
+const TOPICS=[
+  {id:'newStations',Icon:Radio,title:'Νέοι ραδιοφωνικοί σταθμοί',desc:'Μάθε όταν νέοι σταθμοί προστίθενται στο iRadiosGR.'},
+  {id:'favoriteSchedule',Icon:CalendarDays,title:'Πρόγραμμα αγαπημένων σταθμών',desc:'Ενημερώσεις για το πρόγραμμα των σταθμών που ακολουθείς.'},
+  {id:'shows',Icon:Mic2,title:'Εκπομπές & παραγωγοί',desc:'Υπενθυμίσεις για εκπομπές και αγαπημένους παραγωγούς.'},
+  {id:'news',Icon:Newspaper,title:'Ειδήσεις που σε αφορούν',desc:'Επιλεγμένη ενημέρωση από το δίκτυο ειδήσεων.'},
+  {id:'promotions',Icon:Sparkles,title:'Προσφορές & προωθητικές ενέργειες',desc:'Προαιρετικές εμπορικές ενημερώσεις. Χρειάζεται ρητή συγκατάθεση.'}
+];
+const INITIAL_PREFS={
+  push:true,email:true,
+  topics:{newStations:true,favoriteSchedule:true,shows:true,news:true,promotions:false}
+};
+const PLAN_NAMES={
+  listener_premium:'iRadios Premium',full_premium:'Broadcaster Premium',
+  ad_control_solo:'Ad Control',dsp_solo:'DSP Studio',analytics_solo:'Analytics Pro'
+};
+const fmtDate=value=>{
+  if(!value)return 'Δεν έχει οριστεί';
+  const date=new Date(value);
+  return Number.isFinite(date.getTime())?new Intl.DateTimeFormat('el-GR',{dateStyle:'medium'}).format(date):'Δεν έχει οριστεί';
+};
+const authHeaders=()=>({
+  'Content-Type':'application/json',
+  Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')
+});
+const toFields=user=>({
+  username:user.username||'',email:user.email||'',fname:user.fname||'',
+  lname:user.lname||'',phone:user.phone||'',
+  birthdate:user.birthdate&&Number.isFinite(new Date(user.birthdate).getTime())?new Date(user.birthdate).toISOString().slice(0,10):''
+});
+function Toggle({checked,onChange,label,disabled=false}){
+  return <button type="button" role="switch" aria-checked={Boolean(checked)} aria-label={label}
+    onClick={onChange} disabled={disabled}
+    className={'ir-profile-switch '+(checked?'ir-profile-switch--on':'')} >
+    <span aria-hidden="true" className="ir-profile-switch__thumb"/>
+  </button>;
+}
+function ProfileField({label,name,type='text',value,onChange,required=false}){
+  return <label className="flex min-w-0 flex-col gap-2">
+    <span className="text-xs font-bold text-zinc-400">{label}</span>
+    <input className="ir-profile-input" type={type} value={value} required={required}
+      onChange={e=>onChange(name,e.target.value)} maxLength={name==='phone'?30:120}/>
+  </label>;
+}
+function SectionHeading({icon:Icon,title,description}){
+  return <div className="mb-5 flex items-start gap-3">
+    <span className="ir-profile-section-icon"><Icon size={19}/></span>
+    <div><h2 className="text-lg font-black tracking-tight text-white sm:text-xl">{title}</h2>
+      {description&&<p className="mt-1 text-xs leading-relaxed text-zinc-400 sm:text-sm">{description}</p>}</div>
+  </div>;
 }
 
-// Custom Icons for showcase
-const ZeroIcon = ({ size }) => (
-    <div style={{width: size, height: size}} className="text-inherit">
-        <svg fill="none" viewBox="0 0 16 16"><path fill="currentColor" d="M11 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5ZM2.5 8a2.5 2.5 0 0 1 2.5-2.5h2s-3-2.5-3-2.5-2 2.5-2 2.5a2.5 2.5 0 0 1 0 5s2 2.5 2 2.5 3-2.5 3-2.5H5a2.5 2.5 0 0 1-2.5-2.5Zm8.5-4a2.5 2.5 0 0 0-2.5 2.5s-2 2.5-2 2.5H8A2.5 2.5 0 0 0 11 11s3 2.5 3 2.5 2-2.5 2-2.5a2.5 2.5 0 0 0 0-5S14 4 14 4s2-2.5 2-2.5-2.5-2.5-2.5-2.5H11Z" opacity=".5"/></svg>
+export default function Profile({API_URL='/api',onLogout}){
+  const navigate=useNavigate();
+  const [tab,setTab]=useState('notifications');
+  const [user,setUser]=useState(null);
+  const [fields,setFields]=useState(toFields({}));
+  const [preferences,setPreferences]=useState(INITIAL_PREFS);
+  const [newsCategories,setNewsCategories]=useState([]);
+  const [pushAvailable,setPushAvailable]=useState(false);
+  const [pushSupported,setPushSupported]=useState(false);
+  const [deviceRegistered,setDeviceRegistered]=useState(false);
+  const [pushPermission,setPushPermission]=useState('default');
+  const [busy,setBusy]=useState(false);
+  const [prefBusy,setPrefBusy]=useState('');
+  const [deviceBusy,setDeviceBusy]=useState(false);
+  const [cancelId,setCancelId]=useState('');
+  const [notice,setNotice]=useState(null);
+  const [loading,setLoading]=useState(true);
+
+  const refreshUser=useCallback(async(signal)=>{
+    const [userResponse,prefsResponse]=await Promise.all([
+      fetch(API_URL+'/auth/me',{headers:authHeaders(),signal}),
+      fetch(API_URL+'/users/me/notification-preferences',{headers:authHeaders(),signal})
+    ]);
+    if(!userResponse.ok||!prefsResponse.ok)throw Error('Δεν ήταν δυνατή η φόρτωση του προφίλ.');
+    const [loaded,settings]=await Promise.all([userResponse.json(),prefsResponse.json()]);
+    setUser(loaded);
+    setFields(toFields(loaded));
+    setPreferences(settings.preferences||INITIAL_PREFS);
+    setPushAvailable(Boolean(settings.pushDeliveryAvailable));
+  },[API_URL]);
+
+  useEffect(()=>{
+    const controller=new AbortController();
+    refreshUser(controller.signal).catch(err=>{
+      if(!controller.signal.aborted)setNotice({type:'error',text:err.message||'Σφάλμα σύνδεσης.'});
+    }).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+    return()=>controller.abort();
+  },[refreshUser]);
+
+  const checkDevice=useCallback(async()=>{
+    const supported=typeof Notification!=='undefined' && 'serviceWorker' in navigator && 'PushManager' in window && window.isSecureContext;
+    setPushSupported(supported);
+    if(!supported)return;
+    setPushPermission(Notification.permission);
+    const registration=await navigator.serviceWorker.getRegistration();
+    const subscription=await registration?.pushManager?.getSubscription();
+    if(!subscription){setDeviceRegistered(false);return;}
+    // The browser's subscription alone does not prove the device is linked to this account.
+    const response=await fetch(API_URL+'/notifications/my-device/status',{
+      method:'POST',headers:authHeaders(),body:JSON.stringify({endpoint:subscription.endpoint})
+    });
+    const data=await response.json().catch(()=>({}));
+    setDeviceRegistered(response.ok && Boolean(data.registered));
+  },[API_URL]);
+
+  useEffect(()=>{
+    if(!user)return;
+    checkDevice().catch(()=>setDeviceRegistered(false));
+  },[user?._id,checkDevice]);
+
+  useEffect(()=>{
+    if(tab!=='notifications')return undefined;
+    const controller=new AbortController();
+    fetch(API_URL+'/newsfeed',{signal:controller.signal})
+      .then(r=>r.ok?r.json():{})
+      .then(data=>{
+        if(controller.signal.aborted)return;
+        setNewsCategories(Array.isArray(data.categories)?data.categories.filter(c=>typeof c==='string'&&c.trim()).slice(0,24):[]);
+      }).catch(()=>{});
+    return()=>controller.abort();
+  },[tab,API_URL]);
+
+  const setField=(name,value)=>setFields(old=>({...old,[name]:value}));
+
+  const saveProfile=async event=>{
+    event.preventDefault();
+    if(busy)return;
+    setBusy(true);setNotice(null);
+    try{
+      const response=await fetch(API_URL+'/users/me',{method:'PUT',headers:authHeaders(),body:JSON.stringify(fields)});
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(payload.error||'Δεν αποθηκεύτηκαν τα στοιχεία σου.');
+      setUser(payload);setFields(toFields(payload));
+      setNotice({type:'success',text:'Τα στοιχεία του λογαριασμού αποθηκεύτηκαν.'});
+    }catch(error){setNotice({type:'error',text:error.message||'Σφάλμα αποθήκευσης.'});}
+    finally{setBusy(false);}
+  };
+
+  const togglePreference=async(type,key)=>{
+    if(prefBusy)return;
+    const current=type==='topic'?preferences.topics[key]:preferences[key];
+    const next=!current;
+    const request=type==='topic'?{topic:key,enabled:next}:{channel:key,enabled:next};
+    setPrefBusy(type+key);
+    setNotice(null);
+    try{
+      const response=await fetch(API_URL+'/users/me/notification-preferences',{
+        method:'PATCH',headers:authHeaders(),body:JSON.stringify(request)
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||'Η αλλαγή δεν αποθηκεύτηκε.');
+      setPreferences(data.preferences);
+      setNotice({type:'success',text:'Η προτίμηση αποθηκεύτηκε.'});
+    }catch(error){setNotice({type:'error',text:error.message||'Σφάλμα αποθήκευσης.'});}
+    finally{setPrefBusy('');}
+  };
+
+  const saveNewsCategories=async categories=>{
+    if(prefBusy)return;
+    setPrefBusy('newsCategories');setNotice(null);
+    try{
+      const response=await fetch(API_URL+'/users/me/notification-preferences',{
+        method:'PATCH',headers:authHeaders(),body:JSON.stringify({newsCategories:categories})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||'Δεν αποθηκεύτηκαν οι κατηγορίες ειδήσεων.');
+      setPreferences(data.preferences);
+      setNotice({type:'success',text:'Οι κατηγορίες ειδήσεων ενημερώθηκαν.'});
+    }catch(error){setNotice({type:'error',text:error.message||'Σφάλμα αποθήκευσης.'});}
+    finally{setPrefBusy('');}
+  };
+
+  const registerDevice=async()=>{
+    if(deviceBusy||!pushAvailable)return;
+    setDeviceBusy(true);setNotice(null);
+    try{
+      if(!pushSupported)throw Error('Ο browser δεν υποστηρίζει push ειδοποιήσεις σε αυτή τη συσκευή.');
+      if(Notification.permission==='denied')throw Error('Οι ειδοποιήσεις είναι αποκλεισμένες στις ρυθμίσεις του browser.');
+      const permission=await Notification.requestPermission();
+      setPushPermission(permission);
+      if(permission!=='granted')throw Error('Δεν δόθηκε άδεια για ειδοποιήσεις.');
+      const registration=await navigator.serviceWorker.register('/sw.js');
+      let subscription=await registration.pushManager.getSubscription();
+      if(!subscription){
+        const vapid=await fetch(API_URL+'/notifications/vapidPublicKey');
+        if(!vapid.ok)throw Error('Δεν είναι διαθέσιμο το κλειδί push.');
+        const key=(await vapid.text()).trim();
+        if(!key)throw Error('Η υπηρεσία push δεν έχει ρυθμιστεί.');
+        const base64=(key+'='.repeat((4-key.length%4)%4)).replace(/-/g,'+').replace(/_/g,'/');
+        const bytes=Uint8Array.from(atob(base64),char=>char.charCodeAt(0));
+        subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes});
+      }
+      const response=await fetch(API_URL+'/notifications/my-device',{
+        method:'PUT',headers:authHeaders(),body:JSON.stringify({subscription:subscription.toJSON()})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||'Η εγγραφή της συσκευής απέτυχε.');
+      setDeviceRegistered(true);setNotice({type:'success',text:'Η συσκευή συνδέθηκε επιτυχώς με τις ειδοποιήσεις.'});
+    }catch(error){setNotice({type:'error',text:error.message||'Αποτυχία ενεργοποίησης push.'});}
+    finally{setDeviceBusy(false);}
+  };
+
+  const removeDevice=async()=>{
+    if(deviceBusy)return;
+    setDeviceBusy(true);setNotice(null);
+    try{
+      const registration=await navigator.serviceWorker.getRegistration();
+      const subscription=await registration?.pushManager?.getSubscription();
+      if(subscription){
+        const response=await fetch(API_URL+'/notifications/my-device',{
+          method:'DELETE',headers:authHeaders(),body:JSON.stringify({endpoint:subscription.endpoint})
+        });
+        if(!response.ok)throw Error('Δεν αποσυνδέθηκε η συσκευή.');
+        await subscription.unsubscribe();
+      }
+      setDeviceRegistered(false);
+      setNotice({type:'success',text:'Οι push ειδοποιήσεις απενεργοποιήθηκαν σε αυτή τη συσκευή.'});
+    }catch(error){setNotice({type:'error',text:error.message||'Δεν ολοκληρώθηκε η αποσύνδεση.'});}
+    finally{setDeviceBusy(false);}
+  };
+
+  const cancelSubscription=async sub=>{
+    if(!sub?.stripeSubscriptionId||cancelId)return;
+    if(!window.confirm('Να σταματήσει η αυτόματη ανανέωση; Τα προνόμια παραμένουν έως τη λήξη της περιόδου.'))return;
+    setCancelId(sub.stripeSubscriptionId);setNotice(null);
+    try{
+      const response=await fetch(API_URL+'/payments/cancel-subscription',{
+        method:'POST',headers:authHeaders(),body:JSON.stringify({subscriptionId:sub.stripeSubscriptionId})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||'Η ακύρωση δεν ολοκληρώθηκε.');
+      const userResponse=await fetch(API_URL+'/auth/me',{headers:authHeaders()});
+      if(!userResponse.ok)throw Error('Η αίτηση υποβλήθηκε, αλλά δεν ανανεώθηκε η εικόνα της συνδρομής.');
+      setUser(await userResponse.json());
+      setNotice({type:'success',text:'Η ανανέωση ακυρώθηκε. Τα προνόμια παραμένουν μέχρι τη λήξη.'});
+    }catch(error){setNotice({type:'error',text:error.message||'Σφάλμα διαχείρισης συνδρομής.'});}
+    finally{setCancelId('');}
+  };
+
+  const subscriptions=useMemo(()=>Array.isArray(user?.activeSubscriptions)?user.activeSubscriptions:[],[user]);
+  const premium=Boolean(user?.isPremium||subscriptions.some(sub=>sub.planId==='listener_premium'&&sub.status==='active'));
+  const hasManualPremium=premium&&!subscriptions.some(sub=>sub.planId==='listener_premium');
+  const favoriteCount=user?.favorites?.length||0;
+  const tabs=[
+    {id:'details',label:'Λογαριασμός',Icon:UserRound},
+    {id:'notifications',label:'Ειδοποιήσεις',Icon:BellRing},
+    {id:'subscription',label:'Συνδρομή',Icon:Crown}
+  ];
+
+  if(loading)return <div className="mx-auto flex min-h-[55dvh] items-center justify-center gap-3 text-zinc-400"><Loader2 className="animate-spin text-[#ccff00]"/> Φόρτωση προφίλ…</div>;
+
+  return <div className="ir-profile-page mx-auto w-full max-w-[1250px] px-4 pb-44 pt-5 sm:px-6 sm:pt-7 xl:px-9">
+    <div className="ir-profile-hero relative overflow-hidden rounded-[30px] p-5 sm:p-8">
+      <div className="ir-profile-glow pointer-events-none absolute -right-16 -top-24 size-72 rounded-full"/>
+      <div className="relative flex flex-col items-start justify-between gap-5 md:flex-row md:items-center">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="ir-profile-avatar flex size-[68px] shrink-0 items-center justify-center rounded-[23px] text-3xl font-black text-[#121b05] sm:size-20">
+            {String(user?.fname||user?.username||'i').charAt(0).toLocaleUpperCase('el-GR')}
+          </div>
+          <div className="min-w-0">
+            <p className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[.19em] text-[#ccff00]"><Sparkles size={13}/> MY iRADIOSGR</p>
+            <h1 className="truncate text-2xl font-black tracking-tight text-white sm:text-4xl">
+              {user?.fname ? 'Γεια σου, '+user.fname : 'Το προσωπικό σου προφίλ'}
+            </h1>
+            <p className="mt-1 truncate text-xs text-zinc-400 sm:text-sm">{user?.email||'Ο προσωπικός σου χώρος'}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="ir-profile-pill"><Crown size={15}/>{premium?'Premium μέλος':'Free μέλος'}</span>
+          <Link to="/favorites" className="ir-profile-pill ir-profile-pill--muted"><Heart size={15}/>{favoriteCount} αγαπημένα <ChevronRight size={13}/></Link>
+        </div>
+      </div>
+      <div className="relative mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+        <button type="button" onClick={()=>setTab('notifications')} className="ir-profile-quick"><Bell size={17}/><span>Οι ειδοποιήσεις μου</span><ArrowRight size={14} className="ml-auto"/></button>
+        <button type="button" onClick={()=>setTab('subscription')} className="ir-profile-quick"><Wallet size={17}/><span>Το πλάνο μου</span><ArrowRight size={14} className="ml-auto"/></button>
+        <Link to="/favorites" className="ir-profile-quick col-span-2 sm:col-span-1"><Headphones size={17}/><span>Τα αγαπημένα μου</span><ArrowRight size={14} className="ml-auto"/></Link>
+      </div>
     </div>
-)
-const RadarIcon = ({ size }) => (
-    <div style={{width: size, height: size}} className="text-inherit">
-        <svg fill="none" viewBox="0 0 16 16"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M12.667 8A4.667 4.667 0 1 1 8 3.333M8 6a2 2 0 1 1-2 2"/><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M12.667 12.667 14.667 14.667"/></svg>
+
+    <div className="ir-profile-tabs mt-6 flex gap-1 overflow-x-auto rounded-2xl p-1.5" role="tablist" aria-label="Ενότητες προφίλ">
+      {tabs.map(({id,label,Icon})=><button type="button" role="tab" key={id} aria-selected={tab===id}
+        onClick={()=>{setTab(id);setNotice(null);}}
+        className={'ir-profile-tab '+(tab===id?'ir-profile-tab--active':'')}>
+        <Icon size={17}/><span>{label}</span></button>)}
     </div>
-)
-const EqIcon = ({ size }) => (
-    <div style={{width: size, height: size}} className="text-inherit">
-        <svg fill="none" viewBox="0 0 16 16"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M1.333 11.333H10M12.667 11.333H14.667M10 9.333V13.333M1.333 4.667H3.333M6 4.667H14.667M6 2.667V6.667"/></svg>
-    </div>
-)
-const CarIcon = ({ size }) => (
-    <div style={{width: size, height: size}} className="text-inherit">
-        <svg fill="none" viewBox="0 0 16 16"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M3.333 12h9.334V5.333s-2.667-.666-4.667-.666C6 4.667 3.333 5.333 3.333 5.333V12Zm0-2V8m9.334 2V8m-11.334 0h13.334"/></svg>
-    </div>
-)
-const SpeakerIcon = ({ size }) => (
-    <div style={{width: size, height: size}} className="text-inherit">
-        <svg fill="none" viewBox="0 0 16 16"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M8 6a2 2 0 1 1-2 2"/><rect width="13.333" height="13.333" x="1.333" y="1.333" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" rx="1.333"/></svg>
-    </div>
-)
+
+    {notice&&<div role="status" aria-live="polite" className={'mt-5 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm '+(notice.type==='success'?'border-[#ccff00]/30 bg-[#ccff00]/[.08] text-[#eaffb2]':'border-rose-500/25 bg-rose-500/10 text-rose-200')}>
+      {notice.type==='success'?<Check size={18} className="shrink-0"/>:<XCircle size={18} className="shrink-0"/>}{notice.text}</div>}
+
+    {tab==='details'&&<div role="tabpanel" className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <section className="ir-profile-panel p-5 sm:p-7">
+        <SectionHeading icon={UserRound} title="Τα στοιχεία σου" description="Ο λογαριασμός σου, συγκεντρωμένος σε ένα σημείο."/>
+        <form onSubmit={saveProfile}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <ProfileField label="Όνομα" name="fname" value={fields.fname} required onChange={setField}/>
+            <ProfileField label="Επώνυμο" name="lname" value={fields.lname} onChange={setField}/>
+            <ProfileField label="Όνομα χρήστη" name="username" value={fields.username} required onChange={setField}/>
+            <ProfileField label="Email" name="email" type="email" value={fields.email} required onChange={setField}/>
+            <ProfileField label="Τηλέφωνο (προαιρετικό)" name="phone" type="tel" value={fields.phone} onChange={setField}/>
+            <ProfileField label="Ημερομηνία γέννησης" name="birthdate" type="date" value={fields.birthdate} onChange={setField}/>
+          </div>
+          <div className="mt-6 flex justify-end"><button type="submit" disabled={busy} className="ir-profile-primary">
+            {busy?<Loader2 size={18} className="animate-spin"/>:<Save size={18}/>} Αποθήκευση στοιχείων</button></div>
+        </form>
+      </section>
+      <aside className="flex flex-col gap-5">
+        <section className="ir-profile-panel p-5">
+          <SectionHeading icon={ShieldCheck} title="Ασφάλεια & απόρρητο"/>
+          <p className="text-xs leading-6 text-zinc-400">Οι αλλαγές ειδοποιήσεων αποθηκεύονται στον λογαριασμό σου. Τα δικαιώματα του browser ρυθμίζονται ξεχωριστά στη συσκευή.</p>
+          <Link to="/privacy" className="ir-profile-link mt-4">Πολιτική απορρήτου <ChevronRight size={15}/></Link>
+          <Link to="/settings" className="ir-profile-link mt-3">Ασφάλεια & διαγραφή λογαριασμού <ChevronRight size={15}/></Link>
+        </section>
+        <button type="button" onClick={onLogout} className="ir-profile-logout"><LogOut size={17}/> Αποσύνδεση</button>
+      </aside>
+    </div>}
+
+    {tab==='notifications'&&<div role="tabpanel" className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(290px,.65fr)]">
+      <section className="ir-profile-panel p-5 sm:p-7">
+        <SectionHeading icon={BellRing} title="Τι θέλεις να μαθαίνεις;" description="Επίλεξε ξεχωριστά κάθε κατηγορία. Οι αλλαγές αποθηκεύονται αυτόματα."/>
+        <div className="space-y-2">
+          {TOPICS.map(({id,Icon,title,desc})=><div key={id} className="ir-profile-topic">
+            <span className="ir-profile-topic-icon"><Icon size={19}/></span>
+            <div className="min-w-0 flex-1"><h3 className="text-sm font-bold text-white">{title}</h3>
+              <p className="mt-1 text-xs leading-5 text-zinc-400">{desc}</p></div>
+            <Toggle label={title} checked={preferences.topics?.[id]}
+              onChange={()=>togglePreference('topic',id)} disabled={Boolean(prefBusy)}/>
+          </div>)}
+        </div>
+        {newsCategories.length>0&&preferences.topics?.news&&<div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <h3 className="flex items-center gap-2 text-sm font-black text-white"><Newspaper size={16} className="text-[#ccff00]"/> Ποιες ειδήσεις σε ενδιαφέρουν;</h3>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">Επίλεξε θεματικές για πιο σχετικές ειδοποιήσεις. Χωρίς επιλογή λαμβάνεις όλες τις κατηγορίες.</p>
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Προσωπικές κατηγορίες ειδήσεων">
+            <button type="button" aria-pressed={!preferences.newsCategories?.length}
+              disabled={Boolean(prefBusy)} onClick={()=>saveNewsCategories([])}
+              className={'ir-profile-news-chip '+(!preferences.newsCategories?.length?'ir-profile-news-chip--active':'')}>Όλες</button>
+            {newsCategories.map(category=><button type="button" key={category} disabled={Boolean(prefBusy)}
+              aria-pressed={preferences.newsCategories?.includes(category)||false}
+              onClick={()=>{
+                const selected=preferences.newsCategories||[];
+                saveNewsCategories(selected.includes(category)?selected.filter(x=>x!==category):[...selected,category]);
+              }}
+              className={'ir-profile-news-chip '+(preferences.newsCategories?.includes(category)?'ir-profile-news-chip--active':'')}>
+              {category}</button>)}
+          </div>
+        </div>}
+        <p className="mt-4 flex items-start gap-2 text-[11px] leading-5 text-zinc-500"><ShieldCheck size={15} className="mt-0.5 shrink-0 text-[#ccff00]"/> Οι προωθητικές ενέργειες είναι απενεργοποιημένες μέχρι να δώσεις εσύ ρητή συγκατάθεση.</p>
+      </section>
+      <div className="flex flex-col gap-5">
+        <section className="ir-profile-panel p-5 sm:p-6">
+          <SectionHeading icon={Settings2} title="Πώς θέλεις να ενημερώνεσαι;" description="Κάθε κανάλι ελέγχεται ανεξάρτητα."/>
+          <div className="space-y-3">
+            <div className="ir-profile-channel"><Bell size={19} className="text-[#ccff00]"/>
+              <span className="min-w-0 flex-1"><strong className="block text-sm text-white">Push στη συσκευή</strong><small className="mt-1 block text-zinc-400">Browser & ειδοποιήσεις εφαρμογής</small></span>
+              <Toggle label="Push ειδοποιήσεις" checked={preferences.push} onChange={()=>togglePreference('channel','push')} disabled={Boolean(prefBusy)}/>
+            </div>
+            <div className="ir-profile-channel"><Mail size={19} className="text-[#ccff00]"/>
+              <span className="min-w-0 flex-1"><strong className="block text-sm text-white">Ειδοποιήσεις email</strong><small className="mt-1 block text-zinc-400">{user?.email||'Στον λογαριασμό σου'}</small></span>
+              <Toggle label="Ειδοποιήσεις email" checked={preferences.email} onChange={()=>togglePreference('channel','email')} disabled={Boolean(prefBusy)}/>
+            </div>
+          </div>
+        </section>
+        <section className="ir-profile-panel p-5 sm:p-6">
+          <SectionHeading icon={Bell} title="Αυτή η συσκευή" description="Οι διακόπτες δεν δίνουν αυτόματα άδεια στον browser."/>
+          {!pushAvailable?<div className="ir-profile-device-note">
+            <ShieldCheck size={18} className="shrink-0 text-[#ccff00]"/>
+            <p>Στο staging η αποστολή push είναι απενεργοποιημένη για ασφάλεια. Οι προτιμήσεις σου αποθηκεύονται κανονικά.</p>
+          </div>:deviceRegistered?<div className="space-y-3">
+            <p className="flex items-center gap-2 text-xs font-bold text-[#ccff00]"><Check size={16}/> Η συσκευή είναι συνδεδεμένη.</p>
+            <button type="button" onClick={removeDevice} disabled={deviceBusy} className="ir-profile-secondary w-full">
+              {deviceBusy?<Loader2 size={16} className="animate-spin"/>:<XCircle size={16}/>} Αφαίρεση συσκευής
+            </button>
+          </div>:<div className="space-y-3">
+            <p className="text-xs leading-6 text-zinc-400">{!pushSupported?'Ο browser ή η εγκατάσταση δεν υποστηρίζει push.':pushPermission==='denied'?'Ο browser έχει αποκλείσει τις ειδοποιήσεις. Ενεργοποίησέ τες στις ρυθμίσεις του.':'Πάτησε ενεργοποίηση για να δώσεις άδεια και να καταχωρήσεις αυτή τη συσκευή.'}</p>
+            <button type="button" onClick={registerDevice} disabled={deviceBusy||!pushSupported||!preferences.push} className="ir-profile-primary w-full">
+              {deviceBusy?<Loader2 size={17} className="animate-spin"/>:<BellRing size={17}/>} Ενεργοποίηση στη συσκευή
+            </button>
+          </div>}
+        </section>
+        <Link to="/favorites" className="ir-profile-panel flex items-center gap-3 p-5 hover:border-[#ccff00]/35"><Heart size={19} className="text-[#ccff00]"/><span className="min-w-0 flex-1 text-sm font-bold text-white">Διαχείριση αγαπημένων σταθμών</span><ArrowRight size={16} className="text-zinc-500"/></Link>
+      </div>
+    </div>}
+
+    {tab==='subscription'&&<div role="tabpanel" className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <section className="ir-profile-panel p-5 sm:p-7">
+        <SectionHeading icon={Crown} title="Συνδρομές & προνόμια" description="Όλα τα πλάνα και η κατάσταση ανανέωσης, χωρίς κρυφές αλλαγές."/>
+        <div className="ir-profile-plan-hero mb-5 flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div><span className="text-[10px] font-black uppercase tracking-[.15em] text-[#ccff00]">Το τωρινό σου πλάνο</span>
+            <h3 className="mt-2 flex items-center gap-2 text-2xl font-black text-white"><Crown size={23} className="text-[#ccff00]"/>{premium?'iRadios Premium':'iRadios Free'}</h3>
+            <p className="mt-2 text-xs text-zinc-400">{premium?'Έχεις ενεργοποιημένη premium πρόσβαση.':'Ανακάλυψε περισσότερες δυνατότητες με Premium.'}</p></div>
+          {!premium&&<button type="button" onClick={()=>navigate('/premium')} className="ir-profile-primary"><Zap size={17}/> Δες το Premium</button>}
+        </div>
+        {hasManualPremium&&<div className="ir-profile-subscription-row mb-3"><ShieldCheck size={18} className="text-[#ccff00]"/><div className="flex-1"><p className="text-sm font-black text-white">Premium πρόσβαση</p><p className="mt-1 text-xs text-zinc-400">Παραχωρημένη πρόσβαση · χωρίς Stripe χρέωση.</p></div></div>}
+        {subscriptions.length>0?<div className="space-y-3">{subscriptions.map((sub,index)=>{
+          const canceled=['canceled','cancelled'].includes(sub.status);
+          const active=sub.status==='active'||sub.status==='trialing';
+          const subscriptionId=sub.stripeSubscriptionId;
+          return <div key={subscriptionId||sub._id||index} className="ir-profile-subscription-row">
+            <span className="ir-profile-section-icon"><CreditCard size={19}/></span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-white">{PLAN_NAMES[sub.planId]||sub.planId||'Συνδρομή'}</p>
+              <p className="mt-1 text-xs text-zinc-400">
+                {canceled?'Λήγει':active?'Επόμενη ανανέωση':'Κατάσταση: '+(sub.status||'άγνωστη')} · {fmtDate(sub.currentPeriodEnd)}
+              </p>
+              <span className={'mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold '+(canceled?'bg-amber-500/10 text-amber-300':'bg-[#ccff00]/10 text-[#ccff00]')}>
+                {canceled?'Ακύρωση ανανέωσης':active?'Ενεργή':'Σε αναμονή'}</span>
+            </div>
+            {subscriptionId&&active&&!canceled&&pushAvailable&&<button type="button" onClick={()=>cancelSubscription(sub)}
+              disabled={Boolean(cancelId)} className="ir-profile-cancel">
+              {cancelId===subscriptionId?<Loader2 size={15} className="animate-spin"/>:<XCircle size={15}/>} Διακοπή ανανέωσης
+            </button>}
+          </div>;
+        })}</div>:!premium?<p className="rounded-2xl border border-white/10 bg-white/[.025] p-5 text-xs text-zinc-400">Δεν υπάρχει ενεργή συνδρομή στον λογαριασμό σου.</p>:null}
+        {!pushAvailable&&<p className="mt-4 text-xs leading-6 text-amber-200/80">Το staging δεν εκτελεί πραγματικές χρεώσεις ή αλλαγές συνδρομών. Μπορείς να ελέγξεις εδώ την εμφάνιση των στοιχείων.</p>}
+      </section>
+      <aside className="flex flex-col gap-5">
+        <section className="ir-profile-panel p-5"><SectionHeading icon={Headphones} title="Με το iRadios Premium"/>
+          <div className="space-y-3 text-xs text-zinc-300">
+            <p className="flex items-center gap-2"><Check size={15} className="text-[#ccff00]"/> Ακρόαση χωρίς in-app διαφημίσεις</p>
+            <p className="flex items-center gap-2"><Check size={15} className="text-[#ccff00]"/> Περισσότερος έλεγχος ήχου</p>
+            <p className="flex items-center gap-2"><Check size={15} className="text-[#ccff00]"/> Premium εμπειρία σταθμών</p>
+          </div>
+          <Link to="/premium" className="ir-profile-link mt-5">Δες όλα τα προνόμια <ArrowRight size={15}/></Link>
+        </section>
+        <Link to="/settings" className="ir-profile-panel flex items-center gap-3 p-5 hover:border-[#ccff00]/35"><ShieldCheck size={18} className="text-[#ccff00]"/><span className="flex-1 text-sm font-bold">Ρυθμίσεις λογαριασμού</span><ChevronRight size={16}/></Link>
+      </aside>
+    </div>}
+  </div>;
+}

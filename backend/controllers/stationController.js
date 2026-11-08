@@ -253,6 +253,15 @@ exports.updateStationStatus = async (req, res) => {
       }
     }
 
+    // Notify listeners only on a real first approval; staging dispatch is a no-op.
+    if (oldStation.status !== 'approved' && status === 'approved') {
+      const {deliver}=require('../utils/notificationDelivery');
+      deliver({
+        topic:'newStations',title:'Νέος σταθμός στο iRadiosGR!',
+        body:'Ανακάλυψε τον '+updatedStation.name+(updatedStation.genre?' · '+updatedStation.genre:''),
+        path:'/station/'+encodeURIComponent(updatedStation.slug||String(updatedStation._id))
+      }).catch(e=>console.error('[NOTIFY] Station approval:',e.message));
+    }
     res.json({ message: `Η κατάσταση του σταθμού ενημερώθηκε σε ${status}`, station: updatedStation });
   } catch (err) { 
     res.status(500).json({ error: err.message }); 

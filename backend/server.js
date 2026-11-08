@@ -9,6 +9,8 @@ const bcrypt = require('bcryptjs');
 // --- 1. CONFIG & DB ---
 const connectDB = require('./config/db');
 connectDB(); // Σύνδεση στη MongoDB
+// Real listener alerts are event-driven and never run in isolated staging.
+require('./utils/listenerNotificationScheduler').start();
 
 // --- 2. IMPORT MODELS & CONTROLLERS ---
 const User = require('./models/User');

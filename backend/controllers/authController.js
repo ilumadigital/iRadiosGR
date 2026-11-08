@@ -218,6 +218,37 @@ exports.updateMe = async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Σφάλμα κατά την αποθήκευση στοιχείων' }); }
 };
 
+// Per-device push opt-in is separate from the saved user preference: a true
+// preference must never be represented as browser permission.
+exports.getNotificationPreferences = async (req, res) => {
+  const {notificationPreferencesOf} = require('../utils/notificationPreferences');
+  res.set('Cache-Control', 'no-store');
+  res.json({preferences: notificationPreferencesOf(req.user),
+    pushDeliveryAvailable: process.env.APP_ENV !== 'staging'});
+};
+
+exports.updateNotificationPreferences = async (req, res) => {
+  const {validateChange, notificationPreferencesOf} = require('../utils/notificationPreferences');
+  const change = validateChange(req.body);
+  if (!change) return res.status(400).json({error:'Μη έγκυρη ρύθμιση ειδοποιήσεων.'});
+  try {
+    const $set = {[change.path]:change.newsCategories || change.enabled};
+    if (change.channel === 'push') $set.pushNotifications = change.enabled;
+    if (change.topic === 'promotions') {
+      // Keep time of explicit consent for audit; revocation removes consent.
+      $set['notificationPreferences.marketingConsentAt'] = change.enabled ? new Date() : null;
+    }
+    const updated = await User.findByIdAndUpdate(req.user._id, {$set}, {new:true,runValidators:true}).select('-password');
+    if (!updated) return res.status(404).json({error:'Ο λογαριασμός δεν βρέθηκε.'});
+    res.set('Cache-Control','no-store');
+    return res.json({preferences:notificationPreferencesOf(updated),
+      pushDeliveryAvailable:process.env.APP_ENV !== 'staging'});
+  } catch (error) {
+    console.error('[NOTIFICATIONS] Preference update failed:', error.message);
+    return res.status(500).json({error:'Οι ρυθμίσεις δεν αποθηκεύτηκαν. Δοκίμασε ξανά.'});
+  }
+};
+
 exports.toggleFavorite = async (req, res) => {
   try {
     const { stationId } = req.body;

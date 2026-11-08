@@ -51,6 +51,8 @@ jobs:
         run: node ops/check-news-article.cjs
       - name: Validate smart search relevance, voice routes and header breakpoints
         run: node ops/check-smart-search.mjs
+      - name: Verify Profile notification preferences, delivery and billing safety
+        run: node ops/check-profile-notifications.cjs
       - name: Validate rssnews.io selected publishers and article image attribution
         run: node ops/check-rssnews-selected-publishers.cjs
       - name: Verify 1200x630 catalog slides and scoped promoted station

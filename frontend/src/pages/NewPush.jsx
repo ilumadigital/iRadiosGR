@@ -9,7 +9,7 @@ export default function NewPush({ API_URL }) {
   const [stats, setStats] = useState({ all: 0, premium: 0, broadcasters: 0 });
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   
-  const [formData, setFormData] = useState({ title: '', body: '' });
+  const [formData, setFormData] = useState({ title: '', body: '', topic: 'promotions', alsoEmail: false });
   const [isSending, setIsSending] = useState(false);
   const [feedback, setFeedback] = useState({ show: false, type: '', message: '' });
 
@@ -57,7 +57,9 @@ export default function NewPush({ API_URL }) {
         // Το backend σου περιμένει 'title' και 'body' (όχι message)
         body: JSON.stringify({ 
           title: formData.title, 
-          body: formData.body 
+          body: formData.body,
+          topic: formData.topic,
+          alsoEmail: formData.alsoEmail 
         })
       });
 
@@ -65,7 +67,7 @@ export default function NewPush({ API_URL }) {
 
       if (response.ok) {
         setFeedback({ show: true, type: 'success', message: 'Η ειδοποίηση στάλθηκε με επιτυχία!' });
-        setFormData({ title: '', body: '' }); // Καθαρισμός φόρμας
+        setFormData({ title: '', body: '', topic: 'promotions', alsoEmail: false }); // Καθαρισμός φόρμας
       } else {
         setFeedback({ show: true, type: 'error', message: data.error || 'Σφάλμα κατά την αποστολή.' });
       }
@@ -115,6 +117,23 @@ export default function NewPush({ API_URL }) {
 
         <form onSubmit={handleSendPush} className="space-y-6 relative z-10">
           <div className="space-y-4">
+            <div>
+              <label htmlFor="ir-push-topic" className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Κατηγορία ειδοποίησης</label>
+              <select id="ir-push-topic" value={formData.topic} onChange={e=>setFormData(old=>({...old,topic:e.target.value}))}
+                className="w-full rounded-xl border border-white/10 bg-zinc-950 px-4 py-3 text-sm text-white">
+                <option value="newStations">Νέοι σταθμοί</option>
+                <option value="favoriteSchedule">Πρόγραμμα αγαπημένων</option>
+                <option value="shows">Εκπομπές</option>
+                <option value="news">Ειδήσεις</option>
+                <option value="promotions">Προωθητικές ενέργειες</option>
+              </select>
+              <p className="mt-2 text-xs leading-5 text-zinc-400">Η αποστολή γίνεται μόνο σε χρήστες που επιτρέπουν τη συγκεκριμένη κατηγορία. Για προωθητικές ενέργειες απαιτείται ρητή συγκατάθεση.</p>
+            </div>
+            <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[.03] px-4 py-3 text-xs font-semibold text-white">
+              <input type="checkbox" checked={formData.alsoEmail} onChange={e=>setFormData(old=>({...old,alsoEmail:e.target.checked}))}
+                className="size-4 accent-[#ccff00]"/>
+              Αποστολή και μέσω email, μόνο όπου έχει επιτραπεί
+            </label>
             <div>
               <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Τίτλος ειδοποίησης</label>
               <input

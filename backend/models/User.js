@@ -50,7 +50,21 @@ const userSchema = new mongoose.Schema({
     }
   },
 
-  pushNotifications: { type: Boolean, default: true },
+  pushNotifications: { type: Boolean, default: true }, // Legacy compatibility.
+  // Saved per-user preferences; absent fields on legacy users inherit defaults.
+  notificationPreferences: {
+    push: { type: Boolean, default: true },
+    email: { type: Boolean, default: true },
+    topics: {
+      newStations: { type: Boolean, default: true },
+      favoriteSchedule: { type: Boolean, default: true },
+      shows: { type: Boolean, default: true },
+      news: { type: Boolean, default: true },
+      promotions: { type: Boolean, default: false } // Explicit marketing opt-in only.
+    },
+    newsCategories: { type: [String], default: [] },
+    marketingConsentAt: { type: Date, default: null }
+  },
   businessType: { type: String, enum: ['individual', 'company'], default: 'individual' },
   vatNumber: { type: String, default: '' },
   companyName: { type: String, default: '' },
