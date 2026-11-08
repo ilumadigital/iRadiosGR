@@ -29,7 +29,7 @@ exports.getApprovedStations = async (req, res) => {
     // Public stage may expose station metadata, never broadcaster personal
     // information or private pending edits imported from production.
     if (process.env.APP_ENV === 'staging') {
-      query.select('name slogan description genre region city transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule position isFeatured dspPreset disableNetworkAds');
+      query.select('name slogan description genre region city transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule scheduleDayBase position isFeatured dspPreset disableNetworkAds');
     }
     const stations = await query;
     res.json(stations);
