@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { 
   Scale, Radio, Banknote, MessageSquare, AlertTriangle, SlidersHorizontal, 
@@ -8,6 +8,8 @@ import {
 
 export default function TermsBroadcasters({ API_URL, currentUser }) {
   const navigate = useNavigate();
+  const [query] = useSearchParams();
+  const inviteToken = query.get('invite');
   const [isChecked, setIsChecked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const hasAlreadyAccepted = currentUser?.hasAcceptedCurrentBroadcasterTerms === true;
@@ -37,7 +39,7 @@ export default function TermsBroadcasters({ API_URL, currentUser }) {
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.user?.hasAcceptedCurrentBroadcasterTerms === true) {
         // Reload the authenticated profile from /auth/me on the next page load.
-        window.location.assign('/studio');
+        window.location.assign(inviteToken ? `/broadcaster-invite?token=${encodeURIComponent(inviteToken)}` : '/studio');
         return;
       }
       setSubmitError(data.error || 'Η αποθήκευση της συγκατάθεσης απέτυχε. Δοκιμάστε ξανά.');
