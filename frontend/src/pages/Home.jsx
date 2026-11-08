@@ -604,7 +604,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           </div>
         </div>
       </div>
-      <div className="ir-home-feature-grid grid min-w-0 items-stretch gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.72fr)]">
+      <div className="ir-home-feature-grid grid min-w-0 items-stretch gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
         <HomeHeroSlider
           currentUser={currentUser}
           currentStation={currentStation}
