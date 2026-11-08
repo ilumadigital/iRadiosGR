@@ -15,7 +15,10 @@ export default function Login({ API_URL, setCurrentUser }) {
   const navigate = useNavigate();
   const [query] = useSearchParams();
   const inviteToken = query.get('invite') || '';
-  const afterLogin = inviteToken ? `/broadcaster-invite?token=${encodeURIComponent(inviteToken)}` : null;
+  const requestedNext = query.get('next') || '';
+  // Local station return only; never allow external post-login redirects.
+  const stationReturn = /^\/station\/[^/?#]+(?:\?contact=1)?$/.test(requestedNext) ? requestedNext : null;
+  const afterLogin = inviteToken ? `/broadcaster-invite?token=${encodeURIComponent(inviteToken)}` : stationReturn;
 
   // --- OTP STATES ---
   const [showOtpModal, setShowOtpModal] = useState(false);
