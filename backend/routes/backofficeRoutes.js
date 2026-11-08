@@ -399,28 +399,10 @@ router.post('/backoffice/producers/invite',authorizeRoles('broadcaster'),async(r
       const token=jwt.sign({userId:producer._id,email:normalized},process.env.JWT_SECRET,{expiresIn:'7d'});
       const origin=(process.env.FRONTEND_URL||'__IRADIOS_SITE_ORIGIN__').replace(/\/+$/,'');
       const link=origin+'/accept-invite?token='+encodeURIComponent(token);
-      const { renderBrandedEmail, actionButton, infoPanel, escapeHtml } =
-        require('../utils/emailDesign');
-      const content =
-        '<h3>Καλωσήρθες στην ομάδα!</h3>' +
-        '<p>Γεια σου <strong>' + escapeHtml(fname.trim()) + '</strong>.</p>' +
-        '<p>Έχεις προσκληθεί να συνεργαστείς ως Producer για το πρόγραμμα του σταθμού.</p>' +
-        infoPanel('RADIO STATION', station.name, { highlight: true }) +
-        '<p>Ενεργοποίησε τον προσωπικό λογαριασμό σου και όρισε κωδικό για να αποκτήσεις ' +
-        'πρόσβαση στο πρόγραμμα του σταθμού μέσω του iRadiosGR.</p>' +
-        actionButton('Αποδοχή πρόσκλησης', link) +
-        '<p style="color:#95A2B5;font-size:12px;line-height:20px;">' +
-        'Ο σύνδεσμος ενεργοποίησης ισχύει για 7 ημέρες και χρησιμοποιείται μία φορά.</p>';
+      const { producerInvitationEmail } = require('../utils/invitationEmailTemplates');
       const delivery = await sendEmail({
-        to:normalized,
-        subject:'Πρόσκληση Producer · '+station.name+' | iRadiosGR',
-        text:'Γεια σου '+fname.trim()+'. Προσκλήθηκες στο πρόγραμμα του σταθμού ' +
-          station.name+'. Αποδοχή πρόσκλησης: '+link+'\nΟ σύνδεσμος ισχύει για 7 ημέρες.',
-        html:renderBrandedEmail({
-          preheader:'Πρόσκληση Producer στον '+station.name,
-          category:'PRODUCER · YOUR RADIO TEAM',
-          content
-        })
+        to: normalized,
+        ...producerInvitationEmail({ firstName: fname.trim(), stationName: station.name, link })
       });
       if (!delivery.success) throw new Error('Η πρόσκληση Producer δεν μπόρεσε να αποσταλεί.');
 
