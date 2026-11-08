@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {PrimaryCategorySelect,SecondaryCategorySelect} from '../components/StationCategorySelect';
+import {LOCATION_DATA, stationCityOptions, stationCapital, canonicalStationLocation, inferStationPrefecture} from '../utils/stationLocations';
 import {isPrimaryCategory,isSecondaryCategory,PRIMARY_CATEGORIES} from '../utils/stationCategories';
 import { 
   PlusCircle, Radio, Trash2, Edit, X, 
@@ -8,118 +9,7 @@ import {
   MessageCircle 
 } from 'lucide-react';
 
-// 🗺️ 1. ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ 
-const LOCATION_DATA = {
-  "Ελλάδα": {
-    "Αττική": {
-      "Αττική": [
-        "Αθήνα", "Πειραιάς", "Νέα Σμύρνη", "Καλλιθέα", "Παλαιό Φάληρο", "Άλιμος", "Ελληνικό", 
-        "Αργυρούπολη", "Γλυφάδα", "Βούλα", "Βουλιαγμένη", "Ηλιούπολη", "Άγιος Δημήτριος", 
-        "Ζωγράφου", "Καισαριανή", "Βύρωνας", "Γαλάτσι", "Νέα Ιωνία", "Νέο Ηράκλειο", 
-        "Νέα Φιλαδέλφεια", "Χαλάνδρι", "Μαρούσι", "Κηφισιά", "Πεύκη", "Μελίσσια", "Βριλήσσια", 
-        "Αγία Παρασκευή", "Περιστέρι", "Αιγάλεω", "Χαϊδάρι", "Ίλιον", "Πετρούπολη", "Αγία Βαρβάρα", 
-        "Νίκαια", "Κορυδαλλός", "Κερατσίνι", "Δραπετσώνα", "Πέραμα", "Σαλαμίνα", "Ελευσίνα", 
-        "Αχαρνές", "Παλλήνη", "Γέρακας", "Κορωπί", "Μαρκόπουλο", "Ραφήνα", "Λαύριο"
-      ]
-    },
-    "Κεντρική Μακεδονία": {
-      "Θεσσαλονίκη": [
-        "Θεσσαλονίκη", "Καλαμαριά", "Εύοσμος", "Κορδελιό", "Αμπελόκηποι", "Μενεμένη", "Σταυρούπολη", 
-        "Πολίχνη", "Νεάπολη", "Συκιές", "Πυλαία", "Χορτιάτης", "Πανόραμα", "Θέρμη", "Ωραιόκαστρο", 
-        "Μηχανιώνα", "Περαία", "Σίνδος", "Χαλάστρα"
-      ],
-      "Ημαθία": ["Βέροια", "Νάουσα", "Αλεξάνδρεια"],
-      "Κιλκίς": ["Κιλκίς"],
-      "Πέλλα": ["Έδεσσα", "Γιαννιτσά"],
-      "Πιερία": ["Κατερίνη"],
-      "Σέρρες": ["Σέρρες"],
-      "Χαλκιδική": ["Πολύγυρος", "Νέα Μουδανιά", "Χαλκιδική"]
-    },
-    "Θεσσαλία": {
-      "Λάρισα": ["Λάρισα", "Ελασσόνα", "Φάρσαλα"],
-      "Μαγνησία": ["Βόλος", "Αλμυρός"],
-      "Τρίκαλα": ["Τρίκαλα", "Καλαμπάκα"],
-      "Καρδίτσα": ["Καρδίτσα"]
-    },
-    "Δυτική Ελλάδα": {
-      "Αχαΐα": ["Πάτρα", "Αίγιο", "Καλάβρυτα"],
-      "Αιτωλοακαρνανία": ["Μεσολόγγι", "Αγρίνιο", "Ναύπακτος"],
-      "Ηλεία": ["Πύργος", "Αμαλιάδα"]
-    },
-    "Πελοπόννησος": {
-      "Κορινθία": ["Κόρινθος", "Λουτράκι", "Κιάτο"],
-      "Μεσσηνία": ["Καλαμάτα", "Μεσσήνη"],
-      "Αργολίδα": ["Ναύπλιο", "Άργος"],
-      "Αρκαδία": ["Τρίπολη", "Μεγαλόπολη"],
-      "Λακωνία": ["Σπάρτη", "Γύθειο"]
-    },
-    "Ήπειρος": {
-      "Ιωάννινα": ["Ιωάννινα", "Μέτσοβο"],
-      "Άρτα": ["Άρτα"],
-      "Θεσπρωτία": ["Ηγουμενίτσα"],
-      "Πρέβεζα": ["Πρέβεζα", "Πάργα"]
-    },
-    "Στερεά Ελλάδα": {
-      "Φθιώτιδα": ["Λαμία"],
-      "Εύβοια": ["Χαλκίδα", "Κάρυστος"],
-      "Βοιωτία": ["Λιβαδειά", "Θήβα", "Αράχωβα"],
-      "Φωκίδα": ["Άμφισσα", "Δελφοί"],
-      "Ευρυτανία": ["Καρπενήσι"]
-    },
-    "Ανατολική Μακεδονία & Θράκη": {
-      "Έβρος": ["Αλεξανδρούπολη", "Ορεστιάδα", "Διδυμότειχο"],
-      "Καβάλα": ["Καβάλα"],
-      "Ξάνθη": ["Ξάνθη"],
-      "Ροδόπη": ["Κομοτηνή"],
-      "Δράμα": ["Δράμα"]
-    },
-    "Δυτική Μακεδονία": {
-      "Κοζάνη": ["Κοζάνη", "Πτολεμαΐδα"],
-      "Καστοριά": ["Καστοριά"],
-      "Φλώρινα": ["Φλώρινα", "Αμύνταιο"],
-      "Γρεβενά": ["Γρεβενά"]
-    },
-    "Ιόνια Νησιά": {
-      "Κέρκυρα": ["Κέρκυρα"],
-      "Ζάκυνθος": ["Ζάκυνθος"],
-      "Κεφαλληνία": ["Αργοστόλι", "Ληξούρι"],
-      "Λευκάδα": ["Λευκάδα"]
-    },
-    "Βόρειο Αιγαίο": {
-      "Λέσβος": ["Μυτιλήνη"],
-      "Χίος": ["Χίος"],
-      "Σάμος": ["Σάμος"]
-    },
-    "Νότιο Αιγαίο": {
-      "Κυκλάδες": ["Σύρος", "Νάξος", "Μύκονος", "Σαντορίνη", "Πάρος", "Τήνος", "Μήλος"],
-      "Δωδεκάνησα": ["Ρόδος", "Κως", "Κάλυμνος", "Κάρπαθος"]
-    },
-    "Κρήτη": {
-      "Ηράκλειο": ["Ηράκλειο", "Μοίρες", "Χερσόνησος"],
-      "Χανιά": ["Χανιά", "Κίσσαμος"],
-      "Ρέθυμνο": ["Ρέθυμνο"],
-      "Λασίθι": ["Άγιος Νικόλαος", "Ιεράπετρα", "Σητεία"]
-    }
-  },
-  "Κύπρος": {
-    "Κύπρος": {
-        "Λευκωσία": ["Λευκωσία", "Στρόβολος", "Λακατάμεια"],
-        "Λεμεσός": ["Λεμεσός"],
-        "Λάρνακα": ["Λάρνακα"],
-        "Πάφος": ["Πάφος"],
-        "Αμμόχωστος": ["Παραλίμνι", "Αγία Νάπα"],
-        "Κερύνεια": ["Κερύνεια"]
-    }
-  },
-  "Εξωτερικό": {
-    "Εξωτερικό": {
-        "Ευρώπη": ["Λονδίνο", "Παρίσι", "Βερολίνο"],
-        "Αμερική": ["Νέα Υόρκη", "Σικάγο"],
-        "Αυστραλία": ["Σίδνεϊ", "Μελβούρνη"],
-        "Άλλο": ["Διεθνές"]
-    }
-  }
-};
+
 
 // Dropdown choices come from the shared station taxonomy.
 
@@ -247,7 +137,7 @@ export default function Admin({ API_URL, refreshStations }) {
 
   const checkFormValidity = (formData) => {
     const { name, slug, genre, stream, country, region, prefecture, city, transmissionType, frequency } = formData;
-    const hasBasics = name && slug && isPrimaryCategory(genre) && isSecondaryCategory(formData.secondaryGenre) && stream && country && region && prefecture && city;
+    const hasBasics = name && slug && isPrimaryCategory(genre) && isSecondaryCategory(formData.secondaryGenre) && stream && country && region && prefecture && city && stationCityOptions(country, region, prefecture).includes(city);
     const hasFreq = transmissionType === 'Επίγειο' ? frequency : true;
     const hasLogo = selectedFile || (formData.logo !== '' && isLogoValid);
     return hasBasics && hasFreq && hasLogo;
@@ -346,7 +236,7 @@ export default function Admin({ API_URL, refreshStations }) {
   // Ακριβές Mapping για να μην χάνονται τα πεδία Τοποθεσίας όταν ανοίγει το Modal του Admin
   const handleEditClick = (station, isDraft = false) => {
     // Επιλέγουμε την πηγή δεδομένων (το pendingEdit document ή το κανονικό station document)
-    const sourceData = isDraft ? station.pendingEdits : station;
+    const sourceData = canonicalStationLocation(isDraft ? station.pendingEdits : station);
     
     setEditingStation({ 
       ...INITIAL_STATION_STATE,
@@ -367,7 +257,7 @@ export default function Admin({ API_URL, refreshStations }) {
       // Тоποθεσία: Explicit assignment για να "ξυπνήσουν" τα Dropdowns
       country: sourceData.country || 'Ελλάδα',
       region: sourceData.region || '',
-      prefecture: sourceData.prefecture || '',
+      prefecture: sourceData.prefecture || inferStationPrefecture(sourceData.country || 'Ελλάδα', sourceData.region, sourceData.city),
       city: sourceData.city || '',
       
       transmissionType: sourceData.transmissionType || 'Web Radio',
@@ -763,7 +653,7 @@ export default function Admin({ API_URL, refreshStations }) {
             {/* 3. ΝΟΜΟΣ */}
             <div className="space-y-2">
               <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Νομός / Επαρχία *</label>
-              <select required value={formData.prefecture} onChange={e => setFormData({...formData, prefecture: e.target.value, city: ''})} disabled={!formData.region} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white focus:border-[#ccff00]/50 outline-none appearance-none cursor-pointer disabled:opacity-50">
+              <select required value={formData.prefecture} onChange={e => setFormData({...formData, prefecture: e.target.value, city: stationCapital(formData.country, formData.region, e.target.value)})} disabled={!formData.region} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white focus:border-[#ccff00]/50 outline-none appearance-none cursor-pointer disabled:opacity-50">
                 <option value="">Επιλέξτε...</option>
                 {formData.region && Object.keys(LOCATION_DATA[formData.country]?.[formData.region] || {}).map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -774,7 +664,7 @@ export default function Admin({ API_URL, refreshStations }) {
               <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Πόλη *</label>
               <select required value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} disabled={!formData.prefecture} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white focus:border-[#ccff00]/50 outline-none appearance-none cursor-pointer disabled:opacity-50">
                 <option value="">Επιλέξτε...</option>
-                {formData.prefecture && LOCATION_DATA[formData.country]?.[formData.region]?.[formData.prefecture]?.map(c => <option key={c} value={c}>{c}</option>)}
+                {formData.prefecture && stationCityOptions(formData.country, formData.region, formData.prefecture).map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
