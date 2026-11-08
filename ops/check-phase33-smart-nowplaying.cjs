@@ -11,7 +11,7 @@ const orig=Module._load;
 let writes=0;
 try{
   Module._load=function(name,parent,isMain){
-    if(/(?:recordStationTrack|stageSmartTracks)\.js$/.test(parent?.filename||'')&&name==='../models/StationPlaylist'){
+    if(/(?:recordStationTrack|stageSmartTracks|stageNativeNow)\.js$/.test(parent?.filename||'')&&name==='../models/StationPlaylist'){
       return {updateOne:async()=>{writes++;return {modifiedCount:1,matchedCount:1};},
         findOne:()=>({select:()=>({lean:async()=>null})})};
     }
@@ -82,8 +82,10 @@ try{
     }
     assert.ok(read('frontend/src/App.jsx').includes('nowPlayingInfo={nowPlayingInfo}'),
       'the shared source is passed from the central player');
-    assert.ok(read('backend/utils/stageMetadata.js').includes('resolvedNowPlaying(native,station)'),
-      'API metadata uses the shared music resolver');
+    assert.ok(read('backend/utils/stageMetadata.js').includes('snapshotSong(snapshot)'),
+      'API metadata uses the pre-fetched shared MongoDB snapshot');
+    assert.equal(media({...signed,nowPlaying:'LIVE SHOW'}).artist,'iRadios GR',
+      'logged-in iPhone fallback artist is the iRadios brand');
     assert.ok(read('backend/models/StationPlaylist.js').includes('source:'),
       'playlist entries persist their source');
     assert.ok(writes>0,'successful recognition saves playlist history');
