@@ -530,8 +530,8 @@
   .ir-mobile-station-side-action{transition:none}
 }
 
-/* The station page supplies its own top toolbar and transport at phone widths. */
+/* Keep the custom station toolbar, but preserve the shared mini-player.
+   Tapping it still opens the existing fullscreen audio player. */
 @media (max-width:767px){
   .ir-app-topbar.ir-header--station-page{display:none!important}
-  .ir-mini-player.ir-mini-player--station-page{display:none!important}
 }
