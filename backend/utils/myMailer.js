@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const { ensureBrandedEmail, plainTextContent } = require("./emailDesign");
 
 let transporterInstance = null;
 
@@ -64,13 +65,23 @@ async function sendEmail({ to, bcc, subject, text, html }) {
     // Default From Name/Email προσαρμοσμένο στο iRadios
     const from = process.env.MAIL_FROM || '"iRadios Network" <no-reply@iradios.gr>';
 
+    // One centralized render path also brands legacy ad-hoc emails (invitations,
+    // notifications, admin messages) without double-wrapping shared templates.
+    const hasHtml = typeof html === 'string' && html.trim().length > 0;
+    const htmlSource = hasHtml ? html :
+      (typeof text === 'string' && text.trim() ? plainTextContent(text) : null);
+    const finalHtml = htmlSource ? ensureBrandedEmail(htmlSource, {
+      preheader: subject || 'Μήνυμα από το iRadiosGR',
+      category: 'IRADIOSGR · UPDATE'
+    }) : undefined;
+
     const info = await transporter.sendMail({
       from,
       to,
       bcc,
       subject,
       text,
-      html, 
+      html: finalHtml,
     });
 
     const preview = nodemailer.getTestMessageUrl(info);
