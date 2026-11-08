@@ -30,7 +30,7 @@ assert.equal(directVoiceMatch(index,'Άνοιξε την Αθήνα')?.path, '/r
 assert.equal(directVoiceMatch(index,'Βάλε ροκ')?.path, '/genre/' + encodeURIComponent('Ροκ'));
 assert.equal(directVoiceMatch(index,'Άνοιξε τις ειδήσεις')?.path, '/newsfeed');
 assert.equal(directVoiceMatch(index,'Βρες μου Deseo Radio')?.path, '/station/deseo-radio');
-assert.equal(directVoiceMatch(index,'Αθλητικά νέα')?.path, undefined, 'ambiguous requests must show suggestions');
+assert.equal(directVoiceMatch(index,'Αθλητικά νέα')?.path, '/newsfeed/bbbbbbbbbbbbbbbbbbbbbbbb', 'unique article title prefixes may route directly');
 const groups = groupedSearch(index,'αθλητικά');
 assert.ok(groups.groups.every(group=>group.items.every(item=>item.type===group.id)));
 assert.ok(groups.visible.length <= 12, 'limit results per category in All view');
