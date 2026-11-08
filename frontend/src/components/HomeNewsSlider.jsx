@@ -69,7 +69,7 @@ export default function HomeNewsSlider({articles = [], category = 'all', now = D
         if (event.key === 'ArrowLeft') {event.preventDefault(); move(-1);}
       }}
       tabIndex={0}
-      className="group relative isolate h-[315px] w-full min-w-0 overflow-hidden rounded-[25px] border border-white/10 bg-[#10161b] shadow-[0_22px_52px_rgba(0,0,0,.24)] sm:h-[365px] sm:rounded-[28px] lg:h-[405px] xl:h-[435px]">
+      className="group relative isolate h-[315px] w-full min-w-0 overflow-hidden rounded-[25px] border border-white/10 bg-[#10161b] shadow-[0_22px_52px_rgba(0,0,0,.24)] sm:h-[365px] sm:rounded-[28px] lg:h-[100vh]">
       <div className="flex h-full w-full ease-in-out transition-transform duration-700 motion-reduce:transition-none"
         style={{transform: 'translate3d(-' + (activeIndex * 100) + '%, 0, 0)'}}>
         {articles.map((article, slideIndex) => {
@@ -106,7 +106,7 @@ export default function HomeNewsSlider({articles = [], category = 'all', now = D
                       {article.source || 'iRadios News'}
                     </span>
                   </div>
-                  <h3 className="line-clamp-3 max-w-[1000px] text-[clamp(1.3rem,3vw,2.8rem)] font-black leading-[1.12] tracking-tight text-white drop-shadow-xl sm:line-clamp-2">
+                  <h3 className="line-clamp-3 max-w-[1000px] text-[clamp(1.25rem,2.4vw,2.4rem)] font-black leading-[1.12] tracking-tight text-white drop-shadow-xl sm:line-clamp-2">
                     {article.title}
                   </h3>
                   {article.summary && <p className="mt-3 hidden max-w-[800px] text-xs font-medium leading-relaxed text-zinc-200 sm:line-clamp-2 sm:text-sm lg:text-base">
