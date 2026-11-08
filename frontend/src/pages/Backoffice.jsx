@@ -425,7 +425,6 @@ function Scheduler({data,reload,notify}){
       !existing.some(show=>Number(show.day)===0||Number(show.day)===7));
     setSchedule(toCanonical(existing,base).map(s=>({
       day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||'',
-      imageUrl:s.imageUrl||'',description:s.description||'',
       imageUrl:s.imageUrl||'',description:s.description||''
     })));
     setDirty(false);
@@ -454,7 +453,8 @@ function Scheduler({data,reload,notify}){
     const existing=station?.schedule||[];
     setSourceBase(other);
     setSchedule(toCanonical(existing,other).map(s=>({
-      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
+      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||'',
+      imageUrl:s.imageUrl||'',description:s.description||''
     })));
     setDirty(true);
     notify('Έλεγξε τις ημέρες και πάτησε Αποθήκευση για επιβεβαίωση.');
