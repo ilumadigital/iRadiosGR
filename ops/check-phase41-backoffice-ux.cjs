@@ -24,8 +24,9 @@ assert.ok(backoffice.includes('Quick actions')&&backoffice.includes('Ενημέ�
   'broadcaster landing screen offers focused shortcuts');
 assert.ok(backoffice.includes('Επόμενες εκπομπές'),'landing shows upcoming programs');
 for(const feature of ['role="tablist"','Αντιγραφή ημέρας','Νέα εκπομπή',
-  'Μη αποθηκευμένες αλλαγές','beforeunload','Επικάλυψη με άλλη εκπομπή',
-  'schedule.length>80','startTime>=show.endTime']){
+  'Μη αποθηκευμένες αλλαγές','beforeunload','normalize(schedule)',
+  'schedule.length>160','Αυτόματος διαχωρισμός μεσονυχτίου',
+  'Αλλαγή αντιστοίχισης ημερών','Τακτοποίηση ωρών']){
   assert.ok(schedule.includes(feature),'schedule usability safeguard: '+feature);
 }
 const adminNames=['AdminDashboard','AdminUsers','AdminAds','AdminBanners',

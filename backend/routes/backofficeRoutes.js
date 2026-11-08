@@ -12,6 +12,7 @@ const User=require('../models/User');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {hasAcceptedCurrentBroadcasterTerms}=require('../utils/broadcasterTerms');
+const {normalize:normalizeWeeklySchedule}=require('../utils/scheduleNormalization');
 const router=express.Router();
 
 router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'),
@@ -22,7 +23,7 @@ router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'
     next();
   });
 
-const fields='name slogan description genre region city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule createdAt';
+const fields='name slogan description genre region city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase createdAt';
 const textFields=Object.freeze({
   name:100,slogan:240,description:4000,genre:100,region:100,city:100,
   transmissionType:30,frequency:30,website:450,stream:1200,metadata:1200,
@@ -205,28 +206,20 @@ router.put('/backoffice/stations/:id/schedule',async(req,res)=>{
   try{
     const station=await ownedStation(req,res);
     if(!station)return;
-    const schedule=req.body?.schedule;
-    if(!Array.isArray(schedule)||schedule.length>80)throw validationError('Το πρόγραμμα πρέπει να έχει έως 80 εκπομπές.');
-    const clean=schedule.map(show=>{
-      if(!show||typeof show!=='object')throw validationError('Μη έγκυρη εκπομπή.');
-      const day=Number(show.day),startTime=String(show.startTime||''),
-        endTime=String(show.endTime||''),title=String(show.title||'').trim(),
-        host=String(show.host||'').trim();
-      if(!Number.isInteger(day)||day<1||day>7||
-        !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)||
-        !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)||
-        startTime>=endTime||!title||title.length>120||host.length>100)
-        throw validationError('Έλεγξε ημέρα, ώρες, τίτλο και παραγωγό της εκπομπής.');
-      return {day,startTime,endTime,title,host};
-    });
-    for(let day=1;day<=7;day++){
-      const daily=clean.filter(x=>x.day===day).sort((a,b)=>a.startTime.localeCompare(b.startTime));
-      for(let i=1;i<daily.length;i++)if(daily[i].startTime<daily[i-1].endTime)
-        throw validationError('Υπάρχουν επικαλυπτόμενες εκπομπές στο πρόγραμμα.');
-    }
-    station.schedule=clean;
+    const entries=req.body?.schedule;
+    let normalized;
+    try{normalized=normalizeWeeklySchedule(entries);}
+    catch(error){throw validationError(error.message);}
+    station.schedule=normalized.schedule;
+    // Never rewrite a station merely by reading it. The explicit save upgrades
+    // this station to the 1=Monday ... 7=Sunday convention atomically.
+    station.scheduleDayBase=1;
     await station.save();
-    return res.json({station:safeStation(station,req.user.role),message:'Το πρόγραμμα ενημερώθηκε.'});
+    return res.json({station:safeStation(station,req.user.role),
+      split:normalized.split,
+      message:normalized.split?
+        'Το πρόγραμμα αποθηκεύτηκε. Οι νυχτερινές εκπομπές χωρίστηκαν αυτόματα στις σωστές ημέρες.':
+        'Το πρόγραμμα αποθηκεύτηκε με σωστές ημέρες και σειρά ώρας.'});
   }catch(error){return fail(res,error);}
 });
 

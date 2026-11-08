@@ -1,6 +1,7 @@
 import React, {useCallback,useEffect,useMemo,useState,Suspense,lazy} from 'react';
 import {Link,NavLink,Routes,Route,Navigate,useLocation,useNavigate,useParams} from 'react-router-dom';
 import {Helmet} from 'react-helmet-async';
+import {minutes,scheduleDayBase,toCanonical,normalize,nextDay} from '../utils/schedule';
 import {
   Activity,ArrowDownRight,ArrowLeft,ArrowRight,BadgeCheck,BarChart3,
   Bell,Building2,CalendarDays,Check,CheckCircle2,ChevronDown,ChevronRight,
@@ -139,8 +140,9 @@ function Dashboard({data}){
   const pending=(Number(counts.pendingApproval)||0)+(Number(counts.pendingEdits)||0);
   const today=new Date(),day=today.getDay()||7;
   const currentTime=String(today.getHours()).padStart(2,'0')+':'+String(today.getMinutes()).padStart(2,'0');
-  const nextShows=stations.flatMap(station=>(station.schedule||[])
-    .filter(show=>Number(show.day)===day&&show.endTime>currentTime)
+  const nextShows=stations.flatMap(station=>toCanonical(station.schedule||[],
+    scheduleDayBase(station.schedule,station.scheduleDayBase))
+    .filter(show=>Number(show.day)===day&&minutes(show.endTime,true)>minutes(currentTime))
     .map(show=>({...show,stationName:station.name,stationId:station._id})))
     .sort((a,b)=>a.startTime.localeCompare(b.startTime)).slice(0,3);
   const cards=[
@@ -230,7 +232,7 @@ function Dashboard({data}){
         </div>
         {nextShows.length?nextShows.map((show,index)=><div key={show.stationId+'-'+index}
           className="border-t border-white/10 py-4 first:border-t-0">
-          <p className="text-xs font-black text-[#caff00]">{show.startTime} – {show.endTime}</p>
+          <p className="text-xs font-black text-[#caff00]">{show.startTime} – {show.endTime==='24:00'?'00:00':show.endTime}</p>
           <p className="mt-1 text-sm font-bold text-white">{show.title}</p>
           <p className="mt-1 text-[11px] text-zinc-500">{show.stationName}{show.host?' · '+show.host:''}</p>
         </div>):<p className="py-5 text-xs leading-6 text-zinc-400">
@@ -408,11 +410,18 @@ function Scheduler({data,reload,notify}){
   const [selected,setSelected]=useState(initialStation?._id||data.stations[0]?._id||'');
   const station=data.stations.find(s=>String(s._id)===String(selected));
   const [schedule,setSchedule]=useState([]);
+  const [sourceBase,setSourceBase]=useState(0);
+  const [ambiguousBase,setAmbiguousBase]=useState(false);
   const [activeDay,setActiveDay]=useState(1);
   const [copyTarget,setCopyTarget]=useState('2');
   const [saving,setSaving]=useState(false),[dirty,setDirty]=useState(false);
   useEffect(()=>{
-    setSchedule((station?.schedule||[]).map(s=>({
+    const existing=station?.schedule||[];
+    const base=scheduleDayBase(existing,station?.scheduleDayBase);
+    setSourceBase(base);
+    setAmbiguousBase(existing.length>0&&station?.scheduleDayBase!==0&&station?.scheduleDayBase!==1&&
+      !existing.some(show=>Number(show.day)===0||Number(show.day)===7));
+    setSchedule(toCanonical(existing,base).map(s=>({
       day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
     })));
     setDirty(false);
@@ -436,37 +445,47 @@ function Scheduler({data,reload,notify}){
       document.removeEventListener('click',confirmNavigation,true);
     };
   },[dirty]);
+  const changeLegacyInterpretation=()=>{
+    const other=sourceBase===0?1:0;
+    const existing=station?.schedule||[];
+    setSourceBase(other);
+    setSchedule(toCanonical(existing,other).map(s=>({
+      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
+    })));
+    setDirty(true);
+    notify('Έλεγξε τις ημέρες και πάτησε Αποθήκευση για επιβεβαίωση.');
+  };
   const updateSchedule=callback=>{
     setSchedule(previous=>callback(previous));
     setDirty(true);
   };
-  const errors=useMemo(()=>{
+  const validation=useMemo(()=>{
     const found={};
-    if(schedule.length>80)found.limit='Το πρόγραμμα δέχεται έως 80 εκπομπές.';
+    if(schedule.length>160)found.limit='Το πρόγραμμα δέχεται έως 160 εγγραφές.';
     schedule.forEach((show,index)=>{
-      if(!show.title.trim())found[index]='Συμπλήρωσε τίτλο εκπομπής.';
-      else if(!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(show.startTime)||
-        !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(show.endTime)||
-        show.startTime>=show.endTime)found[index]='Η ώρα λήξης πρέπει να είναι μετά την έναρξη.';
+      const from=minutes(show.startTime),to=minutes(show.endTime,true);
+      if(!show.title?.trim())found[index]='Συμπλήρωσε τίτλο εκπομπής.';
+      else if(!Number.isFinite(from)||!Number.isFinite(to))
+        found[index]='Επίλεξε έγκυρες ώρες έναρξης και λήξης.';
+      else if(from===to&&show.startTime!=='00:00')
+        found[index]='Για ολοήμερη εκπομπή χρησιμοποίησε 00:00–00:00.';
     });
-    for(let day=1;day<=7;day++){
-      const daily=schedule.map((show,index)=>({...show,index}))
-        .filter(show=>show.day===day).sort((a,b)=>a.startTime.localeCompare(b.startTime));
-      for(let i=1;i<daily.length;i++){
-        if(daily[i].startTime<daily[i-1].endTime){
-          found[daily[i].index]='Επικάλυψη με άλλη εκπομπή της ημέρας.';
-          found[daily[i-1].index]='Επικάλυψη με άλλη εκπομπή της ημέρας.';
-        }
-      }
+    let message='',prepared=null;
+    if(!Object.keys(found).length){
+      try{prepared=normalize(schedule);}
+      catch(error){message=error.message;}
     }
-    return found;
+    return {errors:found,message,prepared};
   },[schedule]);
+  const errors=validation.errors;
+  const overnightCount=schedule.filter(s=>Number.isFinite(minutes(s.startTime))&&
+    Number.isFinite(minutes(s.endTime,true))&&minutes(s.endTime,true)<minutes(s.startTime)).length;
   const dailyShows=schedule.map((show,index)=>({...show,index}))
     .filter(show=>show.day===activeDay).sort((a,b)=>a.startTime.localeCompare(b.startTime));
   const add=()=>{
-    if(schedule.length>=80){notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;}
+    if(schedule.length>=160){notify('Το πρόγραμμα υποστηρίζει έως 160 εγγραφές.','error');return;}
     const last=dailyShows[dailyShows.length-1];
-    const startTime=last&&last.endTime<'22:00'?last.endTime:'10:00';
+    const startTime=last?.endTime&&last.endTime>'00:00'&&last.endTime<'23:00'?last.endTime:'10:00';
     const hour=Number(startTime.slice(0,2));
     const endTime=String(Math.min(hour+1,23)).padStart(2,'0')+':'+startTime.slice(3);
     updateSchedule(previous=>[...previous,{day:activeDay,startTime,endTime,title:'',host:''}]);
@@ -475,8 +494,8 @@ function Scheduler({data,reload,notify}){
     j===index?{...s,[key]:value}:s));
   const remove=index=>updateSchedule(previous=>previous.filter((_,j)=>j!==index));
   const duplicate=show=>{
-    if(schedule.length>=80){notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;}
-    const startTime=show.endTime<'22:00'?show.endTime:show.startTime;
+    if(schedule.length>=160){notify('Το πρόγραμμα υποστηρίζει έως 160 εγγραφές.','error');return;}
+    const startTime=show.endTime>'00:00'&&show.endTime<'23:00'?show.endTime:show.startTime;
     const endHour=Number(startTime.slice(0,2))+1;
     const endTime=String(Math.min(endHour,23)).padStart(2,'0')+':'+startTime.slice(3);
     updateSchedule(previous=>[...previous,{
@@ -493,8 +512,8 @@ function Scheduler({data,reload,notify}){
     const source=schedule.filter(show=>show.day===activeDay);
     if(!source.length){notify('Δεν υπάρχουν εκπομπές για αντιγραφή.','error');return;}
     const existing=schedule.filter(show=>show.day===day);
-    if(schedule.length-existing.length+source.length>80){
-      notify('Το πρόγραμμα υποστηρίζει έως 80 εκπομπές.','error');return;
+    if(schedule.length-existing.length+source.length>160){
+      notify('Το πρόγραμμα υποστηρίζει έως 160 εγγραφές.','error');return;
     }
     if(existing.length&&!window.confirm('Οι '+existing.length+' εκπομπές της '+DAY_NAMES[day]+
       ' θα αντικατασταθούν. Συνέχεια;'))return;
@@ -505,28 +524,61 @@ function Scheduler({data,reload,notify}){
     setActiveDay(day);setCopyTarget(String(activeDay));
     notify('Η ημέρα αντιγράφηκε. Πάτησε Αποθήκευση για να ολοκληρώσεις.');
   };
+  // Explicit, reviewable adjustment: when a later show starts before the previous
+  // one ends, finish the previous show at the next start. Never discard entries,
+  // auto-edit equal starts or silently alter airtime on the server.
+  const alignAdjacent=()=>{
+    const arranged=schedule.map(item=>({...item}));
+    let changes=0;
+    for(let day=1;day<=7;day++){
+      const indices=arranged.map((item,index)=>({item,index}))
+        .filter(({item})=>item.day===day&&Number.isFinite(minutes(item.startTime))&&
+          Number.isFinite(minutes(item.endTime,true))&&
+          minutes(item.endTime,true)>minutes(item.startTime))
+        .sort((a,b)=>minutes(a.item.startTime)-minutes(b.item.startTime));
+      for(let i=1;i<indices.length;i++){
+        const prev=indices[i-1],cur=indices[i];
+        if(minutes(cur.item.startTime)<minutes(prev.item.endTime,true)&&
+          minutes(cur.item.startTime)>minutes(prev.item.startTime)){
+          arranged[prev.index].endTime=cur.item.startTime;
+          changes++;
+        }
+      }
+    }
+    if(changes){
+      updateSchedule(()=>arranged);
+      notify('Τακτοποιήθηκαν '+changes+' όρια εκπομπών. Έλεγξε τις ώρες πριν αποθηκεύσεις.');
+    }else notify('Δεν μπορεί να διορθωθεί αυτόματα αυτή η σύγκρουση. Έλεγξε τις εκπομπές με ίδια ώρα.','error');
+  };
   async function save(){
     if(!station||saving||!dirty)return;
-    if(Object.keys(errors).length){
-      notify('Διόρθωσε τα επισημασμένα πεδία και τις επικαλύψεις πριν αποθηκεύσεις.','error');
+    if(Object.keys(errors).length||validation.message){
+      notify(validation.message||'Συμπλήρωσε τους τίτλους και τις ώρες πριν αποθηκεύσεις.','error');
       return;
     }
     setSaving(true);
     try{
+      // The API does the same normalization again, under JWT + ownership checks.
+      // Keep the user's overnight input intact until the server confirms the save.
       const result=await api('/stations/'+station._id+'/schedule',{
         method:'PUT',body:JSON.stringify({schedule:schedule.map(({day,startTime,endTime,title,host})=>
           ({day,startTime,endTime,title:title.trim(),host:host.trim()}))})
       });
+      setSchedule(toCanonical(result.station.schedule||[],1).map(show=>({
+        day:Number(show.day),startTime:show.startTime,endTime:show.endTime,
+        title:show.title,host:show.host||''
+      })));
+      setSourceBase(1);setAmbiguousBase(false);
       setDirty(false);
       notify(result.message||'Το πρόγραμμα αποθηκεύτηκε.');
       await reload();
     }catch(error){notify(error.message,'error');}finally{setSaving(false);}
   }
   const countDay=day=>schedule.filter(show=>show.day===day).length;
-  const totalErrors=Object.keys(errors).length;
+  const totalErrors=Object.keys(errors).length+Number(Boolean(validation.message));
   return <div>
     <SectionTitle eyebrow="Εύκολο πρόγραμμα" title="Οργάνωσε τις εκπομπές σου."
-      description="Διάλεξε ημέρα, πρόσθεσε εκπομπή και αποθήκευσε. Ισχύει για όλους τους ρόλους με πρόσβαση στο πρόγραμμα."
+      description="Οι ημέρες είναι Δευτέρα–Κυριακή (1–7). Γράψε ώρες κανονικά, ακόμη και αν μια εκπομπή τελειώνει μετά τα μεσάνυχτα. Το πρόγραμμα βάζει τη σωστή σειρά και χωρίζει τις ημέρες μόνο του."
       aside={<div className="flex flex-wrap items-center gap-3">
         {dirty&&<Badge tone="amber">Μη αποθηκευμένες αλλαγές</Badge>}
         <button type="button" onClick={save} disabled={!station||saving||!dirty||totalErrors>0}
@@ -539,10 +591,31 @@ function Scheduler({data,reload,notify}){
           {data.stations.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}
         </select></Field></div>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone="lime">{schedule.length} εκπομπές / εβδομάδα</Badge>
-        <Badge tone={totalErrors?'rose':'neutral'}>{totalErrors?totalErrors+' προβλήματα':'Χωρίς συγκρούσεις'}</Badge>
+        <Badge tone="lime">{schedule.length} εγγραφές / εβδομάδα</Badge>
+        <Badge tone={totalErrors?'rose':'neutral'}>{totalErrors?'Χρειάζεται διόρθωση':'Έτοιμο για αποθήκευση'}</Badge>
       </div>
     </div>
+    {ambiguousBase&&<div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/[.07] p-4">
+      <div className="max-w-2xl"><p className="text-xs font-black text-amber-200">Έλεγχος ημερών παλιού προγράμματος</p>
+        <p className="mt-1 text-xs leading-5 text-zinc-300">
+          Το πρόγραμμα είχε αποθηκευτεί χωρίς ένδειξη αρίθμησης ημερών. Τώρα προβάλλεται ως παλιό πρόγραμμα.
+          Αν βλέπεις τις εκπομπές μία ημέρα μετά ή πριν, επίλεξε την άλλη αντιστοίχιση.
+          Με την αποθήκευση οι ημέρες οριστικοποιούνται σωστά.</p></div>
+      <button type="button" onClick={changeLegacyInterpretation}
+        className={buttonSecondary}>Αλλαγή αντιστοίχισης ημερών</button>
+    </div>}
+    {overnightCount>0&&<div className="mb-5 rounded-2xl border border-[#caff00]/20 bg-[#caff00]/[.055] p-4 text-xs leading-6 text-zinc-200">
+      <span className="font-black text-[#caff00]">Αυτόματος διαχωρισμός μεσονυχτίου:</span>
+      {' '+overnightCount+' εκπομπές περνούν στην επόμενη ημέρα. Μπορείς να γράψεις π.χ. 23:00–02:00.'}
+      {' Με την αποθήκευση θα χωριστούν αυτόματα σε 23:00–24:00 και 00:00–02:00.'}
+    </div>}
+    {validation.message&&<div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-400/25 bg-rose-400/[.055] p-4">
+      <span className="flex items-start gap-2 text-xs leading-6 text-rose-200">
+        <CircleAlert size={17} className="mt-0.5 shrink-0"/>{validation.message}</span>
+      {validation.message.includes('επικαλύπτονται')&&
+        <button type="button" onClick={alignAdjacent} className={buttonSecondary}>
+          <RefreshCw size={15}/> Τακτοποίηση ωρών</button>}
+    </div>}
     {!station?<div className={panel+' p-12 text-center text-zinc-400'}>Δεν έχεις εκχωρημένο σταθμό.
       {data.user.role==='broadcaster'&&<div className="mt-4"><Link className={buttonSecondary}
         to="/backoffice/stations/new">Προσθήκη σταθμού</Link></div>}</div>:
