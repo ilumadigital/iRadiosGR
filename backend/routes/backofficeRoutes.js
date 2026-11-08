@@ -13,6 +13,7 @@ const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {hasAcceptedCurrentBroadcasterTerms}=require('../utils/broadcasterTerms');
 const {normalize:normalizeWeeklySchedule}=require('../utils/scheduleNormalization');
+const {loadFeed,publicPreview,syncOne}=require('../services/stationScheduleFeed');
 const router=express.Router();
 
 router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'),
@@ -23,7 +24,7 @@ router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'
     next();
   });
 
-const fields='name slogan description genre region city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase createdAt';
+const fields='name slogan description genre region city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase scheduleFeed createdAt';
 const textFields=Object.freeze({
   name:100,slogan:240,description:4000,genre:100,region:100,city:100,
   transmissionType:30,frequency:30,website:450,stream:1200,metadata:1200,
@@ -77,7 +78,8 @@ function safeStation(station,role){
   const result={};
   for(const key of fields.split(' '))if(s[key]!==undefined&&
     (key!=='broadcasterId'||role==='admin')&&
-    (key!=='pendingEdits'||role!=='producer'))result[key]=s[key];
+    (key!=='pendingEdits'||role!=='producer')&&
+    (key!=='scheduleFeed'||role!=='producer'))result[key]=s[key];
   result._id=s._id;
   return result;
 }
@@ -93,7 +95,7 @@ async function ownedStation(req,res,{writer=false}={}){
   if(writer&&req.user.role==='producer'){
     res.status(403).json({error:'Ο παραγωγός δεν μπορεί να επεξεργαστεί το προφίλ του σταθμού.'});return null;
   }
-  const station=await Station.findOne({_id:req.params.id,...stationQuery(req.user)});
+  const station=await Station.findOne({_id:req.params.id,...stationQuery(req.user)}).select('+scheduleFeed');
   if(!station){res.status(404).json({error:'Ο σταθμός δεν βρέθηκε ή δεν σου ανήκει.'});return null;}
   return station;
 }
@@ -210,7 +212,12 @@ router.put('/backoffice/stations/:id/schedule',async(req,res)=>{
     let normalized;
     try{normalized=normalizeWeeklySchedule(entries);}
     catch(error){throw validationError(error.message);}
+    if(station.scheduleFeed?.enabled&&req.user.role==='producer')
+      return res.status(403).json({error:'Ο broadcaster πρέπει να απενεργοποιήσει πρώτα τον αυτόματο συγχρονισμό XML.'});
+    if(station.scheduleFeed?.lockUntil>new Date())
+      return res.status(409).json({error:'Το XML ενημερώνεται τώρα. Ξαναδοκίμασε.'});
     station.schedule=normalized.schedule;
+    if(station.scheduleFeed?.enabled)station.scheduleFeed.enabled=false; // manual takeover
     // Never rewrite a station merely by reading it. The explicit save upgrades
     // this station to the 1=Monday ... 7=Sunday convention atomically.
     station.scheduleDayBase=1;
@@ -221,6 +228,75 @@ router.put('/backoffice/stations/:id/schedule',async(req,res)=>{
         'Το πρόγραμμα αποθηκεύτηκε. Οι νυχτερινές εκπομπές χωρίστηκαν αυτόματα στις σωστές ημέρες.':
         'Το πρόγραμμα αποθηκεύτηκε με σωστές ημέρες και σειρά ώρας.'});
   }catch(error){return fail(res,error);}
+});
+
+
+const feedRoles=authorizeRoles('admin','broadcaster');
+function feedSettings(body){
+  const url=typeof body?.url==='string'?body.url.trim():'';
+  const rowTag=typeof body?.rowTag==='string'?body.rowTag.trim():'';
+  if(!url||url.length>1600||rowTag.length>100)
+    throw validationError('Συμπλήρωσε έγκυρο XML URL (και προαιρετικά row tag).');
+  return {url,rowTag,mapping:body?.mapping||{},
+    dayFormat:body?.dayFormat||'iso'};
+}
+// Preview never saves or changes an existing schedule.
+router.post('/backoffice/stations/:id/schedule-feed/preview',feedRoles,async(req,res)=>{
+  try{
+    const station=await ownedStation(req,res);
+    if(!station)return;
+    const parsed=await loadFeed(feedSettings(req.body));
+    return res.json({preview:publicPreview(parsed)});
+  }catch(e){return fail(res,e);}
+});
+// Explicit confirmation only: fetch and validate the entire feed before replacing.
+router.post('/backoffice/stations/:id/schedule-feed',feedRoles,async(req,res)=>{
+  try{
+    const station=await ownedStation(req,res);
+    if(!station)return;
+    if(station.scheduleFeed?.lockUntil>new Date())
+      return res.status(409).json({error:'Ο συγχρονισμός XML εκτελείται ήδη.'});
+    const parsed=await loadFeed(feedSettings(req.body));
+    station.schedule=parsed.schedule;
+    station.scheduleDayBase=1;
+    station.scheduleFeed={
+      enabled:true,url:String(req.body.url).trim(),rowTag:parsed.rowTag,
+      mapping:parsed.mapping,dayFormat:parsed.dayFormat,
+      lastCheckedAt:new Date(),lastSuccessAt:new Date(),lastChangedAt:new Date(),
+      lastHash:parsed.hash,lastCount:parsed.schedule.length,
+      lastError:'',failures:0,lockUntil:null
+    };
+    await station.save();
+    return res.json({station:safeStation(station,req.user.role),
+      preview:publicPreview(parsed),
+      message:'Το XML συνδέθηκε, το πρόγραμμα εισήχθη και θα ανανεώνεται κάθε μέρα στις 03:00 (Ελλάδα).'});
+  }catch(e){return fail(res,e);}
+});
+router.post('/backoffice/stations/:id/schedule-feed/sync',feedRoles,async(req,res)=>{
+  try{
+    const station=await ownedStation(req,res);
+    if(!station)return;
+    if(!station.scheduleFeed?.enabled)return res.status(409).json({error:'Πρώτα ενεργοποίησε το XML feed.'});
+    const result=await syncOne(station._id);
+    if(result.skipped)return res.status(409).json({error:'Ο συγχρονισμός είναι ήδη σε εξέλιξη.'});
+    const updated=await Station.findById(station._id).select('+scheduleFeed');
+    if(result.error)return res.status(422).json({error:result.error,
+      station:safeStation(updated,req.user.role)});
+    return res.json({station:safeStation(updated,req.user.role),
+      message:result.changed?'Το πρόγραμμα ενημερώθηκε από το XML.':'Έλεγχος ολοκληρώθηκε. Δεν υπήρχαν αλλαγές.'});
+  }catch(e){return fail(res,e);}
+});
+router.delete('/backoffice/stations/:id/schedule-feed',feedRoles,async(req,res)=>{
+  try{
+    const station=await ownedStation(req,res);
+    if(!station)return;
+    if(station.scheduleFeed?.lockUntil>new Date())
+      return res.status(409).json({error:'Περίμενε να ολοκληρωθεί ο ενεργός συγχρονισμός.'});
+    if(station.scheduleFeed)station.scheduleFeed.enabled=false;
+    await station.save();
+    return res.json({station:safeStation(station,req.user.role),
+      message:'Ο αυτόματος XML συγχρονισμός απενεργοποιήθηκε. Το τελευταίο πρόγραμμα διατηρήθηκε.'});
+  }catch(e){return fail(res,e);}
 });
 
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:3*1024*1024,files:1},
