@@ -208,6 +208,8 @@ router.post('/broadcaster-invitations/claim', protect, authorizeRoles('broadcast
         { $set: { status: 'revoked', revokedAt: new Date() }, $unset: { acceptedBy: '', acceptedAt: '' } });
       return res.status(409).json({ error: 'Ο σταθμός δεν είναι πλέον διαθέσιμος.' });
     }
+    await Invitation.updateMany({ stationId: station._id, status: 'pending' },
+      { $set: { status: 'revoked', revokedAt: new Date() } });
     return res.json({ message: 'Ο σταθμός προστέθηκε στο Broadcaster Backoffice.', station });
   } catch (error) {
     console.error('Broadcaster invitation claim:', error);
