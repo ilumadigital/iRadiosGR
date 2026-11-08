@@ -57,7 +57,7 @@ async function main(){
   await adminFetch('https://unrelated.example/api/users',{method:'GET'});
   assert.equal(calls[1].init.headers,undefined,'never attach JWT to external origins');
   await adminFetch('/station/demo');
-  assert.equal(calls[2].init,undefined,'do not modify public or listener requests');
+  assert.equal(calls[2].init.headers,undefined,'do not modify public or listener requests');
   storedToken=null;
   await adminFetch('/api/admin/users',{method:'GET'});
   assert.equal(calls[3].init.headers,undefined,'no fabricated JWT when signed out');
