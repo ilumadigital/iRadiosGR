@@ -470,36 +470,36 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
   );
 
   return (
-    <div className="p-6 lg:p-12 max-w-full pb-40 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+    <div className="admin-legacy-page space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <Megaphone className="text-[#ccff00]" size={28} />
-            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Ads Management</h2>
+            <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Ηχητικές διαφημίσεις</h2>
           </div>
           <p className="text-zinc-500 text-sm font-medium">Διαχειριστείτε τις Audio Pre-Roll & Mid-Roll καμπάνιες του δικτύου.</p>
         </div>
         <button onClick={() => setShowAddModal(true)} className="bg-[#ccff00] text-black px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-all shadow-[0_10px_30px_rgba(204,255,0,0.2)]">
-          Προσθηκη Νεου Σποτ
+          Νέο ηχητικό σποτ
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
         <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px]">
-          <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-2">Συνολο Σποτ</div>
+          <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-2">Σύνολο σποτ</div>
           <div className="text-4xl font-black text-white">{ads.length}</div>
         </div>
         <div className="bg-[#ccff00]/5 border border-[#ccff00]/10 p-8 rounded-[32px]">
-          <div className="text-[#ccff00] text-[10px] font-black uppercase tracking-widest mb-2">Pre-Rolls (Entry)</div>
+          <div className="text-[#ccff00] text-[10px] font-black uppercase tracking-widest mb-2">Pre-roll · στην είσοδο</div>
           <div className="text-4xl font-black text-[#ccff00]">{ads.filter(a => a.frequency === 'first_station').length}</div>
         </div>
         <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px]">
-          <div className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-2">Mid-Rolls (Time/Zapping)</div>
+          <div className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-2">Mid-roll · κατά την ακρόαση</div>
           <div className="text-4xl font-black text-white">{ads.filter(a => a.frequency !== 'first_station').length}</div>
         </div>
       </div>
 
-      <div className="relative w-full max-w-md mb-8">
+      <div className="relative w-full max-w-lg mb-6">
         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
         <input type="text" placeholder="Αναζήτηση..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-zinc-900/50 border border-white/10 h-12 rounded-2xl pl-12 pr-10 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-all placeholder:text-zinc-600" />
       </div>
