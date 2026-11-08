@@ -128,6 +128,7 @@ function Dashboard({data}){
   const cards=[
     {to:'/backoffice/stations',icon:Radio,name:'Ραδιοφωνικοί σταθμοί',desc:'Όλοι οι σταθμοί, οι πληροφορίες και τα stream σου.',number:'01'},
     {to:'/backoffice/schedules',icon:CalendarDays,name:'Πρόγραμμα εκπομπών',desc:'Οργάνωσε το εβδομαδιαίο πρόγραμμα και τους παραγωγούς.',number:'02'},
+    ...(user.role==='broadcaster'?[{to:'/backoffice/team',icon:Users,name:'Παραγωγοί & συνεργάτες',desc:'Προσκάλεσε την ομάδα σου και όρισε σταθμούς.',number:'03'}]:[]),
     ...(admin?[{to:'/backoffice/review',icon:FileCheck2,name:'Εγκρίσεις σταθμών',desc:'Έλεγξε αιτήματα και αλλαγές με ένα κλικ.',number:'03'},
       {to:'/backoffice/admin/users',icon:Users,name:'Χρήστες & ρόλοι',desc:'Πρόσβαση, λογαριασμοί και διαχείριση.',number:'04'}]:[])
   ];
@@ -413,6 +414,68 @@ function Review({data,reload,notify}){
     </div>
   </div>;
 }
+function Team({data,notify}){
+  const [people,setPeople]=useState([]),[loading,setLoading]=useState(true),[sending,setSending]=useState(false);
+  const [form,setForm]=useState({email:'',fname:'',lname:'',
+    stationId:data.stations.find(s=>s.status==='approved')?._id||''});
+  const refresh=useCallback(async()=>{
+    const result=await api('/producers');
+    setPeople(result.producers||[]);
+  },[]);
+  useEffect(()=>{let alive=true;refresh().catch(error=>{if(alive)notify(error.message,'error');})
+    .finally(()=>{if(alive)setLoading(false);});return()=>{alive=false;};},[refresh]);
+  const invite=async(e)=>{
+    e.preventDefault();setSending(true);
+    try{
+      const response=await api('/producers/invite',{method:'POST',body:JSON.stringify(form)});
+      notify(response.message);setForm(prev=>({...prev,email:'',fname:'',lname:''}));
+      await refresh();
+    }catch(error){notify(error.message,'error');}finally{setSending(false);}
+  };
+  const revoke=async(person)=>{
+    if(!window.confirm('Να ανακληθεί η πρόσβαση του παραγωγού '+person.email+';'))return;
+    try{
+      const response=await api('/producers/'+person._id,{method:'DELETE'});
+      notify(response.message);await refresh();
+    }catch(error){notify(error.message,'error');}
+  };
+  if(data.user.role!=='broadcaster')return <Navigate to="/backoffice" replace/>;
+  return <div><SectionTitle eyebrow="Your team" title="Οι άνθρωποι του σταθμού."
+    description="Προσκάλεσε παραγωγούς με email. Κάθε συνεργάτης βλέπει μόνο τον σταθμό που του αναθέτεις και μπορεί να ενημερώνει το πρόγραμμα."/>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <section className={panel+' p-5 md:p-7'}>
+        <div className="mb-5 flex items-center justify-between"><h3 className="text-xl font-black text-white">Συνεργάτες</h3><Badge tone="lime">{people.length} παραγωγοί</Badge></div>
+        {loading?<p className="py-8 text-sm text-zinc-500">Φόρτωση ομάδας…</p>:
+          people.length?people.map(person=><div key={person._id} className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 py-4 last:border-b-0">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><Mic2 size={18}/></div>
+              <div className="min-w-0"><p className="truncate text-sm font-bold text-white">{person.fname} {person.lname}</p>
+                <p className="mt-1 truncate text-xs text-zinc-500">{person.email}</p>
+                <p className="mt-1 text-[10px] text-zinc-500">{person.assignedStation?.name||'Χωρίς σταθμό'}</p>
+              </div></div>
+            <div className="flex items-center gap-3"><Badge tone={person.isVerified?'lime':'amber'}>
+              {person.isVerified?'Ενεργός':'Πρόσκληση σε εκκρεμότητα'}</Badge>
+              <button type="button" aria-label="Ανάκληση πρόσβασης" onClick={()=>revoke(person)}
+                className="rounded-xl border border-rose-400/20 p-2 text-rose-300 hover:bg-rose-400/10"><Trash2 size={16}/></button></div>
+          </div>):<div className="py-12 text-center text-sm text-zinc-500">Δεν υπάρχουν ακόμη προσκεκλημένοι παραγωγοί.</div>}
+      </section>
+      <form onSubmit={invite} className={panel+' space-y-5 p-5 md:p-7'}>
+        <div className="mb-5 flex items-center gap-3"><div className="flex size-11 items-center justify-center rounded-xl bg-[#caff00]/10 text-[#caff00]"><Plus size={20}/></div>
+          <div><h3 className="font-black text-white">Νέα πρόσκληση</h3><p className="mt-1 text-xs text-zinc-500">Αποστολή σύνδεσμου ενεργοποίησης</p></div></div>
+        <Field label="Όνομα *"><input required maxLength={70} className={inputClass} value={form.fname} onChange={e=>setForm(p=>({...p,fname:e.target.value}))}/></Field>
+        <Field label="Επώνυμο *"><input required maxLength={70} className={inputClass} value={form.lname} onChange={e=>setForm(p=>({...p,lname:e.target.value}))}/></Field>
+        <Field label="Email *"><input required type="email" maxLength={254} className={inputClass} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></Field>
+        <Field label="Σταθμός *"><select required className={inputClass} value={form.stationId} onChange={e=>setForm(p=>({...p,stationId:e.target.value}))}>
+          <option value="">Επίλεξε σταθμό</option>
+          {data.stations.filter(s=>s.status==='approved').map(station=><option key={station._id} value={station._id}>{station.name}</option>)}</select></Field>
+        <button disabled={sending||!form.stationId} type="submit" className={buttonPrimary+' w-full'}>
+          {sending?<RefreshCw size={17} className="animate-spin"/>:<ArrowRight size={16}/>}
+          Αποστολή πρόσκλησης</button>
+        <p className="text-[11px] leading-5 text-zinc-500">Ο σύνδεσμος λήγει σε 7 ημέρες, ενεργοποιείται μία φορά και ο παραγωγός ορίζει δικό του κωδικό.</p>
+      </form>
+    </div>
+  </div>;
+}
 function BroadcasterInsights({data}){
   const stations=[...data.stations].sort((a,b)=>(b.plays||0)-(a.plays||0));
   const total=stations.reduce((sum,station)=>sum+(Number(station.plays)||0),0);
@@ -480,6 +543,7 @@ export default function Backoffice(){
       {to:'/backoffice/stations',label:admin?'Δίκτυο σταθμών':'Οι σταθμοί μου',icon:Radio},
       {to:'/backoffice/schedules',label:'Πρόγραμμα εκπομπών',icon:CalendarDays},
       ...(!admin?[{to:'/backoffice/insights',label:'Insights σταθμών',icon:BarChart3}]:[]),
+      ...(data?.user.role==='broadcaster'?[{to:'/backoffice/team',label:'Παραγωγοί & ομάδα',icon:Users}]:[]),
       ...(!producer?[{to:'/backoffice/stations/new',label:'Προσθήκη σταθμού',icon:Plus}]:[])]},
     ...(admin?[{section:'ADMIN CONTROL',items:[
       {to:'/backoffice/review',label:'Εγκρίσεις',icon:FileCheck2},
@@ -554,6 +618,7 @@ export default function Backoffice(){
           <Route path="stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify}/>}/>
           <Route path="schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
           <Route path="insights" element={<BroadcasterInsights data={data}/>}/>
+          <Route path="team" element={<Team data={data} notify={notify}/>}/>
           <Route path="review" element={<Review data={data} reload={reload} notify={notify}/>}/>
           {['analytics','users','ads','banners','slides','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
