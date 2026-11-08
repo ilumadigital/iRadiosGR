@@ -129,7 +129,7 @@ export default function Register({ API_URL, setCurrentUser }) {
       {showOtpModal && (
         <div className="ir-auth-overlay fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
           <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-[#ccff00]/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(204,255,0,0.1)] text-center animate-in zoom-in-95 relative">
-            <button onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
+            <button aria-label="Κλείσιμο επαλήθευσης" onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
               <X size={20} />
             </button>
 
@@ -211,7 +211,8 @@ export default function Register({ API_URL, setCurrentUser }) {
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Απόκρυψη κωδικού' : 'Εμφάνιση κωδικού'}
+                  onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors outline-none focus:text-[#ccff00]"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
