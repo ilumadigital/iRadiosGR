@@ -675,6 +675,9 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       {/* Existing paid home banners remain separate and clearly labelled as sponsored. */}
       {isFreeOrGuest && homeBanners.map(banner => <HomeAdBanner key={banner._id} banner={banner} />)}
 
+      <HomeNewsFeed stations={stations} currentStation={currentStation} isPlaying={isPlaying}
+        onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
+
       {/* 🟢 BROADCASTER PROMO BANNER (Bottom) */}
       {(!currentUser || currentUser?.role === 'user') && (
         <section className="mt-16 animate-fade-in">
