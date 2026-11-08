@@ -527,7 +527,7 @@
   }
 
   @media (min-width: 1280px) {
-    /* The 40:21 slider sets the row height; the playlist stretches beside it. */
+    /* The compact hero defines row height; the playlist stretches beside it. */
     .ir-home-feature-grid {
       height: auto;
     }
