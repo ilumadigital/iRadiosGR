@@ -1,0 +1,39 @@
+name: Radio map geographical regression
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'frontend/src/components/MapMode.jsx'
+      - 'frontend/src/components/RadioGeoMap.jsx'
+      - 'frontend/src/components/RadioGeoMap.css'
+      - 'frontend/src/utils/mapLocations.js'
+      - 'frontend/src/pages/Region.jsx'
+      - 'frontend/index.html'
+      - 'ops/check-radio-map-geography.cjs'
+      - '.github/workflows/radio-map-validation.yml'
+  pull_request:
+    branches: [staging]
+    paths:
+      - 'frontend/src/components/MapMode.jsx'
+      - 'frontend/src/components/RadioGeoMap.jsx'
+      - 'frontend/src/components/RadioGeoMap.css'
+      - 'frontend/src/utils/mapLocations.js'
+      - 'frontend/src/pages/Region.jsx'
+      - 'frontend/index.html'
+      - 'ops/check-radio-map-geography.cjs'
+      - '.github/workflows/radio-map-validation.yml'
+permissions:
+  contents: read
+jobs:
+  map:
+    name: Validate map coordinates and frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify regional geo coordinates and MapLibre marker alignment
+        run: node ops/check-radio-map-geography.cjs
+      - name: Compile frontend with pinned dependencies
+        run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
