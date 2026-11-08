@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const stationController = require('../controllers/stationController');
 const Station = require('../models/Station');
+const User = require('../models/User');
+const BroadcasterInvitation = require('../models/BroadcasterInvitation');
+const mongoose = require('mongoose');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 
@@ -92,27 +95,31 @@ router.put('/broadcaster/stations/:id/network-ads', stationController.updateNetw
 // --- Admin Station Controls ---
 
 // 🟢 ΝΕΟ: ROUTE ΑΝΑΘΕΣΗΣ ΣΤΑΘΜΟΥ ΣΕ BROADCASTER
-router.put('/admin/stations/:id/assign', async (req, res) => {
+router.put('/admin/stations/:id/assign', protect, authorizeRoles('admin'), async (req, res) => {
   try {
-    const { broadcasterId } = req.body; 
-    const stationId = req.params.id;
-
-    // Ενημέρωση του Σταθμού με το νέο ID (ή αφαίρεσή του αν είναι null/κενό)
-    const updatedStation = await Station.findByIdAndUpdate(
-      stationId, 
-      { broadcasterId: broadcasterId || null }, 
-      { new: true }
-    ).populate('broadcasterId', 'username email'); 
-
-    if (!updatedStation) {
-      return res.status(404).json({ error: "Ο σταθμός δεν βρέθηκε." });
+    const { broadcasterId } = req.body;
+    if (!mongoose.isValidObjectId(req.params.id) ||
+        (broadcasterId && !mongoose.isValidObjectId(broadcasterId))) {
+      return res.status(400).json({ error: 'Μη έγκυρο ID.' });
     }
+    if (broadcasterId) {
+      const user = await User.findOne({ _id: broadcasterId, role: { $in: ['broadcaster', 'admin'] } });
+      if (!user) return res.status(400).json({ error: 'Ο επιλεγμένος χρήστης δεν είναι Broadcaster.' });
+    }
+    const updatedStation = await Station.findByIdAndUpdate(
+      req.params.id, { broadcasterId: broadcasterId || null }, { new: true, runValidators: true }
+    ).populate('broadcasterId', 'username email role');
+    if (!updatedStation) return res.status(404).json({ error: 'Ο σταθμός δεν βρέθηκε.' });
 
-    res.json(updatedStation);
-
+    // A manual assignment always supersedes any outstanding emailed links.
+    if (broadcasterId) await BroadcasterInvitation.updateMany(
+      { stationId: updatedStation._id, status: 'pending' },
+      { $set: { status: 'revoked', revokedAt: new Date() } }
+    );
+    return res.json(updatedStation);
   } catch (error) {
-    console.error("Σφάλμα ανάθεσης σταθμού:", error);
-    res.status(500).json({ error: "Σφάλμα κατά την ανάθεση." });
+    console.error('Σφάλμα ανάθεσης σταθμού:', error);
+    return res.status(500).json({ error: 'Σφάλμα κατά την ανάθεση.' });
   }
 });
 

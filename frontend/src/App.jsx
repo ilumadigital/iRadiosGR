@@ -76,6 +76,7 @@ import BoostStation from './pages/BoostStation';
 import AdminBanners from './pages/AdminBanners';
 import AdminHomeSlides from './pages/AdminHomeSlides';
 import AcceptInvite from './pages/AcceptInvite';
+import BroadcasterInvitation from './pages/BroadcasterInvitation';
 import GoAgency from './pages/GoAgency';
 import AgencyDashboard from './pages/AgencyDashboard';
 import TermsListeners from './pages/TermsListeners';
@@ -534,7 +535,8 @@ function MainApp() {
 
   const [isBuffering, setIsBuffering] = useState(false);
 
-  const [currentUser, setCurrentUser] = useState(null); 
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false); 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [nowPlaying, setNowPlaying] = useState('');
@@ -978,6 +980,7 @@ function MainApp() {
           else { localStorage.removeItem('iluma_token'); }
         } catch (err) { console.error("Auth failed", err); }
       }
+      setAuthReady(true);
     };
     initAuth();
   }, []);
@@ -1901,6 +1904,7 @@ function MainApp() {
             <Route path="/admin/ad-control" element={currentUser?.role === 'admin' ? <AdminAdControl API_URL={API_URL} /> : <Navigate to="/" />} />
 
             <Route path="/accept-invite" element={<AcceptInvite API_URL={API_URL} />} />
+            <Route path="/broadcaster-invite" element={<BroadcasterInvitation API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
             <Route path="/go-ads" element={<GoAgency API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
 
             <Route path="/agency/dashboard" element={
@@ -1916,7 +1920,7 @@ function MainApp() {
             <Route path="/terms" element={<TermsListeners API_URL={API_URL} currentUser={currentUser} />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             
-            <Route path="/broadcaster-terms" element={(currentUser?.role === 'broadcaster' || currentUser?.role === 'admin') ? <TermsBroadcasters API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/terms" />} />
+            <Route path="/broadcaster-terms" element={!authReady ? <div className="min-h-screen bg-black flex items-center justify-center text-zinc-400">Έλεγχος σύνδεσης…</div> : (currentUser?.role === 'broadcaster' || currentUser?.role === 'admin') ? <TermsBroadcasters API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/terms" />} />
             <Route path="/agency-terms" element={<TermsAgency API_URL={API_URL} currentUser={currentUser} />} />
           </Routes>
         </div>

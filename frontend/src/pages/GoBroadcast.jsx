@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { 
   Radio, Mic2, BarChart3, Globe, Building2, User, CheckCircle2, Loader2, X, ShieldCheck, 
   Clock, KeyRound, MoveRight, MessageSquare, SlidersHorizontal, Target, Crown, Zap, Check, Eye, EyeOff, Activity, Volume2, Code2 
@@ -8,6 +8,8 @@ import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function GoBroadcast({ API_URL, setCurrentUser }) {
   const navigate = useNavigate();
+  const [query] = useSearchParams();
+  const inviteToken = query.get('invite') || '';
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [vatLoading, setVatLoading] = useState(false);
@@ -63,6 +65,24 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
     }
   }, []);
 
+  useEffect(() => {
+    if (!inviteToken) return;
+    let alive = true;
+    fetch(`${BASE_URL}/broadcaster-invitations/preview?token=${encodeURIComponent(inviteToken)}`)
+      .then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.error); return d; })
+      .then(data => {
+        if (alive) {
+          setFormData(prev => ({ ...prev, email: data.email }));
+          const pending = localStorage.getItem('iradios_broadcaster_pending_otp');
+          const awaitingOtp = pending?.toLowerCase() === data.email.toLowerCase();
+          setShowOtpModal(Boolean(awaitingOtp));
+          setShowModal(!awaitingOtp);
+        }
+      })
+      .catch(error => { if (alive) setFeedback({ show:true, type:'error', message:error.message || 'Η πρόσκληση δεν ισχύει.' }); });
+    return () => { alive = false; };
+  }, [inviteToken, BASE_URL]);
+
   const verifyVAT = async (vat, code = formData.countryCode) => {
     if (vat.length < 8) return;
     setVatLoading(true);
@@ -114,7 +134,8 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
         body: JSON.stringify({
           ...formData,
           phone: `${formData.phonePrefix}${formData.phone}`,
-          cfToken 
+          cfToken,
+          ...(inviteToken ? { inviteToken } : {})
         })
       });
       
@@ -127,7 +148,7 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
           setShowOtpModal(true); 
         } else {
           setFeedback({ show: true, type: 'success', message: 'Επιτυχής Εγγραφή! Σε λίγο θα μεταφερθείτε στη σύνδεση.' });
-          setTimeout(() => window.location.href = '/login', 3000);
+          setTimeout(() => window.location.href = inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : '/login', 3000);
         }
       } else {
         setFeedback({ show: true, type: 'error', message: data.error || 'Σφάλμα εγγραφής' });
@@ -154,7 +175,7 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
       const res = await fetch(`${BASE_URL}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, otp })
+        body: JSON.stringify({ email: formData.email, otp, ...(inviteToken ? { inviteToken } : {}) })
       });
       const data = await res.json();
 
@@ -164,7 +185,7 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
         localStorage.setItem('iluma_user', JSON.stringify(data.user));
         if (setCurrentUser) setCurrentUser(data.user);
         setShowOtpModal(false);
-        navigate('/'); 
+        navigate(inviteToken ? `/broadcaster-terms?invite=${encodeURIComponent(inviteToken)}` : '/'); 
       } else {
         setOtpError(data.error || 'Λάθος κωδικός OTP.');
       }
@@ -325,7 +346,7 @@ export default function GoBroadcast({ API_URL, setCurrentUser }) {
 
               <div>
                 <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Email</label>
-                <input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-[#ccff00]/50 transition-colors" />
+                <input type="email" required readOnly={Boolean(inviteToken)} value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black/50 border border-white/10 rounded-2xl px-4 py-3.5 text-white outline-none focus:border-[#ccff00]/50 transition-colors" />
               </div>
               
               <div className="relative">

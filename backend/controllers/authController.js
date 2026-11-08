@@ -1,7 +1,8 @@
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto'); // 🟢 ΝΕΟ: Για τη δημιουργία του token ανάκτησης
+const crypto = require('crypto');
+const BroadcasterInvitation = require('../models/BroadcasterInvitation'); // 🟢 ΝΕΟ: Για τη δημιουργία του token ανάκτησης
 const { sendEmail } = require('../utils/myMailer');
 const { otpVerificationEmail, welcomeEmail, passwordResetEmail } = require('../utils/mailTemp'); // 🟢 ΝΕΟ: Import το νέο template
 
@@ -89,7 +90,20 @@ exports.register = async (req, res) => {
 
 exports.registerBroadcaster = async (req, res) => {
   try {
-    const { username, email, password, fname, lname, phone, businessType, vatNumber, companyName } = req.body;
+    const { username, email, password, fname, lname, phone, businessType, vatNumber, companyName, inviteToken } = req.body;
+    // Optional invitation: reject mismatched/expired email BEFORE creating the account.
+    // Normal broadcaster registration without a token remains unchanged.
+    if (inviteToken !== undefined) {
+      if (typeof inviteToken !== 'string' || !/^[a-f0-9]{64}$/i.test(inviteToken)) {
+        return res.status(400).json({ error: 'Μη έγκυρη πρόσκληση Broadcaster.' });
+      }
+      const invited = await BroadcasterInvitation.findOne({
+        tokenHash: crypto.createHash('sha256').update(inviteToken).digest('hex'),
+        status: 'pending', expiresAt: { $gt: new Date() },
+        email: String(email || '').trim().toLowerCase()
+      });
+      if (!invited) return res.status(409).json({ error: 'Η πρόσκληση έχει λήξει ή αφορά διαφορετικό email.' });
+    }
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) return res.status(400).json({ error: "Ο χρήστης ή το email υπάρχει ήδη" });
 
@@ -141,7 +155,7 @@ exports.verifyOtp = async (req, res) => {
       message: "Επιτυχής επαλήθευση!", 
       token, 
       user: withBroadcasterTermsStatus({
-        _id: user._id, username: user.username, role: user.role, isPremium: user.isPremium,
+        _id: user._id, username: user.username, email: user.email, isVerified: user.isVerified, role: user.role, isPremium: user.isPremium,
         broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile,
         hasAcceptedTerms: user.hasAcceptedTerms, termsAcceptedAt: user.termsAcceptedAt,
         termsAcceptedVersion: user.termsAcceptedVersion
@@ -179,7 +193,7 @@ exports.login = async (req, res) => {
     res.json({
       token,
       user: withBroadcasterTermsStatus({
-        _id: user._id, username: user.username, fname: user.fname, lname: user.lname,
+        _id: user._id, username: user.username, email: user.email, isVerified: user.isVerified, fname: user.fname, lname: user.lname,
         birthdate: user.birthdate, isPremium: user.isPremium, favorites: user.favorites, role: user.role,
         broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile,
         hasAcceptedTerms: user.hasAcceptedTerms, termsAcceptedAt: user.termsAcceptedAt,
