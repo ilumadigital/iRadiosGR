@@ -20,7 +20,8 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
   const ui=await import(pathToFileURL(path.join(__dirname,'../frontend/src/utils/stationCategories.js')).href);
   assert.deepEqual(ui.PRIMARY_CATEGORY_GROUPS,PRIMARY_CATEGORY_GROUPS);
   assert.deepEqual(ui.SECONDARY_CATEGORIES,SECONDARY_CATEGORIES);
-  assert.ok(read('frontend/src/components/StationCategorySelect.jsx').includes('<optgroup'));
+  assert.ok(read('frontend/src/components/StationCategorySelect.jsx').includes('PRIMARY_CATEGORIES.map'));
+  assert.ok(!read('frontend/src/components/StationCategorySelect.jsx').includes('<optgroup'), 'group titles must not appear in dropdown');
   assert.ok(read('frontend/src/components/HomeExplore.jsx').includes('PRIMARY_CATEGORY_GROUPS.map'));
   assert.ok(read('frontend/src/components/Sidebar.jsx').includes('PRIMARY_CATEGORY_GROUPS.map'));
   for(const file of ['backend/models/Station.js','backend/routes/backofficeRoutes.js','backend/controllers/stationController.js','backend/controllers/miscController.js','backend/seo.js','frontend/src/pages/Genre.jsx','frontend/src/pages/Backoffice.jsx','frontend/src/pages/Admin.jsx','frontend/src/pages/MyRadios.jsx']){
