@@ -93,7 +93,7 @@ const CITY_COORDINATES = {
 };
 
 // 🟢 ΠΡΟΣΘΗΚΗ: Δέχεται το `weather` από το App.jsx
-export default function Home({ stations, weather, currentStation, setCurrentStation, userLocation, checkGeoMatch, isPlaying, onPlayPause, currentUser, analyser, onOpenDiscovery, API_URL }) {
+export default function Home({ stations, weather, currentStation, setCurrentStation, userLocation, checkGeoMatch, isPlaying, onPlayPause, currentUser, analyser, onOpenDiscovery, onOpenSmartSearch, API_URL }) {
   const navigate = useNavigate();
   const location = useLocation();
   const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying();
@@ -596,6 +596,23 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
             <p className="mt-2 text-sm text-zinc-300 sm:text-base">
               {recentlyPlayed.length ? 'Οι σταθμοί που αγαπάς και νέες προτάσεις, όλα σε ένα μέρος.' : 'Βρες τον επόμενο αγαπημένο σου σταθμό, με ένα κλικ.'}
             </p>
+            <button
+              type="button"
+              onClick={onOpenSmartSearch}
+              aria-label="Πες μας τι θέλεις να ακούσεις. Δοκίμασε τη νέα AI αναζήτηση του iRadiosGR."
+              className="group/ai relative mt-5 flex w-full max-w-[510px] items-center gap-3 overflow-hidden rounded-2xl border border-[#ccff00]/30 bg-gradient-to-r from-[#ccff00]/[0.13] via-[#ccff00]/[0.055] to-white/[0.025] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_28px_rgba(0,0,0,0.16)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#ccff00]/65 hover:bg-[#ccff00]/[0.09] hover:shadow-[0_16px_35px_rgba(0,0,0,0.3),0_0_22px_rgba(204,255,0,0.09)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ccff00] sm:gap-4 sm:p-4"
+            >
+              <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-[14px] bg-[#ccff00] text-[#131b06] shadow-[0_0_22px_rgba(204,255,0,0.22)] transition-transform duration-300 group-hover/ai:scale-105">
+                <Sparkles size={21}/>
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="text-[13px] font-black leading-tight text-white sm:text-[15px]">Πες μας τι θέλεις να ακούσεις</span>
+                <span className="text-[11px] leading-snug text-zinc-300 sm:text-xs">Δοκίμασε τη νέα <strong className="font-black text-[#ccff00]">AI αναζήτηση</strong> του iRadiosGR</span>
+              </span>
+              <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#ccff00]/25 text-[#ccff00] transition-all duration-300 group-hover/ai:translate-x-1 group-hover/ai:border-[#ccff00]/65">
+                <ArrowRight size={17}/>
+              </span>
+            </button>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {currentUser&&<span className="rounded-full border border-[#ccff00]/25 bg-[#ccff00]/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-[#ccff00]">{isFreeOrGuest?'iRadios Member':'Premium Edition'}</span>}
