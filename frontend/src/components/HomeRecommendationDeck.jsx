@@ -32,7 +32,7 @@ export default function HomeRecommendationDeck({moodStations=[],topStations=[],s
   const visibleProducers = showAllProducers ? liveProducers : liveProducers.slice(0, 4);
   if(!picks.length&&!top.length&&!liveProducers.length)return null;
   return (
-    <section className="grid min-w-0 gap-5 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(280px,1fr)]">
+    <section className="grid min-w-0 gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(280px,1fr)]">
       <div className="min-w-0">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div><h2 className="flex items-center gap-2 text-xl font-black text-white sm:text-2xl"><Sparkles className="text-[#ccff00]" size={23}/> Για σένα</h2>
@@ -110,7 +110,7 @@ export default function HomeRecommendationDeck({moodStations=[],topStations=[],s
           </div>}
         </div>
       </div>
-      <div className="min-w-0 lg:col-span-2 2xl:col-span-1">
+      <div className="min-w-0 lg:col-span-2 xl:col-span-1">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div><h2 className="flex items-center gap-2 text-xl font-black text-white sm:text-2xl"><Trophy className="text-[#ccff00]" size={22}/> Top σταθμοί</h2>
             <p className="mt-1 text-xs text-zinc-400">Σταθμοί που ξεχωρίζουν</p></div>
