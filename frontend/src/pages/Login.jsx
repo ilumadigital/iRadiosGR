@@ -170,7 +170,7 @@ export default function Login({ API_URL, setCurrentUser }) {
       {showOtpModal && (
         <div className="ir-auth-overlay fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
           <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-[#ccff00]/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(204,255,0,0.1)] text-center animate-in zoom-in-95 relative">
-            <button onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
+            <button aria-label="Κλείσιμο επαλήθευσης" onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
               <X size={20} />
             </button>
             <div className="w-20 h-20 bg-[#ccff00]/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -211,7 +211,7 @@ export default function Login({ API_URL, setCurrentUser }) {
       {showForgotModal && (
         <div className="ir-auth-overlay fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
           <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-white/10 p-10 rounded-[40px] w-full max-w-md shadow-2xl text-center animate-in zoom-in-95 relative">
-            <button onClick={closeForgotModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
+            <button aria-label="Κλείσιμο ανάκτησης" onClick={closeForgotModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
               <X size={20} />
             </button>
             
@@ -297,6 +297,7 @@ export default function Login({ API_URL, setCurrentUser }) {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? 'Απόκρυψη κωδικού' : 'Εμφάνιση κωδικού'}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors outline-none focus:text-[#ccff00]"
                 >
