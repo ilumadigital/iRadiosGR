@@ -124,54 +124,111 @@ function StationCard({station,role}){
 function Dashboard({data}){
   const {user,counts,stations=[]}=data;
   const admin=user.role==='admin',producer=user.role==='producer';
-  const recent=[...stations].sort((a,b)=>(b.popularity||0)-(a.popularity||0)).slice(0,4);
+  const primaryStation=stations.find(s=>s.status==='approved')||stations[0];
+  const popular=[...stations].sort((a,b)=>(b.popularity||0)-(a.popularity||0)).slice(0,4);
+  const pending=(Number(counts.pendingApproval)||0)+(Number(counts.pendingEdits)||0);
+  const today=new Date(),day=today.getDay()||7;
+  const currentTime=String(today.getHours()).padStart(2,'0')+':'+String(today.getMinutes()).padStart(2,'0');
+  const nextShows=stations.flatMap(station=>(station.schedule||[])
+    .filter(show=>Number(show.day)===day&&show.endTime>currentTime)
+    .map(show=>({...show,stationName:station.name,stationId:station._id})))
+    .sort((a,b)=>a.startTime.localeCompare(b.startTime)).slice(0,3);
   const cards=[
-    {to:'/backoffice/stations',icon:Radio,name:'Ραδιοφωνικοί σταθμοί',desc:'Όλοι οι σταθμοί, οι πληροφορίες και τα stream σου.',number:'01'},
-    {to:'/backoffice/schedules',icon:CalendarDays,name:'Πρόγραμμα εκπομπών',desc:'Οργάνωσε το εβδομαδιαίο πρόγραμμα και τους παραγωγούς.',number:'02'},
-    ...(user.role==='broadcaster'?[{to:'/backoffice/team',icon:Users,name:'Παραγωγοί & συνεργάτες',desc:'Προσκάλεσε την ομάδα σου και όρισε σταθμούς.',number:'03'}]:[]),
-    ...(admin?[{to:'/backoffice/review',icon:FileCheck2,name:'Εγκρίσεις σταθμών',desc:'Έλεγξε αιτήματα και αλλαγές με ένα κλικ.',number:'03'},
-      {to:'/backoffice/admin/users',icon:Users,name:'Χρήστες & ρόλοι',desc:'Πρόσβαση, λογαριασμοί και διαχείριση.',number:'04'}]:[])
+    ...(primaryStation&&!producer?[{to:'/backoffice/stations/'+primaryStation._id+'/edit',
+      icon:Settings2,name:'Ενημέρωση σταθμού',desc:'Όνομα, στοιχεία, λογότυπο και stream.',
+      label:primaryStation.name}]:[]),
+    {to:'/backoffice/schedules',icon:CalendarDays,name:'Πρόγραμμα εκπομπών',
+      desc:'Οργάνωσε εύκολα την εβδομάδα ανά ημέρα.',label:nextShows.length?nextShows.length+' σήμερα':'Εβδομάδα'},
+    ...(user.role==='broadcaster'?[{to:'/backoffice/team',icon:Users,name:'Παραγωγοί & ομάδα',
+      desc:'Πρόσθεσε παραγωγούς και ανάθεσε σταθμούς.',label:'Συνεργάτες'}]:[]),
+    ...(admin?[{to:'/backoffice/review',icon:FileCheck2,name:'Εγκρίσεις',
+      desc:'Δες συγκεντρωμένα τα αιτήματα.',label:pending+' σε αναμονή'},
+      {to:'/backoffice/admin',icon:SlidersHorizontal,name:'Κέντρο διαχείρισης',
+      desc:'Όλα τα εργαλεία Admin σε ένα σημείο.',label:'11 εργαλεία'}]:[]),
+    {to:'/backoffice/stations',icon:Radio,name:admin?'Σταθμοί δικτύου':'Οι σταθμοί μου',
+      desc:'Εντόπισε και διαχειρίσου τους σταθμούς.',label:stations.length+' σταθμοί'},
+    ...(!producer?[{to:'/backoffice/stations/new',icon:Plus,name:'Προσθήκη σταθμού',
+      desc:'Συμπλήρωσε μόνο τα βασικά για να ξεκινήσεις.',label:'Νέα καταχώρηση'}]:[]),
+    ...(!admin?[{to:'/backoffice/insights',icon:BarChart3,name:'Στατιστικά σταθμών',
+      desc:'Δες καταγεγραμμένες ακροάσεις ανά σταθμό.',label:'Insights'}]:[])
   ];
-  return <div className="space-y-9">
-    <div className="relative overflow-hidden rounded-[32px] border border-[#caff00]/15 bg-[#11181a] px-7 py-9 md:px-11 md:py-11">
-      <div className="absolute -right-20 -top-32 size-96 rounded-full bg-[#caff00]/[.12] blur-[95px]"/>
-      <div className="absolute bottom-0 right-0 hidden text-[#caff00]/[.055] md:block"><Radio size={280} strokeWidth={.7}/></div>
-      <div className="relative max-w-2xl">
-        <Badge tone="lime"><Sparkles size={12}/> iRadios Business v6.1</Badge>
-        <h1 className="mt-6 text-4xl font-black leading-[1.05] tracking-[-.075em] text-white md:text-6xl">
-          Ο ήχος σου.<br/><span className="text-[#caff00]">Ο έλεγχός σου.</span></h1>
-        <p className="mt-5 max-w-xl text-[14px] leading-7 text-zinc-300">
-          {admin?'Το κέντρο ελέγχου ολόκληρου του δικτύου iRadios.':
-            producer?'Ο χώρος σου για να οργανώνεις την παρουσία σου στον αέρα.':
-              'Καλωσόρισες στο δικό σου broadcaster portal. Όλα τα ραδιόφωνά σου σε ένα μέρος.'}
-        </p>
-        <div className="mt-7 flex flex-wrap gap-3">
-          <Link to="/backoffice/stations" className={buttonPrimary}>Διαχείριση σταθμών<ArrowRight size={16}/></Link>
-          {!producer&&<Link to={admin?'/backoffice/review':'/backoffice/stations/new'} className={buttonSecondary}>
-            {admin?'Εκκρεμότητες':'Νέος σταθμός'}<ChevronRight size={16}/></Link>}
+  return <div className="space-y-8">
+    <div className="relative overflow-hidden rounded-[28px] border border-[#caff00]/15 bg-[#11181a] p-7 md:p-10">
+      <div className="absolute -right-20 -top-28 size-80 rounded-full bg-[#caff00]/[.11] blur-[90px]"/>
+      <div className="relative flex flex-col justify-between gap-7 lg:flex-row lg:items-center">
+        <div className="max-w-2xl">
+          <Badge tone="lime"><Sparkles size={12}/> iRadios Business Console</Badge>
+          <h1 className="mt-4 text-3xl font-black tracking-[-.05em] text-white md:text-5xl">
+            {admin?'Το δίκτυο με μια ματιά.':producer?'Το πρόγραμμά σου, απλά.':
+              'Καλώς ήρθες στο στούντιό σου.'}</h1>
+          <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-300">
+            {admin?'Αιτήματα, σταθμοί, χρήστες και εργαλεία οργανωμένα σε ένα μέρος.':
+              producer?'Βρες τις εκπομπές σου και οργάνωσε τις ώρες του σταθμού χωρίς περιττά βήματα.':
+              'Διαχειρίσου τους σταθμούς, το εβδομαδιαίο πρόγραμμα και τους συνεργάτες σου από ένα σημείο.'}
+          </p>
+        </div>
+        <div className="relative flex flex-wrap gap-2">
+          <Link to="/backoffice/schedules" className={buttonPrimary}><CalendarDays size={16}/> Επεξεργασία προγράμματος</Link>
+          {admin?<Link to="/backoffice/review" className={buttonSecondary}><FileCheck2 size={16}/> Εγκρίσεις</Link>:
+            !producer&&<Link to="/backoffice/stations/new" className={buttonSecondary}><Plus size={16}/> Νέος σταθμός</Link>}
         </div>
       </div>
     </div>
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
-      <Metric icon={Radio} label="Σταθμοί" value={shortNumber(counts.total)} caption="Στο δικό σου επίπεδο πρόσβασης"/>
-      <Metric icon={BadgeCheck} label="Ενεργοί" value={shortNumber(counts.approved)} caption="Εγκεκριμένοι σταθμοί"/>
-      <Metric icon={Clock3} label="Αιτήματα αλλαγών" value={shortNumber(counts.pendingEdits)} caption="Αναμένουν διαχειριστή" rose/>
-      <Metric icon={admin?Users:Headphones} label={admin?'Χρήστες δικτύου':'Συνολικές ακροάσεις'}
-        value={shortNumber(admin?counts.users:stations.reduce((a,s)=>a+(s.plays||0),0))}
-        caption={admin?'Εγγεγραμμένοι λογαριασμοί':'Μετρική καταλόγου, όχι live ακροατές'}/>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Metric icon={Radio} label="Σταθμοί" value={shortNumber(counts.total)} caption="Στο επίπεδο πρόσβασής σου"/>
+      <Metric icon={BadgeCheck} label="Εγκεκριμένοι" value={shortNumber(counts.approved)} caption="Ενεργοί στο δίκτυο"/>
+      <Metric icon={Clock3} label="Εκκρεμότητες" value={shortNumber(pending)}
+        caption={admin?'Νέες καταχωρήσεις & αλλαγές':'Αναμονή έγκρισης'} rose/>
+      <Metric icon={admin?Users:Headphones} label={admin?'Χρήστες':'Ακροάσεις'}
+        value={shortNumber(admin?counts.users:stations.reduce((n,s)=>n+(Number(s.plays)||0),0))}
+        caption={admin?'Λογαριασμοί δικτύου':'Καταγεγραμμένα plays, όχι live ακροατές'}/>
     </div>
-    <div><SectionTitle eyebrow="Quick actions" title="Όλα στη θέση τους." description="Οι βασικές εργασίες χωρίς περιττά μενού."/>
-      <div className="grid gap-3 md:grid-cols-2">{cards.map(c=><Link key={c.to} to={c.to}
-        className={panel+' group flex items-center gap-5 p-5 transition hover:border-[#caff00]/30 hover:bg-[#151b19]'}>
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-[#caff00]/10 bg-[#caff00]/[.07] text-[#caff00]"><c.icon size={25}/></div>
-        <div className="min-w-0 flex-1"><h3 className="font-black text-white">{c.name}</h3>
-          <p className="mt-1 text-xs leading-5 text-zinc-500">{c.desc}</p></div>
-        <ArrowRight size={18} className="shrink-0 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-[#caff00]"/>
-      </Link>)}</div></div>
-    <div><SectionTitle eyebrow="Your network" title={admin?'Κορυφαίοι σταθμοί':'Οι σταθμοί σου'}
-      aside={<Link to="/backoffice/stations" className={buttonSecondary}>Προβολή όλων <ArrowRight size={14}/></Link>}/>
-      {recent.length?<div className="space-y-3">{recent.map(s=><StationCard key={s._id} station={s} role={user.role}/>)}</div>:
-        <div className={panel+' p-10 text-center text-zinc-400'}>Δεν υπάρχουν ακόμη σταθμοί στον λογαριασμό.</div>}</div>
+    <section>
+      <SectionTitle eyebrow="Quick actions" title="Τι θέλεις να κάνεις;"
+        description="Άμεση πρόσβαση στις πιο συχνές εργασίες σου, χωρίς να ψάχνεις σε μενού."/>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {cards.map(card=><Link key={card.to} to={card.to}
+          className={panel+' group flex min-h-44 flex-col justify-between p-5 transition hover:border-[#caff00]/35 hover:bg-[#17201b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#caff00]'}>
+          <div className="flex items-start justify-between gap-3">
+            <span className="flex size-11 items-center justify-center rounded-xl border border-[#caff00]/10 bg-[#caff00]/[.08] text-[#caff00]">
+              <card.icon size={21}/></span>
+            <ArrowRight size={17} className="text-zinc-600 transition group-hover:translate-x-1 group-hover:text-[#caff00]"/>
+          </div>
+          <div><h3 className="mt-4 text-base font-black text-white">{card.name}</h3>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">{card.desc}</p>
+            <span className="mt-3 inline-block text-[10px] font-black text-[#caff00]">{card.label}</span>
+          </div>
+        </Link>)}
+      </div>
+    </section>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <section><SectionTitle eyebrow="Οι σταθμοί" title={admin?'Κορυφαίοι σταθμοί':'Οι σταθμοί σου'}
+        aside={<Link to="/backoffice/stations" className={buttonSecondary}>Όλοι οι σταθμοί <ArrowRight size={14}/></Link>}/>
+        {popular.length?<div className="space-y-3">{popular.map(s=>
+          <StationCard key={s._id} station={s} role={user.role}/>)}</div>:
+          <div className={panel+' p-8 text-center text-sm text-zinc-400'}>
+            Δεν υπάρχουν ακόμη σταθμοί στον λογαριασμό.
+            {!producer&&<div className="mt-4"><Link className={buttonSecondary}
+              to="/backoffice/stations/new"><Plus size={14}/> Προσθήκη πρώτου σταθμού</Link></div>}
+          </div>}
+      </section>
+      <section className={panel+' p-5 md:p-6'}>
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <div><p className="text-[10px] font-bold uppercase tracking-widest text-[#caff00]">Σήμερα</p>
+            <h3 className="mt-2 text-lg font-black text-white">Επόμενες εκπομπές</h3></div>
+          <CalendarDays size={22} className="text-[#caff00]"/>
+        </div>
+        {nextShows.length?nextShows.map((show,index)=><div key={show.stationId+'-'+index}
+          className="border-t border-white/10 py-4 first:border-t-0">
+          <p className="text-xs font-black text-[#caff00]">{show.startTime} – {show.endTime}</p>
+          <p className="mt-1 text-sm font-bold text-white">{show.title}</p>
+          <p className="mt-1 text-[11px] text-zinc-500">{show.stationName}{show.host?' · '+show.host:''}</p>
+        </div>):<p className="py-5 text-xs leading-6 text-zinc-400">
+          Δεν υπάρχουν άλλες προγραμματισμένες εκπομπές για σήμερα.</p>}
+        <Link className={buttonSecondary+' mt-3 w-full'} to="/backoffice/schedules">
+          <CalendarDays size={15}/> Άνοιγμα προγράμματος</Link>
+      </section>
+    </div>
   </div>;
 }
 function Stations({data}){
