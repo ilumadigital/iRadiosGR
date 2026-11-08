@@ -213,10 +213,14 @@ exports.refreshInBackground=async()=>{
 
 exports.removeArticle=async(req,res)=>{
   try{
-    const key=String(req.params.key||'').toLowerCase();
-    if(!/^[a-f0-9]{24}$/.test(key))throw error('Μη έγκυρο άρθρο.');
+    const requestedKey=String(req.params.key||'').toLowerCase();
+    const requestedUrl=String(req.body?.url||'');
+    if(requestedKey&&!/^[a-f0-9]{24}$/.test(requestedKey))throw error('Μη έγκυρο άρθρο.');
+    if(!requestedKey&&(requestedUrl.length>2048||!requestedUrl.startsWith('https://')))
+      throw error('Μη έγκυρο άρθρο.');
     const doc=await settings();
-    const item=doc.articles.find(a=>keyFor(a.url)===key);
+    const item=doc.articles.find(a=>requestedKey?keyFor(a.url)===requestedKey:a.url===requestedUrl);
+    const key=item?keyFor(item.url):requestedKey;
     if(!item)return res.status(404).json({error:'Το άρθρο δεν βρέθηκε στη ροή.'});
     const updated=await NewsFeed.findOneAndUpdate({_id:'primary'},
       {$pull:{articles:{url:item.url}},$addToSet:{hiddenArticleKeys:key},$inc:{configRevision:1}},
