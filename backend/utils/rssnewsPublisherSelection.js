@@ -136,9 +136,20 @@ async function collectSelected(preset,{categoryFeeds,parseFeed,existingImages,so
     return publicItem;
   });
   const warnings=results.filter(r=>r.error).map(r=>r.domain+': '+r.error);
+  const reports=[...new Map(plans.map(plan=>[plan.domain,{
+    domain:plan.domain,status:'error',count:0,feedUrl:'',error:''
+  }])).values()];
+  for(const report of reports){
+    const rows=results.filter(r=>r.domain===report.domain);
+    report.count=rows.filter(r=>r.result).reduce((sum,r)=>sum+r.result.articles.length,0);
+    report.status=report.count?'ok':'error';
+    report.feedUrl=rows.find(r=>r.result)?.url||'';
+    report.error=rows.filter(r=>r.error).map(r=>r.error).join(' / ').slice(0,220);
+    if(report.count)report.error='';
+  }
   if(!articles.length)warnings.push('Τα feeds απάντησαν, αλλά δεν επέστρεψαν δημοσιεύσεις από τους επιλεγμένους εκδότες.');
   return {feedTitle:preset.categories.join(' · '),articles,
-    warnings,retrievalMode:'selected-publisher-rss',categoryCount:preset.categories.length};
+    warnings,publisherReports:reports,retrievalMode:'selected-publisher-rss',categoryCount:preset.categories.length};
 }
 // Does not request an untrusted URL; only reads bounded HTML already obtained
 // through transport.requestText with DNS rebinding and redirect protection.
