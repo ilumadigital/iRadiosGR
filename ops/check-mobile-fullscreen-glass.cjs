@@ -25,7 +25,7 @@ for(const text of [
   'openCarMode', 'openDevices', 'onRequestDevices?.()',
   'onTransferPlayback?.(device.deviceId)',
   'ir-glass-sheet-layer', 'ir-glass-more-grid',
-  'setShowChat(true)', 'onUserDSPChange(currentStation._id, preset.id)',
+  'onUserDSPChange(currentStation._id, preset.id)',
   'label="Κοινοποίηση Story"', 'handleRadarClick',
   'MusicServiceLinks song={nowPlaying}', 'ir-mini-player'
 ]) assert.ok(player.includes(text), 'mobile player lost: '+text);
@@ -38,6 +38,7 @@ assert.ok(music.includes("Αναβαθμίστε σε Premium"), 'Spotify / Appl
 assert.ok(story.includes('label = null'), 'sharing tile remains fully tappable');
 assert.ok(app.includes('ref={audioRef}'), 'no new audio engine');
 assert.ok(!player.includes('<audio'), 'fullscreen must remain a visual layer');
+assert.ok(!player.includes('LiveChat') && !player.includes('showChat') && !player.includes('Live chat'), 'legacy chat must not return to mobile player');
 
 for(const text of [
   'safe-area-inset-top', 'safe-area-inset-bottom', 'backdrop-filter',
