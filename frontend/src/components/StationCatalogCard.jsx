@@ -12,6 +12,7 @@ export default function StationCatalogCard({
 }){
   const navigate=useNavigate();
   const active=stationIsPlaying(station,currentStation,isPlaying);
+  const offline=station?.isOffline === true;
   const profile=()=>navigate('/station/'+(station.slug||station._id));
   const meta=formatStationTransmission(station);
   const info=catalogStationInfo(station,nowPlaying,clock);
@@ -29,6 +30,7 @@ export default function StationCatalogCard({
             className="size-14 shrink-0 rounded-xl border border-white/10 bg-white object-contain p-1 sm:size-16"/>
           <span className="min-w-0">
             <span className="block truncate text-sm font-black text-white sm:text-base">{station.name}</span>
+            {offline && <span className="text-[10px] font-black text-red-400">OFFLINE</span>}
             <span className="mt-1 flex items-center gap-1 truncate text-[11px] text-zinc-400">
               <SignalHigh size={13} className="shrink-0 text-[#ccff00]/80"/><span className="truncate">{meta}</span>
             </span>
@@ -70,8 +72,8 @@ export default function StationCatalogCard({
           <img src={station.logo||'/iradios-logo.png'} alt="" loading="lazy"
             className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.035]"/>
           <span className={'absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black '+
-            (active?'bg-[#ccff00] text-black':'bg-black/80 text-white')}>
-            <Radio size={10}/>{active?'LIVE':'RADIO'}
+            (offline?'bg-red-600 text-white':active?'bg-[#ccff00] text-black':'bg-black/80 text-white')}>
+            {offline?null:<Radio size={10}/>} {offline?'OFFLINE':active?'LIVE':'RADIO'}
           </span>
         </div>
         <h3 className="mt-3 truncate text-sm font-black text-white group-hover:text-[#ccff00]">{station.name}</h3>
