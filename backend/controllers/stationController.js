@@ -20,7 +20,8 @@ const cleanExpiredBoosts = async () => {
   const now = new Date();
   await Station.updateMany(
     { boostStatus: true, boostExpiresAt: { $lt: now } },
-    { $set: { boostStatus: false, position: 999, boostExpiresAt: null } }
+    // Expiring a boost must never destroy the editor's manual global ranking.
+    { $set: { boostStatus: false, boostExpiresAt: null } }
   );
 };
 
@@ -31,7 +32,7 @@ exports.getApprovedStations = async (req, res) => {
     // Public stage may expose station metadata, never broadcaster personal
     // information or private pending edits imported from production.
     if (process.env.APP_ENV === 'staging') {
-      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule scheduleDayBase position isFeatured dspPreset disableNetworkAds');
+      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset disableNetworkAds');
     }
     const stations = await query;
     res.json(stations);
