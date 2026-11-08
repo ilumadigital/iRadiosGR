@@ -289,6 +289,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
           nowPlayingById={catalogNowPlaying}
           catalogClock={catalogClock}
           sortMode={sortBy}
+          rankingScope="region" rankingValue={regionName}
           currentStation={currentStation}
           onPlayStation={setCurrentStation}
           isPlaying={isPlaying}
