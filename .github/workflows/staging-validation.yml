@@ -57,6 +57,8 @@ jobs:
         run: node ops/check-profile-notifications.cjs
       - name: Verify truthful Profile, program follows, inbox and staging security
         run: node ops/check-profile-center.cjs
+      - name: Prevent cross-selection of unrelated shows and DJs
+        run: node ops/check-follow-isolation.cjs
       - name: Validate rssnews.io selected publishers and article image attribution
         run: node ops/check-rssnews-selected-publishers.cjs
       - name: Verify 1200x630 catalog slides and scoped promoted station

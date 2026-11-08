@@ -1,5 +1,6 @@
 import React,{useCallback,useEffect,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
+import {findProgramFollow,programFollowKey} from '../utils/programFollowKeys.mjs';
 import { CalendarDays, Clock3, Heart, Loader2, Music2, Radio } from 'lucide-react';
 
 const DAYS=['Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
@@ -19,14 +20,10 @@ export default function StationScheduleTimeline({station,shows,selectedDay,onSel
   const [follows,setFollows]=useState([]);
   const [busyKey,setBusyKey]=useState('');
   const [followError,setFollowError]=useState('');
-  const normalize=value=>String(value||'').trim().toLocaleLowerCase('el-GR')
-    .normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/ς/g,'σ')
-    .replace(/[^\\p{L}\\p{N}]+/gu,' ').trim();
   const auth=()=>({'Content-Type':'application/json',
     Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')});
-  const getFollow=(kind,label)=>follows.find(f=>
-    f.kind===kind&&normalize(f.label)===normalize(label)
-    &&(kind==='dj'||String(f.stationId)===String(station._id)));
+  // Match the exact server identity, never a partially normalized label.
+  const getFollow=(kind,label)=>findProgramFollow(follows,kind,station._id,label);
   useEffect(()=>{
     if(!currentUser?._id){setFollows([]);return undefined;}
     const controller=new AbortController();
@@ -40,7 +37,8 @@ export default function StationScheduleTimeline({station,shows,selectedDay,onSel
   const toggleFollow=async(kind,label)=>{
     if(!currentUser){navigate('/login');return;}
     const existing=getFollow(kind,label);
-    const key=kind+':'+normalize(label);
+    const key=programFollowKey(kind,station._id,label);
+    if(!key){setFollowError('Μη έγκυρος τίτλος εκπομπής.');return;}
     if(busyKey)return;
     setBusyKey(key);setFollowError('');
     try{
@@ -103,7 +101,7 @@ export default function StationScheduleTimeline({station,shows,selectedDay,onSel
                 ...(show.host?[{kind:'dj',label:show.host,text:'Παραγωγό'}]:[])
               ].map(item=>{
                 const followed=Boolean(getFollow(item.kind,item.label));
-                const waiting=busyKey===item.kind+':'+normalize(item.label);
+                const waiting=busyKey===programFollowKey(item.kind,station._id,item.label);
                 return <button type="button" key={item.kind+':'+item.label}
                   aria-pressed={followed} disabled={Boolean(busyKey)}
                   aria-label={(followed?'Σταμάτα να ακολουθείς ':'Ακολούθησε ')+item.text+': '+item.label}
