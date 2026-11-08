@@ -1,5 +1,5 @@
 'use strict';
-// Offline checks: unique scoped promotion, snapshot-only Now Playing and 40:21 slides.
+// Offline checks: unique scoped promotion, snapshot-only Now Playing and compact 70/30 layout.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
@@ -79,17 +79,33 @@ const response=()=>({statusCode:200,body:null,headers:{},
   const route=read('backend/routes/promotedStationRoutes.js');
   assert.ok(route.includes("authorizeRoles('admin')"));
   const hero=read('frontend/src/components/HomeHeroSlider.jsx');
-  assert.ok(hero.includes('aspect-[40/21]'));
+  assert.ok(hero.includes('h-[355px]'),'hero must be height-capped instead of stretched by image ratio');
+  assert.ok(!hero.includes('aspect-[40/21]'),'image aspect is independent of the visible slide viewport');
+  assert.ok(!hero.includes('max-w-[1200px]'),'hero must fill its 70% grid track');
   assert.ok(hero.includes("new URLSearchParams({placement,value})"));
   const cms=read('frontend/src/pages/AdminHomeSlides.jsx');
   assert.ok(cms.includes('normalizeSlideUpload'));
   assert.ok(cms.includes('canvas.width=1200;canvas.height=630'));
   const editorial=read('frontend/src/components/EditorialPlacement.jsx');
   assert.ok(editorial.includes('<HomeHeroSlider')&&editorial.includes('<PromotedStationCard'));
+  assert.ok(editorial.includes('xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]'),
+    'desktop genre/region grid must reserve 70 percent for the slider');
+  const home=read('frontend/src/pages/Home.jsx');
+  assert.ok(home.includes('xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]'),
+    'home hero/playlist must share the same 70/30 desktop balance');
+  const backoffice=read('frontend/src/pages/Backoffice.jsx');
+  assert.ok(backoffice.includes("id:'promoted'"),'dedicated Promoted Stations admin tool');
+  assert.ok(backoffice.includes("path={'/backoffice/admin/'+section}"),'admin route mapping exists');
+  assert.ok(backoffice.includes('promoted:<AdminPromotedStations'),'promoted editor is mounted in admin');
+  assert.ok(backoffice.includes("'/backoffice/admin/promoted?station='"),
+    'station rows must link directly into their Promoted editor');
+  const promotedAdmin=read('frontend/src/components/AdminPromotedStations.jsx');
+  assert.ok(promotedAdmin.includes("new URLSearchParams(location.search).get('station')"),
+    'station deep links must preselect the correct radio');
   for(const name of ['Region','Genre']){
     const source=read('frontend/src/pages/'+name+'.jsx');
     assert.ok(source.includes('viewMode={viewMode}')&&source.includes('fallbackStation={baseStations[0]}'));
   }
   assert.ok(read('frontend/src/components/PromotedStationCard.jsx').includes('activeStationShow'));
-  console.log('Catalog 1200x630 hero and curated promoted-station contracts passed.');
+  console.log('Compact 70/30 catalog hero, 1200x630 assets, promoted station backoffice contracts passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
