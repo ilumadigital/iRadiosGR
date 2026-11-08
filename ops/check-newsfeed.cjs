@@ -131,6 +131,16 @@ assert.ok(scheduler.includes('mongoose.connection.asPromise().then(run)'),'initi
 assert.ok(newsRoutes.includes("require('../utils/newsFeedScheduler').start()"),'news scheduler wired to backend boot');
 assert.ok(controllerText.includes('exports.refreshInBackground=async()=>'),'shared backend refresh action');
 assert.ok(controllerText.includes('if(!doc.enabled)return doc'),'disabled newsfeeds are not polled');
+assert.ok(controllerText.includes('MAX_ARTICLES=500')&&controllerText.includes('.slice(0,MAX_ARTICLES)'),
+  'newsfeed retains at most 500 articles');
+assert.ok(controllerText.includes('res.status(202).json({...currentView(doc),syncing:true})'),
+  'manual refresh acknowledges work immediately');
+assert.ok(controllerText.includes('exports.removeArticle=async(req,res)=>'),
+  'admin article moderation is implemented');
+const initialPreset=read('backend/utils/newsFeedInitialPreset.js');
+assert.ok(initialPreset.includes('rssnews-selected-2026-11-08-v1')&&
+  initialPreset.includes('feeds.feedburner.com'),'staging has selected 25 RSS publishers');
+
 assert.ok(controllerText.includes('if(doc.enabled&&!doc.articles.length&&!pending)'),
   'public requests may bootstrap without blocking the browser');
 assert.ok(controllerText.includes('sync(doc).catch('),
