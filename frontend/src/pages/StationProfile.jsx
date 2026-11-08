@@ -4,7 +4,7 @@ import {scheduleDayBase,toCanonical,minutes,getAthensClock} from '../utils/sched
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Play, Pause, Heart, ArrowLeft, Disc3, Globe, Zap, Facebook, Instagram, Twitter, 
-  Phone, Mail, Music, AlertTriangle, CalendarDays, SlidersHorizontal, MonitorSpeaker, 
+  Phone, Mail, Music, AlertTriangle, SlidersHorizontal, MonitorSpeaker, 
   Headphones, PowerOff, Radio, SignalHigh, Share2, Check, ShieldCheck, ExternalLink,
   MessageCircle, Loader2, ScanSearch
 } from 'lucide-react';
@@ -17,8 +17,6 @@ import StationCatalogCard from '../components/StationCatalogCard';
 import FoundWithAI from '../components/FoundWithAI';
 import {parseMusicMetadata,spotifySongLink} from '../utils/musicMetadata'; 
 import { useAlert } from '../context/AlertContext';
-
-const DAYS_OF_WEEK = ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'];
 
 export default function StationProfile({ 
   stations, currentStation, isPlaying, onPlayPause, setCurrentStation, 
