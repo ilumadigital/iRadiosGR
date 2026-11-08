@@ -139,8 +139,8 @@ async function main(){
   const profile=read('frontend/src/pages/StationProfile.jsx');
   const panel=read('frontend/src/components/StationPlaylistPanel.jsx');
   assert.match(css,/container-name:station-layout/);
-  assert.match(css,/@container station-layout \(min-width:1160px\)/);
-  assert.match(css,/@container station-layout \(max-width:530px\)/);
+  assert.match(css,/@container station-layout \(max-width:980px\)/);
+  assert.match(css,/@container station-layout \(max-width:460px\)/);
   assert.match(profile,/ir-station-responsive-shell/);
   assert.match(panel,/sidebar\?/);
   assert.match(read('frontend/src/App.jsx'),/liveBroadcast=\{liveBroadcast\}/);
