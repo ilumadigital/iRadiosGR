@@ -323,10 +323,14 @@ export default function AdminBanners() {
         ))}
       </div>
 
+      <p className="mb-4 text-xs font-semibold text-zinc-400">{filteredBanners.length} από {banners.length} banners</p>
       {loading ? (
         <div className="flex justify-center items-center h-40"><span className="text-[#ccff00] font-bold animate-pulse">Φόρτωση...</span></div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {!filteredBanners.length&&<div className="md:col-span-2 xl:col-span-3 rounded-2xl border border-dashed border-white/10 bg-white/[.025] p-10 text-center text-sm text-zinc-400">
+            Δεν υπάρχουν banners για αυτή την τοποθέτηση. Επίλεξε άλλο φίλτρο ή πρόσθεσε νέο banner.
+          </div>}
           {filteredBanners.map(banner => {
             const isPending = banner.status === 'pending';
             const isActive = banner.status === 'active' || banner.isActive === true; 
@@ -337,7 +341,7 @@ export default function AdminBanners() {
                 <div className="h-40 bg-zinc-800 relative overflow-hidden group">
                   <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                   <div className="absolute top-3 left-3 flex flex-wrap gap-1">
-                    {banner.placement.map(p => (
+                    {(Array.isArray(banner.placement)?banner.placement:[]).map(p => (
                       <span key={p} className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-black/80 text-white border border-white/10 shadow-lg">
                         {p}
                       </span>
