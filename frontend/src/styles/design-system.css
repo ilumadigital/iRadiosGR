@@ -457,7 +457,7 @@
   }
 
   .ir-playlist-panel--compact {
-    max-height: 390px;
+    max-height: none;
     min-height: 0;
   }
 
@@ -527,11 +527,13 @@
   }
 
   @media (min-width: 1280px) {
+    /* The 40:21 slider sets the row height; the playlist stretches beside it. */
     .ir-home-feature-grid {
-      height: 390px;
+      height: auto;
     }
     .ir-playlist-panel--compact {
-      height: 390px;
+      height: 100%;
+      max-height: 100%;
     }
   }
 
