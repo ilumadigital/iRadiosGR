@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import {scheduleDayBase,toCanonical,minutes,getAthensClock} from '../utils/schedule';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Play, Pause, Heart, ArrowLeft, Disc3, Globe, Zap, Facebook, Instagram, Twitter, 
   Phone, Mail, Music, AlertTriangle, SlidersHorizontal, MonitorSpeaker, 
@@ -697,6 +697,7 @@ export default function StationProfile({
                 <div>
                   <span className="text-[10px] text-zinc-500 font-black mb-1 block uppercase tracking-widest">Ειδος</span>
                   <span className="text-[14px] sm:text-[15px] font-bold text-[#ccff00] tracking-wider">{station.genre}</span>
+                  {station.secondaryGenre&&<Link to={`/genre/${encodeURIComponent(station.secondaryGenre)}`} className="mt-1 block text-[11px] text-zinc-400 hover:text-[#ccff00]">{station.secondaryGenre}</Link>}
                 </div>
               </div>
             </div>

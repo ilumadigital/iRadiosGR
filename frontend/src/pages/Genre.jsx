@@ -74,7 +74,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
     return activeBanners.filter(b => b.placement && b.placement.includes('home'));
   }, [activeBanners, isPremiumUser]);
 
-  const baseStations = useMemo(() => stations.filter(s => s.genre === genreName), [stations, genreName]);
+  const baseStations = useMemo(() => stations.filter(s => s.genre === genreName || s.secondaryGenre === genreName), [stations, genreName]);
 
   const availableRegions = useMemo(() => {
     return [...new Set(baseStations.map(s => s.region))].filter(Boolean).sort();

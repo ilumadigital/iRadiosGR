@@ -282,7 +282,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       return {
         title: `Η Επικαιρότητα Τώρα 📰`,
         subtitle: `Είναι η ώρα της ενημέρωσης. Άκουσε τις εξελίξεις, αναλύσεις και τα νέα της ημέρας.`,
-        genres: ["Ειδήσεις", "Αθλητικά"],
+        genres: ["Ειδησεογραφικά", "Αθλητικά"],
         icon: <Megaphone size={28} className="text-emerald-400" />,
         gradient: "from-emerald-900/40 to-black",
         borderColor: "border-emerald-500/40",
@@ -306,7 +306,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
 
     // 3. Βροχή / Χιόνι (Cozy)
     if (weatherIcon === 'CloudRain' || weatherIcon === 'Snowflake') {
-      const genres = userProfile === 'greek' ? ["Έντεχνη", "Παραδοσιακά"] : ["Sophisticated", "Cosmopolitan", "Lounge"];
+      const genres = userProfile === 'greek' ? ["Έντεχνα", "Παραδοσιακά"] : ["Sophisticated", "Cosmopolitan", "Lounge"];
       return {
         title: `Cozy & Chill 🌧️`,
         subtitle: `Ιδανικός καιρός (${temp}°C) για να χαλαρώσεις μέσα. Η απόλυτη μουσική ατμόσφαιρα.`,
@@ -321,7 +321,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
     // 4. Καθαρός Καιρός (Ήλιος)
     if (weatherIcon === 'Sun') {
       if (isNight) {
-        const genres = userProfile === 'greek' ? ["Ελληνικά Λαϊκά", "Έντεχνη"] : ["Lounge", "Cosmopolitan", "80s / 90s"];
+        const genres = userProfile === 'greek' ? ["Ελληνικά Λαϊκά", "Έντεχνα"] : ["Lounge", "Cosmopolitan", "80s / 90s"];
         return {
           title: `Late Night Vibes 🌙`,
           subtitle: "Χαλάρωσε και άκου μουσική για το βράδυ.",
@@ -332,7 +332,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           badgeColor: "bg-indigo-500/20 text-indigo-400 border-indigo-500/40"
         };
       } else {
-        const genres = userProfile === 'greek' ? ["Ελληνικά Επιτυχίες", "Ελληνικά Λαϊκά"] : ["Διεθνή Mainstream", "House", "Rock"];
+        const genres = userProfile === 'greek' ? ["Ελληνικά Επιτυχίες", "Ελληνικά Λαϊκά"] : ["Διεθνή Mainstream", "House", "Ροκ"];
         return {
           title: `Ημερήσια Ενέργεια ☀️`,
           subtitle: `Ανεβαστική διάθεση και ρυθμός (${temp}°C)! Βάλε τα ακουστικά σου και γέμισε θετική ενέργεια.`,
@@ -346,7 +346,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
     }
 
     // 5. Συννεφιά / Default
-    const genres = userProfile === 'greek' ? ["Rock", "Έντεχνη", "Εναλλακτικά"] : ["Sophisticated", "House", "Cosmopolitan", "Εναλλακτικά"];
+    const genres = userProfile === 'greek' ? ["Ροκ", "Έντεχνα", "Εναλλακτικά"] : ["Sophisticated", "House", "Cosmopolitan", "Εναλλακτικά"];
     return {
       title: `Alternative Mood ☁️`,
       subtitle: `Ο καιρός είναι μουντός (${temp}°C). Ψαγμένες μουσικές επιλογές που ταιριάζουν απόλυτα με την ατμόσφαιρα.`,
@@ -379,7 +379,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
     
     // 🟢 Ψάχνουμε σταθμούς που ανήκουν ΣΕ ΕΝΑ ΑΠΟ ΤΑ ΠΟΛΛΑ GENRES του moodMatch!
     let discoveryStations = stations.filter(s => 
-      moodMatch.genres.includes(s.genre) && 
+      (moodMatch.genres.includes(s.genre) || moodMatch.genres.includes(s.secondaryGenre)) && 
       !playedIds.includes(s._id) && 
       !localIds.includes(s._id)
     ).sort(() => 0.5 - Math.random()); // Ανακάτεμα για να παίρνει λίγο από το κάθε είδος!
@@ -390,11 +390,11 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       const chosenIds = new Set(combined.map(s => String(s._id)));
       const preferred = stations.filter(s =>
         s._id && (s.status === 'approved' || !s.status) &&
-        !chosenIds.has(String(s._id)) && moodMatch.genres.includes(s.genre)
+        !chosenIds.has(String(s._id)) && (moodMatch.genres.includes(s.genre) || moodMatch.genres.includes(s.secondaryGenre))
       );
       const others = stations.filter(s =>
         s._id && (s.status === 'approved' || !s.status) &&
-        !chosenIds.has(String(s._id)) && !moodMatch.genres.includes(s.genre)
+        !chosenIds.has(String(s._id)) && !(moodMatch.genres.includes(s.genre) || moodMatch.genres.includes(s.secondaryGenre))
       );
       const fillIns = [...preferred, ...others]
         .sort((a,b)=>Number(Boolean(b.isFeatured))-Number(Boolean(a.isFeatured)));
