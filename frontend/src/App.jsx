@@ -1900,6 +1900,27 @@ function MainApp() {
  // station playback, ad engine, player widgets or Socket.IO are mounted there.
 function AppContent(){
   const location=useLocation();
+  // Existing bookmarks remain functional, but operational pages now open
+  // the separate management shell instead of instantiating radio playback.
+  const legacyBackofficePaths={
+    '/admin':'/backoffice',
+    '/studio':'/backoffice',
+    '/my-radios':'/backoffice/stations',
+    '/my-schedules':'/backoffice/schedules',
+    '/admin/radios':'/backoffice/stations',
+    '/admin/radioset':'/backoffice/admin/radioset',
+    '/admin/users':'/backoffice/admin/users',
+    '/admin/ads':'/backoffice/admin/ads',
+    '/admin/banners':'/backoffice/admin/banners',
+    '/admin/home-slides':'/backoffice/admin/slides',
+    '/admin/billing':'/backoffice/admin/billing',
+    '/admin/emails':'/backoffice/admin/emails',
+    '/admin/boost':'/backoffice/admin/boost',
+    '/admin/ad-control':'/backoffice/admin/adcontrol',
+    '/admin/push':'/backoffice/admin/push'
+  };
+  const legacyTarget=legacyBackofficePaths[location.pathname];
+  if(legacyTarget)return <Navigate to={legacyTarget} replace/>;
   return location.pathname==='/backoffice'||location.pathname.startsWith('/backoffice/')
     ? <Backoffice/> : <MainApp/>;
 }
