@@ -38,7 +38,8 @@ export default function MobileMiniPlayer({
   onTransferPlayback,
   onRequestDevices,
   globalCoverArt,
-  liveBroadcast
+  liveBroadcast,
+  rdsShowProducer
 }) {
 
   const { showAlert } = useAlert();
@@ -125,14 +126,16 @@ export default function MobileMiniPlayer({
 
   const currentTrack=parseMusicMetadata(nowPlaying,currentStation?.name);
   const isActualSong=Boolean(currentUser&&!isRecognizing&&!isPlayingAd&&currentTrack);
-  const showProducerArt=Boolean(currentUser&&!isPlayingAd&&!isActualSong&&liveBroadcast?.imageUrl);
-  const displayTrackTitle=currentTrack?.title||(showProducerArt?liveBroadcast.title:currentStation.name);
-  const displayTrackArtist=currentTrack?.artist||(showProducerArt?liveBroadcast.artist:'');
-  const finalSpotifyUrl=isActualSong
+  const showProducerArt=Boolean(currentUser&&!isPlayingAd&&!isRecognizing&&
+    liveBroadcast?.imageUrl&&rdsShowProducer);
+  const visibleSong=isActualSong&&!showProducerArt;
+  const displayTrackTitle=showProducerArt?liveBroadcast.title:(currentTrack?.title||currentStation.name);
+  const displayTrackArtist=showProducerArt?liveBroadcast.artist:(currentTrack?.artist||'');
+  const finalSpotifyUrl=visibleSong
     ?(spotifyUrl||spotifySongLink(currentTrack.raw,currentStation?.name)):null;
 
   const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
-  const showCoverArt = Boolean(isActualSong && globalCoverArt && !isPlayingAd);
+  const showCoverArt = Boolean(visibleSong && globalCoverArt && !isPlayingAd);
   const largeArtwork=Boolean(showCoverArt||showProducerArt);
   const maximizedImage = isPlayingAd && currentAdInfo?.logoUrl 
     ? currentAdInfo.logoUrl 
@@ -404,9 +407,9 @@ export default function MobileMiniPlayer({
                 {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : displayTrackTitle}
               </h2>
               <p className={`text-base sm:text-lg font-medium truncate w-full ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                {isPlayingAd ? `${currentAdInfo?.title || 'Διαφήμιση'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (isActualSong ? (displayTrackArtist || currentStation.name) : (showProducerArt?displayTrackArtist:(currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying'))))}
+                {isPlayingAd ? `${currentAdInfo?.title || 'Διαφήμιση'} • ${adTimeRemaining}s` : (isRecognizing ? 'Αναγνώριση...' : (visibleSong ? (displayTrackArtist || currentStation.name) : (showProducerArt?displayTrackArtist:(currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying'))))}
               </p>
-              {isActualSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI compact className="mt-1"/>}
+              {visibleSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI compact className="mt-1"/>}
               {!isPlayingAd && (
                 <div className="mt-3 flex items-center gap-3">
                   <span className="ir-live-indicator">LIVE RADIO</span>
@@ -603,9 +606,9 @@ export default function MobileMiniPlayer({
               <>
                 <div className="text-sm font-bold text-white truncate tracking-tight">{currentStation.name}</div>
                 <div className={`text-[11px] font-medium truncate max-w-[140px] mt-0.5 ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                  {isRecognizing ? "Αναγνώριση..." : (isActualSong ? nowPlaying : (showProducerArt?liveBroadcast.title:(currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
+                  {isRecognizing ? "Αναγνώριση..." : (visibleSong ? nowPlaying : (showProducerArt?liveBroadcast.title:(currentUser ? 'Ζωντανό ραδιόφωνο' : 'Συνδέσου στο iRadios για NowPlaying')))}
                 </div>
-                {isActualSong&&nowPlayingInfo?.foundWithAI&&<span className="text-[9px] font-bold text-[#ccff00]">✦ Found with AI</span>}
+                {visibleSong&&nowPlayingInfo?.foundWithAI&&<span className="text-[9px] font-bold text-[#ccff00]">✦ Found with AI</span>}
               </>
             )}
           </div>

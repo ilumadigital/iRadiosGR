@@ -8,7 +8,7 @@ import {parseMusicMetadata} from '../utils/musicMetadata';
 // This visual layer never creates an <audio>. App.jsx remains the only stream player.
 export default function DesktopFullPlayer({
   station, currentUser, isPlaying, isBuffering, isPlayingAd, adWarning, currentAdInfo,
-  adTimeRemaining, nowPlaying, nowPlayingInfo, globalCoverArt, currentShow, liveBroadcast, volume, setVolume,
+  adTimeRemaining, nowPlaying, nowPlayingInfo, globalCoverArt, currentShow, liveBroadcast, rdsShowProducer, volume, setVolume,
   togglePlayPause, handlePrevStation, handleNextStation, onClose, onFavorite, isFavorite,
   onRecognize, isRecognizing, onOpenStation
 }) {
@@ -23,13 +23,15 @@ export default function DesktopFullPlayer({
   const music=currentUser&&!isPlayingAd&&!isRecognizing?
     parseMusicMetadata(nowPlaying,station.name):null;
   const validTitle=Boolean(music);
-  const showProducerArt=Boolean(!validTitle&&currentUser&&!isPlayingAd&&liveBroadcast?.imageUrl);
-  const songTitle=music?.title||(showProducerArt?liveBroadcast.title:'');
-  const artist=music?.artist||(showProducerArt?liveBroadcast.artist:'');
+  const showProducerArt=Boolean(currentUser&&!isPlayingAd&&!isRecognizing&&
+    liveBroadcast?.imageUrl&&rdsShowProducer);
+  const visibleSong=validTitle&&!showProducerArt;
+  const songTitle=showProducerArt?liveBroadcast.title:music?.title||'';
+  const artist=showProducerArt?liveBroadcast.artist:music?.artist||'';
   const image=isPlayingAd&&currentAdInfo?.logoUrl?currentAdInfo.logoUrl:
-    (validTitle&&globalCoverArt?globalCoverArt:
-      (showProducerArt?liveBroadcast.imageUrl:station.logo));
-  const artwork=Boolean((validTitle&&globalCoverArt||showProducerArt)&&!isPlayingAd);
+    (showProducerArt?liveBroadcast.imageUrl:
+      (visibleSong&&globalCoverArt?globalCoverArt:station.logo));
+  const artwork=Boolean((visibleSong&&globalCoverArt||showProducerArt)&&!isPlayingAd);
   const showName=isPlayingAd?(currentAdInfo?.client||'Διαφήμιση'):
     (currentShow?.title||station.name);
   return (
@@ -72,7 +74,7 @@ export default function DesktopFullPlayer({
             <p className="mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-2 text-[clamp(1rem,2.8dvh,1.8rem)] font-semibold leading-tight text-zinc-200">
               {artist||(currentShow?.host&&!isPlayingAd?currentShow.host:station.name)}
             </p>
-            {validTitle&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI className="mt-2"/>}
+            {visibleSong&&!isPlayingAd&&nowPlayingInfo?.foundWithAI&&<FoundWithAI className="mt-2"/>}
             <div className="mt-[clamp(0.5rem,2dvh,1.2rem)] flex min-w-0 items-center gap-3">
               <img src={station.logo} alt="" className="h-[clamp(32px,5.5dvh,48px)] w-[clamp(32px,5.5dvh,48px)] shrink-0 rounded-xl bg-white p-1 object-contain"/>
               <div className="min-w-0"><p className="truncate text-sm font-bold text-white">{station.name}</p>

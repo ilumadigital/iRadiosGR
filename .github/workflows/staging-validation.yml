@@ -69,9 +69,9 @@ jobs:
         run: node ops/check-phase45-station-responsive-dj.cjs
       - name: Verify all Phase 4.3 Admin screens and responsive design integration
         run: node ops/check-phase43-admin-ux.cjs
-      - name: Validate two-minute native song cache, instant Home and safe Spotify links
+      - name: Validate one-minute native song cache, instant Home and safe Spotify links
         run: node ops/check-phase36-native-cache.cjs
-      - name: Validate two-minute staging background metadata scanner and round-robin
+      - name: Validate one-minute staging background metadata scanner and round-robin
         run: node ops/check-phase36-native-scan.cjs
       - name: Validate frontend production build
         # Existing react-simple-maps@1.0.0 declares React 16 peers despite the React 19 app.

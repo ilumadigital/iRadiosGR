@@ -12,6 +12,7 @@ import useAdEngine from './hooks/useAdEngine';
 import useMediaSession from './hooks/useMediaSession';
 import {getAthensClock} from './utils/schedule';
 import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
+import {showProducerNow} from './utils/rdsPresentation';
 
 // --- CONTEXT ---
 import { AlertProvider, useAlert } from './context/AlertContext';
@@ -630,6 +631,8 @@ function MainApp() {
     station:metadataStation,nowPlaying,nowPlayingInfo,clock:broadcastClock
   }),[metadataStation,nowPlaying,nowPlayingInfo?.broadcastHint,
     broadcastClock.day,broadcastClock.minute]);
+  const rdsShowProducer=showProducerNow({currentUser,
+    stationName:metadataStation?.name,nowPlaying,liveBroadcast});
   // 🚀 FIX: Κρατάμε τα stations σε ref για να τα βρίσκουν τα sockets χωρίς να κρασάρουν
   const stationsRef = useRef([]);
   useEffect(() => {
@@ -1451,7 +1454,7 @@ function MainApp() {
   useMediaSession({
     currentStation:metadataStation, nowPlaying, nowPlayingInfo, isPlaying, isPlayingAd, currentAdInfo,
     togglePlayPause, handleNextStation, handlePrevStation, globalCoverArt, currentUser,
-    liveBroadcast
+    liveBroadcast, rdsShowProducer
   });
 
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
@@ -1784,7 +1787,7 @@ function MainApp() {
 
             <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
@@ -1876,6 +1879,7 @@ function MainApp() {
           onOpenCarMode={() => setIsCarModeActive(true)}
           globalCoverArt={globalCoverArt}
           liveBroadcast={liveBroadcast}
+          rdsShowProducer={rdsShowProducer}
           availableDevices={availableDevices}
           localDeviceId={localDeviceId}
           onTransferPlayback={handleTransferPlayback}
@@ -1895,6 +1899,7 @@ function MainApp() {
         isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} spotifyUrl={spotifyUrl}
         globalCoverArt={globalCoverArt}
         liveBroadcast={liveBroadcast}
+        rdsShowProducer={rdsShowProducer}
         availableDevices={availableDevices}
         localDeviceId={localDeviceId}
         onTransferPlayback={handleTransferPlayback}

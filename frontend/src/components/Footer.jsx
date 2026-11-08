@@ -23,7 +23,7 @@ export default function Footer({
   localDeviceId,
   onTransferPlayback,
   onRequestDevices,
-  globalCoverArt, liveBroadcast
+  globalCoverArt, liveBroadcast, rdsShowProducer
 }) {
   
   const { showAlert } = useAlert();
@@ -45,7 +45,7 @@ export default function Footer({
   const realTrack=parseMusicMetadata(nowPlaying,currentStation?.name);
   const isRealSong=Boolean(currentUser&&isPlaying&&!isPlayingAd&&!adWarning&&
     !isRecognizing&&realTrack);
-  const finalSpotifyUrl=isRealSong
+  const finalSpotifyUrl=isRealSong&&!rdsShowProducer
     ?(spotifyUrl||spotifySongLink(realTrack.raw,currentStation?.name)):null;
 
   // Shared station schedule uses 1–7 ISO weekdays and Greece-local time.
@@ -83,8 +83,9 @@ export default function Footer({
   const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
 
   // 2. Maximized Player (Full Screen): Δείχνει Cover Art ΑΝ υπάρχει ΚΑΙ είναι πραγματικό τραγούδι.
-  const showCoverArt = isRealSong && globalCoverArt && !isPlayingAd;
-  const showProducerArt=Boolean(!isPlayingAd&&currentUser&&!isRealSong&&liveBroadcast?.imageUrl);
+  const showProducerArt=Boolean(!isPlayingAd&&currentUser&&!isRecognizing&&
+    liveBroadcast?.imageUrl&&rdsShowProducer);
+  const showCoverArt = isRealSong && !showProducerArt && globalCoverArt && !isPlayingAd;
   const maximizedImage = isPlayingAd && currentAdInfo?.logoUrl 
     ? currentAdInfo.logoUrl 
     : (showCoverArt ? globalCoverArt : (showProducerArt?liveBroadcast.imageUrl:(currentStation?.logo || '')));
@@ -165,6 +166,7 @@ export default function Footer({
           globalCoverArt={globalCoverArt}
           currentShow={currentShow}
           liveBroadcast={liveBroadcast}
+          rdsShowProducer={rdsShowProducer}
           volume={volume}
           setVolume={setVolume}
           togglePlayPause={togglePlayPause}
@@ -296,9 +298,9 @@ export default function Footer({
                 <div className="flex items-center gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full ${isRecognizing ? 'bg-blue-400 animate-ping' : isPlaying ? 'bg-[#ccff00] shadow-[0_0_8px_#ccff00]' : 'bg-red-500'}`}></div>
                   <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all ${isRecognizing ? 'text-blue-400' : 'text-[#ccff00]'}`}>
-                    {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying : (!isRealSong ? (isPlaying ? (showProducerArt?liveBroadcast.title:'ΠΑΙΖΕΙ ΤΩΡΑ') : 'STOPPED') : nowPlaying)}
+                    {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying : (!isRealSong||showProducerArt ? (isPlaying ? (showProducerArt?liveBroadcast.title:'ΠΑΙΖΕΙ ΤΩΡΑ') : 'STOPPED') : nowPlaying)}
                   </span>
-                  {currentUser&&nowPlayingInfo?.foundWithAI&&isRealSong&&!isPlayingAd&&<FoundWithAI compact/>}
+                  {currentUser&&nowPlayingInfo?.foundWithAI&&isRealSong&&!showProducerArt&&!isPlayingAd&&<FoundWithAI compact/>}
                 </div>
               )}
             </div>

@@ -13,6 +13,7 @@ import CircularVU from '../components/CircularVU';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import StationScheduleTimeline from '../components/StationScheduleTimeline';
 import {resolveLiveShowArtwork} from '../utils/liveBroadcast';
+import {showProducerNow} from '../utils/rdsPresentation';
 import '../styles/station-profile.css';
 import StationCatalogCard from '../components/StationCatalogCard';
 import FoundWithAI from '../components/FoundWithAI';
@@ -23,7 +24,7 @@ export default function StationProfile({
   stations, currentStation, isPlaying, onPlayPause, setCurrentStation, 
   toggleFavorite, isFavorite, nowPlaying: globalNowPlaying, nowPlayingInfo: globalNowPlayingInfo, analyser,
   currentUser, userOverrides, onUserDSPChange, API_URL,
-  isRecognizing, handleRecognizeTrack, globalCoverArt, liveBroadcast
+  isRecognizing, handleRecognizeTrack, globalCoverArt, liveBroadcast, rdsShowProducer
 }) {
   const { showAlert } = useAlert();
   const { id } = useParams();
@@ -364,12 +365,16 @@ export default function StationProfile({
   };
 
   // 🟢 Απλή λογική: Αν παίζει ο σταθμός ΚΑΙ υπάρχει CoverArt από το App.jsx, το δείχνουμε. Αλλιώς, το Logo.
-  const showCoverArt=Boolean(currentUser&&isThisPlaying&&isPlaying&&validatedMusic&&
-    globalCoverArt&&!isCurrentlyLoadingMeta);
-  const liveProducerImage=Boolean(currentUser&&broadcast.imageUrl&&!validatedMusic)?
+  // The App owns the shared RDS slot for the active station. Other station
+  // profiles use the same wall-clock slot for consistent artwork.
+  const showProducer=Boolean(isThisPlaying&&isPlaying?rdsShowProducer:
+    showProducerNow({currentUser,stationName:station.name,
+      nowPlaying:effectiveNowPlaying,liveBroadcast:broadcast}));
+  const liveProducerImage=currentUser&&showProducer&&broadcast.imageUrl?
     broadcast.imageUrl:null;
-  // A live show is the fallback for generic DJ metadata; real songs keep their
-  // artwork and a station without a producer photo keeps its normal logo.
+  const showCoverArt=Boolean(currentUser&&isThisPlaying&&isPlaying&&validatedMusic&&
+    globalCoverArt&&!isCurrentlyLoadingMeta&&!liveProducerImage);
+  // No producer photo: the verified native/AI song remains visible.
   const showArtwork=Boolean(showCoverArt||liveProducerImage);
   const currentImage=showCoverArt?globalCoverArt:(liveProducerImage||station.logo);
 
@@ -471,7 +476,7 @@ export default function StationProfile({
             </div>
 
             {/* 🟢 SPOTIFY BUTTON (Φαίνεται σε όλους, συμπεριφορά βάσει Premium) */}
-            {validatedMusic && !isCurrentlyLoadingMeta && (
+            {validatedMusic && !isCurrentlyLoadingMeta && !liveProducerImage && (
               <button 
                 onClick={onSpotifyClick}
                 className="w-full flex items-center justify-center gap-2 bg-[#1DB954]/10 hover:bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/20 px-6 py-3.5 rounded-2xl transition-all font-bold text-xs tracking-wider shrink-0"

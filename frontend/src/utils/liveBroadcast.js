@@ -1,6 +1,6 @@
 // One shared source of truth for on-air show/producer artwork.
 // No guessing from station genre or arbitrary AI output; a schedule match and
-// program-like native metadata are both required. Music always takes priority.
+// program-like native metadata can coexist with verified songs (RDS rotation).
 import {getAthensClock,minutes,scheduleDayBase,toCanonical} from './schedule.js';
 import {parseMusicMetadata} from './musicMetadata.js';
 
@@ -49,8 +49,11 @@ export function resolveLiveShowArtwork({station,nowPlaying,nowPlayingInfo,clock}
   const show=activeStationShow(station,clock||getAthensClock());
   const raw=nowPlayingInfo?.broadcastHint||nowPlaying;
   const isMusic=Boolean(parseMusicMetadata(nowPlaying,station?.name));
-  const recognizedShow=Boolean(show&&!isMusic&&
-    isBroadcastMetadata(raw,station?.name,show));
+  // A verified track and an active scheduled DJ with a photo are two valid
+  // presentation sources. Rotation never changes the real playlist/song data.
+  const recognizedShow=Boolean(show&&(
+    isBroadcastMetadata(raw,station?.name,show)||
+    (isMusic&&validShowImage(show.imageUrl))));
   const imageUrl=recognizedShow&&validShowImage(show.imageUrl)?show.imageUrl:null;
   return {show,recognizedShow,imageUrl,
     title:recognizedShow?(show.title||show.host||'Τώρα Ακούς'):null,

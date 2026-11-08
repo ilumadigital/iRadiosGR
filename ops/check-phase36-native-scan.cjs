@@ -44,7 +44,7 @@ async function run(){
   try{
     process.env.APP_ENV='staging';
     delete process.env.STAGE_ENABLE_NATIVE_SCANNER;
-    assert.equal(scanner.EVERY_MS,2*60*1000,'free native scan scheduled every two minutes');
+    assert.equal(scanner.EVERY_MS,60*1000,'free native scan scheduled every minute');
     assert.equal(scanner.CONCURRENCY,20);
     assert.equal(scanner.PER_PASS,160,'bounded egress');
     const first=await scanner.tick();

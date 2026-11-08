@@ -14,6 +14,8 @@ async function main(){
     await import(pathToFileURL(path.join(root,'frontend/src/utils/liveBroadcast.js')).href);
   const {parseMusicMetadata}=await import(pathToFileURL(
     path.join(root,'frontend/src/utils/musicMetadata.js')).href);
+  const {showProducerNow,TEN_MINUTES}=await import(pathToFileURL(
+    path.join(root,'frontend/src/utils/rdsPresentation.js')).href);
 
   const schedule=[{day:7,startTime:'03:00',endTime:'05:00',
     title:'Afterhours',host:'DJ Maria',imageUrl:'https://radio.example.com/maria.jpg'}];
@@ -40,7 +42,21 @@ async function main(){
   assert.equal(missingImage.imageUrl,null,'no image keeps the old station logo');
   const song=resolveLiveShowArtwork({station,nowPlaying:'Ajna, Samm - Attract',
     nowPlayingInfo:{broadcastHint:'DJZONE'},clock});
-  assert.equal(song.imageUrl,null,'real song/AI artwork always has precedence');
+  assert.equal(song.imageUrl,schedule[0].imageUrl,
+    'song and live DJ photo must both be available for RDS rotation');
+  assert.equal(TEN_MINUTES,600000);
+  const rds={currentUser:{_id:'u'},stationName:station.name,
+    nowPlaying:'Ajna - Attract',liveBroadcast:song};
+  assert.equal(showProducerNow({...rds,at:0}),false,'first 10-minute slot is song');
+  assert.equal(showProducerNow({...rds,at:TEN_MINUTES}),true,'next slot is DJ');
+  assert.equal(showProducerNow({...rds,at:2*TEN_MINUTES}),false,'third slot returns to song');
+  assert.equal(showProducerNow({...rds,at:TEN_MINUTES-1}),false,'switches only at boundary');
+  assert.equal(showProducerNow({...rds,nowPlaying:'',at:0}),true,
+    'DJ-only metadata always shows the producer photo');
+  assert.equal(showProducerNow({...rds,currentUser:null,at:TEN_MINUTES}),false,
+    'guests keep the existing private-metadata behavior');
+  assert.equal(showProducerNow({...rds,liveBroadcast:missingImage,at:TEN_MINUTES}),false,
+    'without a DJ photo never hide verified AI/song');
   assert.equal(isBroadcastMetadata('DJ Snake - Let Me Love You',station.name,show),false);
   assert.ok(parseMusicMetadata('DJ Snake - Let Me Love You',station.name));
   for(const bad of ['DJZONE - Deseo Radio','DJ SET - Afterhours','RadioShow - Evening'])
@@ -74,6 +90,10 @@ async function main(){
   };
   assert.equal(native.snapshotSong(confirmed,now).source,'acrcloud',
     'manual ACR track retains priority over DJ hint');
+  const combined={...broadcastDoc,nativeNow:{raw:'Real Artist - Real Track',
+    confirmedAt:new Date(now),changedAt:new Date(now)}};
+  assert.equal(native.snapshotSong(combined,now).broadcastHint,'DJZONE',
+    'concurrent native song must preserve the on-air DJ marker');
 
   // Lock screen now reflects the show only when a real show image is available.
   const mediaSource=read('frontend/src/hooks/useMediaSession.js');
@@ -100,6 +120,18 @@ async function main(){
     nowPlayingInfo:{source:'station',foundWithAI:false},liveBroadcast:{imageUrl:schedule[0].imageUrl}});
   assert.equal(real.title,'Attract');
   assert.equal(real.image,'https://images.example.com/track.jpg');
+  const djSlot=media({currentStation:station,currentUser:{_id:'u'},
+    nowPlaying:'Ajna - Attract',globalCoverArt:'https://images.example.com/track.jpg',
+    nowPlayingInfo:{source:'acrcloud',foundWithAI:true},
+    liveBroadcast:song,rdsShowProducer:true});
+  assert.equal(djSlot.title,'Afterhours');
+  assert.equal(djSlot.artist,'DJ Maria');
+  assert.equal(djSlot.image,schedule[0].imageUrl);
+  const songSlot=media({currentStation:station,currentUser:{_id:'u'},
+    nowPlaying:'Ajna - Attract',nowPlayingInfo:{source:'acrcloud',foundWithAI:true},
+    liveBroadcast:song,rdsShowProducer:false});
+  assert.equal(songSlot.title,'Attract');
+  assert.equal(songSlot.album,'Deseo Radio - iRadios AI');
 
   const css=read('frontend/src/styles/station-profile.css');
   const profile=read('frontend/src/pages/StationProfile.jsx');
@@ -113,6 +145,6 @@ async function main(){
   assert.match(read('frontend/src/components/DesktopFullPlayer.jsx'),/showProducerArt/);
   assert.match(read('frontend/src/components/MobileMiniPlayer.jsx'),/showProducerArt/);
   assert.match(read('backend/utils/stageMetadata.js'),/nativeShow/);
-  console.info('PASS: responsive station layout, real-song priority, Greek show time, DJ artwork and iOS media fields.');
+  console.info('PASS: responsive station layout, ten-minute song/DJ RDS, Greek show time, DJ artwork and iOS media fields.');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

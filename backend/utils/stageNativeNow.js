@@ -85,7 +85,8 @@ function snapshotSong(doc,now=Date.now()){
   if(music&&(ai.kind==='manual'||!native||aiTime>normTime(native.confirmedAt)))
     return {...music,...(hint?{broadcastHint:hint}:{})};
   if(native)return {title:native.raw,source:'station',foundWithAI:false,
-    changedAt:new Date(native.changedAt).toISOString()};
+    changedAt:new Date(native.changedAt).toISOString(),
+    ...(hint?{broadcastHint:hint}:{})};
   return music?{...music,...(hint?{broadcastHint:hint}:{})}:
     hint?{title:'',source:'none',foundWithAI:false,broadcastHint:hint}:null;
 }

@@ -10,7 +10,7 @@ function artworkType(url){
   return undefined;
 }
 export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUser,
-  isPlayingAd,currentAdInfo,globalCoverArt,liveBroadcast}){
+  isPlayingAd,currentAdInfo,globalCoverArt,liveBroadcast,rdsShowProducer}){
   const name=currentStation?.name||'iRadios';
   if(!currentUser)return {
     title:'Login στο iRadios για NowPlaying',
@@ -26,21 +26,21 @@ export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUse
   const parts=typeof nowPlaying==='string'&&!LOADING.test(nowPlaying)
     ?parseMusicMetadata(nowPlaying,name):null;
   const ai=Boolean(parts&&nowPlayingInfo?.source==='acrcloud'&&nowPlayingInfo?.foundWithAI);
+  // DJ-only metadata shows the producer. When a real track also exists,
+  // use the shared ten-minute RDS slot instead of always preferring music.
+  if(liveBroadcast?.recognizedShow&&liveBroadcast.imageUrl&&(!parts||rdsShowProducer))return {
+    title:liveBroadcast.title||'Τώρα Ακούς',
+    artist:liveBroadcast.artist||name,
+    album:`${name} - iRadios`,image:liveBroadcast.imageUrl,
+    trackKey:'show:'+String(liveBroadcast.show?.day||'')+':'+
+      String(liveBroadcast.show?.startTime||'')+':'+String(liveBroadcast.show?.title||'')
+  };
   if(parts)return {
     title:parts.title,artist:parts.artist,
     album:ai?`${name} - iRadios AI`:`${name} - iRadios`,
     image:globalCoverArt||currentStation?.logo,
     trackKey:parts.raw,
     foundWithAI:ai
-  };
-  // A genuine scheduled show can provide artwork even when the native stream
-  // sends generic DJZONE/LIVE/RadioShow text and no song is identified.
-  if(liveBroadcast?.recognizedShow&&liveBroadcast.imageUrl)return {
-    title:liveBroadcast.title||'Τώρα Ακούς',
-    artist:liveBroadcast.artist||name,
-    album:`${name} - iRadios`,image:liveBroadcast.imageUrl,
-    trackKey:'show:'+String(liveBroadcast.show?.day||'')+':'+
-      String(liveBroadcast.show?.startTime||'')+':'+String(liveBroadcast.show?.title||'')
   };
   return {title:'Τώρα Ακούς',artist:name,album:'iRadios',image:currentStation?.logo};
 }
@@ -50,11 +50,11 @@ export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUse
 // metadata (iOS background scheduling remains best effort).
 export default function useMediaSession({
   currentStation,nowPlaying,nowPlayingInfo,isPlaying,isPlayingAd,currentAdInfo,
-  togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser,liveBroadcast
+  togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser,liveBroadcast,rdsShowProducer
 }){
   const latest=useRef({});
   latest.current={currentStation,nowPlaying,nowPlayingInfo,isPlaying,isPlayingAd,currentAdInfo,
-    togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser,liveBroadcast};
+    togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser,liveBroadcast,rdsShowProducer};
   const last=useRef({key:null,at:0,ai:false,image:null,imageSrc:null,trackKey:null});
   const write=()=>{
     if(typeof navigator==='undefined'||!('mediaSession' in navigator)||
@@ -106,7 +106,7 @@ export default function useMediaSession({
     }
   },[currentStation?._id,currentUser?._id,isPlaying,isPlayingAd,currentAdInfo?._id,
     nowPlaying,nowPlayingInfo?.foundWithAI,nowPlayingInfo?.source,nowPlayingInfo?.broadcastHint,
-    globalCoverArt,liveBroadcast?.imageUrl,liveBroadcast?.title,liveBroadcast?.artist]);
+    globalCoverArt,liveBroadcast?.imageUrl,liveBroadcast?.title,liveBroadcast?.artist,rdsShowProducer]);
   useEffect(()=>{
     const timer=setInterval(()=>{
       if(latest.current.currentStation&&latest.current.isPlaying)write();

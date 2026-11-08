@@ -1,12 +1,12 @@
 'use strict';
-// Stage-only, free 2-minute metadata prefetch. Never invokes the paid ACRCloud
+// Stage-only, free one-minute metadata prefetch. Never invokes the paid ACRCloud
 // vendor and never requires a listener to be present.
 // Bounded round-robin batches prevent a large catalog from exhausting egress.
 const mongoose=require('mongoose');
 const Station=require('../models/Station');
 const {readCachedNativeMetadata}=require('./stageMetadata');
 
-const EVERY_MS=2*60*1000;
+const EVERY_MS=60*1000;
 const PER_PASS=160;
 const CONCURRENCY=20;
 let lastId=null,inTick=false;
@@ -44,7 +44,7 @@ async function tick(){
       }
     };
     await Promise.all(Array.from({length:Math.min(CONCURRENCY,batch.length)},()=>run()));
-    // One privacy-safe operational line every two minutes, no stream URLs.
+    // One privacy-safe operational line per scan, no stream URLs.
     console.info('[NATIVE_SCAN] scanned',scanned,'failed',failed,'of',batch.length);
     return {scanned,failed,total:batch.length,rotationCursor:String(lastId||'')};
   }catch(error){
