@@ -1,6 +1,6 @@
 'use strict';
 // One stage backend worker, independent of browsers and without Socket.IO.
-// Auto ACRCloud is opt-in and ONLY applies to the network's top 10 MUSIC radios.
+// Auto ACRCloud is opt-in: Top-10 music radios plus actually listened approved music radios.
 const mongoose=require('mongoose');
 const Station=require('../models/Station');
 const Budget=require('../models/StageAcrDailyBudget');
@@ -64,7 +64,7 @@ async function refreshTop(now=Date.now()){
 }
 async function reserveDailyBudget(now=Date.now()){
   const configured=Number(process.env.STAGE_AUTO_ACR_DAILY_LIMIT);
-  // Maximum 10 stations * every 5 minutes, i.e. <=2880 a day; optional smaller cap.
+  // Hard billing ceiling: 2,880 calls/day regardless of the number of eligible radios.
   const limit=Number.isInteger(configured)&&configured>=0?Math.min(configured,2880):2880;
   if(limit===0)return false;
   const day=new Date(now).toISOString().slice(0,10);
