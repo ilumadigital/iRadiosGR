@@ -251,7 +251,7 @@ export default function RadioGeoMap({
       </div>
 
       {activeGroup && (
-        <aside className="ir-radio-map-panel absolute bottom-[80px] left-3 right-3 z-[6] max-h-[54%] overflow-hidden rounded-2xl border border-white/15 bg-[#080d12]/95 text-white shadow-2xl backdrop-blur-2xl sm:bottom-16 sm:left-auto sm:right-5 sm:w-[360px]"
+        <aside className="ir-radio-map-panel absolute bottom-[80px] left-3 right-3 z-[6] max-h-[54%] overflow-hidden rounded-2xl border border-white/15 bg-[#080d12]/95 text-white shadow-2xl backdrop-blur-2xl sm:bottom-16 sm:left-5 sm:right-auto sm:w-[360px]"
           aria-label={'Ραδιόφωνα: ' + activeGroup.title}>
           <div className="flex items-center justify-between gap-2 border-b border-white/10 bg-[#ccff00] px-3.5 py-3 text-black">
             <div className="flex min-w-0 items-center gap-2">
