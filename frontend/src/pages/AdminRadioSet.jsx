@@ -107,6 +107,9 @@ export default function AdminRadioSet({ API_URL }) {
         </div>
       </div>
 
+      <p role="status" className="mb-4 text-xs font-semibold text-zinc-400">
+        {filteredStations.length} από {stations.length} σταθμούς
+      </p>
       {loading ? (
         <div className="flex justify-center items-center py-20">
           <Loader2 className="animate-spin text-[#ccff00]" size={40} />
