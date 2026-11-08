@@ -2,7 +2,6 @@ import React,{useEffect,useState} from 'react';
 import {Newspaper,Save,RefreshCw,ExternalLink,Clock3,CheckCircle2,AlertTriangle,Image as ImageIcon,Plus,Trash2,Link2,Globe2} from 'lucide-react';
 import {adminFetch} from '../utils/adminFetch';
 
-const DEFAULT='https://rss.app/feeds/k4AEhunSwl50WyaC.xml';
 const EXAMPLE='https://www.newsbeast.gr/feed';
 const fmt=value=>value&&Number.isFinite(new Date(value).getTime())?
   new Intl.DateTimeFormat('el-GR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'—';
@@ -214,7 +213,7 @@ export default function AdminNewsFeed(){
             </div>)}</div>
           </details>}
           {source.retrievalMode==='domain-search'&&<p className="mt-3 text-xs leading-5 text-amber-200">Εναλλακτική λειτουργία: Google News αναζήτηση με το domain του εκδότη, επειδή δεν ήταν διαθέσιμο publisher RSS. Τα αποτελέσματα μπορεί να μην ταυτίζονται απόλυτα με τη σελίδα του publisher.</p>}
-          {source.lastError&&<p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 p-3 text-xs text-rose-200">{source.lastError}</p>}
+          {source.lastError&&<p className={'mt-3 rounded-xl border p-3 text-xs '+(source.fetchedCount>0?'border-amber-400/20 bg-amber-500/10 text-amber-200':'border-rose-400/20 bg-rose-500/10 text-rose-200')}>{source.fetchedCount>0?'Μερικές πηγές δεν απάντησαν: ':'Αποτυχία εισαγωγής: '}{source.lastError}</p>}
         </div>)}
       </div>
       <div className="flex flex-wrap gap-3">
@@ -248,7 +247,7 @@ export default function AdminNewsFeed(){
             <p className="mt-2 text-xs text-zinc-400">{item.source||'Ειδήσεις'} · {fmt(item.publishedAt)}</p></div></a>
           <button type="button" disabled={busy} onClick={()=>removeArticle(item)} title="Διαγραφή άρθρου" aria-label={'Διαγραφή '+item.title} className="shrink-0 rounded-xl border border-rose-500/20 p-2.5 text-rose-300 hover:bg-rose-500/10 disabled:opacity-40"><Trash2 size={16}/></button>
         </div>)}
-        {!data.articles?.length&&<p className="text-sm text-zinc-400">Δεν υπάρχουν συγχρονισμένες ειδήσεις ακόμη. Πάτησε «Συγχρονισμός τώρα».</p>}
+        {!data.articles?.length&&<p className="text-sm text-zinc-400">Δεν υπάρχουν άρθρα ακόμη. Πρόσθεσε μία πηγή και πάτησε «Συγχρονισμός τώρα».</p>}
       </div>
       {matches.length>articleLimit&&<button type="button" onClick={()=>setArticleLimit(value=>value+30)} className="mt-5 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-bold text-white hover:border-[#ccff00]">Περισσότερα άρθρα ({matches.length-articleLimit})</button>}
     </section>}
