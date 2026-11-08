@@ -294,19 +294,19 @@ export default function AdminBanners() {
   ];
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 md:p-10 font-sans pb-32">
+    <div className="admin-legacy-page space-y-6 text-white">
       
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-10">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-black italic tracking-tighter text-white flex items-center gap-3">
-            <Megaphone className="text-[#ccff00]" size={32} /> Διαφημίσεις <span className="text-zinc-600">Visual</span>
+            <Megaphone className="text-[#ccff00]" size={32} /> Διαφημιστικά banners
           </h1>
         </div>
         <button 
           onClick={() => handleOpenModal()}
           className="bg-[#ccff00] text-black px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-xl flex items-center gap-2"
         >
-          <Plus size={16} /> Νεα Διαφημιση
+          <Plus size={16} /> Νέο banner
         </button>
       </div>
 
@@ -326,7 +326,7 @@ export default function AdminBanners() {
       {loading ? (
         <div className="flex justify-center items-center h-40"><span className="text-[#ccff00] font-bold animate-pulse">Φόρτωση...</span></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredBanners.map(banner => {
             const isPending = banner.status === 'pending';
             const isActive = banner.status === 'active' || banner.isActive === true; 
