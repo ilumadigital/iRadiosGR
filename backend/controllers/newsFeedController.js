@@ -2,18 +2,36 @@
 const crypto=require('crypto');
 const NewsFeed=require('../models/NewsFeed');
 const {DEFAULT_FEED_URL,normalizeSource,download}=require('../utils/rssNews');
+const newsbeast=require('../utils/newsbeastSources');
 // Ten-minute server refresh; public requests serve the persisted cache.
-const CACHE_MS=10*60*1000,RETRY_MS=10*60*1000,MAX_SOURCES=12;
+const CACHE_MS=10*60*1000,RETRY_MS=10*60*1000,MAX_SOURCES=32;
 let pending=null;
 const error=(message,status=400)=>Object.assign(new Error(message),{status});
 const sourceOf=(input,id)=>({
   id:id||crypto.randomUUID(),...normalizeSource(input),label:typeof input?.label==='string'?input.label.trim().slice(0,80):'',
+  category:typeof input?.category==='string'&&input.category.trim()?input.category.trim().slice(0,50):
+    newsbeast.categoryOfUrl(input?.url),
   enabled:input?.enabled!==false
 });
 async function settings(){
   let doc=await NewsFeed.findOneAndUpdate({_id:'primary'},
     {$setOnInsert:{feedUrl:DEFAULT_FEED_URL,enabled:true}},
     {upsert:true,new:true,setDefaultsOnInsert:true});
+  // User-selected staging launch lineup. Exactly once, atomically installed and
+  // guarded by VERSION. Subsequent admin edits are never overwritten by restarts.
+  if(process.env.APP_ENV==='staging'&&doc.bootstrapVersion!==newsbeast.VERSION){
+    const feedSources=newsbeast.sources();
+    const updated=await NewsFeed.findOneAndUpdate({
+      _id:'primary',bootstrapVersion:{$ne:newsbeast.VERSION}
+    },{
+      $set:{bootstrapVersion:newsbeast.VERSION,sources:feedSources,
+        feedUrl:feedSources[0].url,enabled:true,
+        articles:[],feedTitle:'Newsbeast · Ειδήσεις',
+        lastSyncedAt:null,lastAttemptAt:null,lastError:''},
+      $inc:{configRevision:1}
+    },{new:true});
+    doc=updated||await NewsFeed.findById('primary');
+  }
   if(!doc.sources?.length){
     const legacyUrl=doc.feedUrl||DEFAULT_FEED_URL;
     const first=sourceOf({url:legacyUrl},'legacy-'+crypto.createHash('sha256').update(legacyUrl).digest('hex').slice(0,32));
@@ -61,7 +79,7 @@ async function sync(doc,force=false){
           const old=previousArticle.get(s.id+'|'+article.url);
           return {...article,sourceId:s.id,
             imageUrl:article.imageUrl||old?.imageUrl||'',
-            category:article.category||old?.category||''};
+            category:s.category||article.category||old?.category||''};
         }));
       }
     }
@@ -73,7 +91,7 @@ async function sync(doc,force=false){
         const fingerprint=(item.source||'').toLowerCase().trim()+'|'+(item.title||'').toLowerCase().trim();
         if(seen.has(item.url)||seen.has(fingerprint))return false;
         seen.add(item.url);seen.add(fingerprint);return true;
-      }).slice(0,150);
+      }).slice(0,400);
     current.lastAttemptAt=started;
     if(successful.size)current.lastSyncedAt=started;
     current.lastError=failed.length?failed.length+' πηγές με σφάλμα. Δες λεπτομέρειες ανά εκδότη.':'';
@@ -98,6 +116,7 @@ exports.publicFeed=async(_req,res)=>{
     };
     if(doc.enabled){
       for(const source of active){
+        add(source.category);
         if(source.type!=='rssnews_preset')continue;
         try{(normalizeSource(source).categories||[]).forEach(add);}catch{/* invalid old source */}
       }
@@ -118,7 +137,7 @@ exports.save=async(req,res)=>{
       if(typeof req.body?.feedUrl==='string')raw=[{url:req.body.feedUrl}];
       else throw error('Χρειάζεται λίστα πηγών ειδήσεων.');
     }
-    if(!raw.length||raw.length>MAX_SOURCES)throw error('Επίλεξε 1 έως 12 publishers ή RSS feeds.');
+    if(!raw.length||raw.length>MAX_SOURCES)throw error('Επίλεξε 1 έως 32 publishers ή RSS feeds.');
     const previous=new Map(doc.sources.map(s=>[s.id,s]));
     const items=raw.map(item=>{
       const id=typeof item.id==='string'&&previous.has(item.id)?item.id:crypto.randomUUID();

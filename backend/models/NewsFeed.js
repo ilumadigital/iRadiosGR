@@ -8,7 +8,7 @@ const article=new mongoose.Schema({
 const source=new mongoose.Schema({
   id:{type:String,required:true},url:{type:String,required:true},
   type:{type:String,enum:['rss_app','google_publisher','google_rss','rssnews_preset','direct_rss'],required:true},
-  domain:{type:String,default:''},enabled:{type:Boolean,default:true},
+  domain:{type:String,default:''},category:{type:String,default:''},enabled:{type:Boolean,default:true},
   label:{type:String,default:''},feedTitle:{type:String,default:''},
   lastSyncedAt:{type:Date,default:null},lastAttemptAt:{type:Date,default:null},
   lastError:{type:String,default:''},fetchedCount:{type:Number,default:0,min:0},
@@ -19,6 +19,7 @@ const schema=new mongoose.Schema({
   feedUrl:{type:String,default:'https://rss.app/feeds/k4AEhunSwl50WyaC.xml'},
   enabled:{type:Boolean,default:true},feedTitle:{type:String,default:''},
   sources:{type:[source],default:[]},configRevision:{type:Number,default:0},
+  bootstrapVersion:{type:String,default:''},
   articles:{type:[article],default:[]},lastSyncedAt:{type:Date,default:null},
   lastAttemptAt:{type:Date,default:null},lastError:{type:String,default:''}
 },{timestamps:true});

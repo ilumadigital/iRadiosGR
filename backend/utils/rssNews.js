@@ -109,7 +109,7 @@ function picture(item,description){
 const categoryAliases=new Map(Object.entries({
   'ελλαδα':'Ελλάδα','greece':'Ελλάδα','greek news':'Ελλάδα',
   'κοσμος':'Κόσμος','world':'Κόσμος','international':'Κόσμος',
-  'πολιτικη':'Πολιτική','politics':'Πολιτική',
+  'πολιτικη':'Πολιτική','politics':'Πολιτική','politiki':'Πολιτική',
   'οικονομια':'Business','οικονομικα':'Business','business':'Business','finance':'Business','financial':'Business',
   'εκπαιδευση':'Education','παιδεια':'Education','education':'Education',
   'αθλητικα':'Αθλητικά','αθλητισμος':'Αθλητικά','sports':'Αθλητικά','sport':'Αθλητικά',
@@ -119,7 +119,7 @@ const categoryAliases=new Map(Object.entries({
   'υγεια':'Υγεία','health':'Υγεία',
   'media':'Media','ψυχαγωγια':'Διασκέδαση','διασκεδαση':'Διασκέδαση','entertainment':'Διασκέδαση',
   'ταξιδι':'Ταξίδι','travel':'Ταξίδι','περιβαλλον':'Περιβάλλον','environment':'Περιβάλλον',
-  'αυτοκινητο':'Auto','auto':'Auto','car':'Auto','weird':'Διάφορα','γενικα':''
+  'αυτοκινητο':'Auto','auto':'Auto','car':'Auto','moto':'Μότο','motorcycle':'Μότο','μοτο':'Μότο','weird':'Διάφορα','γενικα':''
 }));
 const categoryKey=value=>plain(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[_\-\/]+/g,' ').replace(/\s+/g,' ').trim();
 function categoryFrom(item,articleUrl,feedUrl=''){

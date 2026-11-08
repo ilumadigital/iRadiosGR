@@ -10,8 +10,9 @@ const isGoogle=url=>{try{return new URL(url).hostname==='news.google.com';}catch
 const isRssnews=url=>{try{return new URL(url).hostname==='rssnews.io';}catch{return false;}};
 const isDirect=url=>{try{return !['rss.app','rssnews.io','news.google.com'].includes(new URL(url).hostname);}catch{return false;}};
 const rssCategories=url=>{try{return new URL(url).searchParams.get('c')?.split(',')||[];}catch{return [];}};
+const MAX_SOURCES=32;
 const field='w-full min-w-0 rounded-xl border border-white/15 bg-zinc-950 px-4 py-3 text-sm text-white outline-none focus:border-[#ccff00]';
-const fresh=url=>({url,enabled:true,label:'',domain:'',id:''});
+const fresh=url=>({url,enabled:true,label:'',domain:'',category:'',id:''});
 function sourceName(item){
   if(item.label)return item.label;
   if(item.feedTitle)return item.feedTitle;
@@ -48,7 +49,7 @@ export default function AdminNewsFeed(){
     const existing=new Set(sources.map(s=>s.url));
     const added=[];
     for(const url of urls)if(!existing.has(url)){existing.add(url);added.push(fresh(url));}
-    if(existing.size>12){setError('Μέχρι 12 πηγές μπορούν να είναι ενεργές στη λίστα.');return;}
+    if(existing.size>MAX_SOURCES){setError('Μέχρι '+MAX_SOURCES+' πηγές μπορούν να αποθηκευτούν.');return;}
     if(!added.length){setError('Οι σύνδεσμοι έχουν ήδη προστεθεί.');return;}
     setSources(old=>[...old,...added]);setNewLinks('');
     setNotice('Προστέθηκαν '+added.length+' πηγές. Πάτησε «Αποθήκευση πηγών» και μετά «Συγχρονισμός τώρα».');
@@ -59,7 +60,7 @@ export default function AdminNewsFeed(){
       if(!sources.length)throw Error('Πρόσθεσε τουλάχιστον μία πηγή.');
       const r=await adminFetch('/api/admin/newsfeed',{method:'PUT',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({enabled,sources:sources.map(s=>({
-          id:s.id||undefined,url:s.url,enabled:s.enabled!==false,label:s.label||'',domain:s.domain||''
+          id:s.id||undefined,url:s.url,enabled:s.enabled!==false,label:s.label||'',domain:s.domain||'',category:s.category||''
         }))})});
       const response=await r.json();if(!r.ok)throw Error(response.error||'Αποτυχία αποθήκευσης.');
       setData(response);setSources(response.sources||[]);
@@ -98,7 +99,7 @@ export default function AdminNewsFeed(){
           className="inline-flex items-center gap-2 rounded-xl border border-[#ccff00]/40 px-5 py-3 text-sm font-bold text-[#ccff00] hover:bg-[#ccff00]/10 disabled:opacity-40">
           <Plus size={17}/> Προσθήκη publishers
         </button>
-        <span className="text-xs text-zinc-500">{sources.length}/12 πηγές</span>
+        <span className="text-xs text-zinc-500">{sources.length}/{MAX_SOURCES} πηγές</span>
       </div>
     </section>
     <form onSubmit={save} className="ir-glass space-y-5 p-5 sm:p-7">
@@ -124,6 +125,8 @@ export default function AdminNewsFeed(){
               <input required type="url" value={source.url} onChange={e=>update(index,{url:e.target.value})} className={field}/></label>
             <label><span className="mb-1 block text-xs font-semibold text-zinc-400">Όνομα (προαιρετικό)</span>
               <input value={source.label||''} maxLength={80} onChange={e=>update(index,{label:e.target.value})} className={field} placeholder="π.χ. Ειδησεογραφικό Μέσο"/></label>
+            {isDirect(source.url)&&<label><span className="mb-1 block text-xs font-semibold text-zinc-400">Κατηγορία άρθρων</span>
+              <input value={source.category||''} maxLength={50} onChange={e=>update(index,{category:e.target.value})} className={field} placeholder="Αυτόματη αναγνώριση από RSS"/></label>}
             {isGoogle(source.url)&&<label><span className="mb-1 block text-xs font-semibold text-zinc-400">Publisher domain (προαιρετικό fallback)</span>
               <input value={source.domain||''} onChange={e=>update(index,{domain:e.target.value})}
                 className={field} placeholder="π.χ. iefimerida.gr"/></label>}
