@@ -13,7 +13,7 @@ const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {hasAcceptedCurrentBroadcasterTerms}=require('../utils/broadcasterTerms');
 const {normalize:normalizeWeeklySchedule}=require('../utils/scheduleNormalization');
-const {loadFeed,publicPreview,syncOne,startCron}=require('../services/stationScheduleFeed');
+const {loadFeed,previewFeed,publicPreview,syncOne,startCron}=require('../services/stationScheduleFeed');
 // Routes are mounted once on API startup, so registration occurs once per worker.
 startCron();
 const router=express.Router();
@@ -242,12 +242,30 @@ function feedSettings(body){
   return {url,rowTag,mapping:body?.mapping||{},
     dayFormat:body?.dayFormat||'iso'};
 }
+// Deliberate bulk clear, scoped by ownership and protected against an active sync.
+// Disabling XML in the same write prevents the next scheduled run restoring it.
+router.delete('/backoffice/stations/:id/schedule',feedRoles,async(req,res)=>{
+  try{
+    const station=await ownedStation(req,res);
+    if(!station)return;
+    const now=new Date();
+    const updated=await Station.findOneAndUpdate({
+      _id:station._id,...stationQuery(req.user),
+      $or:[{'scheduleFeed.lockUntil':{$lte:now}},{'scheduleFeed.lockUntil':null},
+        {'scheduleFeed.lockUntil':{$exists:false}}]
+    },{$set:{schedule:[],scheduleDayBase:1,'scheduleFeed.enabled':false}},
+    {new:true,runValidators:true}).select('+scheduleFeed');
+    if(!updated)return res.status(409).json({error:'Ο συγχρονισμός XML εκτελείται. Δοκίμασε ξανά.'});
+    return res.json({station:safeStation(updated,req.user.role),
+      message:'Διαγράφηκε όλο το πρόγραμμα του σταθμού και απενεργοποιήθηκε ο XML συγχρονισμός.'});
+  }catch(error){return fail(res,error);}
+});
 // Preview never saves or changes an existing schedule.
 router.post('/backoffice/stations/:id/schedule-feed/preview',feedRoles,async(req,res)=>{
   try{
     const station=await ownedStation(req,res);
     if(!station)return;
-    const parsed=await loadFeed(feedSettings(req.body));
+    const parsed=await previewFeed(feedSettings(req.body));
     return res.json({preview:publicPreview(parsed)});
   }catch(e){return fail(res,e);}
 });
@@ -259,19 +277,27 @@ router.post('/backoffice/stations/:id/schedule-feed',feedRoles,async(req,res)=>{
     if(station.scheduleFeed?.lockUntil>new Date())
       return res.status(409).json({error:'Ο συγχρονισμός XML εκτελείται ήδη.'});
     const parsed=await loadFeed(feedSettings(req.body));
-    station.schedule=parsed.schedule;
-    station.scheduleDayBase=1;
-    station.scheduleFeed={
-      enabled:true,url:String(req.body.url).trim(),rowTag:parsed.rowTag,
-      mapping:parsed.mapping,dayFormat:parsed.dayFormat,
-      lastCheckedAt:new Date(),lastSuccessAt:new Date(),lastChangedAt:new Date(),
-      lastHash:parsed.hash,lastCount:parsed.schedule.length,
-      lastError:'',failures:0,lockUntil:null
-    };
-    await station.save();
-    return res.json({station:safeStation(station,req.user.role),
+    // Validate the entire XML before a single atomic station-specific replacement.
+    // The lock predicate prevents overwriting an in-flight scheduled sync.
+    const now=new Date();
+    const updated=await Station.findOneAndUpdate({
+      _id:station._id,...stationQuery(req.user),
+      $or:[{'scheduleFeed.lockUntil':{$lte:now}},{'scheduleFeed.lockUntil':null},
+        {'scheduleFeed.lockUntil':{$exists:false}}]
+    },{$set:{
+      schedule:parsed.schedule,scheduleDayBase:1,
+      scheduleFeed:{
+        enabled:true,url:String(req.body.url).trim(),rowTag:parsed.rowTag,
+        mapping:parsed.mapping,dayFormat:parsed.dayFormat,
+        lastCheckedAt:now,lastSuccessAt:now,lastChangedAt:now,
+        lastHash:parsed.hash,lastCount:parsed.schedule.length,
+        lastError:'',failures:0,lockUntil:null
+      }
+    }},{new:true,runValidators:true}).select('+scheduleFeed');
+    if(!updated)return res.status(409).json({error:'Ο συγχρονισμός XML εκτελείται ήδη. Δοκίμασε ξανά.'});
+    return res.json({station:safeStation(updated,req.user.role),
       preview:publicPreview(parsed),
-      message:'Το XML συνδέθηκε, το πρόγραμμα εισήχθη και θα ανανεώνεται κάθε μέρα στις 03:00 (Ελλάδα).'});
+      message:'Το προηγούμενο πρόγραμμα αντικαταστάθηκε από το XML και θα ανανεώνεται κάθε μέρα στις 03:00 (Ελλάδα).'});
   }catch(e){return fail(res,e);}
 });
 router.post('/backoffice/stations/:id/schedule-feed/sync',feedRoles,async(req,res)=>{

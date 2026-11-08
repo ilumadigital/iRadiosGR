@@ -256,14 +256,38 @@ function mapRows(payload,options={}){
     schedule:normalized.schedule,split:normalized.split,
     hash:crypto.createHash('sha256').update(JSON.stringify(normalized.schedule)).digest('hex')};
 }
+async function readFeedRows(options){
+  let xml;
+  try{xml=await fetchXml(String(options.url||'').trim());}
+  catch(error){
+    if(error.status)throw error;
+    throw invalid('Δεν ήταν δυνατή η πρόσβαση στο XML feed (DNS, SSL ή σύνδεση). Έλεγξε ότι το URL είναι δημόσιο και λειτουργεί.',422);
+  }
+  return rowsFromXml(parseXml(xml),String(options.rowTag||'').trim());
+}
 async function loadFeed(options){
-  const xml=await fetchXml(String(options.url||'').trim());
-  const entries=rowsFromXml(parseXml(xml),String(options.rowTag||'').trim());
-  return mapRows(entries,options);
+  return mapRows(await readFeedRows(options),options);
+}
+// Preview must return discovered fields even when no valid mapping exists yet.
+// Only the final import/sync performs the strict all-or-nothing validation.
+function previewRows(rows,options={}){
+  const mapping=autoMapping(rows.fields,options.mapping);
+  const dayFormat=['iso','monday0','sunday0'].includes(options.dayFormat)?options.dayFormat:'iso';
+  try{
+    return {...mapRows(rows,{...options,mapping,dayFormat}),valid:true,validationError:''};
+  }catch(error){
+    if(error.status!==400)throw error;
+    return {...rows,mapping,dayFormat,sourceCount:rows.rows.length,
+      schedule:[],split:0,valid:false,validationError:error.message};
+  }
+}
+async function previewFeed(options){
+  return previewRows(await readFeedRows(options),options);
 }
 function publicPreview(result){
   return {rowTag:result.rowTag,rowTags:result.rowTags,fields:result.fields,
-    mapping:result.mapping,dayFormat:result.dayFormat,
+    mapping:result.mapping,dayFormat:result.dayFormat,valid:result.valid!==false,
+    validationError:result.validationError||'',
     count:result.schedule.length,sourceCount:result.sourceCount,split:result.split,
     sample:result.schedule.slice(0,18)};
 }
@@ -321,5 +345,5 @@ function startCron(){
     console.error('[SCHEDULE XML] Sync failed',e.message)),{timezone:'Europe/Athens'});
   console.info('[SCHEDULE XML] Daily sync scheduled 03:00 Europe/Athens');
 }
-module.exports={loadFeed,publicPreview,publicHttpUrl,syncOne,syncAll,startCron,
-  __testing:{parseXml,rowsFromXml,mapRows,dayNumber,timeString}};
+module.exports={loadFeed,previewFeed,publicPreview,publicHttpUrl,syncOne,syncAll,startCron,
+  __testing:{parseXml,rowsFromXml,mapRows,previewRows,dayNumber,timeString}};

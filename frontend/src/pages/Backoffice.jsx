@@ -588,6 +588,23 @@ function Scheduler({data,reload,notify}){
       await reload();
     }catch(error){notify(error.message,'error');}finally{setSaving(false);}
   }
+  async function removeAll(){
+    if(!station||saving||data.user.role==='producer')return;
+    const count=station.schedule?.length||0;
+    const message='Διαγραφή ΟΛΟΥ του προγράμματος του «'+station.name+'» ('+count+
+      ' αποθηκευμένες εκπομπές); Η ενέργεια δεν αναιρείται και ο αυτόματος XML συγχρονισμός θα απενεργοποιηθεί.'+
+      (dirty?' Οι μη αποθηκευμένες αλλαγές σου θα χαθούν.':'')+' Συνέχεια;';
+    if(!window.confirm(message))return;
+    setSaving(true);
+    try{
+      const result=await api('/stations/'+station._id+'/schedule',{method:'DELETE'});
+      setSchedule([]);
+      setSourceBase(1);setAmbiguousBase(false);setDirty(false);
+      notify(result.message||'Το πρόγραμμα διαγράφηκε.');
+      await reload();
+    }catch(error){notify(error.message,'error');}
+    finally{setSaving(false);}
+  }
   const countDay=day=>schedule.filter(show=>show.day===day).length;
   const totalErrors=Object.keys(errors).length+Number(Boolean(validation.message));
   return <div>
@@ -595,6 +612,11 @@ function Scheduler({data,reload,notify}){
       description="Οι ημέρες είναι Δευτέρα–Κυριακή (1–7). Γράψε ώρες κανονικά, ακόμη και αν μια εκπομπή τελειώνει μετά τα μεσάνυχτα. Το πρόγραμμα βάζει τη σωστή σειρά και χωρίζει τις ημέρες μόνο του."
       aside={<div className="flex flex-wrap items-center gap-3">
         {dirty&&<Badge tone="amber">Μη αποθηκευμένες αλλαγές</Badge>}
+        {data.user.role!=='producer'&&station&&<button type="button" onClick={removeAll}
+          disabled={saving||(!station.schedule?.length&&!station.scheduleFeed?.enabled)}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/25 bg-rose-500/5 px-4 py-3 text-xs font-bold text-rose-300 transition hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-40">
+          <Trash2 size={16}/> Διαγραφή όλου του προγράμματος
+        </button>}
         <button type="button" onClick={save} disabled={!station||saving||!dirty||totalErrors>0}
           className={buttonPrimary}><Save size={16}/>{saving?'Αποθήκευση…':'Αποθήκευση προγράμματος'}</button>
       </div>}/>

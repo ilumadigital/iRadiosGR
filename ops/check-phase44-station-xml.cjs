@@ -14,8 +14,8 @@ factory(name=>{
   if(name==='../utils/scheduleNormalization')return {normalize};
   return require(name);
 },sandbox.module,sandbox.exports);
-const {parseXml,rowsFromXml,mapRows,dayNumber,timeString}=sandbox.module.exports.__testing;
-const {publicHttpUrl}=sandbox.module.exports;
+const {parseXml,rowsFromXml,mapRows,previewRows,dayNumber,timeString}=sandbox.module.exports.__testing;
+const {publicHttpUrl,publicPreview}=sandbox.module.exports;
 
 const example='<?xml version="1.0" encoding="UTF-8"?>'+
   '<schedule><show><producer>DJ Maria</producer><title>Night Sessions</title>'+
@@ -37,6 +37,19 @@ assert.equal(mapped.schedule[1].endTime,'24:00');
 assert.equal(mapped.schedule[0].imageUrl,'https://radio.example.com/images/night.jpg');
 assert.equal(mapped.schedule[1].description,'House & electronic');
 assert.equal(mapped.schedule[0].title,'Night Sessions');
+const unmapped=rowsFromXml(parseXml(
+  '<schedule><slot><label>Morning</label><weekday_number>1</weekday_number>'+
+  '<begins>09:00</begins><finishes>10:00</finishes></slot></schedule>'),'slot');
+const inspect=previewRows(unmapped,{dayFormat:'iso'});
+assert.equal(inspect.valid,false);
+assert.ok(inspect.fields.includes('weekday_number'));
+assert.ok(inspect.validationError.includes('mapping'));
+assert.equal(publicPreview(inspect).sample.length,0);
+const repaired=previewRows(unmapped,{dayFormat:'iso',
+  mapping:{title:'label',day:'weekday_number',start:'begins',end:'finishes'}});
+assert.equal(repaired.valid,true);
+assert.equal(repaired.schedule[0].title,'Morning');
+assert.equal(publicPreview(repaired).count,1);
 
 const custom=rowsFromXml(parseXml('<guide><slot day="0" from="07:00" to="09:00" dj="Alex"><name>Morning</name></slot></guide>'),'slot');
 const imported=mapRows(custom,{dayFormat:'monday0',mapping:{day:'day',start:'from',end:'to',producer:'dj',title:'name'}});
@@ -64,7 +77,15 @@ for(const blocked of ['file:///etc/passwd','http://localhost/foo','http://127.0.
 }
 assert.match(script,/0 3 \* \* \*/);
 assert.match(script,/Europe\/Athens/);
+const routes=fs.readFileSync(path.join(root,'backend/routes/backofficeRoutes.js'),'utf8');
+assert.match(routes,/router\.delete\('\/backoffice\/stations\/:id\/schedule',feedRoles/);
+assert.match(routes,/await previewFeed\(feedSettings\(req\.body\)\)/);
+assert.match(routes,/schedule:parsed\.schedule,scheduleDayBase:1/);
+const xmlUI=fs.readFileSync(path.join(root,'frontend/src/components/ScheduleXmlImport.jsx'),'utf8');
+assert.match(xmlUI,/setPreviewReady\(Boolean\(data\.preview\.valid\)\)/);
+const backoffice=fs.readFileSync(path.join(root,'frontend/src/pages/Backoffice.jsx'),'utf8');
+assert.match(backoffice,/Διαγραφή όλου του προγράμματος/);
 const profile=fs.readFileSync(path.join(root,'frontend/src/pages/StationProfile.jsx'),'utf8');
 assert.match(profile,/ir-station-top-grid/);
 assert.match(profile,/StationScheduleTimeline/);
-console.log('PASS: XML mapping, midnight splits, artwork, weekdays, SSRF URL guard, station profile');
+console.log('PASS: XML discovery before mapping, preview recovery, atomic replace, scoped clear, weekdays, SSRF guard, station profile');

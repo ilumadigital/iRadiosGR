@@ -29,11 +29,13 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
   const connected=Boolean(station.scheduleFeed?.enabled);
   const status=station.scheduleFeed||{};
   const change=(key,value)=>{
-    setForm(prev=>({...prev,[key]:value}));
+    setForm(prev=>({...prev,[key]:value,
+      ...(key==='url'?{rowTag:'',mapping:{}}:{})}));
     setPreview(null);setPreviewReady(false);setError('');
   };
   const changeMapping=(key,value)=>{
     setForm(prev=>({...prev,mapping:{...prev.mapping,[key]:value}}));
+    setPreview(prev=>prev?{...prev,validationError:''}:prev);
     setPreviewReady(false);setError('');
   };
   const action=async(name,path,options)=>{
@@ -54,9 +56,9 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
       const data=await api('/stations/'+station._id+'/schedule-feed/preview',
         {method:'POST',body:JSON.stringify(form)});
       if(!data?.preview)throw new Error('Το XML δεν επέστρεψε εκπομπές.');
-      setPreview(data.preview);setPreviewReady(true);
+      setPreview(data.preview);setPreviewReady(Boolean(data.preview.valid));
       setForm(prev=>({...prev,rowTag:data.preview.rowTag,
-        mapping:data.preview.mapping}));
+        mapping:data.preview.mapping,dayFormat:data.preview.dayFormat||prev.dayFormat}));
     }catch(e){setError(e.message||'Αποτυχία ελέγχου XML.');}
     finally{setBusy('');}
   };
@@ -95,7 +97,7 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
       {status.lastError&&<div role="alert" className="sm:col-span-3 flex items-start gap-2 text-rose-300"><TriangleAlert size={15}/>{status.lastError}</div>}
     </div>}
     {expanded&&canManage&&<div className="space-y-5 border-t border-white/10 p-5 md:p-6">
-      <p className="text-xs leading-6 text-zinc-400">1. Βάλε δημόσιο XML link. 2. Πάτησε «Έλεγχος XML». 3. Διάλεξε το σωστό mapping. 4. Επιβεβαίωσε την προεπισκόπηση και ενεργοποίησε. Το πρόγραμμα που υπάρχει τώρα δεν αλλάζει πριν το τελευταίο βήμα.</p>
+      <p className="min-w-0 break-words text-xs leading-6 text-zinc-400">1. Βάλε δημόσιο XML link. 2. Πάτησε «Έλεγχος XML» για να εμφανιστούν τα πεδία. 3. Διάλεξε το σωστό mapping και έλεγξε ξανά. 4. Επιβεβαίωσε την προεπισκόπηση και ενεργοποίησε. <strong className="text-zinc-200">Δεν χρειάζεται να σβήσεις πρώτα το υπάρχον πρόγραμμα:</strong> αντικαθίσταται αυτόματα μόνο μετά από έγκυρη εισαγωγή.</p>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
         <label className="space-y-2"><span className="text-xs font-bold text-zinc-200">XML feed URL *</span>
           <input className={INPUT} type="url" spellCheck={false} placeholder="https://radio.example.com/schedule.xml"
@@ -120,7 +122,9 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
           {busy==='preview'?<RefreshCw size={15} className="animate-spin"/>:<CloudDownload size={15}/>}
           Έλεγχος XML</button>
       </div>
-      {preview&&!previewReady&&<p className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs text-amber-200">Άλλαξε το mapping; Πάτησε ξανά «Έλεγχος XML» για νέα προεπισκόπηση πριν ενεργοποιήσεις.</p>}
+      {preview&&!previewReady&&<p role="status" className="break-words rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-xs leading-5 text-amber-200">{preview.validationError?
+        'Τα πεδία XML εντοπίστηκαν, αλλά χρειάζεται διόρθωση: '+preview.validationError+' Διάλεξε τις αντιστοιχίσεις παρακάτω και πάτησε ξανά «Έλεγχος XML».':
+        'Το mapping άλλαξε. Πάτησε ξανά «Έλεγχος XML» για νέα προεπισκόπηση πριν ενεργοποιήσεις.'}</p>}
       {preview&&<>
         <div className="border-t border-white/10 pt-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -142,6 +146,7 @@ export default function ScheduleXmlImport({station,api,notify,reload,canManage=t
         <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
           <h4 className="mb-3 text-xs font-black text-white">Προεπισκόπηση εβδομαδιαίου προγράμματος</h4>
           <div className="max-h-72 space-y-2 overflow-y-auto">
+            {!preview.sample.length&&<p className="py-3 text-xs text-zinc-400">Η προεπισκόπηση θα εμφανιστεί μόλις διορθώσεις το mapping και πατήσεις «Έλεγχος XML».</p>}
             {preview.sample.map((show,i)=><div key={i} className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[.025] p-2.5">
               <img src={show.imageUrl||station.logo} alt="" loading="lazy"
                 onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src=station.logo;}}
