@@ -157,6 +157,22 @@ async function main(){
 
   const frontend=fs.readFileSync(path.join(__dirname,'../frontend/src/pages/Backoffice.jsx'),'utf8');
   const app=fs.readFileSync(path.join(__dirname,'../frontend/src/App.jsx'),'utf8');
+  // A descendant <Routes> outside a parent <Route> must match absolute URLs.
+  // Relative paths/index routes rendered only the shell at /backoffice/*.
+  for(const route of [
+    '/backoffice','/backoffice/stations','/backoffice/stations/new',
+    '/backoffice/stations/:id/edit','/backoffice/schedules',
+    '/backoffice/insights','/backoffice/team','/backoffice/review',
+    '/backoffice/*'
+  ]){
+    assert.ok(frontend.includes('path="'+route+'"'),
+      'Backoffice must register an absolute screen route: '+route);
+  }
+  assert.ok(frontend.includes("path={'/backoffice/admin/'+section}"),
+    'all admin operation routes must have the /backoffice prefix');
+  assert.ok(!frontend.includes('<Route index'),
+    'Backoffice root must be an absolute path, not an unmatched index route');
+
   assert.ok(frontend.includes('Business Console'));
   assert.ok(frontend.includes('Logo')&&frontend.includes('StationEditor'));
   assert.ok(!frontend.includes('<audio'),'business console cannot contain radio player');
