@@ -61,6 +61,8 @@ jobs:
         run: node ops/check-radio-map-geography.cjs
       - name: Validate staging SonoVault recognition diagnostics without remote requests
         run: node ops/check-stage-sonovault-diagnostics.cjs
+      - name: Validate longer compressed SonoVault manual audio sample
+        run: node ops/check-sonovault-audio.cjs
       - name: Validate shared ACR song provenance and five-minute device metadata
         run: node ops/check-phase33-smart-nowplaying.cjs
       - name: Validate zero automatic paid recognitions

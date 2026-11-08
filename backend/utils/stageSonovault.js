@@ -1,40 +1,60 @@
 'use strict';
-// Only a signed-in user's existing "Βρες το τραγούδι" action can invoke SonoVault.
-// Keep the historical iRadios recognition JSON shape and source enum unchanged so
-// player UI, playlists, covers, RDS and iOS/browser media metadata stay identical.
+// Manual-only SonoVault identification. All public response fields preserve
+// the existing ACR-shaped iRadios UI, media-session, and MongoDB contracts.
 const axios=require('axios');
 const Station=require('../models/Station');
-const {readPublicUrl}=require('./stageSafeRadioFetch');
+const {captureAudio}=require('./stageSonovaultAudio');
 const {publishAI}=require('./stageSmartTracks');
 
 const IDENTIFY_URL='https://api.sonovault.now/v1/tracks/identify';
 const WINDOW_MS=15*60*1000,MAX_CALLS=3,MAX_CAPTURES=6;
 const attempts=new Map(),captures=new Map(),inFlightStations=new Map();
 const problems=Object.freeze({
+  // Legacy codes are kept for compatibility with already cached clients.
   ACR_DISABLED:[503,'Η αναγνώριση δεν έχει ενεργοποιηθεί ακόμη.'],
-  ACR_CONFIG:[503,'Η αναγνώριση χρειάζεται ρύθμιση στον server.'],
-  ACR_AUTH:[502,'Η αναγνώριση δεν συνδέθηκε με την υπηρεσία μουσικής.'],
-  ACR_QUOTA:[429,'Η υπηρεσία αναγνώρισης έφτασε το όριό της. Δοκίμασε αργότερα.'],
+  ACR_CONFIG:[503,'Λείπει το SONOVAULT_API_KEY από τον server.'],
   ACR_RATE_LIMIT:[429,'Έχεις κάνει αρκετές προσπάθειες. Δοκίμασε ξανά σε 15 λεπτά.'],
-  ACR_UPSTREAM:[502,'Η υπηρεσία αναγνώρισης δεν ανταποκρίνεται. Δοκίμασε αργότερα.'],
-  STREAM_UNAVAILABLE:[502,'Δεν μπορέσαμε να ακούσουμε τον σταθμό. Δοκίμασε άλλον σταθμό.'],
-  STREAM_FORMAT:[502,'Ο σταθμός δεν υποστηρίζει αυτή τη στιγμή την αναγνώριση.'],
-  STREAM_SHORT:[502,'Δεν ακούστηκε αρκετή μουσική. Δοκίμασε ξανά σε λίγο.']
+  SONO_KEY_TEST:[503,'Το SonoVault key είναι δοκιμαστικό (svk_test_). Χρειάζεται svk_live_ για πραγματικά τραγούδια.'],
+  SONO_KEY_FORMAT:[503,'Το SONOVAULT_API_KEY δεν έχει έγκυρη μορφή. Χρειάζεται κλειδί svk_live_.'],
+  SONO_AUTH:[502,'SonoVault HTTP 401: το API key δεν είναι έγκυρο.'],
+  SONO_PLAN:[502,'SonoVault HTTP 403: απαιτείται ενεργό πληρωμένο πρόγραμμα και επιβεβαιωμένο email.'],
+  SONO_PAYMENT:[502,'SonoVault HTTP 402: απαιτείται μέθοδος πληρωμής στον λογαριασμό.'],
+  SONO_QUOTA:[429,'SonoVault HTTP 429: εξαντλήθηκαν τα credits ή το όριο κλήσεων.'],
+  SONO_BAD_REQUEST:[502,'SonoVault HTTP 400: απορρίφθηκε το δείγμα ήχου.'],
+  SONO_AUDIO_FORMAT:[502,'SonoVault HTTP 415: δεν υποστηρίζεται η μορφή του ήχου.'],
+  SONO_AUDIO_SIZE:[502,'SonoVault HTTP 413: το αρχείο ήχου είναι πολύ μεγάλο.'],
+  SONO_NOT_AVAILABLE:[502,'Το SonoVault δεν δέχεται αιτήματα στο endpoint αναγνώρισης (HTTP 404/410).'],
+  SONO_TIMEOUT:[504,'Το SonoVault δεν ολοκλήρωσε εγκαίρως την αναγνώριση.'],
+  SONO_NETWORK:[502,'Δεν ήταν δυνατή η επικοινωνία με το SonoVault.'],
+  SONO_RESPONSE:[502,'Το SonoVault επέστρεψε μη έγκυρα δεδομένα αναγνώρισης.'],
+  SONO_TRACK_FILTERED:[502,'Το SonoVault αναγνώρισε τραγούδι, αλλά τα στοιχεία του δεν πέρασαν τον έλεγχο μουσικών metadata.'],
+  SONO_STORAGE:[503,'Το τραγούδι αναγνωρίστηκε, αλλά δεν αποθηκεύτηκε στην κοινή playlist.'],
+  STREAM_UNAVAILABLE:[502,'Δεν μπορέσαμε να λάβουμε ήχο από τον σταθμό.'],
+  STREAM_FORMAT:[502,'Ο ήχος αυτού του σταθμού δεν μπορεί να μετατραπεί σε κατάλληλο δείγμα.'],
+  STREAM_SHORT:[502,'Ο σταθμός δεν παρείχε αρκετό δείγμα μουσικής.']
 });
-// ACR_* are legacy public error identifiers, NOT calls to ACRCloud.
-// The frontend deliberately keeps its existing error-message mapping.
-function readyForSonoVault(){
-  return process.env.STAGE_ENABLE_SONOVAULT==='1' &&
-    typeof process.env.SONOVAULT_API_KEY==='string' &&
-    Boolean(process.env.SONOVAULT_API_KEY.trim());
+function keyState(){
+  const key=String(process.env.SONOVAULT_API_KEY||'').trim();
+  if(!key)return 'ACR_CONFIG';
+  if(key.startsWith('svk_test_'))return 'SONO_KEY_TEST';
+  if(!/^svk_live_\S+$/.test(key))return 'SONO_KEY_FORMAT';
+  return null;
 }
-function fail(res,code){
-  const [http,error]=problems[code]||problems.ACR_UPSTREAM;
-  if(http===429)res.setHeader('Retry-After','900');
+function readyForSonoVault(){
+  return process.env.STAGE_ENABLE_SONOVAULT==='1'&&!keyState();
+}
+function fail(res,code,retrySeconds){
+  const [http,error]=problems[code]||problems.SONO_NETWORK;
+  res.setHeader?.('Cache-Control','private, no-store');
+  if(http===429)res.setHeader?.('Retry-After',String(Number.isInteger(retrySeconds)?
+    Math.max(1,Math.min(86400,retrySeconds)):900));
   return res.status(http).json({error,code});
 }
-function recognitionError(code){
-  const err=new Error(code);err.code=code;return err;
+function recognitionError(code,retrySeconds){
+  const error=new Error(code);
+  error.code=code;
+  if(Number.isInteger(retrySeconds))error.retrySeconds=retrySeconds;
+  return error;
 }
 function allowWithinWindow(bucket,userId,max){
   const now=Date.now();
@@ -42,94 +62,76 @@ function allowWithinWindow(bucket,userId,max){
   const previous=bucket.get(userId);
   const state=!previous||now-previous.start>=WINDOW_MS?{start:now,count:0}:previous;
   if(state.count>=max)return false;
-  state.count++;bucket.set(userId,state);return true;
+  state.count++;bucket.set(userId,state);
+  return true;
 }
 const noMatch=()=>({status:{code:1001},metadata:{music:[]}});
-// Adapter: Sonovault {matched,results} -> the exact ACR-shaped contract already
-// consumed by stageSmartTracks and frontend App.jsx. No UI changes required.
+// The provider explicitly declares matched=true only for candidates passing
+// ITS confidence gate. Never invent a second >0.5 threshold in iRadios.
 function toExistingRecognitionShape(payload){
-  // SonoVault's published response is {matched:boolean,results:[...]}, not
-  // ACRCloud's {status,metadata}. Missing fields are upstream failures, NOT
-  // honest "no match" results; otherwise a successful API call is discarded.
-  if(!payload || typeof payload!=='object' || Array.isArray(payload) ||
-     typeof payload.matched!=='boolean' || !Array.isArray(payload.results)){
-    throw recognitionError('ACR_UPSTREAM');
-  }
+  if(!payload||typeof payload!=='object'||Array.isArray(payload)||
+      typeof payload.matched!=='boolean'||!Array.isArray(payload.results))
+    throw recognitionError('SONO_RESPONSE');
   if(payload.matched===false)return noMatch();
-  if(payload.results.length===0)throw recognitionError('ACR_UPSTREAM');
-  for(const candidate of payload.results){
-    const title=typeof candidate?.title==='string'?candidate.title.trim():'';
-    const artists=Array.isArray(candidate?.artists)?candidate.artists:[];
-    const artist=artists.find(value=>typeof value?.name==='string'&&value.name.trim())?.name?.trim();
-    if(!title||!artist||title.length>150||artist.length>150)continue;
-    // Service already performs confidence gating. Do not turn a valid,
-    // higher-ranked track into a miss because of absent optional confidence.
-    if(candidate.confidence!=null &&
-       (!Number.isFinite(Number(candidate.confidence))||Number(candidate.confidence)<0.5))
-      continue;
-    return {status:{code:0},metadata:{music:[{
-      title,artists:[{name:artist}]
-    }]}};
+  if(!payload.results.length)throw recognitionError('SONO_RESPONSE');
+  for(const item of payload.results){
+    const title=typeof item?.title==='string'?item.title.trim():'';
+    const artist=Array.isArray(item?.artists)?item.artists
+      .map(a=>typeof a==='string'?a.trim():
+        typeof a?.name==='string'?a.name.trim():'').find(Boolean):'';
+    if(title&&artist&&title.length<=150&&artist.length<=150){
+      return {status:{code:0},metadata:{music:[{
+        title,artists:[{name:artist}]
+      }]}};
+    }
   }
-  // A malformed match must be diagnosable without logging song data or a key.
-  throw recognitionError('ACR_UPSTREAM');
+  throw recognitionError('SONO_RESPONSE');
+}
+function upstreamFailure(error){
+  const status=Number(error?.response?.status);
+  const resetRaw=error?.response?.headers?.['ratelimit-reset'];
+  const reset=Number(resetRaw);
+  const retry=Number.isInteger(reset)&&reset>0?Math.min(reset,86400):undefined;
+  const code=status===401?'SONO_AUTH':status===403?'SONO_PLAN':
+    status===402?'SONO_PAYMENT':status===429?'SONO_QUOTA':
+    status===400?'SONO_BAD_REQUEST':status===415?'SONO_AUDIO_FORMAT':
+    status===413?'SONO_AUDIO_SIZE':status===404||status===410?'SONO_NOT_AVAILABLE':
+    error?.code==='ECONNABORTED'||error?.code==='ETIMEDOUT'?'SONO_TIMEOUT':'SONO_NETWORK';
+  console.warn('[STAGE_SONOVAULT] identify_failed',code,
+    Number.isInteger(status)&&status>0?status:'transport');
+  return recognitionError(code,retry);
 }
 async function performRecognition(station,{beforeVendorCall}={}){
   if(process.env.STAGE_ENABLE_SONOVAULT!=='1')throw recognitionError('ACR_DISABLED');
-  if(!readyForSonoVault())throw recognitionError('ACR_CONFIG');
-  let sample;
-  try{
-    sample=await readPublicUrl(station.stream,{
-      // ~30 seconds of continuous live audio are needed for reliable matching.
-      // Keep uploads below 1 MB, so the paid per-MB band stays unchanged.
-      maxBytes:900000,timeoutMs:30000,allowPartialOnDeadline:true,
-      headers:{'Icy-MetaData':'0','Accept':'audio/*,application/octet-stream'}
-    });
-  }catch(error){
-    console.warn('[STAGE_SONOVAULT] stream_capture_failed',error?.code||'fetch');
-    throw recognitionError('STREAM_UNAVAILABLE');
-  }
-  const type=String(sample.headers['content-type']||'audio/mpeg').toLowerCase();
-  if(/(?:mpegurl|m3u8|x-scpls|playlist)/.test(type)||
-     (!type.startsWith('audio/')&&!/^(application\/(?:ogg|octet-stream))(;|$)/.test(type)))
+  const badKey=keyState();
+  if(badKey)throw recognitionError(badKey);
+  const sample=await captureAudio(station);
+  if(!Buffer.isBuffer(sample)||sample.length<16000||sample.length>1048576)
     throw recognitionError('STREAM_FORMAT');
-  if(!Buffer.isBuffer(sample.buffer)||sample.buffer.length<16000)
-    throw recognitionError('STREAM_SHORT');
-  if(beforeVendorCall && !(await beforeVendorCall()))
+  if(beforeVendorCall&&!(await beforeVendorCall()))
     throw recognitionError('ACR_RATE_LIMIT');
   let payload;
   try{
-    const response=await axios.post(IDENTIFY_URL,sample.buffer,{
+    const response=await axios.post(IDENTIFY_URL,sample,{
       headers:{
         'x-api-key':process.env.SONOVAULT_API_KEY.trim(),
-        'Content-Type':'application/octet-stream','Accept':'application/json'
+        'Content-Type':'application/octet-stream',
+        'Accept':'application/json'
       },
-      // Audio fingerprint matching can exceed 20 seconds even for a valid sample.
-      // Do not prematurely discard a billable successful provider response.
-      maxRedirects:0,timeout:50000,maxBodyLength:1048576,maxContentLength:262144
+      maxRedirects:0,
+      timeout:55000,
+      maxBodyLength:1048576,
+      maxContentLength:262144
     });
     payload=response.data;
-  }catch(error){
-    const status=Number(error?.response?.status);
-    // 403 also covers the free tier, which cannot use the paid identify endpoint.
-    const reason=status===429?'ACR_QUOTA':
-      status===401||status===403?'ACR_AUTH':
-      status===413||status===415?'STREAM_FORMAT':'ACR_UPSTREAM';
-    console.warn('[STAGE_SONOVAULT] identify_failed',reason,status||'network');
-    throw recognitionError(reason);
-  }
-  let normalized;
-  try{normalized=toExistingRecognitionShape(payload);}
-  catch(error){
-    console.warn('[STAGE_SONOVAULT] invalid_identify_response',
-      typeof payload?.matched==='boolean'?'matched_flag_present':'missing_matched_flag',
-      Array.isArray(payload?.results)?'results_array_present':'missing_results_array');
-    throw error;
-  }
-  // Safe diagnostics: no raw audio, keys, artist/title, URLs or response bodies.
+  }catch(error){throw upstreamFailure(error);}
+  const normalized=toExistingRecognitionShape(payload);
+  // Only status, upload size and documented credit count are logged. Never
+  // log audio, track title, the station URL, key or upstream response body.
   console.info('[STAGE_SONOVAULT] identify_status',
-    normalized.status.code===0?'matched':'not_matched',
-    'sample_bytes',sample.buffer.length);
+    normalized.status.code===0?'matched':'no_match',
+    'upload_bytes',sample.length,
+    'credits_charged',Number.isInteger(payload.credits_charged)?payload.credits_charged:'unknown');
   return normalized;
 }
 async function recognizeApprovedStation(station,options={}){
@@ -138,11 +140,14 @@ async function recognizeApprovedStation(station,options={}){
   const work=(async()=>{
     const result=await performRecognition(station,options);
     if(Number(result?.status?.code)===0){
-      // This is one shared MongoDB publication per in-flight manual request.
-      // Current AI metadata keeps its existing 4-minute precedence/expiry,
-      // while the same track lives in station playlist history for 30 minutes.
-      const published=await publishAI(station,result,'manual');
-      if(!published)return noMatch();
+      let published;
+      try{published=await publishAI(station,result,'manual');}
+      catch(error){
+        console.warn('[STAGE_SONOVAULT] shared_playlist_write_failed',
+          error?.name==='MongoServerError'?'DB_WRITE':'DATABASE');
+        throw recognitionError('SONO_STORAGE');
+      }
+      if(!published)throw recognitionError('SONO_TRACK_FILTERED');
     }
     return result;
   })();
@@ -152,8 +157,10 @@ async function recognizeApprovedStation(station,options={}){
   finally{if(inFlightStations.get(key)===work)inFlightStations.delete(key);}
 }
 async function stageRecognizeProxy(req,res){
+  res.setHeader?.('Cache-Control','private, no-store');
   if(process.env.STAGE_ENABLE_SONOVAULT!=='1')return fail(res,'ACR_DISABLED');
-  if(!readyForSonoVault())return fail(res,'ACR_CONFIG');
+  const badKey=keyState();
+  if(badKey)return fail(res,badKey);
   const stationId=req.body?.stationId;
   if(typeof stationId!=='string'||!/^[a-f0-9]{24}$/i.test(stationId))
     return res.status(400).json({error:'Επίλεξε έναν σταθμό.',code:'STATION_INVALID'});
@@ -165,7 +172,7 @@ async function stageRecognizeProxy(req,res){
   try{
     station=await Station.findOne({_id:stationId,status:'approved'})
       .select('_id name stream status').lean();
-  }catch{return fail(res,'ACR_UPSTREAM');}
+  }catch{return fail(res,'SONO_STORAGE');}
   if(!station?.stream)return res.status(404).json({
     error:'Ο σταθμός δεν βρέθηκε.',code:'STATION_MISSING'
   });
@@ -177,8 +184,8 @@ async function stageRecognizeProxy(req,res){
     });
     return res.json(result);
   }catch(error){
-    return fail(res,problems[error?.code]?error.code:'ACR_UPSTREAM');
+    return fail(res,problems[error?.code]?error.code:'SONO_NETWORK',error?.retrySeconds);
   }
 }
 module.exports={stageRecognizeProxy,recognizeApprovedStation,readyForSonoVault,
-  toExistingRecognitionShape};
+  keyState,toExistingRecognitionShape,upstreamFailure};

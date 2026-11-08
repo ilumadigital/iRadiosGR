@@ -40,7 +40,13 @@ assert.ok(!routes.includes('ACRCLOUD_ACCESS_SECRET'));
 assert.ok(!routes.includes('https://')||routes.includes('https://')===false,
   'recognizer must never use a client-supplied URL directly');
 const recognizer=read('backend/utils/stageSonovault.js');
-assert.ok(recognizer.includes("readPublicUrl(station.stream"));
+assert.ok(recognizer.includes('captureAudio(station)'),
+  'only the authorized manual provider route captures audio');
+const capture=read('backend/utils/stageSonovaultAudio.js');
+assert.ok(capture.includes('readPublicUrl(station.stream'),
+  'audio is captured from the approved DB stream');
+assert.ok(capture.includes("'-ar','16000'"),
+  'downsampling uses Sonovault documented minimum 16 kHz');
 assert.ok(recognizer.includes("await publishAI(station,result,'manual')"));
 assert.ok(!recognizer.includes('setInterval('));
 assert.ok(!recognizer.includes('setTimeout('));

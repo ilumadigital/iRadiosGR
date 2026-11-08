@@ -27,12 +27,13 @@ async function readPublicUrl(raw, options = {}) {
     headers = {}, maxBytes = 65536, timeoutMs = 4500, redirects = 3,
     allowPartialOnDeadline = false
   } = options;
-  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > 1048576) {
+  // The only larger read is a bounded, server-only manual recognition
+  // capture; routine station metadata reads remain limited to 1 MiB / 15 s.
+  const maximumBytes = allowPartialOnDeadline ? 4*1024*1024 : 1048576;
+  if (!Number.isInteger(maxBytes) || maxBytes < 1 || maxBytes > maximumBytes) {
     throw new Error('Invalid byte limit');
   }
-  // Only explicit bounded audio captures may exceed the normal 15-second
-  // metadata timeout. SonoVault needs a useful ~30-second music excerpt.
-  const maximumTimeout = allowPartialOnDeadline ? 35000 : 15000;
+  const maximumTimeout = allowPartialOnDeadline ? 45000 : 15000;
   if (!Number.isInteger(timeoutMs) || timeoutMs < 500 || timeoutMs > maximumTimeout) {
     throw new Error('Invalid timeout');
   }

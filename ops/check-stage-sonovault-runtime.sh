@@ -31,11 +31,18 @@ done
 echo "Checking runtime in staging backend container:"
 docker compose --env-file "$COMPOSE_ENV" -f "$APP/compose.stage.yml" exec -T backend node -e '
 const e=process.env;
-const ready=e.APP_ENV==="staging" && e.STAGE_ENABLE_SONOVAULT==="1" && Boolean(e.SONOVAULT_API_KEY?.trim());
+const key=String(e.SONOVAULT_API_KEY||"").trim();
+const keyType=key.startsWith("svk_live_")?"LIVE":
+  key.startsWith("svk_test_")?"TEST ONLY":key?"INVALID PREFIX":"MISSING";
+const encoderAvailable=require("node:fs").existsSync("/usr/bin/ffmpeg");
+const ready=e.APP_ENV==="staging" && e.STAGE_ENABLE_SONOVAULT==="1" &&
+  keyType==="LIVE" && key.length>"svk_live_".length && encoderAvailable;
 console.log("Runtime stage:",e.APP_ENV==="staging"?"OK":"INVALID");
 console.log("Manual SonoVault:",e.STAGE_ENABLE_SONOVAULT==="1"?"ON":"OFF");
-console.log("API key:",e.SONOVAULT_API_KEY?.trim()?"PRESENT":"MISSING");
+console.log("API key type:",keyType);
+console.log("ffmpeg audio encoder:",encoderAvailable?"PRESENT":"MISSING");
 console.log("Automatic recognition: DISABLED IN CODE");
+console.log("Paid-plan eligibility and verified email: check in SonoVault dashboard (not inferable from key)");
 console.log("Status:",ready?"READY TO TEST":"NOT READY");
 process.exit(ready?0:2);
 '

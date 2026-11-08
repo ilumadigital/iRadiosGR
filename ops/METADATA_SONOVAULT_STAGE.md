@@ -68,33 +68,65 @@ A real-key/live-radio end-to-end check cannot be run in CI.
 Do not share the API key, any backend.env contents, request headers, or complete
 recognition logs. If it is exposed, rotate it in SonoVault.
 
-## Recognition-result reliability fix
+## Fix based on the official SonoVault API documentation
 
-SonoVault analyzes around 30 seconds per window. The previous stage adapter
-captured only 15 seconds of audio and allowed only 20 seconds for identification,
-which could cause empty or timed-out results even though the station was playing.
+`POST https://api.sonovault.now/v1/tracks/identify` takes raw encoded
+audio with `Content-Type: application/octet-stream`, not JSON, multipart
+or fingerprint-only data. Its documented response is
+`{matched:boolean,results:[{title,artists,confidence}],credits_charged}`.
+We retain the existing iRadios `status/metadata.music` contract to avoid
+changing any UI/Now Playing/browser or lock-screen metadata.
 
-The stage adapter now captures **up to 30 seconds**, limited to **900 KB**
-(one started MB of upload for pricing), and waits up to **50 seconds**
-for the provider's response. There is still only **one** billable
-identify call per manual action (concurrent actions on one backend are deduped).
+**Do not add an iRadios confidence threshold.** The SonoVault API already
+declares `matched:true` only after a candidate clears its own gate.
+The previous application-side 0.5 confidence cutoff could discard valid matches.
 
-A valid provider `matched:true` payload is mapped to the existing UI contract:
-`{status:{code:0},metadata:{music:[{title,artists:[{name}]}]}}`.
-Explicit `matched:false` becomes the familiar no-result status 1001.
-Malformed `matched:true` data is reported as a service error rather
-than silently shown as "no song".
+For manual recognition only, the backend now captures up to ~45 seconds of
+approved station audio (max 4 MiB raw in memory), transcodes with ffmpeg to
+mono 16 kHz, 64 kbps MP3 (SonoVault's documented safe sample-rate floor),
+and uploads **no more than 1 MiB** of raw audio bytes to SonoVault.
+The 4 MiB capture is not uploaded as-is, so it does not cost extra credits.
+Input and output are memory-only; no audio files are saved.
+The vendor request has a 55-second timeout. This is still a best-effort
+live-stream excerpt, not a guarantee that a match exists in the catalog.
 
-For debugging without exposing secrets:
+`svk_test_` keys provide mocked data and are refused before any capture,
+preventing imaginary songs from reaching the shared playlist. Use a
+`svk_live_` key, with an eligible paid API plan and verified email.
+Account eligibility cannot be determined from the key string alone.
+
+Errors are now deliberately distinct, using the same existing alert UI:
+
+- 401 invalid key: `SONO_AUTH`
+- 402 missing payment method: `SONO_PAYMENT`
+- 403 paid plan or email not verified: `SONO_PLAN`
+- 429 rate limit/credits: `SONO_QUOTA` (uses RateLimit-Reset when supplied)
+- 400 invalid request: `SONO_BAD_REQUEST`
+- 413 uploaded body too large: `SONO_AUDIO_SIZE`
+- 415 unsupported audio body: `SONO_AUDIO_FORMAT`
+- malformed provider reply: `SONO_RESPONSE`
+- matched result rejected by the iRadios metadata validator: `SONO_TRACK_FILTERED`
+- recognized but MongoDB publication fails: `SONO_STORAGE`
+
+An actual `matched:false` answer still produces the existing no-song message,
+without publishing any false playlist entry. There is **no automatic
+recognition**, stream registration, webhook, paid recurring monitoring, retry
+loop or background Sonovault job.
+
+## Deploy and read diagnostics (no paid calls)
 
 ```bash
 cd /srv/iradios/staging/app
+sudo ./ilumadev.sh
+sudo bash ops/check-stage-sonovault-runtime.sh
 sudo docker compose --env-file /etc/iradios/staging/compose.env \
   -f compose.stage.yml logs --tail=100 backend | \
-  grep '\[STAGE_SONOVAULT\]' || true
+  grep '\\[STAGE_SONOVAULT\\]' || true
 ```
 
-The logs expose only operation/status and the number of captured audio bytes,
-never the key, stream URL, audio, track title, or provider response body.
-An actual real-key request needs to be run manually on staging because CI must
-never spend SonoVault credits.
+The runtime checker verifies the live key prefix, feature switch and ffmpeg
+presence. It never calls a paid endpoint or prints the key. A real end-to-end
+test still requires clicking **Βρες το τραγούδι** on staging while signed in
+with a paid-plan live key. Backend diagnostics log only safe error codes,
+HTTP status, byte count and provider-reported credits—not secret values,
+track names or radio URLs.
