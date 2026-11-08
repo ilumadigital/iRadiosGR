@@ -1,8 +1,8 @@
 // One shared source of truth for on-air show/producer artwork.
 // No guessing from station genre or arbitrary AI output; a schedule match and
 // program-like native metadata are both required. Music always takes priority.
-import {getAthensClock,minutes,scheduleDayBase,toCanonical} from './schedule';
-import {parseMusicMetadata} from './musicMetadata';
+import {getAthensClock,minutes,scheduleDayBase,toCanonical} from './schedule.js';
+import {parseMusicMetadata} from './musicMetadata.js';
 
 const SHOW_WORDS=/(?:\bdj[\s_-]*zone\b|\bradio[\s_-]*show\b|\bshow[\s_-]*time\b|\bdj[\s_-]*set\b|\bmix[\s_-]*show\b|\blive[\s_-]*(?:dj|show|set|session|mix|broadcast|radio|stream)\b|\bon[\s_-]*air\b|\bin[\s_-]*the[\s_-]*mix\b|\bnon[\s_-]*stop[\s_-]*mix\b|\b(?:now[\s_-]*playing|live|dj|radioshow|djzone)\b|εκπομπ[ήη]|παραγωγ[όο]ς|ζωνταν[άα]|στον\s*α[έε]ρα)/i;
 const norm=v=>String(v||'').toLocaleLowerCase('el').normalize('NFD')
