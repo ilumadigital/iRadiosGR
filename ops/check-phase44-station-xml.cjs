@@ -14,7 +14,7 @@ factory(name=>{
   if(name==='../utils/scheduleNormalization')return {normalize};
   return require(name);
 },sandbox.module,sandbox.exports);
-const {parseXml,rowsFromXml,mapRows,previewRows,dayNumber,timeString}=sandbox.module.exports.__testing;
+const {parseXml,rowsFromXml,rowsFromJson,mapRows,previewRows,dayNumber,timeString}=sandbox.module.exports.__testing;
 const {publicHttpUrl,publicPreview}=sandbox.module.exports;
 
 const example='<?xml version="1.0" encoding="UTF-8"?>'+
@@ -50,6 +50,26 @@ const repaired=previewRows(unmapped,{dayFormat:'iso',
 assert.equal(repaired.valid,true);
 assert.equal(repaired.schedule[0].title,'Morning');
 assert.equal(publicPreview(repaired).count,1);
+// Real published Deseo CMS data shape: ISO days, nested shows and title/time fields.
+const deseoFeed=JSON.stringify({ok:true,timezone:'Europe/Athens',days:[
+  {day_of_week:1,shows:[{name:'Noir',start_time:'00:00',end_time:'03:00'}]},
+  {day_of_week:7,shows:[{name:'Rokhai',start_time:'23:00',end_time:'23:59'}]}
+]});
+const deseoRows=rowsFromJson(deseoFeed);
+assert.equal(deseoRows.format,'json');
+assert.equal(deseoRows.dayFormat,'iso');
+const deseoPreview=previewRows(deseoRows,{dayFormat:'monday0'});
+assert.equal(deseoPreview.valid,true);
+assert.equal(deseoPreview.schedule.length,2);
+assert.equal(deseoPreview.schedule[0].day,1);
+assert.equal(deseoPreview.schedule[1].day,7);
+assert.equal(deseoPreview.mapping.title,'name');
+assert.equal(deseoPreview.mapping.day,'day_of_week');
+assert.equal(deseoPreview.mapping.start,'start_time');
+assert.equal(deseoPreview.mapping.end,'end_time');
+assert.equal(publicPreview(deseoPreview).format,'json');
+assert.throws(()=>rowsFromJson('{"days": [}'),/JSON/);
+assert.throws(()=>rowsFromJson('{"days": []}'),/160/);
 
 const custom=rowsFromXml(parseXml('<guide><slot day="0" from="07:00" to="09:00" dj="Alex"><name>Morning</name></slot></guide>'),'slot');
 const imported=mapRows(custom,{dayFormat:'monday0',mapping:{day:'day',start:'from',end:'to',producer:'dj',title:'name'}});
@@ -88,4 +108,4 @@ assert.match(backoffice,/Διαγραφή όλου του προγράμματο
 const profile=fs.readFileSync(path.join(root,'frontend/src/pages/StationProfile.jsx'),'utf8');
 assert.match(profile,/ir-station-top-grid/);
 assert.match(profile,/StationScheduleTimeline/);
-console.log('PASS: XML discovery before mapping, preview recovery, atomic replace, scoped clear, weekdays, SSRF guard, station profile');
+console.log('PASS: XML/JSON discovery, Deseo ISO days, mapping, atomic replacement, scoped clear, SSRF guard, station profile');
