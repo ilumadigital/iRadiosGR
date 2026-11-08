@@ -3,6 +3,7 @@
 const DEFAULT_FEED_URL='https://rss.app/feeds/k4AEhunSwl50WyaC.xml';
 const rssNewsPreset=require('./rssNewsPreset');
 const publicRss=require('./publicRssTransport');
+const newsbeast=require('./newsbeastSources');
 const invalid=message=>{throw Object.assign(new Error(message),{status:400});};
 const hostPattern=/^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/i;
 function checkDomain(value){
@@ -123,6 +124,8 @@ const categoryAliases=new Map(Object.entries({
 }));
 const categoryKey=value=>plain(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[_\-\/]+/g,' ').replace(/\s+/g,' ').trim();
 function categoryFrom(item,articleUrl,feedUrl=''){
+  const fixedCategory=newsbeast.categoryOfUrl(feedUrl);
+  if(fixedCategory)return fixedCategory;
   const candidates=[...item.matchAll(/<category\b[^>]*>([\s\S]*?)<\/category\s*>/gi)]
     .map(m=>plain(m[1]));
   for(const tag of item.match(/<category\b[^>]*\/>/gi)||[]){
