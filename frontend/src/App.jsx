@@ -1808,7 +1808,7 @@ function MainApp() {
             <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} onLogout={handleLogout} /> : <Navigate to="/login" />} />
             <Route path="/settings" element={<Settings API_URL={API_URL} currentUser={currentUser} />} />
             <Route path="/press-kit" element={<PressKit />} />
-            <Route path="/newsfeed" element={<NewsFeed stations={stations} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
+            <Route path="/newsfeed" element={<NewsFeed stations={stations} userLocation={userLocation} checkGeoMatch={checkGeoMatch} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
             <Route path="/map" element={<MapMode stations={stations} currentStation={currentStation} onPlayStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} />} />
 
             <Route path="/studio" element={

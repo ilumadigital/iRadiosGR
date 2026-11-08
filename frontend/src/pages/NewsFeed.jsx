@@ -76,7 +76,7 @@ function AdUnit({banner,wide=false,view='grid'}){
     <div className="mt-2 px-1"><h3 className="truncate text-sm font-bold text-purple-400 md:text-lg">{banner.title} <ExternalLink size={12} className="inline"/></h3><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Sponsored</p></div>
   </AdLink>;
 }
-export default function NewsFeed({stations=[],currentUser,currentStation,isPlaying,onPlayStation,onPlayPause}){
+export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoMatch,currentStation,isPlaying,onPlayStation,onPlayPause}){
   const [view,setView]=useState('grid'),[items,setItems]=useState([]),[source,setSource]=useState('');
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[now,setNow]=useState(Date.now()),[banners,setBanners]=useState([]);
   const premium=Boolean(currentUser&&(currentUser.role==='admin'||currentUser.role==='agency'||currentUser.isPremium===true||currentUser.broadcasterProfile?.tier==='premium'));
@@ -97,9 +97,10 @@ export default function NewsFeed({stations=[],currentUser,currentStation,isPlayi
     fetch('/api/banners/active',{signal:controller.signal}).then(r=>r.ok?r.json():[])
       .then(data=>{if(!controller.signal.aborted)setBanners((Array.isArray(data)?data:[]).filter(b=>
         b.status==='active'&&Array.isArray(b.placement)&&b.placement.includes('news_feed')&&(!b.expiresAt||new Date(b.expiresAt)>new Date())&&
-        (!Array.isArray(b.targetLocations)||!b.targetLocations.length||b.targetLocations.includes('All'))));}).catch(()=>{});
+        (!Array.isArray(b.targetLocations)||!b.targetLocations.length||
+          b.targetLocations.some(area=>area==='All'||(userLocation&&checkGeoMatch?.(area,userLocation))))));}).catch(()=>{});
     return()=>controller.abort();
-  },[premium]);
+  },[premium,userLocation,checkGeoMatch]);
   const ordered=useMemo(()=>[...items].sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)),[items]);
   return <div className="ir-catalog-page min-w-0 animate-fade-in px-4 pb-40 pt-6 md:px-8 md:pt-9">
     <Helmet><title>Ειδήσεις τώρα | iRadios GR</title><meta name="description" content="Τελευταίες ειδήσεις και νέα από το Newsfeed του iRadios GR, με φωτογραφίες και συνεχή ενημέρωση."/></Helmet>
