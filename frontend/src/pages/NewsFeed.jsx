@@ -31,6 +31,7 @@ function Article({item,view,now,source}){
         <Clock3 size={13} className="shrink-0 text-[#ccff00]"/>
         {time?<time dateTime={time.iso} title={time.absolute}>{time.relative}</time>:<span>Χωρίς ημερομηνία</span>}
         <span className="text-white/25">•</span><span className="max-w-[160px] truncate">{item.source||source||'iRadios'}</span>
+        {item.category&&<span className="rounded-full border border-[#ccff00]/20 px-2 py-0.5 text-[10px] text-[#ccff00]">{item.category}</span>}
       </div>
       <h2 className={'line-clamp-3 font-black leading-snug tracking-tight text-white transition-colors group-hover:text-[#ccff00] '+(view==='list'?'text-lg sm:text-xl':'text-base sm:text-lg')}>
         <a href={href} target="_blank" rel="noopener noreferrer">{item.title}</a>
