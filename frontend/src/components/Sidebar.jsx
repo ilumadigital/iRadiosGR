@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
-import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, MessageSquare, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Newspaper, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy } from 'lucide-react';
+import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Newspaper, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy } from 'lucide-react';
 
 function SidebarItem({ icon, label, to, currentPath, onClick, className = "", isCollapsed }) {
   const active = currentPath === to || decodeURIComponent(currentPath) === to;
@@ -31,8 +31,7 @@ function SidebarItem({ icon, label, to, currentPath, onClick, className = "", is
 }
 
 export default function Sidebar({ 
-  isMobileMenuOpen, setIsMobileMenuOpen, currentUser, stations,
-  unreadBroadcasterChat, setUnreadBroadcasterChat
+  isMobileMenuOpen, setIsMobileMenuOpen, currentUser, stations
 }) {
   const location = useLocation();
   useEffect(()=>{setIsMobileMenuOpen(false);},[location.pathname,location.search]);
@@ -267,21 +266,6 @@ export default function Sidebar({
                     icon={<Calendar size={20} />} 
                     label={isProducer ? "Πρόγραμμα Σταθμού" : "Πρόγραμμα iRadios"} 
                   />
-                  
-                  <div className="relative mt-1 mb-1">
-                    <SidebarItem 
-                      isCollapsed={isCollapsed}
-                      to="/my-chat" 
-                      currentPath={location.pathname} 
-                      onClick={() => { setIsMobileMenuOpen(false); if (setUnreadBroadcasterChat) setUnreadBroadcasterChat(false); }} 
-                      icon={<MessageSquare size={20} className={unreadBroadcasterChat ? "text-[#ccff00] animate-pulse" : ""} />} 
-                      label="Live Chat Σταθμού" 
-                      className={unreadBroadcasterChat ? "bg-[#ccff00]/10 border-l-2 border-[#ccff00] shadow-[inset_10px_0_20px_rgba(204,255,0,0.05)] text-white" : ""}
-                    />
-                    {unreadBroadcasterChat && (
-                      <span className={`absolute bg-[#ccff00] rounded-full shadow-[0_0_10px_#ccff00] animate-ping transition-all duration-300 ${isCollapsed ? 'w-1.5 h-1.5 top-2 right-2' : 'w-2 h-2 right-4 top-1/2 -translate-y-1/2'}`}></span>
-                    )}
-                  </div>
                   
                   {isBroadcaster && (
                     <>
