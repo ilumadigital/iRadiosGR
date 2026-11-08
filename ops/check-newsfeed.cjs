@@ -51,7 +51,7 @@ for(let i=0;i<14;i++){
     'section category inferred even when RSS article has no category tag');
 }
 assert.equal(newsbeastSources.categoryOfUrl('https://different-publisher.gr/greece/feed'),'');
-assert.ok(read('backend/controllers/newsFeedController.js').includes("process.env.APP_ENV==='staging'&&doc.bootstrapVersion!==newsbeast.VERSION"),
+assert.ok(read('backend/controllers/newsFeedController.js').includes("process.env.APP_ENV==='staging'&&doc.bootstrapVersion!==initialPreset.VERSION"),
   'one-time migration is staging-only');
 assert.ok(read('backend/controllers/newsFeedController.js').includes('$inc:{configRevision:1}'),
   'source bootstrap increments config revision');
@@ -131,8 +131,10 @@ assert.ok(scheduler.includes('mongoose.connection.asPromise().then(run)'),'initi
 assert.ok(newsRoutes.includes("require('../utils/newsFeedScheduler').start()"),'news scheduler wired to backend boot');
 assert.ok(controllerText.includes('exports.refreshInBackground=async()=>'),'shared backend refresh action');
 assert.ok(controllerText.includes('if(!doc.enabled)return doc'),'disabled newsfeeds are not polled');
-assert.ok(controllerText.includes('if(doc.enabled&&!doc.articles.length)doc=await sync(doc)'),
-  'public requests only bootstrap uncached newsfeeds');
+assert.ok(controllerText.includes('if(doc.enabled&&!doc.articles.length&&!pending)'),
+  'public requests may bootstrap without blocking the browser');
+assert.ok(controllerText.includes('sync(doc).catch('),
+  'first-ever bootstrap runs asynchronously without blocking the Newsfeed');
 assert.ok(!controllerText.includes('if(doc.articles.length)sync(doc)'), 'visitor GETs do not refresh providers');
 assert.ok(controllerText.includes('refreshIntervalSeconds:600'),'public API advertises ten-minute schedule');
 assert.ok(controllerText.includes("(normalizeSource(source).categories||[]).forEach(add)"),

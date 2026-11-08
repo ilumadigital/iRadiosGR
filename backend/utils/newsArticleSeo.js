@@ -19,7 +19,8 @@ async function injectNewsArticleSeo(req,res,next){
     const allowed=new Set((doc.sources||[]).filter(s=>s.enabled).map(s=>s.id));
     const live=(doc.articles||[]).find(a=>allowed.has(a.sourceId)&&keyFor(a.url)===key);
     const found=live||await Archive.findById(key).lean();
-    if(!found||!allowed.has(found.sourceId)||keyFor(found.url)!==key)return next();
+    if(!found||!allowed.has(found.sourceId)||keyFor(found.url)!==key||
+      (doc.hiddenArticleKeys||[]).includes(key))return next();
     const origin=process.env.APP_ENV==='staging'?
       'https://stage.iradios.gr':'https://iradios.gr';
     const internal=origin+'/newsfeed/'+key;
