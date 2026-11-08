@@ -570,6 +570,8 @@ function MainApp() {
   const recognitionTimeout = useRef(null);
 
   const [showDiscovery, setShowDiscovery] = useState(false);
+  // Incrementing request makes Home's welcome CTA open the existing header search.
+  const [openSmartSearchRequest, setOpenSmartSearchRequest] = useState(0);
 
   const [globalSocket, setGlobalSocket] = useState(null);
   const [userLocation, setUserLocation] = useState({ city: 'Unknown', country: 'Unknown' });
@@ -1797,7 +1799,7 @@ function MainApp() {
       <Sidebar isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} currentUser={currentUser} stations={stations} unreadBroadcasterChat={unreadBroadcasterChat} setUnreadBroadcasterChat={setUnreadBroadcasterChat} API_URL={API_URL} />
       
       <main className="flex-1 flex flex-col min-w-0 bg-zinc-950/20 relative">
-        <TopBar setIsMobileMenuOpen={setIsMobileMenuOpen} stations={stations} weather={weather} handleSearchResultClick={(id) => { const s = stations.find(x => String(x._id) === String(id)); if (s) handleStationSelectWithAds(s); navigate(`/station/${s?.slug || id}`); }} currentUser={currentUser} onLogout={handleLogout} />
+        <TopBar setIsMobileMenuOpen={setIsMobileMenuOpen} openSmartSearchRequest={openSmartSearchRequest} stations={stations} weather={weather} handleSearchResultClick={(id) => { const s = stations.find(x => String(x._id) === String(id)); if (s) handleStationSelectWithAds(s); navigate(`/station/${s?.slug || id}`); }} currentUser={currentUser} onLogout={handleLogout} />
         <div id="main-scroll-area" className="flex-1 overflow-y-auto custom-scrollbar pb-44 lg:pb-32" onClick={() => setShowSearchResults(false)}>
         <ScrollToTop />
           <Routes>
@@ -1816,7 +1818,8 @@ function MainApp() {
                     onPlayPause={togglePlayPause} 
                     currentUser={currentUser} 
                     analyser={analyserRef.current} 
-                    onOpenDiscovery={() => setShowDiscovery(true)} 
+                    onOpenDiscovery={() => setShowDiscovery(true)}
+                    onOpenSmartSearch={() => setOpenSmartSearchRequest(request => request + 1)}
                   />
                 </SmartHomeRoute>
               } 
