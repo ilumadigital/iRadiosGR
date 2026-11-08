@@ -245,6 +245,7 @@ export default function StationProfile({
   const currentPreset = userOverrides?.[station._id] || 'Station Default';
 
   const handlePlayClick = () => {
+    if(station?.isOffline === true)return;
     if (isThisPlaying) {
       onPlayPause(); 
     } else {
@@ -610,9 +611,9 @@ export default function StationProfile({
                   <button 
                     onClick={handlePlayClick}
                     aria-label={isThisPlaying && isPlaying ? 'Παύση σταθμού' : 'Αναπαραγωγή σταθμού'}
-                    className="ir-player-transport relative z-10 w-full h-full rounded-full flex items-center justify-center hover:scale-105 transition-transform active:scale-95"
+                    className={`ir-player-transport relative z-10 w-full h-full rounded-full flex items-center justify-center transition-transform ${station?.isOffline === true ? "cursor-not-allowed bg-red-600 text-white" : "hover:scale-105 active:scale-95"}`}
                   >
-                    {isThisPlaying && isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1.5" />}
+                    {station?.isOffline === true ? <span className="text-[10px] font-black">OFFLINE</span> : isThisPlaying && isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1.5" />}
                   </button>
                 </div>
                 
