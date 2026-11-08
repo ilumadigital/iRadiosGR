@@ -1,109 +1,12 @@
 const FRONTEND_URL = process.env.FRONTEND_URL || '__IRADIOS_SITE_ORIGIN__';
 
-const baseTemplate = (content) => `
-<!DOCTYPE html>
-<html lang="el">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400..700&family=Manrope:wght@200..800&display=swap');
-    
-    body {
-      font-family: 'Google Sans', 'Manrope', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #000000;
-      color: #ffffff;
-      margin: 0;
-      padding: 20px;
-    }
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background-color: #111111;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 24px;
-      overflow: hidden;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-    }
-    .header {
-      background-color: #0a0a0a;
-      padding: 30px;
-      text-align: center;
-      border-bottom: 2px solid #ccff00;
-    }
-    .content {
-      padding: 40px 30px;
-      font-size: 16px;
-      line-height: 1.6;
-      color: #cccccc;
-    }
-    .content h3 {
-      color: #ffffff;
-      font-size: 22px;
-      margin-top: 0;
-    }
-    .otp-box {
-      background-color: #000000;
-      border: 1px dashed #ccff00;
-      color: #ccff00;
-      font-size: 32px;
-      font-weight: 900;
-      text-align: center;
-      padding: 20px;
-      border-radius: 16px;
-      margin: 30px 0;
-      letter-spacing: 8px;
-    }
-    .btn {
-      display: inline-block;
-      padding: 16px 32px;
-      background-color: #ccff00;
-      color: #000000 !important;
-      text-decoration: none;
-      border-radius: 50px;
-      font-weight: 900;
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-top: 10px;
-    }
-    .footer-wrapper {
-      background-color: #0a0a0a;
-      padding: 30px;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .footer-text {
-      font-size: 11px;
-      color: #666666;
-      text-align: center;
-      line-height: 1.5;
-    }
-    .neon-text {
-      color: #ccff00;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <img src="${FRONTEND_URL}/iradios-app-logo.png" alt="iRadios Network" style="max-height: 40px; object-fit: contain; display: block; margin: 0 auto;">
-    </div>
-    
-    <div class="content">
-      ${content}
-    </div>
-    
-    <div class="footer-wrapper">
-      <p style="margin:0; text-align: center; font-weight:800; font-size:14px; color: #fff;">iRadios - The Global Radio Network</p>
-      <div class="footer-text">
-        <a style="margin:5px 0 20px 0; text-align: center!important; font-size:12px; color:#888;" href="https://iluma.gr#utm_medium=ilumadigitalagencyiradios&utm_source=iradiosmails&utm_campaign=mailer_ir&utm_content=mailer_ir" target="_blank">Powered by ILUMA Digital Agency</a><br><br>
-        Αν δεν κάνατε εσείς αυτή την ενέργεια, παρακαλούμε αγνοήστε αυτό το email.<br><br>
-        <strong>Confidentiality:</strong> This communication is property of iRadios & ILUMA Digital O.E. Any unauthorized use is strictly prohibited.
-      </div>
-    </div>
-  </div>
-</body>
-</html>
-`;
+const { renderBrandedEmail } = require('./emailDesign');
+
+// All existing transactional templates retain their message-specific content,
+// but share one premium, responsive, email-client-safe visual shell.
+const baseTemplate = (content, category = 'IRADIOS NETWORK') =>
+  renderBrandedEmail({ content, category });
+
 
 const otpVerificationEmail = (userName, otp) => {
   const content = `
@@ -114,7 +17,7 @@ const otpVerificationEmail = (userName, otp) => {
     
     <p style="font-size: 13px; color: #888;">Ο κωδικός λήγει σε 15 λεπτά. Μην τον μοιραστείτε με κανέναν.</p>
   `;
-  return { subject: `🔑 Ενεργοποίηση Λογαριασμού: Ο Κωδικός σας (OTP)`, html: baseTemplate(content) };
+  return { subject: `🔑 Ενεργοποίηση Λογαριασμού: Ο Κωδικός σας (OTP)`, html: baseTemplate(content, 'SECURE YOUR ACCOUNT') };
 };
 
 const welcomeEmail = (userName, isBroadcaster = false) => {
@@ -131,11 +34,11 @@ const welcomeEmail = (userName, isBroadcaster = false) => {
       <a href="${loginUrl}" class="btn">ΕΙΣΟΔΟΣ ΣΤΟ IRADIOS</a>
     </div>
   `;
-  return { subject: `Καλωσήρθες στο iRadios Network! 📻`, html: baseTemplate(content) };
+  return { subject: `Καλωσήρθες στο iRadios Network! 📻`, html: baseTemplate(content, 'WELCOME TO IRADIOSGR') };
 };
 
 const customAdminEmail = (htmlContent) => {
-  return baseTemplate(htmlContent);
+  return baseTemplate(htmlContent, 'A MESSAGE FROM IRADIOSGR');
 };
 
 // 🟢 ΝΕΟ: Template για Password Reset
@@ -151,7 +54,7 @@ const passwordResetEmail = (userName, resetLink) => {
 
     <p style="font-size: 13px; color: #888; margin-top: 30px;">Αν δεν έκανες εσύ το αίτημα, μπορείς να αγνοήσεις αυτό το email με ασφάλεια. Ο κωδικός σου παραμένει ο ίδιος.</p>
   `;
-  return { subject: `Ανάκτηση Κωδικού Πρόσβασης - iRadios`, html: baseTemplate(content) };
+  return { subject: `Ανάκτηση Κωδικού Πρόσβασης - iRadios`, html: baseTemplate(content, 'ACCOUNT SECURITY') };
 };
 
 // 🟢 ΝΕΟ: Template για Επιβεβαίωση Πληρωμής Διαφήμισης (Agency)
@@ -200,7 +103,7 @@ const adPaymentSuccessEmail = (userName, planName, amount) => {
   
   return { 
     subject: `✅ Επιβεβαίωση Πληρωμής & Ενεργοποίηση: ${planName} - iRadios`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'AD NETWORK · PAYMENT') 
   };
 };
 
@@ -248,7 +151,7 @@ const adminTransactionAlertEmail = (companyName, amount, planName, userEmail, ro
   
   return { 
     subject: `💰 Νέα Είσπραξη ${amount}€ από ${companyName} (${role})`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'FINANCE · TRANSACTION') 
   };
 };
 
@@ -306,7 +209,7 @@ const stationApprovedEmail = (userName, stationName, stationSlug) => {
   
   return { 
     subject: `🎉 Ο σταθμός ${stationName} είναι LIVE! - iRadios App`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'BROADCASTER · STATION LIVE') 
   };
 };
 
@@ -352,7 +255,7 @@ const stationRejectedEmail = (userName, stationName) => {
   
   return { 
     subject: `⚠️ Απαιτείται διόρθωση για τον σταθμό ${stationName} - iRadios App`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'BROADCASTER · ACTION REQUIRED') 
   };
 }; 
 
@@ -413,7 +316,7 @@ const broadcasterPremiumSuccessEmail = (userName, planName, amount) => {
   
   return { 
     subject: `✅ Ενεργοποίηση Υπηρεσίας: ${displayPlanName} - iRadios`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'BROADCASTER · PREMIUM') 
   };
 };
 
@@ -502,7 +405,7 @@ const listenerPremiumSuccessEmail = (userName, amount) => {
   
   return { 
     subject: `🎧 Καλωσήρθες στο iRadios Premium!`, 
-    html: baseTemplate(content) 
+    html: baseTemplate(content, 'LISTENER · PREMIUM') 
   };
 };
 
