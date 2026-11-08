@@ -26,13 +26,29 @@ const all=[
 ];
 function matches(s,q={}){
   return Object.entries(q).every(([key,value])=>{
-    if(key==='pendingEdits'&&value?.$ne===null)return Boolean(s.pendingEdits);
-    return String(s[key])===String(value);
+    if(key==='$or')return value.some(condition=>matches(s,condition));
+    const actual=key.split('.').reduce((obj,part)=>obj?.[part],s);
+    if(key==='pendingEdits'&&value?.$type==='object')
+      return actual!==null&&typeof actual==='object'&&Object.keys(actual||{}).length>0;
+    if(value&&typeof value==='object'&&'$ne' in value)
+      return String(actual)!==String(value.$ne);
+    if(value&&typeof value==='object'&&'$regex' in value)
+      return new RegExp(value.$regex,value.$options||'').test(actual||'');
+    return String(actual)===String(value);
   });
 }
 const Station={
-  find:q=>({select:()=>({sort:()=>({limit:()=>({lean:async()=>all.filter(s=>matches(s,q))})})})}),
+  find:q=>{
+    let offset=0,max=Infinity;
+    const chain={
+      select:()=>chain,sort:()=>chain,skip:n=>{offset=n;return chain;},
+      limit:n=>{max=n;return chain;},
+      lean:async()=>all.filter(s=>matches(s,q)).slice(offset,offset+max)
+    };
+    return chain;
+  },
   countDocuments:async q=>all.filter(s=>matches(s,q)).length,
+  exists:async q=>all.some(s=>matches(s,q)),
   findOne:q=>({select:async()=>all.find(s=>matches(s,q))||null}),
   create:async fields=>{const s=doc({_id:'333333333333333333333333',schedule:[],...fields});
     all.push(s);return s;}
@@ -85,7 +101,7 @@ function findRoute(method,name){
   return entry;
 }
 async function call(method,name,user,body={},stationId=songId,file){
-  const req={user,body,params:{id:stationId,kind:'logo'},file};
+  const req={user,body,params:{id:stationId,kind:'logo'},file,query:{}};
   const res={code:200,body:null,headers:{},setHeader(k,v){this.headers[k]=v;},
     status(n){this.code=n;return this;},json(data){this.body=data;return this;}};
   let handlers=[
@@ -154,11 +170,43 @@ async function main(){
     {name:'Invalid',genre:'House',stream:'https://radio.example/other'});
   assert.equal(invalidCategories.code,400,'legacy-only categories are not valid for new stations');
   const added=await call('POST','/backoffice/stations',owner,
-    {name:'New Radio',genre:'Διεθνή Mainstream',secondaryGenre:'Pop',stream:'https://radio.example/other'});
+    {name:'New Radio',slug:'new-radio',genre:'Διεθνή Mainstream',secondaryGenre:'Pop',stream:'https://radio.example/other'});
   assert.equal(added.code,201);
   assert.equal(added.body.station.status,'pending');
   assert.equal(added.body.station.broadcasterId,undefined);
   assert.equal(all[2].broadcasterId,ownerId);
+  assert.equal(all[2].slug,'new-radio');
+  const duplicate=await call('POST','/backoffice/stations',owner,
+    {name:'Duplicate Radio',slug:'new-radio',genre:'Διεθνή Mainstream',
+      secondaryGenre:'Pop',stream:'https://radio.example/duplicate'});
+  assert.equal(duplicate.code,409,'duplicate station slugs are rejected');
+
+  // Imported pending stations must be reviewable even when outside the overview top 1000.
+  for(let index=0;index<1002;index++)all.push(doc({_id:String(index+10).padStart(24,'0'),
+    name:'Archive '+index,slug:'archive-'+index,status:'approved',pendingEdits:null}));
+  const imported=doc({_id:'555555555555555555555555',name:'102.5 FM',
+    genre:'Εναλλακτικά',city:'Αθήνα',status:'pending',slug:'102-5-fm',pendingEdits:null});
+  all.push(imported);
+  const truncated=await call('GET','/backoffice/overview',admin);
+  assert.equal(truncated.body.stations.length,1000);
+  assert.equal(truncated.body.stations.some(s=>s.name==='102.5 FM'),false,
+    'overview is intentionally limited and cannot power moderation');
+  const reviewQueue=await call('GET','/backoffice/review-queue',admin);
+  assert.equal(reviewQueue.code,200);
+  assert.ok(reviewQueue.body.pending.items.some(s=>s.name==='102.5 FM'),
+    'imported pending stations must appear in the dedicated review queue');
+  assert.equal(reviewQueue.body.pending.total,2);
+  assert.equal((await call('GET','/backoffice/review-queue',owner)).code,403,
+    'only admins can read the full pending queue');
+  const slugRequest=await call('PATCH','/backoffice/stations/:id',owner,
+    {slug:'my-new-station'});
+  assert.equal(slugRequest.code,200);
+  assert.equal(all[0].pendingEdits.slug,'my-new-station',
+    'broadcaster slug changes require review');
+  const otherSlug=await call('PATCH','/backoffice/stations/:id',admin,
+    {slug:'my-new-station'},foreignId);
+  assert.equal(otherSlug.code,409,
+    'unapproved slug changes must reserve the slug for the station owner');
 
   const frontend=fs.readFileSync(path.join(__dirname,'../frontend/src/pages/Backoffice.jsx'),'utf8');
   const app=fs.readFileSync(path.join(__dirname,'../frontend/src/App.jsx'),'utf8');
@@ -179,6 +227,13 @@ async function main(){
     'Backoffice root must be an absolute path, not an unmatched index route');
 
   assert.ok(frontend.includes('Business Console'));
+  assert.ok(frontend.includes('Slug / Δημόσιο URL *')&&frontend.includes("['name','slug'"),
+    'admins and broadcasters must be able to set custom station slugs');
+  assert.ok(frontend.includes("api('/review-queue?pendingPage=")&&
+    !frontend.includes("const newStations=data.stations.filter(s=>s.status==='pending')"),
+    'review UI must fetch its own complete server-side pending queue');
+  assert.ok(frontend.includes("api('/stations/'+id)"),
+    'imported pending station editors must load records outside the overview limit');
   assert.ok(frontend.includes('Logo')&&frontend.includes('StationEditor'));
   assert.ok(!frontend.includes('<audio'),'business console cannot contain radio player');
   assert.ok(app.includes("location.pathname.startsWith('/backoffice/')")&&
