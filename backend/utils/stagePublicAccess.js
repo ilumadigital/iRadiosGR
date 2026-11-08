@@ -7,6 +7,31 @@
 const { protect } = require('./authMiddleware');
 const { authorizeRoles } = require('./roleMiddleware');
 const User = require('../models/User');
+const crypto = require('node:crypto');
+const BroadcasterInvitation = require('../models/BroadcasterInvitation');
+
+// Staging remains deny-by-default. Permit *only* email-bound invitation
+// registration/OTP traffic, never a general anonymous signup endpoint.
+async function allowInvitedOnboarding(req, res, next) {
+  const token = req.body?.inviteToken;
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token) ||
+      email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(403).json({ error: 'Απαιτείται έγκυρη πρόσκληση broadcaster.' });
+  }
+  if (!loginRateLimit(req, res)) return;
+  try {
+    const hash = crypto.createHash('sha256').update(token).digest('hex');
+    const invitation = await BroadcasterInvitation.findOne({
+      tokenHash: hash, email, status: 'pending', expiresAt: { $gt: new Date() }
+    }).select('_id');
+    if (!invitation) return res.status(403).json({ error: 'Η πρόσκληση έχει λήξει ή δεν ταιριάζει στο email.' });
+    return next();
+  } catch (_error) {
+    return res.status(503).json({ error: 'Δεν ήταν δυνατή η επιβεβαίωση πρόσκλησης.' });
+  }
+}
+
 
 // In-process IP limiter for the staging admin login. Cloudflare WAF rate limiting
 // should also be enabled when this hostname is proxied through Cloudflare.
@@ -46,6 +71,12 @@ function stagePublicAccess(req, res, next) {
   // The middleware is mounted at /api, and Express req.path excludes the mount prefix.
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
+  if (req.method === 'GET' && path === '/api/broadcaster-invitations/preview') return next();
+  if (req.method === 'POST' && (path === '/api/auth/register-broadcaster' ||
+      path === '/api/auth/verify-otp')) return allowInvitedOnboarding(req, res, next);
+  if (req.method === 'POST' && (path === '/api/broadcaster-invitations/claim' ||
+      path === '/api/broadcaster-invitations/activate-broadcaster')) return protect(req, res, next);
+
   if (req.method === 'GET' && /^\/api\/newsfeed\/articles\/[a-f0-9]{24}$/.test(path)) return next();
   // Public radio playback can report an anonymous, bounded listening heartbeat.
   // This endpoint cannot read metadata, choose streams or trigger recognition directly.
