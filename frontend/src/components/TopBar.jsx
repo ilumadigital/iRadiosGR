@@ -98,6 +98,14 @@ export default function TopBar({
     };
   },[currentUser?._id,location.pathname,location.search]);
 
+  // Keep the welcome AI search CTA functional after the notification redesign.
+  useEffect(() => {
+    if (!openSmartSearchRequest) return;
+    setExpanded(true);
+    setSpeechMessage('');
+    inputRef.current?.focus();
+  }, [openSmartSearchRequest]);
+
   useEffect(() => {
     if (!expanded) return undefined;
     inputRef.current?.focus();
