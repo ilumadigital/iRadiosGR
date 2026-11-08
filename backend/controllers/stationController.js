@@ -1,5 +1,6 @@
 const Station = require('../models/Station');
 const {validateStationCategories}=require('../utils/stationCategories');
+const {normalizeStationCity}=require('../utils/stationLocations');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
@@ -26,11 +27,11 @@ const cleanExpiredBoosts = async () => {
 exports.getApprovedStations = async (req, res) => {
   try {
     await cleanExpiredBoosts();
-    const query = Station.find({ status: 'approved' }).sort({ position: 1, createdAt: -1 });
+    const query = Station.find({ status: 'approved' }).sort({ isOffline: 1, position: 1, createdAt: -1 });
     // Public stage may expose station metadata, never broadcaster personal
     // information or private pending edits imported from production.
     if (process.env.APP_ENV === 'staging') {
-      query.select('name slogan description genre secondaryGenre region city transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule scheduleDayBase position isFeatured dspPreset disableNetworkAds');
+      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule scheduleDayBase position isFeatured dspPreset disableNetworkAds');
     }
     const stations = await query;
     res.json(stations);
@@ -40,7 +41,7 @@ exports.getApprovedStations = async (req, res) => {
 exports.getAllStations = async (req, res) => {
   try {
     await cleanExpiredBoosts();
-    const stations = await Station.find().sort({ position: 1, createdAt: -1 });
+    const stations = await Station.find().sort({ isOffline: 1, position: 1, createdAt: -1 });
     res.json(stations);
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -55,7 +56,8 @@ exports.getBroadcasterStations = async (req, res) => {
 // 🟢 ADMIN: Δημιουργία Σταθμού
 exports.createStation = async (req, res) => {
   try {
-    const stationData = req.body;
+    const {data: stationData, error: locationError} = normalizeStationCity(req.body);
+    if(locationError)return res.status(400).json({error:locationError});
     const categoryError = validateStationCategories(stationData,{required:true});
     if(categoryError)return res.status(400).json({error:categoryError});
 
@@ -93,7 +95,9 @@ exports.createBroadcasterStation = async (req, res) => {
       }
     }
 
-    const stationData = { ...req.body, status: 'pending' };
+    const {data: stationData, error: locationError} = normalizeStationCity({...req.body, status: 'pending'});
+    if(locationError)return res.status(400).json({error:locationError});
+    delete stationData.isOffline;
     const categoryError = validateStationCategories(stationData,{required:true});
     if(categoryError)return res.status(400).json({error:categoryError});
 
@@ -113,7 +117,8 @@ exports.createBroadcasterStation = async (req, res) => {
 // 🟢 ADMIN: Απευθείας Edit Σταθμού
 exports.updateStation = async (req, res) => {
   try {
-    const updateData = req.body;
+    const {data: updateData, error: locationError} = normalizeStationCity(req.body);
+    if(locationError)return res.status(400).json({error:locationError});
     const categoryError = validateStationCategories(updateData);
     if(categoryError)return res.status(400).json({error:categoryError});
 
@@ -130,7 +135,9 @@ exports.updateStation = async (req, res) => {
 // 🟢 BROADCASTER: Αίτημα Edit Σταθμού
 exports.requestEdit = async (req, res) => {
   try {
-    const editData = { ...req.body };
+    const {data: editData, error: locationError} = normalizeStationCity(req.body);
+    if(locationError)return res.status(400).json({error:locationError});
+    delete editData.isOffline;
     delete editData._id; 
     delete editData.broadcasterId; 
     delete editData.status;
@@ -316,6 +323,7 @@ exports.approveEdit = async (req, res) => {
     delete edits._id;
     delete edits.broadcasterId;
     delete edits.status; 
+    delete edits.isOffline;
     delete edits.createdAt;
     delete edits.updatedAt;
     delete edits.schedule; // 🚀 ΑΥΤΟ ΕΙΝΑΙ ΠΟΥ ΛΥΝΕΙ ΤΟ CRASH ΜΕ ΤΟ [object Object]
@@ -357,12 +365,24 @@ exports.updateNetworkAds = async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Σφάλμα ενημέρωσης' }); }
 };
 
+// An admin may mark an approved station offline without removing its catalog entry.
+exports.updateStationOffline = async (req, res) => {
+  try {
+    if (typeof req.body.isOffline !== 'boolean')
+      return res.status(400).json({error:'Το isOffline πρέπει να είναι boolean.'});
+    const updated = await Station.findByIdAndUpdate(req.params.id,
+      {$set:{isOffline:req.body.isOffline}}, {new:true,runValidators:true});
+    if (!updated) return res.status(404).json({error:'Ο σταθμός δεν βρέθηκε.'});
+    res.json({station:updated});
+  } catch (err) { res.status(400).json({error:'Αδυναμία ενημέρωσης διαθεσιμότητας.'}); }
+};
+
 // 🚀 SMART DISCOVERY MODE
 exports.getDiscoveryStations = async (req, res) => {
   try {
     // Never look up arbitrary imported user favorites from a public query.
     const userId = process.env.APP_ENV === 'staging' ? null : req.query.userId;
-    let matchQuery = { status: 'approved' };
+    let matchQuery = { status: 'approved', isOffline: {$ne: true} };
 
     // Αν υπάρχει χρήστης συνδεδεμένος, βρες ποια είναι τα αγαπημένα του
     if (userId) {
@@ -385,7 +405,7 @@ exports.getDiscoveryStations = async (req, res) => {
     // Αν ο χρήστης έχει βάλει ΟΛΟΥΣ τους σταθμούς στα αγαπημένα του, φέρνουμε 10 τυχαίους αγνοώντας τα αγαπημένα.
     if (randomStations.length === 0 && userId) {
         const backupStations = await Station.aggregate([
-            { $match: { status: 'approved' } },
+            { $match: { status: 'approved', isOffline: {$ne: true} } },
             { $sample: { size: 10 } }
         ]);
         return res.json(backupStations);
