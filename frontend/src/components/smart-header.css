@@ -285,7 +285,7 @@
   .ir-header__left { flex: 0 0 auto; }
   .ir-header--searching .ir-header__right { display: none; }
   .ir-smart-search--open { max-width: none; }
-  .ir-smart-search__panel { position: fixed; top: 78px; left: 12px; right: 12px; width: auto; max-height: min(620px, calc(100dvh - 104px)); transform: none; animation-name: ir-search-panel-mobile-enter; }
+  .ir-smart-search__panel { position: fixed; top: 78px; left: 12px; right: 12px; width: auto; max-height: min(620px, calc(100dvh - 174px - env(safe-area-inset-bottom, 0px))); transform: none; animation-name: ir-search-panel-mobile-enter; }
   @keyframes ir-search-panel-mobile-enter {
     from { opacity: 0; transform: translateY(-9px) scale(.99); }
     to { opacity: 1; transform: translateY(0) scale(1); }
