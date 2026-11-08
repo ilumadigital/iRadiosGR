@@ -261,4 +261,74 @@ router.post('/backoffice/stations/:id/media/:kind',authorizeRoles('admin','broad
         message:req.user.role==='admin'?'Η εικόνα αποθηκεύτηκε.':'Η εικόνα στάλθηκε για έγκριση.'});
     }catch(error){return fail(res,error);}
   });
+
+// Broadcaster team management: invited Producers can edit only their assigned
+// station's schedule. Invitations carry a signed, one-use acceptance token.
+router.get('/backoffice/producers',authorizeRoles('broadcaster'),async(req,res)=>{
+  try{
+    const producers=await User.find({invitedBy:req.user._id,role:'producer'})
+      .select('fname lname email assignedStation isVerified createdAt')
+      .populate('assignedStation','name logo').limit(100).lean();
+    return res.json({producers});
+  }catch(error){return fail(res,error);}
+});
+router.post('/backoffice/producers/invite',authorizeRoles('broadcaster'),async(req,res)=>{
+  try{
+    const {email,stationId,fname,lname}=req.body||{};
+    const normalized=typeof email==='string'?email.trim().toLowerCase():'';
+    if(!/^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/.test(normalized)||
+      typeof fname!=='string'||!fname.trim()||fname.length>70||
+      typeof lname!=='string'||!lname.trim()||lname.length>70||
+      typeof stationId!=='string'||!mongoose.isValidObjectId(stationId))
+      throw validationError('Συμπλήρωσε έγκυρο email, όνομα, επώνυμο και σταθμό.');
+    const station=await Station.findOne({_id:stationId,broadcasterId:req.user._id,status:'approved'})
+      .select('_id name').lean();
+    if(!station)return res.status(403).json({error:'Δεν μπορείς να προσκαλέσεις παραγωγό σε αυτόν τον σταθμό.'});
+    const existing=await User.findOne({email:normalized}).select('_id').lean();
+    if(existing)return res.status(409).json({error:'Υπάρχει ήδη λογαριασμός με αυτό το email.'});
+    const bcrypt=require('bcryptjs');
+    const jwt=require('jsonwebtoken');
+    const {sendEmail}=require('../utils/myMailer');
+    const password=await bcrypt.hash(crypto.randomBytes(32).toString('hex'),10);
+    const producer=await User.create({
+      username:'irproducer_'+crypto.randomBytes(8).toString('hex'),
+      email:normalized,password,fname:fname.trim(),lname:lname.trim(),
+      role:'producer',assignedStation:station._id,invitedBy:req.user._id,isVerified:false
+    });
+    try{
+      const token=jwt.sign({userId:producer._id,email:normalized},process.env.JWT_SECRET,{expiresIn:'7d'});
+      const origin=(process.env.FRONTEND_URL||'__IRADIOS_SITE_ORIGIN__').replace(/\/+$/,'');
+      const link=origin+'/accept-invite?token='+encodeURIComponent(token);
+      // Escaping prevents broadcaster-entered station/person names becoming HTML.
+      const escape=value=>String(value).replace(/[&<>"']/g,char=>({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[char]));
+      await sendEmail({
+        to:normalized,
+        subject:'Πρόσκληση Producer · '+station.name+' | iRadiosGR',
+        html:'<div style="font:16px Arial,sans-serif;background:#101214;color:#fff;padding:30px">'+
+          '<h2 style="color:#ccff00">iRadiosGR · Business Console</h2>'+
+          '<p>Γεια σου, '+escape(fname.trim())+'.</p>'+
+          '<p>Προσκλήθηκες στο πρόγραμμα του σταθμού <strong>'+escape(station.name)+'</strong>.</p>'+
+          '<p><a style="color:#ccff00" href="'+escape(link)+'">Αποδοχή πρόσκλησης / Ορισμός κωδικού</a></p>'+
+          '<p style="color:#ccc">Ο σύνδεσμος ισχύει 7 ημέρες και χρησιμοποιείται μία φορά.</p></div>'
+      });
+    }catch(error){
+      await User.deleteOne({_id:producer._id,role:'producer',isVerified:false}).catch(()=>{});
+      throw error;
+    }
+    return res.status(201).json({message:'Η πρόσκληση εστάλη στο email του παραγωγού.'});
+  }catch(error){
+    if(error?.code===11000)return res.status(409).json({error:'Ο χρήστης υπάρχει ήδη.'});
+    return fail(res,error);
+  }
+});
+router.delete('/backoffice/producers/:id',authorizeRoles('broadcaster'),async(req,res)=>{
+  try{
+    if(!mongoose.isValidObjectId(req.params.id))throw validationError('Μη έγκυρος παραγωγός.');
+    const result=await User.deleteOne({_id:req.params.id,invitedBy:req.user._id,role:'producer'});
+    if(!result.deletedCount)return res.status(404).json({error:'Ο παραγωγός δεν βρέθηκε στον λογαριασμό σου.'});
+    return res.json({message:'Η πρόσβαση του παραγωγού ανακλήθηκε.'});
+  }catch(error){return fail(res,error);}
+});
 module.exports=router;
