@@ -14,6 +14,7 @@ import HomeExplore from '../components/HomeExplore';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import HomeRadioShortlist from '../components/HomeRadioShortlist';
 import HomeRecommendationDeck from '../components/HomeRecommendationDeck';
+import HomeTopStations from '../components/HomeTopStations';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 import {compareCatalogPopularity} from '../utils/catalogLive';
 
@@ -389,9 +390,9 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       !localIds.includes(s._id)
     ); // Ranking priority is shared with the catalog.
 
-    let combined = [...localStations, ...discoveryStations].slice(0, 8);
+    let combined = [...localStations, ...discoveryStations].slice(0, 12);
 
-    if (combined.length < 8) {
+    if (combined.length < 12) {
       const chosenIds = new Set(combined.map(s => String(s._id)));
       const preferred = rankedStations.filter(s =>
         s._id && (s.status === 'approved' || !s.status) &&
@@ -404,7 +405,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       const fillIns = [...preferred, ...others];
       combined = [...combined, ...fillIns].filter((station,index,all) =>
         all.findIndex(s => String(s._id) === String(station._id)) === index
-      ).slice(0, 8);
+      ).slice(0, 12);
     }
 
     return combined;
@@ -626,24 +627,34 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         </div>
       </div>
 
-      {/* Metadata-only Now Playing, plus actual listener history and favorites. */}
-      <div className="ir-home-quick-grid grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(215px,0.75fr)_minmax(215px,0.75fr)]">
+      {/* Guest: NowPlaying takes 50%, with Recent + Top sharing the other
+          half. Members: three equally sized NowPlaying / Recent / Favorites. */}
+      <div className={`ir-home-quick-grid grid min-w-0 items-start gap-5 ${currentUser ? 'xl:grid-cols-3' : 'xl:grid-cols-2'}`}>
         <div className="min-w-0">
           {currentUser ? (
             <PlayingNow stations={stations} API_URL={API_URL} currentUser={currentUser}/>
           ) : (
-            <section className="rounded-2xl border border-[#ccff00]/15 bg-[#ccff00]/[0.05] p-5">
+            <section className="h-full min-h-[208px] rounded-2xl border border-[#ccff00]/15 bg-[#ccff00]/[0.05] p-5">
               <h2 className="flex items-center gap-2 text-xl font-black text-white"><Radio size={21} className="text-[#ccff00]"/> Συνδέσου στο iRadios για NowPlaying</h2>
               <p className="mt-3 max-w-lg text-sm text-zinc-300">Η ζωντανή ακρόαση παραμένει δωρεάν. Συνδέσου για να βλέπεις πραγματικά τραγούδια και καλλιτέχνες.</p>
               <button onClick={()=>navigate('/login')} className="ir-action-primary mt-4 px-5 text-sm"><LogIn size={16}/> Σύνδεση</button>
             </section>
           )}
         </div>
-        <HomeRadioShortlist kind="recent" stations={recentlyPlayed} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
-        <HomeRadioShortlist kind="favorites" stations={favoriteStations} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+        {currentUser ? (
+          <>
+            <HomeRadioShortlist kind="recent" stations={recentlyPlayed} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+            <HomeRadioShortlist kind="favorites" stations={favoriteStations} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+          </>
+        ) : (
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-2">
+            <HomeRadioShortlist kind="recent" stations={recentlyPlayed} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+            <HomeTopStations topStations={topStations} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={setCurrentStation} onPlayPause={onPlayPause}/>
+          </div>
+        )}
       </div>
 
-      <HomeRecommendationDeck moodStations={moodStations} topStations={topStations} stations={stations} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+      <HomeRecommendationDeck moodStations={moodStations} stations={stations} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
 
       {/* The visual genre / region finder is the single browsing surface (no native selects). */}
       <HomeExplore
