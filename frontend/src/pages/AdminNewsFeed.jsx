@@ -28,6 +28,7 @@ export default function AdminNewsFeed(){
   const [newLinks,setNewLinks]=useState(''),[data,setData]=useState(null);
   const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [articleSearch,setArticleSearch]=useState(''),[articleLimit,setArticleLimit]=useState(30);
   useEffect(()=>{
     let active=true;
     adminFetch('/api/admin/newsfeed').then(async r=>{
@@ -65,7 +66,15 @@ export default function AdminNewsFeed(){
         if(!active)return;
         setData(latest);
         if(!latest.syncing){
-          setSources((current)=>current.length===0?latest.sources||[]:current);
+          // Refresh diagnostics without overwriting unsaved edits to feed fields.
+          setSources(current=>(latest.sources||[]).map(server=>{
+            const local=current.find(item=>item.id===server.id);
+            if(!local)return server;
+            return {...local,feedTitle:server.feedTitle,lastSyncedAt:server.lastSyncedAt,
+              lastAttemptAt:server.lastAttemptAt,lastError:server.lastError,
+              fetchedCount:server.fetchedCount,retrievalMode:server.retrievalMode,
+              publisherReports:server.publisherReports};
+          }));
           setNotice('Ο συγχρονισμός ολοκληρώθηκε. '+(latest.articles?.length||0)+' / 500 άρθρα.');
         }
       }catch(e){if(active)setError(e.message);}
@@ -133,6 +142,10 @@ export default function AdminNewsFeed(){
     }catch(e){setError(e.message);}
     finally{setBusy(false);}
   };
+  const matches=(data?.articles||[]).filter(item=>{
+    const q=articleSearch.trim().toLocaleLowerCase('el-GR');
+    return !q||[item.title,item.source,item.category].some(value=>String(value||'').toLocaleLowerCase('el-GR').includes(q));
+  });
   return <div className="admin-legacy-page space-y-6">
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><p className="text-xs font-black uppercase tracking-[.18em] text-[#ccff00]">iRadios GR / Newsroom</p>
@@ -191,8 +204,15 @@ export default function AdminNewsFeed(){
             <p className="mt-2 text-xs leading-5 text-zinc-400">
               <span className="font-black text-[#ccff00]">{selectedPublishers(source.url).length} επιλεγμένοι εκδότες:</span>{' '}
               {selectedPublishers(source.url).join(' · ')}
-              <span className="mt-1 block text-zinc-500">Οι εκδότες με προσβάσιμο δημόσιο RSS επιστρέφουν άρθρα· οι υπόλοιποι καταγράφονται στις προειδοποιήσεις. Οι μη διαθέσιμοι εμφανίζονται ως προειδοποιήσεις ανά πηγή.</span>
+              <span className="mt-1 block text-zinc-500">Οι εκδότες με διαθέσιμο δημόσιο RSS επιστρέφουν άρθρα. Οι υπόλοιποι εμφανίζονται στην αναλυτική κατάσταση.</span>
             </p>}
+          {source.publisherReports?.length>0&&<details className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs text-zinc-300">
+            <summary className="cursor-pointer font-bold text-[#ccff00]">Κατάσταση {source.publisherReports.length} εκδοτών · {source.publisherReports.filter(r=>r.status==='ok').length} διαθέσιμοι</summary>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">{source.publisherReports.map(report=><div key={report.domain} className="min-w-0 rounded-lg border border-white/10 px-3 py-2">
+              <div className="flex items-center justify-between gap-2"><strong className="truncate text-white">{report.domain}</strong><span className={report.status==='ok'?'text-[#ccff00]':'text-amber-300'}>{report.status==='ok'?report.count+' άρθρα':'Μη διαθέσιμο'}</span></div>
+              {report.error&&<p title={report.error} className="mt-1 line-clamp-2 text-zinc-500">{report.error}</p>}
+            </div>)}</div>
+          </details>}
           {source.retrievalMode==='domain-search'&&<p className="mt-3 text-xs leading-5 text-amber-200">Εναλλακτική λειτουργία: Google News αναζήτηση με το domain του εκδότη, επειδή δεν ήταν διαθέσιμο publisher RSS. Τα αποτελέσματα μπορεί να μην ταυτίζονται απόλυτα με τη σελίδα του publisher.</p>}
           {source.lastError&&<p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 p-3 text-xs text-rose-200">{source.lastError}</p>}
         </div>)}
@@ -218,8 +238,9 @@ export default function AdminNewsFeed(){
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-black text-white">Διαχείριση άρθρων</h2>
         {data.hiddenArticleCount>0&&<button type="button" disabled={busy} onClick={restoreHidden} className="rounded-xl border border-white/20 px-3 py-2 text-xs text-zinc-300 hover:text-white">Επαναφορά {data.hiddenArticleCount} κρυμμένων</button>}
       </div>
+      <div className="mb-4 flex flex-wrap items-center gap-3"><input type="search" value={articleSearch} onChange={e=>{setArticleSearch(e.target.value);setArticleLimit(30);}} placeholder="Αναζήτηση τίτλου, πηγής ή κατηγορίας" aria-label="Αναζήτηση άρθρων" className={field+' max-w-lg'}/><span className="text-xs text-zinc-400">{matches.length} αποτελέσματα</span></div>
       <div className="grid gap-3 md:grid-cols-2">
-        {(data.articles||[]).slice(0,30).map(item=><div key={item.url} className="flex min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-black/25 p-3 hover:border-[#ccff00]/40">
+        {matches.slice(0,articleLimit).map(item=><div key={item.url} className="flex min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-black/25 p-3 hover:border-[#ccff00]/40">
           <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-1 gap-3">
           {item.imageUrl?<img src={item.imageUrl} alt="" loading="lazy" className="h-20 w-24 shrink-0 rounded-xl object-cover"/>:
             <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-xl bg-zinc-900"><ImageIcon className="text-zinc-600"/></div>}
@@ -229,6 +250,7 @@ export default function AdminNewsFeed(){
         </div>)}
         {!data.articles?.length&&<p className="text-sm text-zinc-400">Δεν υπάρχουν συγχρονισμένες ειδήσεις ακόμη. Πάτησε «Συγχρονισμός τώρα».</p>}
       </div>
+      {matches.length>articleLimit&&<button type="button" onClick={()=>setArticleLimit(value=>value+30)} className="mt-5 rounded-xl border border-white/20 px-4 py-2.5 text-sm font-bold text-white hover:border-[#ccff00]">Περισσότερα άρθρα ({matches.length-articleLimit})</button>}
     </section>}
   </div>;
 }
