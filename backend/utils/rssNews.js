@@ -227,7 +227,7 @@ function googleDomainEndpoint(source){
   url.searchParams.set('ceid',ceid);
   return url.href;
 }
-async function download(source){
+async function download(source,{existingImages}={}){
   const normalized=normalizeSource(source);
   if(normalized.type==='rssnews_preset')
     return rssNewsPreset.downloadPreset(normalized,{fetchXml});
@@ -241,8 +241,9 @@ async function download(source){
     const worker=async()=>{
       while(cursor<parsed.articles.length){
         const index=cursor++,article=parsed.articles[index];
-        let enriched=article;
-        if(!article.imageUrl&&checked<12){
+        const cachedImage=existingImages?.get(String(source.id||'')+'|'+article.url);
+        let enriched=!article.imageUrl&&cachedImage?{...article,imageUrl:cachedImage}:article;
+        if(!enriched.imageUrl&&checked<5){
           try{
             const origin=new URL(normalized.url),target=new URL(article.url);
             const site=origin.hostname.replace(/^www\./,'');

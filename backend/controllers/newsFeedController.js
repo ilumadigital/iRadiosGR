@@ -56,9 +56,12 @@ async function sync(doc,force=false){
   if(!sources.length)return doc;
   pending=(async()=>{
     const started=new Date(),revision=doc.configRevision||0;
-    // A failure in one publisher must never take down the others.
+    // A failure in one publisher must never take down the others. Reuse covers
+    // already cached for this article before requesting publisher Open Graph.
+    const existingImages=new Map((doc.articles||[]).filter(a=>a.imageUrl)
+      .map(a=>[a.sourceId+'|'+a.url,a.imageUrl]));
     const results=await Promise.all(sources.map(async s=>{
-      try{return {id:s.id,data:await download(s)};}
+      try{return {id:s.id,data:await download(s,{existingImages})};}
       catch(e){return {id:s.id,error:String(e.message||e).slice(0,220)};}
     }));
     const current=await NewsFeed.findById('primary');
