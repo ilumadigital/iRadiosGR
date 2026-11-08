@@ -282,7 +282,10 @@
 .ir-header__logout { color: #fda4af; background: rgba(244,63,94,.06); }
 
 @media (max-width: 1023px) {
-  .ir-header__left { flex: 0 0 auto; }
+  /* Mobile: brand/menu first, compact weather and clock second, search at the far right. */
+  .ir-header__left { order: 0; flex: 0 0 auto; }
+  .ir-header__right { order: 1; margin-left: auto; }
+  .ir-smart-search { order: 2; margin-left: 0; }
   .ir-header--searching .ir-header__right { display: none; }
   .ir-smart-search--open { max-width: none; }
   .ir-smart-search__panel { position: fixed; top: 78px; left: 12px; right: 12px; width: auto; max-height: min(620px, calc(100dvh - 174px - env(safe-area-inset-bottom, 0px))); transform: none; animation-name: ir-search-panel-mobile-enter; }
@@ -317,6 +320,9 @@
   .ir-header__weather-city { display: block; }
 }
 @media (min-width: 1024px) {
+  /* Component-level display:inline-flex must not override Tailwind lg:hidden. */
+  .ir-header .ir-header__mobile-menu,
+  .ir-header .ir-header__mobile-brand { display: none; }
   .ir-header__left { flex: 1 1 0; }
   .ir-smart-search { margin-left: 0; }
   .ir-header--searching .ir-header__desktop-intro { display: none; }
