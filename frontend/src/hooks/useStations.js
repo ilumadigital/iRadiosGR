@@ -14,14 +14,20 @@ export default function useStations(API_URL, currentUser, currentStation, setCur
     try {
       const response = await fetch(`${API_URL}/stations`);
       const data = await response.json();
-      if (Array.isArray(data)) setStations(data);
+      if (Array.isArray(data)) setStations(prev=>JSON.stringify(prev)===JSON.stringify(data)?prev:data);
     } catch (error) { 
       console.error(error); 
     }
   };
 
-  useEffect(() => { 
-    fetchGlobalStations(); 
+  useEffect(() => {
+    fetchGlobalStations();
+    // Daily XML programs can change while the app is open; refresh public
+    // station schedules without remounting or interrupting the audio element.
+    const refresh=()=>{if(!document.hidden)fetchGlobalStations();};
+    const timer=setInterval(refresh,5*60*1000);
+    document.addEventListener('visibilitychange',refresh);
+    return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
   }, [API_URL]);
 
   // ==============================================================
