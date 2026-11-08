@@ -89,6 +89,8 @@ jobs:
         run: node ops/check-phase45-station-responsive-dj.cjs
       - name: Validate iOS-style mobile station layout, live controls and 12-song history
         run: node ops/check-mobile-station-glass.cjs
+      - name: Validate Spotify and Apple Music discovery on station and fullscreen players
+        run: node ops/check-music-service-links.cjs
       - name: Verify all Phase 4.3 Admin screens and responsive design integration
         run: node ops/check-phase43-admin-ux.cjs
       - name: Validate one-minute native song cache, instant Home and safe Spotify links
