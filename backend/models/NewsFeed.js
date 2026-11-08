@@ -12,7 +12,10 @@ const source=new mongoose.Schema({
   label:{type:String,default:''},feedTitle:{type:String,default:''},
   lastSyncedAt:{type:Date,default:null},lastAttemptAt:{type:Date,default:null},
   lastError:{type:String,default:''},fetchedCount:{type:Number,default:0,min:0},
-  retrievalMode:{type:String,default:''}
+  retrievalMode:{type:String,default:''},
+  publisherReports:{type:[new mongoose.Schema({
+    domain:String,status:String,count:Number,feedUrl:String,error:String
+  },{_id:false})],default:[]}
 },{_id:false});
 const schema=new mongoose.Schema({
   _id:{type:String,default:'primary'},
