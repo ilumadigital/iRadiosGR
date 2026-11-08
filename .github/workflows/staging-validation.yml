@@ -61,6 +61,8 @@ jobs:
         run: node ops/check-phase33-auto-acr.cjs
       - name: Verify shared network recognition and rolling playlist history
         run: node ops/check-phase34-network-nowplaying.cjs
+      - name: Validate two-level station categories, dropdowns and subgenre sitemap
+        run: node ops/check-station-category-taxonomy.cjs
       - name: Test Phase 4 player-free backoffice, station ownership and approval workflow
         run: node ops/check-phase4-backoffice.cjs
       - name: Check Phase 4.1 Backoffice simplicity, schedules and admin authorization

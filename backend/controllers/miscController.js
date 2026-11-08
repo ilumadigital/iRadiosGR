@@ -405,19 +405,22 @@ exports.getSitemap = async (req, res) => {
 
     // 1. Φέρνουμε Σταθμούς, Genres, Regions ΚΑΙ Cities ΠΑΡΑΛΛΗΛΑ.
     // Η συνθήκη { status: 'approved' } εγγυάται ότι θα φέρει ΜΟΝΟ δεδομένα από σταθμούς που υπάρχουν μέσα.
-    const [stations, rawGenres, rawRegions, rawCities] = await Promise.all([
+    const [stations, rawGenres, rawSubgenres, rawRegions, rawCities] = await Promise.all([
       Station.find({ status: 'approved' }, 'slug createdAt updatedAt').sort({ createdAt: -1 }).lean(),
       Station.distinct('genre', { status: 'approved' }),
+      Station.distinct('secondaryGenre', { status: 'approved' }),
       Station.distinct('region', { status: 'approved' }),
       Station.distinct('city', { status: 'approved' }) 
     ]);
 
     // 2. Καθαρισμός και Ενοποίηση
     // Αφαιρούμε null/undefined και τυχόν κενά strings
-    const genres = rawGenres
-        .filter(g => g != null)
+    // Include approved secondary genres in sitemap for SEO and AI discovery,
+    // without adding them to the primary listener navigation.
+    const genres = [...new Set([...rawGenres,...rawSubgenres]
+        .filter(g => typeof g === 'string')
         .map(g => g.trim())
-        .filter(g => g !== '');
+        .filter(Boolean))];
     
     // Ενώνουμε Regions και Cities, αφαιρούμε κενά και διπλότυπα (μέσω Set)
     const allLocationsRaw = [...rawRegions, ...rawCities];
