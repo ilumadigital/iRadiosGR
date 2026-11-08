@@ -7,6 +7,8 @@ const {PRIMARY_CATEGORY_GROUPS,PRIMARY_CATEGORIES,SECONDARY_CATEGORIES,validateS
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 (async()=>{
   assert.equal(PRIMARY_CATEGORY_GROUPS.length,3);
+  assert.equal(PRIMARY_CATEGORY_GROUPS[2].label,'Ειδήσεις, Αθλητικά & More');
+  assert.ok(!PRIMARY_CATEGORY_GROUPS.some(group=>group.label==='Ραδιόφωνα με Ομιλία'));
   assert.deepEqual(PRIMARY_CATEGORY_GROUPS.map(g=>g.items.length),[5,4,3]);
   assert.equal(PRIMARY_CATEGORIES.length,12);
   assert.equal(new Set(PRIMARY_CATEGORIES).size,12);
