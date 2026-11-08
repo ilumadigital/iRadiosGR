@@ -1,22 +1,22 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { formatFMFrequency } from '../utils/stationFrequency';
-import {scheduleDayBase,toCanonical,minutes} from '../utils/schedule';
+import {scheduleDayBase,toCanonical,minutes,getAthensClock} from '../utils/schedule';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Play, Pause, Heart, ArrowLeft, Disc3, Globe, Zap, Facebook, Instagram, Twitter, 
-  Phone, Mail, Music, AlertTriangle, CalendarDays, SlidersHorizontal, MonitorSpeaker, 
+  Phone, Mail, Music, AlertTriangle, SlidersHorizontal, MonitorSpeaker, 
   Headphones, PowerOff, Radio, SignalHigh, Share2, Check, ShieldCheck, ExternalLink,
   MessageCircle, Loader2, ScanSearch
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import CircularVU from '../components/CircularVU';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
+import StationScheduleTimeline from '../components/StationScheduleTimeline';
+import '../styles/station-profile.css';
 import StationCatalogCard from '../components/StationCatalogCard';
 import FoundWithAI from '../components/FoundWithAI';
 import {parseMusicMetadata,spotifySongLink} from '../utils/musicMetadata'; 
 import { useAlert } from '../context/AlertContext';
-
-const DAYS_OF_WEEK = ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'];
 
 export default function StationProfile({ 
   stations, currentStation, isPlaying, onPlayPause, setCurrentStation, 
@@ -27,7 +27,12 @@ export default function StationProfile({
   const { showAlert } = useAlert();
   const { id } = useParams();
   const navigate = useNavigate();
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay()||7);
+  const [selectedDay, setSelectedDay] = useState(()=>getAthensClock().day);
+   const [athensClock,setAthensClock]=useState(()=>getAthensClock());
+   useEffect(()=>{
+     const timer=setInterval(()=>setAthensClock(getAthensClock()),60000);
+     return()=>clearInterval(timer);
+   },[]);
   const [copied, setCopied] = useState(false);
   const [showEQMenu, setShowEQMenu] = useState(false);
   const [activeBanners, setActiveBanners] = useState([]);
@@ -43,7 +48,13 @@ export default function StationProfile({
   // Legacy schedules use 0=Monday; new backoffice saves 1=Monday.
   // The station is never rewritten by public reads.
   const canonicalSchedule = useMemo(()=>toCanonical(station?.schedule||[],
-    scheduleDayBase(station?.schedule,station?.scheduleDayBase)),
+    scheduleDayBase(station?.schedule,station?.scheduleDayBase))
+    .map((show,index)=>({
+      ...show,
+      // Preserve the exclusive midnight boundary for LIVE/next detection;
+      // editor time inputs may use 00:00 but public playback must use 24:00.
+      endTime:station?.schedule?.[index]?.endTime==='24:00'?'24:00':show.endTime
+    })),
     [station?.schedule,station?.scheduleDayBase]);
   const isFreeOrGuest = !currentUser || (!currentUser.isPremium && currentUser?.broadcasterProfile?.tier !== 'premium');
   const isThisPlaying = currentStation && (currentStation._id === station?._id);
@@ -182,9 +193,8 @@ export default function StationProfile({
     if (!canonicalSchedule.length) {
       return { currentShow: null, nextShow: null };
     }
-    const now = new Date();
-    const currentDayIdx = now.getDay()||7;
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentDayIdx = athensClock.day;
+    const currentMinutes = athensClock.minute;
     const parseTime = (timeStr) => minutes(timeStr,true);
     const sortedSchedule = [...canonicalSchedule].sort((a, b) => {
       if (a.day !== b.day) return a.day - b.day;
@@ -210,7 +220,7 @@ export default function StationProfile({
       }
     }
     return { currentShow: curr, nextShow: next };
-  }, [canonicalSchedule]);
+  }, [canonicalSchedule,athensClock.day,athensClock.minute]);
 
   if (!station) return <div className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center gap-4 px-6 text-center">
     <Radio size={38} className="text-[#ccff00]"/>
@@ -364,7 +374,7 @@ export default function StationProfile({
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/80 to-black"></div>
       </div>
 
-      <div className="relative z-10 flex-1 px-4 sm:px-6 lg:px-12 py-6 lg:py-12 max-w-[1400px] mx-auto w-full">
+      <div className="relative z-10 flex-1 px-4 sm:px-6 lg:px-7 py-6 lg:py-9 max-w-[1600px] mx-auto w-full">
         
         {/* BACK BUTTON */}
         <button 
@@ -377,7 +387,8 @@ export default function StationProfile({
           <span className="text-[10px] font-black tracking-[0.2em] uppercase">Πίσω</span>
         </button>
 
-        <div className="ir-station-hero flex flex-col lg:flex-row gap-8 lg:gap-12 items-center lg:items-start text-center lg:text-left mb-12 px-5 py-7 sm:p-8 lg:p-12">
+        <div className="ir-station-top-grid">
+        <div className="ir-station-hero ir-station-profile-hero flex flex-col lg:flex-row gap-8 lg:gap-7 items-center lg:items-start text-center lg:text-left mb-0 px-5 py-7 sm:p-8 lg:p-7">
           
           {/* 🟢 DYNAMIC LOGO / COVER ART AREA */}
           <div className="flex flex-col items-center lg:items-start gap-4 shrink-0">
@@ -662,88 +673,16 @@ export default function StationProfile({
           </div>
         </div>
 
-        {/* Real last 12 songs for this station, never demo/mock track rows. */}
-        <StationPlaylistPanel station={station} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+        <aside className="ir-station-playlist-aside" aria-label="Playlist σταθμού">
+          <StationPlaylistPanel station={station} currentUser={currentUser}
+            currentStation={currentStation} isPlaying={isPlaying}
+            onPlayPause={onPlayPause} onPlayStation={setCurrentStation} sidebar/>
+        </aside>
+        </div>
 
-        {/* 3. ΑΝΑΛΥΤΙΚΟ ΠΡΟΓΡΑΜΜΑ (TIMELINE) */}
-        {canonicalSchedule.length > 0 && (
-          <div className="mt-8 border-t border-white/5 pt-16">
-            <div className="flex items-center gap-3 mb-8 justify-center lg:justify-start">
-              <CalendarDays className="text-[#ccff00]" size={28} />
-              <h3 className="text-xl font-black text-white  tracking-widest">Πρόγραμμα του {station.name}</h3>
-            </div>
-
-            <div className="flex overflow-x-auto gap-3 pb-4 custom-scrollbar mb-8 justify-start lg:justify-start snap-x">
-              {DAYS_OF_WEEK.map((dayName, idx) => {
-                 const day=idx+1;
-                 const hasShows = canonicalSchedule.some(s => Number(s.day) === day);
-                 if (!hasShows) return null;
-                 
-                 const todayIdx = new Date().getDay()||7;
-                 const isToday = todayIdx === day;
-
-                 return (
-                   <button
-                     key={idx}
-                     onClick={() => setSelectedDay(day)}
-                     className={`px-6 py-3 rounded-full text-sm font-black  tracking-widest whitespace-nowrap transition-all snap-start shadow-lg ${
-                       selectedDay === day 
-                         ? 'bg-[#ccff00] text-black shadow-[0_0_15px_rgba(204,255,0,0.3)]' 
-                         : 'bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800'
-                     }`}
-                   >
-                     {dayName} {isToday && <span className="ml-2 opacity-50">(Σημερα)</span>}
-                   </button>
-                 )
-              })}
-            </div>
-
-            <div className="flex flex-col gap-3">
-               {station.schedule
-                  .filter(s => s.day === selectedDay)
-                  .sort((a,b) => {
-                    const parseTime = (timeStr) => minutes(timeStr,true);
-                    return parseTime(a.startTime) - parseTime(b.startTime);
-                  })
-                  .map((show, i) => {
-                    const todayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-                    const isPlayingNow = currentShow && currentShow.title === show.title && currentShow.startTime === show.startTime && selectedDay === todayIdx;
-
-                    return (
-                      <div key={i} className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 p-5 sm:p-6 rounded-3xl border transition-all ${
-                        isPlayingNow 
-                          ? 'bg-[#ccff00]/5 border-[#ccff00]/50 shadow-[0_0_20px_rgba(204,255,0,0.05)]' 
-                          : 'bg-zinc-900/50 border-white/5 hover:border-white/10 hover:bg-zinc-900'
-                      }`}>
-                         <div className="w-auto sm:w-28 shrink-0 flex flex-row sm:flex-col items-center sm:items-start gap-2 sm:gap-0">
-                            <div className={`text-lg font-black ${isPlayingNow ? 'text-[#ccff00]' : 'text-white'}`}>{show.startTime}</div>
-                            <div className="text-xs text-zinc-500 font-bold tracking-widest sm:mt-1">έως {show.endTime==='24:00'?'00:00':show.endTime}</div>
-                         </div>
-                         
-                         <div className="hidden sm:block h-12 w-px bg-white/10 shrink-0"></div>
-                         
-                         <div className="min-w-0 flex-1 w-full">
-                            <div className={`font-black text-lg truncate ${isPlayingNow ? 'text-[#ccff00]' : 'text-white'}`}>{show.title}</div>
-                            <div className="text-sm text-zinc-400 mt-1 font-medium flex items-center gap-1.5 truncate"><Music size={14} className="text-zinc-600"/> {show.host}</div>
-                         </div>
-
-                         {isPlayingNow && (
-                            <div className="flex shrink-0 items-center gap-2 px-4 py-2 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/20 ml-auto sm:ml-0 mt-2 sm:mt-0">
-                               <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse"></div>
-                               <span className="text-[10px] font-black text-[#ccff00] uppercase tracking-widest">LIVE NOW</span>
-                            </div>
-                         )}
-                      </div>
-                    )
-               })}
-               {canonicalSchedule.filter(s => Number(s.day) === selectedDay).length === 0 && (
-                 <div className="p-8 text-center text-zinc-500 font-medium italic bg-zinc-900/30 rounded-3xl border border-white/5">
-                   Δεν υπάρχει προγραμματισμένη εκπομπή για αυτή την ημέρα.
-                 </div>
-               )}
-            </div>
-          </div>
-        )}
+        <StationScheduleTimeline station={station} shows={canonicalSchedule}
+          selectedDay={selectedDay} onSelectDay={setSelectedDay}
+          currentShow={currentShow} today={athensClock}/>
 
         {/* 🟢 AD BANNER */}
         {isFreeOrGuest && homeBanners.length > 0 && (
@@ -756,7 +695,7 @@ export default function StationProfile({
         {relatedStations.length > 0 && (
           <div className="mt-16 border-t border-white/5 pt-12 animate-fade-in">
             <h3 className="text-[12px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-6 text-center lg:text-left">
-              Μπορει να σου αρεσουν
+              Μπορεί να σου αρέσουν
             </h3>
             
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 sm:gap-5">

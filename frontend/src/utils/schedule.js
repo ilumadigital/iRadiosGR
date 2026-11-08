@@ -2,6 +2,18 @@
 // Historical untagged station schedules are 0-based (Monday=0).
 const TIME=/^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const MINUTES_PER_DAY=1440;
+function validImageUrl(raw){
+  if(!raw)return true;
+  try{
+    const url=new URL(raw),host=url.hostname.replace(/^\[|\]$/g,'').toLowerCase();
+    if(!['http:','https:'].includes(url.protocol)||url.username||url.password||
+      host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||
+      host.endsWith('.internal')||url.port&&!['80','443'].includes(url.port))return false;
+    if(/^(?:127|10|0|169\.254|192\.168)\./.test(host)||
+      /^172\.(?:1[6-9]|2\d|3[01])\./.test(host)||host==='::1'||host==='[::1]')return false;
+    return true;
+  }catch{return false;}
+}
 export const nextDay=day=>day===7?1:day+1;
 export function minutes(time,allowEnd=false){
   if(allowEnd&&time==='24:00')return MINUTES_PER_DAY;
@@ -31,20 +43,23 @@ export function normalize(entries){
     const startTime=String(source.startTime||''),endTime=String(source.endTime||'');
     const title=typeof source.title==='string'?source.title.trim():'';
     const host=typeof source.host==='string'?source.host.trim():'';
+    const imageUrl=typeof source.imageUrl==='string'?source.imageUrl.trim():'';
+    const description=typeof source.description==='string'?source.description.trim():'';
     const from=minutes(startTime),to=minutes(endTime,true);
     if(!Number.isInteger(day)||day<1||day>7||!Number.isFinite(from)||
-      !Number.isFinite(to)||!title||title.length>120||host.length>100)
+      !Number.isFinite(to)||!title||title.length>120||host.length>100||imageUrl.length>800||
+      !validImageUrl(imageUrl)||description.length>600)
       throw new Error('Έλεγξε την ημέρα, τις ώρες, τον τίτλο και τον παραγωγό της εκπομπής.');
     if(from===to&&startTime!=='00:00')
       throw new Error('Η έναρξη και η λήξη δεν μπορούν να είναι ίδιες.');
     if(from===to&&startTime==='00:00')
-      result.push({day,startTime:'00:00',endTime:'24:00',title,host});
+      result.push({day,startTime:'00:00',endTime:'24:00',title,host,imageUrl,description});
     else if(to<from){
-      result.push({day,startTime,endTime:'24:00',title,host});
+      result.push({day,startTime,endTime:'24:00',title,host,imageUrl,description});
       if(endTime!=='00:00')
-        result.push({day:nextDay(day),startTime:'00:00',endTime,title,host});
+        result.push({day:nextDay(day),startTime:'00:00',endTime,title,host,imageUrl,description});
       split++;
-    }else result.push({day,startTime,endTime,title,host});
+    }else result.push({day,startTime,endTime,title,host,imageUrl,description});
   }
   if(result.length>160)throw new Error('Οι εκπομπές μετά τον διαχωρισμό ξεπερνούν το όριο των 160.');
   result.sort((a,b)=>a.day-b.day||a.startTime.localeCompare(b.startTime)||a.endTime.localeCompare(b.endTime));
@@ -54,4 +69,16 @@ export function normalize(entries){
       throw new Error('Οι εκπομπές «'+prev.title+'» και «'+cur.title+'» επικαλύπτονται. Άλλαξε ώρες ή διόρθωσε τη σειρά.');
   }
   return {schedule:result,split};
+}
+
+// All Greek station schedules are broadcast in Greece-local time, regardless of
+// the listener's browser timezone. 1=Monday ... 7=Sunday.
+export function getAthensClock(date=new Date()){
+  const parts=new Intl.DateTimeFormat('en-GB',{
+    timeZone:'Europe/Athens',weekday:'short',hour:'2-digit',
+    minute:'2-digit',hourCycle:'h23'
+  }).formatToParts(date);
+  const value=type=>parts.find(x=>x.type===type)?.value||'';
+  const day=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].indexOf(value('weekday'))+1;
+  return {day,minute:Number(value('hour'))*60+Number(value('minute'))};
 }

@@ -63,6 +63,8 @@ jobs:
         run: node ops/check-phase41-backoffice-ux.cjs
       - name: Validate canonical weekdays, midnight schedule splits and station display
         run: node ops/check-phase42-schedules.cjs
+      - name: Validate XML feed mapping, overnight image retention and SSRF guard
+        run: node ops/check-phase44-station-xml.cjs
       - name: Verify all Phase 4.3 Admin screens and responsive design integration
         run: node ops/check-phase43-admin-ux.cjs
       - name: Validate two-minute native song cache, instant Home and safe Spotify links

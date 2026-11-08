@@ -179,7 +179,32 @@ router.get('/stations/discovery', stationController.getDiscoveryStations);
 
 router.post('/stations', uploadStationLogo.single('logoFile'), stationController.createStation);
 router.put('/stations/:id/dsp', stationController.updateDSP);
-router.put('/stations/:id/schedule', stationController.updateSchedule);
+// Legacy endpoint remains for older clients but cannot bypass backoffice ownership.
+router.put('/stations/:id/schedule',
+  require('../utils/authMiddleware').protect,
+  require('../utils/roleMiddleware').authorizeRoles('admin','broadcaster','producer'),
+  async(req,res)=>{
+    try{
+      const mongoose=require('mongoose');
+      if(!mongoose.isValidObjectId(req.params.id))
+        return res.status(400).json({error:'Μη έγκυρο ID σταθμού.'});
+      const query={_id:req.params.id};
+      if(req.user.role==='broadcaster')query.broadcasterId=req.user._id;
+      else if(req.user.role==='producer')query._id=req.user.assignedStation;
+      const station=await Station.findOne(query).select('+scheduleFeed');
+      if(!station)return res.status(404).json({error:'Δεν έχεις πρόσβαση στον σταθμό.'});
+      const parsed=require('../utils/scheduleNormalization').normalize(req.body?.schedule);
+      if(station.scheduleFeed?.enabled&&req.user.role==='producer')
+        return res.status(403).json({error:'Ο broadcaster πρέπει να απενεργοποιήσει πρώτα το XML feed.'});
+      if(station.scheduleFeed?.lockUntil>new Date())
+        return res.status(409).json({error:'Το XML πρόγραμμα ενημερώνεται. Δοκίμασε ξανά.'});
+      station.schedule=parsed.schedule;
+      station.scheduleDayBase=1;
+      if(station.scheduleFeed?.enabled)station.scheduleFeed.enabled=false;
+      await station.save();
+      return res.json(station.toObject({transform:(_doc,ret)=>{delete ret.scheduleFeed;return ret;}}));
+    }catch(e){return res.status(400).json({error:e.message||'Σφάλμα προγράμματος.'});}
+  });
 
 // --- Broadcaster ---
 router.get('/broadcaster/:userId/stations', stationController.getBroadcasterStations);

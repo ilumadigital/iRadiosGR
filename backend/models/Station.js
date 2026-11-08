@@ -5,8 +5,26 @@ const scheduleSchema = new mongoose.Schema({
   startTime: { type: String, required: true },
   endTime: { type: String, required: true },
   title: { type: String, required: true },
-  host: { type: String, default: '' }
+  host: { type: String, default: '' },
+  imageUrl: { type: String, default: '' },
+  description: { type: String, default: '' }
 });
+
+const scheduleFeedSchema=new mongoose.Schema({
+  enabled:{type:Boolean,default:false},
+  url:{type:String,default:''},
+  rowTag:{type:String,default:''},
+  mapping:{type:mongoose.Schema.Types.Mixed,default:{}},
+  dayFormat:{type:String,enum:['iso','monday0','sunday0'],default:'iso'},
+  lastCheckedAt:{type:Date,default:null},
+  lastSuccessAt:{type:Date,default:null},
+  lastChangedAt:{type:Date,default:null},
+  lastHash:{type:String,default:''},
+  lastCount:{type:Number,default:0},
+  lastError:{type:String,default:''},
+  failures:{type:Number,default:0},
+  lockUntil:{type:Date,default:null}
+},{_id:false});
 
 const stationSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -54,6 +72,8 @@ const stationSchema = new mongoose.Schema({
   // 0 = legacy Monday index; 1 = ISO Monday index. Undefined means untagged legacy data.
   scheduleDayBase: { type: Number, enum: [0,1], default: undefined },
   schedule: [scheduleSchema],
+  // Excluded from public station documents; only read by authenticated backoffice.
+  scheduleFeed: {type:scheduleFeedSchema,default:undefined,select:false},
   position: { type: Number, default: 999 },
   boostStatus: { type: Boolean, default: false },
   boostExpiresAt: { type: Date, default: null },

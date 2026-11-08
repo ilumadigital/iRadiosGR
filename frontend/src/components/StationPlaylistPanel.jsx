@@ -36,7 +36,7 @@ function TrackCover({track,fallback}) {
 }
 
 export default function StationPlaylistPanel({
-  station, currentUser, currentStation, isPlaying, onPlayPause, onPlayStation, compact=false
+  station, currentUser, currentStation, isPlaying, onPlayPause, onPlayStation, compact=false, sidebar=false
 }) {
   const navigate=useNavigate();
   const [tracks,setTracks]=useState([]);
@@ -67,7 +67,7 @@ export default function StationPlaylistPanel({
     return ()=>clearInterval(timer);
   },[currentUser?._id,chosen?._id]);
   return (
-    <section className={`ir-playlist-panel ir-glass flex min-w-0 flex-col overflow-hidden p-4 sm:p-5 ${compact?'ir-playlist-panel--compact h-full':''}`} aria-label="Πρόσφατα τραγούδια σταθμού">
+    <section className={`ir-playlist-panel ir-glass flex min-w-0 flex-col overflow-hidden p-4 sm:p-5 ${compact?'ir-playlist-panel--compact h-full':''} ${sidebar?'ir-playlist-panel--station-sidebar':''}`} aria-label="Πρόσφατα τραγούδια σταθμού">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#ccff00]"><Radio size={14}/> ΠΑΙΖΕΙ ΣΤΟ iRADIOS</p>
           <h2 className="mt-1 text-xl font-black text-white">{currentUser?'Playlist σταθμού':'Συνδέσου στο iRadios για NowPlaying'}</h2></div>
@@ -107,7 +107,7 @@ export default function StationPlaylistPanel({
         </div>)}
       </div>}
       {loading&&!tracks.length&&<p className="mt-6 text-sm text-zinc-400">Φόρτωση τραγουδιών…</p>}
-      {chosen&&<button type="button" onClick={()=>navigate('/station/'+(chosen.slug||chosen._id))}
+      {chosen&&!sidebar&&<button type="button" onClick={()=>navigate('/station/'+(chosen.slug||chosen._id))}
         className="mt-3 w-full shrink-0 rounded-xl border border-white/10 p-2.5 text-xs font-semibold text-zinc-300 hover:border-[#ccff00]/30 hover:text-[#ccff00]">
         Δες τον σταθμό και το πρόγραμμά του
       </button>}

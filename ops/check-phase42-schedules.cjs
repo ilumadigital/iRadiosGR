@@ -69,8 +69,9 @@ async function main(){
     'Backoffice reads both legacy and canonical days');
   assert.ok(publicProfile.includes('const canonicalSchedule = useMemo('),
     'listener station profile reads both weekday formats');
-  assert.ok(publicProfile.includes('const currentDayIdx = now.getDay()||7'),
-    'listener now/next calculation uses ISO day index');
+  assert.ok(publicProfile.includes('const currentDayIdx = athensClock.day')&&
+    publicProfile.includes('getAthensClock'),
+    'listener now/next calculation uses the canonical weekday in Greece local time');
   assert.ok(!backoffice.includes('!/^([01]\\\\d'),
     'broken doubly-escaped time validation must never return');
   console.log('Schedule Phase 4.2 parity, midnight, legacy weekdays, conflicts, public profile passed.');

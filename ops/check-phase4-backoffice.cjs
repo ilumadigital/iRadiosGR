@@ -33,7 +33,7 @@ function matches(s,q={}){
 const Station={
   find:q=>({select:()=>({sort:()=>({limit:()=>({lean:async()=>all.filter(s=>matches(s,q))})})})}),
   countDocuments:async q=>all.filter(s=>matches(s,q)).length,
-  findOne:async q=>all.find(s=>matches(s,q))||null,
+  findOne:q=>({select:async()=>all.find(s=>matches(s,q))||null}),
   create:async fields=>{const s=doc({_id:'333333333333333333333333',schedule:[],...fields});
     all.push(s);return s;}
 };
@@ -61,6 +61,8 @@ Module._load=function(name,parent,isMain){
     };
     if(name==='multer')return multer;
     if(name==='../models/Station')return Station;
+    // XML synchronizer is validated separately and must not boot cron/network during role-contract tests.
+    if(name==='../services/stationScheduleFeed')return {loadFeed:async()=>{},publicPreview:()=>({}),syncOne:async()=>({}),startCron:()=>{}};
     if(name==='../models/User')return User;
     if(name==='../utils/authMiddleware')return {protect:auth};
     if(name==='../utils/roleMiddleware')return {authorizeRoles:roles};

@@ -2,6 +2,7 @@ import React, {useCallback,useEffect,useMemo,useState,Suspense,lazy} from 'react
 import {Link,NavLink,Routes,Route,Navigate,useLocation,useNavigate,useParams} from 'react-router-dom';
 import {Helmet} from 'react-helmet-async';
 import '../styles/backoffice-admin.css';
+import ScheduleXmlImport from '../components/ScheduleXmlImport';
 import {minutes,scheduleDayBase,toCanonical,normalize,nextDay} from '../utils/schedule';
 import {
   Activity,ArrowDownRight,ArrowLeft,ArrowRight,BadgeCheck,BarChart3,
@@ -423,7 +424,8 @@ function Scheduler({data,reload,notify}){
     setAmbiguousBase(existing.length>0&&station?.scheduleDayBase!==0&&station?.scheduleDayBase!==1&&
       !existing.some(show=>Number(show.day)===0||Number(show.day)===7));
     setSchedule(toCanonical(existing,base).map(s=>({
-      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
+      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||'',
+      imageUrl:s.imageUrl||'',description:s.description||''
     })));
     setDirty(false);
   },[station?._id]);
@@ -451,7 +453,8 @@ function Scheduler({data,reload,notify}){
     const existing=station?.schedule||[];
     setSourceBase(other);
     setSchedule(toCanonical(existing,other).map(s=>({
-      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||''
+      day:Number(s.day),startTime:s.startTime,endTime:s.endTime,title:s.title,host:s.host||'',
+      imageUrl:s.imageUrl||'',description:s.description||''
     })));
     setDirty(true);
     notify('Έλεγξε τις ημέρες και πάτησε Αποθήκευση για επιβεβαίωση.');
@@ -470,6 +473,9 @@ function Scheduler({data,reload,notify}){
         found[index]='Επίλεξε έγκυρες ώρες έναρξης και λήξης.';
       else if(from===to&&show.startTime!=='00:00')
         found[index]='Για ολοήμερη εκπομπή χρησιμοποίησε 00:00–00:00.';
+      else if(show.imageUrl&&!/^https?:\/\//i.test(show.imageUrl))
+        found[index]='Η εικόνα χρειάζεται δημόσιο HTTP/HTTPS URL.';
+      else if((show.description||'').length>600)found[index]='Η περιγραφή έχει όριο 600 χαρακτήρων.';
     });
     let message='',prepared=null;
     if(!Object.keys(found).length){
@@ -489,7 +495,7 @@ function Scheduler({data,reload,notify}){
     const startTime=last?.endTime&&last.endTime>'00:00'&&last.endTime<'23:00'?last.endTime:'10:00';
     const hour=Number(startTime.slice(0,2));
     const endTime=String(Math.min(hour+1,23)).padStart(2,'0')+':'+startTime.slice(3);
-    updateSchedule(previous=>[...previous,{day:activeDay,startTime,endTime,title:'',host:''}]);
+    updateSchedule(previous=>[...previous,{day:activeDay,startTime,endTime,title:'',host:'',imageUrl:'',description:''}]);
   };
   const edit=(index,key,value)=>updateSchedule(previous=>previous.map((s,j)=>
     j===index?{...s,[key]:value}:s));
@@ -500,7 +506,8 @@ function Scheduler({data,reload,notify}){
     const endHour=Number(startTime.slice(0,2))+1;
     const endTime=String(Math.min(endHour,23)).padStart(2,'0')+':'+startTime.slice(3);
     updateSchedule(previous=>[...previous,{
-      day:activeDay,startTime,endTime,title:show.title,host:show.host
+      day:activeDay,startTime,endTime,title:show.title,host:show.host,
+      imageUrl:show.imageUrl||'',description:show.description||''
     }]);
   };
   const changeStation=value=>{
@@ -557,17 +564,23 @@ function Scheduler({data,reload,notify}){
       notify(validation.message||'Συμπλήρωσε τους τίτλους και τις ώρες πριν αποθηκεύσεις.','error');
       return;
     }
+    if(station.scheduleFeed?.enabled){
+      if(data.user.role==='producer'){notify('Μόνο ο broadcaster ή ο admin μπορεί να σταματήσει το XML feed.','error');return;}
+      if(!window.confirm('Η χειροκίνητη αποθήκευση θα απενεργοποιήσει τον καθημερινό XML συγχρονισμό. Συνέχεια;'))return;
+    }
     setSaving(true);
     try{
       // The API does the same normalization again, under JWT + ownership checks.
       // Keep the user's overnight input intact until the server confirms the save.
       const result=await api('/stations/'+station._id+'/schedule',{
-        method:'PUT',body:JSON.stringify({schedule:schedule.map(({day,startTime,endTime,title,host})=>
-          ({day,startTime,endTime,title:title.trim(),host:host.trim()}))})
+        method:'PUT',body:JSON.stringify({schedule:schedule.map(({day,startTime,endTime,title,host,imageUrl,description})=>
+          ({day,startTime,endTime,title:title.trim(),host:host.trim(),
+            imageUrl:(imageUrl||'').trim(),description:(description||'').trim()}))})
       });
       setSchedule(toCanonical(result.station.schedule||[],1).map(show=>({
         day:Number(show.day),startTime:show.startTime,endTime:show.endTime,
-        title:show.title,host:show.host||''
+        title:show.title,host:show.host||'',imageUrl:show.imageUrl||'',
+        description:show.description||''
       })));
       setSourceBase(1);setAmbiguousBase(false);
       setDirty(false);
@@ -617,6 +630,15 @@ function Scheduler({data,reload,notify}){
         <button type="button" onClick={alignAdjacent} className={buttonSecondary}>
           <RefreshCw size={15}/> Τακτοποίηση ωρών</button>}
     </div>}
+    {station&&<ScheduleXmlImport station={station} api={api} notify={notify} reload={reload}
+      canManage={data.user.role!=='producer'} onImported={updated=>{
+        setSchedule(toCanonical(updated.schedule||[],1).map(show=>({
+          day:Number(show.day),startTime:show.startTime,endTime:show.endTime,
+          title:show.title,host:show.host||'',imageUrl:show.imageUrl||'',
+          description:show.description||''
+        })));
+        setDirty(false);setSourceBase(1);setAmbiguousBase(false);
+      }}/>}
     {!station?<div className={panel+' p-12 text-center text-zinc-400'}>Δεν έχεις εκχωρημένο σταθμό.
       {data.user.role==='broadcaster'&&<div className="mt-4"><Link className={buttonSecondary}
         to="/backoffice/stations/new">Προσθήκη σταθμού</Link></div>}</div>:
@@ -670,6 +692,23 @@ function Scheduler({data,reload,notify}){
               <Field label="Παραγωγός"><input maxLength={100} className={inputClass}
                 placeholder="π.χ. DJ Maria" value={show.host}
                 onChange={e=>edit(show.index,'host',e.target.value)}/></Field>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_64px]">
+              <Field label="Εικόνα εκπομπής (URL)">
+                <input type="url" maxLength={800} className={inputClass}
+                  placeholder="https://example.com/producer.jpg" value={show.imageUrl||''}
+                  onChange={e=>edit(show.index,'imageUrl',e.target.value)}/>
+              </Field>
+              <Field label="Περιγραφή εκπομπής">
+                <input maxLength={600} className={inputClass}
+                  placeholder="Μουσικό ύφος, θεματολογία…" value={show.description||''}
+                  onChange={e=>edit(show.index,'description',e.target.value)}/>
+              </Field>
+              <div className="flex items-end justify-start">
+                <img src={show.imageUrl||station.logo} alt="Προεπισκόπηση εικόνας εκπομπής"
+                  onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src=station.logo;}}
+                  className="size-14 rounded-xl border border-white/10 bg-white object-cover"/>
+              </div>
             </div>
             {errors[show.index]&&<p role="alert" className="mt-3 flex items-center gap-2 text-xs text-rose-300">
               <CircleAlert size={15}/>{errors[show.index]}</p>}
