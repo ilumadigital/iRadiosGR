@@ -26,7 +26,7 @@ assert.match(html, /<html lang="el">/);
 assert.doesNotMatch(html, /user-scalable=no|maximum-scale=1/);
 
 for(const [file,classes] of [
-  ['frontend/src/components/TopBar.jsx',['ir-app-topbar','ir-search-field','ir-action-primary']],
+  ['frontend/src/components/TopBar.jsx',['ir-app-topbar','ir-smart-search','ir-header__login']],
   ['frontend/src/components/Sidebar.jsx',['ir-app-sidebar','ir-nav-item--active']],
   ['frontend/src/components/MobileNav.jsx',['ir-app-mobile-nav']],
   ['frontend/src/pages/PlayingNow.jsx',['ir-now-playing-card']],
