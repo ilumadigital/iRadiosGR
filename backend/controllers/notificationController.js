@@ -109,7 +109,7 @@ async function verifyUnsubscribe(token){
   const User=require('../models/User');
   const {verifyToken}=require('../utils/notificationUnsubscribe');
   const id=typeof token==='string'?token.split('.')[0]:'';
-  if(!/^[a-f\\d]{24}$/i.test(id))return null;
+  if(!/^[a-f0-9]{24}$/i.test(id))return null;
   const user=await User.findById(id).select('email');
   return user&&verifyToken(token,user.email)===String(user._id)?user:null;
 }
