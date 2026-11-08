@@ -14,7 +14,6 @@ require('./utils/listenerNotificationScheduler').start();
 
 // --- 2. IMPORT MODELS & CONTROLLERS ---
 const User = require('./models/User');
-const ChatMessage = require('./models/ChatMessage');
 const StationAnalytics = require('./models/StationAnalytics');
 const Station = require('./models/Station'); 
 const BannerAd = require('./models/BannerAd'); 
@@ -412,38 +411,6 @@ io.on('connection', (socket) => {
         }
       }
     }
-  });
-
-  socket.on('join_station', async (stationId) => {
-    if (!stationId) return;
-    const roomId = stationId.toString();
-    socket.join(roomId);
-    try {
-      const oneHourAgo = new Date(Date.now() - 3600 * 1000);
-      const messages = await ChatMessage.find({ 
-        stationId: roomId,
-        createdAt: { $gte: oneHourAgo } 
-      }).sort({ createdAt: 1 }).limit(50);
-      socket.emit('chat_history', messages);
-    } catch (e) { console.error("Error fetching chat history", e); }
-  });
-
-  socket.on('leave_station', (stationId) => {
-    if (stationId) socket.leave(stationId.toString());
-  });
-
-  socket.on('send_message', async (data) => {
-    if (!data.text || !data.stationId) return;
-    try {
-      const newMsg = new ChatMessage({
-        stationId: data.stationId,
-        userId: data.userId,
-        username: data.username,
-        text: data.text
-      });
-      await newMsg.save();
-      io.to(data.stationId.toString()).emit('receive_message', newMsg);
-    } catch (e) { console.error("Error saving message", e); }
   });
 
   const handleStopListen = async (socketId) => {
