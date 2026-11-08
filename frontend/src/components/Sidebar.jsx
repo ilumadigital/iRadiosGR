@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
 import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, MessageSquare, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy } from 'lucide-react';
 
 function SidebarItem({ icon, label, to, currentPath, onClick, className = "", isCollapsed }) {
@@ -55,7 +56,6 @@ export default function Sidebar({
     localStorage.setItem('iradios_sidebar_collapsed', String(newVal));
   };
 
-  const genres = [...new Set(stations.map(s => s.genre))].filter(Boolean).sort();
   const regions = [...new Set(stations.map(s => s.region))].filter(Boolean).sort();
 
   const isAdmin = currentUser?.role === 'admin';
@@ -187,6 +187,15 @@ export default function Sidebar({
                 <>
                   <SidebarItem isCollapsed={isCollapsed} to="/" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Compass size={20} />} label="Αρχική" />
                   <SidebarItem isCollapsed={isCollapsed} to="/?explore=categories" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Grid2X2 size={20} />} label="Κατηγορίες" />
+                  <nav aria-label="Είδη ραδιοφώνων" className={`mb-4 mt-3 space-y-4 pl-4 pr-2 ${isCollapsed?'lg:hidden':''}`}>
+                    {PRIMARY_CATEGORY_GROUPS.map(group=><div key={group.label}>
+                      <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[.18em] text-zinc-500">{group.label}</p>
+                      {group.items.map(item=><Link key={item} to={`/genre/${encodeURIComponent(item)}`}
+                        onClick={()=>setIsMobileMenuOpen(false)}
+                        className={`block rounded-lg py-1.5 pl-2 text-[11px] font-semibold transition-colors hover:bg-white/5 hover:text-[#ccff00] ${decodeURIComponent(location.pathname)===`/genre/${item}`?'text-[#ccff00]':'text-zinc-400'}`}>
+                        {item}</Link>)}
+                    </div>)}
+                  </nav>
                   <SidebarItem isCollapsed={isCollapsed} to="/?explore=top" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Trophy size={20} />} label="Top σταθμοί" />
                   <SidebarItem isCollapsed={isCollapsed} to="/?explore=for-you" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Sparkles size={20} />} label="Προτάσεις για σένα" />
                   <SidebarItem isCollapsed={isCollapsed} to="/map" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<MapPinned size={20} />} label="Δες στον Χάρτη" />

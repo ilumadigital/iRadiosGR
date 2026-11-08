@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import StationCatalogCard from './StationCatalogCard';
 import EditorialPlacement from './EditorialPlacement';
+import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
 import {
   Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
   Play, MapPin, X, Headphones, Disc3, Music2, Grid2X2, MapPinned
@@ -57,11 +58,6 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
     (slide.audience==='premium'&&Boolean(currentUser&&(currentUser.isPremium||currentUser.role==='admin'||currentUser?.broadcasterProfile?.tier==='premium')));
   const genreSlideFor=name=>editorialTiles.genre.find(s=>s.placementValue===name&&canSeeSlide(s));
   const regionSlideFor=name=>editorialTiles.region.find(s=>s.placementValue===name&&canSeeSlide(s));
-  const genreList=useMemo(()=>{
-    const counts=new Map();
-    for(const station of stations)if(station.genre)counts.set(station.genre,(counts.get(station.genre)||0)+1);
-    return [...counts.keys()].sort((a,b)=>counts.get(b)-counts.get(a)||a.localeCompare(b,'el'));
-  },[stations]);
   const regionList=useMemo(()=>unique(stations.map(x=>x.region)),[stations]);
 
   // Sidebar shortcuts open this exact visual finder without introducing dropdowns/routes.
@@ -92,7 +88,7 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
     if(region)result=result.filter(s=>s.region===region);
     if(query.trim()){
       const q=normalize(query.trim());
-      result=result.filter(s=>[s.name,s.genre,s.region,s.city,s.slogan].some(t=>normalize(t).includes(q)));
+      result=result.filter(s=>[s.name,s.genre,s.secondaryGenre,s.region,s.city,s.slogan].some(t=>normalize(t).includes(q)));
     }
     return result;
   },[eligible,tab,genre,region,query,favIds,recentIds,prefGenres]);
@@ -127,33 +123,31 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
         {query&&<button type="button" onClick={()=>setQuery('')} aria-label="Καθαρισμός αναζήτησης" className="rounded-full p-2 hover:bg-white/10"><X size={16}/></button>}
       </label>
 
-      {!!genreList.length&&<div id="home-categories" className="scroll-mt-24">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      <div id="home-categories" className="scroll-mt-24 space-y-5">
+        <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-base font-black text-white"><Disc3 size={20} className="text-[#ccff00]"/> Κατηγορίες</h3>
           <button type="button" onClick={()=>{setGenre('');setTab('all');}} className="text-xs font-semibold text-[#ccff00]">Όλα τα είδη <ChevronRight size={14} className="inline"/></button>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8">
-          {genreList.slice(0,8).map((g,i)=>{
-            const count=eligible.filter(s=>s.genre===g).length;
-            const slide=genreSlideFor(g);
-            return <button type="button" key={g} aria-pressed={genre===g} onClick={()=>{setGenre(genre===g?'':g);setTab('all');setShowAll(false);}}
-              className={`ir-genre-tile relative flex aspect-[1.3] min-h-[104px] flex-col justify-between overflow-hidden rounded-2xl border bg-gradient-to-br p-3 text-left transition-all hover:-translate-y-0.5 ${gradients[i%gradients.length]} ${genre===g?'border-[#ccff00] ring-1 ring-[#ccff00]':'border-white/15 hover:border-white/40'}`}>
-              {slide?.imageUrl&&<>
-                <img src={slide.imageUrl} alt="" loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-65"/>
-                <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10"/>
-              </>}
-              <Music2 size={21} className="relative z-10 text-white/90"/>
-              <span className="relative z-10"><span className="block line-clamp-2 text-xs font-black leading-snug text-white">{g}</span><span className="mt-1 block text-[10px] text-zinc-300">{count} σταθμοί</span></span>
-              <span aria-hidden="true" className="absolute -bottom-6 -right-3 h-20 w-20 rounded-full border-[14px] border-white/10"/>
-            </button>;
-          })}
-        </div>
-        {genreList.length>8&&<div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {genreList.slice(8).map(g=><button type="button" key={g} aria-pressed={genre===g}
-            onClick={()=>{setGenre(genre===g?'':g);setTab('all');setShowAll(false);}}
-            className={`shrink-0 rounded-full border px-3 py-2 text-xs ${genre===g?'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]':'border-white/10 text-zinc-300 hover:border-[#ccff00]/50'}`}>{g}</button>)}
-        </div>}
-      </div>}
+        {PRIMARY_CATEGORY_GROUPS.map((group,groupIndex)=><section key={group.label} aria-label={group.label}>
+          <h4 className="mb-2 text-[10px] font-black uppercase tracking-[.18em] text-zinc-400">{group.label}</h4>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {group.items.map((g,i)=>{
+              const count=eligible.filter(station=>station.genre===g).length;
+              const slide=genreSlideFor(g);
+              return <button type="button" key={g} aria-pressed={genre===g} onClick={()=>{setGenre(genre===g?'':g);setTab('all');setShowAll(false);}}
+                className={`ir-genre-tile relative flex aspect-[1.3] min-h-[104px] flex-col justify-between overflow-hidden rounded-2xl border bg-gradient-to-br p-3 text-left transition-all hover:-translate-y-0.5 ${gradients[(i+groupIndex*5)%gradients.length]} ${genre===g?'border-[#ccff00] ring-1 ring-[#ccff00]':'border-white/15 hover:border-white/40'}`}>
+                {slide?.imageUrl&&<>
+                  <img src={slide.imageUrl} alt="" loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-65"/>
+                  <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/10"/>
+                </>}
+                <Music2 size={21} className="relative z-10 text-white/90"/>
+                <span className="relative z-10"><span className="block line-clamp-2 text-xs font-black leading-snug text-white">{g}</span><span className="mt-1 block text-[10px] text-zinc-300">{count} σταθμοί</span></span>
+                <span aria-hidden="true" className="absolute -bottom-6 -right-3 h-20 w-20 rounded-full border-[14px] border-white/10"/>
+              </button>;
+            })}
+          </div>
+        </section>)}
+      </div>
 
       {editorialTiles.region.some(s=>canSeeSlide(s)&&regionList.includes(s.placementValue))&&
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
