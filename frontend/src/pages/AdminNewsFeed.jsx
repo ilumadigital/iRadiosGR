@@ -10,6 +10,7 @@ const isGoogle=url=>{try{return new URL(url).hostname==='news.google.com';}catch
 const isRssnews=url=>{try{return new URL(url).hostname==='rssnews.io';}catch{return false;}};
 const isDirect=url=>{try{return !['rss.app','rssnews.io','news.google.com'].includes(new URL(url).hostname);}catch{return false;}};
 const rssCategories=url=>{try{return new URL(url).searchParams.get('c')?.split(',')||[];}catch{return [];}};
+const selectedPublishers=url=>{try{return new URL(url).searchParams.get('s')?.split(',').filter(Boolean)||[];}catch{return [];}};
 const MAX_SOURCES=32;
 const field='w-full min-w-0 rounded-xl border border-white/15 bg-zinc-950 px-4 py-3 text-sm text-white outline-none focus:border-[#ccff00]';
 const fresh=url=>({url,enabled:true,label:'',domain:'',category:'',id:''});
@@ -131,7 +132,13 @@ export default function AdminNewsFeed(){
               <input value={source.domain||''} onChange={e=>update(index,{domain:e.target.value})}
                 className={field} placeholder="π.χ. iefimerida.gr"/></label>}
           </div>
-          {isRssnews(source.url)&&<div className="mt-3 space-y-2"><div className="flex flex-wrap gap-1.5">{rssCategories(source.url).map(category=><span key={category} className="rounded-full border border-[#ccff00]/20 bg-[#ccff00]/[.05] px-2.5 py-1 text-[11px] font-bold text-[#ccff00]">{category}</span>)}</div><p className="text-xs leading-5 text-zinc-500">Το link αποθηκεύει τις κατηγορίες. Επειδή δεν είναι XML/API, τα άρθρα αντλούνται από απευθείας RSS ελληνικών εκδοτών. Η ακριβής λίστα του rssnews.io μπορεί να διαφέρει. Οι πραγματικές φωτογραφίες εντοπίζονται από το RSS ή το Open Graph της πηγής.</p></div>}
+          {isRssnews(source.url)&&<div className="mt-3 space-y-2"><div className="flex flex-wrap gap-1.5">{rssCategories(source.url).map(category=><span key={category} className="rounded-full border border-[#ccff00]/20 bg-[#ccff00]/[.05] px-2.5 py-1 text-[11px] font-bold text-[#ccff00]">{category}</span>)}</div><p className="text-xs leading-5 text-zinc-500">Το link αποθηκεύει τις κατηγορίες και, εφόσον έχει s=, τους συγκεκριμένους εκδότες. Επειδή δεν είναι XML/API, αναζητούνται τα δημόσια RSS των επιλεγμένων μέσων. Η ακριβής λίστα του rssnews.io μπορεί να διαφέρει. Οι φωτογραφίες προέρχονται από RSS ή Open Graph.</p></div>}
+          {isRssnews(source.url)&&selectedPublishers(source.url).length>0&&
+            <p className="mt-2 text-xs leading-5 text-zinc-400">
+              <span className="font-black text-[#ccff00]">{selectedPublishers(source.url).length} επιλεγμένοι εκδότες:</span>{' '}
+              {selectedPublishers(source.url).join(' · ')}
+              <span className="mt-1 block text-zinc-500">Μόνο οι εκδότες με προσβάσιμο δημόσιο RSS και αναγνωρισμένες κατηγορίες επιστρέφουν άρθρα. Οι μη διαθέσιμοι εμφανίζονται ως προειδοποιήσεις ανά πηγή.</span>
+            </p>}
           {source.retrievalMode==='domain-search'&&<p className="mt-3 text-xs leading-5 text-amber-200">Εναλλακτική λειτουργία: Google News αναζήτηση με το domain του εκδότη, επειδή δεν ήταν διαθέσιμο publisher RSS. Τα αποτελέσματα μπορεί να μην ταυτίζονται απόλυτα με τη σελίδα του publisher.</p>}
           {source.lastError&&<p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-500/10 p-3 text-xs text-rose-200">{source.lastError}</p>}
         </div>)}

@@ -233,7 +233,10 @@ function googleDomainEndpoint(source){
 async function download(source,{existingImages}={}){
   const normalized=normalizeSource(source);
   if(normalized.type==='rssnews_preset')
-    return rssNewsPreset.downloadPreset(normalized,{fetchXml});
+    return rssNewsPreset.downloadPreset(normalized,{
+      fetchXml,parseFeed:(xml,options)=>parse(xml,options),
+      existingImages,sourceId:source?.id
+    });
   if(normalized.type==='direct_rss'){
     const xml=await publicRss.requestText(normalized.url,{feed:true});
     const parsed=parse(xml,{feedUrl:normalized.url});

@@ -2,6 +2,7 @@
 // rssnews.io "feed=my&c=..." is a category-share URL, NOT an RSS/API endpoint.
 // Use the selected category names as a preset for verified, public publisher RSS URLs.
 // No scraping or requests to undocumented rssnews.io endpoints.
+const selectedPublishers=require('./rssnewsPublisherSelection');
 const CATEGORIES=Object.freeze({
   'Πολιτική':[['https://www.newsbeast.gr/politiki/feed','Newsbeast']],
   'Lifestyle':[['https://www.newsbeast.gr/lifestyle/feed','Newsbeast']],
@@ -47,8 +48,9 @@ function normalizePreset(raw){
     bad('Δώσε το δημόσιο link από τη «Ροή μου» στο rssnews.io.');
   if(url.searchParams.get('feed')!=='my'||!url.searchParams.get('c'))
     bad('Το rssnews.io link χρειάζεται feed=my και επιλεγμένες κατηγορίες (c).');
-  if([...url.searchParams.keys()].some(k=>!['feed','c'].includes(k))||
-     url.searchParams.getAll('feed').length!==1||url.searchParams.getAll('c').length!==1)
+  if([...url.searchParams.keys()].some(k=>!['feed','c','s'].includes(k))||
+     url.searchParams.getAll('feed').length!==1||url.searchParams.getAll('c').length!==1||
+     url.searchParams.getAll('s').length>1)
     bad('Το rssnews.io link έχει μη υποστηριζόμενες παραμέτρους.');
   const entries=url.searchParams.get('c').split(',').map(c=>c.trim()).filter(Boolean);
   if(!entries.length||entries.length>10)bad('Επίλεξε έως 10 κατηγορίες.');
@@ -60,7 +62,10 @@ function normalizePreset(raw){
   const canonical=new URL('https://rssnews.io/');
   canonical.searchParams.set('feed','my');
   canonical.searchParams.set('c',categories.join(','));
-  return {type:'rssnews_preset',url:canonical.href,domain:'',categories};
+  const publishers=url.searchParams.has('s')?
+    selectedPublishers.normalizePublishers(url.searchParams.get('s')):[];
+  if(publishers.length)canonical.searchParams.set('s',publishers.join(','));
+  return {type:'rssnews_preset',url:canonical.href,domain:'',categories,publishers};
 }
 const uniqueFeeds=preset=>{
   const seen=new Set(),result=[];
@@ -120,8 +125,12 @@ async function mapLimited(items,limit,mapper){
   }));
   return result;
 }
-async function downloadPreset(source,{fetchXml}){
+async function downloadPreset(source,{fetchXml,parseFeed,existingImages,sourceId}){
   const preset=normalizePreset(typeof source==='string'?source:source.url);
+  if(preset.publishers.length)
+    return selectedPublishers.collectSelected(preset,{
+      categoryFeeds:CATEGORIES,parseFeed,existingImages,sourceId
+    });
   const feeds=uniqueFeeds(preset);
   // A bounded set of allowlisted publisher RSS endpoints, up to six concurrent.
   const fetched=await mapLimited(feeds,6,async feed=>{
