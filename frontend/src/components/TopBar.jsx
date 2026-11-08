@@ -218,7 +218,8 @@ export default function TopBar({
 
   return (
     <header className={'ir-app-topbar ir-header sticky top-0 z-50 flex h-[70px] items-center gap-2 px-3 sm:px-5 lg:px-6 ' +
-      (expanded ? 'ir-header--searching' : '')}>
+      (expanded ? 'ir-header--searching' : '') +
+      (location.pathname.startsWith('/station/') ? ' ir-header--station-page' : '')}>
       <div className="ir-header__left flex min-w-0 items-center gap-2">
         <button type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Άνοιγμα μενού πλοήγησης"
           className="ir-header__mobile-menu ir-header__icon-button lg:hidden"><Menu size={21}/></button>
