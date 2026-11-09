@@ -23,12 +23,14 @@ function normalizeStationCity(input) {
   if (!group) return {data, error: 'Μη έγκυρη περιφέρεια.'};
   const prefecture = data.prefecture || inferPrefecture(country, data.region, data.city);
   if (!prefecture || !group[prefecture]) {
-    return {data, error: 'Επέλεξε έγκυρο νομό και την πρωτεύουσά του.'};
+    return {data, error: 'Επέλεξε έγκυρο νομό και πόλη.'};
   }
   data.country = country;
   data.prefecture = prefecture;
-  data.city = country === 'Ελλάδα' && prefecture === 'Κυκλάδες'
-    ? 'Ερμούπολη' : group[prefecture][0];
+  // Keep valid selected cities, including the non-capital choices.
+  // Legacy city values outside the catalog still fall back to the prefectural seat.
+  data.city = group[prefecture].find(city => clean(city) === clean(data.city)) ||
+    group[prefecture][0];
   return {data};
 }
 
@@ -46,10 +48,12 @@ function validateStationLocation(input, {current = {}, required = false} = {}) {
   if (!cities?.length) {
     return {data:input, error:'Επέλεξε έγκυρη χώρα, περιφέρεια και νομό.'};
   }
-  const permitted = location.country === 'Εξωτερικό' ? cities :
-    [location.country === 'Ελλάδα' && location.prefecture === 'Κυκλάδες' ? 'Ερμούπολη' : cities[0]];
+  // Greece uses the three registered cities (full lists for Attica/Thessaloniki).
+  // Cyprus retains the existing prefectural-capital-only rule.
+  const permitted = location.country === 'Ελλάδα' || location.country === 'Εξωτερικό' ?
+    cities : [cities[0]];
   if (!permitted.includes(location.city)) {
-    return {data:input, error:'Η πόλη πρέπει να είναι η πρωτεύουσα του επιλεγμένου νομού.'};
+    return {data:input, error:'Η πόλη πρέπει να είναι μία από τις διαθέσιμες πόλεις του επιλεγμένου νομού.'};
   }
   return {data:{...input, ...location}};
 }
