@@ -665,7 +665,7 @@ export default function StationProfile({
                     </button>
 
                     {showEQMenu && (
-                      <div className="absolute top-full left-0 lg:left-1/2 lg:-translate-x-1/2 mt-3 w-56 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-fade-in">
+                      <div className="absolute bottom-full left-0 lg:left-1/2 lg:-translate-x-1/2 mb-3 w-56 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-fade-in">
                         <div className="px-3 py-2 mb-2 border-b border-white/5">
                           <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Ρυθμιση ηχου</span>
                         </div>
