@@ -19,8 +19,6 @@ export default function MobileStationShowcase({
   const [moreOpen, setMoreOpen] = useState(false);
   const menuRef = useRef(null);
   const offline = station.isOffline === true;
-  const backgroundImage = station.cover || station.logo;
-  const isActualCover = Boolean(station.cover);
   const title = song?.title || (!loadingMetadata && songText ? songText : '');
   const secondary = song?.artist || '';
   const showTitle = show?.title || '';
@@ -50,8 +48,8 @@ export default function MobileStationShowcase({
   return (
     <section className="ir-station-mobile-showcase" style={{ '--ir-station-ambient': ambient }}
       aria-label={'Προφίλ σταθμού ' + station.name}>
-      <div className={'ir-mobile-station-backdrop' + (isActualCover ? ' has-cover' : ' is-logo')} aria-hidden="true">
-        <img src={backgroundImage} alt="" onError={event => { event.currentTarget.style.display = 'none'; }} />
+      <div className="ir-mobile-station-backdrop is-logo" aria-hidden="true">
+        <img src={station.logo} alt="" onError={event => { event.currentTarget.style.display = 'none'; }} />
         <span className="ir-mobile-station-backdrop-glow" />
       </div>
 
