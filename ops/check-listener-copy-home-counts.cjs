@@ -35,6 +35,19 @@ assert.ok(deck.includes('ResizeObserver') && deck.includes('gridTemplateColumns'
   deck.includes('onAirExtraRows') && deck.includes('rows + 2'),
   'For You and On Air use responsive grid and reveal two rows per click');
 assert.ok(deck.includes('stationIsPlaying'), 'radio playback state must remain intact');
+assert.ok(deck.includes('const hasDeckItems = picks.length > 0 || onAir.length > 0;') &&
+  deck.includes('useLayoutEffect(() => {') &&
+  deck.includes('}, [hasDeckItems]);'),
+  'delayed station data must trigger grid column measurement after the cards mount');
+assert.ok(deck.indexOf('useLayoutEffect(() => {') > deck.indexOf('const hasDeckItems =') &&
+  deck.includes('if (!hasDeckItems) return;') &&
+  deck.includes('if (!hasDeckItems) return null;'),
+  'grid measurement must safely handle the initial empty async render');
+assert.ok(deck.includes('const width = deck.getBoundingClientRect().width || deck.clientWidth;') &&
+  deck.includes('width >= 1320 ? 6') && deck.includes('width >= 440 ? 2 : 1') &&
+  deck.includes('observer?.observe(deck)') &&
+  deck.includes("window.addEventListener('resize', updateColumns)"),
+  'grid must respond to actual content width, the desktop sidebar, and window/container resize');
 assert.ok(deck.includes('function OnAirArtwork(') && deck.includes('<OnAirArtwork artworkUrl={backgroundUrl}'),
   'every active programme renders its artwork canvas, even with no programme photo');
 assert.ok(deck.includes('flex aspect-square w-full min-w-0') && !deck.includes('h-[160px]'),
