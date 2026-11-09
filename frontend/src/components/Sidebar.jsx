@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
-import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Newspaper, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy } from 'lucide-react';
+import {getAvailableRegionLinks} from '../utils/stationRegions';
+import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Newspaper, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy, ChevronDown } from 'lucide-react';
 
-function SidebarItem({ icon, label, to, currentPath, onClick, className = "", isCollapsed }) {
+function SidebarItem({ icon, label, to, state, currentPath, onClick, className = "", isCollapsed }) {
   const active = currentPath === to || decodeURIComponent(currentPath) === to;
   
   return (
     <Link 
       to={to} 
+      state={state}
       onClick={onClick}
       title={isCollapsed ? label : ""} 
       className={`ir-nav-item ${active ? 'ir-nav-item--active' : ''} relative flex items-center rounded-xl cursor-pointer transition-all duration-300 overflow-hidden ${
@@ -55,7 +57,30 @@ export default function Sidebar({
     localStorage.setItem('iradios_sidebar_collapsed', String(newVal));
   };
 
-  const regions = [...new Set(stations.map(s => s.region))].filter(Boolean).sort();
+  const regionLinks = getAvailableRegionLinks(Array.isArray(stations) ? stations : []);
+
+  const [categoriesOpen, setCategoriesOpen] = useState(() => location.pathname.startsWith('/genre/'));
+  const [regionsOpen, setRegionsOpen] = useState(() => location.pathname.startsWith('/region/'));
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/genre/')) setCategoriesOpen(true);
+    if (location.pathname.startsWith('/region/')) setRegionsOpen(true);
+  }, [location.pathname]);
+
+  const toggleSubmenu = section => {
+    // A collapsed desktop sidebar should expand before revealing its submenu.
+    if (isCollapsed) {
+      setIsCollapsed(false);
+      localStorage.setItem('iradios_sidebar_collapsed', 'false');
+    }
+    if (section === 'categories') setCategoriesOpen(open => !open);
+    else setRegionsOpen(open => !open);
+  };
+
+  const goToHomeStart = () => {
+    setIsMobileMenuOpen(false);
+    document.getElementById('main-scroll-area')?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const isAdmin = currentUser?.role === 'admin';
   const isBroadcaster = currentUser?.role === 'broadcaster';
@@ -184,45 +209,44 @@ export default function Sidebar({
               
               {!isProducer && (
                 <>
-                  <SidebarItem isCollapsed={isCollapsed} to="/" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Compass size={20} />} label="Αρχική" />
+                  <SidebarItem isCollapsed={isCollapsed} to="/" state={{ forceHome: true }} currentPath={location.pathname+location.search} onClick={goToHomeStart} icon={<Compass size={20} />} label="Αρχική" />
                    <SidebarItem isCollapsed={isCollapsed} to="/newsfeed" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Newspaper size={20} />} label="Ειδήσεις" />
-                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=categories" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Grid2X2 size={20} />} label="Κατηγορίες" />
-                  <nav aria-label="Είδη ραδιοφώνων" className={`mb-4 mt-3 space-y-4 pl-4 pr-2 ${isCollapsed?'lg:hidden':''}`}>
-                    {PRIMARY_CATEGORY_GROUPS.map(group=><div key={group.label}>
-                      <p className="mb-1.5 text-[9px] font-bold uppercase tracking-[.18em] text-zinc-500">{group.label}</p>
-                      {group.items.map(item=><Link key={item} to={`/genre/${encodeURIComponent(item)}`}
-                        onClick={()=>setIsMobileMenuOpen(false)}
-                        className={`block rounded-lg py-1.5 pl-2 text-[11px] font-semibold transition-colors hover:bg-white/5 hover:text-[#ccff00] ${decodeURIComponent(location.pathname)===`/genre/${item}`?'text-[#ccff00]':'text-zinc-400'}`}>
-                        {item}</Link>)}
-                    </div>)}
-                  </nav>
+                  <button
+                    type="button"
+                    aria-expanded={categoriesOpen}
+                    aria-controls="ir-sidebar-categories"
+                    title={isCollapsed ? 'Κατηγορίες' : undefined}
+                    onClick={() => toggleSubmenu('categories')}
+                    className={`ir-nav-item flex w-full items-center rounded-xl text-left transition-all duration-300 ${location.pathname.startsWith('/genre/') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'} ${isCollapsed ? 'lg:justify-center lg:px-0 lg:py-3 px-4 py-3 gap-4' : 'px-4 py-3 gap-4'}`}
+                  >
+                    <Grid2X2 size={20} className="shrink-0"/>
+                    <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:max-w-0 lg:opacity-0' : ''}`}>Κατηγορίες</span>
+                    <ChevronDown size={16} aria-hidden="true" className={`ml-auto shrink-0 transition-transform duration-200 ${categoriesOpen ? 'rotate-180' : ''} ${isCollapsed ? 'lg:hidden' : ''}`}/>
+                  </button>
+                  {categoriesOpen && (
+                    <div id="ir-sidebar-categories" className={`mb-4 ml-6 space-y-4 border-l border-white/10 pl-3 pr-1 ${isCollapsed ? 'lg:hidden' : ''}`}>
+                      {PRIMARY_CATEGORY_GROUPS.map(group => (
+                        <div key={group.label}>
+                          <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-zinc-500">{group.label}</p>
+                          <div className="space-y-0.5">
+                            {group.items.map(item => (
+                              <Link key={item} to={`/genre/${encodeURIComponent(item)}`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className={`block rounded-xl px-3 py-2.5 text-[13px] font-medium leading-snug transition-colors hover:bg-white/5 hover:text-[#ccff00] ${decodeURIComponent(location.pathname) === `/genre/${item}` ? 'bg-white/5 text-[#ccff00]' : 'text-zinc-400'}`}>
+                                {item}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <SidebarItem isCollapsed={isCollapsed} to="/?explore=top" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Trophy size={20} />} label="Top σταθμοί" />
                   <SidebarItem isCollapsed={isCollapsed} to="/?explore=for-you" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Sparkles size={20} />} label="Προτάσεις για σένα" />
                   <SidebarItem isCollapsed={isCollapsed} to="/map" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<MapPinned size={20} />} label="Δες στον Χάρτη" />
                 </>
               )}
 
-              {/* 🚀 Διαφημιστικό Δίκτυο */}
-                <Link
-                  to="/go-ads"
-                  title={isCollapsed ? (isAgency ? "Δες Τιμές Διαφήμισης" : "Διαφήμιση") : ""}
-                  className={`flex items-center rounded-xl transition-all duration-300 overflow-hidden relative ${
-                    location.pathname === '/go-ads' 
-                      ? 'bg-[#ccff00] text-black shadow-lg' 
-                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                  } ${isCollapsed ? 'lg:justify-center lg:px-0 lg:py-3 px-4 py-3' : 'px-4 py-3 gap-3'}`}
-                >
-                  <div className="shrink-0 flex items-center justify-center relative z-10">
-                    <Target size={20} />
-                  </div>
-                  <span className={`text-sm font-medium tracking-wider whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:max-w-0 lg:opacity-0' : 'max-w-[200px] opacity-100'} ${isCollapsed ? 'ml-3 lg:ml-0' : ''}`}>
-                    {isAgency ? "Δες Τιμές Διαφήμισης" : "Διαφήμιση"}
-                  </span>
-                  <span className={`absolute right-3 bg-purple-600 text-white px-1.5 py-0.5 rounded-md animate-pulse transition-all duration-300 ${isCollapsed ? 'lg:text-[6px] lg:right-1 lg:top-1' : 'text-[8px]'}`}>
-                    NEW
-                  </span>
-                </Link>
-              
               {/* ADMIN SECTION */}
               {isAdmin && (
                 <>
@@ -336,15 +360,30 @@ export default function Sidebar({
                     </div>
                   )}
 
-                  {/* Focused region shortcuts; the home grid contains every real region/genre. */}
-                  <div className={`ir-sidebar-heading mb-3 mt-7 px-4 text-[10px] font-black uppercase tracking-widest text-zinc-500 ${isCollapsed?'lg:hidden':''}`}>Ανά περιοχή</div>
-                  {['Αττική','Θεσσαλονίκη','Ανατολική Μακεδονία & Θράκη'].map(name=>(
-                    <SidebarItem key={name} isCollapsed={isCollapsed} to={`/region/${encodeURIComponent(name)}`}
-                      currentPath={location.pathname} onClick={()=>setIsMobileMenuOpen(false)}
-                      icon={<MapPin size={18}/>} label={name}/>
-                  ))}
-                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=regions" currentPath={location.pathname+location.search}
-                    onClick={()=>setIsMobileMenuOpen(false)} icon={<Grid2X2 size={18}/>} label="Περισσότερες περιοχές"/>
+                  {/* City-first shortcuts and real radio regions, populated from available stations. */}
+                  <button
+                    type="button"
+                    aria-expanded={regionsOpen}
+                    aria-controls="ir-sidebar-regions"
+                    title={isCollapsed ? 'Ανά περιοχή' : undefined}
+                    onClick={() => toggleSubmenu('regions')}
+                    className={`ir-nav-item mt-5 flex w-full items-center rounded-xl text-left transition-all duration-300 ${location.pathname.startsWith('/region/') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'} ${isCollapsed ? 'lg:justify-center lg:px-0 lg:py-3 px-4 py-3 gap-4' : 'px-4 py-3 gap-4'}`}
+                  >
+                    <MapPin size={20} className="shrink-0"/>
+                    <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:max-w-0 lg:opacity-0' : ''}`}>Ανά περιοχή</span>
+                    <ChevronDown size={16} aria-hidden="true" className={`ml-auto shrink-0 transition-transform duration-200 ${regionsOpen ? 'rotate-180' : ''} ${isCollapsed ? 'lg:hidden' : ''}`}/>
+                  </button>
+                  {regionsOpen && (
+                    <div id="ir-sidebar-regions" className={`mb-4 ml-6 space-y-0.5 border-l border-white/10 pl-3 pr-1 ${isCollapsed ? 'lg:hidden' : ''}`}>
+                      {regionLinks.map(name => (
+                        <Link key={name} to={`/region/${encodeURIComponent(name)}`}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className={`block rounded-xl px-3 py-2.5 text-[13px] font-medium leading-snug transition-colors hover:bg-white/5 hover:text-[#ccff00] ${decodeURIComponent(location.pathname) === `/region/${name}` ? 'bg-white/5 text-[#ccff00]' : 'text-zinc-400'}`}>
+                          {name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -368,7 +407,31 @@ export default function Sidebar({
             
             {/* 📥 BOTTOM SECTION (Footer & CTA) */}
             <div className="mt-8">
-              {!['admin', 'broadcaster', 'producer', 'agency'].includes(currentUser?.role) && ( 
+              {/* Advertising CTA belongs with the Premium card, not the discovery links. */}
+              <div className={`mb-4 px-4 ${isCollapsed ? 'lg:hidden' : ''}`}>
+                <div className="relative overflow-hidden rounded-3xl border border-purple-400/25 bg-gradient-to-br from-[#302041] via-[#20192d] to-[#0b1011] p-4 shadow-[0_0_28px_rgba(168,85,247,0.08)]">
+                  <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-purple-500/15 blur-[35px]"/>
+                  <div className="relative z-10">
+                    <h4 className="flex items-center gap-2 text-sm font-black text-white">
+                      <Target size={18} className="text-purple-300"/> Διαφήμιση στο iRadiosGR
+                      <span className="ml-auto rounded-md bg-purple-600/80 px-1.5 py-0.5 text-[9px] font-bold text-white">NEW</span>
+                    </h4>
+                    <p className="mt-3 text-[11px] leading-relaxed text-zinc-300">Προώθησε την επιχείρησή σου στο δίκτυο του iRadiosGR.</p>
+                    <Link to="/go-ads" onClick={() => setIsMobileMenuOpen(false)}
+                      className="mt-4 flex min-h-10 items-center justify-center gap-2 rounded-full bg-purple-500 px-3 text-xs font-black text-white transition-colors hover:bg-purple-400">
+                      {isAgency ? 'Δες τιμές διαφήμισης' : 'Δες τις επιλογές διαφήμισης'} <Rocket size={15}/>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+              {isCollapsed && (
+                <Link to="/go-ads" title="Διαφήμιση" aria-label="Διαφήμιση"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="mx-3 mb-4 hidden justify-center rounded-xl py-3 text-purple-300 hover:bg-purple-500/10 lg:flex">
+                  <Target size={20}/>
+                </Link>
+              )}
+              {![''admin', 'broadcaster', 'producer', 'agency'].includes(currentUser?.role) && ( 
                 <div className={`px-4 shrink-0 transition-all duration-300 ${isCollapsed ? 'lg:opacity-0 lg:h-0 lg:overflow-hidden' : 'opacity-100 h-auto'}`}>
                   <div className="relative overflow-hidden rounded-3xl border border-[#ccff00]/25 bg-gradient-to-br from-[#323a19]/95 via-[#1c2417] to-[#0b1011] p-4 shadow-[0_0_28px_rgba(204,255,0,0.07)]">
                     <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#ccff00]/20 blur-[35px]"/>
