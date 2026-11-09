@@ -67,6 +67,22 @@ for (const feature of ['Εβδομαδιαίο πρόγραμμα', 'Boost', 'Au
 }
 assert.ok(richInvite.html.includes('Test &amp; Radio'), 'station name is HTML-escaped');
 
+const logoInvite = broadcasterInvitationEmail({
+  name: 'Demo <FM>', logo: '/media/radioassets/demo/logo.png'
+}, invitationLink);
+assert.ok(logoInvite.html.includes('src="' + site + '/media/radioassets/demo/logo.png"'),
+  'broadcaster invite renders an absolute station logo in the assignment card');
+assert.ok(logoInvite.html.includes('object-fit:contain'), 'logo must preserve its aspect ratio');
+assert.ok(logoInvite.html.includes('Demo &lt;FM&gt;'), 'logo alt and name must be escaped');
+assert.equal(logoInvite.html.split(invitationLink).length - 1, 3,
+  'station artwork must not interfere with the three invite CTAs');
+const unsafeLogoInvite = broadcasterInvitationEmail({
+  name: 'Demo FM', logo: 'javascript:alert(1)'
+}, invitationLink);
+assert.ok(!unsafeLogoInvite.html.includes('javascript:alert(1)'),
+  'unsafe station logo URL must be omitted from email HTML');
+
+
 const once=renderBrandedEmail({content:'<p>hello</p>'});
 assert.equal(ensureBrandedEmail(once, {category:'test'}),once,'never double-wrap an already branded email');
 assert.ok(ensureBrandedEmail('<p>hello</p>').includes(BRAND_MARKER),'ad-hoc emails must become branded');
