@@ -75,7 +75,7 @@ function snapshotSong(doc,now=Date.now()){
   const ai=doc?.currentAI;
   const aiExpiry=normTime(ai?.expiresAt);
   const aiTime=normTime(ai?.recognizedAt);
-  const music=ai&&Number.isFinite(aiExpiry)&&aiExpiry>now&&
+  const music=ai?.kind==='manual'&&Number.isFinite(aiExpiry)&&aiExpiry>now&&
     Number.isFinite(aiTime)&&aiTime<=now+30000&&parseTrack(ai.raw)
     ?{title:ai.raw,source:'acrcloud',foundWithAI:true,
       recognizedAt:new Date(ai.recognizedAt).toISOString(),
