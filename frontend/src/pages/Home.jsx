@@ -391,9 +391,10 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       !localIds.includes(s._id)
     ); // Ranking priority is shared with the catalog.
 
-    let combined = [...localStations, ...discoveryStations].slice(0, 12);
+    const recommendationLimit = 36;
+    let combined = [...localStations, ...discoveryStations].slice(0, recommendationLimit);
 
-    if (combined.length < 12) {
+    if (combined.length < recommendationLimit) {
       const chosenIds = new Set(combined.map(s => String(s._id)));
       const preferred = rankedStations.filter(s =>
         s._id && (s.status === 'approved' || !s.status) &&
@@ -406,7 +407,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       const fillIns = [...preferred, ...others];
       combined = [...combined, ...fillIns].filter((station,index,all) =>
         all.findIndex(s => String(s._id) === String(station._id)) === index
-      ).slice(0, 12);
+      ).slice(0, recommendationLimit);
     }
 
     return combined;
