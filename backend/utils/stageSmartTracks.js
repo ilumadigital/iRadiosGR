@@ -33,7 +33,7 @@ async function hydrateSharedAI(stationId,now=Date.now()){
   const doc=await Playlist.findOne({stationId}).select('currentAI').lean();
   const value=doc?.currentAI;
   const expiresAt=new Date(value?.expiresAt).getTime();
-  if(!value||!Number.isFinite(expiresAt)||expiresAt<=now){
+  if(!value||value.kind!=='manual'||!Number.isFinite(expiresAt)||expiresAt<=now){
     results.delete(key);
     return null;
   }
@@ -48,7 +48,9 @@ async function hydrateSharedAI(stationId,now=Date.now()){
   return item;
 }
 
-async function publishAI(station,payload,kind='auto',now=Date.now()){
+async function publishAI(station,payload,kind='manual',now=Date.now()){
+  // No automatic vendor recognition is permitted anywhere in the network.
+  if(kind!=='manual')return null;
   const song=validTrackFromAcr(payload);
   if(!song||!station?._id)return null;
   const key=String(station._id);
