@@ -79,11 +79,17 @@ export default function BroadcasterInvitation({ API_URL, currentUser, setCurrent
         <h1 className="text-3xl font-black mt-2 mb-3">Πρόσκληση διαχείρισης σταθμού</h1>
         {loading ? <p className="flex gap-2 items-center text-zinc-400"><Loader2 className="animate-spin" /> Έλεγχος πρόσκλησης…</p> : (
           <>
-            {invitation && <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-4 rounded-2xl mb-5">
-              {invitation.station.logo
-                ? <img src={invitation.station.logo} alt="" className="w-16 h-16 rounded-xl object-cover" />
-                : <Radio className="text-zinc-500" />}
-              <div><p className="text-xl font-black">{invitation.station.name}</p><p className="text-xs text-zinc-400">Πρόσκληση για {invitation.email}</p></div>
+            {invitation && <div className="mb-5 flex items-center gap-4 rounded-2xl border border-[#ccff00]/25 bg-[#0c121c] p-4 sm:p-5">
+              <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+                {invitation.station.logo
+                  ? <img src={invitation.station.logo} alt={`Λογότυπο ${invitation.station.name}`} className="h-full w-full object-contain" />
+                  : <Radio className="text-zinc-500" size={30} aria-hidden="true" />}
+              </div>
+              <div className="min-w-0">
+                <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[.17em] text-zinc-400">Σταθμός προς ανάθεση</p>
+                <p className="break-words text-lg font-black leading-tight text-[#ccff00] sm:text-xl">{invitation.station.name}</p>
+                <p className="mt-2 break-all text-xs text-zinc-400">Πρόσκληση για {invitation.email}</p>
+              </div>
             </div>}
             {message && <p role="status" className={`mb-5 rounded-xl p-4 text-sm border ${claimed ? 'border-lime-500/30 bg-lime-500/10 text-lime-300' : 'border-amber-500/20 bg-amber-500/10 text-amber-300'}`}>{message}</p>}
             {claimed ? (
