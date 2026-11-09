@@ -108,6 +108,42 @@ function contain(ctx, image, x, y, width, height) {
   ctx.drawImage(image, x + (width - dw) / 2, y + (height - dh) / 2, dw, dh);
 }
 
+// Match the ambient accent used by the mobile station logo frame. Use the
+// already-loaded, CORS-safe image; if pixel reading is disallowed, keep the
+// same deterministic neutral-lime fallback as useStationAmbient.
+function stationLogoAccent(image) {
+  const fallback = [134, 165, 56];
+  if (!image) return fallback;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return fallback;
+    context.drawImage(image, 0, 0, 32, 32);
+    const { data } = context.getImageData(0, 0, 32, 32);
+    let best = null;
+    let strength = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const [r, g, b, a] = data.slice(i, i + 4);
+      if (a < 210) continue;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const chroma = max - min;
+      const lum = (r + g + b) / 3;
+      if (chroma < 32 || lum < 42 || lum > 223) continue;
+      const score = chroma * (1 - Math.abs(138 - lum) / 240);
+      if (score > strength) {
+        strength = score;
+        best = [r, g, b];
+      }
+    }
+    return best ? best.map(value => Math.max(55, Math.min(210, value))) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function textLines(ctx, value, maxWidth, maxLines) {
   const tokens = String(value || '').trim().split(/\s+/).filter(Boolean);
   const lines = [];
@@ -190,20 +226,57 @@ export async function generateStationStory({ station, nowPlaying, artworkUrl, sh
     ctx.fillStyle = ACCENT;
     ctx.fillText('GR', 294, 290);
   }
+  // Match .ir-mobile-station-logo-frame: the image itself is clipped to a
+  // 20px-equivalent radius, with its station-derived border and soft glow.
+  // No gray outer square, inset white padding or extra logo container.
+  const [accentR, accentG, accentB] = stationLogoAccent(stationLogo);
+  const accent = `${accentR},${accentG},${accentB}`;
+  const logoX = 846, logoY = 208, logoSize = 148, logoRadius = 25;
   ctx.save();
-  rounded(ctx, 846, 208, 148, 148, 32);
-  ctx.fillStyle = 'rgba(255,255,255,.16)';
+  ctx.shadowColor = `rgba(${accent},.32)`;
+  ctx.shadowBlur = 42;
+  rounded(ctx, logoX, logoY, logoSize, logoSize, logoRadius);
+  ctx.fillStyle = `rgba(${accent},.64)`;
   ctx.fill();
+  ctx.restore();
+  ctx.save();
+  rounded(ctx, logoX, logoY, logoSize, logoSize, logoRadius);
   ctx.clip();
   if (stationLogo) {
-    contain(ctx, stationLogo, 855, 216, 130, 132);
+    contain(ctx, stationLogo, logoX, logoY, logoSize, logoSize);
   } else {
     ctx.textAlign = 'center';
-    ctx.font = '800 44px system-ui, sans-serif';
+    ctx.font = '800 40px system-ui, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(data.stationName.slice(0, 3).toUpperCase(), 920, 300);
+    ctx.fillText(data.stationName.slice(0, 3).toUpperCase(), logoX + logoSize / 2, logoY + 90);
   }
   ctx.restore();
+  ctx.save();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = `rgba(${accent},.95)`;
+  rounded(ctx, logoX + 1.5, logoY + 1.5, logoSize - 3, logoSize - 3, logoRadius);
+  ctx.stroke();
+  ctx.restore();
+
+  // Compact overlapping status pill, as on the mobile Station Profile.
+  const offline = station.isOffline === true;
+  const badgeWidth = offline ? 104 : 86;
+  const badgeX = logoX + (logoSize - badgeWidth) / 2;
+  const badgeY = logoY + logoSize - 10;
+  ctx.save();
+  ctx.shadowColor = offline ? 'transparent' : 'rgba(204,255,0,.28)';
+  ctx.shadowBlur = offline ? 0 : 14;
+  rounded(ctx, badgeX, badgeY, badgeWidth, 29, 15);
+  ctx.fillStyle = offline ? '#cc3434' : ACCENT;
+  ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = offline ? '#ffffff' : '#111b00';
+  ctx.beginPath();
+  ctx.arc(badgeX + 14, badgeY + 14.5, 3.5, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.font = '900 16px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(offline ? 'OFFLINE' : 'LIVE', badgeX + badgeWidth / 2 + 5, badgeY + 20);
 
   ctx.textAlign = 'left';
   ctx.font = '800 30px system-ui, sans-serif';
