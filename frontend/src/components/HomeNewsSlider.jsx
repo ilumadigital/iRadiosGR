@@ -89,8 +89,9 @@ export default function HomeNewsSlider({articles = [], category = 'all', now = D
                 aria-label={'Διάβασε την είδηση: ' + article.title}
                 className="ir-news-slide-link relative block h-full w-full overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[#ccff00]">
                 <div className="ir-news-ambient pointer-events-none absolute inset-0" aria-hidden="true">
-                  {showImage && <img src={article.imageUrl} alt="" loading="lazy" decoding="async"
-                    className="ir-news-ambient-image" />}
+                  {showImage && (visible || slideIndex === (activeIndex + 1) % count) &&
+                    <img src={article.imageUrl} alt="" loading={visible ? 'eager' : 'lazy'} decoding="async"
+                      className="ir-news-ambient-image" />}
                   <div className="ir-news-ambient-tint absolute inset-0" />
                 </div>
                 <div className="ir-news-slide-layout relative z-10">
