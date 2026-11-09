@@ -7,6 +7,7 @@ import EditorialPlacement from '../components/EditorialPlacement';
 import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
+import {stationMatchesRegion} from '../utils/stationRegions';
 import {compareCatalogPopularity,compareCatalogStations} from '../utils/catalogLive';
  
 
@@ -74,7 +75,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     return activeBanners.filter(b => b.placement && b.placement.includes('home'));
   }, [activeBanners, isPremiumUser]);
 
-  const baseStations = useMemo(() => stations.filter(s => s.region === regionName || s.city === regionName), [stations, regionName]);
+  const baseStations = useMemo(() => stations.filter(station => stationMatchesRegion(station, regionName)), [stations, regionName]);
 
   const availableGenres = useMemo(() => {
     return [...new Set(baseStations.map(s => s.genre))].filter(Boolean).sort();
