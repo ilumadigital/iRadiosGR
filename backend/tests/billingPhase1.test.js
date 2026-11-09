@@ -28,13 +28,13 @@ test('Complimentary grants are not payments and are active only within their dat
 });
 test('Station grant never leaks to another station',()=>{
  const g={sku:'ADD-DSP',scopeType:'station',resourceId:'s1',source:'admin_complimentary',startsAt:'2026-11-10T00:00:00Z'};
- assert.deepEqual(resolveComplimentaryEntitlements([g],{stationId:'s1'}),['broadcaster.webdsp']);
- assert.deepEqual(resolveComplimentaryEntitlements([g],{stationId:'s2'}),[]);
- assert.deepEqual(resolveComplimentaryEntitlements([g]),[]);
+ assert.deepEqual(resolveComplimentaryEntitlements([g],{stationId:'s1',now:new Date('2026-11-15T00:00:00Z')}),['broadcaster.webdsp']);
+ assert.deepEqual(resolveComplimentaryEntitlements([g],{stationId:'s2',now:new Date('2026-11-15T00:00:00Z')}),[]);
+ assert.deepEqual(resolveComplimentaryEntitlements([g],{now:new Date('2026-11-15T00:00:00Z')}),[]);
 });
 test('Broadcaster Premium grants included features and unlimited stations',()=>{
  const g={sku:'B-PREM',scopeType:'account',source:'admin_complimentary',startsAt:'2026-11-10T00:00:00Z'};
- const rights=resolveComplimentaryEntitlements([g]);
+ const rights=resolveComplimentaryEntitlements([g],{now:new Date('2026-11-15T00:00:00Z')});
  for(const e of ['broadcaster.unlimited_stations','broadcaster.webdsp','broadcaster.analytics','broadcaster.ad_control','broadcaster.premium_boost'])assert.ok(rights.includes(e));
 });
 test('A purchased Boost always outranks an included Premium Boost',()=>{
