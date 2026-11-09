@@ -24,6 +24,15 @@ const cleanExpiredBoosts = async () => {
   );
 };
 
+// Public catalog exposes availability only; destination mailboxes remain server-side.
+const CONTACT_EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
+function toPublicStation(station) {
+  const data = station.toObject();
+  const hasContactEmail = CONTACT_EMAIL.test(String(data.email || '').trim());
+  delete data.email;
+  return { ...data, hasContactEmail };
+}
+
 exports.getApprovedStations = async (req, res) => {
   try {
     await cleanExpiredBoosts();
@@ -31,10 +40,10 @@ exports.getApprovedStations = async (req, res) => {
     // Public stage may expose station metadata, never broadcaster personal
     // information or private pending edits imported from production.
     if (process.env.APP_ENV === 'staging') {
-      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset disableNetworkAds');
+      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok email explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset disableNetworkAds');
     }
     const stations = await query;
-    res.json(stations);
+    res.json(stations.map(toPublicStation));
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

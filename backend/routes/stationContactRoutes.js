@@ -34,6 +34,10 @@ router.post('/stations/:id/contact', protect, async (req,res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id))
       return res.status(400).json({error:'Μη έγκυρος σταθμός.'});
+    const subject=req.body?.subject;
+    if (typeof subject !== 'string' || subject.trim().length < 4 ||
+        subject.trim().length > 120 || /[\r\n\u0000-\u001F\u007F]/.test(subject))
+      return res.status(400).json({error:'Το θέμα πρέπει να έχει 4 έως 120 χαρακτήρες.'});
     const message=req.body?.message;
     if (typeof message !== 'string' || message.trim().length < 10 ||
         message.trim().length > 2000 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(message))
@@ -58,7 +62,7 @@ router.post('/stations/:id/contact', protect, async (req,res) => {
     const fullName=[req.user.fname,req.user.lname].filter(Boolean).join(' ').trim();
     const senderName=fullName && fullName!=='iR User' ? fullName : String(req.user.username||'Ακροατής');
     const letter=buildStationContactEmail({
-      stationName:station.name, senderName, senderEmail, message:message.trim()
+      stationName:station.name, senderName, senderEmail, subject:subject.trim(), message:message.trim()
     });
     const delivery=await sendEmail({to:station.email.trim(),replyTo:senderEmail,...letter});
     if(!delivery.success) {

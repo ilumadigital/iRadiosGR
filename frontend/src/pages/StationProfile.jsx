@@ -6,7 +6,7 @@ import {
   Play, Pause, Heart, ArrowLeft, Disc3, Globe, Zap, Facebook, Instagram, Twitter, 
   Phone, Mail, Music, AlertTriangle, SlidersHorizontal, MonitorSpeaker, 
   Headphones, PowerOff, Radio, SignalHigh, Share2, Check, ShieldCheck, ExternalLink,
-  MessageCircle, Loader2, ScanSearch
+  MessageCircle, Loader2, ScanSearch, ArrowRight
 } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
@@ -57,13 +57,13 @@ export default function StationProfile({
   useEffect(() => setContactOpen(false), [station?._id]);
   useEffect(() => {
     if (!station?._id || !currentUser || searchParams.get('contact') !== '1') return;
-    if (station.email) setContactOpen(true);
+    if (station.hasContactEmail || station.email) setContactOpen(true);
     setSearchParams(previous => {
       const next = new URLSearchParams(previous);
       next.delete('contact');
       return next;
     }, { replace: true });
-  }, [station?._id, station?.email, currentUser?._id, searchParams, setSearchParams]);
+  }, [station?._id, station?.hasContactEmail, station?.email, currentUser?._id, searchParams, setSearchParams]);
   const stationAmbient = useStationAmbient(station?.logo);
   // Legacy schedules use 0=Monday; new backoffice saves 1=Monday.
   // The station is never rewritten by public reads.
@@ -735,7 +735,7 @@ export default function StationProfile({
             </p>
 
             {/* SOCIAL & CONTACT LINKS */}
-            {(station.website || station.facebook || station.instagram || station.twitter || station.tiktok || station.phone || station.viber || station.email) && (
+            {(station.website || station.facebook || station.instagram || station.twitter || station.tiktok || station.phone || station.viber || station.hasContactEmail || station.email) && (
               <div className="mt-4 border-t border-white/5 pt-8 w-full">
                 <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4 text-center lg:text-left">
                   Επικοινωνια & Social
@@ -748,12 +748,19 @@ export default function StationProfile({
                   <SocialLink href={station.twitter} icon={<Twitter size={16} />} label="Twitter" type="web" />
                   <SocialLink href={station.phone} icon={<Phone size={16} />} label={station.phone} type="phone" />
                   <SocialLink href={station.viber} icon={<MessageCircle size={16} />} label="Viber" type="viber" />
-                  {station.email && <button type="button" onClick={() => setContactOpen(true)}
-                     className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-zinc-900/50 hover:bg-zinc-800 border border-white/10 hover:border-white/20 transition-all text-sm font-medium group backdrop-blur-sm text-zinc-300 hover:text-white"
-                     aria-label={'Στείλε μήνυμα στον σταθμό ' + station.name}>
-                     <Mail size={16} className="text-zinc-400 group-hover:text-[#ccff00]" /><span>Email</span>
-                   </button>}
-                </div>
+                  </div>
+                  {(station.hasContactEmail || Boolean(station.email)) && (
+                    <button type="button" onClick={() => setContactOpen(true)}
+                      className="ir-station-contact-cta group"
+                      aria-label={'Στείλε μήνυμα στο ' + station.name}>
+                      <span className="ir-station-contact-cta-icon"><Mail size={22} strokeWidth={2.2} /></span>
+                      <span className="ir-station-contact-cta-copy">
+                        <strong>Στείλε μήνυμα στο {station.name}</strong>
+                        <small>Επικοινώνησε απευθείας μέσω iRadiosGR</small>
+                      </span>
+                      <ArrowRight size={19} className="ir-station-contact-cta-arrow" aria-hidden="true" />
+                    </button>
+                  )}
               </div>
             )}
 

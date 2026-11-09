@@ -9,6 +9,7 @@ export default function StationContactModal({ open, onClose, station, currentUse
   const sendingRef = useRef(false);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -18,6 +19,7 @@ export default function StationContactModal({ open, onClose, station, currentUse
 
   useEffect(() => {
     if (!open) return;
+    setSubject('');
     setMessage('');
     setSending(false);
     sendingRef.current = false;
@@ -48,7 +50,10 @@ export default function StationContactModal({ open, onClose, station, currentUse
   const submit = async event => {
     event.preventDefault();
     const clean = message.trim();
-    if (!currentUser || sendingRef.current || sent || clean.length < 10 || clean.length > 2000) return;
+    const cleanSubject = subject.trim();
+    if (!currentUser || sendingRef.current || sent || cleanSubject.length < 4 ||
+        cleanSubject.length > 120 || /[\r\n\u0000-\u001F\u007F]/.test(cleanSubject) ||
+        clean.length < 10 || clean.length > 2000) return;
     sendingRef.current = true;
     setSending(true);
     setError('');
@@ -58,11 +63,12 @@ export default function StationContactModal({ open, onClose, station, currentUse
       const response = await fetch(apiUrl + '/stations/' + encodeURIComponent(station._id) + '/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ message: clean })
+        body: JSON.stringify({ subject: cleanSubject, message: clean })
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || result.message || 'Δεν ήταν δυνατή η αποστολή.');
       setSent(true);
+      setSubject('');
       setMessage('');
     } catch (sendError) {
       setError(sendError.message || 'Δεν ήταν δυνατή η αποστολή.');
@@ -110,6 +116,10 @@ export default function StationContactModal({ open, onClose, station, currentUse
               <span className="ir-station-contact-muted">{currentUser.email}</span>
               <span className="ir-station-contact-muted">Ο σταθμός θα δει αυτά τα στοιχεία και θα μπορεί να σου απαντήσει.</span>
             </div>
+            <label htmlFor="ir-station-contact-subject" className="ir-station-contact-label">Θέμα</label>
+            <input id="ir-station-contact-subject" className="ir-station-contact-input"
+              type="text" value={subject} onChange={event => setSubject(event.target.value)}
+              minLength={4} maxLength={120} required placeholder="Γράψε το θέμα του μηνύματος..." />
             <label htmlFor="ir-station-contact-message" className="ir-station-contact-label">Το μήνυμά σου</label>
             <textarea id="ir-station-contact-message" className="ir-station-contact-textarea"
               value={message} onChange={event => setMessage(event.target.value)}
@@ -120,7 +130,9 @@ export default function StationContactModal({ open, onClose, station, currentUse
             </div>
             {error && <p className="ir-station-contact-error" role="alert">{error}</p>}
             <button className="ir-station-contact-button" type="submit"
-              disabled={sending || message.trim().length < 10 || message.trim().length > 2000}>
+              disabled={sending || subject.trim().length < 4 || subject.trim().length > 120 ||
+                /[\r\n\u0000-\u001F\u007F]/.test(subject.trim()) ||
+                message.trim().length < 10 || message.trim().length > 2000}>
               {sending ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
               {sending ? 'Αποστολή...' : 'Αποστολή μηνύματος'}
             </button>

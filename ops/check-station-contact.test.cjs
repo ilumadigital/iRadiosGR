@@ -10,23 +10,26 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 test('station contact email uses unified branding, sender details and reply instructions', () => {
   const mail = buildStationContactEmail({
     stationName:'Deseo Radio', senderName:'Γιώργος Παπαδόπουλος',
-    senderEmail:'user@example.com', message:'Καλησπέρα!\nΩραία μουσική.'
+    senderEmail:'user@example.com', subject:'Πρόταση συνεργασίας', message:'Καλησπέρα!\nΩραία μουσική.'
   });
   assert.match(mail.html,/data-iradios-email="v2"/);
   assert.match(mail.html,/Γιώργος Παπαδόπουλος/);
   assert.match(mail.html,/user@example.com/);
   assert.match(mail.html,/Καλησπέρα!<br>Ωραία μουσική/);
-  assert.match(mail.subject,/Deseo Radio/);
+  assert.equal(mail.subject,'Πρόταση συνεργασίας');
+  assert.match(mail.html,/Πρόταση συνεργασίας/);
+  assert.match(mail.text,/Θέμα: Πρόταση συνεργασίας/);
   assert.match(mail.text,/user@example.com/);
 });
 test('station name, sender name and message are HTML-escaped', () => {
   const mail = buildStationContactEmail({
     stationName:'<img src=x>', senderName:'<script>x</script>',
-    senderEmail:'user@example.com', message:'Γεια <script>alert(1)</script>'
+    senderEmail:'user@example.com', subject:'<svg onload=alert(1)>', message:'Γεια <script>alert(1)</script>'
   });
   assert.doesNotMatch(mail.html,/<script>|<img src=x>/);
   assert.match(mail.html,/&lt;script&gt;/);
   assert.match(mail.html,/&lt;img/);
+  assert.match(mail.html,/&lt;svg onload/);
 });
 test('server authenticates, resolves destination from Station and sets Reply-To', () => {
   const routes=read('backend/routes/stationContactRoutes.js');
@@ -36,6 +39,7 @@ test('server authenticates, resolves destination from Station and sets Reply-To'
   assert.match(routes,/Station\.findOne\(/);
   assert.match(routes,/to:station\.email\.trim\(\),replyTo:senderEmail/);
   assert.match(routes,/reserveQuota/);
+  assert.match(routes,/subject\.trim\(\)/);
   assert.match(mailer,/replyTo,/);
   assert.match(stage,/contact/);
 });
@@ -47,6 +51,12 @@ test('station profile has no mailto link and login returns to station contact', 
   assert.doesNotMatch(page,/mailto:/);
   assert.match(page,/StationContactModal/);
   assert.match(page,/setContactOpen\(true\)/);
+  assert.match(page,/ir-station-contact-cta/);
+  assert.match(page,/hasContactEmail/);
+  assert.match(modal,/ir-station-contact-subject/);
+  const catalog=read('backend/controllers/stationController.js');
+  assert.match(catalog,/hasContactEmail/);
+  assert.match(catalog,/delete data\.email/);
   assert.match(login,/stationReturn/);
   assert.match(modal,/\?contact=1/);
   assert.match(styles,/@media \(min-width:1100px\) and \(max-height:960px\)/);

@@ -719,3 +719,40 @@
 @media (min-width: 1024px) {
   .ir-mobile-station-story-action { display: none; }
 }
+
+/* Glass action tile beneath social links, inspired by the backoffice navigation. */
+.ir-station-contact-cta {
+  display:flex;align-items:center;gap:16px;width:min(100%,520px);min-height:94px;
+  margin-top:19px;padding:16px 20px;border:1px solid rgba(229,244,255,.13);
+  border-radius:25px;text-align:left;color:#f5f7fb;
+  background:linear-gradient(125deg,rgba(33,39,42,.95),rgba(19,25,29,.92));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
+  transition:border-color .2s,background .2s,transform .2s,box-shadow .2s;
+}
+.ir-station-contact-cta:hover {
+  border-color:rgba(204,255,0,.42);transform:translateY(-2px);
+  background:linear-gradient(125deg,rgba(42,51,44,.98),rgba(22,30,30,.95));
+  box-shadow:0 12px 30px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.05);
+}
+.ir-station-contact-cta:focus-visible {outline:2px solid #ccff00;outline-offset:3px}
+.ir-station-contact-cta-icon {
+  flex:none;display:grid;place-items:center;width:56px;height:56px;
+  color:#ccff00;background:rgba(204,255,0,.12);border-radius:20px;
+}
+.ir-station-contact-cta-copy {flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.ir-station-contact-cta-copy strong {font-size:clamp(14px,1.6vw,18px);line-height:1.25;font-weight:800;overflow-wrap:anywhere}
+.ir-station-contact-cta-copy small {font-size:12px;color:#9da5b4;line-height:1.4}
+.ir-station-contact-cta-arrow {flex:none;color:#8f98a7;transition:transform .2s,color .2s}
+.ir-station-contact-cta:hover .ir-station-contact-cta-arrow {transform:translateX(3px);color:#ccff00}
+.ir-station-contact-input {
+  display:block;width:100%;min-height:48px;padding:13px 16px;
+  border-radius:15px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(0,0,0,.27);outline:0;color:#fff;
+  font-family:inherit;font-size:14px;font-weight:500;line-height:1.5;
+}
+.ir-station-contact-input:focus {border-color:#ccff00;box-shadow:0 0 0 3px rgba(204,255,0,.12)}
+@media (max-width:480px) {
+  .ir-station-contact-cta {gap:12px;padding:14px;min-height:84px;border-radius:21px}
+  .ir-station-contact-cta-icon {width:47px;height:47px;border-radius:16px}
+  .ir-station-contact-cta-copy small {font-size:11px}
+}
