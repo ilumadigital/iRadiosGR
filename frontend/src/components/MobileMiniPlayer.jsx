@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Play, Pause, Heart, SkipBack, Car, SkipForward, 
+  Play, Pause, Heart, SkipBack, Car, SkipForward, Shuffle, 
   ScanSearch, Loader2, ChevronUp, ChevronDown, Radio, SignalHigh, 
   AlertTriangle, CalendarDays, MonitorSpeaker, Headphones, PowerOff, 
   SlidersHorizontal, Waves, Laptop, Smartphone, X, Ellipsis, RefreshCw 
@@ -33,6 +33,7 @@ export default function MobileMiniPlayer({
   currentUser,
   handleNextStation,
   handlePrevStation,
+  shuffleEnabled = false, onShuffleToggle,
   isRecognizing, handleRecognizeTrack,
   onOpenCarMode,
   userOverrides, onUserDSPChange,
@@ -126,6 +127,8 @@ export default function MobileMiniPlayer({
   const isPremium = currentUser?.isPremium || currentUser?.broadcasterProfile?.tier === 'premium';
   const canUseCustomEQ = currentStation && isPremium && isCurrentlyFavorite;
   const currentPreset = (currentStation && userOverrides?.[currentStation._id]) || 'Station Default';
+  const streamBitrate = Number(currentStation.bitrate || currentStation.streamBitrate || 0);
+  const qualityLabel = Number.isFinite(streamBitrate) && streamBitrate > 0 ? streamBitrate + ' kbps' : 'Αυτόματο';
 
   const currentTrack=parseMusicMetadata(nowPlaying,currentStation?.name);
   const isActualSong=Boolean(currentUser&&!isRecognizing&&!isPlayingAd&&currentTrack);
@@ -383,16 +386,12 @@ export default function MobileMiniPlayer({
             <span className="ir-glass-swipe-help" aria-hidden="true">‹ &nbsp; Σύρε για αλλαγή σταθμού &nbsp; ›</span>
           </section>
 
-          {!isPlayingAd && <div className={'ir-live-visualizer ir-glass-visualizer ' +
-            ((!isPlaying || isBuffering) ? 'ir-live-visualizer--paused' : '')} aria-hidden="true">
-            {Array.from({ length: 23 }, (_, i) => <span key={i} style={{ '--i': i }} />)}
-          </div>}
-
           <nav className="ir-full-player-actions ir-glass-transport" aria-label="Χειριστήρια αναπαραγωγής">
-            <button type="button" onClick={() => toggleFavorite(currentStation._id)}
-              disabled={isPlayingAd} aria-label={isCurrentlyFavorite ? 'Αφαίρεση από αγαπημένα' : 'Προσθήκη στα αγαπημένα'}
-              className={'ir-glass-transport__side ' + (isCurrentlyFavorite ? 'is-active' : '')}>
-              <Heart size={25} fill={isCurrentlyFavorite ? 'currentColor' : 'none'} />
+            <button type="button" onClick={onShuffleToggle} disabled={isPlayingAd || adWarning}
+              aria-label={shuffleEnabled ? 'Απενεργοποίηση τυχαίας αλλαγής σταθμών' : 'Ενεργοποίηση τυχαίας αλλαγής σταθμών'}
+              aria-pressed={shuffleEnabled}
+              className={'ir-glass-transport__side ' + (shuffleEnabled ? 'is-active' : '')}>
+              <Shuffle size={25} />
             </button>
             <button type="button" onClick={handlePrevStation} disabled={isPlayingAd || adWarning}
               aria-label="Προηγούμενος σταθμός" className="ir-glass-transport__skip">
@@ -409,19 +408,31 @@ export default function MobileMiniPlayer({
               aria-label="Επόμενος σταθμός" className="ir-glass-transport__skip">
               <SkipForward size={29} fill="currentColor" />
             </button>
-            <button type="button" onClick={() => setShowMoreMenu(true)} aria-label="Περισσότερες λειτουργίες"
-              className="ir-glass-transport__side"><Ellipsis size={28}/></button>
+            <button type="button" onClick={openDevices} aria-label="Επιλογή συσκευής αναπαραγωγής"
+              className="ir-glass-transport__side"><MonitorSpeaker size={27}/></button>
           </nav>
 
-          <div className="ir-glass-quick-access" aria-label="Γρήγορες λειτουργίες">
-            <button type="button" onClick={openCarMode} className="ir-glass-quick-access__button">
-              <Car size={22} aria-hidden="true"/>
-              <span>Car Mode</span>
+          <div className="ir-glass-primary-actions" aria-label="Γρήγορες ενέργειες">
+            <button type="button" onClick={() => toggleFavorite(currentStation._id)} disabled={isPlayingAd}
+              aria-label={isCurrentlyFavorite ? 'Αφαίρεση από αγαπημένα' : 'Προσθήκη στα αγαπημένα'}
+              aria-pressed={isCurrentlyFavorite} className={'ir-glass-primary-tile ' + (isCurrentlyFavorite ? 'is-active' : '')}>
+              <Heart size={22} fill={isCurrentlyFavorite ? 'currentColor' : 'none'}/><span>Αγαπημένα</span>
             </button>
-            <button type="button" onClick={openDevices} className="ir-glass-quick-access__button">
-              <MonitorSpeaker size={21} aria-hidden="true"/>
-              <span>Συσκευές</span>
-              {isPremium && availableDevices.length > 1 && <span className="ir-glass-device-count">{availableDevices.length}</span>}
+            {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={isActualSong ? nowPlaying : null}
+              artworkUrl={showCoverArt ? globalCoverArt : null}
+              show={liveBroadcast?.show} showImageUrl={liveBroadcast?.imageUrl}
+              className="ir-glass-primary-tile ir-glass-story-tile" iconSize={23}/>}
+            <div className="ir-glass-primary-tile ir-glass-quality-tile" role="status"
+              aria-label={'Ποιότητα ροής: ' + qualityLabel}>
+              <Waves size={22}/><span>Ποιότητα<small>{qualityLabel}</small></span>
+            </div>
+          </div>
+          <div className="ir-glass-quick-access" aria-label="Επιπλέον λειτουργίες">
+            <button type="button" onClick={openCarMode} className="ir-glass-quick-access__button">
+              <Car size={21} aria-hidden="true"/><span>Car Mode</span>
+            </button>
+            <button type="button" onClick={() => setShowMoreMenu(true)} className="ir-glass-quick-access__button">
+              <Ellipsis size={22} aria-hidden="true"/><span>Περισσότερα</span>
             </button>
           </div>
 
@@ -454,8 +465,9 @@ export default function MobileMiniPlayer({
               <button type="button" onClick={openStationProfile} className="ir-glass-more-tile">
                 <CalendarDays size={24}/><span>Σταθμός &amp; πρόγραμμα</span>
               </button>
-              {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={nowPlaying}
-                label="Κοινοποίηση Story" className="ir-glass-more-tile ir-glass-more-tile--share"/>}
+              {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={isActualSong ? nowPlaying : null}
+                artworkUrl={showCoverArt ? globalCoverArt : null} show={liveBroadcast?.show} showImageUrl={liveBroadcast?.imageUrl}
+                label={'Κάνε Story με τον ' + currentStation.name} className="ir-glass-more-tile ir-glass-more-tile--share"/>}
               {canUseCustomEQ && !isPlayingAd && !isIOS &&
                 <button type="button" onClick={() => setShowEQMenu(value => !value)}
                   className={'ir-glass-more-tile ' + (showEQMenu ? 'is-selected' : '')}
@@ -563,6 +575,9 @@ export default function MobileMiniPlayer({
         </div>
         
         <div className="flex items-center shrink-0">
+          {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={isActualSong ? nowPlaying : null}
+            artworkUrl={showCoverArt ? globalCoverArt : null} show={liveBroadcast?.show} showImageUrl={liveBroadcast?.imageUrl}
+            className="ir-mini-story-button" iconSize={20}/>}
           {!isPlayingAd && (
             <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} aria-label={isCurrentlyFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"} className={`p-2 transition-all active:scale-90 mr-1 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-zinc-400'}`}>
               <Heart size={20} fill={isCurrentlyFavorite ? "currentColor" : "none"} />
