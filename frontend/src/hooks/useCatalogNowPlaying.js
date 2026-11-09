@@ -20,7 +20,7 @@ export default function useCatalogNowPlaying(){
       }finally{inFlight=false;}
     };
     load();
-    const timer=setInterval(load,60000);
+    const timer=setInterval(load,20000);
     const onVisible=()=>{if(!document.hidden)load();};
     document.addEventListener('visibilitychange',onVisible);
     return()=>{
@@ -28,6 +28,29 @@ export default function useCatalogNowPlaying(){
       document.removeEventListener('visibilitychange',onVisible);
     };
   },[]);
+  // Drop ACRCloud titles at the server's exact four-minute deadline,
+  // even if the catalog GET is cached or the next polling cycle has not run.
+  useEffect(()=>{
+    const expiries=Object.values(byId).filter(item=>item?.source==='acrcloud')
+      .map(item=>Date.parse(item.expiresAt||'')).filter(Number.isFinite);
+    if(!expiries.length)return;
+    const timer=setTimeout(()=>{
+      setById(previous=>{
+        let modified=false;
+        const next={...previous};
+        for(const [id,item] of Object.entries(previous)){
+          if(item?.source!=='acrcloud')continue;
+          const expires=Date.parse(item.expiresAt||'');
+          if(!Number.isFinite(expires)||expires>Date.now())continue;
+          modified=true;
+          if(item.broadcastHint)next[id]={broadcastHint:item.broadcastHint};
+          else delete next[id];
+        }
+        return modified?next:previous;
+      });
+    },Math.max(0,Math.min(...expiries)-Date.now()+100));
+    return ()=>clearTimeout(timer);
+  },[byId]);
   useEffect(()=>{
     const timer=setInterval(()=>setClock(getAthensClock()),60000);
     return()=>clearInterval(timer);
