@@ -20,7 +20,9 @@ async function load(){
     if(!song&&!broadcastHint)continue;
     stations[String(doc.stationId)]={
       ...(song?{song:{artist:song.artist,title:song.title},source:snapshot.source,
-        foundWithAI:snapshot.foundWithAI===true}:{}),
+        foundWithAI:snapshot.foundWithAI===true,
+        ...(snapshot.source==='acrcloud'&&snapshot.expiresAt?
+          {expiresAt:snapshot.expiresAt}:{})}:{}),
       ...(broadcastHint?{broadcastHint}:{})
     };
   }
