@@ -27,6 +27,10 @@ assert.ok(!/new Audio\(|<audio\b|fetch\(/.test(mobile), 'mobile shell must not c
 assert.match(playlist, /Τελευταία 12 τραγούδια/, 'history label matches the brief');
 assert.match(css, /\.ir-playlist-tracks>\.ir-station-playlist-track:nth-child\(n\+13\)/, 'only 12 songs are displayed on mobile');
 assert.match(css, /@media \(max-width:767px\)/, 'glass hero is restricted to phones');
+assert.match(css, /\.ir-mobile-station-logo-frame\s*\{[^}]*border-radius:20px/s,
+  'mobile station frame is a rounded square');
+assert.doesNotMatch(css, /\.ir-mobile-station-logo-frame img\s*\{[^}]*border-radius:50%/s,
+  'the last CSS rule cannot force the station logo image back to a circle');
 assert.match(css, /backdrop-filter:blur/, 'glassmorphism uses translucent blur');
 assert.match(header, /ir-header--station-page/, 'no duplicate main header');
 assert.match(mini, /ir-mini-player--station-page/, 'station route preserves its mini-player selector');

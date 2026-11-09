@@ -331,7 +331,7 @@
   }
   .ir-mobile-station-logo-frame{
     display:grid;place-items:center;width:121px;height:121px;aspect-ratio:1;
-    overflow:hidden;border-radius:30px;padding:0;
+    overflow:hidden;border-radius:20px;padding:0;
     background:rgb(var(--ir-station-ambient) / .64);
     border:2px solid rgb(var(--ir-station-ambient) / .95);
     box-shadow:0 0 0 6px rgba(255,255,255,.035),
@@ -339,7 +339,7 @@
       0 22px 40px rgba(0,0,0,.46)
   }
   .ir-mobile-station-logo-frame img{
-    width:100%;height:100%;object-fit:contain;border-radius:30px
+    width:100%;height:100%;object-fit:contain;border-radius:inherit
   }
   .ir-mobile-station-status{
     position:relative;z-index:2;display:flex;align-items:center;gap:5px;
@@ -641,7 +641,7 @@
   isolation:isolate;transform:translateZ(0);backface-visibility:hidden
 }
 .ir-mobile-station-logo-frame img{
-  border-radius:50%;backface-visibility:hidden;transform:translateZ(0)
+  border-radius:inherit;backface-visibility:hidden;transform:translateZ(0)
 }
 /* iRadiosGR glass contact modal, not an external email client. */
 .ir-station-contact-overlay {

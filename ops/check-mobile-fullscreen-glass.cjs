@@ -35,8 +35,12 @@ for(const text of [
   'MusicServiceLinks song={nowPlaying}', 'ir-mini-player'
 ]) assert.ok(player.includes(text), 'mobile player lost: '+text);
 
-assert.match(mobileStationCss, /\.ir-mobile-station-logo-frame\s*\{[^}]*border-radius:30px/s,
-  'mobile station logo uses a 30px corner radius');
+assert.match(mobileStationCss, /\.ir-mobile-station-logo-frame\s*\{[^}]*border-radius:20px/s,
+  'mobile station logo frame uses a 20px corner radius');
+assert.match(mobileStationCss, /\.ir-mobile-station-logo-frame img\s*\{[^}]*border-radius:inherit/s,
+  'mobile station logo image follows its frame corners');
+assert.doesNotMatch(mobileStationCss, /\.ir-mobile-station-logo-frame img\s*\{[^}]*border-radius:50%/s,
+  'late CSS rules must not make the mobile logo circular again');
 assert.ok(artwork.includes('onStationClick'), 'station logo must open station profile');
 assert.match(player, /<OnAirShowCard[\s\S]*?showArtwork=\{false\}[\s\S]*?ir-glass-on-air/,
   'mobile fullscreen on-air card hides duplicate show image');
