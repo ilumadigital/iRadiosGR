@@ -4,6 +4,7 @@ import { ArrowLeft, Clock3, Disc3, Heart, Loader2, MoreHorizontal, Pause, Play, 
 import { formatFMFrequency } from '../utils/stationFrequency';
 import FoundWithAI from './FoundWithAI';
 import MusicServiceLinks from './MusicServiceLinks';
+import ShareStory from './ShareStory';
 
 /**
  * The mobile-only station introduction. Playback, favorite state, recognition
@@ -133,6 +134,15 @@ export default function MobileStationShowcase({
           ) : <h2>{offline ? 'Προσωρινά εκτός σύνδεσης' : 'Συντονίσου για να ακούσεις'}</h2>}
         </div>
       </div>
+      <ShareStory
+        currentStation={station}
+        nowPlaying={song?.raw || songText}
+        artworkUrl={song?.title && artwork !== station.logo ? artwork : null}
+        show={show}
+        showImageUrl={show?.imageUrl}
+        label={'Κάνε Story με τον ' + station.name}
+        className="ir-mobile-station-story-action"
+      />
       {!loadingMetadata && (
         <MusicServiceLinks song={song?.raw || songText} stationName={station.name}
           currentUser={currentUser} compact className="ir-music-links--station-mobile" />
