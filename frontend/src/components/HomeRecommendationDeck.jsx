@@ -21,7 +21,7 @@ export default function HomeRecommendationDeck({
     if (String(station._id) === String(currentStation?._id) && onPlayPause) onPlayPause();
     else onPlayStation(station);
   };
-  // Six square recommendations on larger screens (3 columns × 2 rows), three stacked on phones.
+  // Desktop: six square cards. Mobile: four compact recommendations, stacked vertically.
   const picks = [...moodStations].filter(Boolean)
     .sort((a,b) => Number(a.isOffline === true) - Number(b.isOffline === true))
     .slice(0, 6);
@@ -41,6 +41,7 @@ export default function HomeRecommendationDeck({
     };
   }, []);
   const onAir = useMemo(() => getOnAirProducers(stations, clock), [stations, clock]);
+  // Desktop can expand the full on-air list; mobile always shows only four cards.
   const visibleOnAir = showAllProducers ? onAir : onAir.slice(0, 6);
   if (!picks.length && !onAir.length) return null;
 
@@ -58,10 +59,10 @@ export default function HomeRecommendationDeck({
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {picks.map((station, index) => (
             <article key={station._id}
-              className={`group relative isolate aspect-square w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br p-3 ${index >= 3 ? 'hidden sm:flex' : 'flex'} ${gradients[index % gradients.length]}`}>
+              className={`group relative isolate h-[154px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br p-3 sm:aspect-square sm:h-auto ${index >= 4 ? 'hidden sm:flex' : 'flex'} ${gradients[index % gradients.length]}`}>
               <img src={station.logo} alt="" aria-hidden="true" loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-15 blur-2xl"/>
               <div className="pointer-events-none absolute -right-8 -top-7 h-28 w-28 rounded-full bg-white/10 blur-[30px]"/>
-              <img src={station.logo} alt="" loading="lazy" className="relative z-10 h-16 w-16 rounded-xl bg-white object-contain p-1.5 shadow-xl"/>
+              <img src={station.logo} alt="" loading="lazy" className="relative z-10 h-12 w-12 rounded-xl bg-white object-contain p-1 shadow-xl sm:h-16 sm:w-16 sm:p-1.5"/>
               <div className="relative z-10 mt-3 flex items-end justify-between gap-2">
                 <div className="min-w-0">
                   <span className="block line-clamp-1 text-[10px] font-black text-white/75">{station.genre || 'Ραδιόφωνο'}</span>
@@ -91,12 +92,12 @@ export default function HomeRecommendationDeck({
             <h2 className="flex items-center gap-2 text-xl font-black text-white sm:text-2xl"><Mic2 className="text-[#ccff00]" size={23}/> Στον αέρα τώρα</h2>
             <p className="mt-1 text-xs text-zinc-400">Εκπομπές και παραγωγοί αυτή τη στιγμή</p>
           </div>
-          {onAir.length > 3 && (
+          {onAir.length > 6 && (
             <button type="button" onClick={() => setShowAllProducers(v => !v)}
               title={showAllProducers ? 'Λιγότερες εκπομπές' : 'Όλες οι εκπομπές'}
               aria-expanded={showAllProducers}
               aria-label={showAllProducers ? 'Λιγότερες εκπομπές' : 'Όλες οι εκπομπές'}
-              className={`rounded-full border border-white/15 p-2 text-[#ccff00] hover:bg-white/10 ${onAir.length <= 6 ? 'sm:hidden' : ''}`}>
+              className="hidden rounded-full border border-white/15 p-2 text-[#ccff00] hover:bg-white/10 sm:inline-flex">
               {showAllProducers ? <ChevronUp size={18}/> : <ChevronRight size={18}/>}
             </button>
           )}
@@ -104,7 +105,7 @@ export default function HomeRecommendationDeck({
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visibleOnAir.map(({station, host, endLabel, backgroundUrl, hasProducerPhoto}, index) => (
             <article key={station._id}
-              className={`group relative isolate aspect-square w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-[#15302b] via-[#161e2b] to-zinc-950 p-3 ${showAllProducers ? 'flex' : index >= 3 ? 'hidden sm:flex' : 'flex'}`}>
+              className={`group relative isolate w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-[#15302b] via-[#161e2b] to-zinc-950 p-3 ${hasProducerPhoto ? 'aspect-square' : 'h-[154px] sm:aspect-square sm:h-auto'} ${index >= 4 ? 'hidden sm:flex' : 'flex'}`}>
               <img src={backgroundUrl || station.logo} alt="" loading="lazy" aria-hidden="true"
                 onError={event => {
                   const image = event.currentTarget;
@@ -115,10 +116,10 @@ export default function HomeRecommendationDeck({
               {hasProducerPhoto && (
                 <img src={backgroundUrl} alt="" loading="lazy" aria-hidden="true"
                   onError={event => { event.currentTarget.style.display = 'none'; }}
-                  className="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-90"/>
+                  className="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-95"/>
               )}
-              <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-black/20"/>
-              <div className="relative z-10 flex items-start justify-between gap-2">
+              <span aria-hidden="true" className={`pointer-events-none absolute inset-0 bg-gradient-to-t ${hasProducerPhoto ? 'from-black/90 via-transparent to-transparent sm:from-black/95 sm:via-black/35 sm:to-black/20' : 'from-black/95 via-black/35 to-black/20'}`}/>
+              <div className={`relative z-10 items-start justify-between gap-2 ${hasProducerPhoto ? 'hidden sm:flex' : 'flex'}`}>
                 <img src={station.logo} alt="" loading="lazy"
                   className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1 shadow-xl sm:h-14 sm:w-14"/>
                 <span className="shrink-0 rounded-full border border-white/20 bg-black/55 px-2 py-1 text-[10px] font-bold text-white/90">έως {endLabel}</span>
