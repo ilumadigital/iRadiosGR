@@ -319,10 +319,36 @@
     border-radius: inherit;
     backface-visibility: hidden;
   }
-  .ir-station-page .ir-music-links--station-desktop {
-    justify-content: center;
-    width: 100%;
-    gap: 10px;
+  /* Opposite the station logo, bottom-right ON the artwork.
+     Never reserve a separate row below the cover on laptop / desktop / TV. */
+  .ir-station-page .ir-station-hero-art .ir-music-links--station-desktop {
+    position: absolute;
+    z-index: 35;
+    right: 4%;
+    bottom: 4%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-end;
+    gap: clamp(6px, .65vw, 9px);
+    width: max-content;
+    max-width: 72%;
+    margin: 0;
+    pointer-events: auto;
+  }
+  .ir-station-page .ir-station-hero-art .ir-music-links--station-desktop .ir-music-service-link {
+    width: max-content;
+    max-width: 100%;
+    min-height: 40px;
+    padding: clamp(7px, .67vw, 10px) clamp(9px, .92vw, 15px);
+    font-size: clamp(10px, .76vw, 12px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .36), inset 0 1px rgba(255, 255, 255, .13);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+  .ir-station-page .ir-station-hero-art .ir-music-links--station-desktop .ir-music-service-link svg {
+    width: clamp(15px, 1.25vw, 19px);
+    height: clamp(15px, 1.25vw, 19px);
   }
 
   /* Only the first fold changes. All following sections keep their behavior/layout. */
