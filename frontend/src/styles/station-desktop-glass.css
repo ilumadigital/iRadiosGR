@@ -251,6 +251,11 @@
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
   }
+  .ir-station-page .ir-station-action-buttons > .ir-station-play-button:disabled {
+    background: #dc2626;
+    color: #fff;
+    box-shadow: none;
+  }
   .ir-station-page .ir-station-action-buttons > button:not(.ir-station-play-button):hover,
   .ir-station-page .ir-station-action-buttons > div > button:hover {
     background: rgba(255, 255, 255, .11);
