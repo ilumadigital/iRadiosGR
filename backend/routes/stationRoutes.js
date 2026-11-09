@@ -9,7 +9,7 @@ const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {stationNameHostConflict}=require('../utils/scheduleHostValidation');
 
-// Recognition uses the approved station ID; only the backend contacts SonoVault.
+// Manual recognition uses only the approved station ID; ACRCloud keys stay server-side.
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -46,7 +46,7 @@ router.post('/recognize',protect,(_req,res)=>res.status(410).json({
   error:'Χρησιμοποίησε το Βρες το τραγούδι από έναν σταθμό.',code:'RECOGNITION_LEGACY_DISABLED'
 }));
 router.post('/recognize-proxy',protect,
-  require('../utils/stageSonovault').stageRecognizeProxy);
+  require('../utils/stageAcrcloud').stageRecognizeProxy);
 
 // --- Public & Global ---
 router.get('/stations', stationController.getApprovedStations);
