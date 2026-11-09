@@ -25,8 +25,12 @@ export function stationCapital(country, region, prefecture) {
 }
 
 export function stationCityOptions(country, region, prefecture) {
-  if (country === 'Εξωτερικό') return LOCATION_DATA[country]?.[region]?.[prefecture] || [];
-  const capital = stationCapital(country, region, prefecture);
+  const actualCountry = country || 'Ελλάδα';
+  const cities = LOCATION_DATA[actualCountry]?.[region]?.[prefecture] || [];
+  // Greek prefectures offer three cities (Attica/Thessaloniki retain their full lists).
+  // Keep the existing capital-only behavior for Cyprus.
+  if (actualCountry === 'Ελλάδα' || actualCountry === 'Εξωτερικό') return cities;
+  const capital = stationCapital(actualCountry, region, prefecture);
   return capital ? [capital] : [];
 }
 
@@ -36,6 +40,8 @@ export function canonicalStationLocation(station) {
   if (country === 'Εξωτερικό') return station;
   const prefecture = station.prefecture ||
     inferStationPrefecture(country, station.region, station.city);
-  const city = stationCapital(country, station.region, prefecture);
+  const cities = stationCityOptions(country, station.region, prefecture);
+  const city = cities.find(option => clean(option) === clean(station.city)) ||
+    stationCapital(country, station.region, prefecture);
   return city ? { ...station, country, prefecture, city } : station;
 }
