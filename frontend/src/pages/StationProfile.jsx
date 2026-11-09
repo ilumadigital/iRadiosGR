@@ -20,6 +20,7 @@ import {resolveLiveShowArtwork} from '../utils/liveBroadcast';
 import {showProducerNow} from '../utils/rdsPresentation';
 import RdsCrossfade from '../components/RdsCrossfade';
 import '../styles/station-profile.css';
+import '../styles/station-desktop-glass.css';
 import StationCatalogCard from '../components/StationCatalogCard';
 import FoundWithAI from '../components/FoundWithAI';
 import {parseMusicMetadata} from '../utils/musicMetadata'; 
@@ -393,7 +394,7 @@ export default function StationProfile({
       </Helmet>
 
       {/* BACKGROUND BLUR */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none h-[80vh]">
+      <div className="ir-station-background absolute inset-0 z-0 overflow-hidden pointer-events-none h-[80vh]">
         <div 
           className="absolute inset-0 opacity-20 blur-[100px] scale-110 transition-all duration-1000"
           style={{ backgroundImage: `url(${currentImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
@@ -586,21 +587,27 @@ export default function StationProfile({
               )}
               </RdsCrossfade>
               
+              {/* Show/DJ details are always visible; the existing 20s song/show RDS
+                  crossfade above stays untouched and keeps using the App's state. */}
               <div className="ir-station-now-shows mt-4 flex flex-wrap justify-start gap-3">
-                {currentShow && (
-                  <div className="inline-flex items-center gap-2 bg-[#ccff00]/10 border border-[#ccff00]/20 px-3 py-1.5 rounded-lg">
-                    <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse"></div>
-                    <span className="min-w-0 break-words text-xs font-black text-[#ccff00]">
-                      LIVE: {currentShow.title} {currentShow.host && `• ${currentShow.host}`}
+                {(currentShow || broadcast?.show) && (
+                  <div className="ir-station-broadcast-card" aria-label="Εκπομπή και παραγωγός στον αέρα">
+                    <span className="ir-station-broadcast-eyebrow">
+                      <Radio size={13} aria-hidden="true" /> ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ
                     </span>
+                    {(currentShow?.host || broadcast?.show?.host) && (
+                      <strong>{currentShow?.host || broadcast.show.host}</strong>
+                    )}
+                    <small>{currentShow?.title || broadcast?.show?.title || broadcast?.title || 'Ζωντανή εκπομπή'}</small>
                   </div>
                 )}
                 {nextShow && (
-                  <div className="inline-flex items-center gap-2 bg-[#24242485]/10 border border-[#24242499]/20 px-3 py-1.5 rounded-lg">
-                    <div className="w-2 h-2 rounded-full bg-[#7777778c]"></div>
-                    <span className="min-w-0 break-words text-xs font-bold text-[#9c9c9c]">
-                      NEXT: {nextShow.title} {nextShow.host && `• ${nextShow.host}`}
+                  <div className="ir-station-next-card" aria-label="Επόμενη εκπομπή">
+                    <span className="ir-station-next-eyebrow">
+                      <Disc3 size={13} aria-hidden="true" /> ΑΚΟΛΟΥΘΕΙ
                     </span>
+                    <strong>{nextShow.title}</strong>
+                    {nextShow.host && <small>{nextShow.host}</small>}
                   </div>
                 )}
               </div>
