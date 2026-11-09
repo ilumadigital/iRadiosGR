@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test tests/manualAcrcloud.test.js"
+    "test": "node --test tests/manualAcrcloud.test.js",
+    "test:billing": "node --test tests/billingPhase1.test.js"
   },
   "keywords": [],
   "author": "",
