@@ -1351,21 +1351,11 @@ function MainApp() {
             ACR_AUTH: 'Δεν μπορέσαμε να συνδεθούμε με την αναγνώριση μουσικής.',
             ACR_QUOTA: 'Η υπηρεσία αναγνώρισης έχει φτάσει το όριό της. Δοκίμασε αργότερα.',
             ACR_RATE_LIMIT: 'Δοκίμασε ξανά σε 15 λεπτά.',
-            SONO_KEY_TEST: 'Το API key είναι δοκιμαστικό (svk_test_). Χρειάζεται svk_live_ για πραγματική αναγνώριση.',
-            SONO_KEY_FORMAT: 'Το SONOVAULT_API_KEY πρέπει να είναι έγκυρο κλειδί svk_live_.',
-            SONO_AUTH: 'SonoVault 401: το API key δεν είναι έγκυρο.',
-            SONO_PLAN: 'SonoVault 403: απαιτείται πληρωμένο πρόγραμμα και επιβεβαίωση email.',
-            SONO_PAYMENT: 'SonoVault 402: χρειάζεται μέθοδος πληρωμής.',
-            SONO_QUOTA: 'SonoVault 429: εξαντλήθηκαν τα credits ή το όριο αιτημάτων.',
-            SONO_BAD_REQUEST: 'SonoVault 400: απορρίφθηκε το δείγμα ήχου.',
-            SONO_AUDIO_FORMAT: 'SonoVault 415: η μορφή ήχου δεν υποστηρίζεται.',
-            SONO_AUDIO_SIZE: 'SonoVault 413: το δείγμα είναι πολύ μεγάλο.',
-            SONO_NOT_AVAILABLE: 'Το endpoint αναγνώρισης SonoVault δεν είναι διαθέσιμο (404/410).',
-            SONO_TIMEOUT: 'Η αναγνώριση SonoVault καθυστέρησε υπερβολικά.',
-            SONO_NETWORK: 'Δεν ήταν δυνατή η επικοινωνία με το SonoVault.',
-            SONO_RESPONSE: 'Το SonoVault επέστρεψε μη έγκυρο αποτέλεσμα.',
-            SONO_TRACK_FILTERED: 'Το τραγούδι αναγνωρίστηκε αλλά τα metadata του απορρίφθηκαν.',
-            SONO_STORAGE: 'Το τραγούδι αναγνωρίστηκε αλλά δεν αποθηκεύτηκε στην playlist.',
+            ACR_PROVIDER: 'Η υπηρεσία ACRCloud δεν είναι διαθέσιμη αυτή τη στιγμή.',
+            ACR_TIMEOUT: 'Το ACRCloud άργησε να απαντήσει. Δοκίμασε ξανά.',
+            ACR_RESPONSE: 'Το ACRCloud δεν επέστρεψε έγκυρο αποτέλεσμα.',
+            ACR_TRACK_FILTERED: 'Το τραγούδι βρέθηκε αλλά δεν είχε έγκυρα στοιχεία.',
+            ACR_STORAGE: 'Το τραγούδι βρέθηκε αλλά δεν αποθηκεύτηκε στην κοινή playlist.',
             STREAM_UNAVAILABLE: 'Δεν μπορέσαμε να ακούσουμε τον σταθμό. Δοκίμασε ξανά σε λίγο.',
             STREAM_FORMAT: 'Αυτός ο σταθμός δεν υποστηρίζει ακόμη την αναγνώριση.',
             STREAM_SHORT: 'Δεν ακούστηκε αρκετή μουσική. Δοκίμασε ξανά σε λίγο.',
@@ -1388,7 +1378,8 @@ function MainApp() {
           
           if(activeStationIdRef.current!==recognizingStationId)return;
           setNowPlaying(songTitle);
-          setNowPlayingInfo({source:'acrcloud',foundWithAI:true});
+          setNowPlayingInfo({source:'acrcloud',foundWithAI:true,
+            recognizedAt:data?.recognizedAt,expiresAt:data?.expiresAt});
           
           const sId = track.external_metadata?.spotify?.track?.id;
           
@@ -1404,10 +1395,12 @@ function MainApp() {
           // A local lock is unnecessary and would hide subsequent shared updates.
           recognitionLock.current=false;
           if(recognitionTimeout.current)clearTimeout(recognitionTimeout.current);
+          const expiresAt=Date.parse(data?.expiresAt||'');
           recognitionTimeout.current=setTimeout(()=>{
             setSpotifyMatch(null);
             if(activeStationIdRef.current===recognizingStationId)fetchMetadata();
-          },4*60*1000);
+          },Number.isFinite(expiresAt)?
+            Math.max(0,expiresAt-Date.now()+100):4*60*1000);
 
         } else {
           if(activeStationIdRef.current===recognizingStationId){
@@ -1451,6 +1444,8 @@ function MainApp() {
       setNowPlaying(title?cleanMetadata(title):'');
       setNowPlayingInfo({source:data?.source==='acrcloud'?'acrcloud':title?'station':'none',
         foundWithAI:Boolean(title&&data?.foundWithAI),
+        expiresAt:data?.source==='acrcloud'?data.expiresAt:undefined,
+        recognizedAt:data?.source==='acrcloud'?data.recognizedAt:undefined,
         broadcastHint:typeof data?.broadcastHint==='string'?data.broadcastHint:
           isBroadcastMetadata(title,currentStation.name)?title:''});
     }catch{
@@ -1486,6 +1481,21 @@ function MainApp() {
     const timer=setInterval(()=>{if(!recognitionLock.current)fetchMetadata();},30000);
     return ()=>clearInterval(timer);
   },[currentStation?._id,currentUser?._id,isPlaying,isPlayingAd,isRecognizing]);
+
+  // Every listener uses the server's absolute four-minute deadline, including
+  // when the player is left open without new stream timeupdate events.
+  useEffect(()=>{
+    if(nowPlayingInfo?.source!=='acrcloud'||!nowPlayingInfo?.expiresAt||
+      !currentStation?._id||!isPlaying||isPlayingAd||isRecognizing)return;
+    const expiry=Date.parse(nowPlayingInfo.expiresAt);
+    if(!Number.isFinite(expiry))return;
+    const stationId=String(currentStation._id);
+    const timer=setTimeout(()=>{
+      if(activeStationIdRef.current===stationId)void fetchMetadata();
+    },Math.max(0,expiry-Date.now()+100));
+    return ()=>clearTimeout(timer);
+  },[nowPlayingInfo?.source,nowPlayingInfo?.expiresAt,currentStation?._id,
+    currentUser?._id,isPlaying,isPlayingAd,isRecognizing]);
 
   useMediaSession({
     currentStation:metadataStation, nowPlaying, nowPlayingInfo, isPlaying, isPlayingAd, currentAdInfo,
