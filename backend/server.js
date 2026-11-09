@@ -139,6 +139,9 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const statsRoutes = require('./routes/stats');
 
 app.use('/api/payments', paymentRoutes); 
+// Phase-1 catalog + isolated complimentary subscriptions. No charging routes.
+app.use('/api', require('./routes/billingPhase1Routes'));
+
 app.use('/api', producerRoutes);
 app.use('/api', require('./routes/backofficeRoutes'));
 app.use('/api', require('./routes/broadcasterInvitationRoutes'));
