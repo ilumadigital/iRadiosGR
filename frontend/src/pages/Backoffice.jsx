@@ -414,7 +414,7 @@ function StationEditor({data,reload,notify,requestDelete}){
     }
     if(!LOCATION_DATA[form.country]?.[form.region]?.[form.prefecture] ||
       !stationCityOptions(form.country,form.region,form.prefecture).includes(form.city)){
-      notify('Επίλεξε έγκυρη χώρα, περιφέρεια, νομό και την πρωτεύουσά του.','error');return;
+      notify('Επίλεξε έγκυρη χώρα, περιφέρεια, νομό και πόλη.','error');return;
     }
     setBusy(true);
     try{
@@ -498,10 +498,10 @@ function StationEditor({data,reload,notify,requestDelete}){
               {Object.keys(LOCATION_DATA[form.country]?.[form.region]||{}).map(prefecture=>
                 <option key={prefecture} value={prefecture}>{prefecture}</option>)}
             </select></Field>
-            <Field label="Πόλη (πρωτεύουσα) *" help="Η πόλη επιλέγεται μόνο αφού επιλέξεις νομό.">
+            <Field label="Πόλη *" help="Επίλεξε μία από τις διαθέσιμες πόλεις του νομού.">
               <select required className={inputClass} value={form.city} onChange={e=>update('city',e.target.value)}
                 disabled={!form.prefecture}>
-                <option value="">Επιλογή πρωτεύουσας</option>
+                <option value="">Επιλογή πόλης</option>
                 {stationCityOptions(form.country,form.region,form.prefecture).map(city=>
                   <option key={city} value={city}>{city}</option>)}
               </select>
