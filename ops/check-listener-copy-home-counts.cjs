@@ -24,15 +24,16 @@ assert.ok(now.includes('setLiveStations(prev=>{'), 'keep same song cached, repla
 
 const deck=read('frontend/src/components/HomeRecommendationDeck.jsx');
 assert.ok(deck.includes('[...moodStations].filter(Boolean)') &&
-  deck.includes('.slice(0, 6)') && deck.includes('Number(a.isOffline === true)'),
-  'For You must display 2x3 desktop cards, 1x3 mobile, and offline stations last');
+  deck.includes('.slice(0, 36)') && deck.includes('Number(a.isOffline === true)'),
+  'For You supports extra rows of recommendations with offline stations last');
 const top=read('frontend/src/components/HomeTopStations.jsx');
 assert.ok(top.includes('topStations.filter(Boolean)') && top.includes('.slice(0, 7)') &&
   top.includes('station.isOffline === true'),
   'Guest Top stations must display up to 7 with offline playback disabled');
-assert.ok(deck.includes('grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3') &&
-  deck.includes('index >= 3') && deck.includes('xl:grid-cols-2'),
-  'For You follows the mobile 1x3 and desktop 2x3 grid');
+assert.ok(deck.includes('ResizeObserver') && deck.includes('gridTemplateColumns') &&
+  deck.includes('firstRowCount') && deck.includes('forYouExtraRows') &&
+  deck.includes('onAirExtraRows') && deck.includes('rows + 2'),
+  'For You and On Air use responsive grid and reveal two rows per click');
 assert.ok(deck.includes('stationIsPlaying'), 'radio playback state must remain intact');
 
 const home=read('frontend/src/pages/Home.jsx');
@@ -66,4 +67,4 @@ assert.ok(app.includes('Συνδέσου στο iRadios για NowPlaying') ||
           read('frontend/src/components/Footer.jsx').includes('Συνδέσου στο iRadios για NowPlaying'),
   'guest messaging stays clear');
 
-console.log('Listener-facing language and 6 + 7 radio recommendation contracts passed.');
+console.log('Listener-facing language, responsive recommendations and Top radio contracts passed.');

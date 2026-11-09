@@ -16,6 +16,9 @@ jobs:
           node-version: '22'
       - name: Check known live references and .env files
         run: bash ops/check-stage-source.sh
+      - name: Build the frontend before the static UI contract checks
+        # Mirrors the Docker/Vite compilation and exposes the root error promptly.
+        run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
       - name: Ensure deprecated Live Chat is completely retired
         run: node ops/check-no-legacy-chat.cjs
       - name: Validate deployment shell scripts
@@ -119,10 +122,6 @@ jobs:
         run: node ops/check-phase36-native-cache.cjs
       - name: Validate one-minute staging background metadata scanner and round-robin
         run: node ops/check-phase36-native-scan.cjs
-      - name: Validate frontend production build
-        # Existing react-simple-maps@1.0.0 declares React 16 peers despite the React 19 app.
-        # Use the same legacy resolution needed by the current project; track upgrade separately.
-        run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
       - name: Validate stage Compose YAML
         run: |
           python3 -m pip install --quiet PyYAML

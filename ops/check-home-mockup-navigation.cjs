@@ -41,13 +41,27 @@ for (const part of ['<HomeRadioShortlist','<HomeRecommendationDeck','<HomeExplor
   assert.ok(home.includes(part),'listener dashboard missing '+part);
 
 const explorer=read('frontend/src/components/HomeExplore.jsx');
-assert.ok(!explorer.includes('<select'),'no native genre/region dropdowns');
-assert.ok(explorer.includes('aria-pressed={genre===g}'),'genre tiles support selection');
-assert.ok(explorer.includes('aria-pressed={region===r}'),'regions use accessible chips');
-assert.ok(explorer.includes('ir-genre-tile'),'genre discovery uses image-like tiles');
+const categories=read('frontend/src/components/HomeCategories.jsx');
+const app=read('frontend/src/App.jsx');
+assert.ok(explorer.includes('<CatalogFilterPopover label="Κατηγορία"'),
+  'home explorer has a compact category dropdown');
+assert.ok(explorer.includes('<CatalogFilterPopover label="Περιοχή"'),
+  'home explorer has a compact region dropdown');
+assert.ok(!explorer.includes('ir-genre-tile'),
+  'large genre tiles must not interrupt search results');
+assert.ok(categories.includes("'/genre/' + encodeURIComponent(category)"),
+  'category cards navigate directly to the genre page');
+assert.ok(categories.includes("gridTemplateColumns"),
+  'category cards share responsive compact sizing with For You');
+assert.ok(home.includes('<HomeCategories stations={stations} currentUser={currentUser}/>') &&
+  home.indexOf('<HomeCategories') < home.indexOf('<HomeRecommendationDeck'),
+  'category cards appear before personalized recommendations');
+assert.ok(app.includes('path="/categories"'),
+  'all genres has a dedicated category directory route');
 
 const sidebar=read('frontend/src/components/Sidebar.jsx');
-assert.ok(sidebar.includes('to="/?explore=categories"'));
+assert.ok(sidebar.includes('ir-sidebar-categories') && sidebar.includes('toggleSubmenu(\'categories\')'),
+  'sidebar preserves direct category navigation');
 assert.ok(sidebar.includes('to="/?explore=playlist"'));
 assert.ok(sidebar.includes('to="/?explore=recent"'));
 assert.ok(sidebar.includes('to="/?explore=top"'));
@@ -57,4 +71,4 @@ assert.ok(sidebar.includes('to="/admin/home-slides"'),'Admin feature kept');
 const css=read('frontend/src/styles/design-system.css');
 assert.ok(css.includes('ir-home-feature-grid')&&css.includes('ir-app-sidebar .ir-nav-item--active'));
 
-console.log('iRadios mockup home, metadata-only lists and no-dropdown navigation contracts passed.');
+console.log('iRadios home categories, compact discovery filters and station navigation contracts passed.');
