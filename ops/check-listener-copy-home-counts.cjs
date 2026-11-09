@@ -35,6 +35,19 @@ assert.ok(deck.includes('ResizeObserver') && deck.includes('gridTemplateColumns'
   deck.includes('onAirExtraRows') && deck.includes('rows + 2'),
   'For You and On Air use responsive grid and reveal two rows per click');
 assert.ok(deck.includes('stationIsPlaying'), 'radio playback state must remain intact');
+assert.ok(deck.includes('function OnAirArtwork(') && deck.includes('<OnAirArtwork artworkUrl={backgroundUrl}'),
+  'every active programme renders its artwork canvas, even with no programme photo');
+assert.ok(deck.includes('flex aspect-square w-full min-w-0') && !deck.includes('h-[160px]'),
+  'all on-air cards have a square visual frame at every breakpoint');
+assert.ok(deck.includes('object-contain object-center') &&
+  deck.includes('scale-110 object-cover opacity-35 blur-2xl'),
+  'uncropped artwork is centered above a softly blurred ambient background');
+assert.ok(deck.includes('const programmePhoto = hasProducerPhoto ? artworkUrl') &&
+  deck.includes('[programmePhoto, stationLogo].find(') &&
+  deck.includes('const [failedImages, setFailedImages] = useState([])') &&
+  deck.includes('onError={handleImageError}'),
+  'missing or broken programme artwork falls back to station logo without repeated image errors');
+
 
 const home=read('frontend/src/pages/Home.jsx');
 assert.ok(home.includes('chosenIds') && home.includes('all.findIndex'),
