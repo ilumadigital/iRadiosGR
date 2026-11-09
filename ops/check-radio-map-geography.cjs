@@ -44,7 +44,10 @@ assert.equal(city.label, 'Χανιά');
 assert.equal(JSON.stringify(city.position), JSON.stringify([35.5138,24.018]));
 assert.equal(geo.stationMapLocation({city:'Αθηνα',region:'Αττική'}).label, 'Αθήνα', 'accent normalization');
 assert.equal(geo.stationMapLocation({city:'Athens',region:'Αττική'}).label, 'Αθήνα', 'English alias');
-assert.equal(geo.stationMapLocation({city:'Νέα Σμύρνη',region:'Αττική'}).label, 'Αθήνα', 'legacy municipality resolves to prefectural seat');
+const municipality = geo.stationMapLocation({city:'Νέα Σμύρνη',region:'Αττική'});
+assert.equal(municipality.label, 'Νέα Σμύρνη', 'selected municipality must retain its own name');
+assert.equal(JSON.stringify(municipality.position), JSON.stringify([37.9450,23.7136]),
+  'the selected municipality must map to its own coordinates rather than central Athens');
 const region = geo.stationMapLocation({city:'Άλλη',region:'Ιόνια Νησιά'});
 assert.equal(region.precision, 'region');
 assert.equal(region.label, 'Ιόνια Νησιά');
