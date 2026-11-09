@@ -2,9 +2,11 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Link} from 'react-router-dom';
 import {ArrowUpRight, ChevronLeft, ChevronRight, Newspaper} from 'lucide-react';
 import {newsAge} from '../pages/NewsFeed';
+import './HomeNewsSlider.css';
 
-// Full-width editorial carousel matching the HomeHeroSlider visual language.
-// Links lead to the iRadios article preview, never directly to an external publisher.
+// Homepage editorial slider: a contained (never cropped) news photo and its
+// blurred ambient extension, with a separate readable Swift-style glass card.
+// Article links remain internal; no publisher is opened directly.
 export default function HomeNewsSlider({articles = [], category = 'all', now = Date.now()}) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -69,8 +71,8 @@ export default function HomeNewsSlider({articles = [], category = 'all', now = D
         if (event.key === 'ArrowLeft') {event.preventDefault(); move(-1);}
       }}
       tabIndex={0}
-      className="group relative isolate h-[315px] w-full min-w-0 overflow-hidden rounded-[25px] border border-white/10 bg-[#10161b] shadow-[0_22px_52px_rgba(0,0,0,.24)] sm:h-[365px] sm:rounded-[28px] lg:h-[100vh]">
-      <div className="flex h-full w-full ease-in-out transition-transform duration-700 motion-reduce:transition-none"
+      className="ir-home-news-carousel group relative isolate w-full min-w-0 overflow-hidden rounded-[28px] border border-white/10 bg-[#0c1119] shadow-[0_24px_76px_rgba(0,0,0,.34)]">
+      <div className="ir-news-track ease-in-out transition-transform duration-700 motion-reduce:transition-none"
         style={{transform: 'translate3d(-' + (activeIndex * 100) + '%, 0, 0)'}}>
         {articles.map((article, slideIndex) => {
           const time = newsAge(article.publishedAt, now);
@@ -80,44 +82,55 @@ export default function HomeNewsSlider({articles = [], category = 'all', now = D
             <div key={article.key} role="group" aria-roledescription="slide"
               aria-label={'Είδηση ' + (slideIndex + 1) + ' από ' + count}
               aria-hidden={!visible}
-              className="relative h-full w-full min-w-full shrink-0">
+              className="ir-news-slide relative h-full w-full min-w-full shrink-0">
               <Link to={'/newsfeed/' + article.key} state={{backTo: '/'}}
                 tabIndex={visible ? 0 : -1}
                 onClickCapture={handleLinkClick}
                 aria-label={'Διάβασε την είδηση: ' + article.title}
-                className="absolute inset-0 block overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[#ccff00]">
-                {showImage ? (
-                  <img src={article.imageUrl} alt="" loading={slideIndex <= 1 ? 'eager' : 'lazy'}
-                    onError={() => setBrokenImages(previous => ({...previous, [article.key]: true}))}
-                    className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center" />
-                ) : (
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#24383b] via-[#18232d] to-[#0b1218]">
-                    <Newspaper className="size-28 text-[#ccff00]/10 sm:size-36" />
+                className="ir-news-slide-link relative block h-full w-full overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-[#ccff00]">
+                <div className="ir-news-ambient pointer-events-none absolute inset-0" aria-hidden="true">
+                  {showImage && <img src={article.imageUrl} alt="" loading="lazy" decoding="async"
+                    className="ir-news-ambient-image" />}
+                  <div className="ir-news-ambient-tint absolute inset-0" />
+                </div>
+                <div className="ir-news-slide-layout relative z-10">
+                  <div className="ir-news-visual relative isolate min-w-0 overflow-hidden" aria-hidden="true">
+                    {showImage ? (
+                      <img src={article.imageUrl} alt="" loading={slideIndex <= 1 ? 'eager' : 'lazy'}
+                        decoding="async" onError={() => setBrokenImages(previous => ({...previous, [article.key]: true}))}
+                        className="ir-news-visual-image pointer-events-none" />
+                    ) : (
+                      <div className="ir-news-photo-fallback flex h-full w-full items-center justify-center">
+                        <Newspaper className="size-20 text-[#ccff00]/25 sm:size-28" />
+                      </div>
+                    )}
+                    <div className="ir-news-photo-shine pointer-events-none absolute inset-0" />
+                    <span className="ir-news-photo-label pointer-events-none absolute left-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#111923]/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-[.12em] text-white/90 backdrop-blur-xl sm:left-5 sm:top-5">
+                      <span className="size-1.5 rounded-full bg-[#ccff00]" /> iRadios News
+                    </span>
                   </div>
-                )}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#070a10]/95 via-[#090c14]/75 to-[#090d15]/15 sm:via-[#090c14]/65" />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#05070d]/90 via-[#05070d]/25 to-transparent" />
-                <div className="relative z-10 flex h-full w-full flex-col justify-end px-5 pb-16 pt-5 sm:px-9 sm:pb-16 sm:pt-8 lg:px-12">
-                  <div className="mb-3 flex flex-wrap items-center gap-2 sm:mb-4">
-                    <span className="inline-flex max-w-[70%] items-center truncate rounded-full border border-[#ccff00]/40 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-[#ccff00] backdrop-blur">
-                      {article.category || 'Επικαιρότητα'}
-                    </span>
-                    <span className="max-w-[40%] truncate rounded-full border border-white/20 bg-black/45 px-3 py-1.5 text-[10px] font-bold text-white/90 backdrop-blur">
-                      {article.source || 'iRadios News'}
-                    </span>
-                  </div>
-                  <h3 className="line-clamp-3 max-w-[1000px] text-[clamp(1.25rem,2.4vw,2.4rem)] font-black leading-[1.12] tracking-tight text-white drop-shadow-xl sm:line-clamp-2">
-                    {article.title}
-                  </h3>
-                  {article.summary && <p className="mt-3 hidden max-w-[800px] text-xs font-medium leading-relaxed text-zinc-200 sm:line-clamp-2 sm:text-sm lg:text-base">
-                    {article.summary}
-                  </p>}
-                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 sm:mt-5">
-                    <span className="inline-flex min-h-9 items-center gap-2 rounded-xl bg-[#ccff00] px-4 text-xs font-black text-[#10140a] transition-colors group-hover:bg-[#e5ff91] sm:min-h-10 sm:px-5">
-                      Διάβασε την είδηση <ArrowUpRight size={16} />
-                    </span>
-                    {time && <time dateTime={time.iso} title={time.absolute}
-                      className="text-[11px] font-semibold text-white/80">{time.relative}</time>}
+                  <div className="ir-news-glass-panel relative flex min-h-0 min-w-0 flex-col">
+                    <div className="ir-news-meta flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="ir-news-category inline-flex max-w-full items-center truncate rounded-full border border-[#ccff00]/30 bg-[#ccff00]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#ccff00]">
+                        {article.category || 'Επικαιρότητα'}
+                      </span>
+                      {article.source && <span className="ir-news-source max-w-full truncate rounded-full border border-white/10 bg-white/[.06] px-3 py-1.5 text-[10px] font-semibold text-zinc-300">
+                        {article.source}
+                      </span>}
+                    </div>
+                    <h3 className="ir-news-headline font-black tracking-tight text-white">
+                      {article.title}
+                    </h3>
+                    {article.summary && <p className="ir-news-summary font-medium text-zinc-300">
+                      {article.summary}
+                    </p>}
+                    <div className="ir-news-bottom mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+                      <span className="ir-news-cta inline-flex min-h-10 items-center justify-center gap-2 rounded-2xl bg-[#ccff00] px-4 text-xs font-black text-[#111606] transition-all duration-200 group-hover:bg-[#e6ff95] sm:px-5">
+                        Διάβασε την είδηση <ArrowUpRight size={17} />
+                      </span>
+                      {time && <time dateTime={time.iso} title={time.absolute}
+                        className="text-[11px] font-semibold text-zinc-400">{time.relative}</time>}
+                    </div>
                   </div>
                 </div>
               </Link>
@@ -126,31 +139,33 @@ export default function HomeNewsSlider({articles = [], category = 'all', now = D
         })}
       </div>
       {count > 1 && (
-        <div className="absolute bottom-3 left-3 right-3 z-20 flex items-center justify-between gap-2 sm:bottom-4 sm:left-6 sm:right-6">
-          <div role="group" aria-label="Επιλογή είδησης"
-            className="flex min-w-0 items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-3 py-2 backdrop-blur-md sm:gap-2">
-            {articles.map((article, slideIndex) => (
-              <button key={article.key} type="button" onClick={() => setIndex(slideIndex)}
-                aria-label={'Είδηση ' + (slideIndex + 1) + ' από ' + count}
-                aria-current={slideIndex === activeIndex ? 'true' : undefined}
-                className={'h-1.5 shrink-0 rounded-full transition-all duration-300 sm:h-2 ' +
-                  (slideIndex === activeIndex ? 'w-5 bg-[#ccff00]' : 'w-1.5 bg-white/45 hover:bg-white sm:w-2')} />
-            ))}
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <span className="mr-1 rounded-full border border-white/10 bg-black/50 px-2 py-1.5 text-[10px] font-black tabular-nums text-zinc-200 backdrop-blur-md">
-              {activeIndex + 1} / {count}
+        <nav aria-label="Πλοήγηση ειδήσεων"
+          className="ir-news-controls relative z-20 flex min-w-0 items-center justify-between gap-2 border-t border-white/[.07]">
+          <div className="ir-news-pagination flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-[11px] font-black tabular-nums tracking-wide text-white/75">
+              {String(activeIndex + 1).padStart(2, '0')} <span className="text-white/30">/</span> {String(count).padStart(2, '0')}
             </span>
+            <div role="group" aria-label="Επιλογή είδησης" className="ir-news-dots flex min-w-0 items-center gap-1.5">
+              {articles.map((article, slideIndex) => (
+                <button key={article.key} type="button" onClick={() => setIndex(slideIndex)}
+                  aria-label={'Είδηση ' + (slideIndex + 1) + ' από ' + count}
+                  aria-current={slideIndex === activeIndex ? 'true' : undefined}
+                  className={'ir-news-dot h-1.5 shrink-0 rounded-full transition-all duration-300 ' +
+                    (slideIndex === activeIndex ? 'w-5 bg-[#ccff00]' : 'w-1.5 bg-white/30 hover:bg-white/75')} />
+              ))}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             <button type="button" onClick={() => move(-1)} aria-label="Προηγούμενη είδηση"
-              className="flex size-9 items-center justify-center rounded-full border border-white/20 bg-black/65 text-white backdrop-blur transition-colors hover:border-[#ccff00]/50 hover:text-[#ccff00] sm:size-10">
-              <ChevronLeft size={19} />
+              className="ir-news-arrow flex size-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[.055] text-white transition-colors hover:border-[#ccff00]/40 hover:text-[#ccff00] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ccff00]">
+              <ChevronLeft size={20} />
             </button>
             <button type="button" onClick={() => move(1)} aria-label="Επόμενη είδηση"
-              className="flex size-9 items-center justify-center rounded-full border border-white/20 bg-black/65 text-white backdrop-blur transition-colors hover:border-[#ccff00]/50 hover:text-[#ccff00] sm:size-10">
-              <ChevronRight size={19} />
+              className="ir-news-arrow flex size-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[.055] text-white transition-colors hover:border-[#ccff00]/40 hover:text-[#ccff00] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ccff00]">
+              <ChevronRight size={20} />
             </button>
           </div>
-        </div>
+        </nav>
       )}
     </section>
   );
