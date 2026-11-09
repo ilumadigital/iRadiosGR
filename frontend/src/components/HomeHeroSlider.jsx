@@ -71,6 +71,15 @@ export default function HomeHeroSlider({
   const description=slide?.subtitle || stationFallback?.slogan ||
     'Χιλιάδες σταθμοί. Μία εμπειρία που προσαρμόζεται στις επιλογές σου.';
   const stationAction=(!slide||slide.targetType==='station')&&featuredStation;
+  // This default station card represents the listener's most recent station,
+  // not an editorial recommendation. Reflect actual shared playback state.
+  const featuredStationIsPlaying=Boolean(isPlaying && currentStation?._id &&
+    String(currentStation._id)===String(featuredStation?._id));
+  const heroEyebrow=slide?.eyebrow || (featuredStationIsPlaying
+    ? 'Ακούς LIVE στο iRadios GR'
+    : (currentStation?._id || fallbackStation?._id)
+      ? 'Άκουσες πρόσφατα'
+      : 'Ανακάλυψε σταθμούς');
   const linkAction=slide?.targetType==='genre'||slide?.targetType==='external'||
     (slide?.targetType==='none'&&Boolean(onOpenDiscovery));
 
@@ -87,8 +96,8 @@ export default function HomeHeroSlider({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#090b10]/95 via-[#090b10]/65 to-transparent"/>
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"/>
       <div className="absolute inset-0 z-10 flex min-w-0 w-full flex-col justify-end gap-1.5 p-3 pb-11 sm:gap-3 sm:p-6 sm:pb-10 xl:p-8">
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[#ccff00]/40 bg-black/60 px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-[#ccff00] backdrop-blur-xl sm:gap-2 sm:px-3 sm:py-2 sm:text-[10px]">
-          <Sparkles size={15}/>{slide?.eyebrow||'ΕΠΙΛΟΓΗ ΓΙΑ ΣΕΝΑ'}
+        <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border border-[#ccff00]/40 bg-black/60 px-2 py-1 text-[9px] font-black tracking-[0.1em] text-[#ccff00] backdrop-blur-xl sm:gap-2 sm:px-3 sm:py-2 sm:text-[10px] ${slide?.eyebrow ? 'uppercase' : ''}`}>
+          <Sparkles size={15}/>{heroEyebrow}
         </span>
         <div className="flex min-w-0 items-center justify-between gap-4 sm:gap-8">
           <div className="min-w-0 flex-1">
