@@ -692,3 +692,30 @@
 }
 .ir-station-contact-button:hover:not(:disabled) { filter:brightness(1.08);transform:translateY(-1px) }
 .ir-station-contact-button:disabled { opacity:.52;cursor:not-allowed }
+
+
+/* Instagram Story: a prominent but compact station-profile action. */
+.ir-mobile-station-story-action {
+  display: flex;
+  width: calc(100% - 32px);
+  min-height: 44px;
+  max-width: 440px;
+  margin: 12px auto 5px;
+  padding: 9px 15px;
+  gap: 9px;
+  color: #f5edf1;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 17px;
+  background: linear-gradient(120deg,rgba(182,67,129,.24),rgba(255,255,255,.075));
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  font-size: 12px;
+  font-weight: 750;
+  text-align: center;
+}
+.ir-mobile-station-story-action svg { color: #f8b9d4; flex: none; }
+.ir-mobile-station-story-action span { min-width: 0; }
+.ir-mobile-station-story-action:focus-visible { outline: 2px solid #ccff00; outline-offset: 2px; }
+@media (min-width: 1024px) {
+  .ir-mobile-station-story-action { display: none; }
+}

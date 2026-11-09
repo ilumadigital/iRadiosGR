@@ -12,6 +12,9 @@ const glass = read('frontend/src/styles/mobile-player-glass.css');
 const music = read('frontend/src/components/MusicServiceLinks.jsx');
 const story = read('frontend/src/components/ShareStory.jsx');
 const app = read('frontend/src/App.jsx');
+const stationPage = read('frontend/src/pages/StationProfile.jsx');
+const mobileStation = read('frontend/src/components/MobileStationShowcase.jsx');
+const storyUtility = read('frontend/src/utils/storyShare.js');
 
 for(const text of [
   'showCoverArt ? globalCoverArt : null',
@@ -26,7 +29,7 @@ for(const text of [
   'onTransferPlayback?.(device.deviceId)',
   'ir-glass-sheet-layer', 'ir-glass-more-grid',
   'onUserDSPChange(currentStation._id, preset.id)',
-  'label="Κοινοποίηση Story"', 'handleRadarClick',
+  'ir-glass-primary-actions', 'onShuffleToggle', 'handleRadarClick',
   'MusicServiceLinks song={nowPlaying}', 'ir-mini-player'
 ]) assert.ok(player.includes(text), 'mobile player lost: '+text);
 
@@ -37,6 +40,15 @@ assert.ok(sharedCss.includes('.ir-showcase-art__dj.is-active'), 'live DJ RDS fad
 assert.ok(music.includes("Αναβαθμίστε σε Premium"), 'Spotify / Apple premium gate retained');
 assert.ok(story.includes('label = null'), 'sharing tile remains fully tappable');
 assert.ok(app.includes('ref={audioRef}'), 'no new audio engine');
+assert.ok(app.includes('shuffleEnabled={stationShuffle}') && app.includes('shuffleHistoryRef'), 'shuffle must be backed by station navigation');
+assert.ok(!player.includes('ir-live-visualizer') && !player.includes('ir-glass-visualizer'), 'fullscreen may not show visualizer');
+assert.ok(player.includes('onClick={openDevices}') && player.includes('<Shuffle'), 'right transport devices and left shuffle required');
+assert.ok(player.includes('ir-mini-story-button') && player.includes('ir-glass-story-tile'), 'Story must be reachable from mini and fullscreen players');
+assert.ok(stationPage.includes('<ShareStory') && mobileStation.includes('<ShareStory'), 'Story must work on desktop/mobile station profiles');
+for(const value of ['width: 1080', 'height: 1920', 'Powered by ILUMA Digital Agency', "loadImage('/iradios-app-logo.png')", 'downloadStory(file)', 'navigator.share']) {
+  assert.ok(storyUtility.includes(value), 'missing branded 9:16 story contract: '+value);
+}
+
 assert.ok(!player.includes('<audio'), 'fullscreen must remain a visual layer');
 assert.ok(!player.includes('LiveChat') && !player.includes('showChat') && !player.includes('Live chat'), 'legacy chat must not return to mobile player');
 

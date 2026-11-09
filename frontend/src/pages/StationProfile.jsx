@@ -12,6 +12,7 @@ import { Helmet } from 'react-helmet-async';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import MusicServiceLinks from '../components/MusicServiceLinks';
 import MobileStationShowcase from '../components/MobileStationShowcase';
+import ShareStory from '../components/ShareStory';
 import StationContactModal from '../components/StationContactModal';
 import { useStationAmbient } from '../hooks/useStationAmbient';
 import StationScheduleTimeline from '../components/StationScheduleTimeline';
@@ -637,6 +638,14 @@ export default function StationProfile({
                   {copied ? <Check size={24} /> : <Share2 size={24} />}
                 </button>
 
+                {/* Instagram Story — same 9:16 generator as both mobile players. */}
+                <ShareStory currentStation={station} nowPlaying={validatedMusic ? effectiveNowPlaying : null}
+                  artworkUrl={stationSongCover ? globalCoverArt : null}
+                  show={broadcast?.show || currentShow}
+                  showImageUrl={broadcast?.imageUrl || currentShow?.imageUrl}
+                  className="w-12 h-12 lg:w-14 lg:h-14 rounded-full border border-white/20 text-[#f7c4d7] hover:bg-white/10 shrink-0"
+                  iconSize={24}/>
+                
                 {/* PREMIUM EQ BUTTON */}
                 {canUseCustomEQ && (
                   <div className="relative" ref={eqMenuRef}>
