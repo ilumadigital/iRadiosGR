@@ -37,9 +37,11 @@ async function recordStationTrack(station,raw,options={}){
     await Playlist.updateOne({stationId:station._id},
       {$setOnInsert:{stationId:station._id}},{upsert:true});
     if(track.source==='acrcloud'){
-      // Confirmed AI provenance must survive an existing identical native entry.
+      // A new manual match starts a new 30-minute visibility window even
+      // when the same song already heads the playlist. Do not create a
+      // duplicate entry for a second listener identifying the same song.
       await Playlist.updateOne({stationId:station._id,'tracks.0.raw':track.raw},
-        {$set:{'tracks.0.source':'acrcloud'}});
+        {$set:{'tracks.0.source':'acrcloud','tracks.0.playedAt':track.playedAt}});
     }
     const result=await Playlist.updateOne({
       stationId:station._id,
