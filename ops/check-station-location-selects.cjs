@@ -12,8 +12,42 @@ const greekRegions = LOCATION_DATA['Ελλάδα'];
 assert.equal(Object.keys(greekRegions).length, 13, 'all 13 Greek regions');
 const allPrefectures = Object.entries(greekRegions).flatMap(([region, prefectures]) =>
   Object.entries(prefectures).map(([prefecture, cities]) => ({region, prefecture, cities})));
-assert.equal(allPrefectures.length, 51, 'all 51 Greek prefectures');
-assert.equal(new Set(allPrefectures.map(x => x.prefecture)).size, 51, 'each prefecture is present once');
+// The backoffice offers 51 distinct historical prefectures. Achaia and Ilia are
+// selectable under both their administrative region (Western Greece) and their
+// geographic region (Peloponnese), without losing any existing station data.
+const expectedByRegion = {
+  'Αττική': ['Αττική'],
+  'Κεντρική Μακεδονία': ['Ημαθία', 'Θεσσαλονίκη', 'Κιλκίς', 'Πέλλα', 'Πιερία', 'Σέρρες', 'Χαλκιδική'],
+  'Θεσσαλία': ['Καρδίτσα', 'Λάρισα', 'Μαγνησία', 'Τρίκαλα'],
+  'Δυτική Ελλάδα': ['Αιτωλοακαρνανία', 'Αχαΐα', 'Ηλεία'],
+  'Πελοπόννησος': ['Αργολίδα', 'Αρκαδία', 'Αχαΐα', 'Ηλεία', 'Κορινθία', 'Λακωνία', 'Μεσσηνία'],
+  'Ήπειρος': ['Άρτα', 'Θεσπρωτία', 'Ιωάννινα', 'Πρέβεζα'],
+  'Στερεά Ελλάδα': ['Βοιωτία', 'Εύβοια', 'Ευρυτανία', 'Φθιώτιδα', 'Φωκίδα'],
+  'Ανατολική Μακεδονία & Θράκη': ['Δράμα', 'Έβρος', 'Καβάλα', 'Ξάνθη', 'Ροδόπη'],
+  'Δυτική Μακεδονία': ['Γρεβενά', 'Καστοριά', 'Κοζάνη', 'Φλώρινα'],
+  'Ιόνια Νησιά': ['Ζάκυνθος', 'Κέρκυρα', 'Κεφαλληνία', 'Λευκάδα'],
+  'Βόρειο Αιγαίο': ['Λέσβος', 'Σάμος', 'Χίος'],
+  'Νότιο Αιγαίο': ['Δωδεκάνησα', 'Κυκλάδες'],
+  'Κρήτη': ['Ηράκλειο', 'Λασίθι', 'Ρέθυμνο', 'Χανιά'],
+};
+assert.deepEqual(Object.keys(greekRegions).sort(), Object.keys(expectedByRegion).sort(),
+  'no Greek region may be missing');
+for (const [region, expected] of Object.entries(expectedByRegion)) {
+  assert.deepEqual(Object.keys(greekRegions[region]).sort(), [...expected].sort(),
+    'missing or unexpected prefecture in ' + region);
+}
+assert.equal(allPrefectures.length, 53, '51 historical prefectures plus 2 geographic aliases');
+const prefectureCounts = allPrefectures.reduce((counts, entry) => {
+  counts[entry.prefecture] = (counts[entry.prefecture] || 0) + 1;
+  return counts;
+}, {});
+assert.equal(Object.keys(prefectureCounts).length, 51, 'all 51 distinct Greek prefectures');
+assert.deepEqual(Object.keys(prefectureCounts).filter(name => prefectureCounts[name] !== 1).sort(),
+  ['Αχαΐα', 'Ηλεία'], 'only Achaia and Ilia may appear in two regions');
+assert.deepEqual(greekRegions['Πελοπόννησος']['Αχαΐα'], greekRegions['Δυτική Ελλάδα']['Αχαΐα']);
+assert.deepEqual(greekRegions['Πελοπόννησος']['Ηλεία'], greekRegions['Δυτική Ελλάδα']['Ηλεία']);
+assert.equal(greekRegions['Πελοπόννησος']['Αχαΐα'][0], 'Πάτρα');
+assert.equal(greekRegions['Πελοπόννησος']['Ηλεία'][0], 'Πύργος');
 for (const {region, prefecture, cities} of allPrefectures) {
   const capital = cities[0];
   assert.ok(capital, 'missing capital for ' + prefecture);
@@ -55,4 +89,4 @@ for (const page of ['Admin.jsx','MyRadios.jsx']) {
   assert.ok(source.includes("prefecture: e.target.value, city: ''"), page+' forces an explicit capital selection');
   assert.ok(source.includes('stationCityOptions('), page+' filters cities');
 }
-console.log('Station location QA passed: 13 regions, 51 prefectures, capitals only, cascading selectors and API validation.');
+console.log('Station location QA passed: 13 regions, all 51 distinct prefectures, Achaia/Ilia in both regions, capitals only, cascading selectors and API validation.');
