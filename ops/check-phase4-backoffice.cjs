@@ -172,18 +172,19 @@ async function main(){
   ]});
   assert.equal(schedule.code,200,'assigned producer manages weekly programming');
   assert.equal(all[0].schedule[0].title,'Breakfast');
+  const greekLocation={country:'Ελλάδα',region:'Αττική',prefecture:'Αττική',city:'Αθήνα'};
   const invalidCategories=await call('POST','/backoffice/stations',owner,
-    {name:'Invalid',genre:'House',stream:'https://radio.example/other'});
+    {...greekLocation,name:'Invalid',genre:'House',stream:'https://radio.example/other'});
   assert.equal(invalidCategories.code,400,'legacy-only categories are not valid for new stations');
   const added=await call('POST','/backoffice/stations',owner,
-    {name:'New Radio',slug:'new-radio',genre:'Διεθνή Mainstream',secondaryGenre:'Pop',stream:'https://radio.example/other'});
+    {...greekLocation,name:'New Radio',slug:'new-radio',genre:'Διεθνή Mainstream',secondaryGenre:'Pop',stream:'https://radio.example/other'});
   assert.equal(added.code,201);
   assert.equal(added.body.station.status,'pending');
   assert.equal(added.body.station.broadcasterId,undefined);
   assert.equal(all[2].broadcasterId,ownerId);
   assert.equal(all[2].slug,'new-radio');
   const duplicate=await call('POST','/backoffice/stations',owner,
-    {name:'Duplicate Radio',slug:'new-radio',genre:'Διεθνή Mainstream',
+    {...greekLocation,name:'Duplicate Radio',slug:'new-radio',genre:'Διεθνή Mainstream',
       secondaryGenre:'Pop',stream:'https://radio.example/duplicate'});
   assert.equal(duplicate.code,409,'duplicate station slugs are rejected');
 
