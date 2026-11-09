@@ -21,10 +21,10 @@ export default function HomeRecommendationDeck({
     if (String(station._id) === String(currentStation?._id) && onPlayPause) onPlayPause();
     else onPlayStation(station);
   };
-  // Up to 12 desktop cards (3 columns × 4 rows), 8 on smaller screens (2 × 4).
+  // Six square recommendations on larger screens (3 columns × 2 rows), three stacked on phones.
   const picks = [...moodStations].filter(Boolean)
     .sort((a,b) => Number(a.isOffline === true) - Number(b.isOffline === true))
-    .slice(0, 12);
+    .slice(0, 6);
   const [clock, setClock] = useState(() => getAthensClock());
   const [showAllProducers, setShowAllProducers] = useState(false);
   useEffect(() => {
@@ -41,7 +41,7 @@ export default function HomeRecommendationDeck({
     };
   }, []);
   const onAir = useMemo(() => getOnAirProducers(stations, clock), [stations, clock]);
-  const visibleOnAir = showAllProducers ? onAir : onAir.slice(0, 12);
+  const visibleOnAir = showAllProducers ? onAir : onAir.slice(0, 6);
   if (!picks.length && !onAir.length) return null;
 
   return (
@@ -55,12 +55,13 @@ export default function HomeRecommendationDeck({
           <button type="button" onClick={() => navigate('/?explore=for-you')} aria-label="Όλες οι προτάσεις"
             className="rounded-full border border-white/15 p-2 text-[#ccff00] hover:bg-white/10"><ChevronRight size={18}/></button>
         </div>
-        <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {picks.map((station, index) => (
             <article key={station._id}
-              className={`group relative isolate min-h-[138px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br p-3 ${index >= 8 ? 'hidden xl:flex' : 'flex'} ${gradients[index % gradients.length]}`}>
+              className={`group relative isolate aspect-square w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br p-3 ${index >= 3 ? 'hidden sm:flex' : 'flex'} ${gradients[index % gradients.length]}`}>
+              <img src={station.logo} alt="" aria-hidden="true" loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-15 blur-2xl"/>
               <div className="pointer-events-none absolute -right-8 -top-7 h-28 w-28 rounded-full bg-white/10 blur-[30px]"/>
-              <img src={station.logo} alt="" loading="lazy" className="relative z-10 h-12 w-12 rounded-xl bg-white object-contain p-1 shadow-xl sm:h-14 sm:w-14"/>
+              <img src={station.logo} alt="" loading="lazy" className="relative z-10 h-16 w-16 rounded-xl bg-white object-contain p-1.5 shadow-xl"/>
               <div className="relative z-10 mt-3 flex items-end justify-between gap-2">
                 <div className="min-w-0">
                   <span className="block line-clamp-1 text-[10px] font-black text-white/75">{station.genre || 'Ραδιόφωνο'}</span>
@@ -80,7 +81,7 @@ export default function HomeRecommendationDeck({
               </div>
             </article>
           ))}
-          {!picks.length && <div className="col-span-2 flex min-h-[138px] items-center justify-center rounded-2xl border border-white/10 text-sm text-zinc-400 xl:col-span-3"><Radio size={18}/> Δεν υπάρχουν προτάσεις.</div>}
+          {!picks.length && <div className="col-span-full flex min-h-[138px] items-center justify-center rounded-2xl border border-white/10 text-sm text-zinc-400"><Radio size={18}/> Δεν υπάρχουν προτάσεις.</div>}
         </div>
       </div>
 
@@ -90,29 +91,32 @@ export default function HomeRecommendationDeck({
             <h2 className="flex items-center gap-2 text-xl font-black text-white sm:text-2xl"><Mic2 className="text-[#ccff00]" size={23}/> Στον αέρα τώρα</h2>
             <p className="mt-1 text-xs text-zinc-400">Εκπομπές και παραγωγοί αυτή τη στιγμή</p>
           </div>
-          {onAir.length > 12 && (
+          {onAir.length > 3 && (
             <button type="button" onClick={() => setShowAllProducers(v => !v)}
               title={showAllProducers ? 'Λιγότερες εκπομπές' : 'Όλες οι εκπομπές'}
               aria-expanded={showAllProducers}
               aria-label={showAllProducers ? 'Λιγότερες εκπομπές' : 'Όλες οι εκπομπές'}
-              className="rounded-full border border-white/15 p-2 text-[#ccff00] hover:bg-white/10">
+              className={`rounded-full border border-white/15 p-2 text-[#ccff00] hover:bg-white/10 ${onAir.length <= 6 ? 'sm:hidden' : ''}`}>
               {showAllProducers ? <ChevronUp size={18}/> : <ChevronRight size={18}/>}
             </button>
           )}
         </div>
-        <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visibleOnAir.map(({station, host, endLabel, backgroundUrl, hasProducerPhoto}, index) => (
             <article key={station._id}
-              className={`group relative isolate min-h-[138px] min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-[#15302b] via-[#161e2b] to-zinc-950 p-3 ${showAllProducers ? 'flex' : index >= 8 ? 'hidden xl:flex' : index >= 4 ? 'hidden md:flex' : 'flex'}`}>
+              className={`group relative isolate aspect-square w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-[#15302b] via-[#161e2b] to-zinc-950 p-3 ${showAllProducers ? 'flex' : index >= 3 ? 'hidden sm:flex' : 'flex'}`}>
               <img src={backgroundUrl || station.logo} alt="" loading="lazy" aria-hidden="true"
                 onError={event => {
                   const image = event.currentTarget;
                   image.onerror = null;
                   image.src = station.logo;
                 }}
-                className={hasProducerPhoto
-                  ? 'pointer-events-none absolute inset-0 h-full w-full object-cover opacity-85'
-                  : 'pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-30 blur-2xl'}/>
+                className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-2xl"/>
+              {hasProducerPhoto && (
+                <img src={backgroundUrl} alt="" loading="lazy" aria-hidden="true"
+                  onError={event => { event.currentTarget.style.display = 'none'; }}
+                  className="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-90"/>
+              )}
               <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 to-black/20"/>
               <div className="relative z-10 flex items-start justify-between gap-2">
                 <img src={station.logo} alt="" loading="lazy"
