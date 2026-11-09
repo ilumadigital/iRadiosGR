@@ -54,6 +54,19 @@ assert.ok(cases.find(x=>x[0]==='otp')[1].html.includes('123456'),'OTP must remai
 assert.ok(cases.find(x=>x[0]==='password reset')[1].html.includes('/login'),'password reset CTA retained');
 assert.ok(cases.find(x=>x[0]==='promotion with unsubscribe')[1].html.includes('Διακοπή προωθητικών email'),'email opt-out retained');
 assert.ok(cases.find(x=>x[0]==='broadcaster invite')[1].html.includes('Αποδοχή πρόσκλησης'),'invitation CTA visible');
+
+const invitationLink = site + '/broadcaster-invite?token=test-invite-secret';
+const richInvite = broadcasterInvitationEmail({name:'Test & Radio'},invitationLink);
+assert.equal(richInvite.html.split(invitationLink).length - 1, 3,
+  'broadcaster invite repeats the personal acceptance link in three HTML CTAs');
+assert.equal(richInvite.text.split(invitationLink).length - 1, 3,
+  'plain-text fallback repeats the personal acceptance link three times');
+for (const feature of ['Εβδομαδιαίο πρόγραμμα', 'Boost', 'Audio Engine', 'Live Analytics',
+                       'Web Player', 'παραγωγούς', '7 ημέρες']) {
+  assert.ok(richInvite.html.includes(feature), 'invitation guide missing ' + feature);
+}
+assert.ok(richInvite.html.includes('Test &amp; Radio'), 'station name is HTML-escaped');
+
 const once=renderBrandedEmail({content:'<p>hello</p>'});
 assert.equal(ensureBrandedEmail(once, {category:'test'}),once,'never double-wrap an already branded email');
 assert.ok(ensureBrandedEmail('<p>hello</p>').includes(BRAND_MARKER),'ad-hoc emails must become branded');
