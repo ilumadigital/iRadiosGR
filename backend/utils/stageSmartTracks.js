@@ -22,7 +22,7 @@ function getSharedAI(stationId,now=Date.now()){
   const key=String(stationId||'');
   const item=results.get(key);
   if(!item)return null;
-  if(item.expiresAt<=now){results.delete(key);return null;}
+  if(item.kind!=='manual'||item.expiresAt<=now){results.delete(key);return null;}
   return item;
 }
 // Rehydrate on every authorized station read so another Node process or an app
@@ -87,7 +87,7 @@ async function publishAI(station,payload,kind='manual',now=Date.now()){
 function activeSharedAI(now=Date.now()){
   const items=[];
   for(const [stationId,item] of results){
-    if(item.expiresAt<=now){results.delete(stationId);continue;}
+    if(item.kind!=='manual'||item.expiresAt<=now){results.delete(stationId);continue;}
     if(items.length>=512)break;
     items.push({stationId,title:item.raw,source:'acrcloud',foundWithAI:true,
       recognizedAt:item.recognizedAt,expiresAt:new Date(item.expiresAt).toISOString()});
