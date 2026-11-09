@@ -431,7 +431,7 @@ export default function Sidebar({
                   <Target size={20}/>
                 </Link>
               )}
-              {![''admin', 'broadcaster', 'producer', 'agency'].includes(currentUser?.role) && ( 
+              {!['admin', 'broadcaster', 'producer', 'agency'].includes(currentUser?.role) && ( 
                 <div className={`px-4 shrink-0 transition-all duration-300 ${isCollapsed ? 'lg:opacity-0 lg:h-0 lg:overflow-hidden' : 'opacity-100 h-auto'}`}>
                   <div className="relative overflow-hidden rounded-3xl border border-[#ccff00]/25 bg-gradient-to-br from-[#323a19]/95 via-[#1c2417] to-[#0b1011] p-4 shadow-[0_0_28px_rgba(204,255,0,0.07)]">
                     <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#ccff00]/20 blur-[35px]"/>
