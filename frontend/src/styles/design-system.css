@@ -569,6 +569,16 @@
       linear-gradient(115deg, rgba(9, 13, 17, .88) 10%, rgb(var(--ir-ambient-rgb, 134 165 56) / .17) 65%, #080b0f 115%);
     filter: saturate(1.25);
   }
+  .ir-home-hero--station {
+    /* A station hero is its actual logo-derived brand color, never a cover or producer photo. */
+    background-color: rgb(var(--ir-ambient-rgb, 134 165 56));
+  }
+  .ir-home-hero--station .ir-ambient-hero-gradient {
+    background:
+      radial-gradient(ellipse 85% 115% at 89% 42%, rgb(var(--ir-ambient-rgb, 134 165 56) / .98), rgb(var(--ir-ambient-rgb, 134 165 56) / .72) 58%, transparent 100%),
+      linear-gradient(120deg, rgb(var(--ir-ambient-rgb, 134 165 56) / .73), rgb(var(--ir-ambient-rgb, 134 165 56)));
+    filter: saturate(1.3);
+  }
   .ir-ambient-hero {
     box-shadow: inset 0 1px rgba(255,255,255,.13), 0 26px 55px rgba(0,0,0,.32);
   }

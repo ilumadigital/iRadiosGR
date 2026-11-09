@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, Radio, Sparkles, ArrowUpRight } from 'lucide
 import { useNavigate } from 'react-router-dom';
 import StationListenButton from './StationListenButton';
 import { useStationAmbient } from '../hooks/useStationAmbient';
+import { activeStationShow } from '../utils/liveBroadcast';
+import { getAthensClock } from '../utils/schedule';
 
 const meetsAudience=(slide,user)=>{
   if(slide.audience==='guest')return !user;
@@ -19,6 +21,13 @@ export default function HomeHeroSlider({
   const [slides,setSlides]=useState([]);
   const [index,setIndex]=useState(0);
   const [hover,setHover]=useState(false);
+  const [athensClock,setAthensClock]=useState(()=>getAthensClock());
+  useEffect(()=>{
+    const refreshClock=()=>setAthensClock(getAthensClock());
+    const timer=setInterval(refreshClock,30000);
+    document.addEventListener('visibilitychange',refreshClock);
+    return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',refreshClock);};
+  },[]);
   useEffect(()=>{
     const controller=new AbortController();
     setIndex(0);
@@ -46,7 +55,8 @@ export default function HomeHeroSlider({
   const featuredStation=slide?.targetType==='station'
     ? stations.find(s=>String(s._id)===String(slide.stationId)) || stationFallback
     : stationFallback;
-  const displayLogo=(!slide||slide.targetType==='station')?featuredStation?.logo:null;
+  const isStationHero=!slide||slide.targetType==='station';
+  const displayLogo=isStationHero?featuredStation?.logo:null;
   const brandRgb=useStationAmbient(displayLogo);
   useEffect(()=>{onFeaturedStationChange?.(featuredStation?._id || null);},[featuredStation?._id,onFeaturedStationChange]);
   useEffect(()=>{
@@ -67,10 +77,15 @@ export default function HomeHeroSlider({
     }
   };
   const image=slide?.imageUrl || stationFallback?.cover || stationFallback?.logo || '/iradios-wall.png';
-  const title=slide?.title || stationFallback?.name || 'Ανακάλυψε τον ήχο σου';
-  const description=slide?.subtitle || stationFallback?.slogan ||
+  const title=slide?.title || (isStationHero?featuredStation?.name:stationFallback?.name) || 'Ανακάλυψε τον ήχο σου';
+  const description=slide?.subtitle || (isStationHero?featuredStation?.slogan:stationFallback?.slogan) ||
     'Χιλιάδες σταθμοί. Μία εμπειρία που προσαρμόζεται στις επιλογές σου.';
-  const stationAction=(!slide||slide.targetType==='station')&&featuredStation;
+  const stationAction=isStationHero&&featuredStation;
+  // Home cards are text-only for on-air programs: never render a producer photo.
+  // Match the actual Greek-local schedule, preferring the host over the show title.
+  const activeShow=stationAction?activeStationShow(featuredStation,athensClock):null;
+  const onAirName=[activeShow?.host,activeShow?.title]
+    .find(value=>typeof value==='string'&&value.trim())?.trim()||'';
   // This default station card represents the listener's most recent station,
   // not an editorial recommendation. Reflect actual shared playback state.
   const featuredStationIsPlaying=Boolean(isPlaying && currentStation?._id &&
@@ -89,11 +104,10 @@ export default function HomeHeroSlider({
       onFocusCapture={()=>setHover(true)}
       onBlurCapture={e=>{if(!e.currentTarget.contains(e.relatedTarget))setHover(false);}}
       style={{'--ir-ambient-rgb':brandRgb}}
-      className="ir-home-hero ir-ambient-hero relative isolate h-[245px] w-full min-h-0 min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#10161b] sm:h-[295px] sm:rounded-[28px] lg:h-[340px] xl:h-[355px]">
-      <img src={image} alt="" loading="eager"
-        className={`pointer-events-none absolute inset-0 h-full w-full ${slide?'object-cover opacity-80':'object-cover opacity-20 blur-[2px]'}`}/>
+      className={`ir-home-hero ir-ambient-hero ${isStationHero ? 'ir-home-hero--station' : 'ir-home-hero--editorial'} relative isolate h-[245px] w-full min-h-0 min-w-0 overflow-hidden rounded-[24px] border border-white/10 bg-[#10161b] sm:h-[295px] sm:rounded-[28px] lg:h-[340px] xl:h-[355px]`}>
+      {!isStationHero&&<img src={image} alt="" loading="eager" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-80"/>}
       <div className="ir-ambient-hero-gradient pointer-events-none absolute inset-0"/>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#090b10]/95 via-[#090b10]/65 to-transparent"/>
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-r ${isStationHero ? 'from-[#081013]/80 via-[#081013]/45 to-[#081013]/10' : 'from-[#090b10]/95 via-[#090b10]/65 to-transparent'}`}/>
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"/>
       <div className="absolute inset-0 z-10 flex min-w-0 w-full flex-col justify-end gap-1.5 p-3 pb-11 sm:gap-3 sm:p-6 sm:pb-10 xl:p-8">
         <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border border-[#ccff00]/40 bg-black/60 px-2 py-1 text-[9px] font-black tracking-[0.1em] text-[#ccff00] backdrop-blur-xl sm:gap-2 sm:px-3 sm:py-2 sm:text-[10px] ${slide?.eyebrow ? 'uppercase' : ''}`}>
@@ -105,6 +119,13 @@ export default function HomeHeroSlider({
               {title}
             </h2>
             <p className="mt-2 hidden max-w-xl text-xs font-medium leading-relaxed text-zinc-200 sm:line-clamp-2 sm:text-sm">{description}</p>
+            {onAirName&&<div className="mt-3 inline-flex max-w-full min-w-0 items-center gap-2.5 rounded-2xl border border-white/25 bg-black/35 px-3 py-2 shadow-[0_9px_30px_rgba(0,0,0,.17)] backdrop-blur-xl sm:mt-4 sm:px-4 sm:py-2.5">
+              <Radio size={16} className="shrink-0 text-[#ccff00]" aria-hidden="true"/>
+              <span className="min-w-0">
+                <span className="block text-[9px] font-extrabold uppercase tracking-[0.13em] text-[#dcffa0]">ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ</span>
+                <span className="block line-clamp-2 text-xs font-black leading-snug text-white sm:text-sm" title={onAirName}>{onAirName}</span>
+              </span>
+            </div>}
           </div>
           {displayLogo&&<div className="ir-hero-station-logo relative hidden h-24 w-24 shrink-0 items-center justify-center rounded-[22px] border border-white/25 bg-white/95 p-3 shadow-[0_18px_55px_rgba(0,0,0,.5)] sm:flex lg:h-32 lg:w-32 xl:h-36 xl:w-36">
             <img src={displayLogo} alt={featuredStation?.name||'Λογότυπο σταθμού'} className="h-full w-full object-contain"/>
