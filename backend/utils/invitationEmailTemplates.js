@@ -1,5 +1,40 @@
 'use strict';
-const { renderBrandedEmail, actionButton, infoPanel, escapeHtml } = require('./emailDesign');
+const { renderBrandedEmail, actionButton, infoPanel, escapeHtml, siteOrigin } = require('./emailDesign');
+
+// Station logos need absolute HTTPS URLs in email clients; never insert untrusted
+// raw URLs into HTML attributes or accidentally expose unsupported schemes.
+function stationLogoUrl(logo) {
+  const source = String(logo || '').trim();
+  if (!source) return '';
+  try {
+    const expanded = source.startsWith('__IRADIOS_SITE_ORIGIN__/')
+      ? source.replace('__IRADIOS_SITE_ORIGIN__', siteOrigin())
+      : source;
+    const url = new URL(expanded, siteOrigin());
+    return url.protocol === 'https:' && !url.username && !url.password ? url.href : '';
+  } catch (_error) { return ''; }
+}
+
+// Keep the existing label/name card but give the station's actual logo its own
+// square, contain-fitted left column. Table structure works across email clients.
+function broadcasterStationPanel(station) {
+  const name = String(station?.name || 'Ο σταθμός σου');
+  const logo = stationLogoUrl(station?.logo);
+  if (!logo) return infoPanel('ΣΤΑΘΜΟΣ ΠΡΟΣ ΑΝΑΘΕΣΗ', name, { highlight: true });
+  return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" ' +
+    'style="width:100%;margin:22px 0;border-collapse:separate;">' +
+    '<tr><td style="padding:16px;background:#0C121C;border:1px solid #53652C;border-radius:18px;">' +
+    '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">' +
+    '<tr><td width="78" valign="middle" style="width:78px;padding-right:16px;">' +
+    '<img src="' + escapeHtml(logo) + '" alt="' + escapeHtml(name) + '" width="68" height="68" ' +
+    'style="display:block;width:68px;height:68px;max-width:100%;object-fit:contain;' +
+    'background:#080D16;border:1px solid #293340;border-radius:14px;">' +
+    '</td><td valign="middle" style="word-break:break-word;">' +
+    '<p style="margin:0 0 7px;color:#99A7B8;font-size:11px;font-weight:700;letter-spacing:1.8px;">' +
+    'ΣΤΑΘΜΟΣ ΠΡΟΣ ΑΝΑΘΕΣΗ</p>' +
+    '<p style="margin:0;color:#CCFF00;font-size:17px;font-weight:800;line-height:1.45;word-break:break-word;">' +
+    escapeHtml(name) + '</p></td></tr></table></td></tr></table>';
+}
 
 // Inline-styled table rows retain legibility in Gmail, Outlook and mobile mail.
 function broadcasterFeature(number, title, description, accessNote = '') {
@@ -39,7 +74,7 @@ function broadcasterInvitationEmail(station, link) {
     '<h3>Ο σταθμός σου. Στο επίκεντρο.</h3>' +
     '<p>Έχεις λάβει <strong>προσωπική πρόσκληση</strong> για να αναλάβεις τη διαχείριση του <strong>' +
       escapeHtml(name) + '</strong> στο iRadiosGR.</p>' +
-    infoPanel('ΣΤΑΘΜΟΣ ΠΡΟΣ ΑΝΑΘΕΣΗ', name, { highlight: true }) +
+    broadcasterStationPanel(station) +
     '<p>Με τον δικό σου λογαριασμό <strong>Broadcaster</strong> διαχειρίζεσαι τον σταθμό, το πρόγραμμα και τις δυνατότητες προβολής του από ένα Backoffice.</p>' +
     actionButton('Δημιουργία λογαριασμού & αποδοχή', link) +
     '<h3 style="font-size:21px;margin:32px 0 15px;">Τι μπορείς να κάνεις στο iRadiosGR</h3>' +
