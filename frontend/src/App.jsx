@@ -41,6 +41,7 @@ import WidgetNow from './components/WidgetNow';
 
 // --- PAGES ---
 import Home from './pages/Home';
+import HomeCategories from './components/HomeCategories';
 import BroadcasterStudio from './pages/BroadcasterStudio';
 import Backoffice from './pages/Backoffice';
 import ProducerStudio from './pages/ProducerStudio';
@@ -1807,6 +1808,11 @@ function MainApp() {
                 </SmartHomeRoute>
               } 
             />
+            <Route path="/categories" element={
+              <div className="ir-home-page relative mx-auto w-full max-w-[1720px] px-4 pb-36 pt-6 sm:px-6 xl:px-8">
+                <HomeCategories stations={stations} currentUser={currentUser} allLink={false}/>
+              </div>
+            } />
             <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} currentUser={currentUser} onLogout={handleLogout} /> : <Navigate to="/login" />} />
             <Route path="/settings" element={<Navigate to="/profile?tab=details" replace />} />
             <Route path="/press-kit" element={<PressKit />} />

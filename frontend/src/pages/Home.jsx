@@ -14,6 +14,7 @@ import HomeExplore from '../components/HomeExplore';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import HomeRadioShortlist from '../components/HomeRadioShortlist';
 import HomeRecommendationDeck from '../components/HomeRecommendationDeck';
+import HomeCategories from '../components/HomeCategories';
 import HomeTopStations from '../components/HomeTopStations';
 import HomeNewsFeed from '../components/HomeNewsFeed';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
@@ -673,6 +674,8 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           </div>
         )}
       </div>
+
+      <HomeCategories stations={stations} currentUser={currentUser}/>
 
       <HomeRecommendationDeck moodStations={moodStations} stations={stations} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
 
