@@ -1200,10 +1200,20 @@ function MainApp() {
     return () => clearInterval(clockInterval);
   }, [isPlaying, isPlayingAd, currentStation, ads, userLocation, currentUser]);
 
+  // Optional random station browsing. Keep one shared player/audio engine.
+  const [stationShuffle, setStationShuffle] = useState(false);
+  const shuffleHistoryRef = useRef([]);
+
   const handleNextStation = () => {
     if (isPlayingAd || zappingPlaylist.length === 0) return;
     let next;
-    if (!currentStation) next = zappingPlaylist[0];
+    if (stationShuffle && zappingPlaylist.length > 1) {
+      const options = zappingPlaylist.filter(s => s._id !== currentStation?._id);
+      next = options[Math.floor(Math.random() * options.length)];
+      if (currentStation?._id) {
+        shuffleHistoryRef.current = [...shuffleHistoryRef.current.slice(-19), currentStation._id];
+      }
+    } else if (!currentStation) next = zappingPlaylist[0];
     else {
       const idx = zappingPlaylist.findIndex(s => s._id === currentStation._id);
       next = zappingPlaylist[(idx + 1) % zappingPlaylist.length];
@@ -1224,8 +1234,12 @@ function MainApp() {
   const handlePrevStation = () => {
     if (isPlayingAd || zappingPlaylist.length === 0) return;
     let prev;
-    if (!currentStation) prev = zappingPlaylist[0];
-    else {
+    if (stationShuffle && shuffleHistoryRef.current.length) {
+      const previousId = shuffleHistoryRef.current.pop();
+      prev = zappingPlaylist.find(s => s._id === previousId);
+    }
+    if (!prev && !currentStation) prev = zappingPlaylist[0];
+    else if (!prev) {
       const idx = zappingPlaylist.findIndex(s => s._id === currentStation._id);
       prev = zappingPlaylist[idx <= 0 ? zappingPlaylist.length - 1 : idx - 1];
     }
@@ -1895,6 +1909,8 @@ function MainApp() {
           toggleFavorite={handleToggleFavorite} isFavorite={isFavorite}
           currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))}
           handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}
+          shuffleEnabled={stationShuffle}
+          onShuffleToggle={() => { shuffleHistoryRef.current = []; setStationShuffle(value => !value); }}
           isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} spotifyUrl={spotifyUrl}
           onOpenCarMode={() => setIsCarModeActive(true)}
           globalCoverArt={globalCoverArt}
