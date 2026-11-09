@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
 import {getAvailableRegionLinks} from '../utils/stationRegions';
@@ -57,7 +57,7 @@ export default function Sidebar({
     localStorage.setItem('iradios_sidebar_collapsed', String(newVal));
   };
 
-  const regionLinks = getAvailableRegionLinks(Array.isArray(stations) ? stations : []);
+  const regionLinks = useMemo(() => getAvailableRegionLinks(Array.isArray(stations) ? stations : []), [stations]);
 
   const [categoriesOpen, setCategoriesOpen] = useState(() => location.pathname.startsWith('/genre/'));
   const [regionsOpen, setRegionsOpen] = useState(() => location.pathname.startsWith('/region/'));
@@ -217,7 +217,7 @@ export default function Sidebar({
                     aria-controls="ir-sidebar-categories"
                     title={isCollapsed ? 'Κατηγορίες' : undefined}
                     onClick={() => toggleSubmenu('categories')}
-                    className={`ir-nav-item flex w-full items-center rounded-xl text-left transition-all duration-300 ${location.pathname.startsWith('/genre/') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'} ${isCollapsed ? 'lg:justify-center lg:px-0 lg:py-3 px-4 py-3 gap-4' : 'px-4 py-3 gap-4'}`}
+                    className={`ir-nav-item flex w-full overflow-hidden items-center rounded-xl text-left transition-all duration-300 ${location.pathname.startsWith('/genre/') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'} ${isCollapsed ? 'lg:justify-center lg:gap-0 lg:px-0 lg:py-3 px-4 py-3 gap-4' : 'px-4 py-3 gap-4'}`}
                   >
                     <Grid2X2 size={20} className="shrink-0"/>
                     <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:max-w-0 lg:opacity-0' : ''}`}>Κατηγορίες</span>
@@ -367,7 +367,7 @@ export default function Sidebar({
                     aria-controls="ir-sidebar-regions"
                     title={isCollapsed ? 'Ανά περιοχή' : undefined}
                     onClick={() => toggleSubmenu('regions')}
-                    className={`ir-nav-item mt-5 flex w-full items-center rounded-xl text-left transition-all duration-300 ${location.pathname.startsWith('/region/') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'} ${isCollapsed ? 'lg:justify-center lg:px-0 lg:py-3 px-4 py-3 gap-4' : 'px-4 py-3 gap-4'}`}
+                    className={`ir-nav-item mt-5 flex w-full overflow-hidden items-center rounded-xl text-left transition-all duration-300 ${location.pathname.startsWith('/region/') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:bg-zinc-900/50 hover:text-white'} ${isCollapsed ? 'lg:justify-center lg:gap-0 lg:px-0 lg:py-3 px-4 py-3 gap-4' : 'px-4 py-3 gap-4'}`}
                   >
                     <MapPin size={20} className="shrink-0"/>
                     <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:max-w-0 lg:opacity-0' : ''}`}>Ανά περιοχή</span>
