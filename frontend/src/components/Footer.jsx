@@ -279,24 +279,32 @@ export default function Footer({
           </div>
 
           {currentStation && (
-            <div className="h-5 flex items-center">
+            <div className="h-5 w-full min-w-0 flex items-center justify-center">
               {adWarning ? (
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00] animate-bounce">ΔΙΑΦΗΜΙΣΗ ΣΕ {adWarning}...</span>
               ) : isPlayingAd ? (
                 <span className="text-[10px] font-bold uppercase tracking-widest text-[#ccff00] animate-pulse">ADVERTISEMENT • {adTimeRemaining}s</span>
               ) : (
-                <div className="flex items-center gap-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${isRecognizing ? 'bg-blue-400 animate-ping' : isPlaying ? 'bg-[#ccff00] shadow-[0_0_8px_#ccff00]' : 'bg-red-500'}`}></div>
-                  <div className={`min-w-0 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest ${isRecognizing?'text-blue-400':'text-[#ccff00]'}`}>
-                    {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying :
-                      !isPlaying?'STOPPED':(
-                        <RdsCrossfade showSecondary={showProducerArt}
-                          secondary={canShowDj?<span>{liveBroadcast.title}</span>:null}>
-                          <span>{isRealSong?nowPlaying:'ΠΑΙΖΕΙ ΤΩΡΑ'}</span>
-                        </RdsCrossfade>
-                      )}
+                <div className="flex w-full min-w-0 items-center justify-center">
+                  <div className="flex max-w-full min-w-0 items-center justify-center gap-2">
+                    <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${isRecognizing ? 'bg-blue-400 animate-ping' : isPlaying ? 'bg-[#ccff00] shadow-[0_0_8px_#ccff00]' : 'bg-red-500'}`}></div>
+                    <div className={`min-w-0 max-w-full text-center text-[9px] sm:text-[10px] font-bold uppercase tracking-widest ${isRecognizing?'text-blue-400':'text-[#ccff00]'}`}>
+                      {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying :
+                        !isPlaying?'STOPPED':(
+                          <RdsCrossfade showSecondary={showProducerArt} className="min-w-0 text-center"
+                            secondary={canShowDj?(
+                              <span className="block truncate text-center" title={liveBroadcast.title || ''}>
+                                <span className="font-black">Now ON AIR:</span> {liveBroadcast.title}
+                              </span>
+                            ):null}>
+                            <span className="block truncate text-center" title={isRealSong ? nowPlaying : 'ΠΑΙΖΕΙ ΤΩΡΑ'}>
+                              {isRealSong?nowPlaying:'ΠΑΙΖΕΙ ΤΩΡΑ'}
+                            </span>
+                          </RdsCrossfade>
+                        )}
+                    </div>
+                    {currentUser&&nowPlayingInfo?.foundWithAI&&isRealSong&&!showProducerArt&&!isPlayingAd&&<FoundWithAI compact/>}
                   </div>
-                  {currentUser&&nowPlayingInfo?.foundWithAI&&isRealSong&&!showProducerArt&&!isPlayingAd&&<FoundWithAI compact/>}
                 </div>
               )}
             </div>
