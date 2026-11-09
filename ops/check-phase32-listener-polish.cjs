@@ -28,9 +28,11 @@ assert.ok(radioMap.includes('onPlayStation?.(station)'),'shared map popup must u
 assert.ok(radioMap.includes('tiles.openfreemap.org/styles/dark'),'shared map must use key-free dark vector basemap');
 assert.ok(read('frontend/src/components/MapMode.jsx').includes('<RadioGeoMap'),'global map must use shared engine');
 assert.ok(!regionMap.includes('basemaps.cartocdn.com'),'region must not load old CARTO tiles');
-for(const p of ['frontend/src/pages/StationProfile.jsx','frontend/src/components/MobileMiniPlayer.jsx']){
-  assert.ok(read(p).includes('formatFMFrequency('),p+' must normalize visible frequency');
-}
+assert.ok(read('frontend/src/pages/StationProfile.jsx').includes('formatFMFrequency('),
+  'station profile must normalize visible frequency');
+const mobilePlayer = read('frontend/src/components/MobileMiniPlayer.jsx');
+assert.ok(!mobilePlayer.includes('ir-glass-broadcast-pill') && !mobilePlayer.includes('formatFMFrequency('),
+  'mobile fullscreen player intentionally hides the FM frequency badge');
 const favorites=read('frontend/src/pages/Favorites.jsx');
 for(const x of ['<StationCatalogCard','type="search"','setView','aria-pressed={view===','setGenre','toggleFavorite','currentStation={currentStation}']){
   assert.ok(favorites.includes(x),'favorites needs '+x);
