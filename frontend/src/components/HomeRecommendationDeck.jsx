@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, ChevronUp, Mic2, Play, Radio, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { stationIsPlaying } from './StationListenButton';
@@ -55,26 +55,6 @@ export default function HomeRecommendationDeck({
   const [forYouExtraRows, setForYouExtraRows] = useState(0);
   const [onAirExtraRows, setOnAirExtraRows] = useState(0);
 
-  // Use the actual content width, not the screen width (desktop sidebar included).
-  useEffect(() => {
-    const deck = deckRef.current;
-    if (!deck) return;
-    const updateColumns = () => {
-      const width = deck.getBoundingClientRect().width;
-      const next = width >= 1320 ? 6 : width >= 1080 ? 5 : width >= 780 ? 4
-        : width >= 600 ? 3 : width >= 440 ? 2 : 1;
-      setColumns(previous => previous === next ? previous : next);
-    };
-    updateColumns();
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(updateColumns);
-      observer.observe(deck);
-      return () => observer.disconnect();
-    }
-    window.addEventListener('resize', updateColumns);
-    return () => window.removeEventListener('resize', updateColumns);
-  }, []);
-
   const play = station => {
     if (station.isOffline === true || stationIsPlaying(station, currentStation, isPlaying)) return;
     if (String(station._id) === String(currentStation?._id) && onPlayPause) onPlayPause();
@@ -99,6 +79,30 @@ export default function HomeRecommendationDeck({
     };
   }, []);
   const onAir = useMemo(() => getOnAirProducers(stations, clock), [stations, clock]);
+  // The deck may render null until stations load asynchronously. A mount-only
+  // measurement would see a null ref and leave the grid stuck at one giant column.
+  const hasDeckItems = picks.length > 0 || onAir.length > 0;
+  useLayoutEffect(() => {
+    if (!hasDeckItems) return;
+    const deck = deckRef.current;
+    if (!deck) return;
+    const updateColumns = () => {
+      // Measure the actual content pane, excluding the desktop sidebar.
+      const width = deck.getBoundingClientRect().width || deck.clientWidth;
+      if (!Number.isFinite(width) || width <= 0) return;
+      const next = width >= 1320 ? 6 : width >= 1080 ? 5 : width >= 780 ? 4
+        : width >= 600 ? 3 : width >= 440 ? 2 : 1;
+      setColumns(previous => previous === next ? previous : next);
+    };
+    updateColumns(); // Layout effect avoids flashing huge single-column cards.
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateColumns) : null;
+    observer?.observe(deck);
+    window.addEventListener('resize', updateColumns);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateColumns);
+    };
+  }, [hasDeckItems]);
   // One starting row on desktop/tablet; keep four vertically on phones.
   // Every arrow click reveals exactly two more rows at the current column count.
   const firstRowCount = columns <= 2 ? 4 : columns;
@@ -106,7 +110,7 @@ export default function HomeRecommendationDeck({
   const visibleOnAir = onAir.slice(0, firstRowCount + onAirExtraRows * columns);
   const morePicks = visiblePicks.length < picks.length;
   const moreOnAir = visibleOnAir.length < onAir.length;
-  if (!picks.length && !onAir.length) return null;
+  if (!hasDeckItems) return null;
 
   return (
     <section ref={deckRef} className="min-w-0 space-y-8 sm:space-y-10" aria-label="Ανακάλυψη και ζωντανές εκπομπές">
