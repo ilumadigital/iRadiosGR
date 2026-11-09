@@ -10,6 +10,7 @@ const path=require('node:path');
 const Station=require('../models/Station');
 const {deleteStationRecord}=require('../services/stationDeletion');
 const {validateStationCategories}=require('../utils/stationCategories');
+const {validateStationLocation}=require('../utils/stationLocations');
 const User=require('../models/User');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
@@ -28,9 +29,9 @@ router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'
     next();
   });
 
-const fields='name slogan description genre secondaryGenre region city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase scheduleFeed createdAt';
+const fields='name slogan description genre secondaryGenre country region prefecture city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase scheduleFeed createdAt';
 const textFields=Object.freeze({
-  name:100,slug:100,slogan:240,description:4000,genre:100,secondaryGenre:100,region:100,city:100,
+  name:100,slug:100,slogan:240,description:4000,genre:100,secondaryGenre:100,country:100,region:100,prefecture:100,city:100,
   transmissionType:30,frequency:30,website:450,stream:1200,metadata:1200,
   facebook:450,instagram:450,twitter:450,tiktok:450,phone:60,viber:60,email:254
 });
@@ -80,6 +81,11 @@ function cleanEdits(payload,{ignoreUnknown=false}={}){
   if(categoryError)throw validationError(categoryError);
   if(Object.keys(result).length===0)throw validationError('Δεν υπάρχουν αλλαγές προς αποθήκευση.');
   return result;
+}
+function checkedStationLocation(edits, options) {
+  const {data, error} = validateStationLocation(edits, options);
+  if (error) throw validationError(error);
+  return data;
 }
 async function ensureSlugAvailable(slug,excludeStationId){
   if(!slug)return;
@@ -194,7 +200,7 @@ router.get('/backoffice/stations/:id',async(req,res)=>{
 router.post('/backoffice/stations',async(req,res)=>{
   try{
     if(req.user.role==='producer')return res.status(403).json({error:'Η προσθήκη σταθμού δεν επιτρέπεται.'});
-    const cleaned=cleanEdits(req.body);
+    const cleaned=checkedStationLocation(cleanEdits(req.body),{required:true});
     const categoryError=validateStationCategories(cleaned,{required:true});
     if(categoryError)return res.status(400).json({error:categoryError});
     if(!cleaned.name||!cleaned.stream)return res.status(400).json({error:'Χρειάζονται όνομα και stream URL.'});
@@ -218,7 +224,7 @@ router.patch('/backoffice/stations/:id',async(req,res)=>{
   try{
     const station=await ownedStation(req,res,{writer:true});
     if(!station)return;
-    const edits=cleanEdits(req.body);
+    const edits=checkedStationLocation(cleanEdits(req.body),{current:station});
     if(Object.hasOwn(edits,'slug')&&edits.slug!==station.slug)
       await ensureSlugAvailable(edits.slug,station._id);
     if(req.user.role==='admin'){
@@ -254,7 +260,7 @@ router.post('/backoffice/stations/:id/review',authorizeRoles('admin'),async(req,
     const action=req.body?.action;
     if(!['approve','reject'].includes(action))return res.status(400).json({error:'Μη έγκυρη ενέργεια.'});
     if(action==='approve'){
-      const cleaned=cleanEdits(station.pendingEdits,{ignoreUnknown:true});
+      const cleaned=checkedStationLocation(cleanEdits(station.pendingEdits,{ignoreUnknown:true}),{current:station});
       if(Object.hasOwn(cleaned,'slug')&&cleaned.slug!==station.slug)
         await ensureSlugAvailable(cleaned.slug,station._id);
       station.set(cleaned);

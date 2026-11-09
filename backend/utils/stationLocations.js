@@ -32,4 +32,26 @@ function normalizeStationCity(input) {
   return {data};
 }
 
-module.exports = {normalizeStationCity, inferPrefecture};
+// Strict shared contract for station creation/editing in the modern backoffice.
+// Existing stations can omit prefecture; non-location edits must not rewrite them.
+function validateStationLocation(input, {current = {}, required = false} = {}) {
+  const keys = ['country', 'region', 'prefecture', 'city'];
+  if (!required && !keys.some(key => Object.hasOwn(input, key))) return {data:input};
+  const location = Object.fromEntries(keys.map(key => [key,
+    Object.hasOwn(input, key) ? input[key] : (current[key] || (key === 'country' ? 'Ελλάδα' : ''))]));
+  if (keys.some(key => !location[key])) {
+    return {data:input, error:'Επέλεξε χώρα, περιφέρεια, νομό και πόλη.'};
+  }
+  const cities = LOCATION_DATA[location.country]?.[location.region]?.[location.prefecture];
+  if (!cities?.length) {
+    return {data:input, error:'Επέλεξε έγκυρη χώρα, περιφέρεια και νομό.'};
+  }
+  const permitted = location.country === 'Εξωτερικό' ? cities :
+    [location.country === 'Ελλάδα' && location.prefecture === 'Κυκλάδες' ? 'Ερμούπολη' : cities[0]];
+  if (!permitted.includes(location.city)) {
+    return {data:input, error:'Η πόλη πρέπει να είναι η πρωτεύουσα του επιλεγμένου νομού.'};
+  }
+  return {data:{...input, ...location}};
+}
+
+module.exports = {normalizeStationCity, inferPrefecture, validateStationLocation};

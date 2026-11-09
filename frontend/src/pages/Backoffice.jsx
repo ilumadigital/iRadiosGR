@@ -5,6 +5,7 @@ import '../styles/backoffice-admin.css';
 import ScheduleXmlImport from '../components/ScheduleXmlImport';
 import {PrimaryCategorySelect,SecondaryCategorySelect} from '../components/StationCategorySelect';
 import {isPrimaryCategory,isSecondaryCategory} from '../utils/stationCategories';
+import {LOCATION_DATA,stationCityOptions,canonicalStationLocation} from '../utils/stationLocations';
 import {minutes,scheduleDayBase,toCanonical,normalize,nextDay} from '../utils/schedule';
 import {
   Activity,ArrowDownRight,ArrowLeft,ArrowRight,BadgeCheck,BarChart3,
@@ -30,10 +31,10 @@ const Boost=lazy(()=>import('./Boost'));
 const NewPush=lazy(()=>import('./NewPush'));
 const DAY_NAMES=['','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
 const EDIT_FIELDS=['name','slug','slogan','description','genre','secondaryGenre','transmissionType','frequency',
-  'region','city','website','email','phone','stream','metadata','facebook','instagram',
+  'country','region','prefecture','city','website','email','phone','stream','metadata','facebook','instagram',
   'twitter','tiktok','explicit'];
 const BLANK={name:'',slug:'',slogan:'',description:'',genre:'',secondaryGenre:'',transmissionType:'Web Radio',
-  frequency:'',region:'',city:'',website:'',email:'',phone:'',stream:'',metadata:'',
+  frequency:'',country:'Ελλάδα',region:'',prefecture:'',city:'',website:'',email:'',phone:'',stream:'',metadata:'',
   facebook:'',instagram:'',twitter:'',tiktok:'',explicit:false};
 const panel='rounded-[26px] border border-white/[0.075] bg-[#111418] shadow-[0_22px_90px_rgba(0,0,0,0.14)]';
 const inputClass='w-full rounded-xl border border-white/10 bg-[#090b0d] px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[#caff00]/70 focus:ring-2 focus:ring-[#caff00]/10';
@@ -386,7 +387,7 @@ function StationEditor({data,reload,notify,requestDelete}){
     return ()=>{active=false;};
   },[id,isNew,listedStation?._id,notify]);
   useEffect(()=>{
-    const origin=isNew?BLANK:{...BLANK,...station,...(station?.pendingEdits||{})};
+    const origin=isNew?BLANK:canonicalStationLocation({...BLANK,...station,...(station?.pendingEdits||{})});
     setForm(Object.fromEntries(EDIT_FIELDS.map(k=>[k,origin[k]??BLANK[k]])));
     setSlugTouched(false);
     setDirty(false);
@@ -395,6 +396,9 @@ function StationEditor({data,reload,notify,requestDelete}){
     setForm(prev=>{
       const next={...prev,[field]:value};
       if(field==='name'&&isNew&&!slugTouched)next.slug=suggestStationSlug(value);
+      if(field==='country'){next.region='';next.prefecture='';next.city='';}
+      if(field==='region'){next.prefecture='';next.city='';}
+      if(field==='prefecture')next.city='';
       return next;
     });
     if(field==='slug')setSlugTouched(true);
@@ -408,10 +412,14 @@ function StationEditor({data,reload,notify,requestDelete}){
     if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug||'')){
       notify('Το slug πρέπει να περιέχει πεζά λατινικά γράμματα, αριθμούς και παύλες.','error');return;
     }
+    if(!LOCATION_DATA[form.country]?.[form.region]?.[form.prefecture] ||
+      !stationCityOptions(form.country,form.region,form.prefecture).includes(form.city)){
+      notify('Επίλεξε έγκυρη χώρα, περιφέρεια, νομό και την πρωτεύουσά του.','error');return;
+    }
     setBusy(true);
     try{
       const payload=isNew?Object.fromEntries(['name','slug','slogan','description','genre','secondaryGenre','stream',
-        'transmissionType','region','city'].map(k=>[k,form[k]])):
+        'transmissionType','country','region','prefecture','city'].map(k=>[k,form[k]])):
         Object.fromEntries(Object.entries(form).filter(([key])=>key!=='slug'||form.slug!==station.slug));
       const result=await api(isNew?'/stations':'/stations/'+station._id,
         {method:isNew?'POST':'PATCH',body:JSON.stringify(payload)});
@@ -476,8 +484,28 @@ function StationEditor({data,reload,notify,requestDelete}){
             <Field label="Τύπος μετάδοσης"><select className={inputClass} value={form.transmissionType} onChange={e=>update('transmissionType',e.target.value)}>
               <option>Web Radio</option><option>Επίγειο</option><option>DAB</option></select></Field>
             <Field label="Συχνότητα (αν υπάρχει)"><input className={inputClass} maxLength={30} placeholder="π.χ. 96.3" value={form.frequency} onChange={e=>update('frequency',e.target.value)}/></Field>
-            <Field label="Περιφέρεια"><input className={inputClass} maxLength={100} value={form.region} onChange={e=>update('region',e.target.value)}/></Field>
-            <Field label="Πόλη"><input className={inputClass} maxLength={100} value={form.city} onChange={e=>update('city',e.target.value)}/></Field>
+            <Field label="Χώρα *"><select required className={inputClass} value={form.country} onChange={e=>update('country',e.target.value)}>
+              {Object.keys(LOCATION_DATA).map(country=><option key={country} value={country}>{country}</option>)}
+            </select></Field>
+            <Field label="Περιφέρεια *"><select required className={inputClass} value={form.region}
+              onChange={e=>update('region',e.target.value)} disabled={!form.country}>
+              <option value="">Επιλογή περιφέρειας</option>
+              {Object.keys(LOCATION_DATA[form.country]||{}).map(region=><option key={region} value={region}>{region}</option>)}
+            </select></Field>
+            <Field label="Νομός / Επαρχία *"><select required className={inputClass} value={form.prefecture}
+              onChange={e=>update('prefecture',e.target.value)} disabled={!form.region}>
+              <option value="">Επιλογή νομού</option>
+              {Object.keys(LOCATION_DATA[form.country]?.[form.region]||{}).map(prefecture=>
+                <option key={prefecture} value={prefecture}>{prefecture}</option>)}
+            </select></Field>
+            <Field label="Πόλη (πρωτεύουσα) *" help="Η πόλη επιλέγεται μόνο αφού επιλέξεις νομό.">
+              <select required className={inputClass} value={form.city} onChange={e=>update('city',e.target.value)}
+                disabled={!form.prefecture}>
+                <option value="">Επιλογή πρωτεύουσας</option>
+                {stationCityOptions(form.country,form.region,form.prefecture).map(city=>
+                  <option key={city} value={city}>{city}</option>)}
+              </select>
+            </Field>
             {!isNew&&<Field label="Σήμανση περιεχομένου" wide><span className="flex items-center gap-3 text-sm text-zinc-300"><input type="checkbox" className="size-4 accent-[#caff00]" checked={Boolean(form.explicit)} onChange={e=>update('explicit',e.target.checked)}/> Ο σταθμός μεταδίδει explicit περιεχόμενο</span></Field>}
           </div>
         </section>

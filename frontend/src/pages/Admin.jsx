@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {PrimaryCategorySelect,SecondaryCategorySelect} from '../components/StationCategorySelect';
-import {LOCATION_DATA, stationCityOptions, stationCapital, canonicalStationLocation, inferStationPrefecture} from '../utils/stationLocations';
+import {LOCATION_DATA, stationCityOptions, canonicalStationLocation, inferStationPrefecture} from '../utils/stationLocations';
 import {isPrimaryCategory,isSecondaryCategory,PRIMARY_CATEGORIES} from '../utils/stationCategories';
 import { 
   PlusCircle, Radio, Trash2, Edit, X, 
@@ -682,7 +682,7 @@ export default function Admin({ API_URL, refreshStations }) {
             {/* 3. ΝΟΜΟΣ */}
             <div className="space-y-2">
               <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Νομός / Επαρχία *</label>
-              <select required value={formData.prefecture} onChange={e => setFormData({...formData, prefecture: e.target.value, city: stationCapital(formData.country, formData.region, e.target.value)})} disabled={!formData.region} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white focus:border-[#ccff00]/50 outline-none appearance-none cursor-pointer disabled:opacity-50">
+              <select required value={formData.prefecture} onChange={e => setFormData({...formData, prefecture: e.target.value, city: ''})} disabled={!formData.region} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white focus:border-[#ccff00]/50 outline-none appearance-none cursor-pointer disabled:opacity-50">
                 <option value="">Επιλέξτε...</option>
                 {formData.region && Object.keys(LOCATION_DATA[formData.country]?.[formData.region] || {}).map(p => <option key={p} value={p}>{p}</option>)}
               </select>

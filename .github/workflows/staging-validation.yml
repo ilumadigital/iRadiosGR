@@ -83,6 +83,8 @@ jobs:
         run: node ops/check-phase32-listener-polish.cjs
       - name: Validate precise radio map marker positions and geographic anchors
         run: node ops/check-radio-map-geography.cjs
+      - name: Verify Greek prefectures and dependent station location forms
+        run: node ops/check-station-location-selects.cjs
       - name: Validate staging SonoVault recognition diagnostics without remote requests
         run: node ops/check-stage-sonovault-diagnostics.cjs
       - name: Validate longer compressed SonoVault manual audio sample

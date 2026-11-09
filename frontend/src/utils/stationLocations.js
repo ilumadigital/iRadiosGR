@@ -16,10 +16,11 @@ export function inferStationPrefecture(country, region, city) {
 }
 
 export function stationCapital(country, region, prefecture) {
-  const cities = LOCATION_DATA[country || 'Ελλάδα']?.[region]?.[prefecture];
+  const actualCountry = country || 'Ελλάδα';
+  const cities = LOCATION_DATA[actualCountry]?.[region]?.[prefecture];
   if (!cities?.length) return '';
-  // The prefectural seat of the Cyclades is Ermoupoli, not the island "Syros".
-  if (country === 'Ελλάδα' && prefecture === 'Κυκλάδες') return 'Ερμούπολη';
+  // Keep the canonical seat even for existing Cyclades records saved as Syros.
+  if (actualCountry === 'Ελλάδα' && prefecture === 'Κυκλάδες') return 'Ερμούπολη';
   return cities[0];
 }
 
