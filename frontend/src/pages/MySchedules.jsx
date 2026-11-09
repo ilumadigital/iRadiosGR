@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Calendar as CalendarIcon, Clock, User, Radio, Loader2, Check } from 'lucide-react';
+import { stationNameHostConflict } from '../utils/scheduleHostValidation';
 
 const DAYS_OF_WEEK = [
   'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'
@@ -36,6 +37,7 @@ export default function MySchedules({ API_URL, currentUser, refreshStations }) {
   const [editingShowInfo, setEditingShowInfo] = useState(null); 
 
   const isProducer = currentUser?.role === 'producer';
+  const producerConflictWord = stationNameHostConflict(formData.host, selectedStation?.name);
 
   useEffect(() => {
     fetchStations();
@@ -124,6 +126,9 @@ export default function MySchedules({ API_URL, currentUser, refreshStations }) {
 
   const handleSaveItem = (e) => {
     e.preventDefault();
+    if (producerConflictWord) {
+      return alert('Ο παραγωγός δεν μπορεί να περιέχει το όνομα του σταθμού ή λέξη του. Για μουσική ζώνη βάλε «Music» ή τον τίτλο της ζώνης ως τίτλο εκπομπής και άφησε τον παραγωγό κενό.');
+    }
     if (!formData.title || !formData.startTime || !formData.endTime) return alert("Συμπληρώστε τα υποχρεωτικά πεδία!");
     if (formData.days.length === 0) return alert("Επιλέξτε τουλάχιστον μία ημέρα!");
 
@@ -159,8 +164,8 @@ export default function MySchedules({ API_URL, currentUser, refreshStations }) {
       day: d,
       startTime: formData.startTime,
       endTime: formData.endTime, 
-      title: formData.title,
-      host: formData.host
+      title: formData.title.trim(),
+      host: (formData.host || '').trim()
     }));
 
     setSchedule([...otherShows, ...newEntries]);
@@ -177,6 +182,12 @@ export default function MySchedules({ API_URL, currentUser, refreshStations }) {
 
   const handleSaveToDB = async () => {
     if (!selectedStation) return;
+    // Also protect Save Changes when a previously imported/existing show has
+    // a station name in its host field and hasn't been opened in the modal.
+    const conflictingShow = schedule.find(show => stationNameHostConflict(show.host, selectedStation.name));
+    if (conflictingShow) {
+      return alert(`Η εκπομπή «${conflictingShow.title}» έχει ως παραγωγό το όνομα του σταθμού ή λέξη του. Διόρθωσε τον παραγωγό ή άφησέ τον κενό πριν αποθηκεύσεις.`);
+    }
     setIsSaving(true);
     try {
       const token = localStorage.getItem('iluma_token');
@@ -190,10 +201,11 @@ export default function MySchedules({ API_URL, currentUser, refreshStations }) {
       });
 
       if (res.ok) {
-        if (refreshStations) refreshStations(); 
+        if (refreshStations) refreshStations();
         alert("Το πρόγραμμα αποθηκεύτηκε με επιτυχία!");
       } else {
-        alert("Σφάλμα κατά την αποθήκευση.");
+        const details = await res.json().catch(() => null);
+        alert(details?.error || "Σφάλμα κατά την αποθήκευση.");
       }
     } catch (err) {
       alert("Σφάλμα δικτύου.");
@@ -419,16 +431,30 @@ export default function MySchedules({ API_URL, currentUser, refreshStations }) {
               </div>
 
               <div>
-                <label className="text-[9px] text-zinc-500 font-black tracking-widest mb-2 block uppercase ml-1">Show Title *</label>
-                <input type="text" required placeholder="e.g. Club Mix Live" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-5 text-sm focus:border-[#ccff00]/50 outline-none text-white font-bold" />
+                <label className="text-[9px] text-zinc-500 font-black tracking-widest mb-2 block uppercase ml-1">Τίτλος εκπομπής / μουσικής ζώνης *</label>
+                <input type="text" required placeholder="π.χ. Music, Afterhours, Club Mix Live" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-5 text-sm focus:border-[#ccff00]/50 outline-none text-white font-bold" />
               </div>
 
               <div>
-                <label className="text-[9px] text-zinc-500 font-black tracking-widest mb-2 block uppercase ml-1">Producer / Host</label>
-                <input type="text" placeholder="e.g. DJ Name" value={formData.host} onChange={(e) => setFormData({...formData, host: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-5 text-sm focus:border-[#ccff00]/50 outline-none text-white font-bold" />
+                <label htmlFor="schedule-producer" className="text-[9px] text-zinc-500 font-black tracking-widest mb-2 block uppercase ml-1">Παραγωγός (προαιρετικό)</label>
+                <input id="schedule-producer" type="text" maxLength={100}
+                  placeholder="Όνομα πραγματικού παραγωγού ή κενό"
+                  value={formData.host || ''} onChange={(e) => setFormData({...formData, host: e.target.value})}
+                  aria-invalid={Boolean(producerConflictWord)}
+                  aria-describedby={producerConflictWord ? 'schedule-producer-help schedule-producer-error' : 'schedule-producer-help'}
+                  className={`w-full bg-black border h-14 rounded-2xl px-5 text-sm outline-none text-white font-bold ${producerConflictWord ? 'border-red-500 focus:border-red-400' : 'border-white/10 focus:border-[#ccff00]/50'}`} />
+                <p id="schedule-producer-help" className="mt-2 px-1 text-xs leading-relaxed text-zinc-400">
+                  Για μουσική ζώνη γράψε «Music» ή τον τίτλο της ζώνης στον τίτλο εκπομπής και άφησε τον παραγωγό κενό. Δεν επιτρέπεται το όνομα του σταθμού ή κάποια λέξη του.
+                </p>
+                {producerConflictWord && (
+                  <p id="schedule-producer-error" role="alert" className="mt-2 px-1 text-xs font-semibold text-red-400">
+                    Η λέξη «{producerConflictWord}» υπάρχει στο όνομα του σταθμού «{selectedStation?.name}». Αφαίρεσέ την από τον παραγωγό ή άφησε το πεδίο κενό.
+                  </p>
+                )}
               </div>
 
-              <button type="submit" className="w-full bg-[#ccff00] text-black h-16 rounded-[24px] text-xs font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all mt-2 shadow-xl flex items-center justify-center gap-2">
+              <button type="submit" disabled={Boolean(producerConflictWord)}
+                className="w-full bg-[#ccff00] text-black h-16 rounded-[24px] text-xs font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all mt-2 shadow-xl flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100">
                 <Check size={18} /> {editingShowInfo !== null ? 'Update Show Data' : 'Add to Schedule'}
               </button>
             </form>

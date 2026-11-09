@@ -7,6 +7,7 @@ const BroadcasterInvitation = require('../models/BroadcasterInvitation');
 const mongoose = require('mongoose');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
+const {stationNameHostConflict}=require('../utils/scheduleHostValidation');
 
 // Recognition uses the approved station ID; only the backend contacts SonoVault.
 const multer = require('multer');
@@ -75,6 +76,15 @@ router.put('/stations/:id/schedule',
         return res.status(403).json({error:'Ο broadcaster πρέπει να απενεργοποιήσει πρώτα το XML feed.'});
       if(station.scheduleFeed?.lockUntil>new Date())
         return res.status(409).json({error:'Το XML πρόγραμμα ενημερώνεται. Δοκίμασε ξανά.'});
+      // A host is an actual producer, not the station identity. A music-only
+      // program belongs in the show title with an empty host. Enforce this
+      // on the server as well, so direct PUT requests cannot bypass the form.
+      const conflictingShow=parsed.schedule.find(show=>stationNameHostConflict(show.host,station.name));
+      if(conflictingShow)
+        return res.status(422).json({
+          code:'SCHEDULE_HOST_STATION_NAME',
+          error:`Ο παραγωγός της εκπομπής «${conflictingShow.title}» δεν μπορεί να περιέχει το όνομα του σταθμού ή λέξη του. Για μουσική ζώνη βάλε «Music» ή τον τίτλο της ζώνης στον τίτλο εκπομπής και άφησε τον παραγωγό κενό.`
+        });
       station.schedule=parsed.schedule;
       station.scheduleDayBase=1;
       if(station.scheduleFeed?.enabled)station.scheduleFeed.enabled=false;
