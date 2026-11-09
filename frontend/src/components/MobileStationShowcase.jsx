@@ -116,7 +116,7 @@ export default function MobileStationShowcase({
         <div className="ir-mobile-station-now-text">
           <div className="ir-mobile-station-now-label">
             <span aria-hidden="true" className="ir-mobile-station-equalizer"><i/><i/><i/></span>
-            {loadingMetadata ? 'Αναγνώριση…' : title ? 'Τώρα παίζει' : (showTitle ? 'Στον αέρα' : 'Ζωντανό ραδιόφωνο')}
+            {loadingMetadata ? 'Αναγνώριση…' : title ? 'Τώρα παίζει' : (showTitle ? 'Στον αέρα' : 'στο iRadiosGR')}
             {foundWithAI && song && <FoundWithAI compact />}
           </div>
           {title ? <>

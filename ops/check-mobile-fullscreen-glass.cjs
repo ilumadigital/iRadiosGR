@@ -15,6 +15,7 @@ const app = read('frontend/src/App.jsx');
 const stationPage = read('frontend/src/pages/StationProfile.jsx');
 const mobileStation = read('frontend/src/components/MobileStationShowcase.jsx');
 const storyUtility = read('frontend/src/utils/storyShare.js');
+const mobileStationCss = read('frontend/src/styles/station-profile.css');
 
 for(const text of [
   'showCoverArt ? globalCoverArt : null',
@@ -27,12 +28,14 @@ for(const text of [
   'togglePlayPause', 'ir-glass-transport',
   'openCarMode', 'openDevices', 'onRequestDevices?.()',
   'onTransferPlayback?.(device.deviceId)',
-  'ir-glass-sheet-layer', 'ir-glass-more-grid',
-  'onUserDSPChange(currentStation._id, preset.id)',
+  'ir-glass-sheet-layer', 'ir-glass-primary-actions',
+  'onClick={openStationProfile}',
   'ir-glass-primary-actions', 'onShuffleToggle', 'handleRadarClick',
   'MusicServiceLinks song={nowPlaying}', 'ir-mini-player'
 ]) assert.ok(player.includes(text), 'mobile player lost: '+text);
 
+assert.match(mobileStationCss, /\.ir-mobile-station-logo-frame\s*\{[^}]*border-radius:30px/s,
+  'mobile station logo uses a 30px corner radius');
 assert.ok(artwork.includes('onStationClick'), 'station logo must open station profile');
 assert.ok(artwork.includes('ir-showcase-art__brand--link'), 'logo must be a proper button');
 assert.ok(sharedCss.includes('transition: opacity'), 'RDS crossfade remains smooth');
@@ -44,6 +47,20 @@ assert.ok(app.includes('shuffleEnabled={stationShuffle}') && app.includes('shuff
 assert.ok(!player.includes('ir-live-visualizer') && !player.includes('ir-glass-visualizer'), 'fullscreen may not show visualizer');
 assert.ok(player.includes('onClick={openDevices}') && player.includes('<Shuffle'), 'right transport devices and left shuffle required');
 assert.ok(player.includes('ir-mini-story-button') && player.includes('ir-glass-story-tile'), 'Story must be reachable from mini and fullscreen players');
+assert.ok(player.includes('label="Ανέβασε Story"'), 'fullscreen Story action has explicit label');
+assert.ok(player.includes('Προφίλ {currentStation.name}'), 'direct mobile station profile link is named');
+assert.ok(!player.includes('ir-glass-quality-tile') && !player.includes('ir-glass-broadcast-pill'),
+  'defunct quality tile and upper-right frequency pill removed');
+assert.ok(!player.includes('showMoreMenu'), 'profile link does not open redundant More sheet');
+assert.ok(player.indexOf('MusicServiceLinks song={nowPlaying}') < player.indexOf('aria-label="Βρες ποιο τραγούδι παίζει"'),
+  'Spotify and Apple Music must appear before song recognition');
+assert.match(glass, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'only two bare primary actions');
+assert.match(glass, /\.ir-glass-primary-tile\s*\{[^}]*border:0;border-radius:0;background:transparent/s,
+  'primary actions have no border or tile background');
+assert.match(glass, /\.ir-glass-header__close\s*\{[^}]*border:0;border-radius:0;background:transparent/s,
+  'header collapse chevron has no glass frame');
+assert.ok(mobileStation.includes("'στο iRadiosGR'") && player.includes("'στο iRadiosGR'"),
+  'mobile fallback copy uses iRadiosGR');
 assert.ok(stationPage.includes('<ShareStory') && mobileStation.includes('<ShareStory'), 'Story must work on desktop/mobile station profiles');
 for(const value of ['width: 1080', 'height: 1920', 'Powered by ILUMA Digital Agency', "loadImage('/iradios-app-logo.png')", 'downloadStory(file)', 'navigator.share']) {
   assert.ok(storyUtility.includes(value), 'missing branded 9:16 story contract: '+value);
