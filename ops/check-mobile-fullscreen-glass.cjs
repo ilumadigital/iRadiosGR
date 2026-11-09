@@ -7,6 +7,7 @@ const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const player = read('frontend/src/components/MobileMiniPlayer.jsx');
 const artwork = read('frontend/src/components/FullscreenArtwork.jsx');
+const onAirShow = read('frontend/src/components/OnAirShowCard.jsx');
 const sharedCss = read('frontend/src/styles/fullscreen-player.css');
 const glass = read('frontend/src/styles/mobile-player-glass.css');
 const music = read('frontend/src/components/MusicServiceLinks.jsx');
@@ -37,6 +38,15 @@ for(const text of [
 assert.match(mobileStationCss, /\.ir-mobile-station-logo-frame\s*\{[^}]*border-radius:30px/s,
   'mobile station logo uses a 30px corner radius');
 assert.ok(artwork.includes('onStationClick'), 'station logo must open station profile');
+assert.match(player, /<OnAirShowCard[\s\S]*?showArtwork=\{false\}[\s\S]*?ir-glass-on-air/,
+  'mobile fullscreen on-air card hides duplicate show image');
+assert.match(onAirShow, /showArtwork=true/, 'desktop on-air shows still retain their images');
+assert.match(onAirShow, /showArtwork&&<div className="ir-onair-show__avatar">/,
+  'avatar DOM is omitted for the compact mobile on-air card');
+assert.match(glass, /\.ir-full-player--glass \.ir-glass-on-air \.ir-onair-show__body/,
+  'mobile fullscreen on-air card uses compact centered copy');
+assert.ok(player.includes('producerImage={canShowDj ? liveBroadcast.imageUrl : null}'),
+  'show artwork continues to appear in the main RDS stage');
 assert.ok(artwork.includes('ir-showcase-art__brand--link'), 'logo must be a proper button');
 assert.ok(sharedCss.includes('transition: opacity'), 'RDS crossfade remains smooth');
 assert.ok(sharedCss.includes('.ir-showcase-art__dj.is-active'), 'live DJ RDS fade retained');

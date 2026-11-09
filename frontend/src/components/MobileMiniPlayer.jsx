@@ -357,7 +357,7 @@ export default function MobileMiniPlayer({
                   <FoundWithAI compact className="ir-glass-found-ai"/>}
               </div>
               {!isPlayingAd && <OnAirShowCard show={liveBroadcast?.show} stationName={currentStation.name}
-                className="ir-mobile-show-card ir-glass-on-air"/>}
+                showArtwork={false} className="ir-mobile-show-card ir-glass-on-air"/>}
             </div>
             <span className="ir-glass-swipe-help" aria-hidden="true">‹ &nbsp; Σύρε για αλλαγή σταθμού &nbsp; ›</span>
           </section>
