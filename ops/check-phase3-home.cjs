@@ -71,4 +71,34 @@ assert.ok(footer.includes('<DesktopFullPlayer'),'desktop full screen connected')
 assert.ok(read('frontend/src/components/DesktopFullPlayer.jsx').includes('globalCoverArt'),'player uses actual cover URL');
 assert.doesNotMatch(read('frontend/src/components/DesktopFullPlayer.jsx'), /<audio\s+[^>]*ref=/i, 'visual player cannot create an audio element');
 assert.ok(read('frontend/src/pages/StationProfile.jsx').includes('<StationPlaylistPanel'),'station page shows the rolling station playlist');
+// Homepage news slider: editorial split-panel design must never crop the article photo.
+// Validate the existing carousel interaction and the new mobile/viewport contract.
+const newsSlider=read('frontend/src/components/HomeNewsSlider.jsx');
+const newsSliderCss=read('frontend/src/components/HomeNewsSlider.css');
+assert.ok(home.includes('<HomeNewsFeed'),'home includes the curated news feed section');
+assert.ok(newsSlider.includes("import './HomeNewsSlider.css'"),'news slider imports its responsive styles');
+assert.ok(newsSlider.includes('aria-roledescription="carousel"'),'news carousel is labelled');
+assert.ok(newsSlider.includes('onTouchStart={handleTouchStart}') &&
+  newsSlider.includes('onKeyDown={event =>'),'touch gestures and keyboard navigation retained');
+assert.ok(newsSlider.includes("to={'/newsfeed/' + article.key}"),'article links stay in the app');
+assert.ok(newsSlider.includes('{article.title}') &&
+  newsSlider.includes('{article.summary}'),'article headline and summary retained');
+assert.ok(newsSlider.includes('ir-news-glass-panel'),'news copy is a separate glass panel');
+assert.ok(newsSlider.includes('slideIndex === (activeIndex + 1) % count'),
+  'only active/next ambient image is mounted for mobile performance');
+assert.match(newsSliderCss,/\.ir-news-visual-image\s*\{[^}]*object-fit:\s*contain/,
+  'the original article image must be fully visible without cropping');
+assert.match(newsSliderCss,/\.ir-news-ambient-image\s*\{[^}]*object-fit:\s*cover/,
+  'only the blurred backdrop may cover the frame');
+assert.match(newsSliderCss,/\.ir-news-glass-panel\s*\{[^}]*backdrop-filter:\s*blur/,
+  'Swift UI glass panel must have backdrop blur');
+assert.match(newsSliderCss,/\.ir-home-news-carousel\s*\{[^}]*max-height:\s*calc\(100svh - 132px\)/,
+  'desktop news slider must fit within the viewport');
+assert.ok(newsSliderCss.includes('@media (max-width: 1023px)') &&
+  newsSliderCss.includes('@media (max-width: 639px)'),
+  'tablet and mobile layouts must stack image and text');
+assert.ok(newsSliderCss.includes('@media (prefers-reduced-motion: reduce)'),
+  'respect reduced motion');
+assert.doesNotMatch(newsSlider,/lg:h-\[100vh\]/,'no oversized 100vh news slides');
+
 console.log('Phase 3 slides, safety, playlist and desktop UI contracts passed.');
