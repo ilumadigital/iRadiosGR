@@ -12,6 +12,40 @@ const gradients = [
   'from-emerald-950 via-teal-900/75 to-zinc-950'
 ];
 
+// A square artwork canvas for every live programme. Its contained foreground
+// keeps portrait/wide/square artwork intact; only the blurred ambient layer crops.
+// If an artwork URL fails, fall back to the station logo in both layers.
+function OnAirArtwork({artworkUrl, stationLogo, hasProducerPhoto}) {
+  const [failedImages, setFailedImages] = useState([]);
+  const programmePhoto = hasProducerPhoto ? artworkUrl : '';
+  const visualUrl = [programmePhoto, stationLogo].find(
+    url => typeof url === 'string' && url.trim() && !failedImages.includes(url)
+  );
+  const showingProgrammePhoto = Boolean(programmePhoto && visualUrl === programmePhoto);
+  const handleImageError = () => {
+    if (visualUrl) setFailedImages(previous =>
+      previous.includes(visualUrl) ? previous : [...previous, visualUrl]);
+  };
+
+  return (
+    <>
+      {visualUrl && (
+        <>
+          <img src={visualUrl} alt="" loading="lazy" aria-hidden="true"
+            onError={handleImageError}
+            className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-2xl"/>
+          <img src={visualUrl} alt="" loading="lazy" aria-hidden="true"
+            onError={handleImageError}
+            className={'pointer-events-none absolute inset-0 h-full w-full object-contain object-center ' +
+              (showingProgrammePhoto ? 'p-1 opacity-95 sm:p-2' : 'p-8 opacity-90 sm:p-10')}/>
+        </>
+      )}
+      <span aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/15"/>
+    </>
+  );
+}
+
 export default function HomeRecommendationDeck({
   moodStations = [], stations = [], currentStation, isPlaying, onPlayStation, onPlayPause
 }) {
@@ -145,20 +179,9 @@ export default function HomeRecommendationDeck({
         <div id="home-on-air-grid" className="grid min-w-0 gap-3" style={{ gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' }}>
           {visibleOnAir.map(({station, host, endLabel, backgroundUrl, hasProducerPhoto}) => (
             <article key={station._id}
-              className={`group relative isolate flex w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-[#15302b] via-[#161e2b] to-zinc-950 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/35 ${hasProducerPhoto || columns > 1 ? 'aspect-square' : 'h-[160px]'}`}>
-              <img src={backgroundUrl || station.logo} alt="" loading="lazy" aria-hidden="true"
-                onError={event => {
-                  const image = event.currentTarget;
-                  image.onerror = null;
-                  image.src = station.logo;
-                }}
-                className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-2xl"/>
-              {hasProducerPhoto && (
-                <img src={backgroundUrl} alt="" loading="lazy" aria-hidden="true"
-                  onError={event => { event.currentTarget.style.display = 'none'; }}
-                  className="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-95"/>
-              )}
-              <span aria-hidden="true" className={`pointer-events-none absolute inset-0 bg-gradient-to-t ${hasProducerPhoto ? 'from-black/90 via-transparent to-transparent sm:from-black/95 sm:via-black/35 sm:to-black/20' : 'from-black/95 via-black/35 to-black/20'}`}/>
+              className="group relative isolate flex aspect-square w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-[#15302b] via-[#161e2b] to-zinc-950 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/35">
+              <OnAirArtwork artworkUrl={backgroundUrl} stationLogo={station.logo}
+                hasProducerPhoto={hasProducerPhoto}/>
               <div className={`relative z-10 items-start justify-between gap-2 ${hasProducerPhoto && columns === 1 ? 'hidden' : 'flex'}`}>
                 <img src={station.logo} alt="" loading="lazy"
                   className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1 shadow-xl sm:h-14 sm:w-14"/>
