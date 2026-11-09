@@ -505,14 +505,14 @@ export default function StationProfile({
                     </div>
                  </div>
               )}
-            </div>
 
-            {/* Branded music searches are available to every signed-in listener;
-              the shared component gates outbound links for Premium. */}
-          {!isCurrentlyLoadingMeta && (
-            <MusicServiceLinks song={effectiveNowPlaying} stationName={station.name}
-              currentUser={currentUser} className="ir-music-links--station-desktop" />
-          )}
+              {/* Desktop-only artwork action stack. The shared music component
+                  still controls login, validated RDS metadata and Premium gating. */}
+              {!isCurrentlyLoadingMeta && (
+                <MusicServiceLinks song={effectiveNowPlaying} stationName={station.name}
+                  currentUser={currentUser} className="ir-music-links--station-desktop" />
+              )}
+            </div>
           </div>
 
           {/* STATION INFO */}
