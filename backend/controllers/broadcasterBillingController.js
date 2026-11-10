@@ -197,6 +197,35 @@ async function cancel(req,res){
  // Cancellation stops future MIT. Already-paid period remains until expiry.
  return res.json({recurring,paidPeriodContinuesUntilExpiry:true});
 }
+async function premiumBoostSelection(req,res){
+ const user=await User.findById(req.user._id)
+  .select('broadcasterProfile.premiumBoostStationIds').lean();
+ const owned=await Station.find({broadcasterId:req.user._id,status:'approved'})
+  .select('_id name').lean();
+ const ids=new Set(owned.map(s=>String(s._id)));
+ const selected=(user?.broadcasterProfile?.premiumBoostStationIds||[])
+  .map(String).filter(id=>ids.has(id));
+ return res.json({selected,stations:owned.map(s=>({id:String(s._id),name:s.name})),
+  active:await hasAccountRight(req.user,'broadcaster.premium_boost')});
+}
+async function savePremiumBoostSelection(req,res){
+ if(!await hasAccountRight(req.user,'broadcaster.premium_boost'))
+  return res.status(403).json({code:'PREMIUM_REQUIRED',
+   error:'Απαιτείται ενεργό Broadcaster Premium.'});
+ const body=req.body||{},stationIds=body.stationIds;
+ if(Object.keys(body).some(k=>k!=='stationIds')||
+  !Array.isArray(stationIds)||stationIds.length>1000||
+  stationIds.some(id=>typeof id!=='string'||!ID.test(id)))
+  return res.status(400).json({error:'Invalid Premium Boost selection'});
+ const selected=[...new Set(stationIds.map(x=>x.toLowerCase()))];
+ const count=await Station.countDocuments({_id:{$in:selected},
+  broadcasterId:req.user._id,status:'approved'});
+ if(count!==selected.length)
+  return res.status(403).json({error:'A selected station is not an approved owned station'});
+ await User.updateOne({_id:req.user._id,role:'broadcaster'},
+  {$set:{'broadcasterProfile.premiumBoostStationIds':selected}});
+ return res.json({selected,active:true});
+}
 async function handleVerifiedEvent(event,res){
  const sku=event.product_sku,product=getProduct(sku);
  const onRenewal=event.billing_origin==='automatic_renewal';
@@ -290,4 +319,5 @@ async function handleVerifiedEvent(event,res){
 module.exports={requiresBroadcaster,checkout:safe(checkout),
  listOrders:safe(listOrders),readOrder:safe(readOrder),
  recurringStatus:safe(recurringStatus),cancel:safe(cancel),
- handleVerifiedEvent};
+ premiumBoostSelection:safe(premiumBoostSelection),
+ savePremiumBoostSelection:safe(savePremiumBoostSelection),handleVerifiedEvent};
