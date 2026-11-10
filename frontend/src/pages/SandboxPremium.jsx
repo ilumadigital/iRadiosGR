@@ -11,7 +11,7 @@ function rememberReturnPath(userId){
  try{
   const prior=JSON.parse(sessionStorage.getItem('iradios-billing-origin')||'null');
   const path=prior?.path;
-  if(typeof path==='string' && path.length<=512 && /^\\/(?!\\/)/.test(path) &&
+  if(typeof path==='string' && path.length<=512 && /^\/(?!\/)/.test(path) &&
     !path.includes('\\') && !path.startsWith('/premium') &&
     !path.startsWith('/backoffice') && Date.now()-prior.at<900000 &&
     Date.now()>=prior.at)
@@ -22,7 +22,7 @@ function takeReturnPath(userId){
  try{
   const name=RETURN_PREFIX+userId;
   const path=sessionStorage.getItem(name);
-  if(typeof path==='string' && path.length<=512 && /^\\/(?!\\/)/.test(path) &&
+  if(typeof path==='string' && path.length<=512 && /^\/(?!\/)/.test(path) &&
     !path.includes('\\') && !path.startsWith('/premium') &&
     !path.startsWith('/backoffice')){
    sessionStorage.removeItem(name);
