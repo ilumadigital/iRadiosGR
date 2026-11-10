@@ -40,7 +40,10 @@ function signedRequest(method,path,data=null,idempotencyKey=null){
    res.on('end',()=>{
     if(settled)return;settled=true;
     const code=res.statusCode||0;
-    if(code<200||code>=300)return reject(new Error('gateway_http_'+code));
+    if(code<200||code>=300)
+      return reject(Object.assign(new Error('gateway_http_'+code),{
+        code:'GATEWAY_HTTP_'+code
+      }));
     try {return resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));}
     catch{return reject(new Error('gateway_bad_json'));}
    });
