@@ -72,7 +72,8 @@ for(const type of ['shows','favoriteSchedule','news'])assert.ok(scheduler.includ
 assert.match(scheduler,/process\.env\.APP_ENV==='staging'/);
 const station=read('backend/controllers/stationController.js');
 assert.match(station,/topic:'newStations'/);
-assert.match(read('backend/controllers/paymentController.js'),/const owned=req\.user\?\.activeSubscriptions/);
+assert.ok(!fs.existsSync(path.join(root,'backend/controllers/paymentController.js')),'retired checkout controller must be absent');
+assert.match(read('backend/controllers/authController.js'),/const paidOrder=await/,'active paid periods must block unsafe account deletion');
 
 const profile=read('frontend/src/pages/Profile.jsx');
 const css=read('frontend/src/styles/profile.css');
