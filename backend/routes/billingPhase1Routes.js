@@ -55,7 +55,7 @@ router.get('/billing/me/entitlements',protect,safe(async(req,res)=>{
    entitlements:[...entitlementSet].sort(),
    complimentaryEntitlements:resolveComplimentaryEntitlements(grants,{stationId,campaignId,now}),
    legacyEntitlements:legacyRights(req.user),
-   paidSubscriptionsIntegrated:false,
+   paidSubscriptionsIntegrated:req.user.role==='user', // L-PREM first-cycle only
    renewalsAvailable:false
  });
 }));
