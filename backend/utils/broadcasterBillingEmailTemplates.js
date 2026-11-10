@@ -28,8 +28,8 @@ function broadcasterBillingEmail({kind,sku,name='',stationName=null,amountCents,
  const product=getProduct(sku);
  if(!product||!['B-PREM','ADD-DSP','ADD-AN','ADD-ADS'].includes(sku)&&
     !sku.startsWith('BOOST-'))throw Error('Unrecognized Broadcaster billing product');
- if(!['welcome','renewed','cancelled','soon','expired'].includes(kind))throw Error('Unknown billing email type');
- if(product.kind==='boost'&&['renewed','cancelled'].includes(kind))
+ if(!['welcome','renewed','failed','cancelled','soon','expired'].includes(kind))throw Error('Unknown billing email type');
+ if(product.kind==='boost'&&['renewed','failed','cancelled'].includes(kind))
   throw Error('One-off Boost must not get recurring billing messages');
  const title=product.title;
  const resource=product.scopeType==='station'?escapeHtml(stationName||'Ο σταθμός σου'):'Όλος ο λογαριασμός';
@@ -63,6 +63,13 @@ function broadcasterBillingEmail({kind,sku,name='',stationName=null,amountCents,
    infoPanel('Πληρωμή ανανέωσης',amount,{highlight:true})+line+
    '<p><strong>Πληρωμένη περίοδος έως:</strong> '+escapeHtml(end)+'</p>'+
    '<p>Μπορείς να ελέγξεις ή να ακυρώσεις την επόμενη αυτόματη ανανέωση μέσα από το Backoffice.</p>'+manage;
+ }else if(kind==='failed'){
+  subject='Προσοχή: αποτυχημένη ανανέωση iRadios Broadcaster';
+  headline='Η τελευταία αυτόματη χρέωση δεν ολοκληρώθηκε';
+  content='<p>Γεια σου <strong>'+who+'</strong>, η Nexi δεν επιβεβαίωσε την τελευταία αυτόματη ανανέωση αυτής της συνδρομής.</p>'+
+    line+infoPanel('Τελευταία επιβεβαιωμένη πληρωμένη περίοδος',end,{highlight:true})+
+    '<p><strong>Δεν ενεργοποιήθηκε νέα πληρωμένη περίοδος.</strong> Τα ήδη πληρωμένα προνόμιά σου παραμένουν διαθέσιμα μέχρι τη λήξη της προηγούμενης περιόδου.</p>'+
+    '<p>Η αυτόματη προσπάθεια δεν θα επαναλαμβάνεται ανεξέλεγκτα. Έλεγξε την κατάσταση της συνδρομής σου μέσα από το Backoffice για τα επόμενα βήματα.</p>'+manage;
  }else if(kind==='cancelled'){
   subject='Επιβεβαίωση ακύρωσης αυτόματης ανανέωσης Broadcaster';
   headline='Η αυτόματη ανανέωση ακυρώθηκε';
