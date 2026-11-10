@@ -12,6 +12,7 @@ const {localStatusFromGatewayLookup}=require('../services/gatewayBillingProtocol
 const {hasAccountRight,hasStationRight}=require('../services/billingEntitlements');
 const billingMail=require('../utils/broadcasterBillingEmailScheduler');
 const {ADDONS,isConflict,candidateAddons}=require('../services/broadcasterSubscriptionOverlap');
+const checkoutLease=require('../services/broadcasterCheckoutLease');
 const KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const ID=/^[a-f0-9]{24}$/i;
 const statusSet=new Set(['creating','pending','redirect','unknown']);
@@ -84,6 +85,13 @@ async function checkout(req,res){
  const scopeId=product.scopeType==='station'?String(stationId):'account';
  const requestKey='iradios-bstage-'+account+'-'+key;
  const lockKey=account+':'+sku+':'+scopeId;
+ const mustLease=isSubscription(sku);
+ if(mustLease){
+  const acquired=await checkoutLease.acquire(req.user._id,requestKey);
+  if(!acquired)return res.status(409).json({code:'SUBSCRIPTION_CHECKOUT_BUSY',
+   error:'Γίνεται ήδη προετοιμασία μηνιαίας αγοράς στον λογαριασμό. Έλεγξε πρώτα τη συναλλαγή σου στις «Συνδρομές μου».'});
+ }
+ try{
  let existing=await BroadcasterBillingOrder.findOne({requestKey}).lean();
  if(existing){
   if(String(existing.accountId)!==account||existing.sku!==sku||
@@ -177,6 +185,10 @@ async function checkout(req,res){
    error.code||'network');
   return res.status(202).json({order:display(uncertain||existing),
    note:'Άγνωστη κατάσταση. Δεν έγινε δεύτερη προσπάθεια χρέωσης.'});
+ }
+ }finally{
+  if(mustLease)try{await checkoutLease.release(req.user._id,requestKey);}
+   catch(e){console.warn('[BROADCASTER BILLING] Lease cleanup deferred',e.code||'db');}
  }
 }
 async function listOrders(req,res){
