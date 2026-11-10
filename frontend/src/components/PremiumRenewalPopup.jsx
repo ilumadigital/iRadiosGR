@@ -124,15 +124,15 @@ export default function PremiumRenewalPopup({currentUser,authReady,API_URL='/api
  // a potentially overlapping second payment.
  const billingRequired=hasMit||recurring===null;
  const autoExec=hasMit&&recurring?.execution_enabled===true;
- const ctaLabel=demo?'Προβολή Billing — χωρίς πληρωμή':
-  billingRequired?'Διαχείριση συνδρομής στο Billing':'Ανανέωση τώρα';
+ const ctaLabel=demo?'Προεπισκόπηση — χωρίς πληρωμή':
+  billingRequired?'Διαχείριση συνδρομής στο Billing':'Έναρξη συνδρομής';
  const title=expiring?'Το Premium σου λήγει σύντομα':
   grace?'Το Premium σου είναι σε περίοδο χάριτος':'Η συνδρομή σου έληξε';
  const description=expiring
   ?'Η τρέχουσα συνδρομή σου ολοκληρώνεται μέσα στις επόμενες 24 ώρες.'
   :grace
    ?'Η πληρωμένη περίοδος ολοκληρώθηκε, αλλά τα προνόμιά σου διατηρούνται προσωρινά έως το τέλος της χάριτος.'
-   :'Τα Premium προνόμια έχουν απενεργοποιηθεί επειδή δεν έχει επιβεβαιωθεί νέα πληρωμένη περίοδος.';
+   :'Τα Premium προνόμια έχουν απενεργοποιηθεί επειδή δεν έχει επιβεβαιωθεί νέα πληρωμένη περίοδος. Μπορείς να ξεκινήσεις νέα μηνιαία συνδρομή.';
  return <div className="fixed inset-0 z-[10050] flex items-center justify-center px-4 py-7 bg-black/75 backdrop-blur-md"
    role="presentation">
    <section role="dialog" aria-modal="true" aria-labelledby="premium-renewal-popup-title"
@@ -153,20 +153,20 @@ export default function PremiumRenewalPopup({currentUser,authReady,API_URL='/api
      <p id="premium-renewal-popup-description" className="mt-3 text-sm leading-6 text-zinc-300">{description}</p>
      {hasMit&&<p className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
       {autoExec
-       ?'Έχεις ενεργή αυτόματη ανανέωση Nexi. Δεν απαιτείται δεύτερη χειροκίνητη πληρωμή. Δες την κατάσταση της επόμενης χρέωσης στο Billing.'
-       :'Έχεις εξουσιοδότηση αυτόματης ανανέωσης, όμως οι αυτόματες χρεώσεις Sandbox δεν εκτελούνται ακόμη. Για να αποφύγουμε διπλή χρέωση, διαχειρίσου την από το Billing.'}
+       ?'Έχεις ενεργή αυτόματη ανανέωση. Δεν απαιτείται δεύτερη πληρωμή. Δες την κατάσταση της επόμενης χρέωσης στο Billing.'
+       :'Έχεις εξουσιοδότηση αυτόματης ανανέωσης, όμως οι αυτόματες χρεώσεις του δοκιμαστικού περιβάλλοντος δεν εκτελούνται ακόμη. Για να αποφύγουμε διπλή χρέωση, διαχειρίσου την από το Billing.'}
      </p>}
      {recurring===null&&<p className="mt-4 text-xs leading-5 text-amber-200">Δεν ήταν δυνατός ο έλεγχος του MIT contract. Έλεγξε το Billing πριν ξεκινήσεις νέα πληρωμή.</p>}
      <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
-       <span className="text-sm text-zinc-300">Ανανέωση ενός μήνα</span>
+       <span className="text-sm text-zinc-300">Έναρξη μηνιαίας συνδρομής</span>
        <strong className="text-xl text-[#ccff00]">3,99 €</strong>
       </div>
       <p className="mt-2 text-xs text-zinc-400">
        {expiring?'Τρέχουσα λήξη: '+clock(display.periodEndsAt):
         grace?'Λήξη χάριτος: '+clock(display.graceEndsAt):
          hasMit?'Κατάσταση αυτόματης ανανέωσης: '+(autoExec?'ενεργή':'Sandbox σε έλεγχο'):
-          'Χειροκίνητη αγορά · Ασφαλές checkout Nexi'}
+          'Μηνιαία συνδρομή · ακύρωση οποτεδήποτε'}
       </p>
      </div>
      <button type="button" disabled={busy}
