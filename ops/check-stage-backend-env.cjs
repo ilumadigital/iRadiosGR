@@ -37,6 +37,17 @@ try {
   verify(safe.replace('APP_ENV=staging','APP_ENV=production'),false,'wrong app environment');
   verify(safe.replace('STAGE_ENABLE_SONOVAULT=0','STAGE_ENABLE_SONOVAULT=maybe'),false,'invalid SonoVault enablement');
   verify(safe.replace('STAGE_ENABLE_SONOVAULT=0','STAGE_ENABLE_SONOVAULT=1'),true,'intentional staging SonoVault enablement');
+  const sandbox=safe+'IRADIOS_BILLING_SANDBOX_ENABLED=1\n'+
+    'ILUMA_GATEWAY_STAGING_KEY=ilg_'+('a'.repeat(48))+'\n'+
+    'ILUMA_GATEWAY_STAGING_SECRET='+('b'.repeat(64))+'\n';
+  verify(sandbox,true,'staging-only Nexi Sandbox credential pair');
+  verify(safe+'IRADIOS_BILLING_SANDBOX_ENABLED=1\n',false,'cannot enable Gateway without keys');
+  verify(sandbox.replace('ILUMA_GATEWAY_STAGING_SECRET='+('b'.repeat(64)),
+    'ILUMA_GATEWAY_STAGING_SECRET=invalid'),false,'bad Gateway HMAC key rejected');
+  verify(sandbox+'ILUMA_GATEWAY_PRODUCTION_KEY=ilg_'+('c'.repeat(48))+'\n',
+    false,'production Gateway credentials forbidden on staging');
+  verify(safe+'IRADIOS_BILLING_SANDBOX_ENABLED=maybe\n',false,'invalid Sandbox flag rejected');
+  verify(sandbox+'IRADIOS_BILLING_SANDBOX_ENABLED=0\n',false,'duplicate Sandbox mode rejected');
   // Prevent regression: SDK initialization must be conditional on not staging.
   const controller=readFile('backend/controllers/paymentController.js');
   assert.match(controller,/process\.env\.APP_ENV\s*===\s*'staging'\s*\?\s*null\s*:\s*require\('stripe'\)/);
