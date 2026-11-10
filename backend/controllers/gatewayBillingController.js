@@ -170,6 +170,9 @@ async function webhook(req,res){
  if((order.eventIds||[]).includes(event.event_id))
   return res.json({received:true,duplicate:true});
  const now=new Date();
+ // A delayed Gateway worker delivery must NOT extend the purchased period.
+ // The event's occurred_at is signed by Gateway. Clamp small clock skew to now.
+ const confirmedAt=new Date(Math.min(Date.parse(event.occurred_at),now.getTime()));
  const marker={id:event.event_id,type:event.event_type,at:now};
  const isPaid=event.event_type==='payment.paid';
  const nextStatus=event.event_type.substring('payment.'.length);
@@ -178,8 +181,8 @@ async function webhook(req,res){
  // This avoids any MongoDB replica-set transaction requirement.
  if(isPaid){
   const updated=await BillingOrder.findOneAndUpdate({...filter,status:{$ne:'paid'}},{
-   $set:{status:'paid',providerStatus:'paid',paidAt:now,periodStartsAt:now,
-    periodEndsAt:nextMonthlyPeriod(now)},
+   $set:{status:'paid',providerStatus:'paid',paidAt:confirmedAt,periodStartsAt:confirmedAt,
+    periodEndsAt:nextMonthlyPeriod(confirmedAt)},
    $unset:{lockKey:''},
    $addToSet:{eventIds:event.event_id},
    $push:{eventLog:marker}
