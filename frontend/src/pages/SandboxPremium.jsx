@@ -11,7 +11,11 @@ async function call(url,options={}){
  const response=await fetch(url,{cache:'no-store',...options,
    headers:{...authHeaders(),...(options.headers||{})}});
  const data=await response.json().catch(()=>({}));
- if(!response.ok)throw new Error(data.error||'Η επικοινωνία με τον server απέτυχε.');
+ if(!response.ok){
+  const error=new Error(data.error||'Η επικοινωνία με τον server απέτυχε.');
+  error.code=data.code||'';
+  throw error;
+ }
  return data;
 }
 const dateText=d=>d?new Intl.DateTimeFormat('el-GR',{
@@ -122,7 +126,15 @@ export default function SandboxPremium({API_URL='/api',currentUser}){
       verifiedNexiUrl(response.order.checkoutUrl):null;
    if(url)window.location.assign(url);
    else setMessage('Το αίτημα καταχωρίστηκε. Η πληρωμή δεν έχει επιβεβαιωθεί. Έλεγξε την κατάσταση χωρίς να ξεκινήσεις νέα χρέωση.');
-  }catch(e){setMessage(e.message);}
+  }catch(e){
+   if(e.code==='GATEWAY_CATALOG_NOT_READY'){
+    // Gateway 422 rejects before Nexi; this failed attempt can use a NEW
+    // idempotency key after the catalog is repaired.
+    sessionStorage.removeItem(KEY_PREFIX+userId);
+    try{await loadOrders();}catch{}
+   }
+   setMessage(e.message);
+  }
   finally{setBusy(false);}
  };
  const isListener=currentUser?.role==='user';
