@@ -23,6 +23,13 @@ jobs:
         run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
       - name: Ensure deprecated Live Chat is completely retired
         run: node ops/check-no-legacy-chat.cjs
+      - name: Ensure executable scripts retain Git executable permissions
+        run: |
+          for script in ilumadev.sh ops/deploy-stage.sh ops/check-stage-source.sh ops/init-stage-secrets.sh; do
+            test -x "$script" || { echo "Missing executable bit: $script" >&2; exit 1; }
+            mode=$(git ls-files -s -- "$script" | awk '{print $1}')
+            test "$mode" = 100755 || { echo "Wrong Git file mode ($mode): $script" >&2; exit 1; }
+          done
       - name: Validate deployment shell scripts
         run: |
           for script in ilumadev.sh ops/*.sh; do
