@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const {
  canonicalSignature,headersForRequest,verifyWebhookHeaders,
- hostedCheckoutUrl,validateGatewayPayment,validatePaymentEvent,localStatusFromGatewayLookup,nextMonthlyPeriod,safeOrderStatus
+ hostedCheckoutUrl,validateGatewayPayment,validatePaymentEvent,localStatusFromGatewayLookup,nextMonthlyPeriod,safeOrderStatus,nextGracePeriod
 }=require('../services/gatewayBillingProtocol');
 const secret='a'.repeat(64);
 const key='ilg_'+'b'.repeat(48);
@@ -105,4 +105,18 @@ test('Status poll never enables Premium, while canceled and failed release local
  const row={_id:'a'.repeat(24),sku:'L-PREM',amountCents:399,currency:'EUR',
   status:localStatusFromGatewayLookup('paid'),providerStatus:'paid'};
  assert.equal(safeOrderStatus(row,now).status,'pending');
+});
+
+test('Gateway return never grants rights; grace is iRadios-owned and expires deterministically',()=>{
+ const paid={_id:'a'.repeat(24),sku:'L-PREM',amountCents:399,currency:'EUR',
+  status:'paid',gatewayOrderId:'IL'+'A'.repeat(24),
+  periodEndsAt:new Date('2026-12-10T00:00:00Z'),
+  graceEndsAt:nextGracePeriod('2026-12-10T00:00:00Z',3)};
+ assert.equal(safeOrderStatus(paid,new Date('2026-12-09T23:59:59Z')).status,'active');
+ assert.equal(safeOrderStatus(paid,new Date('2026-12-10T00:00:01Z')).status,'grace');
+ assert.equal(safeOrderStatus(paid,new Date('2026-12-13T00:00:00Z')).status,'expired');
+ assert.equal(safeOrderStatus({...paid,status:'pending'},new Date('2026-12-10T00:00:01Z')).status,'pending');
+ assert.equal(safeOrderStatus(paid,now).gatewayOrderId,paid.gatewayOrderId);
+ assert.equal(nextGracePeriod('2026-12-10T00:00:00Z',0).toISOString(),'2026-12-10T00:00:00.000Z');
+ assert.throws(()=>nextGracePeriod('2026-12-10T00:00:00Z',30));
 });
