@@ -39,5 +39,10 @@ schema.index({lockKey:1},{unique:true,partialFilterExpression:{lockKey:{$type:'s
 schema.index({gatewayPaymentId:1},{unique:true,partialFilterExpression:{gatewayPaymentId:{$type:'string'}}});
 schema.index({gatewayOrderId:1},{unique:true,partialFilterExpression:{gatewayOrderId:{$type:'string'}}});
 schema.index({accountId:1,sku:1,resourceId:1,paidAt:-1});
+ // Independent provider payment IDs remain globally unique. A second
+ // paid MIT payment for the same merchant cycle cannot mint a second period.
+ schema.index({accountId:1,sku:1,resourceId:1,periodStartsAt:1},{
+  unique:true,partialFilterExpression:{billingOrigin:'automatic_renewal'}
+ });
 schema.index({resourceId:1,status:1,periodEndsAt:1});
 module.exports=mongoose.model('BroadcasterBillingOrder',schema);
