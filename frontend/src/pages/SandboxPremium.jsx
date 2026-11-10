@@ -379,7 +379,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
        <button type="button" onClick={revokePaymentMethod} disabled={methodBusy}
         className="text-sm underline text-zinc-300 hover:text-white disabled:opacity-50">Αφαίρεση αποθηκευμένης κάρτας</button>
       </>}
-      {paymentMethod.state==='none'&&<label className="flex items-start gap-3 cursor-pointer text-sm">
+      {['none','revoked'].includes(paymentMethod.state)&&<label className="flex items-start gap-3 cursor-pointer text-sm">
        <input type="checkbox" checked={saveCard} disabled={!canCheckout||busy||previewOnly}
         onChange={e=>{setSaveCard(e.target.checked);if(e.target.checked)setUseSavedCard(false);}}
         className="mt-1 h-4 w-4 accent-[#ccff00]"/>
