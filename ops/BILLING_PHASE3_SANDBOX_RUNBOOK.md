@@ -11,12 +11,16 @@ Verified listener (JWT)
  -> backend-only HMAC POST to https://gateway.iluma.gr/api/v1/payments/checkout
  -> Gateway Staging product L-PREM 399 EUR, Nexi Sandbox Hosted Payment Page
  -> browser follows Nexi HPP URL (host allowlist)
+ -> Nexi redirects browser to Gateway /checkout/result or /checkout/cancel
+ -> Gateway verifies the existing order using server-to-server Nexi GET and
+    HTTP 303 redirects ONLY to stage.iradios.gr/premium?gateway_return=...&order=...
  -> Nexi notifies Gateway; Gateway independently reconciles the captured payment
  -> Gateway worker signs outgoing event to POST https://stage.iradios.gr/api/gateway/webhook
  -> iRadios verifies HMAC raw body, event ID, 5-minute clock, nonce index,
     staging environment, amount=399, payment_id and order_id owned by local intent
  -> atomic BillingOrder state update (first-period paid, calendar-month end, event id)
- -> /auth/me projects Listener Premium entitlement until period end
+ -> /auth/me projects Listener Premium entitlement until paid period end, or
+    until a separately configured iRadios grace limit if deliberately enabled
 ```
 
 Redirect, provider checkout response or a client-entered payment ID **never** activate Premium. Only a verified `payment.paid` webhook does. The Gateway event's `customer_id` is an **internal Gateway customer ID**, NOT the iRadios user id.
@@ -41,6 +45,7 @@ Redirect, provider checkout response or a client-entered payment ID **never** ac
    ```dotenv
    APP_ENV=staging
    IRADIOS_BILLING_SANDBOX_ENABLED=1
+   IRADIOS_BILLING_GRACE_DAYS=0
    ILUMA_GATEWAY_STAGING_KEY=ilg_REPLACE_WITH_STAGING_KEY
    ILUMA_GATEWAY_STAGING_SECRET=REPLACE_WITH_RAW_HEX_STAGING_SECRET
    ```
@@ -54,7 +59,7 @@ Redirect, provider checkout response or a client-entered payment ID **never** ac
 1. On the host run `bash ops/check-stage-backend-env.sh /etc/iradios/staging/backend.env` — never print the secret values.
 2. Run offline tests (`node --test backend/tests/billingGatewayProtocol.test.js ops/check-billing-gateway-webhook.test.cjs`) and the complete staging CI; verify health and existing station/player features after deploy.
 3. Sign in with a verified Listener test account at `https://stage.iradios.gr/premium`. Confirm 3.99 EUR, VAT included, no automatic renewal. Click *Συνέχεια στη Nexi Sandbox*. Ensure the browser goes to `https://*.nexigroup.com/` (not to an arbitrary URL).
-4. Complete payment with **official Nexi Sandbox test card data only**, never a real card. The browser return page is NOT a payment confirmation.
+4. Complete payment with **official Nexi Sandbox test card data only**, never a real card. The browser returns through Gateway to the same iRadios Premium page for both result and cancellation; URL flags alone are NOT payment confirmation.
 5. Run the Gateway staging worker `php bin/work.php staging` (per scheduled deployment), or confirm its cron job is active. Inspect only non-sensitive delivery status. A delivered event must return HTTP 2xx; an invalid signature must be HTTP 401; a bad payment correlation must return HTTP 503 for retry.
 6. In iRadios, select *Έλεγχος κατάστασης*; verify `active` only after the authenticated `payment.paid` webhook. Refresh `/api/auth/me` and confirm projected `isPremium: true` and `billingEntitlements: ['listener.premium']` while the period is active. No deprecated processor payment, no card data, no synthetic `Transaction` record.
 7. In the Admin Backoffice read `/backoffice/admin/billing/sandbox`: expected order/payment IDs, 399 cents, `active`, exactly one successful paid activation, event log and period expiry. Existing complimentary Admin grants remain separate.
@@ -69,3 +74,12 @@ Redirect, provider checkout response or a client-entered payment ID **never** ac
 - If the Gateway returns definite HTTP 422 for missing/invalid product registration, the local checkout is marked failed without a charge and is safe to retry only after the staging product is corrected.
 - Staging test with a real database and signed webhooks is mandatory before declaring Phase 3 finished. Keep `IRADIOS_BILLING_SANDBOX_ENABLED=0` until ready.
 - Production activation requires separate approval, full business plan migration and recurring MIT tests, and is not part of this PR.
+
+## Subscription authority and grace policy
+
+- **Nexi** captures the card payment through its Hosted Payment Page. The card number and CVV never reach iRadios or Gateway.
+- **ILUMA Gateway** owns the financial payment ID, signed provider confirmation, audit history and delivery of authenticated payment webhooks. Its browser return always redirects to the environment-fixed iRadios Premium page (303), never to a user-supplied URL.
+- **iRadios** owns listener account scope, SKU L-PREM, monthly entitlement start/end, optional grace days, subscription expiry and all Premium decisions. The Gateway return URL is not sufficient to unlock benefits.
+- `IRADIOS_BILLING_GRACE_DAYS=0` is the default; set to an explicitly approved integer 1-14 in the staging backend env only if there is a defined commercial grace policy. Its deadline is persisted when the signed `payment.paid` event is processed. Premium expires immediately after the paid period plus that grace; no grace is inferred from an unconfirmed charge.
+- The first month is one-time **without auto renewal**, because gateway MIT/tokenization remains locked. Do not advertise automatic renewal until recurring consent, payment method vaulting and dunning are integrated and tested separately.
+- Historical `unknown` payments (including the first attempt of a test listener) must be reconciled against their original Gateway order ID. Never delete the original payment ledger or reinitiate a new provider charge merely because the card page did not appear.
