@@ -1,7 +1,7 @@
 'use strict';
 const mongoose=require('mongoose');
 // One durable, atomic local payment + first-cycle record.
-// No payment card data and no fake Stripe records.
+// No payment card data and no synthetic financial transaction records.
 const schema=new mongoose.Schema({
  accountId:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true,index:true},
  sku:{type:String,enum:['L-PREM'],required:true},

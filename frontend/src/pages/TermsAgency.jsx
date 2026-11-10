@@ -68,13 +68,13 @@ export default function TermsAgency({ API_URL, currentUser }) {
           <section className="space-y-4">
             <h2 className="text-xl font-bold text-white flex items-center gap-3">
               <Banknote className="w-5 h-5 text-purple-500" />
-              2. Οικονομικοί Όροι, Τιμολόγηση & Εφάπαξ Χρεώσεις (One-Off)
+              2. Οικονομικοί Όροι, Τιμολόγηση & Συνδρομές ανά Καμπάνια
             </h2>
             <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-4 text-zinc-400 hover:border-white/10 transition-colors">
               <p>Η αγορά διαφημιστικού χώρου/χρόνου στο iRadios λειτουργεί <strong>αποκλειστικά με το μοντέλο της προπληρωμής (Pre-paid)</strong>. Η τιμολόγηση διέπεται από τους εξής κανόνες:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li><strong>Εφάπαξ Χρέωση (Non-Recurring):</strong> Η αγορά οποιουδήποτε πακέτου προβολής αποτελεί εφάπαξ συναλλαγή. Δεν υφίσταται αυτόματη ανανέωση.</li>
-                <li><strong>Εκκαθάριση & Τιμολόγηση:</strong> Οι συναλλαγές διενεργούνται μέσω του Stripe. Το τιμολόγιο παροχής υπηρεσιών εκδίδεται μετά την επιτυχή εκκαθάριση.</li>
+                <li><strong>Εφάπαξ Χρέωση (Non-Recurring):</strong> Κάθε καμπάνια έχει ξεχωριστή μηνιαία συνδρομή. Η αυτόματη ανανέωση δεν είναι ακόμη ενεργή και δεν πραγματοποιείται χρέωση χωρίς σαφή ενημέρωση κατά την αγορά.</li>
+                <li><strong>Εκκαθάριση & Τιμολόγηση:</strong> Οι νέες συναλλαγές, μόλις ενεργοποιηθεί η υπηρεσία, θα διεκπεραιώνονται μέσω ILUMA Gateway / Nexi. Τα παραστατικά εκδίδονται σύμφωνα με τις ισχύουσες υποχρεώσεις.</li>
                 <li><strong>Πολιτική Μη Επιστροφής:</strong> Λόγω της B2B φύσης της υπηρεσίας, <strong>δεν παρέχεται δικαίωμα υπαναχώρησης, μερικής ή ολικής επιστροφής χρημάτων (Refunds)</strong> μετά την έγκριση της καμπάνιας.</li>
               </ul>
             </div>

@@ -14,7 +14,6 @@ export default function Settings({ API_URL, currentUser }) {
   
   const [localUser, setLocalUser] = useState(currentUser);
   const [loading, setLoading] = useState(!currentUser);
-  const [cancelLoadingId, setCancelLoadingId] = useState(null);
 
   const getAuthHeaders = () => ({
     'Content-Type': 'application/json',
@@ -63,42 +62,6 @@ export default function Settings({ API_URL, currentUser }) {
   const dspSub = getSubData('dsp_solo', localUser.broadcasterProfile?.features?.dspEngine && isNotPro);
   const radarSub = getSubData('analytics_solo', localUser.broadcasterProfile?.features?.analytics && isNotPro);
 
-  const handleCancelSubscription = async (subscriptionId) => {
-    if (!window.confirm("Είστε σίγουροι ότι θέλετε να ακυρώσετε την ανανέωση; Η πρόσβαση θα παραμείνει μέχρι τη λήξη της περιόδου.")) return;
-    
-    setCancelLoadingId(subscriptionId);
-    try {
-      const res = await fetch(`${API_URL}/payments/cancel-subscription`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ subscriptionId }) 
-      });
-      
-      if (res.ok) {
-        const responseData = await res.json();
-        
-        // 🟢 ΑΜΕΣΗ ΕΝΗΜΕΡΩΣΗ ΤΟΥ UI ΝΑ ΔΕΙΞΕΙ ΤΟ "ΛΗΓΕΙ ΣΤΙΣ..."
-        setLocalUser(prev => {
-          const updatedUser = { ...prev };
-          if (updatedUser.activeSubscriptions?.length > 0) {
-            updatedUser.activeSubscriptions = updatedUser.activeSubscriptions.map(sub => 
-              sub.stripeSubscriptionId === subscriptionId 
-                ? { ...sub, status: 'canceled', currentPeriodEnd: responseData.currentPeriodEnd } 
-                : sub
-            );
-          }
-          return updatedUser;
-        });
-      } else {
-        const err = await res.json();
-        alert(err.error || 'Αποτυχία ακύρωσης.');
-      }
-    } catch (err) {
-      alert('Δεν ήταν δυνατή η επικοινωνία με τον server.');
-    }
-    setCancelLoadingId(null);
-  };
-
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
@@ -116,7 +79,7 @@ export default function Settings({ API_URL, currentUser }) {
   const SubscriptionStatusUI = ({ subData }) => {
     if (!subData) return null;
 
-    if (subData.isManual || !subData.stripeSubscriptionId) {
+    if (subData.isManual || !subData.currentPeriodEnd) {
       return (
         <div className="mt-4 bg-purple-500/10 border border-purple-500/30 px-4 py-3 rounded-xl inline-flex flex-col md:flex-row md:items-center justify-between w-full gap-4">
           <div>
@@ -142,16 +105,9 @@ export default function Settings({ API_URL, currentUser }) {
       <div className="mt-4 bg-[#ccff00]/5 border border-[#ccff00]/20 px-4 py-3 rounded-xl inline-flex flex-col md:flex-row md:items-center justify-between w-full gap-4">
         <div>
           <p className="text-[10px] font-black text-[#ccff00] uppercase tracking-widest mb-1 flex items-center gap-1.5"><Zap size={12}/> Ενεργη</p>
-          <p className="text-sm font-medium text-white">Ανανεώνεται: <span className="font-black text-[#ccff00]">{subData.currentPeriodEnd ? new Date(subData.currentPeriodEnd).toLocaleDateString('el-GR') : '-'}</span></p>
+          <p className="text-sm font-medium text-white">Λήγει: <span className="font-black text-[#ccff00]">{subData.currentPeriodEnd ? new Date(subData.currentPeriodEnd).toLocaleDateString('el-GR') : '-'}</span></p>
         </div>
-        <button 
-          onClick={() => handleCancelSubscription(subData.stripeSubscriptionId)}
-          disabled={cancelLoadingId === subData.stripeSubscriptionId}
-          className="text-red-500 hover:text-white hover:bg-red-600 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-red-500/30 disabled:opacity-50 shrink-0 shadow-sm"
-        >
-          {cancelLoadingId === subData.stripeSubscriptionId ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
-          Ακυρωση Ανανεωσης
-        </button>
+        <span className="text-xs text-amber-300">Δεν υπάρχει ενεργή αυτόματη ανανέωση.</span>
       </div>
     );
   };

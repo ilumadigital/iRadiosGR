@@ -4,7 +4,7 @@ This is a **candidate package, not yet a verified build**. It is intended for th
 
 ## Key stage-only protections
 - Every known `https://play.iradios.gr` string in the provided text source was converted to `__IRADIOS_SITE_ORIGIN__`. Docker builds replace it with `https://stage.iradios.gr` **before starting the app**. This initial build strategy must be improved to runtime configuration before promoting the same image to production.
-- Removed hardcoded Stripe live **publishable** keys from React pages; no Stripe publishable key is provided in stage builds.
+- Removed the deprecated checkout SDK, public payment keys and old provider routes from the staged code.
 - API stage guard returns 503 for **all payment endpoints**, outbound push, recognition, and potentially unsafe arbitrary-URL metadata/stream-proxy endpoints. These features are intentionally restricted pending dedicated security fixes.
 - Email is captured by internal Mailpit only; no real SMTP is configured.
 - Removed Google Analytics scripts from the stage HTML. Private HTTPS remains under Nginx Basic Auth with noindex headers; no public MongoDB port exists.

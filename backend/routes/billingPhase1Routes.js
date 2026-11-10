@@ -47,7 +47,7 @@ router.get('/billing/me/entitlements',protect,safe(async(req,res)=>{
  const now=new Date();
  const grants=await activeGrantsFor(req.user,now);
  const entitlementSet=new Set(effectiveRights(req.user,grants,{stationId,campaignId,now}));
- // Verified first-cycle L-PREM is read from BillingOrder, not Stripe flags.
+ // Verified first-cycle L-PREM is read from BillingOrder, not legacy account flags.
  if(req.user.role==='user'){
    for(const right of await accountRights(req.user,now))entitlementSet.add(right);
  }

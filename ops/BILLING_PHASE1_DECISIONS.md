@@ -27,5 +27,5 @@ This file records approved business requirements and rollout boundaries. It is n
 - Gateway recurring/subscription endpoints currently return HTTP 501. Real automatic renewals must remain disabled.
 - Gateway webhook currently uses an internal customer ID and must be correlated via stored payment_id / order_id; do not trust it as the iRadios user ID.
 - Stage Mongo topology must be checked before multi-document transactional writes.
-- Legacy staging Stripe calls remain blocked.
+- Retired checkout endpoints are removed; the signed Gateway is the only payment integration.
 - Phase-1 tests are not production or payment gateway UAT.

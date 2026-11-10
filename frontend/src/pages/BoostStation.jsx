@@ -1,96 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // 🟢 Προστέθηκε το useNavigate
 import { 
   Rocket, Check, Zap, Star, Target, Globe, 
   Sparkles, TrendingUp, Calendar, ShieldCheck, Loader2, X, CreditCard, Radio, AlertTriangle,
   Crown, MousePointer2, BarChart3, ArrowRight, Shield
 } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { useAlert } from '../context/AlertContext'; // 🟢 Προστέθηκε το Alert
-
-// ⚠️ Βάλε το LIVE Publishable Key σου
-const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY?.startsWith('pk_test_')
-  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
-  : Promise.resolve(null);
-
-// --- STRIPE FORM COMPONENT ---
-const StripeCheckoutForm = ({ plan, price, onSuccess }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-    setIsProcessing(true);
-    setErrorMessage(null);
-
-    const { error } = await stripe.confirmPayment({
-      elements,
-      redirect: "if_required",
-    });
-
-    if (error) {
-      setErrorMessage(error.message);
-      setIsProcessing(false);
-    } else {
-      onSuccess();
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <PaymentElement options={{ layout: 'tabs' }} />
-      {errorMessage && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
-          <AlertTriangle size={16} /> {errorMessage}
-        </div>
-      )}
-      <button 
-        disabled={isProcessing || !stripe || !elements} 
-        className="w-full h-14 bg-[#ccff00] text-black font-black uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-transform active:scale-95 flex items-center justify-center gap-2 shadow-2xl disabled:opacity-50"
-      >
-        {isProcessing ? <Loader2 className="animate-spin" /> : `ΠΛΗΡΩΜΗ ${price}€`}
-      </button>
-    </form>
-  );
-};
 
 export default function BoostStation({ API_URL, currentUser }) {
-  const navigate = useNavigate(); // 🟢
-  const { showAlert } = useAlert(); // 🟢
 
   const [period, setPeriod] = useState('month'); 
-  const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [myStations, setMyStations] = useState([]);
   const [selectedStationId, setSelectedStationId] = useState('');
-  const [showStripeModal, setShowStripeModal] = useState(false);
-  const [activePlan, setActivePlan] = useState(null);
-  const [clientSecret, setClientSecret] = useState("");
 
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
 
-  const stripePriceIds = {
-    category: {
-      day: 'price_1T8ipfHiixNRiHTmxmoQnq5c',
-      month: 'price_1T8ireHiixNRiHTmZls64fqQ',
-      '3months': 'price_1T8ivqHiixNRiHTmS4Q4QR0P',
-      year: 'price_1T8isKHiixNRiHTmiXJxOZSj'
-    },
-    global: {
-      day: 'price_1T8ix1HiixNRiHTm6df98EBK',
-      month: 'price_1T8ixxHiixNRiHTm4xgrJtQK',
-      '3months': 'price_1T8iymHiixNRiHTmJKpRWMv8',
-      year: 'price_1T8izTHiixNRiHTmJOt7zQK3'
-    }
-  };
-
   const displayPrices = {
-    category: { day: 1.49, month: 39.99, '3months': 89.99, year: 369.00 },
-    global: { day: 2.99, month: 64.99, '3months': 149.99, year: 499.00 }
+    category: { day: 4.90, week: 29.90, two_weeks: 54.90, month: 99.00, year: 890.00 },
+    global: { day: 29.00, week: 179.00, two_weeks: 349.00, month: 799.00, year: 8489.00 }
   };
 
   useEffect(() => {
@@ -112,77 +38,12 @@ export default function BoostStation({ API_URL, currentUser }) {
     fetchMyStations();
   }, [currentUser, BASE_URL]);
 
-  const handleBoostCheckout = async (type) => {
-    if (!selectedStationId) return showAlert('Προσοχή', 'Επιλέξτε σταθμό!', 'warning');
-    setLoading(true);
-    
-    const priceId = stripePriceIds[type][period];
-    const price = displayPrices[type][period];
-    const planName = type === 'global' ? 'Global Dominator' : 'Category King';
-
-    try {
-      const res = await fetch(`${BASE_URL}/payments/create-stripe-subscription`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: currentUser._id || currentUser.id, 
-          priceId: priceId,
-          planId: `boost_${type}_${period}`,
-          stationId: selectedStationId 
-        }) 
-      });
-      
-      const data = await res.json();
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
-        setActivePlan({ type, name: planName, price });
-        setShowStripeModal(true);
-      }
-    } catch (err) { 
-      showAlert("Σφάλμα", "Σφάλμα σύνδεσης με το σύστημα πληρωμών.", "error"); 
-    }
-    setLoading(false);
-  };
-
-  // 🟢 ΝΕΑ ΣΥΝΑΡΤΗΣΗ SUCCESS
-  const handlePaymentSuccess = () => {
-    setShowStripeModal(false);
-    showAlert('Επιτυχία!', 'Η πληρωμή ολοκληρώθηκε. Το Boost του σταθμού σου είναι πλέον ενεργό!', 'success');
-    navigate('/my-radios'); // Ή /broadcaster/dashboard ανάλογα πώς το έχεις στο App.jsx
-  };
-
   const selectedStation = myStations.find(s => s._id === selectedStationId);
   const isSelectedApproved = selectedStation?.status === 'approved';
 
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden pb-40">
       
-      {/* --- STRIPE MODAL --- */}
-      {showStripeModal && clientSecret && (
-        // 🟢 FIX MODAL: items-start, pt-12, overflow-y-auto
-        <div className="fixed inset-0 z-[200] flex items-start justify-center p-4 pt-12 md:pt-20 bg-black/95 backdrop-blur-xl overflow-y-auto custom-scrollbar animate-in fade-in duration-300">
-          <div className="bg-white p-8 md:p-12 rounded-[40px] w-full max-w-md relative shadow-[0_0_80px_rgba(255,255,255,0.1)] text-black mb-12 shrink-0">
-            <button onClick={() => setShowStripeModal(false)} className="absolute top-6 right-6 text-zinc-400 hover:text-black transition-colors bg-black/5 p-2 rounded-full">
-              <X size={20} />
-            </button>
-            <div className="text-center mb-10 mt-2">
-              <span className="bg-indigo-50 text-indigo-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-indigo-100 mb-4 inline-block">Secure Stripe Gateway</span>
-              <h3 className="text-2xl font-black uppercase italic tracking-tighter">{activePlan?.name}</h3>
-              <p className="text-5xl font-black mt-4 italic tracking-tighter">{activePlan?.price}€</p>
-              <p className="text-[10px] font-bold text-zinc-400 mt-2 uppercase">Targeting Station: {selectedStation?.name}</p>
-            </div>
-            
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <StripeCheckoutForm 
-                plan={activePlan} 
-                price={activePlan?.price} 
-                onSuccess={handlePaymentSuccess} // 🟢
-              />
-            </Elements>
-          </div>
-        </div>
-      )}
-
       {/* --- BG EFFECTS --- */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[800px] bg-[#ccff00]/5 blur-[120px] rounded-full pointer-events-none opacity-40"></div>
 
@@ -197,7 +58,7 @@ export default function BoostStation({ API_URL, currentUser }) {
             BREAK THE <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ccff00] via-green-400 to-emerald-500">ALGORITHM.</span>
           </h1>
           <p className="text-zinc-400 text-lg md:text-2xl max-w-2xl mx-auto font-medium leading-relaxed">
-            Γιατί να είσαι ένας από τους χιλιάδες; Πάρε την πρώτη θέση, κυριάρχησε στα charts και ανάγκασε τους ακροατές να σε προσέξουν. 
+            Προβολή για τον σταθμό σου με επιλογή διάρκειας. Οι πληρωμές μέσω Nexi θα ενεργοποιηθούν μετά τις δοκιμές. 
           </p>
         </div>
 
@@ -236,7 +97,7 @@ export default function BoostStation({ API_URL, currentUser }) {
         {/* --- DURATION TOGGLE --- */}
         <div className="flex justify-center mb-24 px-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 bg-zinc-900/80 border border-white/10 p-2 rounded-3xl md:rounded-[40px] shadow-2xl w-full max-w-2xl mx-auto">
-                {['day', 'month', '3months', 'year'].map(p => (
+                {['day', 'week', 'two_weeks', 'month', 'year'].map(p => (
                 <button 
                   key={p} 
                   onClick={() => setPeriod(p)} 
@@ -244,7 +105,7 @@ export default function BoostStation({ API_URL, currentUser }) {
                     period === p ? 'bg-[#ccff00] text-black shadow-xl md:scale-105' : 'text-zinc-500 hover:text-white hover:bg-white/5 md:hover:bg-transparent'
                   }`}
                 >
-                    {p === 'day' ? 'Ημερα' : p === 'month' ? 'Μηνας' : p === '3months' ? '3 Μηνες' : 'Ετος'}
+                    {p === 'day' ? 'Ημέρα' : p === 'week' ? 'Εβδομάδα' : p === 'two_weeks' ? '2 Εβδομάδες' : p === 'month' ? 'Μήνας' : 'Έτος'}
                 </button>
                 ))}
             </div>
@@ -281,8 +142,8 @@ export default function BoostStation({ API_URL, currentUser }) {
                 </div>
               ))}
             </div>
-            <button onClick={() => handleBoostCheckout('category')} className="w-full py-6 bg-white text-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-[#ccff00] transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-2 relative z-10">
-              <TrendingUp size={16} /> ACTIVATE SNIPER BOOST
+            <button type="button" disabled title="Το Boost checkout θα ανοίξει μετά τις δοκιμές Nexi" className="w-full py-6 bg-white text-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-[#ccff00] transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-2 relative z-10">
+              <TrendingUp size={16} /> ΑΓΟΡΑ ΣΥΝΤΟΜΑ ΜΕ NEXI
             </button>
           </div>
 
@@ -314,8 +175,8 @@ export default function BoostStation({ API_URL, currentUser }) {
                 </div>
               ))}
             </div>
-            <button onClick={() => handleBoostCheckout('global')} className="w-full py-6 bg-[#ccff00] text-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-white transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-2 relative z-10">
-                <Crown size={16} /> GO GLOBAL DOMINATOR
+            <button type="button" disabled title="Το Boost checkout θα ανοίξει μετά τις δοκιμές Nexi" className="w-full py-6 bg-[#ccff00] text-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-white transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-2 relative z-10">
+                <Crown size={16} /> ΑΓΟΡΑ ΣΥΝΤΟΜΑ ΜΕ NEXI
             </button>
           </div>
         </div>

@@ -45,7 +45,7 @@ test('Expiry and revocation remove gifts but preserve legacy manual Premium',()=
   assert.deepEqual(effectiveRights(account,[expired,revoked],{stationId:'station-1',now:NOW}),[]);
   assert.ok(effectiveRights(legacy,[expired,revoked],{now:NOW}).includes('broadcaster.unlimited_stations'));
 });
-test('Listener grant projects premium to response only, no fake Stripe subscription',()=>{
+test('Listener grant projects premium to response only, no synthetic payment subscription',()=>{
   const listener={_id:'u-1',role:'user',isPremium:false,activeSubscriptions:[],subscriptionStatus:null};
   const g={...grant('L-PREM'),accountId:'u-1'};
   const rights=effectiveRights(listener,[g],{now:NOW});

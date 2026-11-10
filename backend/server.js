@@ -18,7 +18,6 @@ const StationAnalytics = require('./models/StationAnalytics');
 const Station = require('./models/Station'); 
 const BannerAd = require('./models/BannerAd'); 
 const Ad = require('./models/Ad'); 
-const paymentController = require('./controllers/paymentController');
 const miscController = require('./controllers/miscController');
 
 const { generateMinimalOgImage } = require('./utils/generateOgImage');
@@ -61,10 +60,6 @@ app.get('/api/health', (_req, res) => {
   res.status(ready ? 200 : 503).json({ status: ready ? 'ok' : 'database-unavailable', environment: process.env.APP_ENV || 'unknown' });
 });
 
-// ==============================================================
-// ⚠️ MIDDLEWARE ORDER (ΚΡΙΣΙΜΟ ΓΙΑ STRIPE)
-// ==============================================================
-app.post('/api/payments/webhook', express.raw({ type: '*/*' }), paymentController.stripeWebhook);
 // Nexi Sandbox webhook must be mounted BEFORE express.json() and staging JWT
 // deny-by-default. Authentication is HMAC over EXACT raw bytes, not a user JWT.
 app.post('/api/gateway/webhook',express.raw({type:'application/json',limit:'64kb'}),
@@ -135,14 +130,12 @@ const stationRoutes = require('./routes/stationRoutes');
 const adRoutes = require('./routes/adRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const extraRoutes = require('./routes/extraRoutes');
-const paymentRoutes = require('./routes/paymentRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
 const producerRoutes = require('./routes/producerRoutes');
 const agencyRoutes = require('./routes/agencyRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const statsRoutes = require('./routes/stats');
 
-app.use('/api/payments', paymentRoutes); 
 // Phase-1 catalog + isolated complimentary subscriptions. No charging routes.
 app.use('/api', require('./routes/billingPhase1Routes'));
 // Phase 3: staging-only signed Gateway checkout/status. All other environments fail closed.

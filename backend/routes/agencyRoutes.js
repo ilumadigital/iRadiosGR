@@ -23,7 +23,7 @@ router.get('/:agencyId/audio-ads', async (req, res) => {
   }
 });
 
-// 3. Αποθήκευση Νέου Banner (Από το Dashboard μετά το Stripe Success)
+// 3. Αποθήκευση Νέου Banner (Από το Dashboard μετά από έγκριση και ενεργό entitlement)
 router.post('/banners', async (req, res) => {
   try {
     const { title, description, imageUrl, targetUrl, placement, duration, agencyId } = req.body;
@@ -48,7 +48,7 @@ router.post('/banners', async (req, res) => {
   }
 });
 
-// 4. Αποθήκευση Νέου Audio Ad (Από το Dashboard μετά το Stripe Success)
+// 4. Αποθήκευση Νέου Audio Ad (Από το Dashboard μετά από έγκριση και ενεργό entitlement)
 router.post('/audio-ads', async (req, res) => {
   try {
     const { title, client, audioUrl, linkUrl, duration, frequency, agencyId } = req.body;

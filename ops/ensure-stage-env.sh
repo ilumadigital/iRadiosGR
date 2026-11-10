@@ -51,7 +51,7 @@ if ! grep -qx 'APP_ENV=staging' "$BACKEND_ENV"; then
   exit 1
 fi
 
-# Validate stage-only Stripe/SMTP restrictions before creating links or building images.
+# Validate stage-only SMTP and Nexi Sandbox restrictions before creating links or building images.
 bash "$APP/ops/check-stage-backend-env.sh" "$BACKEND_ENV"
 
 cd "$APP"

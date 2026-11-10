@@ -30,7 +30,7 @@ Redirect, provider checkout response or a client-entered payment ID **never** ac
 - `POST /api/gateway/webhook`: Gateway worker only, raw application/json + HMAC, no JWT or `X-Iluma-Key`. The code is mounted **before** JSON parsing and the staging JWT access middleware.
 - `GET /api/admin/billing/sandbox-orders`: admin JWT only, payment/status/event history (read-only).
 - Backoffice UI: `/backoffice/admin/billing/sandbox` and `/backoffice/admin/billing/grants`.
-- Listener UI: `/premium` on `stage.iradios.gr` only, never legacy Stripe checkout.
+- Listener UI: `/premium` on `stage.iradios.gr` only, never a deprecated checkout flow.
 
 ## Preconditions (manual server configuration — do not commit secrets)
 
@@ -44,7 +44,7 @@ Redirect, provider checkout response or a client-entered payment ID **never** ac
    ILUMA_GATEWAY_STAGING_KEY=ilg_REPLACE_WITH_STAGING_KEY
    ILUMA_GATEWAY_STAGING_SECRET=REPLACE_WITH_RAW_HEX_STAGING_SECRET
    ```
-   Keep existing Mongo/JWT/SMTP/disabled Stripe values intact. If the staging key is not ready, leave `IRADIOS_BILLING_SANDBOX_ENABLED=0` and do **not** attempt checkout.
+   Keep existing Mongo/JWT/SMTP values intact. If the staging key is not ready, leave `IRADIOS_BILLING_SANDBOX_ENABLED=0` and do **not** attempt checkout.
 5. On the Gateway host, configure `IRADIOS_STAGING_WEBHOOK=https://stage.iradios.gr/api/gateway/webhook` in private Gateway environment and restart its worker as needed. Never target `play.iradios.gr`. The staging Nginx `/api/` location already proxies to the backend and has HTTP Basic Auth disabled. If Cloudflare is enabled, permit authenticated machine-to-machine POST delivery to this **one** path without opening admin/private account paths; keep TLS verification, rate controls and HMAC validation.
 6. Make sure the iRadios staging Mongo user can create the **new** `billingorders` and `gatewaywebhooknonces` indexes. Checkout and webhooks explicitly fail closed if unique indexes cannot be created.
 7. Use a dedicated, verified, staging-only Listener test account. Avoid imported real production users and real email addresses for paid testing.
@@ -56,7 +56,7 @@ Redirect, provider checkout response or a client-entered payment ID **never** ac
 3. Sign in with a verified Listener test account at `https://stage.iradios.gr/premium`. Confirm 3.99 EUR, VAT included, no automatic renewal. Click *Συνέχεια στη Nexi Sandbox*. Ensure the browser goes to `https://*.nexigroup.com/` (not to an arbitrary URL).
 4. Complete payment with **official Nexi Sandbox test card data only**, never a real card. The browser return page is NOT a payment confirmation.
 5. Run the Gateway staging worker `php bin/work.php staging` (per scheduled deployment), or confirm its cron job is active. Inspect only non-sensitive delivery status. A delivered event must return HTTP 2xx; an invalid signature must be HTTP 401; a bad payment correlation must return HTTP 503 for retry.
-6. In iRadios, select *Έλεγχος κατάστασης*; verify `active` only after the authenticated `payment.paid` webhook. Refresh `/api/auth/me` and confirm projected `isPremium: true` and `billingEntitlements: ['listener.premium']` while the period is active. No Stripe payment, no card data, no `Transaction` fake record.
+6. In iRadios, select *Έλεγχος κατάστασης*; verify `active` only after the authenticated `payment.paid` webhook. Refresh `/api/auth/me` and confirm projected `isPremium: true` and `billingEntitlements: ['listener.premium']` while the period is active. No deprecated processor payment, no card data, no synthetic `Transaction` record.
 7. In the Admin Backoffice read `/backoffice/admin/billing/sandbox`: expected order/payment IDs, 399 cents, `active`, exactly one successful paid activation, event log and period expiry. Existing complimentary Admin grants remain separate.
 8. Repeat the webhook with **the same event ID but a new valid signed nonce** (from a controlled staging fixture): the period end must not change. Replay an identical nonce: HTTP 409. Tamper amount, event_id, environment, signature or order/payment association: no Premium activation. A provider status of `unknown` must NOT create a second checkout.
 9. Verify next-month expiry by adjusting test fixtures/offline clock or using an isolated test record; do not manipulate imported user subscriptions. Confirm expired rights are removed on the next entitlement read while legacy complimentary/manual rights remain independent.

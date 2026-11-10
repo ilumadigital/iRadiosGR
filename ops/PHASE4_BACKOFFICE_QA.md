@@ -24,7 +24,7 @@ Standalone player-free business area for Admin, Broadcaster and Producer in the 
 | Banners | https://stage.iradios.gr/backoffice/admin/banners |
 | Home slides | https://stage.iradios.gr/backoffice/admin/slides |
 | Radio Set | https://stage.iradios.gr/backoffice/admin/radioset |
-| Billing (legacy Stripe until separate Nexi phase) | https://stage.iradios.gr/backoffice/admin/billing |
+| Billing (catalog, admin grants and separate Nexi Sandbox) | https://stage.iradios.gr/backoffice/admin/billing |
 | Emails | https://stage.iradios.gr/backoffice/admin/emails |
 | Public application | https://stage.iradios.gr/ |
 
@@ -69,4 +69,4 @@ Sign in via /login. Admin/Broadcaster/Producer login automatically opens /backof
 
 ## Deferred
 
-Legacy admin tools are lazy-loaded inside the new branded shell; their individual forms have not been entirely rebuilt. Nexi replaces Stripe in a separate phase. Image optimization, station-list pagination at scale and final production security approval remain future tasks. CI is offline and does not replace staging tests with real credentials and asset paths.
+Legacy admin tools are lazy-loaded inside the new branded shell; their individual forms have not been entirely rebuilt. The old checkout integration has been removed; Nexi Gateway is the only payment integration. Image optimization, station-list pagination at scale and final production security approval remain future tasks. CI is offline and does not replace staging tests with real credentials and asset paths.

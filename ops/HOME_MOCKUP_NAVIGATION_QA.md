@@ -24,7 +24,7 @@
 5. From sidebar, click **Κατηγορίες**, **Top σταθμοί**, **Πρόσφατα**, **Playlist σταθμού**, **Περισσότερες περιοχές**. Verify the correct section/filters open, without losing the playing stream.
 6. Test keyboard navigation, carousel buttons, focus outlines, Greek genre names, region chip selection and search at mobile 360/390/430, tablet 768, laptops 1024/1366 and desktop 1440/1920.
 7. Confirm guest access to radio streaming but not music metadata/history. Check admin slide editor access control and sponsored banner tracking.
-8. Confirm central audio playback persists across Home → station page → favorites and in fullscreen, and no real Stripe payments are possible on staging.
+8. Confirm central audio playback persists across Home → station page → favorites and in fullscreen, and only explicitly enabled Nexi Sandbox test payments are possible on staging.
 
 ## Known limits
 

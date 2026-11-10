@@ -16,6 +16,8 @@ jobs:
           node-version: '22'
       - name: Check known live references and .env files
         run: bash ops/check-stage-source.sh
+      - name: Prevent retired payment provider code, dependencies and stale checkout references
+        run: node ops/check-no-retired-payments.cjs
       - name: Build the frontend before the static UI contract checks
         # Mirrors the Docker/Vite compilation and exposes the root error promptly.
         run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build

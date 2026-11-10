@@ -37,7 +37,7 @@ The product should remain fast, mobile-first, audio-first, premium, easy to unde
 
 ### Premium listener experience
 
-The codebase includes concepts and UI for premium listening, including removal of iRadios in-app advertising, advanced DSP / EQ controls, enhanced listening controls, Car Mode-related premium functionality, and Stripe-backed subscription lifecycle.
+The codebase includes concepts and UI for premium listening, including removal of iRadios in-app advertising, advanced DSP / EQ controls, enhanced listening controls, Car Mode-related premium functionality, and ILUMA Gateway/Nexi Sandbox first-period billing.
 
 ### Broadcaster platform
 
@@ -49,7 +49,7 @@ A dedicated `producer` role and Producer Studio are present. Producer permission
 
 ### Agency / advertising platform
 
-The application includes agency accounts, audio ads, banner/visual ads, station/geographic targeting, campaign frequency/duration, approval states, impression/play/click counters, reporting, Stripe-supported payment flows and expiration handling.
+The application includes agency accounts, audio ads, banner/visual ads, station/geographic targeting, campaign frequency/duration, approval states, impression/play/click counters, reporting, approved Gateway payment flows and expiration handling.
 
 ### Administration
 
@@ -59,13 +59,13 @@ Admin areas include users, stations and approvals, ads, banners, payments/transa
 
 ### Frontend
 
-React 19, React DOM 19, Vite 7, React Router, Tailwind CSS 4, Framer Motion, Lucide/React Icons, Leaflet/React Leaflet/React Simple Maps, Recharts, Socket.IO Client, Stripe React SDK, Cloudflare Turnstile integration and browser Media/Web Audio/Media Session APIs.
+React 19, React DOM 19, Vite 7, React Router, Tailwind CSS 4, Framer Motion, Lucide/React Icons, Leaflet/React Leaflet/React Simple Maps, Recharts, Socket.IO Client, Cloudflare Turnstile integration and browser Media/Web Audio/Media Session APIs.
 
 Primary source: `frontend/src`
 
 ### Backend
 
-Node.js, Express 5, CommonJS, MongoDB/Mongoose, Socket.IO, JWT, bcrypt/bcryptjs, Axios, Multer, Stripe, Nodemailer, Web Push, node-cron, stream/Icecast metadata parsing and Canvas image generation.
+Node.js, Express 5, CommonJS, MongoDB/Mongoose, Socket.IO, JWT, bcrypt/bcryptjs, Axios, Multer, Nodemailer, Web Push, node-cron, stream/Icecast metadata parsing and Canvas image generation.
 
 Entry point: `backend/server.js`
 
@@ -138,7 +138,7 @@ Socket.IO supports listener counts, device registration/playback transfer, liste
 
 ## Payments
 
-Stripe supports listener/broadcaster subscriptions and advertising-related flows. The webhook endpoint relies on raw-body handling and signature verification, so middleware ordering is critical. Test subscription creation, webhooks, idempotency, transactions, entitlements, cancellation, expiration and failed-payment recovery before releases.
+The signed ILUMA Gateway/Nexi Sandbox integration currently supports a one-time first-period Listener Premium checkout. Other paid plans and recurring charging remain disabled until their own release gates. The Gateway webhook endpoint relies on raw-body handling and HMAC signature verification, so middleware ordering is critical. Test subscription creation, webhooks, idempotency, transactions, entitlements, cancellation, expiration and failed-payment recovery before releases.
 
 ## Environment configuration
 
@@ -149,7 +149,7 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-Populate values through the approved environment/secret store and never commit the resulting `.env` files. Current variable families include MongoDB, JWT, Stripe, SMTP, ACRCloud, VAPID, Turnstile and application URLs.
+Populate values through the approved environment/secret store and never commit the resulting `.env` files. Current variable families include MongoDB, JWT, Nexi Gateway staging, SMTP, ACRCloud, VAPID, Turnstile and application URLs.
 
 ## Docker development baseline
 
@@ -193,7 +193,7 @@ The original snapshot contained production-like secret material and a separate M
 
 ## Current engineering status
 
-This is an existing production application, not a greenfield rewrite. The 2026-09-15 read-only audit identified a required security/stability Phase 0 before broad feature work. Priority areas are server-side authorization/ownership, safe destructive/file operations, environment isolation, Stripe entitlement integrity, SSRF/proxy hardening, authenticated Socket.IO identity, admin/push protection, campaign/payment consistency, safe retention behavior and automated critical-path tests.
+This is an existing production application, not a greenfield rewrite. The 2026-09-15 read-only audit identified a required security/stability Phase 0 before broad feature work. Priority areas are server-side authorization/ownership, safe destructive/file operations, environment isolation, verified Gateway entitlement integrity, SSRF/proxy hardening, authenticated Socket.IO identity, admin/push protection, campaign/payment consistency, safe retention behavior and automated critical-path tests.
 
 Development philosophy: **preserve → understand → improve → test → document → deploy safely**.
 
@@ -205,7 +205,7 @@ Development philosophy: **preserve → understand → improve → test → docum
 - Producer: login → Producer Studio → assigned station/functionality.
 - Agency: login → campaigns → create/view ad → payment state → analytics.
 - Admin: login → users → stations → ads → banners → transactions/payments.
-- Payments: initiation → Stripe → webhook → transaction → entitlement update.
+- Payments: initiation → ILUMA Gateway → Nexi Sandbox → signed webhook → BillingOrder → entitlement update.
 
 Audio playback, authentication and payments are critical-path tests.
 

@@ -101,17 +101,17 @@ export default function TermsListeners({ API_URL, currentUser }) {
             </div>
           </section>
 
-          {/* 5. ΠΛΗΡΩΜΕΣ ΚΑΙ STRIPE */}
+          {/* 5. ΠΛΗΡΩΜΕΣ ΜΕΣΩ GATEWAY */}
           <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
               <CreditCard className="w-5 h-5 text-[#ccff00]" />
-              5. Όροι Συναλλαγών (Stripe) & Πολιτική Ακυρώσεων
+              5. Όροι Συναλλαγών & Πολιτική Ακυρώσεων
             </h2>
             <div className="space-y-4 text-zinc-400">
               <p>Για τις επί πληρωμή υπηρεσίες ισχύουν ρητά τα εξής:</p>
               <ul className="list-disc list-inside space-y-2 ml-2">
-                <li><strong>Ασφάλεια Συναλλαγών:</strong> Η εκκαθάριση των συναλλαγών διεκπεραιώνεται αποκλειστικά μέσω του Stripe.</li>
-                <li><strong>Αυτόματη Ανανέωση:</strong> Οι συνδρομές ανανεώνονται αυτοδίκαια στη λήξη του εκάστοτε τιμολογιακού κύκλου.</li>
+                <li><strong>Ασφάλεια Συναλλαγών:</strong> Οι νέες πληρωμές, όταν ενεργοποιηθούν εμπορικά, διεκπεραιώνονται μέσω ILUMA Gateway και Nexi. Δεν αποθηκεύουμε στοιχεία κάρτας.</li>
+                <li><strong>Αυτόματη Ανανέωση:</strong> Στην τρέχουσα δοκιμαστική φάση η αγορά αφορά μόνο την πρώτη περίοδο και δεν γίνεται αυτόματη ανανέωση. Μελλοντική επαναλαμβανόμενη χρέωση απαιτεί νέα ενημέρωση και συγκατάθεση.</li>
                 <li><strong>Πολιτική Ακύρωσης & Επιστροφών:</strong> Δεν παρέχονται αναλογικές επιστροφές χρημάτων (pro-rata refunds) για περιόδους μη χρήσης. Η πρόσβασή σας στα premium προνόμια θα διατηρηθεί έως τη λήξη.</li>
               </ul>
             </div>

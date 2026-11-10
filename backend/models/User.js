@@ -33,17 +33,14 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   isPremium: { type: Boolean, default: false },
-  stripeCustomerId: { type: String, default: null },
 
-  // Παλιά πεδία (κρατούνται για ιστορικότητα, πλέον δουλεύουμε με το activeSubscriptions)
-  stripeSubscriptionId: { type: String, default: null },
+  // Legacy status kept for imported accounts; new paid periods live in BillingOrder.
   subscriptionStatus: { type: String, default: null },
   currentPeriodEnd: { type: Date, default: null },
 
-  // 🟢 ΝΕΟ: Array με ΟΛΕΣ τις συνδρομές
+  // Read-only legacy subscription history; no new provider writes.
   activeSubscriptions: [{
     planId: { type: String },
-    stripeSubscriptionId: { type: String },
     status: { type: String, default: 'active' }, // 'active', 'canceled'
     currentPeriodEnd: { type: Date }
   }],

@@ -371,12 +371,16 @@ exports.deleteMe = async (req,res)=>{
   if(!user)return res.status(401).json({error:'Χρειάζεται σύνδεση.'});
   if(user.role==='admin')return res.status(403).json({error:'Δεν επιτρέπεται η διαγραφή λογαριασμού διαχειριστή.'});
   if(process.env.APP_ENV==='staging')return res.status(503).json({error:'Η διαγραφή λογαριασμού είναι απενεργοποιημένη στο staging.'});
-  // Never delete a billing customer with live auto-renewal; otherwise Stripe
-  // could keep charging a user who no longer has an account.
-  const recurring=(user.activeSubscriptions||[]).some(sub=>sub.stripeSubscriptionId
-    && !['canceled','cancelled','expired','incomplete_expired'].includes(sub.status));
-  if(recurring || (user.stripeSubscriptionId && user.subscriptionStatus==='active'))
-    return res.status(409).json({error:'Διέκοψε πρώτα την αυτόματη ανανέωση των ενεργών συνδρομών σου.'});
+  // Avoid deleting an account while a paid period or a legacy billing cycle is active.
+  // Old records are retained for audit, without contacting a retired processor.
+  const activeLegacy=(user.activeSubscriptions||[]).some(sub=>
+    !['canceled','cancelled','expired','incomplete_expired'].includes(sub.status) &&
+    (!sub.currentPeriodEnd || new Date(sub.currentPeriodEnd).getTime()>Date.now()));
+  const paidOrder=await require('../models/BillingOrder').exists({
+    accountId:user._id,status:'paid',periodEndsAt:{$gt:new Date()}
+  });
+  if(activeLegacy||paidOrder)
+    return res.status(409).json({error:'Υπάρχει ενεργή περίοδος συνδρομής. Επικοινώνησε με την υποστήριξη πριν από τη διαγραφή.'});
   try{
     if(user.role==='broadcaster'){
       const Station=require('../models/Station');

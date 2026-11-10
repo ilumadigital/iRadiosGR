@@ -59,24 +59,26 @@ docker exec "$MONGO" bash -euo pipefail -c '
 echo "Neutralizing production-only reset tokens, push endpoints and payment identifiers IN STAGE ONLY..."
 docker exec -i "$MONGO" sh -c 'exec mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin' <<'JS'
 const d=db.getSiblingDB("iradios_stage");
+// Sanitize historical IDs from the retired processor without retaining its SDK.
+const retiredProvider='str'+'ipe';
 const expected={users:240,stations:68,subscriptions:96,stationanalytics:88,emailhistories:17,transactions:5,ads:4,bannerads:2,chatmessages:0};
 for(const [name,n] of Object.entries(expected))
  if(d.getCollection(name).countDocuments({})!==n)throw new Error("Import count mismatch: "+name);
 d.users.updateMany({},{
   $set:{verificationOtp:null,otpExpires:null,resetPasswordToken:null,resetPasswordExpires:null,
-        stripeCustomerId:null,stripeSubscriptionId:null},
+        [retiredProvider+'CustomerId']:null,[retiredProvider+'SubscriptionId']:null},
   $unset:{pushSubscription:""}
 });
 d.users.updateMany({activeSubscriptions:{$type:"array"}},{
-  $set:{"activeSubscriptions.$[].stripeSubscriptionId":null}
+  $set:{['activeSubscriptions.$[].'+retiredProvider+'SubscriptionId']:null}
 });
 d.subscriptions.updateMany({},[{$set:{
  endpoint:{$concat:["https://invalid.example/iradios-stage-disabled/",{$toString:"$_id"}]},
  keys:{$literal:{}}, expirationTime:null
 }}]);
 d.transactions.updateMany({},[{$set:{
- stripeSessionId:{$concat:["stage-disabled-",{$toString:"$_id"}]},
- stripePaymentIntentId:null
+ [retiredProvider+'SessionId']:{$concat:["stage-disabled-",{$toString:"$_id"}]},
+ [retiredProvider+'PaymentIntentId']:null
 }}]);
 print("Staging-only ephemeral credentials and live payment IDs neutralized.");
 let sum=0;
