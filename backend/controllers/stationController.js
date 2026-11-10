@@ -3,6 +3,7 @@ const {validateStationCategories}=require('../utils/stationCategories');
 const {normalizeStationCity}=require('../utils/stationLocations');
 const User = require('../models/User');
 const {hasAccountRight,hasStationRight}=require('../services/billingEntitlements');
+const {projectPublicStations}=require('../services/stationBillingProjection');
 const jwt = require('jsonwebtoken');
 
 const {deleteStationRecord}=require('../services/stationDeletion');
@@ -28,10 +29,12 @@ const cleanExpiredBoosts = async () => {
 // Public catalog exposes availability only; destination mailboxes remain server-side.
 const CONTACT_EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
 function toPublicStation(station) {
-  const data = station.toObject();
-  const hasContactEmail = CONTACT_EMAIL.test(String(data.email || '').trim());
+  const data=typeof station.toObject==='function'?station.toObject():{...station};
+  const hasContactEmail=CONTACT_EMAIL.test(String(data.email||'').trim());
   delete data.email;
-  return { ...data, hasContactEmail };
+  // Needed internally for billing eligibility, never published on public stage.
+  if(process.env.APP_ENV==='staging')delete data.broadcasterId;
+  return {...data,hasContactEmail};
 }
 
 exports.getApprovedStations = async (req, res) => {
@@ -41,10 +44,11 @@ exports.getApprovedStations = async (req, res) => {
     // Public stage may expose station metadata, never broadcaster personal
     // information or private pending edits imported from production.
     if (process.env.APP_ENV === 'staging') {
-      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok email explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset disableNetworkAds');
+      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok email explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset disableNetworkAds broadcasterId');
     }
-    const stations = await query;
-    res.json(stations.map(toPublicStation));
+    const stations=await query;
+    const effective=await projectPublicStations(stations);
+    res.json(effective.map(toPublicStation));
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
