@@ -2,6 +2,7 @@ const Station = require('../models/Station');
 const {validateStationCategories}=require('../utils/stationCategories');
 const {normalizeStationCity}=require('../utils/stationLocations');
 const User = require('../models/User');
+const {hasAccountRight,hasStationRight}=require('../services/billingEntitlements');
 const jwt = require('jsonwebtoken');
 
 const {deleteStationRecord}=require('../services/stationDeletion');
@@ -82,44 +83,38 @@ exports.createStation = async (req, res) => {
 };
 
 // 🟢 BROADCASTER: Δημιουργία Σταθμού
-exports.createBroadcasterStation = async (req, res) => {
+// Legacy broadcaster creation path: authenticated identity only, never a
+// client-supplied broadcasterId. Backoffice is the preferred creation route.
+exports.createBroadcasterStation = async (req,res)=>{
   try {
-    const { broadcasterId } = req.body;
-    const user = await User.findById(broadcasterId);
-    const currentStations = await Station.countDocuments({ broadcasterId });
-
-    // Ελέγχουμε τα όρια ΜΟΝΟ αν ο χρήστης είναι broadcaster (οι admin περνάνε ελεύθερα)
-    if (user.role === 'broadcaster') {
-      const tier = user.broadcasterProfile?.tier || 'free';
-      
-      // Ορίζουμε το μέγιστο όριο βάσει του πακέτου: Premium = 999, Free = 3
-      const maxAllowed = tier === 'premium' ? 999 : (user.broadcasterProfile?.maxStations || 3);
-
-      if (currentStations >= maxAllowed) {
-        if (tier === 'free') {
-          return res.status(403).json({ error: `Έχετε φτάσει το όριο των ${maxAllowed} σταθμών. Αναβαθμίστε στο Pro Plan για περισσότερους!` });
-        } else {
-          return res.status(403).json({ error: `Έχετε φτάσει το απόλυτο όριο των ${maxAllowed} σταθμών για το Pro Plan σας.` });
-        }
-      }
+    const user=req.user;
+    if(!user || user.role!=='broadcaster')
+      return res.status(403).json({error:'Απαιτείται λογαριασμός Broadcaster.'});
+    const unlimited=await hasAccountRight(user,'broadcaster.unlimited_stations');
+    if(!unlimited){
+      const current=await Station.countDocuments({broadcasterId:user._id});
+      const max=Number(user.broadcasterProfile?.maxStations||3);
+      if(current>=max)
+        return res.status(403).json({error:'Έχετε φτάσει το όριο νέων σταθμών.'});
     }
 
-    const {data: stationData, error: locationError} = normalizeStationCity({...req.body, status: 'pending'});
+    const {data:stationData,error:locationError}=normalizeStationCity(req.body||{});
     if(locationError)return res.status(400).json({error:locationError});
-    delete stationData.isOffline;
-    const categoryError = validateStationCategories(stationData,{required:true});
+    const categoryError=validateStationCategories(stationData,{required:true});
     if(categoryError)return res.status(400).json({error:categoryError});
-
-    // Αν ο Broadcaster ανέβασε αρχείο, φτιάχνουμε το URL
-    if (req.file) {
-      stationData.logo = `__IRADIOS_SITE_ORIGIN__/media/radioassets/${stationData.slug}/${req.file.filename}`;
+    for(const key of ['_id','broadcasterId','isFeatured','boostStatus','boostExpiresAt',
+      'position','rankings','dspPreset','disableNetworkAds','pendingEdits','status'])
+      delete stationData[key];
+    stationData.broadcasterId=user._id;
+    stationData.status='pending';
+    if(req.file){
+      stationData.logo=`__IRADIOS_SITE_ORIGIN__/media/radioassets/${stationData.slug}/${req.file.filename}`;
     }
-
-    const newStation = new Station(stationData);
-    await newStation.save();
-    res.status(201).json({ message: 'Υποβλήθηκε επιτυχώς και αναμένει έγκριση!' });
-  } catch (err) { 
-    res.status(400).json({ error: err.message }); 
+    const created=await Station.create(stationData);
+    return res.status(201).json({message:'Ο σταθμός υποβλήθηκε για έγκριση.',stationId:created._id});
+  }catch(error){
+    console.error('[BILLING] Legacy station creation failed',error.message);
+    return res.status(400).json({error:'Η δημιουργία σταθμού απέτυχε.'});
   }
 };
 
@@ -272,31 +267,26 @@ exports.toggleFeatured = async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-exports.updateDSP = async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'No token' });
-    const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    const station = await Station.findById(req.params.id);
-    if (!station) return res.status(404).json({ error: 'Station not found' });
-    
-    const owner = await User.findById(station.broadcasterId);
-    const isRequesterAdmin = decoded.role === 'admin';
-    const hasFeature = owner && owner.broadcasterProfile?.features?.dspEngine;
-
-    if (!isRequesterAdmin && !hasFeature) {
-       return res.status(403).json({ error: "Το DSP Engine είναι κλειδωμένο." });
-    }
-
-    const updatedStation = await Station.findByIdAndUpdate(
-      req.params.id, 
-      { dspPreset: req.body.dspPreset }, 
-      { new: true }
-    );
-    res.json(updatedStation);
-  } catch (err) { res.status(500).json({ error: 'Server error' }); }
+// Every DSP write is both station-ownership AND station-entitlement gated.
+// Do not accept decoded JWT role from unverified client metadata.
+exports.updateDSP=async(req,res)=>{
+  try{
+    const stationId=req.params.id;
+    const station=await Station.findById(stationId);
+    if(!station)return res.status(404).json({error:'Ο σταθμός δεν βρέθηκε.'});
+    if(!req.user)return res.status(401).json({error:'Χρειάζεται σύνδεση.'});
+    if(!await hasStationRight(req.user,station,'broadcaster.webdsp'))
+      return res.status(403).json({error:'Το WebDSP δεν είναι διαθέσιμο για αυτόν τον σταθμό.'});
+    const preset=req.body?.dspPreset;
+    if(!['OFF','SOFT','NORMALIZE','ULTRABAND','ULTRA','OMNIA','0DB_LEVELER'].includes(preset))
+      return res.status(400).json({error:'Μη έγκυρο DSP preset.'});
+    const updated=await Station.findByIdAndUpdate(stationId,
+      {$set:{dspPreset:preset}},{new:true,runValidators:true});
+    return res.json(updated);
+  }catch(error){
+    console.error('[DSP] Update failed',error.message);
+    return res.status(500).json({error:'Δεν αποθηκεύτηκε το DSP preset.'});
+  }
 };
 
 exports.updateSchedule = async (req, res) => {
@@ -361,12 +351,21 @@ exports.rejectEdit = async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Σφάλμα απόρριψης.' }); }
 };
 
-exports.updateNetworkAds = async (req, res) => {
-  try {
-    const { disableNetworkAds } = req.body;
-    const updated = await Station.findByIdAndUpdate(req.params.id, { disableNetworkAds }, { new: true });
-    res.json(updated);
-  } catch (err) { res.status(500).json({ error: 'Σφάλμα ενημέρωσης' }); }
+exports.updateNetworkAds=async(req,res)=>{
+  try{
+    const station=await Station.findById(req.params.id);
+    if(!station)return res.status(404).json({error:'Ο σταθμός δεν βρέθηκε.'});
+    if(!await hasStationRight(req.user,station,'broadcaster.ad_control'))
+      return res.status(403).json({error:'Το Ad Control δεν είναι διαθέσιμο για αυτόν τον σταθμό.'});
+    if(typeof req.body?.disableNetworkAds!=='boolean')
+      return res.status(400).json({error:'Μη έγκυρη τιμή Ad Control.'});
+    const updated=await Station.findByIdAndUpdate(req.params.id,
+      {$set:{disableNetworkAds:req.body.disableNetworkAds}},{new:true,runValidators:true});
+    return res.json(updated);
+  }catch(error){
+    console.error('[AD CONTROL] Network ads update failed',error.message);
+    return res.status(500).json({error:'Η ενημέρωση Ad Control απέτυχε.'});
+  }
 };
 
 // An admin may mark an approved station offline without removing its catalog entry.
