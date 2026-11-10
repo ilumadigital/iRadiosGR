@@ -7,6 +7,7 @@ const {DAY_MS,paidRenewalState,paidRenewalPeriod}=require('../services/billingRe
 const gateway=require('../services/ilumaGatewayClient');
 const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
 const {hasAccountRight}=require('../services/billingEntitlements');
+const {evaluate:winbackPolicy,PROMO_SKU}=require('../services/winbackEligibility');
 const {verifyWebhookHeaders,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
  validatePaymentEvent,localStatusFromGatewayLookup,nextGracePeriod}=require('../services/gatewayBillingProtocol');
 
@@ -15,18 +16,50 @@ const CLIENT_KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-
 const permitted=()=>process.env.APP_ENV==='staging'&&gateway.configured();
 const accountId=req=>String(req.user?._id||'');
 const display=row=>safeOrderStatus(row);
+const PREMIUM_SKUS=['L-PREM',PROMO_SKU];
+async function winbackForUser(user,now=new Date()){
+ if(!permitted()||!user||user.role!=='user'||user.isVerified!==true)
+  return {eligible:false,reason:'staging_verified_listener_only'};
+ const latest=await BillingOrder.findOne({
+  accountId:user._id,sku:{$in:PREMIUM_SKUS},environment:'staging',status:'paid'
+ }).sort({periodEndsAt:-1,paidAt:-1}).lean();
+ const hasPremium=await hasAccountRight(user,'listener.premium');
+ const local=winbackPolicy({lastPaid:latest,hasPremium,now});
+ if(!local.eligible)return local;
+ const pending=await BillingOrder.exists({
+  accountId:user._id,lockKey:String(user._id)+':L-PREM'
+ });
+ if(pending)return {eligible:false,reason:'payment_pending'};
+ try{
+  const ledger=await gateway.winbackStatus(user);
+  if(ledger.state==='unavailable')return {eligible:false,reason:'gateway_unavailable'};
+  const offer=winbackPolicy({lastPaid:latest,hasPremium,
+   used:ledger.used,pending:ledger.state==='pending',now});
+  if(!offer.eligible)return offer;
+  const mit=await gateway.recurringStatus(user);
+  return {...offer,requiresCancellation:
+    ['active','pending','verification_pending','past_due'].includes(mit.state)};
+ }catch(e){
+  console.warn('[BILLING] Winback eligibility unavailable',e.code||e.name||'gateway');
+  return {eligible:false,reason:'gateway_unavailable'};
+ }
+}
+async function winbackStatus(req,res){
+ if(req.user?.role!=='user')return res.json({offer:{eligible:false}});
+ return res.json({offer:await winbackForUser(req.user)});
+}
 
 // The latest VERIFIED paid period is the only authority for a manual renewal
 // prompt. An unresolved checkout is never bypassed with another payment.
 async function currentRenewal(user,now=new Date()){
  if(!user||user.role!=='user')return null;
  const prior=await BillingOrder.findOne({
-  accountId:user._id,sku:'L-PREM',environment:'staging',status:'paid'
+  accountId:user._id,sku:{$in:PREMIUM_SKUS},environment:'staging',status:'paid'
  }).sort({paidAt:-1,createdAt:-1}).lean();
  const notice=paidRenewalState(prior,now);
  if(!notice)return null;
  const inFlight=await BillingOrder.exists({
-  accountId:user._id,sku:'L-PREM',lockKey:String(user._id)+':L-PREM'
+  accountId:user._id,lockKey:String(user._id)+':L-PREM'
  });
  if(inFlight)return null;
  // Don't request a renewal after expiry if complimentary/manual rights or a
@@ -51,6 +84,8 @@ async function renewalNotice(req,res){
  if(req.user?.role!=='user')return res.json({notice:null,renewal:null});
  const renewal=await currentRenewal(req.user);
  if(!renewal)return res.json({notice:null,renewal:null});
+ if(renewal.kind==='expired'&&(await winbackForUser(req.user)).eligible)
+  return res.json({notice:null,renewal});
  // Only suppress manual-renewal prompts when a fully verified recurring
  // mandate is active AND its sandbox recurring worker has been enabled.
  // Otherwise the listener must still see a truthful renewal warning.
@@ -86,10 +121,12 @@ async function checkout(req,res){
   return res.status(400).json({error:'Απαιτείται έγκυρο Idempotency-Key UUID.'});
  const options=req.body||{};
  const fields=Object.keys(options);
- if(fields.some(k=>!['saveCard','useSavedCard','autoRenew'].includes(k))||
+ if(fields.some(k=>!['saveCard','useSavedCard','autoRenew','winback'].includes(k))||
     (options.saveCard!==undefined&&typeof options.saveCard!=='boolean')||
     (options.useSavedCard!==undefined&&typeof options.useSavedCard!=='boolean')||
     (options.autoRenew!==undefined&&typeof options.autoRenew!=='boolean')||
+    (options.winback!==undefined&&typeof options.winback!=='boolean')||
+    (options.winback===true&&(options.saveCard===true||options.useSavedCard===true))||
     (options.saveCard===true&&options.useSavedCard===true)||
     (options.autoRenew===true&&(options.saveCard===true||options.useSavedCard===true)))
   return res.status(400).json({error:'Μη έγκυρες επιλογές αποθήκευσης κάρτας.'});
@@ -99,6 +136,15 @@ async function checkout(req,res){
   saveCard:options.saveCard===true,useSavedCard:options.useSavedCard===true,
   autoRenew:options.autoRenew===true
  };
+ const winbackRequested=options.winback===true;
+ // Only the backend may derive the expiry and the promotional amount.
+ const winback=winbackRequested?await winbackForUser(req.user):null;
+ if(winbackRequested&&!winback?.eligible)
+  return res.status(409).json({code:'WINBACK_NOT_ELIGIBLE',
+   error:'Η προσφορά επιστροφής δεν είναι πλέον διαθέσιμη για αυτόν τον λογαριασμό.'});
+ if(winbackRequested&&winback.requiresCancellation)
+  return res.status(409).json({code:'WINBACK_CANCEL_MIT_FIRST',
+   error:'Ακύρωσε πρώτα την παλιά αυτόματη ανανέωση στο Billing.'});
  const requestKey='iradios-stage-'+accountId(req)+'-'+clientKey;
  let order=await BillingOrder.findOne({requestKey}).lean();
  if(order){
@@ -112,11 +158,11 @@ async function checkout(req,res){
  // last 24 hours of the verified paid cycle (or its explicit grace period).
  const renewal=await currentRenewal(req.user);
  if(await hasAccountRight(req.user,'listener.premium') &&
-    !['soon','grace'].includes(renewal?.kind))
+    (winbackRequested||!['soon','grace'].includes(renewal?.kind)))
   return res.status(409).json({code:'ALREADY_PREMIUM',
    error:'Το Premium είναι ενεργό. Μπορείς να ανανεώσεις μέσα στις τελευταίες 24 ώρες πριν τη λήξη.'});
  const previousPaid=await BillingOrder.findOne({
-  accountId:req.user._id,sku:'L-PREM',environment:'staging',status:'paid'
+  accountId:req.user._id,sku:{$in:PREMIUM_SKUS},environment:'staging',status:'paid'
  }).sort({paidAt:-1,createdAt:-1}).select('_id').lean();
  // An already-enrolled recurring mandate may create the next paid period
  // without browser checkout. Never charge manually in parallel with it.
@@ -127,8 +173,9 @@ async function checkout(req,res){
  // Require unique indexes before any outbound checkout call.
  await ensureBillingIndexes();
  try{
-  order=await BillingOrder.create({accountId:req.user._id,sku:'L-PREM',
-    requestKey,lockKey,amountCents:399,currency:'EUR',status:'creating',
+  order=await BillingOrder.create({accountId:req.user._id,
+    sku:winbackRequested?PROMO_SKU:'L-PREM',
+    requestKey,lockKey,amountCents:winbackRequested?199:399,currency:'EUR',status:'creating',
     renewalOfOrderId:previousPaid?._id,
     autoRenewRequested:cardChoice.autoRenew});
  }catch(error){
@@ -141,7 +188,9 @@ async function checkout(req,res){
  // Exactly ONE outgoing checkout for this local intent. A timeout is UNKNOWN.
  // Never create a different provider order or reuse a new idempotency key.
  try{
-  const returned=await gateway.checkout({user:req.user,requestKey,cardChoice});
+  const returned=await gateway.checkout({user:req.user,requestKey,cardChoice,
+    sku:winbackRequested?PROMO_SKU:'L-PREM',
+    winbackExpiredAt:winbackRequested?winback.expiredAt:null});
   const status=['failed','canceled','redirect','unknown'].includes(returned.status)?
     returned.status:'pending'; // Never credit a "paid" checkout response.
   const update={$set:{
@@ -158,13 +207,16 @@ async function checkout(req,res){
    // Gateway 422 is emitted only during deterministic validation/preflight
    // BEFORE any Nexi HPP request. No provider payment exists for this key.
    const oneClick=cardChoice.saveCard||cardChoice.useSavedCard;
-   const code=cardChoice.autoRenew?'GATEWAY_RECURRING_NOT_READY':
+   const code=winbackRequested?'GATEWAY_WINBACK_NOT_READY':
+    cardChoice.autoRenew?'GATEWAY_RECURRING_NOT_READY':
      oneClick?'GATEWAY_ONECLICK_NOT_READY':'GATEWAY_CATALOG_NOT_READY';
    await BillingOrder.findOneAndUpdate({_id:order._id,status:'creating'},{
      $set:{status:'failed',lastErrorCode:code},
      $unset:{lockKey:''}
    });
-   return res.status(503).json({code,error:cardChoice.autoRenew
+   return res.status(503).json({code,error:winbackRequested
+     ?'Η προσφορά 1,99 € δεν είναι διαθέσιμη στο Gateway. Ελέγξτε την staging migration και το MIT.'
+     :cardChoice.autoRenew
      ?'Το Gateway δεν έχει ολοκληρώσει την ασφαλή προετοιμασία της συνδρομής MIT. Δεν δημιουργήθηκε χρέωση Nexi. Ελέγξτε τη staging migration.'
      :oneClick
       ?'Η αποθήκευση κάρτας OneClick δεν είναι έτοιμη στο Gateway. Δεν δημιουργήθηκε checkout Nexi. Ελέγξτε τη migration και την κατάσταση της κάρτας πριν ξαναδοκιμάσετε.'
