@@ -4,6 +4,9 @@ const {renderBrandedEmail,escapeHtml,actionButton,infoPanel,siteOrigin}=require(
 // This exact benefit inventory is shared by every listener Premium onboarding
 // and remains contract-tested against the /premium comparison page.
 const PREMIUM_BENEFITS=Object.freeze([
+ {title:'Ακρόαση σταθμών',description:'Απόλαυσε τους διαθέσιμους ραδιοφωνικούς σταθμούς όποτε θέλεις.'},
+ {title:'Αγαπημένοι σταθμοί',description:'Αποθήκευσε τους σταθμούς που αγαπάς για γρήγορη πρόσβαση.'},
+ {title:'Βασική ανακάλυψη περιεχομένου',description:'Ανακάλυψε κατηγορίες, εκπομπές και μουσικές επιλογές.'},
  {title:'Χωρίς in-app διαφημίσεις iRadios',description:'Ακρόαση χωρίς διαφημίσεις της εφαρμογής. Οι διαφημίσεις που μεταδίδουν οι σταθμοί δεν επηρεάζονται.'},
  {title:'Music Radar',description:'Αναγνώρισε χειροκίνητα το τραγούδι που ακούς.'},
  {title:'1Click to Spotify Search',description:'Αναζήτησε το τραγούδι στο Spotify με ένα πάτημα.'},
