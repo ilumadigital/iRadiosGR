@@ -113,7 +113,15 @@ function stagePublicAccess(req, res, next) {
   // A user may read their own profile and favorites, never another user's.
   if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
   if (req.method === 'GET' && (path === '/api/billing/me/grants' ||
-    path === '/api/billing/me/entitlements')) return protect(req,res,next);
+    path === '/api/billing/me/entitlements' ||
+    path === '/api/billing/me/station-entitlements')) return protect(req,res,next);
+
+  // Premium station writes are authorized again by the route AND resource owner.
+  if ((req.method==='PUT' &&
+    (/^\/api\/stations\/[a-f0-9]{24}\/dsp$/i.test(path) ||
+     /^\/api\/broadcaster\/stations\/[a-f0-9]{24}\/network-ads$/i.test(path))) ||
+    (req.method==='POST' && path==='/api/broadcaster/stations'))
+      return protect(req,res,next);
 
   // Self-service listener actions are scoped by req.user in protected handlers.
   // Without this allowlist the default admin-only staging policy hides Profile
