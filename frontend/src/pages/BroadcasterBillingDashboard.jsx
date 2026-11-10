@@ -137,9 +137,10 @@ export default function BroadcasterBillingDashboard({stations=[]}){
        {ongoing(row.status)&&<button onClick={()=>void inspect(row)} disabled={Boolean(busy)}
         className="rounded-xl bg-[#ccff00] px-4 py-2.5 text-xs font-black text-black disabled:opacity-40">
         Έλεγχος πληρωμής</button>}
-       {sub&&row.status==='active'&&<button type="button" disabled={Boolean(busy)}
-        onClick={()=>void loadMandate(row)} className="rounded-xl border border-white/20 px-4 py-2.5 text-xs font-bold">
-        Κατάσταση ανανέωσης</button>}
+       {sub&&['active','scheduled','expired','pending','redirect','unknown','creating'].includes(row.status)&&
+        <button type="button" disabled={Boolean(busy)}
+         onClick={()=>void loadMandate(row)} className="rounded-xl border border-white/20 px-4 py-2.5 text-xs font-bold">
+         Κατάσταση ανανέωσης</button>}
        {mandate&&<span className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-2.5 text-xs text-zinc-300">
         Αυτόματη ανανέωση: {mandate.state==='active'?'Ενεργή':mandate.state==='cancelled'?'Ακυρωμένη':mandate.state}</span>}
        {sub&&mandate&&recurringStates.includes(mandate.state)&&
