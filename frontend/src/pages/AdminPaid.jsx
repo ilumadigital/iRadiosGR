@@ -89,8 +89,11 @@ export default function AdminPaid({ API_URL }) {
   return (
     <div className="admin-legacy-page space-y-6">
       
-      <div className="flex justify-end">
-        <Link to="/admin/billing/grants" className="rounded-xl border border-lime-500/30 bg-[#ccff00]/10 text-[#ccff00] px-4 py-3 font-bold text-sm hover:bg-[#ccff00]/20">
+      <div className="flex justify-end gap-3 flex-wrap">
+        <Link to="/backoffice/admin/billing/sandbox" className="rounded-xl border border-white/20 bg-white/5 text-zinc-100 px-4 py-3 font-bold text-sm hover:bg-white/10">
+          Nexi Sandbox πληρωμές & logs
+        </Link>
+        <Link to="/backoffice/admin/billing/grants" className="rounded-xl border border-lime-500/30 bg-[#ccff00]/10 text-[#ccff00] px-4 py-3 font-bold text-sm hover:bg-[#ccff00]/20">
           Διαχείριση δωρεάν συνδρομών
         </Link>
       </div>
