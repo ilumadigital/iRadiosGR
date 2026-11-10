@@ -95,11 +95,19 @@ test('Paid event only grants one cycle after signed Gateway HMAC; duplicates nev
  process.env.APP_ENV='staging';process.env.ILUMA_GATEWAY_STAGING_SECRET=secret;
  try{
   const originalEvent=payload();
+  // A delayed delivery must never extend the paid month past Gateway confirmation.
+  originalEvent.occurred_at=new Date(Date.now()-2*60*60*1000).toISOString();
   const request=signedEvent(originalEvent);
   const first=await run(request.req);
   assert.equal(first.statusCode,200);
   assert.deepEqual(first.body,{received:true,activated:true});
   assert.equal(state.status,'paid');
+  assert.equal(new Date(state.paidAt).toISOString(),originalEvent.occurred_at,
+   'delayed webhook cannot restart the paid month');
+  const start=new Date(originalEvent.occurred_at);
+  const oneMonth=new Date(start);
+  oneMonth.setUTCMonth(oneMonth.getUTCMonth()+1);
+  assert.equal(new Date(state.periodEndsAt).toISOString(),oneMonth.toISOString());
   assert.ok(new Date(state.periodEndsAt)>new Date(state.paidAt));
   assert.equal(state.eventIds.length,1);
   assert.equal('lockKey' in state,false);
