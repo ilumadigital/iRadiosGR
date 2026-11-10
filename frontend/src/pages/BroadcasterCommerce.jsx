@@ -91,6 +91,9 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
   const [recurring,setRecurring]=useState({});
   const [cancelTarget,setCancelTarget]=useState(null);
   const [cancelBusy,setCancelBusy]=useState(false);
+  const [premiumBoostStations,setPremiumBoostStations]=useState([]);
+  const [premiumBoostSelected,setPremiumBoostSelected]=useState([]);
+  const [premiumBoostSaving,setPremiumBoostSaving]=useState(false);
   const approved=useMemo(()=>stations.filter(s=>s.status==='approved'),[stations]);
   useEffect(()=>{if(!approved.some(s=>s._id===selectedStation))
     setSelectedStation(approved[0]?._id||'');},[approved,selectedStation]);
@@ -212,6 +215,30 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
    finally{setCancelBusy(false);}
   };
   const fullPremium=accountRights.includes('broadcaster.unlimited_stations');
+  useEffect(()=>{
+    if(!fullPremium)return;
+    const ctrl=new AbortController();
+    get('/api/billing/broadcaster/premium-boost',ctrl.signal).then(result=>{
+      if(!ctrl.signal.aborted){
+        setPremiumBoostStations(result.stations||[]);
+        setPremiumBoostSelected(result.selected||[]);
+      }
+    }).catch(()=>{if(!ctrl.signal.aborted)
+      setPaymentNotice('Δεν ήταν διαθέσιμη η επιλογή Premium Boost.');});
+    return()=>ctrl.abort();
+  },[fullPremium]);
+  const savePremiumBoost=async()=>{
+    if(premiumBoostSaving)return;
+    setPremiumBoostSaving(true);
+    try{
+      const result=await post('/api/billing/broadcaster/premium-boost',{
+        stationIds:premiumBoostSelected
+      });
+      setPremiumBoostSelected(result.selected||[]);
+      setPaymentNotice('Οι επιλογές Premium Boost αποθηκεύτηκαν.');
+    }catch(e){setPaymentNotice(e.message);}
+    finally{setPremiumBoostSaving(false);}
+  };
   const stationRights=new Set(byStation[selectedStation]||[]);
   const has=right=>fullPremium||stationRights.has(right);
   const price=sku=>catalog?.[sku]?euros(catalog[sku].priceCents):'—';
@@ -302,6 +329,27 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <div className="mt-6 rounded-xl border border-[#ccff00]/15 bg-[#ccff00]/[.06] p-3 text-xs leading-5 text-zinc-300">
                 Το αγορασμένο Boost έχει πάντα υψηλότερη προτεραιότητα από το Boost που περιλαμβάνει το Premium.
               </div>
+              {fullPremium&&<div className="mt-6 border-t border-white/10 pt-6">
+                <h3 className="text-sm font-black text-[#ccff00]">Επιλογή σταθμών Premium Boost</h3>
+                <p className="mt-2 text-xs leading-6 text-zinc-400">Επίλεξε τους εγκεκριμένους σταθμούς σου που θα χρησιμοποιούν το περιλαμβανόμενο Premium Boost. Οι αγορασμένες προβολές υπερισχύουν.</p>
+                <div className="mt-4 max-h-56 space-y-2 overflow-y-auto">
+                  {premiumBoostStations.length===0&&<p className="text-xs text-zinc-500">Δεν υπάρχει εγκεκριμένος σταθμός.</p>}
+                  {premiumBoostStations.map(station=><label key={station.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-xs font-bold">
+                    <input type="checkbox" className="size-4 accent-lime-400"
+                      checked={premiumBoostSelected.includes(station.id)}
+                      onChange={e=>setPremiumBoostSelected(prev=>e.target.checked?
+                        [...prev.filter(id=>id!==station.id),station.id]:
+                        prev.filter(id=>id!==station.id))}/>
+                    <span>{station.name}</span>
+                  </label>)}
+                </div>
+                <button type="button" disabled={premiumBoostSaving}
+                  onClick={()=>void savePremiumBoost()}
+                  className="mt-4 w-full rounded-xl border border-[#ccff00]/30 bg-[#ccff00]/10 p-3.5 text-xs font-black text-[#ccff00] hover:bg-[#ccff00]/20 disabled:opacity-50">
+                  {premiumBoostSaving?'Αποθήκευση…':'Αποθήκευση σταθμών Premium Boost'}
+                </button>
+              </div>}
             </div>
           </div>
         </section>
