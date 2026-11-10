@@ -21,6 +21,8 @@ export default function AdminEmails({ API_URL }) {
     {id:'producerInvite',label:'Πρόσκληση Producer'},
     {id:'otp',label:'Επαλήθευση OTP'},
     {id:'welcome',label:'Καλωσόρισμα'},
+    {id:'verifiedListenerPremium',label:'Επιβεβαίωση email · Premium CTA 3,99 €'},
+    {id:'verifiedListenerBasic',label:'Επιβεβαίωση email · Χωρίς προωθητικό CTA'},
     {id:'passwordReset',label:'Επαναφορά κωδικού'},
     {id:'adPayment',label:'Πληρωμή διαφήμισης'},
     {id:'adminTransaction',label:'Ενημέρωση διαχειριστή'},
