@@ -188,18 +188,30 @@ async function deliverPending(now=new Date(),max=25){
      {$set:{status:'skipped',skipReason:'no_longer_eligible'}});
     continue;
    }
+   // Once SMTP has accepted the email, a transient database error must
+   // NEVER put it back into a retryable state or send it twice.
    const result=await sendEmail({to:user.email,...template});
    if(!result?.success)throw Error('Mail transport rejected message');
-   await BillingEmailDispatch.updateOne({_id:row._id,status:'sending'},
-    {$set:{status:'sent',sentAt:new Date()}});
    sent++;
+   try{
+    await BillingEmailDispatch.updateOne({_id:row._id,status:'sending'},
+     {$set:{status:'sent',sentAt:new Date()}});
+   }catch(e){
+    // Leave "sending" for operator investigation. The remote transport may
+    // already have delivered; a blind retry would duplicate the email.
+    console.error('[PREMIUM MAIL] SMTP accepted; sent-state persistence requires review',
+     claimed.kind,e.code||e.message);
+   }
   }catch(e){
    console.warn('[PREMIUM MAIL] Delivery error',claimed.kind,e.code||e.message);
-   // SMTP may have accepted the message when a process crashes. A row stuck
-   // in "sending" is deliberately NOT retried automatically (no duplicates).
-   // Explicit rejected responses can safely retry with bounded backoff.
-   await BillingEmailDispatch.updateOne({_id:row._id,status:'sending'},
-    {$set:{status:'pending',dueAt:new Date(Date.now()+Math.min(60,2**claimed.attempts)*60000)}});
+   // A definite transport failure can retry with bounded backoff.
+   // Ambiguous process exits leave the "sending" row untouched.
+   try{
+    await BillingEmailDispatch.updateOne({_id:row._id,status:'sending'},
+     {$set:{status:'pending',dueAt:new Date(Date.now()+Math.min(60,2**claimed.attempts)*60000)}});
+   }catch(persistError){
+    console.error('[PREMIUM MAIL] Failed to persist retry',persistError.code||persistError.message);
+   }
   }
  }
  return sent;
