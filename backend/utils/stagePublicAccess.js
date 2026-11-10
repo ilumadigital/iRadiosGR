@@ -151,6 +151,14 @@ function stagePublicAccess(req, res, next) {
     return protect(req,res,()=>authorizeRoles('admin','broadcaster','producer')(req,res,next));
   }
 
+  // Hardened stage Ad Control actions: route verifies owner AND station
+  // entitlement. Uploaded audio is validated and limited before persistence.
+  if ((req.method==='POST'&&
+       (path==='/api/broadcaster/ads'||path==='/api/uploads/upload-ad'))||
+      ((req.method==='PUT'||req.method==='DELETE')&&
+       /^\/api\/broadcaster\/ads\/[a-f0-9]{24}$/i.test(path)))
+    return protect(req,res,next);
+
   // Listener-only song metadata, station playlist history and ACRCloud recognition.
   if (req.method === 'GET' && /^\/api\/stations\/[0-9a-fA-F]{24}\/playlist$/.test(path)) return protect(req,res,next);
   if (req.method === 'GET' && path === '/api/metadata') return protect(req,res,next);
