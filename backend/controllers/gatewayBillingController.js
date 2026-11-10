@@ -4,7 +4,7 @@ const GatewayWebhookNonce=require('../models/GatewayWebhookNonce');
 const gateway=require('../services/ilumaGatewayClient');
 const {hasAccountRight}=require('../services/billingEntitlements');
 const {verifyWebhookHeaders,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
- PAYMENT_ID,ORDER_ID,EVENT_ID}=require('../services/gatewayBillingProtocol');
+ validatePaymentEvent}=require('../services/gatewayBillingProtocol');
 
 const safe=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 const CLIENT_KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
@@ -60,6 +60,14 @@ async function checkout(req,res){
     update,{new:true});
   return res.status(201).json({order:display(updated||order)});
  }catch(error){
+  if(error.code==='GATEWAY_HTTP_422'){
+   await BillingOrder.findOneAndUpdate({_id:order._id,status:'creating'},{
+     $set:{status:'failed',lastErrorCode:'GATEWAY_CATALOG_NOT_READY'},
+     $unset:{lockKey:''}
+   });
+   return res.status(503).json({code:'GATEWAY_CATALOG_NOT_READY',
+     error:'Το προϊόν L-PREM πρέπει να ενεργοποιηθεί στο Nexi Sandbox Gateway με τιμή 3,99 €.'});
+  }
   // Gateway or network uncertainty does not mean the customer was NOT charged.
   // Keep the lock and the original Idempotency-Key. Do not retry automatically.
   console.warn('[BILLING] Sandbox checkout requires reconciliation',error.code||error.name||'network');
@@ -99,22 +107,6 @@ async function readOrder(req,res){
  return res.json({order:display(row),renewalEnabled:false});
 }
 
-function validateEvent(body,eventId){
- if(!body||typeof body!=='object'||Array.isArray(body))return false;
- if(body.event_id!==eventId||!EVENT_ID.test(body.event_id||'')||
-    !PAYMENT_ID.test(body.payment_id||'')||!ORDER_ID.test(body.order_id||''))
-   return false;
- if(!['payment.paid','payment.failed','payment.canceled'].includes(body.event_type))
-   return false;
- if(body.environment!=='staging'||body.amount_cents!==399||
-    body.currency!=='EUR')return false;
- // This is a provider-internal customer_id, NOT an iRadios account ID.
- if(typeof body.customer_id!=='string'||body.customer_id.length<1||
-    body.customer_id.length>190)return false;
- const at=Date.parse(body.occurred_at);
- return Number.isFinite(at)&&at>Date.UTC(2020,0,1)&&at<=Date.now()+300000;
-}
-
 async function webhook(req,res){
  if(process.env.APP_ENV!=='staging')
   return res.status(503).json({error:'Staging webhook only'});
@@ -125,7 +117,7 @@ async function webhook(req,res){
  if(!verified.valid)return res.status(401).json({error:'Invalid webhook signature'});
  let event;
  try{event=JSON.parse(raw.toString('utf8'));}catch{return res.status(400).json({error:'Invalid JSON'});}
- if(!validateEvent(event,verified.eventId))
+ if(!validatePaymentEvent(event,verified.eventId))
   return res.status(422).json({error:'Invalid payment event'});
  await GatewayWebhookNonce.init();
  try{await GatewayWebhookNonce.create({nonce:verified.nonce});}
@@ -175,4 +167,4 @@ async function webhook(req,res){
 }
 
 module.exports={checkout:safe(checkout),listOwnOrders:safe(listOwnOrders),
- readOrder:safe(readOrder),webhook:safe(webhook),validateEvent};
+ readOrder:safe(readOrder),webhook:safe(webhook)};
