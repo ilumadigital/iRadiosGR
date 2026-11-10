@@ -31,7 +31,7 @@ jobs:
       - name: Validate backend JavaScript syntax
         run: find backend -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check
       - name: Verify phase-1 subscription catalog, complimentary grants and paid Boost priority
-        run: node --test backend/tests/billingPhase1.test.js
+        run: node --test backend/tests/billingPhase1.test.js backend/tests/billingGrantRequest.test.js
       - name: Check staging radio proxy URL safety
         run: node ops/check-stage-stream-proxy.cjs
       - name: Verify public staging API access boundaries
