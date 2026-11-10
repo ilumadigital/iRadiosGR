@@ -49,6 +49,8 @@ jobs:
         run: node --test backend/tests/broadcasterPurchaseRules.test.js backend/tests/broadcasterPaymentProtocol.test.js
       - name: Verify read-only recovery cannot re-charge or grant paid access
         run: node --test backend/tests/broadcasterCheckoutRecovery.test.js
+      - name: Verify branded Broadcaster billing emails and one-off Boost messaging
+        run: node --test backend/tests/broadcasterBillingEmailTemplates.test.js
       - name: Verify expiry gating of station DSP and network ads without deleting presets
         run: node --test backend/tests/billingStationPlayback.test.js
       - name: Verify Nexi Sandbox HMAC, signed webhook boundaries and monthly period rules
