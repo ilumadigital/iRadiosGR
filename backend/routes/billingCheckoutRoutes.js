@@ -13,6 +13,8 @@ router.use((req,res,next)=>{
 router.post('/billing/checkout',protect,controller.checkout);
 router.get('/billing/me/orders',protect,controller.listOwnOrders);
 router.get('/billing/me/renewal-notice',protect,controller.renewalNotice);
+router.get('/billing/me/overview',protect,controller.billingOverview);
+router.post('/billing/me/recurring/cancel',protect,controller.cancelAutomaticRenewal);
 router.get('/billing/me/payment-method',protect,controller.savedCardStatus);
 router.post('/billing/me/payment-method/revoke',protect,controller.revokeSavedCard);
 router.post('/billing/me/renewal-notice/snooze',protect,controller.snoozeRenewalNotice);
