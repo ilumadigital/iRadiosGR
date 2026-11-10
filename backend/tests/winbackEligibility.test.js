@@ -19,6 +19,15 @@ test('One-time winback begins immediately after paid Premium expiry and lasts ex
  assert.equal(evaluate({lastPaid:paid,now:new Date(+end+WINDOW_MS)}).eligible,false);
  assert.equal(evaluate({lastPaid:paid,now:new Date(+end+WINDOW_MS)}).reason,'offer_expired');
 });
+test('A configured grace period delays both start and end of the 30-day winback window',()=>{
+ const grace=new Date(+end+7*86400000);
+ const withGrace={...paid,graceEndsAt:grace};
+ assert.equal(evaluate({lastPaid:withGrace,now:new Date(+end+86400000)}).eligible,false);
+ const offer=evaluate({lastPaid:withGrace,now:grace});
+ assert.equal(offer.eligible,true);
+ assert.equal(offer.expiredAt,grace.toISOString());
+ assert.equal(offer.offerEndsAt,new Date(+grace+WINDOW_MS).toISOString());
+});
 test('Never offer to Free accounts, unpaid checkout, Premium, redeemed or pending accounts',()=>{
  assert.equal(evaluate({lastPaid:null,now}).eligible,false);
  assert.equal(evaluate({lastPaid:{...paid,status:'redirect'},now}).eligible,false);
