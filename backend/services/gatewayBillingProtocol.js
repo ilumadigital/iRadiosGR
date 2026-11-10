@@ -101,16 +101,33 @@ function nextMonthlyPeriod(start){
  return new Date(Date.UTC(y,m+1,Math.min(day,last),
    d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds(),d.getUTCMilliseconds()));
 }
+// The iRadios backend owns entitlement terms, never Gateway or Nexi.
+// Configured once per paid period. Zero is the safe default: no unapproved grace.
+function configuredGraceDays(){
+ const raw=process.env.IRADIOS_BILLING_GRACE_DAYS||'0';
+ return /^(?:[0-9]|1[0-4])$/.test(raw)?Number(raw):0;
+}
+function nextGracePeriod(periodEnd,days=configuredGraceDays()){
+ const end=new Date(periodEnd);
+ if(!Number.isFinite(end.getTime())||!Number.isInteger(days)||days<0||days>14)
+  throw Error('Invalid grace period');
+ return new Date(end.getTime()+days*86400000);
+}
 function safeOrderStatus(row,now=new Date()){
  const end=row.periodEndsAt?new Date(row.periodEndsAt):null;
+ const graceEnd=row.graceEndsAt?new Date(row.graceEndsAt):null;
  const effective=row.status==='paid'&&end&&end>now?'active':
+   row.status==='paid'&&graceEnd&&graceEnd>now?'grace':
    row.status==='paid'?'expired':row.status;
  return {id:String(row._id),sku:row.sku,status:effective,
    providerStatus:row.providerStatus||null,amountCents:row.amountCents,
    currency:row.currency,checkoutUrl:effective==='redirect'?hostedCheckoutUrl(row.checkoutUrl):null,
+   gatewayOrderId:row.gatewayOrderId||null,
    paidAt:row.paidAt||null,periodEndsAt:row.periodEndsAt||null,
+   graceEndsAt:row.graceEndsAt||null,
    autoRenew:false,environment:'staging'};
 }
 module.exports={canonicalSignature,headersForRequest,verifyWebhookHeaders,
   hostedCheckoutUrl,validateGatewayPayment,localStatusFromGatewayLookup,nextMonthlyPeriod,safeOrderStatus,
-  PAYMENT_ID,ORDER_ID,EVENT_ID,WEBHOOK_PATH,GATEWAY_CHECKOUT_PATH,validatePaymentEvent};
+  PAYMENT_ID,ORDER_ID,EVENT_ID,WEBHOOK_PATH,GATEWAY_CHECKOUT_PATH,validatePaymentEvent,
+  configuredGraceDays,nextGracePeriod};
