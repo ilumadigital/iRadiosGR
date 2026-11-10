@@ -11,6 +11,8 @@ const schema=new mongoose.Schema({
  requestKey:{type:String,required:true,unique:true,immutable:true},
  // Only OPEN checkout intents own this unique lock. Always $unset on terminal state.
  lockKey:{type:String,default:undefined},
+ // Previous paid cycle for manual renewal; never overwrites the first payment.
+ renewalOfOrderId:{type:mongoose.Schema.Types.ObjectId,ref:'BillingOrder',default:undefined,immutable:true},
  gatewayPaymentId:{type:String,default:undefined},
  gatewayOrderId:{type:String,default:undefined},
  checkoutUrl:{type:String,default:null},
