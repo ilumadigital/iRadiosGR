@@ -19,9 +19,9 @@ function ready(){
  return readyIndexes;
 }
 function dispatchKey(kind,orderId,suffix=''){
- if(!['welcome','renewed','cancelled','soon','expired'].includes(kind)||
+ if(!['welcome','renewed','failed','cancelled','soon','expired'].includes(kind)||
     !/^[a-f0-9]{24}$/i.test(String(orderId||''))||
-    (suffix&&(!/^[0-9TZ.:-]{10,35}$/.test(suffix))))
+    (suffix&&(!/^[a-f0-9TZ.:-]{10,35}$/.test(suffix))))
   throw Error('Invalid Broadcaster mail identity');
  return 'broadcaster-mail:'+kind+':'+String(orderId)+(suffix?':'+suffix.replace(/[:.]/g,'-'):'');
 }
@@ -30,7 +30,7 @@ async function enqueue(kind,order,suffix=''){
    order.status!=='paid'||!order.accountId)return false;
  if(kind==='renewed'&&order.billingOrigin!=='automatic_renewal')return false;
  if(kind==='welcome'&&order.billingOrigin==='automatic_renewal')return false;
- if((kind==='renewed'||kind==='cancelled')&&!isSubscription(order.sku))return false;
+ if((kind==='renewed'||kind==='failed'||kind==='cancelled')&&!isSubscription(order.sku))return false;
  await ready();
  try{
   await Outbox.create({_id:dispatchKey(kind,order._id,suffix),
@@ -42,6 +42,14 @@ async function enqueue(kind,order,suffix=''){
 async function enqueuePaid(order){
  if(!staging()||!order||order.status!=='paid')return false;
  return enqueue(order.billingOrigin==='automatic_renewal'?'renewed':'welcome',order);
+}
+async function enqueueFailedRenewal(order,paymentId){
+ if(!staging()||!order||order.status!=='paid'||
+   !isSubscription(order.sku)||
+   !/^[a-f0-9]{32}$/.test(paymentId||''))return false;
+ // One service notification per actual provider-declined MIT payment.
+ // It never triggers a retry of that payment.
+ return enqueue('failed',order,paymentId);
 }
 async function enqueueCancellation(user,{sku,stationId=null,recurring}){
  if(!staging()||!user||recurring?.state!=='cancelled'||!recurring.cancelled_at)return false;
@@ -103,6 +111,13 @@ async function template(row,user,now){
   if(state.state!=='cancelled'||!Number.isFinite(+date)||
     row._id!==dispatchKey('cancelled',order._id,date.toISOString()))return null;
   cancelledAt=date;
+ }
+ if(row.kind==='failed'){
+  // A delayed decline must not override a newer successful renewal.
+  const latest=await latestCycle(order);
+  if(!latest||String(latest._id)!==String(order._id))return null;
+  const state=await gateway.broadcasterRecurringStatus(user,order.sku,order.resourceId||null);
+  if(state.state!=='past_due')return null;
  }
  if(row.kind==='soon'||row.kind==='expired'){
   const latest=await latestCycle(order);
@@ -188,5 +203,5 @@ function kick(){
  if(!staging())return;
  void deliver().catch(e=>console.warn('[BROADCASTER MAIL] Kick deferred',e.code||e.message));
 }
-module.exports={start,run,enqueue,enqueuePaid,enqueueCancellation,scan,deliver,kick,template,
+module.exports={start,run,enqueue,enqueuePaid,enqueueFailedRenewal,enqueueCancellation,scan,deliver,kick,template,
  dispatchKey};
