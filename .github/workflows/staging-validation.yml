@@ -38,6 +38,8 @@ jobs:
         run: node --test backend/tests/billingStationPlayback.test.js
       - name: Verify Nexi Sandbox HMAC, signed webhook boundaries and monthly period rules
         run: node --test backend/tests/billingGatewayProtocol.test.js
+      - name: Verify atomic signed payment activation, duplicate events and replay protection
+        run: node --test ops/check-billing-gateway-webhook.test.cjs
       - name: Check staging radio proxy URL safety
         run: node ops/check-stage-stream-proxy.cjs
       - name: Verify public staging API access boundaries
