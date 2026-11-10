@@ -33,7 +33,7 @@ router.get('/notifications/stats', protect, authorizeRoles('admin'), notificatio
 router.post('/notifications/send', protect, authorizeRoles('admin'), notificationController.sendNotification);
 
 // Analytics & Metadata
-router.get('/broadcaster/:userId/analytics', analyticsController.getBroadcasterAnalytics);
+router.get('/broadcaster/:userId/analytics',protect,authorizeRoles('admin','broadcaster'),analyticsController.getBroadcasterAnalytics);
 // The original metadata extractor performs arbitrary upstream fetches.
 // Keep the staging response deterministic until that endpoint gets the
 // same approved-station SSRF protection as the stream proxy.

@@ -56,7 +56,7 @@ router.get('/stations/all', stationController.getAllStations);
 router.get('/stations/discovery', stationController.getDiscoveryStations);
 
 router.post('/stations', uploadStationLogo.single('logoFile'), stationController.createStation);
-router.put('/stations/:id/dsp', stationController.updateDSP);
+router.put('/stations/:id/dsp',protect,authorizeRoles('admin','broadcaster'),stationController.updateDSP);
 // Legacy endpoint remains for older clients but cannot bypass backoffice ownership.
 router.put('/stations/:id/schedule',
   require('../utils/authMiddleware').protect,
@@ -97,10 +97,10 @@ router.put('/stations/:id/schedule',
 router.get('/broadcaster/:userId/stations', stationController.getBroadcasterStations);
 
 // 🟢 ΕΔΩ "ΚΟΥΜΠΩΣΑΜΕ" ΤΟ MULTER ΓΙΑ ΤΑ LOGOS
-router.post('/broadcaster/stations', uploadStationLogo.single('logoFile'), stationController.createBroadcasterStation);
+router.post('/broadcaster/stations',protect,authorizeRoles('broadcaster'),uploadStationLogo.single('logoFile'),stationController.createBroadcasterStation);
 router.put('/broadcaster/stations/:id/edit-request', uploadStationLogo.single('logoFile'), stationController.requestEdit);
 
-router.put('/broadcaster/stations/:id/network-ads', stationController.updateNetworkAds);
+router.put('/broadcaster/stations/:id/network-ads',protect,authorizeRoles('admin','broadcaster'),stationController.updateNetworkAds);
 
 // --- Admin Station Controls ---
 
