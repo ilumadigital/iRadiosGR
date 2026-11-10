@@ -76,7 +76,7 @@ function Status({order}){
    creating:{title:'Προετοιμασία ασφαλούς πληρωμής',desc:'Δημιουργείται το αίτημα. Μη δημιουργήσεις δεύτερο checkout.',icon:Clock3,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    redirect:{title:'Αναμονή πληρωμής μέσω Nexi Sandbox',desc:'Το checkout είναι διαθέσιμο. Premium ενεργοποιείται μόνο μετά την επιβεβαίωση.',icon:CreditCard,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    unknown:{title:'Χρειάζεται έλεγχος της συναλλαγής',desc:'Η κατάσταση είναι άγνωστη. Δεν δημιουργούμε δεύτερη χρέωση και περιμένουμε ασφαλή επαλήθευση.',icon:AlertTriangle,style:'border-orange-500/30 bg-orange-900/10 text-orange-200'},
-   failed:{title:'Η πληρωμή απέτυχε',desc:'Δεν ενεργοποιήθηκε Premium. Μπορείς να ξεκινήσεις νέα δοκιμαστική συναλλαγή.',icon:AlertTriangle,style:'border-red-500/30 bg-red-900/10 text-red-200'},
+   failed:{title:'Το checkout δεν ολοκληρώθηκε',desc:'Δεν ενεργοποιήθηκε Premium. Αν επιβεβαιώθηκε ότι δεν δημιουργήθηκε συναλλαγή στο Gateway, μπορείς να ξεκινήσεις νέα δοκιμαστική προσπάθεια.',icon:AlertTriangle,style:'border-red-500/30 bg-red-900/10 text-red-200'},
    canceled:{title:'Η συναλλαγή ακυρώθηκε',desc:'Δεν ενεργοποιήθηκε Premium και δεν έγινε αυτόματη επαναχρέωση.',icon:AlertTriangle,style:'border-white/10 bg-white/5 text-zinc-200'}
  };
  const waitingForWebhook=order.providerStatus==='paid' &&
@@ -89,6 +89,7 @@ function Status({order}){
     <div><h3 className="font-black text-lg">{state.title}</h3>
       <p className="mt-2 text-sm opacity-80 leading-6">{state.desc}</p>
       {order.status==='scheduled'&&order.periodStartsAt&&<p className="mt-2 text-sm">Έναρξη νέας περιόδου: <strong>{dateText(order.periodStartsAt)}</strong></p>}
+      {order.recoveryReason==='not_created'&&<p className="mt-2 text-sm text-lime-200">Το Gateway επιβεβαίωσε ότι δεν υπάρχει συναλλαγή για αυτό το αίτημα. Μπορείς να δοκιμάσεις ξανά αφού διορθωθεί το OneClick.</p>}
       {order.periodEndsAt&&<p className="mt-2 text-sm">Τέλος πληρωμένης περιόδου: <strong>{dateText(order.periodEndsAt)}</strong></p>}
       {order.status==='grace'&&order.graceEndsAt&&<p className="mt-2 text-sm">Λήξη χάριτος: <strong>{dateText(order.graceEndsAt)}</strong></p>}
     </div>
@@ -224,12 +225,15 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
      :result.order.status==='active'
       ?'Η πληρωμή επιβεβαιώθηκε από το Gateway. Το Premium είναι ενεργό.'
       :'Η συνδρομή βρίσκεται σε περίοδο χάριτος σύμφωνα με τους κανόνες του iRadios.');
+   }else if(result.order?.recoveryReason==='not_created'){
+    setMessage('Το Gateway επιβεβαίωσε ότι δεν δημιουργήθηκε συναλλαγή Nexi. Μπορείς να δοκιμάσεις ξανά αφού ολοκληρωθεί ο έλεγχος OneClick.');
+    sessionStorage.removeItem(KEY_PREFIX+userId);
    }else if(result.order?.providerStatus==='paid'){
     setMessage('Η Nexi επιβεβαίωσε την πληρωμή στο ILUMA Gateway. Εκκρεμεί μόνο η ασφαλής αποστολή της ενημέρωσης προς το iRadios.');
    }
   }catch(e){setMessage(e.message);}
   finally{setBusy(false);}
- },[API_URL,order,loadOrders,finishVerified]);
+ },[API_URL,order,loadOrders,finishVerified,userId]);
 
  // Nexi returns through ILUMA Gateway to this exact iRadios route.
  // The URL is a navigation hint, NOT a proof of payment.
@@ -295,11 +299,13 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
    const url=response.order?.status==='redirect'?
       verifiedNexiUrl(response.order.checkoutUrl):null;
    if(url)window.location.assign(url);
-   else setMessage('Το Gateway καταχώρισε το αίτημα αλλά δεν επέστρεψε ασφαλή σελίδα Nexi για δοκιμαστική κάρτα. Δεν έχει επιβεβαιωθεί πληρωμή. Έλεγξε την κατάσταση χωρίς δεύτερη προσπάθεια.');
+   else setMessage(response.order?.gatewayOrderId
+     ?'Το Gateway έχει Order ID αλλά η Nexi δεν επέστρεψε ασφαλή φόρμα πληρωμής. Πάτησε Έλεγχος κατάστασης· μη δημιουργήσεις δεύτερη συναλλαγή.'
+     :'Δεν έχει επιβεβαιωθεί ότι το Gateway δημιούργησε συναλλαγή. Πάτησε Έλεγχος κατάστασης μετά από δύο λεπτά, ώστε να ελεγχθεί με ασφάλεια πριν επιχειρήσεις ξανά.');
   }catch(e){
-   if(e.code==='GATEWAY_CATALOG_NOT_READY'){
-    // Gateway 422 rejects before Nexi; this failed attempt can use a NEW
-    // idempotency key after the catalog is repaired.
+   if(['GATEWAY_CATALOG_NOT_READY','GATEWAY_ONECLICK_NOT_READY'].includes(e.code)){
+    // Gateway 422 rejects before Nexi; a new idempotency key is safe
+    // only after the product or OneClick preflight issue is repaired.
     sessionStorage.removeItem(KEY_PREFIX+userId);
     try{await loadOrders();}catch{}
    }

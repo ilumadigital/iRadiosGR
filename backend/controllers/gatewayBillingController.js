@@ -124,12 +124,17 @@ async function checkout(req,res){
   return res.status(201).json({order:display(updated||order)});
  }catch(error){
   if(error.code==='GATEWAY_HTTP_422'){
+   // Gateway 422 is emitted only during deterministic validation/preflight
+   // BEFORE any Nexi HPP request. No provider payment exists for this key.
+   const oneClick=cardChoice.saveCard||cardChoice.useSavedCard;
+   const code=oneClick?'GATEWAY_ONECLICK_NOT_READY':'GATEWAY_CATALOG_NOT_READY';
    await BillingOrder.findOneAndUpdate({_id:order._id,status:'creating'},{
-     $set:{status:'failed',lastErrorCode:'GATEWAY_CATALOG_NOT_READY'},
+     $set:{status:'failed',lastErrorCode:code},
      $unset:{lockKey:''}
    });
-   return res.status(503).json({code:'GATEWAY_CATALOG_NOT_READY',
-     error:'Το προϊόν L-PREM πρέπει να ενεργοποιηθεί στο Nexi Sandbox Gateway με τιμή 3,99 €.'});
+   return res.status(503).json({code,error:oneClick
+     ?'Η αποθήκευση κάρτας OneClick δεν είναι έτοιμη στο Gateway. Δεν δημιουργήθηκε checkout Nexi. Ελέγξτε τη migration και την κατάσταση της κάρτας πριν ξαναδοκιμάσετε.'
+     :'Το προϊόν L-PREM πρέπει να ενεργοποιηθεί στο Nexi Sandbox Gateway με τιμή 3,99 €.'});
   }
   // Gateway or network uncertainty does not mean the customer was NOT charged.
   // Keep the lock and the original Idempotency-Key. Do not retry automatically.
@@ -194,9 +199,22 @@ async function readOrder(req,res){
    if(updated)row=updated;
   }catch(error){
    console.warn('[BILLING] Read-only reconciliation unavailable',error.code||error.name||'network');
-   // Missing gateway rows do not authorize any retry: a network attempt may
-   // have happened before the initial response was lost.
-   if(row.status==='creating' && Date.now()-new Date(row.createdAt).getTime()>60000){
+   const ageMs=Date.now()-new Date(row.createdAt).getTime();
+   // Exact, signed Gateway 404 by original request key is conclusive ONLY
+   // when we never received any Gateway reference. Gateway commits its
+   // payment ledger BEFORE calling Nexi, so absence after 2 minutes proves
+   // checkout never reached the provider. Any other HTTP/network error, or
+   // a known Gateway order ID, remains locked for financial reconciliation.
+   if(error.code==='GATEWAY_HTTP_404' && ageMs>120000 &&
+      !row.gatewayPaymentId && !row.gatewayOrderId){
+    const failed=await BillingOrder.findOneAndUpdate({
+     _id:row._id,accountId:req.user._id,environment:'staging',
+     status:{$in:['creating','pending','unknown']},
+     gatewayPaymentId:{$exists:false},gatewayOrderId:{$exists:false}
+    },{$set:{status:'failed',lastErrorCode:'GATEWAY_PAYMENT_NOT_CREATED'},
+       $unset:{lockKey:''}},{new:true});
+    if(failed)row=failed;
+   }else if(row.status==='creating'&&ageMs>60000){
     const unknown=await BillingOrder.findOneAndUpdate({
      _id:row._id,accountId:req.user._id,status:'creating'
     },{$set:{status:'unknown',lastErrorCode:'CHECKOUT_UNCONFIRMED'}},{new:true});

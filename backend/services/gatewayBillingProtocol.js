@@ -125,6 +125,7 @@ function safeOrderStatus(row,now=new Date()){
    providerStatus:row.providerStatus||null,amountCents:row.amountCents,
    currency:row.currency,checkoutUrl:effective==='redirect'?hostedCheckoutUrl(row.checkoutUrl):null,
    gatewayOrderId:row.gatewayOrderId||null,
+   recoveryReason:row.lastErrorCode==='GATEWAY_PAYMENT_NOT_CREATED'?'not_created':null,
    paidAt:row.paidAt||null,periodStartsAt:row.periodStartsAt||null,
    periodEndsAt:row.periodEndsAt||null,
    graceEndsAt:row.graceEndsAt||null,
