@@ -4,6 +4,7 @@
 // legacy manual benefits until a separate audited migration.
 const BillingGrant=require('../models/BillingGrant');
 const BillingOrder=require('../models/BillingOrder');
+const {paidRights}=require('./broadcasterPurchaseRules');
 const {legacyRights,effectiveRights,projectUserEntitlements}=require('./billingEntitlementRules');
 
 async function activeGrantsFor(user,now=new Date()){
@@ -14,8 +15,19 @@ async function activeGrantsFor(user,now=new Date()){
  }).lean();
 }
 
+async function activeBroadcasterOrders(user,now=new Date()){
+ if(process.env.APP_ENV!=='staging'||!user?._id||user.role!=='broadcaster')return [];
+ return require('../models/BroadcasterBillingOrder').find({accountId:user._id,
+  environment:'staging',status:'paid',
+  sku:{$in:['B-PREM','ADD-DSP','ADD-AN','ADD-ADS']},
+  periodStartsAt:{$lte:now},periodEndsAt:{$gt:now}}).lean();
+}
 async function accountRights(user,now=new Date()){
  const rights=new Set(effectiveRights(user,await activeGrantsFor(user,now),{now}));
+ if(user?.role==='broadcaster'){
+  const orders=await activeBroadcasterOrders(user,now);
+  for(const right of paidRights(orders,null,now))rights.add(right);
+ }
  // Sandbox paid orders must never unlock rights in production, even if staging
  // records are copied during a data migration.
  if(process.env.APP_ENV==='staging' && user?._id && user.role==='user'){
@@ -39,8 +51,12 @@ async function hasStationRight(user,station,entitlement){
  if(user.role!=='broadcaster' ||
    String(station.broadcasterId||'')!==String(user._id))return false;
  const now=new Date();
- return effectiveRights(user,await activeGrantsFor(user,now),
-  {stationId:station._id,now}).includes(entitlement);
+ const [grants,orders]=await Promise.all([
+  activeGrantsFor(user,now),activeBroadcasterOrders(user,now)
+ ]);
+ const rights=new Set(effectiveRights(user,grants,{stationId:station._id,now}));
+ for(const right of paidRights(orders,station._id,now))rights.add(right);
+ return rights.has(entitlement);
 }
 
 async function projectAccountUser(user){
@@ -48,5 +64,5 @@ async function projectAccountUser(user){
  return projectUserEntitlements(user,await accountRights(user));
 }
 
-module.exports={legacyRights,effectiveRights,activeGrantsFor,accountRights,
+module.exports={legacyRights,effectiveRights,activeGrantsFor,activeBroadcasterOrders,accountRights,
   hasAccountRight,hasStationRight,projectAccountUser};

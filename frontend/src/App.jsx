@@ -1914,22 +1914,22 @@ function MainApp() {
             } />
             <Route path="/dsp" element={
               <RequireTerms currentUser={currentUser}>
-                {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster') ? <DSP API_URL={API_URL} currentUser={currentUser} onUpdateDSP={handleUpdateStationDSP} resumeDSP={resumeDSP} /> : <Navigate to="/" />}
+                {currentUser?.role === 'broadcaster' ? <Navigate to="/backoffice/audio" replace /> : currentUser?.role === 'admin' ? <DSP API_URL={API_URL} currentUser={currentUser} onUpdateDSP={handleUpdateStationDSP} resumeDSP={resumeDSP} /> : <Navigate to="/" />}
               </RequireTerms>
             } />
             <Route path="/ad-control" element={
               <RequireTerms currentUser={currentUser}>
-                {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster') ? <AdControl API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/" />}
+                {currentUser?.role === 'broadcaster' ? <Navigate to="/backoffice/ad-control" replace /> : currentUser?.role === 'admin' ? <AdControl API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/" />}
               </RequireTerms>
             } />
             <Route path="/upgrade-station" element={
               <RequireTerms currentUser={currentUser}>
-                {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster') ? <GoPremiumBroadcast API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/" />}
+                {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster') ? <Navigate to="/backoffice/pro-features" replace /> : <Navigate to="/" />}
               </RequireTerms>
             } />
             <Route path="/boost-my-station" element={
               <RequireTerms currentUser={currentUser}>
-                {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster') ? <BoostStation API_URL={API_URL} currentUser={currentUser} stations={stations} /> : <Navigate to="/" />}
+                {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster') ? <Navigate to="/backoffice/boost" replace /> : <Navigate to="/" />}
               </RequireTerms>
             } />
 

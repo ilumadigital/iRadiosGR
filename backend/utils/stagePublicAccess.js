@@ -158,6 +158,18 @@ function stagePublicAccess(req, res, next) {
     path==='/api/billing/me/overview'||
     /^\/api\/billing\/orders\/[a-f0-9]{24}$/i.test(path)))return protect(req,res,next);
 
+  // Broadcaster checkout/renewal uses the authenticated account only.
+  // The purchase controller separately validates role, SKU and owned station.
+  const broadcasterBilling=(req.method==='POST'&&[
+    '/api/billing/broadcaster/checkout','/api/billing/broadcaster/recurring/cancel'
+   ].includes(path))||(req.method==='GET'&&(
+    ['/api/billing/broadcaster/orders','/api/billing/broadcaster/recurring'].includes(path)
+    ||/^\/api\/billing\/broadcaster\/orders\/[a-f0-9]{24}$/i.test(path)
+   ));
+  if(broadcasterBilling)return protect(req,res,next);
+  if((req.method==='GET'||req.method==='POST')&&
+   path==='/api/billing/broadcaster/premium-boost')return protect(req,res,next);
+
   // Premium station writes are authorized again by the route AND resource owner.
   if ((req.method==='PUT' &&
     (/^\/api\/stations\/[a-f0-9]{24}\/dsp$/i.test(path) ||

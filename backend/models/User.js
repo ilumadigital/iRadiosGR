@@ -48,6 +48,8 @@ const userSchema = new mongoose.Schema({
   broadcasterProfile: {
     tier: { type: String, enum: ['free', 'premium'], default: 'free' },
     maxStations: { type: Number, default: 3 },
+    // Station selection is a preference only, never a paid entitlement.
+    premiumBoostStationIds: [{ type: require('mongoose').Schema.Types.ObjectId, ref: 'Station' }],
     features: {
       adControl: { type: Boolean, default: false },
       dspEngine: { type: Boolean, default: false },

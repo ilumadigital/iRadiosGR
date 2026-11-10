@@ -137,5 +137,61 @@ async function paymentHistory(user){
   throw Error('Invalid billing history');
  return data.payments;
 }
+
+// Broadcaster checkout is separate from Listener Premium; amounts are validated
+// from the immutable server catalog after a signed Gateway response.
+const {gatewayPurchase}=require('./broadcasterPaymentProtocol');
+const {getProduct}=require('../config/billingCatalog');
+async function broadcasterCheckout({user,requestKey,sku,stationId=null,autoRenew=false}){
+ const product=getProduct(sku);
+ if(!product||!configured())throw unavailable();
+ const first=String(user.fname||'').trim(),last=String(user.lname||'').trim();
+ const response=await signedRequest('POST',GATEWAY_CHECKOUT_PATH,{
+  customer_id:'iradios-stage-'+String(user._id),product_sku:sku,
+  name:([first,last].filter(Boolean).join(' ')||String(user.username||'Broadcaster')).slice(0,250),
+  email:String(user.email||'').trim(),
+  ...(product.scopeType==='station'?{resource_id:String(stationId)}:{}),
+  ...(autoRenew?{auto_renew:true,recurring_consent_version:'iradios-broadcaster-monthly-v1'}:{})
+ },requestKey);
+ return gatewayPurchase(response,{sku});
+}
+async function broadcasterPaymentStatus(paymentId,orderId,sku){
+ if(!PAYMENT_ID.test(paymentId||''))throw Error('Invalid broadcaster Gateway payment ID');
+ const data=await signedRequest('GET','/api/v1/payments/'+paymentId);
+ return gatewayPurchase(data,{sku,paymentId,orderId});
+}
+async function broadcasterPaymentByRequestKey(requestKey,sku){
+ if(!/^iradios-bstage-[a-f0-9]{24}-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(requestKey))
+  throw Error('Invalid broadcaster checkout request key');
+ const data=await signedRequest('GET','/api/v1/payments/by-request-key/'+requestKey);
+ return gatewayPurchase(data,{sku});
+}
+async function broadcasterRecurringStatus(user,sku,stationId=null){
+ const p=getProduct(sku);
+ if(!p||p.kind!=='subscription')throw Error('Invalid broadcaster subscription');
+ const data=await signedRequest('POST','/api/v1/broadcaster/recurring/status',{
+  customer_id:'iradios-stage-'+String(user._id),product_sku:sku,
+  ...(p.scopeType==='station'?{resource_id:String(stationId)}:{})
+ });
+ if(data.sku!==sku||data.amount_cents!==p.priceCents||data.currency!=='EUR'||
+  !['none','unavailable','pending','verification_pending','active','cancelled','past_due'].includes(data.state))
+  throw Error('Invalid broadcaster recurring status response');
+ return data;
+}
+async function cancelBroadcasterRecurring(user,sku,stationId=null){
+ const p=getProduct(sku);
+ if(!p||p.kind!=='subscription')throw Error('Invalid broadcaster subscription');
+ const data=await signedRequest('POST','/api/v1/broadcaster/recurring/cancel',{
+  customer_id:'iradios-stage-'+String(user._id),product_sku:sku,
+  ...(p.scopeType==='station'?{resource_id:String(stationId)}:{})
+ });
+ if(data.sku!==sku||data.amount_cents!==p.priceCents||data.currency!=='EUR'||
+   !['none','cancelled','unavailable'].includes(data.state))
+  throw Error('Invalid broadcaster cancellation response');
+ return data;
+}
+
 module.exports={configured,checkout,paymentStatus,paymentByRequestKey,winbackStatus,signedRequest,
- savedCardStatus,revokeSavedCard,recurringStatus,cancelRecurring,paymentHistory};
+ savedCardStatus,revokeSavedCard,recurringStatus,cancelRecurring,paymentHistory,
+ broadcasterCheckout,broadcasterPaymentStatus,broadcasterPaymentByRequestKey,
+ broadcasterRecurringStatus,cancelBroadcasterRecurring};

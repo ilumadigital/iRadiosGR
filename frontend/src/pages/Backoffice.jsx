@@ -13,7 +13,7 @@ import {
   CircleAlert,Clock3,CloudUpload,Copy,ExternalLink,FileCheck2,
   Globe2,Headphones,Home,Image,LayoutDashboard,LogOut,Menu,Mic2,
   Music2,Plus,Radio,RefreshCw,Save,Search,Settings2,Shield,ShieldCheck,
-  SlidersHorizontal,Sparkles,Trash2,Users,X
+  SlidersHorizontal,Sparkles,Trash2,Users,X,LockKeyhole
 } from 'lucide-react';
 
 const AdminDashboard=lazy(()=>import('./AdminDashboard'));
@@ -30,6 +30,11 @@ const AdminSandboxPayments=lazy(()=>import('./AdminSandboxPayments'));
 const AdminRadioSet=lazy(()=>import('./AdminRadioSet'));
 const AdminAdControl=lazy(()=>import('./AdminAdControl'));
 const Boost=lazy(()=>import('./Boost'));
+const BroadcasterCommerce=lazy(()=>import('./BroadcasterCommerce'));
+const BroadcasterBillingDashboard=lazy(()=>import('./BroadcasterBillingDashboard'));
+const BroadcasterRadar=lazy(()=>import('./BroadcasterRadar'));
+const BroadcasterDSP=lazy(()=>import('./DSP'));
+const BroadcasterAds=lazy(()=>import('./AdControl'));
 const NewPush=lazy(()=>import('./NewPush'));
 const DAY_NAMES=['','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
 const EDIT_FIELDS=['name','slug','slogan','description','genre','secondaryGenre','transmissionType','frequency',
@@ -244,7 +249,13 @@ function Dashboard({data}){
     {to:'/backoffice/schedules',icon:CalendarDays,name:'Πρόγραμμα εκπομπών',
       desc:'Οργάνωσε εύκολα την εβδομάδα ανά ημέρα.',label:nextShows.length?nextShows.length+' σήμερα':'Εβδομάδα'},
     ...(user.role==='broadcaster'?[{to:'/backoffice/team',icon:Users,name:'Παραγωγοί & ομάδα',
-      desc:'Πρόσθεσε παραγωγούς και ανάθεσε σταθμούς.',label:'Συνεργάτες'}]:[]),
+      desc:'Πρόσθεσε παραγωγούς και ανάθεσε σταθμούς.',label:'Συνεργάτες'},
+      {to:'/backoffice/boost',icon:Sparkles,name:'Boost My Radio',
+        desc:'Εφάπαξ προβολή με διάρκεια, όχι συνδρομή.',label:'One-off'},
+      {to:'/backoffice/pro-features',icon:ShieldCheck,name:'Pro Features',
+        desc:'Premium και πρόσθετα εργαλεία ανά σταθμό.',label:'Premium'},
+      {to:'/backoffice/billing',icon:FileCheck2,name:'Οι συνδρομές μου',
+        desc:'Ιστορικό πληρωμών, ανανεώσεις και ακυρώσεις.',label:'Billing'}]:[]),
     ...(admin?[{to:'/backoffice/review',icon:FileCheck2,name:'Εγκρίσεις',
       desc:'Δες συγκεντρωμένα τα αιτήματα.',label:pending+' σε αναμονή'},
       {to:'/backoffice/admin',icon:SlidersHorizontal,name:'Κέντρο διαχείρισης',
@@ -1291,6 +1302,34 @@ function Operations({data,section,reload}){
     </div>
   </div>;
 }
+// Navigation-only guard: the backend remains the authority for every write.
+function BroadcasterToolGate({entitlement,children}){
+  const [rights,setRights]=useState(null);
+  const [error,setError]=useState(false);
+  useEffect(()=>{
+    const ctrl=new AbortController();setRights(null);setError(false);
+    fetch('/api/billing/me/station-entitlements',{
+      headers:{Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')},
+      cache:'no-store',signal:ctrl.signal
+    }).then(async response=>{
+      if(!response.ok)throw Error('entitlements unavailable');
+      return response.json();
+    }).then(result=>{
+      if(!ctrl.signal.aborted)setRights(Object.values(result.byStation||{})
+        .some(values=>Array.isArray(values)&&values.includes(entitlement)));
+    }).catch(()=>{if(!ctrl.signal.aborted)setError(true);});
+    return ()=>ctrl.abort();
+  },[entitlement]);
+  if(error)return <div role="alert" className={panel+' p-8 text-sm text-rose-300'}>Δεν μπόρεσαν να επιβεβαιωθούν τα δικαιώματά σου. Δοκίμασε εκ νέου.</div>;
+  if(rights===null)return <div role="status" className={panel+' p-8 text-sm text-zinc-300'}>Έλεγχος δικαιωμάτων Pro…</div>;
+  if(rights)return children;
+  return <div className={panel+' mx-auto max-w-2xl p-8 text-center md:p-12'}>
+    <LockKeyhole className="mx-auto mb-5 text-[#ccff00]" size={38}/>
+    <h2 className="text-2xl font-black text-white">Αυτό είναι Pro Feature</h2>
+    <p className="mt-3 text-sm leading-7 text-zinc-400">Το module είναι κλειδωμένο για τους σταθμούς σου. Μπορείς να το ενεργοποιήσεις ξεχωριστά ή να επιλέξεις Broadcaster Premium για πρόσβαση σε όλα.</p>
+    <Link to="/backoffice/pro-features" className={buttonPrimary+' mt-7'}>Δες τα Pro Features <ArrowRight size={16}/></Link>
+  </div>;
+}
 export default function Backoffice(){
   const location=useLocation(),navigate=useNavigate();
   const [data,setData]=useState(null);
@@ -1328,6 +1367,14 @@ export default function Backoffice(){
       ...(data?.user.role==='broadcaster'?[{to:'/backoffice/team',label:'Παραγωγοί & ομάδα',icon:Users}]:[]),
       ...(!producer?[{to:'/backoffice/stations/new',label:'Προσθήκη σταθμού',icon:Plus}]:[])
     ]},
+    ...(data?.user.role==='broadcaster'?[{section:'PRO ΕΡΓΑΛΕΙΑ & ΣΥΝΔΡΟΜΕΣ',items:[
+      {to:'/backoffice/boost',label:'Boost My Radio',icon:Sparkles},
+      {to:'/backoffice/pro-features',label:'Pro Features & Premium',icon:ShieldCheck},
+      {to:'/backoffice/billing',label:'Οι συνδρομές μου',icon:FileCheck2},
+      {to:'/backoffice/radar',label:'Audience Radar',icon:BarChart3},
+      {to:'/backoffice/audio',label:'WebDSP Audio Engine',icon:SlidersHorizontal},
+      {to:'/backoffice/ad-control',label:'iRadios Ad Control',icon:Activity}
+    ]}]:[]),
     ...(admin?[
       {section:'ΔΙΑΧΕΙΡΙΣΗ',items:[
         {to:'/backoffice/admin',label:'Όλα τα εργαλεία',icon:LayoutDashboard,end:true},
@@ -1413,6 +1460,7 @@ export default function Backoffice(){
           <div className="flex items-center gap-2"><CheckCircle2 size={16}/>{notice.message}</div>
           <button aria-label="Κλείσιμο ειδοποίησης" onClick={()=>setNotice(null)}><X size={16}/></button>
         </div>}
+        <Suspense fallback={<div role="status" className={panel+' p-10 text-center text-[#caff00]'}>Φόρτωση εργαλείου…</div>}>
         <Routes>
           <Route path="/backoffice" element={<Dashboard data={data}/>}/>
           <Route path="/backoffice/stations" element={<Stations data={data} requestDelete={requestDelete}/>}/>
@@ -1421,6 +1469,12 @@ export default function Backoffice(){
           <Route path="/backoffice/schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
           <Route path="/backoffice/insights" element={<BroadcasterInsights data={data}/>}/>
           <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
+          <Route path="/backoffice/pro-features" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="features" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/boost" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="boost" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/billing" element={data.user.role==='broadcaster'?<BroadcasterBillingDashboard stations={data.stations}/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/radar" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.analytics"><BroadcasterRadar accountId={data.user._id}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/audio" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.webdsp"><BroadcasterDSP API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/ad-control" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.ad_control"><BroadcasterAds API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
           <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
           {['analytics','users','ads','banners','slides','newsfeed','promoted','emails','billing','radioset','boost','adcontrol','push'].map(section=>
@@ -1431,6 +1485,7 @@ export default function Backoffice(){
              <AdminSandboxPayments API_URL="/api"/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/*" element={<Navigate to="/backoffice" replace/>}/>
         </Routes>
+        </Suspense>
         {admin&&<DeleteStationDialog station={deleteTarget} onClose={closeDelete}
           onDeleted={async()=>{await reload();navigate('/backoffice/stations');}} notify={notify}/>}
       </main>

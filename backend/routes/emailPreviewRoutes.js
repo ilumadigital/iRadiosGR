@@ -12,6 +12,7 @@ const { broadcasterInvitationEmail, producerInvitationEmail } =
 const { notificationEmailTemplate } = require('../utils/notificationEmailTemplate');
 const { siteOrigin, renderBrandedEmail, escapeHtml } = require('../utils/emailDesign');
 const {premiumBillingEmail}=require('../utils/premiumBillingEmailTemplates');
+const {broadcasterBillingEmail}=require('../utils/broadcasterBillingEmailTemplates');
 
 const router = express.Router();
 const sample = Object.freeze({
@@ -34,6 +35,14 @@ const sample = Object.freeze({
   premiumCancelled: 'Premium · Ακύρωση αυτόματης ανανέωσης',
   premiumExpired: 'Premium · Οριστική λήξη',
   premiumWinback: 'Premium · Προσφορά επιστροφής 1,99 €',
+  broadcasterPaidWelcome:'Broadcaster Premium · Καλωσόρισμα πληρωμής',
+  broadcasterAddonWelcome:'Broadcaster · Ενεργοποίηση add-on',
+  broadcasterBoostWelcome:'Broadcaster · Εφάπαξ Boost ενεργοποίηση',
+  broadcasterPaidRenewed:'Broadcaster · Επιτυχής μηνιαία ανανέωση',
+  broadcasterPaidFailed:'Broadcaster · Αποτυχημένη MIT ανανέωση',
+  broadcasterPaidCancelled:'Broadcaster · Ακύρωση ανανέωσης',
+  broadcasterPaidSoon:'Broadcaster · Λήξη σύντομα',
+  broadcasterPaidExpired:'Broadcaster · Λήξη πληρωμένης περιόδου',
   notification: 'Ειδοποίηση χρήστη',
   custom: 'Email διαχειριστή'
 });
@@ -77,6 +86,28 @@ function previewTemplate(type, body) {
     case 'premiumWinback': return premiumBillingEmail({kind:'winback',name:'Αλέξανδρε',
       amountCents:199,offerEndsAt:'2027-01-12T18:20:00.000Z',
       unsubscribeLink:siteOrigin()+'/api/notifications/unsubscribe?token=preview-only'});
+    case 'broadcasterPaidWelcome':
+    case 'broadcasterAddonWelcome':
+    case 'broadcasterBoostWelcome':
+    case 'broadcasterPaidRenewed':
+    case 'broadcasterPaidFailed':
+    case 'broadcasterPaidCancelled':
+    case 'broadcasterPaidSoon':
+    case 'broadcasterPaidExpired': {
+      const sku=type==='broadcasterAddonWelcome'?'ADD-DSP':
+       type==='broadcasterBoostWelcome'?'BOOST-G-WEEK':'B-PREM';
+      const kind={
+        broadcasterPaidWelcome:'welcome',broadcasterAddonWelcome:'welcome',
+        broadcasterBoostWelcome:'welcome',broadcasterPaidRenewed:'renewed',
+        broadcasterPaidFailed:'failed',broadcasterPaidCancelled:'cancelled',
+        broadcasterPaidSoon:'soon',broadcasterPaidExpired:'expired'
+      }[type];
+      const amount={ 'B-PREM':11900,'ADD-DSP':4990,'BOOST-G-WEEK':17900 }[sku];
+      return broadcasterBillingEmail({kind,sku,name:'Αλέξανδρε',
+        stationName:station.name,amountCents:amount,
+        periodEndsAt:'2026-12-10T18:20:00Z',
+        cancelledAt:kind==='cancelled'?'2026-11-11T10:00:00Z':null});
+    }
     case 'notification': return {
       subject:'Η αγαπημένη σου εκπομπή είναι στον αέρα',
       html:notificationEmailTemplate({

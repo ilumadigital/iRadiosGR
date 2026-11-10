@@ -174,7 +174,7 @@ router.get('/backoffice/overview',async(req,res)=>{
       counts.broadcasters=await User.countDocuments({role:'broadcaster'});
     }
     return res.json({
-      user:{role:req.user.role,fname:req.user.fname||'',email:req.user.email||'',
+      user:{_id:String(req.user._id),role:req.user.role,fname:req.user.fname||'',email:req.user.email||'',
         username:req.user.username||'',maxStations:req.user.broadcasterProfile?.maxStations||3},
       counts,
       stations:items.map(s=>safeStation(s,req.user.role))

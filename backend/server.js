@@ -14,6 +14,11 @@ require('./utils/listenerNotificationScheduler').start();
 // Staging Premium billing emails use Mailpit; never enable the production
 // general notification dispatcher from this isolated financial scheduler.
 require('./utils/premiumBillingEmailScheduler').start();
+// Recover lost Broadcaster checkout responses using signed GET only.
+// This worker cannot create provider orders, MIT payments or grant entitlements.
+require('./utils/broadcasterCheckoutRecoveryScheduler').start();
+// Isolated broadcaster transactional outbox, staging -> Mailpit only.
+require('./utils/broadcasterBillingEmailScheduler').start();
 
 // --- 2. IMPORT MODELS & CONTROLLERS ---
 const User = require('./models/User');
@@ -143,6 +148,8 @@ const statsRoutes = require('./routes/stats');
 app.use('/api', require('./routes/billingPhase1Routes'));
 // Phase 3: staging-only signed Gateway checkout/status. All other environments fail closed.
 app.use('/api',require('./routes/billingCheckoutRoutes'));
+// Phase 4: independently scoped broadcaster subscription / one-off Boost staging checkout.
+app.use('/api',require('./routes/broadcasterBillingRoutes'));
 
 app.use('/api', producerRoutes);
 app.use('/api', require('./routes/backofficeRoutes'));

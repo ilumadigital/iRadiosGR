@@ -87,9 +87,6 @@ export default function Sidebar({
   const isProducer = currentUser?.role === 'producer';
   const isAgency = currentUser?.role === 'agency'; 
   
-  const hasAdControl = currentUser?.broadcasterProfile?.features?.adControl;
-  const hasDSP = currentUser?.broadcasterProfile?.features?.dspEngine;
-  const isFullPremium = currentUser?.broadcasterProfile?.tier === 'premium';
   const isListenerPremium = currentUser?.isPremium;
   
   const homeRoute = isAgency ? '/agency/dashboard' : (isAdmin || isBroadcaster || isProducer) ? '/backoffice' : '/';
@@ -291,49 +288,8 @@ export default function Sidebar({
                     label={isProducer ? "Πρόγραμμα Σταθμού" : "Πρόγραμμα iRadios"} 
                   />
                   
-                  {isBroadcaster && (
-                    <>
-                      <div className="relative group mt-2 mb-2">
-                        <SidebarItem 
-                          isCollapsed={isCollapsed}
-                          to="/boost-my-station" 
-                          currentPath={location.pathname} 
-                          onClick={() => setIsMobileMenuOpen(false)} 
-                          icon={<Rocket size={20} className="text-emerald-400 animate-pulse" />} 
-                          label="Boost My Radio" 
-                          className="border border-emerald-500/10 bg-emerald-500/5 hover:bg-emerald-500/10"
-                        />
-                        {!isCollapsed && (
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-emerald-500 text-[8px] font-black px-1.5 py-0.5 rounded text-black uppercase tracking-tighter">HOT</span>
-                        )}
-                      </div>
+                  {/* Boost, DSP, Ad Control and Pro subscriptions now live inside Backoffice. */}
 
-                      {hasAdControl && (
-                        <SidebarItem isCollapsed={isCollapsed} to="/ad-control" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Target size={20} className="text-[#ccff00]" />} label="My Ad Control" />
-                      )}
-
-                      {hasDSP && (
-                        <SidebarItem isCollapsed={isCollapsed} to="/dsp" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<SlidersHorizontal size={20} />} label="Οι ρυθμίσεις ήχου μου" />
-                      )}
-                      
-                      {!isFullPremium && (
-                        <Link 
-                          to="/upgrade-station" 
-                          title={isCollapsed ? "Upgrade to Pro" : ""}
-                          onClick={() => setIsMobileMenuOpen(false)}
-                          className={`flex items-center rounded-xl bg-black border border-white/5 transition-all duration-300 mt-2 overflow-hidden text-zinc-600 hover:text-zinc-400 group ${isCollapsed ? 'lg:justify-center lg:px-0 lg:py-3 px-4 py-3' : 'justify-between px-4 py-3'}`}
-                        >
-                          <div className={`flex items-center ${isCollapsed ? 'lg:gap-0' : 'gap-4'}`}>
-                            <Lock size={18} className="opacity-50 shrink-0" />
-                            <span className={`text-sm font-medium whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'lg:max-w-0 lg:opacity-0' : 'max-w-[200px] opacity-100'}`}>Pro Features</span>
-                          </div>
-                          {!isCollapsed && (
-                            <span className="text-[10px] bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full group-hover:bg-[#ccff00]/10 group-hover:text-[#ccff00] transition-colors">UPGRADE</span>
-                          )}
-                        </Link>
-                      )}
-                    </>
-                  )}
                 </div>
               )}
               
