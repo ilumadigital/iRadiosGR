@@ -10,6 +10,7 @@ const {safeBroadcasterOrder}=require('../services/broadcasterPaymentProtocol');
 const {paidRenewalPeriod}=require('../services/billingRenewalRules');
 const {localStatusFromGatewayLookup}=require('../services/gatewayBillingProtocol');
 const {hasAccountRight,hasStationRight}=require('../services/billingEntitlements');
+const billingMail=require('../utils/broadcasterBillingEmailScheduler');
 const KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const ID=/^[a-f0-9]{24}$/i;
 const statusSet=new Set(['creating','pending','redirect','unknown']);
@@ -215,6 +216,11 @@ async function cancel(req,res){
  if(p.scopeType==='account'&&stationId!==null)
   return res.status(400).json({error:'Account plan has no station'});
  const recurring=await gateway.cancelBroadcasterRecurring(req.user,sku,stationId);
+ // Mail delivery cannot roll back an already-acknowledged Gateway cancellation.
+ try{
+  if(await billingMail.enqueueCancellation(req.user,{sku,stationId,recurring}))
+   billingMail.kick();
+ }catch(e){console.warn('[BROADCASTER MAIL] Cancel acknowledgement deferred',e.code||e.message);}
  // Cancellation stops future MIT. Already-paid period remains until expiry.
  return res.json({recurring,paidPeriodContinuesUntilExpiry:true});
 }
@@ -288,6 +294,9 @@ async function handleVerifiedEvent(event,res){
     String(updated.resourceId||'')!==String(resourceId||'')||
     updated.gatewayOrderId!==event.order_id)
    return res.status(409).json({error:'MIT correlation conflict'});
+  try{
+   if(await billingMail.enqueuePaid(updated))billingMail.kick();
+  }catch(e){console.warn('[BROADCASTER MAIL] Renewal receipt deferred',e.code||e.message);}
   return res.json({received:true,activated:true});
  }
  const query={gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
@@ -320,7 +329,12 @@ async function handleVerifiedEvent(event,res){
      periodStartsAt:periodStart,periodEndsAt:end},
      $unset:{lockKey:''},$addToSet:{eventIds:event.event_id},
      $push:{eventLog:marker}},{new:true});
-  if(updated)return res.json({received:true,activated:true});
+  if(updated){
+   try{
+    if(await billingMail.enqueuePaid(updated))billingMail.kick();
+   }catch(e){console.warn('[BROADCASTER MAIL] Purchase receipt deferred',e.code||e.message);}
+   return res.json({received:true,activated:true});
+  }
  }else{
   const next=event.event_type.slice('payment.'.length);
   const updated=await BroadcasterBillingOrder.findOneAndUpdate({
