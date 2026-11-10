@@ -32,10 +32,17 @@ test('account premium forbids station resource and boost forbids MIT origin',()=
 });
 test('automated monthly event requires signed user reference and cycle due',()=>{
  const event={...base,billing_origin:'automatic_renewal',
-  external_user_id:'iradios-stage-'+base.resource_id,cycle_due_at:'2026-11-11T12:00:00Z'};
+  external_user_id:'iradios-stage-'+base.resource_id,
+  cycle_due_at:'2026-11-11T12:00:00Z',
+  period_ends_at:'2026-12-11T12:00:00Z',anchor_day:11};
  assert.equal(broadcasterEventValid(event,base.event_id,now),true);
  assert.equal(broadcasterEventValid({...event,external_user_id:'victim'},base.event_id,now),false);
  assert.equal(broadcasterEventValid({...event,cycle_due_at:'n/a'},base.event_id,now),false);
+ assert.equal(broadcasterEventValid({...event,anchor_day:31},base.event_id,now),false);
+ assert.equal(broadcasterEventValid({...event,period_ends_at:'2026-12-12T12:00:00Z'},base.event_id,now),false);
+ assert.equal(broadcasterEventValid({...event,anchor_day:null},base.event_id,now),false);
+ assert.equal(broadcasterEventValid({...event,cycle_due_at:'2026-12-11T12:00:00Z',
+  period_ends_at:'2027-01-11T12:00:00Z'},base.event_id,now),false);
 });
 test('gateway response never activates paid entitlement, even if provider says paid',()=>{
  const payment={payment_id:base.payment_id,order_id:base.order_id,
