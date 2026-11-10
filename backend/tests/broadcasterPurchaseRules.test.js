@@ -84,3 +84,12 @@ test('signed MIT calendar due and end are deterministic, not arrival-order depen
  assert.throws(()=>validatedAnchoredCycle({...event,cycle_due_at:'2027-04-30T15:04:05Z'},now),
   /Invalid signed MIT cycle start/);
 });
+
+test('a malformed/null station-scoped add-on never grants account-wide access',()=>{
+ assert.deepEqual(paidRights([paid('ADD-DSP',null)],null,now),[]);
+ assert.deepEqual(paidRights([paid('ADD-ADS',null)],null,now),[]);
+ assert.deepEqual(paidRights([paid('ADD-AN',SID,{scopeType:'account'})],SID,now),[]);
+ assert.deepEqual(paidRights([paid('B-PREM',SID)],SID,now),[]);
+ assert.deepEqual(paidRights([paid('B-PREM',null,{scopeType:'station'})],SID,now),[]);
+ assert.equal(boostForStation([paid('BOOST-G-DAY',SID,{scopeType:'account'})],SID,now,false).priority,0);
+});
