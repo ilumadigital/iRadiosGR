@@ -146,35 +146,38 @@ export default function DSP({ API_URL, currentUser, onUpdateDSP, resumeDSP }) {
   // State για το ποιο preset να δείχνει το Visualizer στην κορυφή της σελίδας
   const [previewPreset, setPreviewPreset] = useState('OFF');
 
-  // Φόρτωση σταθμών
+  const [accessError,setAccessError]=useState('');
+  // The public /stations payload intentionally omits ownership on staging.
+  // Fetch OWNED station records and the per-station billing rights under JWT.
   useEffect(() => {
-    const fetchStations = async () => {
-      try {
-        const res = await fetch(`${API_URL}/stations`);
-        const data = await res.json();
-        
-        if (currentUser?.role === 'admin') {
-          setStations(data);
-        } else {
-          const myId = currentUser?._id || currentUser?.id;
-          const myStations = data.filter(s => 
-            s.broadcasterId && String(s.broadcasterId) === String(myId)
-          );
-          setStations(myStations);
-          
-          // Αν έχει μόνο έναν σταθμό, δείξε το preset του απευθείας στο γράφημα
-          if (myStations.length === 1) {
-            setPreviewPreset(myStations[0].dspPreset || 'OFF');
-          }
-        }
-      } catch (err) {
-        console.error("Σφάλμα φόρτωσης σταθμών DSP", err);
-      } finally {
-        setLoading(false);
-      }
+    let cancelled=false;
+    const fetchStations=async()=>{
+      setLoading(true);setAccessError('');
+      try{
+        const token=localStorage.getItem('iluma_token')||'';
+        const headers={Authorization:`Bearer ${token}`};
+        const admin=currentUser?.role==='admin';
+        const id=currentUser?._id||currentUser?.id;
+        const urls=admin?[`${API_URL}/stations/all`]:
+          [`${API_URL}/broadcaster/${id}/stations`,`${API_URL}/billing/me/station-entitlements`];
+        const responses=await Promise.all(urls.map(url=>fetch(url,{headers,cache:'no-store'})));
+        if(responses.some(r=>!r.ok))throw Error('Δεν φορτώθηκαν οι σταθμοί ή τα δικαιώματα συνδρομής.');
+        const stationData=await responses[0].json();
+        const rights=admin?null:await responses[1].json();
+        if(!Array.isArray(stationData))throw Error('Μη έγκυρη λίστα σταθμών.');
+        const entitled=admin?stationData:stationData.filter(station=>
+          (rights.byStation?.[station._id]||[]).includes('broadcaster.webdsp'));
+        if(cancelled)return;
+        setStations(entitled);
+        if(entitled.length===1)setPreviewPreset(entitled[0].dspPreset||'OFF');
+        if(!entitled.length)setAccessError('Δεν υπάρχει ενεργό WebDSP για τους σταθμούς σου. Μπορείς να το ενεργοποιήσεις ανά σταθμό ή μέσω Broadcaster Premium.');
+      }catch(error){
+        if(!cancelled){setStations([]);setAccessError(error.message);}
+      }finally{if(!cancelled)setLoading(false);}
     };
-    if (currentUser) fetchStations();
-  }, [API_URL, currentUser]);
+    if(currentUser)fetchStations();
+    return ()=>{cancelled=true;};
+  },[API_URL,currentUser]);
 
   const openDSPModal = (station) => {
     setSelectedStation(station);
