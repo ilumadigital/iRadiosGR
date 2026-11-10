@@ -144,7 +144,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
   return()=>{canceled=true;};
  },[API_URL,userId]);
  const winbackActive=!!winback?.eligible&&!winback?.requiresCancellation;
- const winbackShown=winbackPreviewRequested||winbackActive;
+ const winbackShown=winbackPreviewRequested||!!winback?.eligible;
  const winbackNoCharge=winbackPreviewRequested;
 
  const refreshPaymentMethod=useCallback(async()=>{
@@ -420,7 +420,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
        ?'Αν πληρώσεις πριν τη λήξη, η επόμενη περίοδος ξεκινά όταν ολοκληρωθεί η τωρινή.'
        :'Το iRadios ενεργοποιεί την περίοδο μόνο όταν επιβεβαιωθεί η νέα πληρωμή από το ILUMA Gateway.'}</p>
     </div>}
-   {currentUser?.isPremium&&!previewOnly&&order?.status!=='expired'&&
+   {currentUser?.isPremium&&!previewOnly&&!winbackNoCharge&&order?.status!=='expired'&&
      <div className="flex items-center gap-2 text-lime-200 text-sm"><Gift size={18}/> Ο λογαριασμός σου έχει ήδη ενεργό Premium.</div>}
    {visibleOrder&&<Status order={visibleOrder}/>}
    {isListener&&<div className="rounded-[24px] border border-[#ccff00]/25 bg-gradient-to-br from-[#242a16]/75 to-[#111510] p-5 sm:p-7 space-y-4">
@@ -455,7 +455,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
         className="text-sm underline text-zinc-300 hover:text-white disabled:opacity-50">Αφαίρεση αποθηκευμένης κάρτας</button>
       </>}
       {['none','revoked'].includes(paymentMethod.state)&&<label className="flex items-start gap-3 cursor-pointer text-sm">
-       <input type="checkbox" checked={saveCard} disabled={!canCheckout||busy||previewOnly}
+       <input type="checkbox" checked={saveCard} disabled={!canCheckout||busy||previewOnly||winbackShown}
         onChange={e=>{setSaveCard(e.target.checked);if(e.target.checked){setUseSavedCard(false);setAutoRenew(false);}}}
         className="mt-1 h-4 w-4 accent-[#ccff00]"/>
        <span>Επιλέγω προαιρετικά να αποθηκεύσει η Nexi την κάρτα μου για μελλοντικές πληρωμές που θα ξεκινώ εγώ. Μπορώ να την αφαιρέσω οποτεδήποτε. <strong>Δεν συμφωνώ σε αυτόματες χρεώσεις.</strong></span>
@@ -476,7 +476,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
        className="inline-flex items-center gap-2 bg-[#ccff00] hover:bg-[#d9ff4a] disabled:opacity-40 rounded-xl px-6 py-3.5 text-black font-black">
        <CreditCard size={18}/>{busy?'Επεξεργασία...':winbackShown?'Επιστροφή στο Premium — 1,99 €':autoRenew?'Έναρξη μηνιαίας συνδρομής — 3,99 €':isRenewal?'Ανανέωση Premium — 3,99 €':'Συνέχεια στη Nexi Sandbox'}
       </button>}
-    {order?.status==='redirect'&&verifiedNexiUrl(order.checkoutUrl)&&
+    {!winbackNoCharge&&order?.status==='redirect'&&verifiedNexiUrl(order.checkoutUrl)&&
       <a href={verifiedNexiUrl(order.checkoutUrl)} className="inline-flex items-center gap-2 rounded-xl bg-[#ccff00] text-black px-5 py-3 font-bold">
        <ExternalLink size={17}/> Άνοιγμα υπάρχοντος checkout
       </a>}
