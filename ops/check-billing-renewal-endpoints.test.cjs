@@ -19,6 +19,7 @@ function reset(){
 }
 reset();
 const BillingOrder={
+ find:()=>({sort:()=>({limit:()=>({lean:async()=>previous?[previous]:[]})})}),
  findOne(q){
   const result=()=>{
    if(q.requestKey)return created?.requestKey===q.requestKey?created:null;
