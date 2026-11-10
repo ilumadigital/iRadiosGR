@@ -56,13 +56,16 @@ function hostedCheckoutUrl(value){
   return u.toString();
  }catch{return null;}
 }
-function validateGatewayPayment(payment,{expectedPaymentId=null,expectedOrderId=null}={}){
+function validateGatewayPayment(payment,{expectedPaymentId=null,expectedOrderId=null,
+ expectedAmountCents=399}={}){
  if(!payment||typeof payment!=='object'||Array.isArray(payment))throw Error('gateway_bad_payment');
  if(!PAYMENT_ID.test(payment.payment_id||'')||!ORDER_ID.test(payment.order_id||''))
    throw Error('gateway_bad_reference');
  if(expectedPaymentId&&payment.payment_id!==expectedPaymentId)throw Error('gateway_payment_mismatch');
  if(expectedOrderId&&payment.order_id!==expectedOrderId)throw Error('gateway_order_mismatch');
- if(payment.amount_cents!==399||payment.currency!=='EUR')throw Error('gateway_price_mismatch');
+ if(![199,399].includes(expectedAmountCents)||
+    payment.amount_cents!==expectedAmountCents||payment.currency!=='EUR')
+  throw Error('gateway_price_mismatch');
  if(!['pending','redirect','unknown','paid','failed','canceled'].includes(payment.status))
    throw Error('gateway_bad_status');
  const checkoutUrl=payment.status==='redirect'?hostedCheckoutUrl(payment.checkout_url):null;
@@ -76,10 +79,14 @@ function validatePaymentEvent(body,eventId,now=new Date()){
    return false;
  if(!['payment.paid','payment.failed','payment.canceled'].includes(body.event_type))
    return false;
- if(body.environment!=='staging'||body.amount_cents!==399||body.currency!=='EUR')
+ if(body.environment!=='staging'||![199,399].includes(body.amount_cents)||body.currency!=='EUR')
+   return false;
+ if(body.product_sku!==undefined &&
+    body.product_sku!==(body.amount_cents===199?'L-WINBACK-199':'L-PREM'))
    return false;
  if(body.billing_origin!==undefined){
-  if(body.billing_origin!=='automatic_renewal'||
+  if(body.amount_cents!==399||
+     body.billing_origin!=='automatic_renewal'||
      !/^iradios-stage-[a-f0-9]{24}$/.test(body.external_user_id||'')||
      !Number.isFinite(Date.parse(body.cycle_due_at)))return false;
  }
