@@ -17,8 +17,10 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
  const paid=paidHistory||[];
  const rights=new Set(effectiveRights(owner,grantHistory,{stationId:station._id,now}));
  for(const right of paidRights(paid,station._id,now))rights.add(right);
+ const selected=(owner.broadcasterProfile?.premiumBoostStationIds||[])
+   .some(id=>String(id)===String(station._id));
  data.commercialBoost=boostForStation(paid,station._id,now,
-   rights.has('broadcaster.premium_boost'));
+   rights.has('broadcaster.premium_boost')&&selected);
  if(!relevant && paid.length===0)return data;
  if(!rights.has('broadcaster.webdsp'))data.dspPreset='OFF';
  if(!rights.has('broadcaster.ad_control'))data.disableNetworkAds=false;
