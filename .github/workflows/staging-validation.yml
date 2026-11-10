@@ -34,6 +34,8 @@ jobs:
         run: node --test backend/tests/billingPhase1.test.js
       - name: Verify scoped effective entitlements and compatibility with manual Premium
         run: node --test backend/tests/billingPhase2.test.js
+      - name: Verify expiry gating of station DSP and network ads without deleting presets
+        run: node --test backend/tests/billingStationPlayback.test.js
       - name: Check staging radio proxy URL safety
         run: node ops/check-stage-stream-proxy.cjs
       - name: Verify public staging API access boundaries
