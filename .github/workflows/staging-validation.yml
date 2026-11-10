@@ -47,6 +47,8 @@ jobs:
         run: node --test backend/tests/billingStationPlayback.test.js
       - name: Verify Nexi Sandbox HMAC, signed webhook boundaries and monthly period rules
         run: node --test backend/tests/billingGatewayProtocol.test.js
+      - name: Verify manual Premium renewal alerts, grace, and non-overlapping paid cycles
+        run: node --test backend/tests/billingRenewalRules.test.js
       - name: Verify atomic signed payment activation, duplicate events and replay protection
         run: node --test ops/check-billing-gateway-webhook.test.cjs
       - name: Verify only confirmed paid or complimentary entitlements unlock Listener Premium
