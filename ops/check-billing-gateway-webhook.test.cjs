@@ -128,7 +128,7 @@ test('Signature tampering, invalid amount, replay and wrong order never activate
   assert.equal((await run(tampered)).statusCode,401);
   assert.equal(state.status,'redirect');
   const wrongAmount=payload();wrongAmount.amount_cents=499;
-  assert.equal((await run(signedEvent(wrongAmount)).statusCode,422);
+  assert.equal((await run(signedEvent(wrongAmount).req)).statusCode,422);
   assert.equal(state.status,'redirect');
   const noMatch=payload();noMatch.payment_id='3'.repeat(32);
   assert.equal((await run(signedEvent(noMatch,'cccccccccccccccccccccccccccccccc').req)).statusCode,503);
