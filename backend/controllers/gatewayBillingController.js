@@ -5,7 +5,7 @@ const gateway=require('../services/ilumaGatewayClient');
 const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
 const {hasAccountRight}=require('../services/billingEntitlements');
 const {verifyWebhookHeaders,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
- validatePaymentEvent,localStatusFromGatewayLookup}=require('../services/gatewayBillingProtocol');
+ validatePaymentEvent,localStatusFromGatewayLookup,nextGracePeriod}=require('../services/gatewayBillingProtocol');
 
 const safe=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 const CLIENT_KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
@@ -173,6 +173,7 @@ async function webhook(req,res){
  // A delayed Gateway worker delivery must NOT extend the purchased period.
  // The event's occurred_at is signed by Gateway. Clamp small clock skew to now.
  const confirmedAt=new Date(Math.min(Date.parse(event.occurred_at),now.getTime()));
+ const periodEnd=nextMonthlyPeriod(confirmedAt);
  const marker={id:event.event_id,type:event.event_type,at:now};
  const isPaid=event.event_type==='payment.paid';
  const nextStatus=event.event_type.substring('payment.'.length);
@@ -182,7 +183,7 @@ async function webhook(req,res){
  if(isPaid){
   const updated=await BillingOrder.findOneAndUpdate({...filter,status:{$ne:'paid'}},{
    $set:{status:'paid',providerStatus:'paid',paidAt:confirmedAt,periodStartsAt:confirmedAt,
-    periodEndsAt:nextMonthlyPeriod(confirmedAt)},
+    periodEndsAt:periodEnd,graceEndsAt:nextGracePeriod(periodEnd)},
    $unset:{lockKey:''},
    $addToSet:{eventIds:event.event_id},
    $push:{eventLog:marker}

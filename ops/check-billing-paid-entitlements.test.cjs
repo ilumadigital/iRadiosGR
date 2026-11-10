@@ -20,14 +20,15 @@ try{service=require('../backend/services/billingEntitlements');}
 finally{Module._load=original;}
 const NOW=new Date('2026-11-10T13:00:00Z');
 const listener={_id:'l1',role:'user',isPremium:false,activeSubscriptions:[]};
-test('Verified active paid L-PREM grants Listener Premium only from an unexpired paid order',async()=>{
+test('Verified paid L-PREM grants Listener Premium only during the purchased or explicit grace period',async()=>{
  paidFound=true;grants=[];requestedFilter=null;
  const rights=await service.accountRights(listener,NOW);
  assert.ok(rights.includes('listener.premium'));
  assert.equal(requestedFilter.accountId,'l1');
  assert.equal(requestedFilter.sku,'L-PREM');
  assert.equal(requestedFilter.status,'paid');
- assert.deepEqual(requestedFilter.periodEndsAt,{$gt:NOW});
+ assert.deepEqual(requestedFilter.$or,[{periodEndsAt:{$gt:NOW}},{graceEndsAt:{$gt:NOW}}],
+  'Paid benefits are available until the purchased period or explicit stored grace deadline');
  assert.equal(requestedFilter.environment,'staging');
  const projected=await service.projectAccountUser(listener);
  assert.equal(projected.isPremium,true);

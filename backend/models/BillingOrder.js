@@ -21,6 +21,7 @@ const schema=new mongoose.Schema({
  paidAt:{type:Date,default:null},
  periodStartsAt:{type:Date,default:null},
  periodEndsAt:{type:Date,default:null},
+ graceEndsAt:{type:Date,default:null},
  eventIds:{type:[String],default:[]},
  eventLog:{type:[new mongoose.Schema({
    id:{type:String,required:true},type:{type:String,required:true},
