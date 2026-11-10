@@ -2009,6 +2009,8 @@ function AppContent(){
     '/admin/banners':'/backoffice/admin/banners',
     '/admin/home-slides':'/backoffice/admin/slides',
     '/admin/billing':'/backoffice/admin/billing',
+    '/admin/billing/grants':'/backoffice/admin/billing/grants',
+    '/admin/billing/sandbox':'/backoffice/admin/billing/sandbox',
     '/admin/emails':'/backoffice/admin/emails',
     '/admin/boost':'/backoffice/admin/boost',
     '/admin/ad-control':'/backoffice/admin/adcontrol',
