@@ -21,7 +21,13 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
    .some(id=>String(id)===String(station._id));
  data.commercialBoost=boostForStation(paid,station._id,now,
    rights.has('broadcaster.premium_boost')&&selected);
- if(!relevant && paid.length===0)return data;
+ // A purchased Boost or an unrelated station add-on MUST NOT disable
+ // legacy manually configured DSP / ad controls on this station.
+ const relevantPaid=paid.some(p=>String(p.accountId)===String(owner._id) &&
+  (p.sku==='B-PREM'&&p.scopeType==='account' ||
+   p.scopeType==='station'&&String(p.resourceId)===String(station._id) &&
+     ['ADD-DSP','ADD-ADS'].includes(p.sku)));
+ if(!relevant && !relevantPaid)return data;
  if(!rights.has('broadcaster.webdsp'))data.dspPreset='OFF';
  if(!rights.has('broadcaster.ad_control'))data.disableNetworkAds=false;
  return data;
