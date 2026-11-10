@@ -11,6 +11,7 @@ const { broadcasterInvitationEmail, producerInvitationEmail } =
   require('../utils/invitationEmailTemplates');
 const { notificationEmailTemplate } = require('../utils/notificationEmailTemplate');
 const { siteOrigin, renderBrandedEmail, escapeHtml } = require('../utils/emailDesign');
+const {premiumBillingEmail}=require('../utils/premiumBillingEmailTemplates');
 
 const router = express.Router();
 const sample = Object.freeze({
@@ -25,6 +26,12 @@ const sample = Object.freeze({
   stationRejected: 'Διόρθωση σταθμού',
   broadcasterPremium: 'Premium Broadcaster',
   listenerPremium: 'Premium Listener',
+  premiumWelcome: 'Premium · Καλωσόρισμα μετά την πληρωμή',
+  premiumSoon: 'Premium · Λήγει σύντομα',
+  premiumGrace: 'Premium · Περίοδος χάριτος',
+  premiumCancelled: 'Premium · Ακύρωση αυτόματης ανανέωσης',
+  premiumExpired: 'Premium · Οριστική λήξη',
+  premiumWinback: 'Premium · Προσφορά επιστροφής 1,99 €',
   notification: 'Ειδοποίηση χρήστη',
   custom: 'Email διαχειριστή'
 });
@@ -48,6 +55,19 @@ function previewTemplate(type, body) {
     case 'stationRejected': return stationRejectedEmail('Αλέξανδρε', station.name);
     case 'broadcasterPremium': return broadcasterPremiumSuccessEmail('Αλέξανδρε', 'full_premium', '19.00');
     case 'listenerPremium': return listenerPremiumSuccessEmail('Αλέξανδρε', '4.99');
+    case 'premiumWelcome': return premiumBillingEmail({kind:'welcome',name:'Αλέξανδρε',
+      amountCents:399,periodEndsAt:'2026-12-10T18:20:00.000Z'});
+    case 'premiumSoon': return premiumBillingEmail({kind:'soon',name:'Αλέξανδρε',
+      periodEndsAt:'2026-12-10T18:20:00.000Z'});
+    case 'premiumGrace': return premiumBillingEmail({kind:'grace',name:'Αλέξανδρε',
+      periodEndsAt:'2026-12-10T18:20:00.000Z',graceEndsAt:'2026-12-13T18:20:00.000Z'});
+    case 'premiumCancelled': return premiumBillingEmail({kind:'cancelled',name:'Αλέξανδρε',
+      periodEndsAt:'2026-12-10T18:20:00.000Z'});
+    case 'premiumExpired': return premiumBillingEmail({kind:'expired',name:'Αλέξανδρε',
+      periodEndsAt:'2026-12-10T18:20:00.000Z',graceEndsAt:'2026-12-13T18:20:00.000Z'});
+    case 'premiumWinback': return premiumBillingEmail({kind:'winback',name:'Αλέξανδρε',
+      amountCents:199,offerEndsAt:'2027-01-12T18:20:00.000Z',
+      unsubscribeLink:siteOrigin()+'/api/notifications/unsubscribe?token=preview-only'});
     case 'notification': return {
       subject:'Η αγαπημένη σου εκπομπή είναι στον αέρα',
       html:notificationEmailTemplate({
