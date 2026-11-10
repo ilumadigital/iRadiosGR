@@ -8,6 +8,7 @@ const gateway=require('../services/ilumaGatewayClient');
 const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
 const {hasAccountRight}=require('../services/billingEntitlements');
 const {evaluate:winbackPolicy,PROMO_SKU}=require('../services/winbackEligibility');
+const premiumEmails=require('../utils/premiumBillingEmailScheduler');
 const {verifyWebhookHeaders,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
  validatePaymentEvent,localStatusFromGatewayLookup,nextGracePeriod}=require('../services/gatewayBillingProtocol');
 
@@ -257,7 +258,16 @@ async function cancelAutomaticRenewal(req,res){
  if(req.user?.role!=='user')return res.status(403).json({error:'Listener account required'});
  if(req.body&&Object.keys(req.body).length>0)
   return res.status(400).json({error:'No payment or contract ID accepted'});
+ const before=await gateway.recurringStatus(req.user);
  const recurring=await gateway.cancelRecurring(req.user);
+ if(['active','pending','verification_pending','past_due'].includes(before.state) &&
+    recurring.state==='cancelled'){
+  // Email is a side effect of the *confirmed* Gateway transition, not of a
+  // button click. SMTP/Mailpit errors must never alter financial cancellation.
+  try{
+   if(await premiumEmails.enqueueCancellation(req.user,recurring))premiumEmails.kick();
+  }catch(e){console.warn('[PREMIUM MAIL] Cancellation email deferred',e.code||e.message);}
+ }
  return res.json({recurring});
 }
 
@@ -430,7 +440,14 @@ async function webhook(req,res){
    $addToSet:{eventIds:event.event_id},
    $push:{eventLog:marker}
   },{new:true});
-  if(updated)return res.json({received:true,activated:true});
+  if(updated){
+   // A signed payment.paid webhook is the ONLY welcome-email trigger.
+   // Do not onboard on redirects, GET status, failures or MIT renewals.
+   try{
+    if(await premiumEmails.enqueuePaidWelcome(updated))premiumEmails.kick();
+   }catch(e){console.warn('[PREMIUM MAIL] Paid onboarding email deferred',e.code||e.message);}
+   return res.json({received:true,activated:true});
+  }
  }else{
   const updated=await BillingOrder.findOneAndUpdate({...filter,
     status:{$nin:['paid','failed','canceled']}},{
