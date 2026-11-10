@@ -14,7 +14,8 @@ const {getProduct,listProducts}=require('../config/billingCatalog');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {validateComplimentaryScope,resolveComplimentaryEntitlements,isActiveGrant}=require('../services/billingPolicy');
-const {effectiveRights,legacyRights,activeGrantsFor,accountRights}=require('../services/billingEntitlements');
+const {effectiveRights,legacyRights,activeGrantsFor,activeBroadcasterOrders,accountRights}=require('../services/billingEntitlements');
+const {paidRights}=require('../services/broadcasterPurchaseRules');
 const router=express.Router();
 const admin=[protect,authorizeRoles('admin')];
 const safe=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
@@ -48,14 +49,18 @@ router.get('/billing/me/entitlements',protect,safe(async(req,res)=>{
  const grants=await activeGrantsFor(req.user,now);
  const entitlementSet=new Set(effectiveRights(req.user,grants,{stationId,campaignId,now}));
  // Verified first-cycle L-PREM is read from BillingOrder, not legacy account flags.
- if(req.user.role==='user'){
+ if(req.user.role==='user'||req.user.role==='broadcaster'){
    for(const right of await accountRights(req.user,now))entitlementSet.add(right);
+ }
+ if(req.user.role==='broadcaster'&&stationId){
+   for(const right of paidRights(await activeBroadcasterOrders(req.user,now),stationId,now))
+    entitlementSet.add(right);
  }
  res.json({
    entitlements:[...entitlementSet].sort(),
    complimentaryEntitlements:resolveComplimentaryEntitlements(grants,{stationId,campaignId,now}),
    legacyEntitlements:legacyRights(req.user),
-   paidSubscriptionsIntegrated:process.env.APP_ENV==='staging' && req.user.role==='user', // L-PREM first-cycle only
+   paidSubscriptionsIntegrated:process.env.APP_ENV==='staging' && ['user','broadcaster'].includes(req.user.role),
    renewalsAvailable:false
  });
 }));
@@ -68,13 +73,20 @@ router.get('/billing/me/station-entitlements',protect,safe(async(req,res)=>{
    return res.status(403).json({error:'Broadcaster role required'});
  const stations=await Station.find({broadcasterId:req.user._id}).select('_id').lean();
  const now=new Date();
- const grants=await activeGrantsFor(req.user,now);
+ const [grants,orders]=await Promise.all([
+  activeGrantsFor(req.user,now),activeBroadcasterOrders(req.user,now)
+ ]);
  const byStation={};
  for(const station of stations){
-   const id=String(station._id);
-   byStation[id]=effectiveRights(req.user,grants,{stationId:id,now});
+  const id=String(station._id);
+  byStation[id]=[...new Set([
+   ...effectiveRights(req.user,grants,{stationId:id,now}),
+   ...paidRights(orders,id,now)
+  ])].sort();
  }
- return res.json({byStation,paidSubscriptionsIntegrated:false,renewalsAvailable:false});
+ return res.json({byStation,
+  paidSubscriptionsIntegrated:process.env.APP_ENV==='staging',
+  renewalsAvailable:process.env.APP_ENV==='staging'});
 }));
 
 router.get('/admin/billing/subjects',...admin,safe(async(req,res)=>{
