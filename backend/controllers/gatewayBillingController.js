@@ -113,7 +113,7 @@ async function snoozeRenewalNotice(req,res){
 }
 
 async function checkout(req,res){
- if(!permitted())return res.status(503).json({code:'SANDBOX_DISABLED',error:'Το Nexi Sandbox δεν έχει ενεργοποιηθεί.'});
+ if(!permitted())return res.status(503).json({code:'SANDBOX_DISABLED',error:'Οι συνδρομές δεν είναι διαθέσιμες αυτή τη στιγμή.'});
  if(!req.user||req.user.role!=='user'||req.user.isVerified!==true)
   return res.status(403).json({error:'Απαιτείται επιβεβαιωμένος λογαριασμός ακροατή.'});
  const clientKey=req.get('Idempotency-Key')||'';
@@ -121,21 +121,16 @@ async function checkout(req,res){
   return res.status(400).json({error:'Απαιτείται έγκυρο Idempotency-Key UUID.'});
  const options=req.body||{};
  const fields=Object.keys(options);
- if(fields.some(k=>!['saveCard','useSavedCard','autoRenew','winback'].includes(k))||
-    (options.saveCard!==undefined&&typeof options.saveCard!=='boolean')||
-    (options.useSavedCard!==undefined&&typeof options.useSavedCard!=='boolean')||
-    (options.autoRenew!==undefined&&typeof options.autoRenew!=='boolean')||
-    (options.winback!==undefined&&typeof options.winback!=='boolean')||
-    (options.winback===true&&(options.saveCard===true||options.useSavedCard===true))||
-    (options.saveCard===true&&options.useSavedCard===true)||
-    (options.autoRenew===true&&(options.saveCard===true||options.useSavedCard===true)))
-  return res.status(400).json({error:'Μη έγκυρες επιλογές αποθήκευσης κάρτας.'});
- // No opt-in is the default. The user controls each OneClick choice and
- // cannot trigger a MIT or automatic renewal via this endpoint.
- const cardChoice={
-  saveCard:options.saveCard===true,useSavedCard:options.useSavedCard===true,
-  autoRenew:options.autoRenew===true
- };
+ // Subscription-only Listener Premium. autoRenew=true is submitted solely
+ // from the explicitly labelled "Έναρξη συνδρομής" button, immediately below
+ // the renewal price and cancellation disclosure. Reject one-off/CIT requests
+ // even if a caller bypasses the browser UI.
+ if(fields.some(k=>!['autoRenew','winback'].includes(k))||
+    options.autoRenew!==true||
+    (options.winback!==undefined&&typeof options.winback!=='boolean'))
+  return res.status(400).json({code:'SUBSCRIPTION_CONSENT_REQUIRED',
+   error:'Το Premium διατίθεται μόνο με μηνιαία συνδρομή. Διάβασε τους όρους χρέωσης και πάτησε «Έναρξη συνδρομής» για να συμφωνήσεις.'});
+ const cardChoice={saveCard:false,useSavedCard:false,autoRenew:true};
  const winbackRequested=options.winback===true;
  // Only the backend may derive the expiry and the promotional amount.
  const winback=winbackRequested?await winbackForUser(req.user):null;
@@ -206,21 +201,14 @@ async function checkout(req,res){
   if(error.code==='GATEWAY_HTTP_422'){
    // Gateway 422 is emitted only during deterministic validation/preflight
    // BEFORE any Nexi HPP request. No provider payment exists for this key.
-   const oneClick=cardChoice.saveCard||cardChoice.useSavedCard;
-   const code=winbackRequested?'GATEWAY_WINBACK_NOT_READY':
-    cardChoice.autoRenew?'GATEWAY_RECURRING_NOT_READY':
-     oneClick?'GATEWAY_ONECLICK_NOT_READY':'GATEWAY_CATALOG_NOT_READY';
+   const code=winbackRequested?'GATEWAY_WINBACK_NOT_READY':'GATEWAY_RECURRING_NOT_READY';
    await BillingOrder.findOneAndUpdate({_id:order._id,status:'creating'},{
      $set:{status:'failed',lastErrorCode:code},
      $unset:{lockKey:''}
    });
    return res.status(503).json({code,error:winbackRequested
-     ?'Η προσφορά 1,99 € δεν είναι διαθέσιμη στο Gateway. Ελέγξτε την staging migration και το MIT.'
-     :cardChoice.autoRenew
-     ?'Το Gateway δεν έχει ολοκληρώσει την ασφαλή προετοιμασία της συνδρομής MIT. Δεν δημιουργήθηκε χρέωση Nexi. Ελέγξτε τη staging migration.'
-     :oneClick
-      ?'Η αποθήκευση κάρτας OneClick δεν είναι έτοιμη στο Gateway. Δεν δημιουργήθηκε checkout Nexi. Ελέγξτε τη migration και την κατάσταση της κάρτας πριν ξαναδοκιμάσετε.'
-      :'Το προϊόν L-PREM πρέπει να ενεργοποιηθεί στο Nexi Sandbox Gateway με τιμή 3,99 €.'});
+     ?'Η ειδική τιμή δεν είναι διαθέσιμη αυτή τη στιγμή. Δεν έγινε χρέωση. Δοκίμασε ξανά αργότερα.'
+     :'Η νέα μηνιαία συνδρομή δεν είναι προσωρινά διαθέσιμη. Δεν έγινε χρέωση. Δοκίμασε ξανά αργότερα.'});
   }
   // Gateway or network uncertainty does not mean the customer was NOT charged.
   // Keep the lock and the original Idempotency-Key. Do not retry automatically.
