@@ -9,7 +9,6 @@ const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
 const {hasAccountRight}=require('../services/billingEntitlements');
 const {evaluate:winbackPolicy,PROMO_SKU}=require('../services/winbackEligibility');
 const premiumEmails=require('../utils/premiumBillingEmailScheduler');
-const broadcasterPayments=require('./broadcasterBillingController');
 const {BILLING_SKUS}=require('../services/broadcasterPurchaseRules');
 const {broadcasterEventValid}=require('../services/broadcasterPaymentProtocol');
 const {verifyWebhookHeaders,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
@@ -374,7 +373,7 @@ async function webhook(req,res){
  // Distinct ledgers and scoped correlation keep Listener Premium unchanged.
  if(broadcaster){
   await require('../models/BroadcasterBillingOrder').init();
-  return broadcasterPayments.handleVerifiedEvent(event,res);
+  return require('./broadcasterBillingController').handleVerifiedEvent(event,res);
  }
  // An automatic renewal has no browser checkout and therefore no pre-created
  // local BillingOrder. It may ONLY be created from a verified, signed
