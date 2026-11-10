@@ -453,6 +453,26 @@ function MainApp() {
   const location = useLocation(); 
   const API_URL = `/api`;
 
+  // Remember the user's previous safe iRadios page within this browser tab.
+  // The Gateway NEVER receives or trusts this return destination.
+  useEffect(() => {
+    const path=location.pathname;
+    if(path==='/premium' || path==='/login' || path==='/register' ||
+       path.startsWith('/backoffice') || path.startsWith('/widget'))return;
+    const full=path+location.search;
+    if(full.length>512 || !full.startsWith('/') || full.startsWith('//'))return;
+    try{sessionStorage.setItem('iradios-billing-origin',
+      JSON.stringify({path:full,at:Date.now()}));}catch{}
+  },[location.pathname,location.search]);
+
+  // Confirmation stays attached to the same-tab navigation after the Nexi round trip.
+  useEffect(() => {
+    if(location.state?.billingCompleted===true){
+      showAlert('Η πληρωμή επιβεβαιώθηκε και το Premium ενεργοποιήθηκε.');
+      navigate(location.pathname+location.search,{replace:true,state:null});
+    }
+  },[location.state,location.pathname,location.search,navigate,showAlert]);
+
   // 🟢 ΕΛΕΓΧΟΣ ΓΙΑ WIDGET
   const isWidget = location.pathname.startsWith('/widget');
 
