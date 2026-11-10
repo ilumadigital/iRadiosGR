@@ -85,6 +85,13 @@ function stagePublicAccess(req, res, next) {
       return res.status(400).json({error:'Μη έγκυρα στοιχεία εγγραφής.'});
     return next(); // Cloudflare verification is mandatory at the next router.
   }
+  if(req.method==='POST' && path==='/api/auth/verify-email'){
+    if(!loginRateLimit(req,res))return;
+    if(typeof req.body?.token!=='string'||!/^[a-f0-9]{64}$/i.test(req.body.token))
+      return res.status(400).json({error:'Μη έγκυρος σύνδεσμος επαλήθευσης.'});
+    return next();
+  }
+  if(req.method==='POST' && path==='/api/auth/resend-verification')return protect(req,res,next);
   if (req.method==='POST' && path==='/api/auth/register-broadcaster')
     return allowInvitedOnboarding(req,res,next);
   if (req.method==='POST' && path==='/api/auth/verify-otp') {

@@ -20,6 +20,19 @@ const otpVerificationEmail = (userName, otp) => {
   return { subject: `🔑 Ενεργοποίηση Λογαριασμού: Ο Κωδικός σας (OTP)`, html: baseTemplate(content, 'SECURE YOUR ACCOUNT') };
 };
 
+const verificationLinkEmail = (userName, token) => {
+  const link = FRONTEND_URL.replace(/\/+$/,'') + '/verify-email#token=' + encodeURIComponent(token);
+  const content = `
+    <h3>Επιβεβαίωσε το email σου, ${escapeHtml(userName)}!</h3>
+    <p>Ο Free λογαριασμός σου στο iRadios λειτουργεί ήδη. Για να δεις τα playlists των σταθμών, επιβεβαίωσε το email σου.</p>
+    <div style="text-align:center;margin:30px 0;"><a href="${escapeHtml(link)}" class="btn">ΕΠΙΒΕΒΑΙΩΣΗ EMAIL</a></div>
+    <p style="font-size:13px;color:#aaa;">Ο σύνδεσμος λήγει σε 24 ώρες και χρησιμοποιείται μόνο μία φορά. Νέο link ακυρώνει το παλιό.</p>
+    <p style="font-size:12px;color:#888;overflow-wrap:anywhere;">${escapeHtml(link)}</p>
+    <p style="font-size:12px;color:#888;">Αν δεν έκανες την εγγραφή, αγνόησε αυτό το email.</p>
+  `;
+  return {subject:'Επιβεβαίωσε το email σου - iRadios',html:baseTemplate(content,'EMAIL VERIFICATION')};
+};
+
 const welcomeEmail = (userName, isBroadcaster = false) => {
   const loginUrl = `${FRONTEND_URL}/login`;
   let extraText = isBroadcaster 
@@ -411,6 +424,7 @@ const listenerPremiumSuccessEmail = (userName, amount) => {
 
 module.exports = {
   otpVerificationEmail,
+  verificationLinkEmail,
   welcomeEmail,
   customAdminEmail,
   passwordResetEmail,

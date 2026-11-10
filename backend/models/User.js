@@ -78,6 +78,9 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   verificationOtp: { type: String, default: null },
   otpExpires: { type: Date, default: null },
+  verificationTokenHash: { type: String, default: null },
+  verificationTokenExpires: { type: Date, default: null },
+  verificationEmailLastSentAt: { type: Date, default: null },
 
   hasAcceptedTerms: { type: Boolean, default: false },
   termsAcceptedAt: { type: Date, default: null },

@@ -23,6 +23,9 @@ function withBroadcasterTermsStatus(user) {
   delete data.password;
   delete data.verificationOtp;
   delete data.otpExpires;
+  delete data.verificationTokenHash;
+  delete data.verificationTokenExpires;
+  delete data.verificationEmailLastSentAt;
   delete data.resetPasswordToken;
   delete data.resetPasswordExpires;
 

@@ -5,7 +5,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const BroadcasterInvitation = require('../models/BroadcasterInvitation'); // 🟢 ΝΕΟ: Για τη δημιουργία του token ανάκτησης
 const { sendEmail } = require('../utils/myMailer');
-const { otpVerificationEmail, welcomeEmail, passwordResetEmail } = require('../utils/mailTemp'); // 🟢 ΝΕΟ: Import το νέο template
+const { otpVerificationEmail, verificationLinkEmail, welcomeEmail, passwordResetEmail } = require('../utils/mailTemp');
+const { createEmailVerification, hashEmailVerificationToken } = require('../utils/emailVerification'); // 🟢 ΝΕΟ: Import το νέο template
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const {
@@ -95,22 +96,22 @@ exports.register = async (req, res) => {
     if(existingUser)return res.status(409).json({error:'Το username ή το email χρησιμοποιείται ήδη. Δοκίμασε σύνδεση.'});
 
     const hashedPassword=await bcrypt.hash(password,10);
-    const otp=generateOTP();
+    const verification=createEmailVerification();
     const newUser=new User({
       username,email,password:hashedPassword,fname,lname,birthdate:parsedDate,phone,
-      role:'user',isVerified:false,verificationOtp:otp,
-      otpExpires:new Date(Date.now()+15*60000)
+      role:'user',isVerified:false,...verification.fields
     });
     await newUser.save();
-    const emailData=otpVerificationEmail(fname,otp);
+    // Free is immediately usable even if SMTP/Mailpit delivery fails.
+    const emailData=verificationLinkEmail(fname,verification.token);
     const delivery=await sendEmail({to:email,subject:emailData.subject,html:emailData.html});
-    if(!delivery?.success){
-      // Avoid leaving a duplicate, unusable new account when Mailpit delivery fails.
-      try{await User.deleteOne({_id:newUser._id,isVerified:false});}
-      catch(cleanupError){console.error('[AUTH] Could not roll back undelivered registration:',cleanupError.name);}
-      return res.status(503).json({error:'Η εγγραφή δεν ολοκληρώθηκε γιατί δεν στάλθηκε το email επαλήθευσης. Δοκίμασε ξανά.'});
-    }
-    return res.status(201).json({message:'Ο κωδικός επαλήθευσης στάλθηκε.',requireOtp:true});
+    if(!delivery?.success)console.warn('[AUTH] Verification mail failed; user can resend later.');
+    const token=jwt.sign({id:newUser._id,role:newUser.role},JWT_SECRET,{expiresIn:'30d'});
+    res.set('Cache-Control','no-store');
+    return res.status(201).json({
+      message:'Ο λογαριασμός δημιουργήθηκε. Επιβεβαίωσε το email σου για να δεις playlists.',
+      token,verificationEmailSent:!!delivery?.success,user:await projectAccountUser(newUser)
+    });
   }catch(err){
     if(err?.code===11000)return res.status(409).json({error:'Το username ή το email χρησιμοποιείται ήδη.'});
     if(err?.name==='ValidationError')return res.status(400).json({error:'Κάποια στοιχεία εγγραφής δεν είναι έγκυρα. Έλεγξε τα πεδία.'});
@@ -205,7 +206,8 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Λάθος στοιχεία σύνδεσης' });
 
-    if (!user.isVerified) {
+    // Broadcaster/Agency retain OTP; unverified Free listeners can log in.
+    if (!user.isVerified && user.role !== 'user') {
       const otp = generateOTP();
       user.verificationOtp = otp;
       user.otpExpires = new Date(Date.now() + 15 * 60000);
@@ -235,6 +237,61 @@ exports.login = async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
+// One-time token redemption, with no JWT or user details in public responses.
+exports.verifyEmail = async (req,res)=>{
+  const token=req.body?.token;
+  if(typeof token!=='string'||!/^[a-f0-9]{64}$/i.test(token))
+    return res.status(400).json({error:'Μη έγκυρος σύνδεσμος επιβεβαίωσης.'});
+  try{
+    const user=await User.findOneAndUpdate({
+      role:'user',isVerified:false,
+      verificationTokenHash:hashEmailVerificationToken(token),
+      verificationTokenExpires:{$gt:new Date()}
+    },{$set:{isVerified:true},$unset:{
+      verificationTokenHash:'',verificationTokenExpires:'',verificationEmailLastSentAt:'',
+      verificationOtp:'',otpExpires:''
+    }},{new:true});
+    if(!user)return res.status(400).json({error:'Ο σύνδεσμος έχει λήξει ή χρησιμοποιήθηκε ήδη. Ζήτησε νέο link από τον λογαριασμό σου.'});
+    const welcome=welcomeEmail(user.fname,false);
+    sendEmail({to:user.email,subject:welcome.subject,html:welcome.html}).catch(()=>{});
+    res.set('Cache-Control','no-store');
+    return res.json({success:true,message:'Το email επιβεβαιώθηκε. Το playlist είναι διαθέσιμο.'});
+  }catch(error){
+    console.error('[AUTH] Verify email failed:',error?.name);
+    return res.status(503).json({error:'Η επιβεβαίωση δεν ολοκληρώθηκε. Δοκίμασε ξανά.'});
+  }
+};
+
+// Resend invalidates every earlier link, atomically limits requests to one/minute,
+// and cannot be used to send mail to an address supplied by another user.
+exports.resendVerificationEmail = async (req,res)=>{
+  if(req.user?.role!=='user')return res.status(403).json({error:'Η λειτουργία αφορά λογαριασμούς ακροατών.'});
+  if(req.user.isVerified)return res.json({alreadyVerified:true,message:'Το email έχει ήδη επιβεβαιωθεί.'});
+  const now=new Date(),verification=createEmailVerification(now);
+  try{
+    const user=await User.findOneAndUpdate({
+      _id:req.user._id,role:'user',isVerified:false,
+      $or:[{verificationEmailLastSentAt:null},
+        {verificationEmailLastSentAt:{$exists:false}},
+        {verificationEmailLastSentAt:{$lte:new Date(now.getTime()-60000)}}]
+    },{$set:verification.fields,$unset:{verificationOtp:'',otpExpires:''}},{new:true});
+    if(!user){
+      const fresh=await User.findById(req.user._id).select('isVerified');
+      if(fresh?.isVerified)return res.json({alreadyVerified:true,message:'Το email έχει ήδη επιβεβαιωθεί.'});
+      res.set('Retry-After','60');
+      return res.status(429).json({error:'Περίμενε ένα λεπτό πριν ζητήσεις νέο σύνδεσμο.'});
+    }
+    const mail=verificationLinkEmail(user.fname,verification.token);
+    const result=await sendEmail({to:user.email,subject:mail.subject,html:mail.html});
+    if(!result?.success)return res.status(503).json({error:'Δεν στάλθηκε το email. Δοκίμασε ξανά αργότερα.'});
+    res.set('Cache-Control','no-store');
+    return res.json({success:true,message:'Στάλθηκε νέο link. Ο προηγούμενος σύνδεσμος ακυρώθηκε.'});
+  }catch(error){
+    console.error('[AUTH] Resend verification failed:',error?.name);
+    return res.status(503).json({error:'Δεν ήταν δυνατή η επαναποστολή. Δοκίμασε ξανά.'});
+  }
+};
+
 exports.getMe = async (req, res) => {
   // protect middleware verified the JWT and loaded this user from MongoDB.
   res.set('Cache-Control','private, no-store');
@@ -254,8 +311,11 @@ exports.updateMe = async (req, res) => {
     }
     if(patch.username!==undefined && (patch.username.length<3||patch.username.length>60))
       return res.status(400).json({error:'Το όνομα χρήστη πρέπει να έχει 3–60 χαρακτήρες.'});
-    if(patch.email!==undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.email))
-      return res.status(400).json({error:'Συμπλήρωσε έγκυρο email.'});
+    if(patch.email!==undefined){
+      patch.email=patch.email.toLowerCase();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.email))
+        return res.status(400).json({error:'Συμπλήρωσε έγκυρο email.'});
+    }
     if(patch.fname!==undefined && !patch.fname)
       return res.status(400).json({error:'Το όνομα είναι υποχρεωτικό.'});
     if(patch.lname!==undefined && !patch.lname)
@@ -270,8 +330,24 @@ exports.updateMe = async (req, res) => {
     }
     if(!Object.keys(patch).length)
       return res.status(400).json({error:'Δεν δόθηκαν στοιχεία για ενημέρωση.'});
-    const updated=await User.findByIdAndUpdate(req.user._id,{$set:patch},
+    // Reconfirm a changed listener email; never inherit the previous address's status.
+    const emailChanged=req.user.role==='user' && patch.email!==undefined &&
+      patch.email!==String(req.user.email).trim().toLowerCase();
+    let verification;
+    if(emailChanged){
+      if(await User.findOne({_id:{$ne:req.user._id},email:patch.email}).select('_id'))
+        return res.status(409).json({error:'Το email χρησιμοποιείται ήδη.'});
+      verification=createEmailVerification();
+      Object.assign(patch,verification.fields,{isVerified:false});
+    }
+    const updated=await User.findByIdAndUpdate(req.user._id,{$set:patch,
+      ...(emailChanged?{$unset:{verificationOtp:'',otpExpires:''}}:{})},
       {new:true,runValidators:true});
+    if(emailChanged&&updated){
+      const mail=verificationLinkEmail(updated.fname,verification.token);
+      const sent=await sendEmail({to:updated.email,subject:mail.subject,html:mail.html});
+      if(!sent?.success)console.warn('[PROFILE] Verification mail failed; resend remains available.');
+    }
     if(!updated)return res.status(404).json({error:'Ο λογαριασμός δεν βρέθηκε.'});
     res.set('Cache-Control','no-store');
     return res.json(await projectAccountUser(updated));

@@ -7,6 +7,10 @@ const {protect}=require('../utils/authMiddleware');
 const {THIRTY_MINUTES,MAX_HISTORY_TRACKS}=require('../utils/recordStationTrack');
 router.get('/stations/:id/playlist', protect, async(req,res)=>{
   if(!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({error:'Μη έγκυρος σταθμός.'});
+  if(req.user.role==='user' && req.user.isVerified!==true){
+    res.setHeader('Cache-Control','private, no-store');
+    return res.status(403).json({code:'email_verification_required',error:'Επιβεβαίωσε το email σου για να δεις την playlist του σταθμού.'});
+  }
   try {
     const station=await Station.findOne({_id:req.params.id,status:'approved'}).select('_id name logo').lean();
     if(!station) return res.status(404).json({error:'Ο σταθμός δεν βρέθηκε.'});

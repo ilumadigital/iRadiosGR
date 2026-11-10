@@ -16,6 +16,8 @@ router.post('/auth/register', requireTurnstile('register'), authController.regis
 router.post('/auth/register-broadcaster', requireTurnstile('register-broadcaster'), authController.registerBroadcaster);
 router.post('/auth/register-agency', requireTurnstile('register-agency'), authController.registerAgency);
 router.post('/auth/verify-otp', authController.verifyOtp);
+router.post('/auth/verify-email', authController.verifyEmail);
+router.post('/auth/resend-verification', protect, authController.resendVerificationEmail);
 router.post('/auth/login', requireTurnstile('login'), authController.login);
 router.get('/auth/me', protect, authController.getMe);
 
