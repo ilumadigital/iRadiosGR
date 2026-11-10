@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {ArrowLeft,Gift,Search,ShieldCheck,RefreshCw,AlertCircle} from 'lucide-react';
 
@@ -34,6 +34,7 @@ export default function AdminBillingGrants({API_URL='/api'}){
   const [expiry,setExpiry]=useState('');
   const [grants,setGrants]=useState([]);
   const [busy,setBusy]=useState(false);
+  const grantAttempt=useRef(null); // stable Idempotency-Key across network retries
   const [message,setMessage]=useState(null);
 
   useEffect(()=>{request(API_URL+'/billing/catalog')
@@ -86,10 +87,14 @@ export default function AdminBillingGrants({API_URL='/api'}){
         expiresAt:expiry?new Date(expiry+'T23:59:59').toISOString():null,
         reason:reason.trim()
       };
+      const serialized=JSON.stringify(body);
+      if(!grantAttempt.current||grantAttempt.current.body!==serialized)
+        grantAttempt.current={body:serialized,key:crypto.randomUUID()};
       await request(API_URL+'/admin/billing/grants',{
-        method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},
-        body:JSON.stringify(body)
+        method:'POST',headers:{'Idempotency-Key':grantAttempt.current.key},
+        body:serialized
       });
+      grantAttempt.current=null;
       setMessage({error:false,text:'Η δωρεάν παραχώρηση καταχωρίστηκε. Δεν δημιουργήθηκε συναλλαγή.'});
       setReason('');setExpiry('');
       await loadGrants(account._id);
