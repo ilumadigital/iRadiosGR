@@ -8,7 +8,7 @@ const schema=new mongoose.Schema({
  orderId:{type:mongoose.Schema.Types.ObjectId,ref:'BroadcasterBillingOrder',default:null},
  sku:{type:String,required:true},
  resourceId:{type:mongoose.Schema.Types.ObjectId,default:null},
- kind:{type:String,enum:['welcome','renewed','cancelled','soon','expired'],required:true},
+ kind:{type:String,enum:['welcome','renewed','failed','cancelled','soon','expired'],required:true},
  status:{type:String,enum:['pending','sending','sent','skipped'],default:'pending',index:true},
  dueAt:{type:Date,default:Date.now,index:true},
  attempts:{type:Number,default:0},
