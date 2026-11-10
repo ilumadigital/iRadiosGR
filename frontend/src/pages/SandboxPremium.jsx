@@ -6,6 +6,31 @@ import {Crown,ShieldCheck,ExternalLink,RefreshCw,AlertTriangle,
 // Phase 3 is an isolated first-month Nexi SANDBOX checkout. It never stores
 // card details, never confirms success from redirect alone, and never auto-renews.
 const KEY_PREFIX='iradios-nexi-stage-intent:';
+const RETURN_PREFIX='iradios-billing-return:';
+function rememberReturnPath(userId){
+ try{
+  const prior=JSON.parse(sessionStorage.getItem('iradios-billing-origin')||'null');
+  const path=prior?.path;
+  if(typeof path==='string' && path.length<=512 && /^\\/(?!\\/)/.test(path) &&
+    !path.includes('\\') && !path.startsWith('/premium') &&
+    !path.startsWith('/backoffice') && Date.now()-prior.at<900000 &&
+    Date.now()>=prior.at)
+    sessionStorage.setItem(RETURN_PREFIX+userId,path);
+ }catch{/* browser may block session storage */}
+}
+function takeReturnPath(userId){
+ try{
+  const name=RETURN_PREFIX+userId;
+  const path=sessionStorage.getItem(name);
+  if(typeof path==='string' && path.length<=512 && /^\\/(?!\\/)/.test(path) &&
+    !path.includes('\\') && !path.startsWith('/premium') &&
+    !path.startsWith('/backoffice')){
+   sessionStorage.removeItem(name);
+   return path;
+  }
+ }catch{}
+ return null;
+}
 const authHeaders=()=>({Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`});
 async function call(url,options={}){
  const response=await fetch(url,{cache:'no-store',...options,
@@ -104,6 +129,20 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
   }catch{/* The billing order remains server-authoritative; retry on next refresh. */}
  },[API_URL,setCurrentUser]);
 
+ // Return to the listener's last iRadios page only after HMAC-verified activation.
+ // The path is local to the tab, never provided to the Gateway.
+ const finishVerified=useCallback(async(status)=>{
+  await updateAccount();
+  if(status==='active'){
+   const destination=takeReturnPath(userId);
+   if(destination){
+    navigate(destination,{replace:true,state:{billingCompleted:true}});
+    return true;
+   }
+  }
+  return false;
+ },[navigate,updateAccount,userId]);
+
  const checkStatus=useCallback(async()=>{
   setBusy(true);setMessage('');
   try{
@@ -113,14 +152,15 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
    setOrder(result.order);
    // A browser return or a signed provider GET does NOT grant Premium.
    if(['active','grace'].includes(result.order?.status)){
-    await updateAccount();
+    const navigated=await finishVerified(result.order.status);
+    if(navigated)return;
     setMessage(result.order.status==='active'
      ?'Η πληρωμή επιβεβαιώθηκε από το Gateway. Το Premium είναι ενεργό.'
      :'Η συνδρομή βρίσκεται σε περίοδο χάριτος σύμφωνα με τους κανόνες του iRadios.');
    }
   }catch(e){setMessage(e.message);}
   finally{setBusy(false);}
- },[API_URL,order,loadOrders,updateAccount]);
+ },[API_URL,order,loadOrders,finishVerified]);
 
  // Nexi returns through ILUMA Gateway to this exact iRadios route.
  // The URL is a navigation hint, NOT a proof of payment.
@@ -130,6 +170,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
   if(!userId||!['result','cancel'].includes(kind))return;
   let canceled=false;
   (async()=>{
+   let navigated=false;
    try{
     const recent=await loadOrders();
     if(canceled)return;
@@ -140,8 +181,8 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
      if(canceled)return;
      setOrder(result.order);
      if(['active','grace'].includes(result.order?.status)){
-      await updateAccount();
-      if(canceled)return;
+      navigated=await finishVerified(result.order.status);
+      if(canceled||navigated)return;
       setMessage('Η Nexi επιβεβαίωσε την πληρωμή μέσω ILUMA Gateway. Η συνδρομή ενημερώθηκε στο iRadios.');
      }else if(kind==='cancel')
       setMessage('Επέστρεψες από ακύρωση. Θα επιβεβαιώσουμε την τελική κατάσταση στη Nexi πριν επιτραπεί άλλη προσπάθεια.');
@@ -149,10 +190,10 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
       setMessage('Επέστρεψες από τη Nexi. Αναμένουμε υπογεγραμμένη επιβεβαίωση από το Gateway πριν ενεργοποιηθεί η συνδρομή.');
     }
    }catch(e){if(!canceled)setMessage(e.message);}
-   finally{if(!canceled)navigate('/premium',{replace:true});}
+   finally{if(!canceled&&!navigated)navigate('/premium',{replace:true});}
   })();
   return()=>{canceled=true;};
- },[API_URL,location.search,userId,loadOrders,navigate,updateAccount]);
+ },[API_URL,location.search,userId,loadOrders,navigate,finishVerified]);
 
  useEffect(()=>{
   if(!order||!['redirect','unknown','pending','creating'].includes(order.status))return;
@@ -165,6 +206,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
   setBusy(true);setMessage('');
   try{
    const newAttempt=order&&['failed','canceled','expired'].includes(order.status);
+   rememberReturnPath(userId);
    const key=getOrCreateKey(userId,newAttempt);
    const response=await call(API_URL+'/billing/checkout',{
      method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':key},
