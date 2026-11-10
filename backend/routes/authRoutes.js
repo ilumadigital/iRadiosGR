@@ -7,11 +7,16 @@ const { protect } = require('../utils/authMiddleware');
 
 // Auth & OTP
 router.get('/auth/verify-vat/:countryCode/:vat', authController.verifyVat);
-router.post('/auth/register', authController.register);
-router.post('/auth/register-broadcaster', authController.registerBroadcaster);
-router.post('/auth/register-agency', authController.registerAgency); 
+const {requireTurnstile,isConfigured,siteKey}=require('../utils/turnstile');
+router.get('/auth/turnstile-config', (_req,res)=>{
+  res.setHeader('Cache-Control','no-store');
+  res.json({siteKey:isConfigured()?siteKey():null,ready:isConfigured()});
+});
+router.post('/auth/register', requireTurnstile('register'), authController.register);
+router.post('/auth/register-broadcaster', requireTurnstile('register-broadcaster'), authController.registerBroadcaster);
+router.post('/auth/register-agency', requireTurnstile('register-agency'), authController.registerAgency);
 router.post('/auth/verify-otp', authController.verifyOtp);
-router.post('/auth/login', authController.login);
+router.post('/auth/login', requireTurnstile('login'), authController.login);
 router.get('/auth/me', protect, authController.getMe);
 
 // 🟢 ΑΝΑΚΤΗΣΗ ΚΩΔΙΚΟΥ

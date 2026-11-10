@@ -4,8 +4,6 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps --no-audit --no-fund
 COPY . .
 ARG IRADIOS_SITE_ORIGIN
-ARG VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA
-ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
 RUN IRADIOS_SITE_ORIGIN="$IRADIOS_SITE_ORIGIN" node scripts/apply-site-origin.cjs
 RUN npm run build
 

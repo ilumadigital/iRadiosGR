@@ -1,6 +1,7 @@
 # iRadiosGR — Public staging with Cloudflare, without HTTP Basic Auth
 
 This staging configuration removes the repeated browser password prompt **for the radio frontend only**.
+Listener and Agency registration is intentionally available with server-verified Cloudflare Turnstile; Broadcaster registration remains invitation-only.
 The staging database contains a snapshot of real production identities; anonymous requests
 must only reach public radio endpoints. Keep sensitive API operations behind stage-only JWT.
 
@@ -11,13 +12,29 @@ or `GET /api/auth/me` without JWT. Then back up/install `ops/nginx-stage.conf`,
 run `nginx -t`, and reload. Run `bash ops/test-public-stage.sh`.
 - `/`, `/api/stations`, `/api/proxy-stream`: public.
 - `/api/admin/*` and other private API calls: JWT admin only.
-- `/api/auth/login`: admin-only on the public staging clone, rate-limited;
-  non-admin imported user accounts intentionally cannot log into this public clone.
+- `/api/auth/login`: verified users with mandatory Turnstile Siteverify and IP rate limit. Imported accounts remain sensitive.
+- `/api/auth/register`, `/api/auth/register-agency`: rate-limited public signup with mandatory backend Cloudflare verification, and private Mailpit OTP delivery.
+- `/api/auth/register-broadcaster`: valid, email-bound invitation plus mandatory Turnstile.
+- `/api/auth/verify-otp`: rate-limited, six-digit OTP verification; Mailpit is never publicly available.
+- `/api/auth/turnstile-config`: public site key only, never secret.
 - `/dev/mail/`: 403. `/api/socket.io`: 403 (legacy unauthenticated handlers).
 - Only radio assets, promo visuals and logo subdirectories under `/media/` served.
 - Imported production advertising is not served in staging.
 - Public host remains `X-Robots-Tag: noindex, nofollow, noarchive`.
 
+## Cloudflare Turnstile credentials (required before staging deploy)
+Create a Turnstile widget in Cloudflare Dashboard with allowed hostname
+`stage.iradios.gr`. In `/etc/iradios/staging/backend.env` configure:
+```dotenv
+TURNSTILE_SITE_KEY=<Cloudflare public site key for stage.iradios.gr>
+TURNSTILE_SECRET_KEY=<matching private Cloudflare secret>
+```
+Do **not** use Cloudflare's always-pass test keys on public staging.
+No frontend VITE keys are required: the public site key comes from
+`GET /api/auth/turnstile-config`. The secret never reaches browsers.
+Preflight fails closed if these values are missing or use known test keys.
+After deployment, test a new Listener registration and check private Mailpit
+on the VPS; do not paste OTP codes or secrets into logs.
 ## Cloudflare account configuration (manual: no connected Cloudflare account)
 1. On the VPS, check authoritative nameservers: `dig +short NS iradios.gr`.
    **Only** if `iradios.gr` is already an active Cloudflare DNS zone should you

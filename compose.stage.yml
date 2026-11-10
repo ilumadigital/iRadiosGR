@@ -65,7 +65,6 @@ services:
       context: ./frontend
       args:
         IRADIOS_SITE_ORIGIN: https://stage.iradios.gr
-        VITE_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
     restart: unless-stopped
     depends_on:
       backend: {condition: service_healthy}

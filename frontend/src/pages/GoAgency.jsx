@@ -6,12 +6,14 @@ import {
   BarChart, Zap, ShieldAlert, Sparkles, Lock, PieChart, Users
 } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
+import useTurnstileSiteKey from '../hooks/useTurnstileSiteKey';
 import { useAlert } from '../context/AlertContext';
 
 export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
+  const {siteKey,turnstileError}=useTurnstileSiteKey(BASE_URL);
   const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
   const isGuest = !currentUser;
@@ -529,14 +531,18 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
               </div>
 
               <div className="ir-auth-turnstile flex justify-center mt-6 mb-2">
+                {siteKey ? (
                 <Turnstile
+                  key={siteKey}
                   ref={turnstileRef}
-                  siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY} 
+                  siteKey={siteKey}
+                  options={{ action: 'register-agency' }}
                   onSuccess={(token) => setCfToken(token)}
                   onError={() => setCfToken('')}
                   onExpire={() => setCfToken('')}
                   theme="dark"
                 />
+              ) : <p role="status" className="text-center text-xs text-amber-300">{turnstileError || 'Φόρτωση Cloudflare Turnstile…'}</p>}
               </div>
 
               {feedback.show && (

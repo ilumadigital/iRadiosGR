@@ -14,6 +14,8 @@ const safe = [
   'APP_ENV=staging',
   'SMTP_HOST=mailpit',
   'SMTP_PORT=1025',
+  'TURNSTILE_SITE_KEY=0x4AAAAAAAAAAAAAAAAAAAAAAAA',
+  'TURNSTILE_SECRET_KEY=0x4BBBBBBBBBBBBBBBBBBBBBBBB',
   'STAGE_ENABLE_SONOVAULT=0'
 ].join('\n') + '\n';
 function verify(content, success, label) {
@@ -25,6 +27,10 @@ function verify(content, success, label) {
 try {
   verify(safe,true,'safe staging backend env');
   verify(safe.replace('SMTP_HOST=mailpit','SMTP_HOST=smtp.hostinger.com').replace('SMTP_PORT=1025','SMTP_PORT=587')+'SMTP_USER=test@example.invalid\nSMTP_PASS=fake-only\n',true,'staging SMTP environment accepted; Mailpit enforced in app');
+  verify(safe.replace('TURNSTILE_SITE_KEY=0x4AAAAAAAAAAAAAAAAAAAAAAAA',''),false,'missing Turnstile site key');
+  verify(safe+'TURNSTILE_SECRET_KEY=0x4CCCCCCCCCCCCCCCCCCCCCCCC\n',false,'duplicate Turnstile secret');
+  verify(safe.replace('0x4AAAAAAAAAAAAAAAAAAAAAAAA','1x00000000000000000000AA'),false,'public stage rejects Turnstile test site key');
+  verify(safe.replace('0x4BBBBBBBBBBBBBBBBBBBBBBBB','1x0000000000000000000000000000000AA'),false,'public stage rejects Turnstile test secret');
   verify(safe.replace('APP_ENV=staging','APP_ENV=production'),false,'wrong app environment');
   verify(safe.replace('STAGE_ENABLE_SONOVAULT=0','STAGE_ENABLE_SONOVAULT=maybe'),false,'invalid SonoVault enablement');
   verify(safe.replace('STAGE_ENABLE_SONOVAULT=0','STAGE_ENABLE_SONOVAULT=1'),true,'intentional staging SonoVault enablement');
