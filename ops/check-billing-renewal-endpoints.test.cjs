@@ -160,11 +160,11 @@ test('Card-on-file opt-in is never implicit and requires a boolean selection',as
  reset();hasRight=true;
  const normal=await call(controller.checkout,checkoutReq());
  assert.equal(normal.statusCode,201);
- assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false});
+ assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false,autoRenew:false});
  reset();hasRight=true;
  const opted=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true}});
  assert.equal(opted.statusCode,201);
- assert.deepEqual(lastCardChoice,{saveCard:true,useSavedCard:false});
+ assert.deepEqual(lastCardChoice,{saveCard:true,useSavedCard:false,autoRenew:false});
  reset();hasRight=true;
  const conflict=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true,useSavedCard:true}});
  assert.equal(conflict.statusCode,400);assert.equal(providerCalls,0);
@@ -231,4 +231,21 @@ test('Gateway 404 never releases a lock when a provider payment/order ID is know
  assert.equal(response.body.order.recoveryReason,null);
  assert.equal(created.lockKey,user._id+':L-PREM',
   'Any known provider payment reference demands financial reconciliation');
+});
+
+
+test('MIT enrollment requires independent boolean consent and never combines with CIT',async()=>{
+ reset();hasRight=true;
+ const request=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:true}});
+ assert.equal(request.statusCode,201);
+ assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false,autoRenew:true});
+ assert.equal(created.autoRenewRequested,true);
+ reset();hasRight=true;
+ const mixed=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:true,saveCard:true}});
+ assert.equal(mixed.statusCode,400);
+ assert.equal(providerCalls,0);
+ reset();hasRight=true;
+ const noBoolean=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:'yes'}});
+ assert.equal(noBoolean.statusCode,400);
+ assert.equal(providerCalls,0);
 });
