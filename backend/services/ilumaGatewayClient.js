@@ -68,4 +68,12 @@ async function paymentStatus(paymentId,orderId){
  const data=await signedRequest('GET','/api/v1/payments/'+paymentId);
  return validateGatewayPayment(data,{expectedPaymentId:paymentId,expectedOrderId:orderId});
 }
-module.exports={configured,checkout,paymentStatus,signedRequest};
+// Recovery after the response was lost: HMAC-protected lookup of an EXISTING
+// gateway payment. Never replays checkout or creates a new Nexi order.
+async function paymentByRequestKey(requestKey){
+ if(typeof requestKey!=='string'||!/^iradios-stage-[a-f0-9]{24}-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(requestKey))
+  throw Error('Invalid original payment request key');
+ const data=await signedRequest('GET','/api/v1/payments/by-request-key/'+requestKey);
+ return validateGatewayPayment(data);
+}
+module.exports={configured,checkout,paymentStatus,paymentByRequestKey,signedRequest};
