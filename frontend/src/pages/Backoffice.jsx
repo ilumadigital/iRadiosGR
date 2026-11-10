@@ -1454,6 +1454,7 @@ export default function Backoffice(){
           <div className="flex items-center gap-2"><CheckCircle2 size={16}/>{notice.message}</div>
           <button aria-label="Κλείσιμο ειδοποίησης" onClick={()=>setNotice(null)}><X size={16}/></button>
         </div>}
+        <Suspense fallback={<div role="status" className={panel+' p-10 text-center text-[#caff00]'}>Φόρτωση εργαλείου…</div>}>
         <Routes>
           <Route path="/backoffice" element={<Dashboard data={data}/>}/>
           <Route path="/backoffice/stations" element={<Stations data={data} requestDelete={requestDelete}/>}/>
@@ -1476,6 +1477,7 @@ export default function Backoffice(){
              <AdminSandboxPayments API_URL="/api"/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/*" element={<Navigate to="/backoffice" replace/>}/>
         </Routes>
+        </Suspense>
         {admin&&<DeleteStationDialog station={deleteTarget} onClose={closeDelete}
           onDeleted={async()=>{await reload();navigate('/backoffice/stations');}} notify={notify}/>}
       </main>
