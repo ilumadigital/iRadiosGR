@@ -44,6 +44,17 @@ test('Renewal receipt and cancellation must identify product, amount and paid-th
  assert.match(cancelled.html,/Δεν θα πραγματοποιηθούν νέες αυτόματες χρεώσεις/);
  assert.match(cancelled.html,/11 Δεκεμβρίου/);
 });
+test('A declined Nexi MIT charge sends a payment issue notice, never a paid receipt',()=>{
+ const email=broadcasterBillingEmail({...common,sku:'ADD-ADS',
+  amountCents:2990,kind:'failed'});
+ assert.match(email.subject,/αποτυχημένη ανανέωση/);
+ assert.match(email.html,/δεν ολοκληρώθηκε/);
+ assert.match(email.html,/Δεν ενεργοποιήθηκε νέα πληρωμένη περίοδος/);
+ assert.match(email.html,/backoffice\/billing/);
+ assert.doesNotMatch(email.html,/Η συνδρομή σου ανανεώθηκε/);
+ assert.throws(()=>broadcasterBillingEmail({...common,sku:'BOOST-G-WEEK',kind:'failed'}),
+  /One-off Boost/);
+});
 test('Expiry notifications do not promise loss of manually granted station rights',()=>{
  const expired=broadcasterBillingEmail({...common,sku:'ADD-AN',kind:'expired',amountCents:790});
  assert.match(expired.html,/άλλο ενεργό add-on/);
