@@ -57,6 +57,7 @@ Module._load=function(name,parent,isMain){
  if(String(parent?.filename||'').endsWith('/backend/controllers/gatewayBillingController.js')){
   if(name==='../models/BillingOrder')return model;
   if(name==='../models/GatewayWebhookNonce')return nonceModel;
+  if(name==='../models/BillingRenewalSnooze')return {};
   if(name==='../services/ilumaGatewayClient')return {configured:()=>true};
   if(name==='../services/billingEntitlements')return {hasAccountRight:async()=>false};
   if(name==='../services/billingIndexReadiness')return {ensureBillingIndexes:async()=>{}};

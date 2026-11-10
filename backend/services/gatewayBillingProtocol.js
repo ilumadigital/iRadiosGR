@@ -114,16 +114,19 @@ function nextGracePeriod(periodEnd,days=configuredGraceDays()){
  return new Date(end.getTime()+days*86400000);
 }
 function safeOrderStatus(row,now=new Date()){
+ const start=row.periodStartsAt?new Date(row.periodStartsAt):null;
  const end=row.periodEndsAt?new Date(row.periodEndsAt):null;
  const graceEnd=row.graceEndsAt?new Date(row.graceEndsAt):null;
- const effective=row.status==='paid'&&end&&end>now?'active':
+ const effective=row.status==='paid'&&start&&start>now?'scheduled':
+   row.status==='paid'&&end&&end>now?'active':
    row.status==='paid'&&graceEnd&&graceEnd>now?'grace':
    row.status==='paid'?'expired':row.status;
  return {id:String(row._id),sku:row.sku,status:effective,
    providerStatus:row.providerStatus||null,amountCents:row.amountCents,
    currency:row.currency,checkoutUrl:effective==='redirect'?hostedCheckoutUrl(row.checkoutUrl):null,
    gatewayOrderId:row.gatewayOrderId||null,
-   paidAt:row.paidAt||null,periodEndsAt:row.periodEndsAt||null,
+   paidAt:row.paidAt||null,periodStartsAt:row.periodStartsAt||null,
+   periodEndsAt:row.periodEndsAt||null,
    graceEndsAt:row.graceEndsAt||null,
    autoRenew:false,environment:'staging'};
 }

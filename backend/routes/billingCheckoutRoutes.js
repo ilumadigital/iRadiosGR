@@ -12,6 +12,8 @@ router.use((req,res,next)=>{
 });
 router.post('/billing/checkout',protect,controller.checkout);
 router.get('/billing/me/orders',protect,controller.listOwnOrders);
+router.get('/billing/me/renewal-notice',protect,controller.renewalNotice);
+router.post('/billing/me/renewal-notice/snooze',protect,controller.snoozeRenewalNotice);
 router.get('/admin/billing/sandbox-orders',protect,authorizeRoles('admin'),controller.listAdminOrders);
 router.get('/billing/orders/:id',protect,controller.readOrder);
 module.exports=router;

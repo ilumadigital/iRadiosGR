@@ -27,6 +27,7 @@ test('Verified paid L-PREM grants Listener Premium only during the purchased or 
  assert.equal(requestedFilter.accountId,'l1');
  assert.equal(requestedFilter.sku,'L-PREM');
  assert.equal(requestedFilter.status,'paid');
+ assert.deepEqual(requestedFilter.periodStartsAt,{$lte:NOW},'Scheduled future cycle cannot unlock benefits before start');
  assert.deepEqual(requestedFilter.$or,[{periodEndsAt:{$gt:NOW}},{graceEndsAt:{$gt:NOW}}],
   'Paid benefits are available until the purchased period or explicit stored grace deadline');
  assert.equal(requestedFilter.environment,'staging');
