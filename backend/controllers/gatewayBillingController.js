@@ -9,6 +9,9 @@ const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
 const {hasAccountRight}=require('../services/billingEntitlements');
 const {evaluate:winbackPolicy,PROMO_SKU}=require('../services/winbackEligibility');
 const premiumEmails=require('../utils/premiumBillingEmailScheduler');
+const broadcasterPayments=require('./broadcasterBillingController');
+const {BILLING_SKUS}=require('../services/broadcasterPurchaseRules');
+const {broadcasterEventValid}=require('../services/broadcasterPaymentProtocol');
 const {verifyWebhookHeaders,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
  validatePaymentEvent,localStatusFromGatewayLookup,nextGracePeriod}=require('../services/gatewayBillingProtocol');
 
@@ -359,11 +362,20 @@ async function webhook(req,res){
  if(!verified.valid)return res.status(401).json({error:'Invalid webhook signature'});
  let event;
  try{event=JSON.parse(raw.toString('utf8'));}catch{return res.status(400).json({error:'Invalid JSON'});}
- if(!validatePaymentEvent(event,verified.eventId))
-  return res.status(422).json({error:'Invalid payment event'});
+ const broadcaster=BILLING_SKUS.includes(event?.product_sku);
+ const eventValid=broadcaster?
+  broadcasterEventValid(event,verified.eventId):
+  validatePaymentEvent(event,verified.eventId);
+ if(!eventValid)return res.status(422).json({error:'Invalid payment event'});
  await ensureBillingIndexes();
  try{await GatewayWebhookNonce.create({nonce:verified.nonce});}
  catch(error){if(error.code===11000)return res.status(409).json({error:'Webhook nonce replay'});throw error;}
+ // Both product families use the SAME verified HMAC + single-use nonce.
+ // Distinct ledgers and scoped correlation keep Listener Premium unchanged.
+ if(broadcaster){
+  await require('../models/BroadcasterBillingOrder').init();
+  return broadcasterPayments.handleVerifiedEvent(event,res);
+ }
  // An automatic renewal has no browser checkout and therefore no pre-created
  // local BillingOrder. It may ONLY be created from a verified, signed
  // Gateway MIT payment event with an account-scoped external reference.
