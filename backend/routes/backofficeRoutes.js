@@ -12,6 +12,7 @@ const {deleteStationRecord}=require('../services/stationDeletion');
 const {validateStationCategories}=require('../utils/stationCategories');
 const {validateStationLocation}=require('../utils/stationLocations');
 const User=require('../models/User');
+const {hasAccountRight}=require('../services/billingEntitlements');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {hasAcceptedCurrentBroadcasterTerms}=require('../utils/broadcasterTerms');
@@ -207,9 +208,14 @@ router.post('/backoffice/stations',async(req,res)=>{
     if(!cleaned.slug)return res.status(400).json({error:'Συμπλήρωσε το δημόσιο slug του σταθμού.'});
     await ensureSlugAvailable(cleaned.slug);
     if(req.user.role==='broadcaster'){
-      const total=await Station.countDocuments({broadcasterId:req.user._id});
-      const max=Number(req.user.broadcasterProfile?.maxStations||3);
-      if(total>=max)return res.status(403).json({error:'Έχεις φτάσει το όριο σταθμών του λογαριασμού σου.'});
+      const unlimited=await hasAccountRight(req.user,'broadcaster.unlimited_stations');
+      if(!unlimited){
+        const total=await Station.countDocuments({broadcasterId:req.user._id});
+        // Preserve pre-existing manually assigned station limits. A Free plan
+        // cannot delete or disable legacy stations: only NEW creates are gated.
+        const max=Number(req.user.broadcasterProfile?.maxStations||3);
+        if(total>=max)return res.status(403).json({error:'Έχεις φτάσει το όριο σταθμών του λογαριασμού σου.'});
+      }
     }
     const station=await Station.create({
       ...cleaned,logo:'/noicon-iradios-app-logo.png',
