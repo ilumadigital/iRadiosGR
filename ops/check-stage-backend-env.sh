@@ -61,4 +61,14 @@ if grep -q '^IRADIOS_BILLING_SANDBOX_ENABLED=' "$ENV_FILE"; then
     fi
   fi
 fi
+# Days of grace are a deliberate iRadios subscription policy, not a
+# Gateway setting. Omitted means zero days (no unapproved free extension).
+if grep -q '^IRADIOS_BILLING_GRACE_DAYS=' "$ENV_FILE"; then
+  if [[ "$(count_key IRADIOS_BILLING_GRACE_DAYS)" != "1" ]] ||
+     ! grep -Eq '^IRADIOS_BILLING_GRACE_DAYS=([0-9]|1[0-4])
+ "$ENV_FILE"; then
+    echo 'STOP: IRADIOS_BILLING_GRACE_DAYS must be a single integer 0..14.' >&2
+    exit 1
+  fi
+fi
 echo 'Staging backend env safety checks passed (no values printed).'
