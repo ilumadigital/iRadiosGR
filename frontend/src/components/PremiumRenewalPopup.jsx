@@ -22,6 +22,7 @@ export default function PremiumRenewalPopup({currentUser,authReady,API_URL='/api
   .get('premium_popup_preview'):null;
  const demo=['soon','grace','expired'].includes(previewKind)?previewKind:null;
  const [notice,setNotice]=useState(null);
+ const [recurring,setRecurring]=useState(null);
  const [previewClosed,setPreviewClosed]=useState(false);
  const [locallySkipped,setLocallySkipped]=useState(null);
  const [busy,setBusy]=useState(false);
@@ -30,19 +31,29 @@ export default function PremiumRenewalPopup({currentUser,authReady,API_URL='/api
 
  const fetchNotice=useCallback(async()=>{
   if(!eligible)return;
+  const options={
+   headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},
+   cache:'no-store'
+  };
   try{
-   const response=await fetch(API_URL+'/billing/me/renewal-notice',{
-    headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},
-    cache:'no-store'
-   });
-   if(!response.ok){setNotice(null);return;}
-   const data=await response.json();
-   setNotice(data.notice||null);
-  }catch{setNotice(null);}
+   const [noticeResponse,recurringResponse]=await Promise.all([
+    fetch(API_URL+'/billing/me/renewal-notice',options),
+    fetch(API_URL+'/billing/me/recurring-status',options)
+   ]);
+   if(noticeResponse.ok){
+    const data=await noticeResponse.json();
+    setNotice(data.notice||null);
+   }else setNotice(null);
+   if(recurringResponse.ok){
+    const data=await recurringResponse.json();
+    setRecurring(data.recurring||null);
+   }else setRecurring(null);
+  }catch{setNotice(null);setRecurring(null);}
  },[eligible,accountId,API_URL]);
 
  useEffect(()=>{
   setNotice(null);
+  setRecurring(null);
   setLocallySkipped(null);
   setPreviewClosed(false);
   if(!eligible)return;
@@ -106,13 +117,22 @@ export default function PremiumRenewalPopup({currentUser,authReady,API_URL='/api
  if(!shown)return null;
  const expiring=display.kind==='soon';
  const grace=display.kind==='grace';
+ const mandateState=recurring?.state;
+ const hasMit=['active','pending','verification_pending','past_due'].includes(mandateState);
+ // Manual checkout is rejected while a recurring mandate is active.
+ // Unknown Gateway status also goes to Billing rather than suggesting
+ // a potentially overlapping second payment.
+ const billingRequired=hasMit||recurring===null;
+ const autoExec=hasMit&&recurring?.execution_enabled===true;
+ const ctaLabel=demo?'Προβολή Billing — χωρίς πληρωμή':
+  billingRequired?'Διαχείριση συνδρομής στο Billing':'Ανανέωση τώρα';
  const title=expiring?'Το Premium σου λήγει σύντομα':
   grace?'Το Premium σου είναι σε περίοδο χάριτος':'Η συνδρομή σου έληξε';
  const description=expiring
-  ?'Η τρέχουσα συνδρομή σου ολοκληρώνεται μέσα στις επόμενες 24 ώρες. Ανανέωσε τώρα για να συνεχίσεις χωρίς διακοπή.'
+  ?'Η τρέχουσα συνδρομή σου ολοκληρώνεται μέσα στις επόμενες 24 ώρες.'
   :grace
    ?'Η πληρωμένη περίοδος ολοκληρώθηκε, αλλά τα προνόμιά σου διατηρούνται προσωρινά έως το τέλος της χάριτος.'
-   :'Τα Premium προνόμια έχουν απενεργοποιηθεί. Μπορείς να ενεργοποιήσεις νέα μηνιαία περίοδο με ασφαλή πληρωμή Nexi.';
+   :'Τα Premium προνόμια έχουν απενεργοποιηθεί επειδή δεν έχει επιβεβαιωθεί νέα πληρωμένη περίοδος.';
  return <div className="fixed inset-0 z-[10050] flex items-center justify-center px-4 py-7 bg-black/75 backdrop-blur-md"
    role="presentation">
    <section role="dialog" aria-modal="true" aria-labelledby="premium-renewal-popup-title"
@@ -131,6 +151,12 @@ export default function PremiumRenewalPopup({currentUser,authReady,API_URL='/api
      {demo&&<p className="mt-3 text-xs font-bold text-amber-300">ΠΡΟΕΠΙΣΚΟΠΗΣΗ STAGING — Δεν γίνεται πληρωμή</p>}
      <h2 id="premium-renewal-popup-title" className="mt-2 text-2xl sm:text-[28px] leading-tight font-black">{title}</h2>
      <p id="premium-renewal-popup-description" className="mt-3 text-sm leading-6 text-zinc-300">{description}</p>
+     {hasMit&&<p className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
+      {autoExec
+       ?'Έχεις ενεργή αυτόματη ανανέωση Nexi. Δεν απαιτείται δεύτερη χειροκίνητη πληρωμή. Δες την κατάσταση της επόμενης χρέωσης στο Billing.'
+       :'Έχεις εξουσιοδότηση αυτόματης ανανέωσης, όμως οι αυτόματες χρεώσεις Sandbox δεν εκτελούνται ακόμη. Για να αποφύγουμε διπλή χρέωση, διαχειρίσου την από το Billing.'}
+     </p>}
+     {recurring===null&&<p className="mt-4 text-xs leading-5 text-amber-200">Δεν ήταν δυνατός ο έλεγχος του MIT contract. Έλεγξε το Billing πριν ξεκινήσεις νέα πληρωμή.</p>}
      <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
       <div className="flex items-center justify-between gap-3">
        <span className="text-sm text-zinc-300">Ανανέωση ενός μήνα</span>
@@ -139,13 +165,14 @@ export default function PremiumRenewalPopup({currentUser,authReady,API_URL='/api
       <p className="mt-2 text-xs text-zinc-400">
        {expiring?'Τρέχουσα λήξη: '+clock(display.periodEndsAt):
         grace?'Λήξη χάριτος: '+clock(display.graceEndsAt):
-         'Χωρίς αυτόματη χρέωση · Ασφαλές checkout Nexi'}
+         hasMit?'Κατάσταση αυτόματης ανανέωσης: '+(autoExec?'ενεργή':'Sandbox σε έλεγχο'):
+          'Χειροκίνητη αγορά · Ασφαλές checkout Nexi'}
       </p>
      </div>
-     <button type="button" disabled={busy||!!demo}
-      onClick={()=>navigate('/premium')}
+     <button type="button" disabled={busy}
+      onClick={()=>navigate(demo||billingRequired?'/profile?tab=billing':'/premium')}
       className="mt-6 w-full rounded-xl bg-[#ccff00] px-5 py-3.5 text-sm sm:text-base font-black text-black hover:bg-[#deff63] disabled:opacity-50 flex items-center justify-center gap-2">
-      <RefreshCw size={18}/> Ανανέωση τώρα
+      <RefreshCw size={18}/> {ctaLabel}
      </button>
      <button type="button" disabled={busy} onClick={skip}
       className="mt-2 w-full rounded-xl px-5 py-3 text-sm font-bold text-zinc-300 hover:text-white hover:bg-white/5 disabled:opacity-50">
