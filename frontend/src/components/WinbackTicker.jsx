@@ -50,7 +50,7 @@ export default function WinbackTicker({currentUser,API_URL='/api'}){
  return <div role="status" className="relative z-20 flex shrink-0 flex-wrap items-center justify-center gap-x-3 gap-y-2 border-b border-[#ccff00]/25 bg-[#ccff00]/10 px-3 py-2.5 text-center text-xs text-[#f0ffd0] sm:text-sm">
   <Gift size={17} className="shrink-0 text-[#ccff00]" aria-hidden="true"/>
   <span><strong>Επέστρεψε στο Premium με 1,99 € τον πρώτο μήνα!</strong>{' '}
-   Μετά 3,99 €/μήνα εφόσον επιλέξεις αυτόματη ανανέωση.
+   Αυτόματη ανανέωση 3,99 €/μήνα μετά τον πρώτο μήνα, μέχρι να ακυρώσεις.
    {offer?.offerEndsAt&&!preview?' · Έως '+formatDate(offer.offerEndsAt):''}
   </span>
   {preview&&<span className="rounded-md border border-amber-300/35 px-2 py-0.5 text-[10px] font-black text-amber-200">STAGING PREVIEW · ΧΩΡΙΣ ΧΡΕΩΣΗ</span>}
