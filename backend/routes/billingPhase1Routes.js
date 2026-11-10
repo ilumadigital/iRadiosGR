@@ -13,6 +13,7 @@ const {getProduct,listProducts}=require('../config/billingCatalog');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {validateComplimentaryScope,resolveComplimentaryEntitlements,isActiveGrant}=require('../services/billingPolicy');
+const {effectiveRights,legacyRights,activeGrantsFor}=require('../services/billingEntitlements');
 const router=express.Router();
 const admin=[protect,authorizeRoles('admin')];
 const safe=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
@@ -42,13 +43,32 @@ router.get('/billing/me/entitlements',protect,safe(async(req,res)=>{
      await BannerAd.exists({_id:campaignId,agencyId:req.user._id});
    if(!owns)return res.status(403).json({error:'Campaign not owned by account'});
  }
- const grants=await BillingGrant.find({accountId:req.user._id,revokedAt:null}).lean();
+ const now=new Date();
+ const grants=await activeGrantsFor(req.user,now);
  res.json({
-   entitlements:resolveComplimentaryEntitlements(grants,{stationId,campaignId}),
-   source:'admin_complimentary',
+   entitlements:effectiveRights(req.user,grants,{stationId,campaignId,now}),
+   complimentaryEntitlements:resolveComplimentaryEntitlements(grants,{stationId,campaignId,now}),
+   legacyEntitlements:legacyRights(req.user),
    paidSubscriptionsIntegrated:false,
-   note:'Phase-1 grant resolver only. Legacy subscriptions are unaffected.'
+   renewalsAvailable:false
  });
+}));
+
+
+// The frontend may show station-scoped paid tools only for owned stations.
+// All values are computed on the server from the real user and unexpired grants.
+router.get('/billing/me/station-entitlements',protect,safe(async(req,res)=>{
+ if(req.user.role!=='broadcaster' && req.user.role!=='admin')
+   return res.status(403).json({error:'Broadcaster role required'});
+ const stations=await Station.find({broadcasterId:req.user._id}).select('_id').lean();
+ const now=new Date();
+ const grants=await activeGrantsFor(req.user,now);
+ const byStation={};
+ for(const station of stations){
+   const id=String(station._id);
+   byStation[id]=effectiveRights(req.user,grants,{stationId:id,now});
+ }
+ return res.json({byStation,paidSubscriptionsIntegrated:false,renewalsAvailable:false});
 }));
 
 router.get('/admin/billing/subjects',...admin,safe(async(req,res)=>{
