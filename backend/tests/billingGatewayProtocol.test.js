@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const {
  canonicalSignature,headersForRequest,verifyWebhookHeaders,
- hostedCheckoutUrl,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus
+ hostedCheckoutUrl,validateGatewayPayment,validatePaymentEvent,nextMonthlyPeriod,safeOrderStatus
 }=require('../services/gatewayBillingProtocol');
 const secret='a'.repeat(64);
 const key='ilg_'+'b'.repeat(48);
@@ -65,6 +65,20 @@ test('Reject non-Nexi redirects and invalid amount or environment-currency',()=>
  assert.throws(()=>validateGatewayPayment({...valid,amount_cents:398}));
  assert.throws(()=>validateGatewayPayment({...valid,currency:'USD'}));
  assert.throws(()=>validateGatewayPayment({...valid,payment_id:'1'.repeat(32)},{expectedPaymentId:valid.payment_id}));
+});
+test('Only exact signed event body fields can activate Listener Premium',()=>{
+ const e=JSON.parse(payload);
+ assert.equal(validatePaymentEvent(e,eventId,now),true);
+ for(const x of [
+  {...e,event_id:'f'.repeat(32)},
+  {...e,event_type:'payment.pend'},
+  {...e,payment_id:'wrong'},
+  {...e,amount_cents:400},
+  {...e,environment:'production'},
+  {...e,currency:'USD'},
+  {...e,customer_id:null},
+  {...e,occurred_at:'2027-01-01T00:00:00Z'}
+ ])assert.equal(validatePaymentEvent(x,eventId,now),false);
 });
 test('Only verified local paid period reports active entitlement, never redirect or unknown',()=>{
  const row={_id:'a'.repeat(24),sku:'L-PREM',amountCents:399,currency:'EUR',
