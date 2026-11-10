@@ -83,3 +83,64 @@ Redirect, provider checkout response or a client-entered payment ID **never** ac
 - `IRADIOS_BILLING_GRACE_DAYS=0` is the default; set to an explicitly approved integer 1-14 in the staging backend env only if there is a defined commercial grace policy. Its deadline is persisted when the signed `payment.paid` event is processed. Premium expires immediately after the paid period plus that grace; no grace is inferred from an unconfirmed charge.
 - The first month is one-time **without auto renewal**, because gateway MIT/tokenization remains locked. Do not advertise automatic renewal until recurring consent, payment method vaulting and dunning are integrated and tested separately.
 - Historical `unknown` payments (including the first attempt of a test listener) must be reconciled against their original Gateway order ID. Never delete the original payment ledger or reinitiate a new provider charge merely because the card page did not appear.
+
+
+## Manual renewal popups, one-day snooze and early payment
+
+- The iRadios listener-facing app (staging only) displays an account-scoped
+  popup during the **last 24 hours** of an existing verified L-PREM paid
+  period. CTA: **Ανανέωση τώρα** / **Παράλειψη για 1 ημέρα**.
+- Once the purchased period and any configured grace have elapsed, the popup
+  says **Η συνδρομή σου έληξε** and offers manual renewal or the same one-day
+  skip. While the paid month has ended but explicit grace is still active, the
+  popup explains the grace state without describing entitlements as expired.
+- Snooze is persisted in the new `billingrenewalsnoozes` collection,
+  scoped to the authenticated listener and the already-paid cycle. It expires
+  after 24h, including across browsers/devices. **It postpones only popup
+  display, NEVER expiry or account privileges.** No browser-supplied account
+  or payment reference is accepted by the snooze endpoint.
+- Only the final 24h (or grace / already-expired state) can create a new manual
+  checkout for an account that still has paid Premium. The existing unique
+  `lockKey` and idempotency scheme stop duplicate attempts; additional months
+  are never charged automatically. Existing paid Gateway IDs stay immutable.
+- A **new**, verified `payment.paid` webhook from ILUMA Gateway is required to
+  add the next month. If paid before existing expiry, the new month starts at
+  the previous `periodEndsAt`, preventing paid-day overlap. Before that
+  point, the new cycle displays **scheduled**, while the previous cycle keeps
+  the current entitlement alive. After its start, the paid cycle becomes
+  **active**. A renewal after expiry starts when the new payment is confirmed.
+- The browser's `/premium` page fetches renewal eligibility from a server
+  endpoint independently of popup snooze, so a user can renew manually even
+  after selecting skip.
+
+### UI preview without changing financial data
+
+Sign in as a **staging-only verified listener** and open:
+
+- `https://stage.iradios.gr/?premium_popup_preview=soon`
+- `https://stage.iradios.gr/?premium_popup_preview=grace`
+- `https://stage.iradios.gr/?premium_popup_preview=expired`
+
+These front-end previews are explicitly labeled, have a disabled purchase
+button, and **do not create a Gateway checkout** or modify MongoDB dates.
+Closing a preview does not write a real snooze.
+
+### End-to-end manual renewal UAT
+
+1. Test with a sandbox listener whose paid cycle is truly in its final 24h
+   (or use an isolated **staging-only** test fixture and back up the original
+   entitlement dates before modifying them). Do not alter a production order.
+2. Verify popup, clicking skip hides it for 24h in that account (including a
+   new browser); verify expiry still removes entitlement.
+3. Open popup /premium CTA during the last 24h and complete a SECOND Nexi
+   Sandbox HPP purchase. Confirm **new** payment/order IDs at the Gateway and
+   signed `payment.paid` webhook delivery, without auto-charging.
+4. Confirm iRadios stores `renewalOfOrderId` pointing to the prior paid cycle,
+   new `periodStartsAt` equals the prior paid period end if purchased early,
+   period end is one calendar month later, and the previous order still exists.
+5. Confirm the new paid cycle initially says `scheduled` until its
+   `periodStartsAt`, then `active`. A skipped popup never changes either
+   cycle's dates or `accountRights`.
+6. If a checkout is pending/unknown, the popup does NOT start a second payment.
+   Reconcile the original provider order and ensure Gateway event delivery
+   before proceeding. Production remains locked.
