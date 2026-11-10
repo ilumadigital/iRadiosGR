@@ -34,15 +34,15 @@ const server=read('backend/server.js');
 assert.ok(server.includes("stageListenerHeartbeat').heartbeat"));
 assert.ok(!server.includes('stageAutoAcrcloud'));
 const routes=read('backend/routes/stationRoutes.js');
-assert.ok(routes.includes("stageSonovault').stageRecognizeProxy"));
+assert.ok(routes.includes("stageAcrcloud').stageRecognizeProxy"));
 assert.ok(!routes.includes('ACRCLOUD_ACCESS_KEY'));
 assert.ok(!routes.includes('ACRCLOUD_ACCESS_SECRET'));
 assert.ok(!routes.includes('https://')||routes.includes('https://')===false,
   'recognizer must never use a client-supplied URL directly');
-const recognizer=read('backend/utils/stageSonovault.js');
+const recognizer=read('backend/utils/stageAcrcloud.js');
 assert.ok(recognizer.includes('captureAudio(station)'),
   'only the authorized manual provider route captures audio');
-const capture=read('backend/utils/stageSonovaultAudio.js');
+const capture=read('backend/utils/stageAcrcloudAudio.js');
 assert.ok(capture.includes('readPublicUrl(station.stream'),
   'audio is captured from the approved DB stream');
 assert.ok(capture.includes("'-ar','16000'"),
@@ -52,4 +52,4 @@ assert.ok(!recognizer.includes('setInterval('));
 assert.ok(!recognizer.includes('setTimeout('));
 assert.ok(read('backend/utils/stageNativeScanner.js').includes('readCachedNativeMetadata'));
 assert.ok(!server.includes('smartAuto.start()'));
-console.log('Only explicit listener recognition can incur SonoVault credits; passive heartbeat and native metadata remain safe.');
+console.log('Only explicit listener recognition can incur ACRCloud Identify calls; passive heartbeat and native metadata remain safe.');

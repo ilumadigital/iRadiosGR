@@ -97,10 +97,10 @@ async function run(){
   doc.currentAI={raw:'Other Artist - AI Song',artist:'Other Artist',title:'AI Song',
     kind:'auto',recognizedAt:new Date(now+150000),expiresAt:new Date(now+450000)};
   let song=native.snapshotSong(doc,now+180000);
-  assert.equal(song.source,'acrcloud','newer AI can rescue an interrupted native stream');
-  assert.equal(song.title,'Other Artist - AI Song');
+  assert.equal(song.source,'station','automatic ACR results are ignored in manual-only mode');
   doc.currentAI.kind='manual';
   assert.equal(native.snapshotSong(doc,now+180000).source,'acrcloud','manual recognition always wins');
+  assert.equal(native.snapshotSong(doc,now+180000).title,'Other Artist - AI Song');
 
   doc.currentAI.kind='auto';
   doc.currentAI.recognizedAt=new Date(now+60000);
@@ -118,9 +118,13 @@ async function run(){
   assert.equal(invalidClears,1);
   assert.equal(doc.nativeNow,null);
 
+  // Restore a valid manual recognition; expired/automatic records must not
+  // be presented as active when the native metadata disappears.
+  doc.currentAI.kind='manual';
+  doc.currentAI.recognizedAt=new Date(now+150000);
   const nativeRead=response();
   await stage.stageMetadata({query:{stationId:id}},nativeRead);
-  assert.equal(nativeRead.body.source,'acrcloud','AI fallback visible after invalid metadata');
+  assert.equal(nativeRead.body.source,'acrcloud','manual AI fallback visible after invalid metadata');
   assert.equal(upstreamInApi,0);
 
   const source=fs.readFileSync('frontend/src/utils/musicMetadata.js','utf8')
