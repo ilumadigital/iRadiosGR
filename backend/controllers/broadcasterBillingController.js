@@ -280,15 +280,11 @@ async function handleVerifiedEvent(event,res){
  }
  const query={gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
   environment:'staging',sku,amountCents:event.amount_cents,
-  resourceId:product.scopeType==='account'?null:undefined};
- // Boost webhooks have no signed station resource; correlate by both immutable
- // provider IDs AND immutable SKU/amount to the pre-created local order.
- if(product.scopeType==='station')delete query.resourceId;
+  resourceId:product.scopeType==='account'?null:event.resource_id};
+ // Signed Gateway scope is immutable and MUST match the original purchase.
+ // No client-selected station can be substituted after payment confirmation.
  const order=await BroadcasterBillingOrder.findOne(query).lean();
  if(!order)return res.status(503).json({error:'Broadcaster checkout correlation pending'});
- if(product.kind==='subscription'&&
-    String(order.resourceId||'')!==String(event.resource_id||''))
-  return res.status(422).json({error:'Signed resource mismatch'});
  if((order.eventIds||[]).includes(event.event_id))
   return res.json({received:true,duplicate:true});
  const isPaid=event.event_type==='payment.paid';
