@@ -35,6 +35,7 @@ import RadioDiscovery from './components/RadioDiscovery';
 import CarMode from './components/CarMode';
 import CarModePrompt from './components/CarModePrompt';
 import CookieConsent from './components/CookieConsent';
+import PremiumRenewalPopup from './components/PremiumRenewalPopup';
 import ScrollToTop from './components/ScrollToTop';
 import WidgetPlayer from './components/WidgetPlayer';
 import WidgetNow from './components/WidgetNow';
@@ -2028,6 +2029,7 @@ function MainApp() {
         />
       )}
 
+      <PremiumRenewalPopup currentUser={currentUser} authReady={authReady} API_URL={API_URL}/>
       <CookieConsent />
     </div>
   );
