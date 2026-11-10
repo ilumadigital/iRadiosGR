@@ -107,6 +107,21 @@ async function readOrder(req,res){
  return res.json({order:display(row),renewalEnabled:false});
 }
 
+async function listAdminOrders(req,res){
+ const limit=Math.max(1,Math.min(100,Number.parseInt(req.query.limit,10)||50));
+ const rows=await BillingOrder.find({environment:'staging'}).sort({createdAt:-1})
+  .limit(limit).populate('accountId','email username').lean();
+ return res.json({orders:rows.map(row=>({
+  ...display(row),
+  account:{id:String(row.accountId?._id||row.accountId||''),
+    email:row.accountId?.email||'',username:row.accountId?.username||''},
+  gatewayPaymentId:row.gatewayPaymentId||null,gatewayOrderId:row.gatewayOrderId||null,
+  createdAt:row.createdAt,events:(row.eventLog||[]).map(e=>({
+   id:e.id,type:e.type,at:e.at
+  }))
+ })),environment:'staging',autoRenew:false});
+}
+
 async function webhook(req,res){
  if(process.env.APP_ENV!=='staging')
   return res.status(503).json({error:'Staging webhook only'});
@@ -167,4 +182,5 @@ async function webhook(req,res){
 }
 
 module.exports={checkout:safe(checkout),listOwnOrders:safe(listOwnOrders),
+ listAdminOrders:safe(listAdminOrders),
  readOrder:safe(readOrder),webhook:safe(webhook)};
