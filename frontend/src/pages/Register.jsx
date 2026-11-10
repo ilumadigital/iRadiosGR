@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, Mail, Lock, User, ArrowRight, Loader2, KeyRound, CheckCircle2, X, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import useTurnstileSiteKey from '../hooks/useTurnstileSiteKey';
 import AuthShell, { AuthIntro } from '../components/AuthShell';
@@ -16,22 +16,9 @@ export default function Register({ API_URL, setCurrentUser }) {
   const [cfToken, setCfToken] = useState('');
   const turnstileRef = useRef(null);
   
-  // --- OTP STATES ---
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [otpLoading, setOtpLoading] = useState(false);
-
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
   const {siteKey,turnstileError}=useTurnstileSiteKey(BASE_URL);
   const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
-
-  useEffect(() => {
-    const pendingEmail = localStorage.getItem('iradios_pending_otp_email');
-    if (pendingEmail) {
-      setFormData(prev => ({ ...prev, email: pendingEmail }));
-      setShowOtpModal(true);
-    }
-  }, []);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -63,13 +50,11 @@ export default function Register({ API_URL, setCurrentUser }) {
       });
       const data = await res.json().catch(() => ({}));
 
-      if (res.ok) {
-        if (data.requireOtp) {
-          localStorage.setItem('iradios_pending_otp_email', formData.email.trim().toLowerCase());
-          setShowOtpModal(true); 
-        } else {
-          navigate('/login'); 
-        }
+      if (res.ok && data.token && data.user) {
+        localStorage.removeItem('iradios_pending_otp_email');
+        localStorage.setItem('iluma_token', data.token);
+        if (setCurrentUser) setCurrentUser(data.user);
+        navigate('/');
       } else {
         setError(data.error || data.message || `Η εγγραφή απέτυχε (HTTP ${res.status}). Έλεγξε την επαλήθευση Cloudflare και τα στοιχεία σου.`);
         resetTurnstile();
@@ -81,96 +66,11 @@ export default function Register({ API_URL, setCurrentUser }) {
     setLoading(false);
   };
 
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    if (otp.length !== 6) {
-      setError('Ο κωδικός πρέπει να έχει 6 ψηφία.');
-      return;
-    }
-
-    setOtpLoading(true);
-    setError('');
-
-    try {
-      const res = await fetch(`${BASE_URL}/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email.trim().toLowerCase(), otp })
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        localStorage.removeItem('iradios_pending_otp_email');
-        
-        localStorage.setItem('iluma_token', data.token);
-        localStorage.setItem('iluma_user', JSON.stringify(data.user));
-        
-        if (setCurrentUser) setCurrentUser(data.user);
-        
-        setShowOtpModal(false);
-        navigate('/'); 
-      } else {
-        setError(data.error || 'Λάθος κωδικός OTP.');
-      }
-    } catch (err) {
-      setError('Σφάλμα κατά την επαλήθευση.');
-    }
-    setOtpLoading(false);
-  };
-
-  const closeOtpModal = () => {
-    localStorage.removeItem('iradios_pending_otp_email');
-    setShowOtpModal(false);
-    setOtp('');
-  };
-
   return (
     <AuthShell>
       
-      {/* --- OTP MODAL --- */}
-      {showOtpModal && (
-        <div className="ir-auth-overlay fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
-          <div className="ir-auth-modal ir-auth-modal--narrow bg-[#111] border border-[#ccff00]/30 p-10 rounded-[40px] w-full max-w-md shadow-[0_0_50px_rgba(204,255,0,0.1)] text-center animate-in zoom-in-95 relative">
-            <button aria-label="Κλείσιμο επαλήθευσης" onClick={closeOtpModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
-              <X size={20} />
-            </button>
-
-            <div className="w-20 h-20 bg-[#ccff00]/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <KeyRound size={40} className="text-[#ccff00]" />
-            </div>
-            <h2 className="text-3xl font-black text-white mb-2 uppercase italic tracking-wider">Επαληθευση Email</h2>
-            <p className="text-zinc-400 text-sm mb-8">
-              Στείλαμε έναν 6-ψήφιο κωδικό στο <strong>{formData.email}</strong>. 
-              <br/>Ελέγξτε τα εισερχόμενα (ή τα Spam) σας.
-            </p>
-
-            <form onSubmit={handleVerifyOtp} className="space-y-6">
-              <input 
-                type="text" 
-                maxLength="6"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000" autoComplete="one-time-code" inputMode="numeric" aria-label="Κωδικός επιβεβαίωσης"
-                className="w-full bg-black border-2 border-white/10 h-20 rounded-2xl text-center text-4xl font-black text-[#ccff00] tracking-[0.5em] focus:border-[#ccff00] outline-none transition-colors"
-                autoFocus
-              />
-              
-              {error && <div role="alert" className="ir-auth-feedback text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-xl">{error}</div>}
-
-              <button 
-                type="submit" 
-                disabled={otpLoading || otp.length !== 6}
-                className="w-full bg-[#ccff00] text-black font-black py-5 rounded-2xl uppercase tracking-widest text-sm hover:bg-[#b3e600] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {otpLoading ? <Loader2 size={20} className="animate-spin" /> : <><CheckCircle2 size={20}/> ΕΝΕΡΓΟΠΟΙΗΣΗ ΛΟΓΑΡΙΑΣΜΟΥ</>}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* --- REGISTRATION FORM --- */}
-      {!showOtpModal && (
+      {(
         <div className="ir-auth-card w-full max-w-md bg-zinc-900/50 border border-white/10 p-8 rounded-[40px] backdrop-blur-sm relative z-10 my-auto">
           
           <AuthIntro icon={UserPlus} eyebrow="JOIN THE EXPERIENCE" title="Φτιάξε τον λογαριασμό σου" description="Ένα προφίλ. Αμέτρητοι σταθμοί και μουσικές στιγμές." />

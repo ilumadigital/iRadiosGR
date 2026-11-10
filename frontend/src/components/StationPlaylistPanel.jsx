@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ListMusic, Radio, RefreshCw, Music2, Clock3, MoreHorizontal, Copy, ExternalLink } from 'lucide-react';
+import { ListMusic, Radio, RefreshCw, Music2, Clock3, MoreHorizontal, Copy, ExternalLink, MailCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StationListenButton from './StationListenButton';
 import FoundWithAI from './FoundWithAI';
@@ -49,6 +49,7 @@ export default function StationPlaylistPanel({
   // The playlist always belongs to the station displayed in this panel.
   // No independent station selector can drift away from the home hero or current station.
   const chosen=station;
+  const needsEmailVerification=currentUser?.role==='user' && currentUser?.isVerified===false;
   useEffect(()=>{
     setOpenTrackMenu(null);
   },[chosen?._id]);
@@ -62,7 +63,7 @@ export default function StationPlaylistPanel({
     return ()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',close);};
   },[openTrackMenu]);
   useEffect(()=>{
-    if(!currentUser||!chosen?._id){setTracks([]);setError('');previousStationRef.current=null;return;}
+    if(!currentUser||!chosen?._id||needsEmailVerification){setTracks([]);setError('');setLoading(false);previousStationRef.current=null;return;}
     const controller=new AbortController();
     if(previousStationRef.current!==chosen._id){setTracks([]);previousStationRef.current=chosen._id;}
     setLoading(true);setError('');
@@ -76,17 +77,17 @@ export default function StationPlaylistPanel({
       .catch(e=>{if(e.name!=='AbortError'){setError(e.message);setTracks([]);}})
       .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return ()=>controller.abort();
-  },[currentUser?._id,chosen?._id,refresh]);
+  },[currentUser?._id,currentUser?.isVerified,currentUser?.role,chosen?._id,refresh]);
   useEffect(()=>{
-    if(!currentUser||!chosen?._id)return;
+    if(!currentUser||!chosen?._id||needsEmailVerification)return;
     const timer=setInterval(()=>{if(!document.hidden)setRefresh(x=>x+1);},15000);
     return ()=>clearInterval(timer);
-  },[currentUser?._id,chosen?._id]);
+  },[currentUser?._id,currentUser?.isVerified,currentUser?.role,chosen?._id]);
   return (
     <section className={`ir-playlist-panel ir-glass flex min-w-0 flex-col overflow-hidden p-4 sm:p-5 ${compact?'ir-playlist-panel--compact h-full':''} ${sidebar?'ir-playlist-panel--station-sidebar':''} ${mobileShowcase?'ir-playlist-panel--showcase':''}`} aria-label="Πρόσφατα τραγούδια σταθμού">
       {mobileShowcase && <div className="ir-playlist-mobile-heading">
         <h2><Clock3 size={17} aria-hidden="true" /> Τελευταία 12 τραγούδια</h2>
-        <button type="button" onClick={()=>setRefresh(value=>value+1)} disabled={!currentUser||loading}
+        <button type="button" onClick={()=>setRefresh(value=>value+1)} disabled={!currentUser||needsEmailVerification||loading}
           aria-label="Ανανέωση τελευταίων τραγουδιών" title="Ανανέωση">
           <RefreshCw size={16} className={loading?'animate-spin':''}/>
         </button>
@@ -94,7 +95,7 @@ export default function StationPlaylistPanel({
       <div className="ir-playlist-default-heading flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0"><p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-[#ccff00]"><Radio size={14}/> ΠΑΙΖΕΙ ΣΤΟ iRADIOS</p>
           <h2 className="mt-1 text-xl font-black text-white">{currentUser?'Playlist σταθμού':'Συνδέσου στο iRadios για NowPlaying'}</h2></div>
-        <button type="button" title="Ανανέωση playlist" aria-label="Ανανέωση playlist" onClick={()=>setRefresh(n=>n+1)} disabled={!currentUser||loading} className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-[#ccff00] disabled:opacity-40"><RefreshCw size={17} className={loading?'animate-spin':''}/></button>
+        <button type="button" title="Ανανέωση playlist" aria-label="Ανανέωση playlist" onClick={()=>setRefresh(n=>n+1)} disabled={!currentUser||needsEmailVerification||loading} className="rounded-full border border-white/10 p-2 text-zinc-400 hover:text-[#ccff00] disabled:opacity-40"><RefreshCw size={17} className={loading?'animate-spin':''}/></button>
       </div>
       <div className={`ir-playlist-station-summary mt-4 flex min-w-0 shrink-0 items-center gap-3 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/[0.045] p-3 ${sidebar?'flex-wrap':''}`}>
         {chosen?.logo&&<img src={chosen.logo} alt="" className="h-12 w-12 shrink-0 rounded-xl bg-white object-contain p-1"/>}
@@ -109,6 +110,12 @@ export default function StationPlaylistPanel({
         <div className="py-10 text-center"><ListMusic size={30} className="mx-auto mb-3 text-[#ccff00]"/>
           <p className="text-sm text-zinc-300">Συνδέσου στο iRadios για NowPlaying</p>
           <button onClick={()=>navigate('/login')} className="mt-4 rounded-xl border border-[#ccff00]/40 px-5 py-2 text-sm font-bold text-[#ccff00]">Σύνδεση</button>
+        </div>
+      ):needsEmailVerification?(
+        <div className="py-9 px-3 text-center" role="status">
+          <MailCheck size={32} className="mx-auto mb-3 text-amber-300"/>
+          <p className="text-sm font-bold text-white">Επιβεβαίωσε το email σου, για να δεις την playlist του {chosen?.name||'σταθμού'}.</p>
+          <p className="mt-2 text-xs text-zinc-400">Μπορείς να συνεχίσεις κανονικά με όλες τις υπόλοιπες Free λειτουργίες.</p>
         </div>
       ):error?<p role="alert" className="mt-6 text-sm text-red-300">{error}</p>
       :!loading&&!tracks.length?<div className="py-9 text-center">

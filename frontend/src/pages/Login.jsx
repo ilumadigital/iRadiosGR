@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { KeyRound, User, Mail, LogIn, Loader2, CheckCircle2, X, Eye, EyeOff, Send } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
@@ -37,14 +37,6 @@ export default function Login({ API_URL, setCurrentUser }) {
   const {siteKey,turnstileError}=useTurnstileSiteKey(BASE_URL);
   const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
-  useEffect(() => {
-    const pendingEmail = localStorage.getItem('iradios_pending_otp_email');
-    if (pendingEmail) {
-      setUnverifiedEmail(pendingEmail);
-      setShowOtpModal(true);
-    }
-  }, []);
-
   const handleLogin = async (e) => {
     e.preventDefault();
     if (loading) return;
@@ -67,6 +59,7 @@ export default function Login({ API_URL, setCurrentUser }) {
       const data = await res.json().catch(() => ({}));
       
       if (res.ok) {
+        localStorage.removeItem('iradios_pending_otp_email');
         localStorage.setItem('iluma_token', data.token);
         setCurrentUser(data.user);
         

@@ -36,6 +36,7 @@ import CarMode from './components/CarMode';
 import CarModePrompt from './components/CarModePrompt';
 import CookieConsent from './components/CookieConsent';
 import PremiumRenewalPopup from './components/PremiumRenewalPopup';
+import EmailVerificationBanner from './components/EmailVerificationBanner';
 import ScrollToTop from './components/ScrollToTop';
 import WidgetPlayer from './components/WidgetPlayer';
 import WidgetNow from './components/WidgetNow';
@@ -86,6 +87,7 @@ import TermsListeners from './pages/TermsListeners';
 import TermsBroadcasters from './pages/TermsBroadcasters';
 import TermsAgency from './pages/TermsAgency';
 import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 // Settings is unified into Profile; /settings remains a safe legacy redirect.
 import PressKit from './pages/PressKit';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -1839,6 +1841,7 @@ function MainApp() {
       
       <main className="flex-1 flex flex-col min-w-0 bg-zinc-950/20 relative">
         <TopBar setIsMobileMenuOpen={setIsMobileMenuOpen} openSmartSearchRequest={openSmartSearchRequest} stations={stations} weather={weather} handleSearchResultClick={(id) => { const s = stations.find(x => String(x._id) === String(id)); if (s) handleStationSelectWithAds(s); navigate(`/station/${s?.slug || id}`); }} currentUser={currentUser} onLogout={handleLogout} />
+        <EmailVerificationBanner currentUser={currentUser} API_URL={API_URL} onUserUpdated={setCurrentUser} />
         <div id="main-scroll-area" className="flex-1 overflow-y-auto custom-scrollbar pb-44 lg:pb-32" onClick={() => setShowSearchResults(false)}>
         <ScrollToTop />
           <Routes>
@@ -1894,6 +1897,7 @@ function MainApp() {
   ? <SandboxPremium API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />
   : <GoPremium API_URL={API_URL} currentUser={currentUser} />} />
             <Route path="/reset-password/:token" element={<ResetPassword API_URL={API_URL} />} />
+            <Route path="/verify-email" element={<VerifyEmail API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/broadcast" element={<GoBroadcast API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
 
             <Route path="/my-radios" element={
