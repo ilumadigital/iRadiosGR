@@ -10,4 +10,6 @@ router.get('/billing/broadcaster/orders',controller.listOrders);
 router.get('/billing/broadcaster/orders/:id',controller.readOrder);
 router.get('/billing/broadcaster/recurring',controller.recurringStatus);
 router.post('/billing/broadcaster/recurring/cancel',controller.cancel);
+router.get('/billing/broadcaster/premium-boost',controller.premiumBoostSelection);
+router.post('/billing/broadcaster/premium-boost',controller.savePremiumBoostSelection);
 module.exports=router;
