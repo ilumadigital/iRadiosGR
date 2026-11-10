@@ -5,7 +5,7 @@ const gateway=require('../services/ilumaGatewayClient');
 const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
 const {hasAccountRight}=require('../services/billingEntitlements');
 const {verifyWebhookHeaders,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
- validatePaymentEvent}=require('../services/gatewayBillingProtocol');
+ validatePaymentEvent,localStatusFromGatewayLookup}=require('../services/gatewayBillingProtocol');
 
 const safe=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 const CLIENT_KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
@@ -90,19 +90,40 @@ async function readOrder(req,res){
   return res.status(400).json({error:'Μη έγκυρο ID συναλλαγής.'});
  let row=await BillingOrder.findOne({_id:req.params.id,accountId:req.user._id}).lean();
  if(!row)return res.status(404).json({error:'Η συναλλαγή δεν βρέθηκε.'});
- // Refresh is READ-ONLY at Nexi. Never unlock Premium from a browser refresh.
- if(req.query.refresh==='1' && ['pending','redirect','unknown'].includes(row.status) &&
-    row.gatewayPaymentId && (!row.gatewayLastCheckedAt||
+ // A server-signed, read-only Gateway lookup can recover a lost checkout
+ // response using the ORIGINAL idempotency key. It never creates new charges.
+ // Even a confirmed GET status=paid cannot grant Premium: only the webhook can.
+ if(req.query.refresh==='1' &&
+    ['creating','pending','redirect','unknown'].includes(row.status) &&
+    (!row.gatewayLastCheckedAt ||
     Date.now()-new Date(row.gatewayLastCheckedAt).getTime()>20000) && permitted()){
   try{
-   const status=await gateway.paymentStatus(row.gatewayPaymentId,row.gatewayOrderId);
-   const update=await BillingOrder.findOneAndUpdate({
-    _id:row._id,accountId:req.user._id,status:{$in:['pending','redirect','unknown']}
-   },{$set:{providerStatus:status.status,gatewayLastCheckedAt:new Date(),
-    ...(status.status==='redirect'?{checkoutUrl:status.checkout_url}:{})}},{new:true});
-   if(update)row=update;
+   const provider=row.gatewayPaymentId
+    ?await gateway.paymentStatus(row.gatewayPaymentId,row.gatewayOrderId)
+    :await gateway.paymentByRequestKey(row.requestKey);
+   const localStatus=localStatusFromGatewayLookup(provider.status);
+   const change={$set:{
+    gatewayPaymentId:provider.payment_id,gatewayOrderId:provider.order_id,
+    providerStatus:provider.status,status:localStatus,
+    checkoutUrl:provider.status==='redirect'?provider.checkout_url:null,
+    gatewayLastCheckedAt:new Date()
+   }};
+   if(['failed','canceled'].includes(localStatus))change.$unset={lockKey:''};
+   const updated=await BillingOrder.findOneAndUpdate({
+    _id:row._id,accountId:req.user._id,
+    status:{$in:['creating','pending','redirect','unknown']}
+   },change,{new:true});
+   if(updated)row=updated;
   }catch(error){
-   console.warn('[BILLING] Read-only reconciliation unavailable',error.code||error.name);
+   console.warn('[BILLING] Read-only reconciliation unavailable',error.code||error.name||'network');
+   // Missing gateway rows do not authorize any retry: a network attempt may
+   // have happened before the initial response was lost.
+   if(row.status==='creating' && Date.now()-new Date(row.createdAt).getTime()>60000){
+    const unknown=await BillingOrder.findOneAndUpdate({
+     _id:row._id,accountId:req.user._id,status:'creating'
+    },{$set:{status:'unknown',lastErrorCode:'CHECKOUT_UNCONFIRMED'}},{new:true});
+    if(unknown)row=unknown;
+   }
   }
  }
  return res.json({order:display(row),renewalEnabled:false});
