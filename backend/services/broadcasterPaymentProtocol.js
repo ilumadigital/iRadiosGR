@@ -35,7 +35,7 @@ function broadcasterEventValid(event,eventId,now=new Date()){
   if(event.product_sku==='B-PREM'){
    if(event.resource_id!==null)return false;
   }else if(typeof event.resource_id!=='string'||!HEX24.test(event.resource_id))return false;
- }else if(event.resource_id!==undefined&&event.resource_id!==null)return false;
+ }else if(typeof event.resource_id!=='string'||!HEX24.test(event.resource_id))return false;
  if(event.billing_origin!==undefined){
   if(event.billing_origin!=='automatic_renewal'||!isSubscription(event.product_sku)||
    !/^iradios-stage-[a-f0-9]{24}$/.test(event.external_user_id||'')||
