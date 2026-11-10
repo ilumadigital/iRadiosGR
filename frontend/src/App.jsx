@@ -954,6 +954,28 @@ function MainApp() {
     initAuth();
   }, []);
 
+  // Entitlement expiry is enforced by the backend on every access.
+  // Refresh the listener-facing projection after checkout and periodically
+  // so an expired paid/grace window is not left displayed as Premium.
+  useEffect(() => {
+    if(window.location.hostname!=='stage.iradios.gr' || !authReady ||
+      !currentUser || currentUser.role!=='user')return;
+    let stopped=false;
+    const refresh=async()=>{
+      const token=localStorage.getItem('iluma_token');
+      if(!token)return;
+      try{
+        const res=await fetch(`${API_URL}/auth/me`,{
+          headers:{Authorization:`Bearer ${token}`},cache:'no-store'
+        });
+        if(res.ok){const data=await res.json();if(!stopped)setCurrentUser(data);}
+      }catch{/* The next focus/poll will retry. */}
+    };
+    const interval=setInterval(refresh,60000);
+    window.addEventListener('focus',refresh);
+    return()=>{stopped=true;clearInterval(interval);window.removeEventListener('focus',refresh);};
+  },[authReady,currentUser?._id,currentUser?.role]);
+
   const handleToggleFavorite = async (stationId) => {
     if (!currentUser) return showAlert("Συνδεθείτε για να αποθηκεύσετε αγαπημένα!");
     try {
@@ -1848,7 +1870,7 @@ function MainApp() {
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
             <Route path="/premium" element={window.location.hostname==='stage.iradios.gr'
-  ? <SandboxPremium API_URL={API_URL} currentUser={currentUser} />
+  ? <SandboxPremium API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />
   : <GoPremium API_URL={API_URL} currentUser={currentUser} />} />
             <Route path="/reset-password/:token" element={<ResetPassword API_URL={API_URL} />} />
             <Route path="/broadcast" element={<GoBroadcast API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
