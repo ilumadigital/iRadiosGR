@@ -1862,12 +1862,12 @@ function MainApp() {
             } />
             <Route path="/dsp" element={
               <RequireTerms currentUser={currentUser}>
-                {(currentUser?.role === 'admin' || currentUser?.broadcasterProfile?.features?.dspEngine) ? <DSP API_URL={API_URL} currentUser={currentUser} onUpdateDSP={handleUpdateStationDSP} resumeDSP={resumeDSP} /> : <Navigate to="/" />}
+                {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster') ? <DSP API_URL={API_URL} currentUser={currentUser} onUpdateDSP={handleUpdateStationDSP} resumeDSP={resumeDSP} /> : <Navigate to="/" />}
               </RequireTerms>
             } />
             <Route path="/ad-control" element={
               <RequireTerms currentUser={currentUser}>
-                {(currentUser?.role === 'admin' || currentUser?.broadcasterProfile?.features?.adControl) ? <AdControl API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/" />}
+                {(currentUser?.role === 'admin' || currentUser?.role === 'broadcaster') ? <AdControl API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/" />}
               </RequireTerms>
             } />
             <Route path="/upgrade-station" element={

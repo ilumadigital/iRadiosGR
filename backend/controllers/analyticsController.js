@@ -1,18 +1,28 @@
 const Station = require('../models/Station');
 const User = require('../models/User');
+const {hasStationRight}=require('../services/billingEntitlements');
 const StationAnalytics = require('../models/StationAnalytics');
 const Ad = require('../models/Ad');
 
 exports.getBroadcasterAnalytics = async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId);
-    if (user && user.role !== 'admin' && !user.broadcasterProfile?.features?.analytics) {
-       return res.status(403).json({ error: "Premium Analytics Addon is required." });
+    // Entitlements for add-ons are station-scoped. A broadcaster may only
+    // inspect analytics for stations they own and currently have access to.
+    if(!req.user)return res.status(401).json({error:'Χρειάζεται σύνδεση.'});
+    const isAdmin=req.user.role==='admin';
+    if(!isAdmin && (req.user.role!=='broadcaster' ||
+      String(req.user._id)!==String(req.params.userId)))
+      return res.status(403).json({error:'Forbidden'});
+    const stations=await Station.find({broadcasterId:req.params.userId});
+    const eligible=[];
+    for(const station of stations){
+      if(await hasStationRight(req.user,station,'broadcaster.analytics'))
+        eligible.push(station);
     }
+    if(!eligible.length && !isAdmin)
+      return res.status(403).json({error:'Δεν υπάρχει ενεργό Analytics για τους σταθμούς σας.'});
+    const stationIds=eligible.map(s=>s._id.toString());
 
-    const stations = await Station.find({ broadcasterId: req.params.userId });
-    const stationIds = stations.map(s => s._id.toString());
-    
     // 🚀 LIVE MEMORY STATE
     const activeListeners = req.app.get('activeListeners') || {};
     const socketSessions = req.app.get('socketSessions') || {};
@@ -80,7 +90,7 @@ exports.getBroadcasterAnalytics = async (req, res) => {
       .sort((a, b) => b.percentage - a.percentage);
     
     // Advertising statistics
-    const ads = await Ad.find({ broadcasterId: req.params.userId });
+    const ads = await Ad.find({ broadcasterId: req.params.userId, stationId: { $in: stationIds } });
     let totalImpressions = 0;
     let topAdName = "N/A";
     let maxImp = -1;

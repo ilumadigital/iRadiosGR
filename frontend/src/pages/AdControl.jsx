@@ -86,6 +86,8 @@ const LOCATION_DATA = {
 
 export default function AdControl({ API_URL, currentUser }) {
   const [stations, setStations] = useState([]);
+  const [stationEntitlements,setStationEntitlements]=useState({});
+  const [accessError,setAccessError]=useState('');
   const [myAds, setMyAds] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -94,52 +96,69 @@ export default function AdControl({ API_URL, currentUser }) {
   
   // 🟢 ΔΙΟΡΘΩΣΗ: Αλλαγή από targetUrl σε linkUrl
   const [newAd, setNewAd] = useState({
-    title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'first_station', stationId: '', dspPreset: 'OFF',
+    title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'entry', stationId: '', dspPreset: 'OFF',
     targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
   });
 
   const [editingAd, setEditingAd] = useState(null);
 
-  const isPremium = currentUser?.role === 'admin' || currentUser?.broadcasterProfile?.tier === 'premium' || currentUser?.broadcasterProfile?.features?.adControl === true;
+  const mayUseAdControl=stationId=>currentUser?.role==='admin' ||
+    (stationEntitlements[stationId]||[]).includes('broadcaster.ad_control');
+  const isPremium=currentUser?.role==='admin'||stations.some(s=>mayUseAdControl(s._id));
 
   useEffect(() => {
     fetchData();
   }, [currentUser]);
 
-  const fetchData = async () => {
-    if (!currentUser) return;
-    try {
-      const stRes = await fetch(`${API_URL}/broadcaster/${currentUser._id || currentUser.id}/stations`);
-      const stData = await stRes.json();
-      setStations(stData);
-
-      const adRes = await fetch(`${API_URL}/broadcaster/${currentUser._id || currentUser.id}/ads`);
-      const adData = await adRes.json();
-      setMyAds(adData);
-      
-      if (stData.length > 0) setNewAd(prev => ({ ...prev, stationId: stData[0]._id }));
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
+  const fetchData=async()=>{
+    if(!currentUser)return;
+    setLoading(true);setAccessError('');
+    try{
+      const id=currentUser._id||currentUser.id;
+      const headers={Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`};
+      const urls=[`${API_URL}/broadcaster/${id}/stations`,
+        `${API_URL}/broadcaster/${id}/ads`];
+      if(currentUser.role!=='admin')urls.push(`${API_URL}/billing/me/station-entitlements`);
+      const responses=await Promise.all(urls.map(url=>fetch(url,{headers,cache:'no-store'})));
+      if(responses.some(r=>!r.ok))throw Error('Δεν φορτώθηκαν τα δικαιώματα Ad Control.');
+      const [stData,adData]=await Promise.all([responses[0].json(),responses[1].json()]);
+      const rights=currentUser.role==='admin'?{byStation:{}}:await responses[2].json();
+      if(!Array.isArray(stData)||!Array.isArray(adData))throw Error('Μη έγκυρη απάντηση server.');
+      const byStation=rights.byStation||{};
+      setStations(stData);setMyAds(adData);setStationEntitlements(byStation);
+      const firstEligible=stData.find(s=>currentUser.role==='admin'||
+        (byStation[s._id]||[]).includes('broadcaster.ad_control'));
+      setNewAd(prev=>({...prev,stationId:firstEligible?._id||''}));
+    }catch(error){
+      console.error('[AD CONTROL] Load failed',error);
+      setStations([]);setMyAds([]);setStationEntitlements({});
+      setAccessError(error.message);
+    }finally{setLoading(false);}
   };
 
-  const toggleNetworkAds = async (stationId, currentStatus) => {
-    if (!isPremium) return alert('Αυτή η λειτουργία απαιτεί Premium Broadcaster λογαριασμό.');
-    try {
-      const res = await fetch(`${API_URL}/broadcaster/stations/${stationId}/network-ads`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ disableNetworkAds: !currentStatus })
+  const toggleNetworkAds=async(stationId,currentStatus)=>{
+    if(!mayUseAdControl(stationId))
+      return alert('Το Ad Control δεν είναι ενεργό για αυτόν τον σταθμό.');
+    try{
+      const res=await fetch(`${API_URL}/broadcaster/stations/${stationId}/network-ads`,{
+        method:'PUT',headers:{
+          'Content-Type':'application/json',
+          Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`
+        },body:JSON.stringify({disableNetworkAds:!currentStatus})
       });
-      if (res.ok) fetchData();
-    } catch (err) { console.error(err); }
+      if(!res.ok)throw Error((await res.json().catch(()=>({}))).error||'Η αλλαγή απέτυχε.');
+      fetchData();
+    }catch(error){alert(error.message);}
   };
 
   const handleCreateAd = async (e) => {
     e.preventDefault();
     if (!audioFile) {
       alert("Παρακαλώ επιλέξτε ένα αρχείο ήχου (.mp3)");
+      return;
+    }
+    if(!newAd.stationId||!mayUseAdControl(newAd.stationId)){
+      alert('Επίλεξε σταθμό με ενεργό Ad Control.');
       return;
     }
     
@@ -152,8 +171,9 @@ export default function AdControl({ API_URL, currentUser }) {
 
       const uploadRes = await fetch(`${API_URL}/uploads/upload-ad`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${localStorage.getItem('iluma_token')}` 
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('iluma_token')||''}`,
+          'X-iRadios-Station':newAd.stationId
         },
         body: fileData
       });
@@ -197,6 +217,9 @@ export default function AdControl({ API_URL, currentUser }) {
 
   const handleUpdateAd = async (e) => {
     e.preventDefault();
+    if(!editingAd?.stationId||!mayUseAdControl(editingAd.stationId)){
+      alert('Το Ad Control δεν είναι ενεργό για αυτόν τον σταθμό.');return;
+    }
     try {
       const finalLogo = editingAd.logoUrl.trim() === '' ? '/favicon.png' : editingAd.logoUrl;
 
@@ -219,12 +242,17 @@ export default function AdControl({ API_URL, currentUser }) {
   const handleDeleteAd = async (adId) => {
     if(!window.confirm('Διαγραφή αυτού του σποτ;')) return;
     try {
-      await fetch(`${API_URL}/broadcaster/ads/${adId}`, { method: 'DELETE' });
+      const res=await fetch(`${API_URL}/broadcaster/ads/${adId}`, {
+        method:'DELETE',headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`}
+      });
+      if(!res.ok)throw Error((await res.json().catch(()=>({}))).error||'Η διαγραφή απέτυχε.');
       fetchData();
     } catch (err) { console.error(err); }
   };
 
   if (loading) return <div className="p-12 text-white animate-pulse">Φόρτωση...</div>;
+
+  const entitledStations=stations.filter(s=>mayUseAdControl(s._id));
 
   return (
     <div className="p-6 lg:p-12 max-w-6xl mx-auto animate-fade-in pb-40">
@@ -234,6 +262,7 @@ export default function AdControl({ API_URL, currentUser }) {
         <div>
           <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">Ad Control</h1>
           <p className="text-zinc-500 font-bold text-sm tracking-widest uppercase mt-1">Διαχειριση Διαφημισεων & Monetization</p>
+          {accessError&&<p role="alert" className="text-sm text-red-300 mt-2">{accessError}</p>}
         </div>
       </div>
 
@@ -255,10 +284,11 @@ export default function AdControl({ API_URL, currentUser }) {
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  {!isPremium && <Crown size={16} className="text-zinc-600" />}
+                  {!mayUseAdControl(station._id) && <Crown size={16} className="text-zinc-600" />}
                   <button 
                     onClick={() => toggleNetworkAds(station._id, station.disableNetworkAds)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!isPremium ? 'opacity-50 cursor-not-allowed' : ''} ${station.disableNetworkAds ? 'bg-red-500' : 'bg-[#ccff00]'}`}
+                    disabled={!mayUseAdControl(station._id)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${!mayUseAdControl(station._id) ? 'opacity-50 cursor-not-allowed' : ''} ${station.disableNetworkAds ? 'bg-red-500' : 'bg-[#ccff00]'}`}
                   >
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-black transition duration-300 ${station.disableNetworkAds ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
@@ -311,16 +341,17 @@ export default function AdControl({ API_URL, currentUser }) {
               <div>
                 <label className="text-[10px] text-zinc-500 font-black uppercase ml-1 mb-1 block">Σταθμος</label>
                 <select value={newAd.stationId} onChange={e => setNewAd({...newAd, stationId: e.target.value})} className="w-full bg-zinc-900 border border-white/5 h-10 rounded-xl px-3 text-sm text-white focus:border-[#ccff00]/50 outline-none cursor-pointer">
-                  {stations.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                  <option value="">Επιλογή εγκεκριμένου σταθμού</option>
+                  {entitledStations.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-[10px] text-zinc-500 font-black uppercase ml-1 mb-1 block">Συχνοτητα</label>
                 <select value={newAd.frequency} onChange={e => setNewAd({...newAd, frequency: e.target.value})} className="w-full bg-zinc-900 border border-white/5 h-10 rounded-xl px-3 text-sm text-white focus:border-[#ccff00]/50 outline-none cursor-pointer">
-                  <option value="first_station">Στο Play (Pre-roll)</option>
-                  <option value="every_2">Κάθε 2 Αλλαγές</option>
-                  <option value="every_4">Κάθε 4 Αλλαγές</option>
-                  <option value="every_6">Κάθε 6 Αλλαγές</option>
+                  <option value="entry">Στο Play (Pre-roll)</option>
+                  <option value="every_5_stations">Κάθε 5 Αλλαγές</option>
+                  <option value="every_10_stations">Κάθε 10 Αλλαγές</option>
+                  <option value="every_15_stations">Κάθε 15 Αλλαγές</option>
                 </select>
               </div>
               
