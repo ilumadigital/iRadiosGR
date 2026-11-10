@@ -25,6 +25,8 @@ const AdminNewsFeed=lazy(()=>import('./AdminNewsFeed'));
 const AdminPromotedStations=lazy(()=>import('../components/AdminPromotedStations'));
 const AdminEmails=lazy(()=>import('./AdminEmails'));
 const AdminPaid=lazy(()=>import('./AdminPaid'));
+const AdminBillingGrants=lazy(()=>import('./AdminBillingGrants'));
+const AdminSandboxPayments=lazy(()=>import('./AdminSandboxPayments'));
 const AdminRadioSet=lazy(()=>import('./AdminRadioSet'));
 const AdminAdControl=lazy(()=>import('./AdminAdControl'));
 const Boost=lazy(()=>import('./Boost'));
@@ -1423,6 +1425,10 @@ export default function Backoffice(){
           <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
           {['analytics','users','ads','banners','slides','newsfeed','promoted','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
+          <Route path="/backoffice/admin/billing/grants" element={admin?
+             <AdminBillingGrants API_URL="/api"/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/admin/billing/sandbox" element={admin?
+             <AdminSandboxPayments API_URL="/api"/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/*" element={<Navigate to="/backoffice" replace/>}/>
         </Routes>
         {admin&&<DeleteStationDialog station={deleteTarget} onClose={closeDelete}

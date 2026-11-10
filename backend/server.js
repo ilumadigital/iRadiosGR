@@ -65,6 +65,10 @@ app.get('/api/health', (_req, res) => {
 // ⚠️ MIDDLEWARE ORDER (ΚΡΙΣΙΜΟ ΓΙΑ STRIPE)
 // ==============================================================
 app.post('/api/payments/webhook', express.raw({ type: '*/*' }), paymentController.stripeWebhook);
+// Nexi Sandbox webhook must be mounted BEFORE express.json() and staging JWT
+// deny-by-default. Authentication is HMAC over EXACT raw bytes, not a user JWT.
+app.post('/api/gateway/webhook',express.raw({type:'application/json',limit:'64kb'}),
+  require('./controllers/gatewayBillingController').webhook);
 
 app.use(cors());
 app.use(express.json());
@@ -141,6 +145,8 @@ const statsRoutes = require('./routes/stats');
 app.use('/api/payments', paymentRoutes); 
 // Phase-1 catalog + isolated complimentary subscriptions. No charging routes.
 app.use('/api', require('./routes/billingPhase1Routes'));
+// Phase 3: staging-only signed Gateway checkout/status. All other environments fail closed.
+app.use('/api',require('./routes/billingCheckoutRoutes'));
 
 app.use('/api', producerRoutes);
 app.use('/api', require('./routes/backofficeRoutes'));

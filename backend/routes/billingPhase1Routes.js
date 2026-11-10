@@ -14,7 +14,7 @@ const {getProduct,listProducts}=require('../config/billingCatalog');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {validateComplimentaryScope,resolveComplimentaryEntitlements,isActiveGrant}=require('../services/billingPolicy');
-const {effectiveRights,legacyRights,activeGrantsFor}=require('../services/billingEntitlements');
+const {effectiveRights,legacyRights,activeGrantsFor,accountRights}=require('../services/billingEntitlements');
 const router=express.Router();
 const admin=[protect,authorizeRoles('admin')];
 const safe=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
@@ -46,11 +46,16 @@ router.get('/billing/me/entitlements',protect,safe(async(req,res)=>{
  }
  const now=new Date();
  const grants=await activeGrantsFor(req.user,now);
+ const entitlementSet=new Set(effectiveRights(req.user,grants,{stationId,campaignId,now}));
+ // Verified first-cycle L-PREM is read from BillingOrder, not Stripe flags.
+ if(req.user.role==='user'){
+   for(const right of await accountRights(req.user,now))entitlementSet.add(right);
+ }
  res.json({
-   entitlements:effectiveRights(req.user,grants,{stationId,campaignId,now}),
+   entitlements:[...entitlementSet].sort(),
    complimentaryEntitlements:resolveComplimentaryEntitlements(grants,{stationId,campaignId,now}),
    legacyEntitlements:legacyRights(req.user),
-   paidSubscriptionsIntegrated:false,
+   paidSubscriptionsIntegrated:process.env.APP_ENV==='staging' && req.user.role==='user', // L-PREM first-cycle only
    renewalsAvailable:false
  });
 }));

@@ -65,6 +65,7 @@ import AdminNewsFeed from './pages/AdminNewsFeed';
 import NewPush from './pages/NewPush';
 import AdminAds from './pages/AdminAds';
 import GoPremium from './pages/GoPremium';
+import SandboxPremium from './pages/SandboxPremium';
 import DSP from './pages/DSP';
 import Profile from './pages/Profile';
 import MySchedules from './pages/MySchedules';
@@ -1846,7 +1847,9 @@ function MainApp() {
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
-            <Route path="/premium" element={<GoPremium API_URL={API_URL} currentUser={currentUser} />} />
+            <Route path="/premium" element={window.location.hostname==='stage.iradios.gr'
+  ? <SandboxPremium API_URL={API_URL} currentUser={currentUser} />
+  : <GoPremium API_URL={API_URL} currentUser={currentUser} />} />
             <Route path="/reset-password/:token" element={<ResetPassword API_URL={API_URL} />} />
             <Route path="/broadcast" element={<GoBroadcast API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
 
@@ -2006,6 +2009,8 @@ function AppContent(){
     '/admin/banners':'/backoffice/admin/banners',
     '/admin/home-slides':'/backoffice/admin/slides',
     '/admin/billing':'/backoffice/admin/billing',
+    '/admin/billing/grants':'/backoffice/admin/billing/grants',
+    '/admin/billing/sandbox':'/backoffice/admin/billing/sandbox',
     '/admin/emails':'/backoffice/admin/emails',
     '/admin/boost':'/backoffice/admin/boost',
     '/admin/ad-control':'/backoffice/admin/adcontrol',

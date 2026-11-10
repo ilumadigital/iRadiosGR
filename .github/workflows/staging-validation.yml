@@ -36,6 +36,12 @@ jobs:
         run: node --test backend/tests/billingPhase2.test.js
       - name: Verify expiry gating of station DSP and network ads without deleting presets
         run: node --test backend/tests/billingStationPlayback.test.js
+      - name: Verify Nexi Sandbox HMAC, signed webhook boundaries and monthly period rules
+        run: node --test backend/tests/billingGatewayProtocol.test.js
+      - name: Verify atomic signed payment activation, duplicate events and replay protection
+        run: node --test ops/check-billing-gateway-webhook.test.cjs
+      - name: Verify only confirmed paid or complimentary entitlements unlock Listener Premium
+        run: node --test ops/check-billing-paid-entitlements.test.cjs
       - name: Check staging radio proxy URL safety
         run: node ops/check-stage-stream-proxy.cjs
       - name: Verify public staging API access boundaries
