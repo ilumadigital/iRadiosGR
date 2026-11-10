@@ -52,13 +52,14 @@ function signedRequest(method,path,data=null,idempotencyKey=null){
   req.end(raw);
  });
 }
-async function checkout({user,requestKey,cardChoice={}}){
+async function checkout({user,requestKey,cardChoice={},sku='L-PREM',winbackExpiredAt=null}){
  if(!configured())throw unavailable();
  const first=String(user.fname||'').trim(),last=String(user.lname||'').trim();
  const response=await signedRequest('POST',GATEWAY_CHECKOUT_PATH,{
    customer_id:'iradios-stage-'+String(user._id),
-   product_sku:'L-PREM',name:([first,last].filter(Boolean).join(' ')||String(user.username||'Listener')).slice(0,250),
+   product_sku:sku,name:([first,last].filter(Boolean).join(' ')||String(user.username||'Listener')).slice(0,250),
    email:String(user.email||'').trim(),
+   ...(sku==='L-WINBACK-199'?{winback_expired_at:winbackExpiredAt}:{}),
    ...(cardChoice.autoRenew===true?{
       auto_renew:true,recurring_consent_version:'iradios-mit-monthly-v1'
    }:{ }),
@@ -66,20 +67,30 @@ async function checkout({user,requestKey,cardChoice={}}){
      save_card:true,card_consent_version:'iradios-stored-card-v1'
    }:cardChoice.useSavedCard===true?{use_saved_card:true}:{})
  },requestKey);
- return validateGatewayPayment(response);
+ return validateGatewayPayment(response,{expectedAmountCents:sku==='L-WINBACK-199'?199:399});
 }
-async function paymentStatus(paymentId,orderId){
+async function paymentStatus(paymentId,orderId,expectedAmountCents=399){
  if(!PAYMENT_ID.test(paymentId||''))throw Error('Invalid gateway payment id');
  const data=await signedRequest('GET','/api/v1/payments/'+paymentId);
- return validateGatewayPayment(data,{expectedPaymentId:paymentId,expectedOrderId:orderId});
+ return validateGatewayPayment(data,{expectedPaymentId:paymentId,expectedOrderId:orderId,
+  expectedAmountCents});
 }
 // Recovery after the response was lost: HMAC-protected lookup of an EXISTING
 // gateway payment. Never replays checkout or creates a new Nexi order.
-async function paymentByRequestKey(requestKey){
+async function paymentByRequestKey(requestKey,expectedAmountCents=399){
  if(typeof requestKey!=='string'||!/^iradios-stage-[a-f0-9]{24}-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(requestKey))
   throw Error('Invalid original payment request key');
  const data=await signedRequest('GET','/api/v1/payments/by-request-key/'+requestKey);
- return validateGatewayPayment(data);
+ return validateGatewayPayment(data,{expectedAmountCents});
+}
+async function winbackStatus(user){
+ if(!user?._id)throw Error('Authenticated user required');
+ const data=await signedRequest('POST','/api/v1/winback/status',{
+  customer_id:'iradios-stage-'+String(user._id)
+ });
+ if(!data||!['none','pending','redeemed','unavailable'].includes(data.state)||
+   typeof data.used!=='boolean')throw Error('Invalid Gateway winback status');
+ return data;
 }
 async function savedCardStatus(user){
  if(!user?._id)throw Error('Authenticated account required');
@@ -126,5 +137,5 @@ async function paymentHistory(user){
   throw Error('Invalid billing history');
  return data.payments;
 }
-module.exports={configured,checkout,paymentStatus,paymentByRequestKey,signedRequest,
+module.exports={configured,checkout,paymentStatus,paymentByRequestKey,winbackStatus,signedRequest,
  savedCardStatus,revokeSavedCard,recurringStatus,cancelRecurring,paymentHistory};

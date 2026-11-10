@@ -152,6 +152,7 @@ function stagePublicAccess(req, res, next) {
   if(req.method==='POST'&&path==='/api/billing/me/recurring/cancel')return protect(req,res,next);
   if (req.method==='GET'&&(path==='/api/billing/me/orders'||
     path==='/api/billing/me/renewal-notice'||
+    path==='/api/billing/me/winback'||
     path==='/api/billing/me/recurring-status'||
     path==='/api/billing/me/payment-method'||
     path==='/api/billing/me/overview'||

@@ -4,9 +4,9 @@ const mongoose=require('mongoose');
 // No payment card data and no synthetic financial transaction records.
 const schema=new mongoose.Schema({
  accountId:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true,index:true},
- sku:{type:String,enum:['L-PREM'],required:true},
+ sku:{type:String,enum:['L-PREM','L-WINBACK-199'],required:true},
  environment:{type:String,enum:['staging'],required:true,default:'staging',immutable:true},
- amountCents:{type:Number,required:true,enum:[399],immutable:true},
+ amountCents:{type:Number,required:true,enum:[199,399],immutable:true},
  currency:{type:String,enum:['EUR'],default:'EUR',immutable:true},
  requestKey:{type:String,required:true,unique:true,immutable:true},
  // Only OPEN checkout intents own this unique lock. Always $unset on terminal state.
