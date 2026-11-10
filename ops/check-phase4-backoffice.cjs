@@ -86,6 +86,11 @@ Module._load=function(name,parent,isMain){
     // XML synchronizer is validated separately and must not boot cron/network during role-contract tests.
     if(name==='../services/stationScheduleFeed')return {loadFeed:async()=>{},publicPreview:()=>({}),syncOne:async()=>({}),startCron:()=>{}};
     if(name==='../models/User')return User;
+    // Phase-2 billing resolver checks the same account permission before
+    // allowing NEW stations; mock only the entitlement boundary offline.
+    if(name==='../services/billingEntitlements')
+      return {hasAccountRight:async(user,right)=>right==='broadcaster.unlimited_stations' &&
+        user?.broadcasterProfile?.tier==='premium'};
     if(name==='../utils/authMiddleware')return {protect:auth};
     if(name==='../utils/roleMiddleware')return {authorizeRoles:roles};
     if(name==='../utils/broadcasterTerms')return {
