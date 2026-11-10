@@ -28,6 +28,12 @@ export default function AdminEmails({ API_URL }) {
     {id:'stationRejected',label:'Διόρθωση σταθμού'},
     {id:'broadcasterPremium',label:'Premium Broadcaster'},
     {id:'listenerPremium',label:'Premium Listener'},
+    {id:'premiumWelcome',label:'Premium · Καλωσόρισμα & προνόμια'},
+    {id:'premiumSoon',label:'Premium · Λήγει σύντομα'},
+    {id:'premiumGrace',label:'Premium · Περίοδος χάριτος'},
+    {id:'premiumCancelled',label:'Premium · Ακύρωση ανανέωσης'},
+    {id:'premiumExpired',label:'Premium · Λήξη συνδρομής'},
+    {id:'premiumWinback',label:'Premium · Προσφορά επιστροφής 1,99 €'},
     {id:'notification',label:'Email ειδοποίησης'},
     {id:'custom',label:'Δικό μου email'}
   ];

@@ -11,6 +11,9 @@ const connectDB = require('./config/db');
 connectDB(); // Σύνδεση στη MongoDB
 // Real listener alerts are event-driven and never run in isolated staging.
 require('./utils/listenerNotificationScheduler').start();
+// Staging Premium billing emails use Mailpit; never enable the production
+// general notification dispatcher from this isolated financial scheduler.
+require('./utils/premiumBillingEmailScheduler').start();
 
 // --- 2. IMPORT MODELS & CONTROLLERS ---
 const User = require('./models/User');

@@ -6,6 +6,8 @@ const BENEFITS=[
  {label:'Βασική ανακάλυψη περιεχομένου',desc:'Κατηγορίες και εκπομπές',free:true,premium:true},
  {label:'Χωρίς in-app διαφημίσεις iRadios',desc:'Πιο καθαρή εμπειρία στην εφαρμογή',free:false,premium:true},
  {label:'Music Radar',desc:'Χειροκίνητη αναγνώριση τραγουδιών',free:false,premium:true},
+ {label:'1Click to Spotify Search',desc:'Αναζήτηση του τραγουδιού στο Spotify με ένα πάτημα',free:false,premium:true},
+ {label:'1Click to Apple Music Search',desc:'Αναζήτηση του τραγουδιού στο Apple Music με ένα πάτημα',free:false,premium:true},
  {label:'Audio DSP & ισοσταθμιστής',desc:'Προσαρμοσμένη επεξεργασία ήχου όπου υποστηρίζεται',free:false,premium:true},
  {label:'Ενισχυμένες επιλογές ακρόασης',desc:'Πρόσθετα εργαλεία Premium',free:false,premium:true}
 ];

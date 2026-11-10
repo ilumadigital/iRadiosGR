@@ -333,93 +333,13 @@ const broadcasterPremiumSuccessEmail = (userName, planName, amount) => {
   };
 };
 
-// 🟢 ΝΕΟ: Template για Ενεργοποίηση Listener Premium
-const listenerPremiumSuccessEmail = (userName, amount) => {
-  const appUrl = `${FRONTEND_URL}/`;
-
-  const content = `
-    <div style="text-align: center; margin-bottom: 20px;">
-      <span style="background: rgba(204,255,0,0.1); color: #ccff00; padding: 5px 15px; border-radius: 50px; font-size: 10px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; border: 1px solid rgba(204,255,0,0.2);">
-        Premium Activated
-      </span>
-    </div>
-    
-    <h3 style="text-align: center; font-style: italic;">Καλωσήρθες στο iRadios Premium! 🎧</h3>
-    
-    <p>Γεια σου <strong>${escapeHtml(userName)}</strong>,</p>
-    
-    <p>Η συνδρομή σου ενεργοποιήθηκε με επιτυχία! Πλέον ανήκεις στην ελίτ των ακροατών μας. Σε ευχαριστούμε που στηρίζεις το <strong>iRadios Network</strong>.</p>
-    
-    <div style="background-color: #000; padding: 25px; border-radius: 20px; border: 1px solid #333; margin: 30px 0; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
-      <p style="margin-top: 0; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #222; padding-bottom: 10px;">Στοιχεια Συναλλαγης</p>
-      
-      <table width="100%" style="color: #ccc; font-size: 14px;">
-        <tr>
-          <td style="padding: 5px 0;">Πακέτο:</td>
-          <td style="text-align: right; color: #fff; font-weight: 800;">iRadios Premium (Listener)</td>
-        </tr>
-        <tr>
-          <td style="padding: 5px 0;">Ποσό:</td>
-          <td style="text-align: right; color: #ccff00; font-weight: 800;">${escapeHtml(amount)}€ /μήνα</td>
-        </tr>
-        <tr>
-          <td style="padding: 5px 0;">Κατάσταση:</td>
-          <td style="text-align: right; color: #ccff00; font-weight: 800;">Ενεργό</td>
-        </tr>
-      </table>
-    </div>
-
-    <div style="background-color: #1a1a1a; padding: 30px; border-radius: 24px; border: 1px solid rgba(204,255,0,0.2);">
-      <h4 style="color: #ccff00; margin-top: 0; margin-bottom: 20px; font-size: 18px; text-transform: uppercase; letter-spacing: 1px;">Elite Access: Η Απολυτη Εμπειρια</h4>
-      
-      <div style="space-y: 20px;">
-        
-        <div style="margin-bottom: 20px;">
-          <p style="color: #fff; font-weight: 800; margin-bottom: 5px; font-size: 15px;">🚫 Zero Interruptions</p>
-          <p style="color: #aaa; font-size: 13px; margin-top: 0;">Η μουσική σου, χωρίς διακοπές. Σκοτώνουμε κάθε in-app ηχητικό σποτ πριν ή ενδιάμεσα στην ακρόαση.</p>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <p style="color: #fff; font-weight: 800; margin-bottom: 5px; font-size: 15px;">📱 iRadios Connect</p>
-          <p style="color: #aaa; font-size: 13px; margin-top: 0;">Άλλαξε συσκευή χωρίς να χάσεις δευτερόλεπτο. Το κινητό σου γίνεται το απόλυτο τηλεχειριστήριο για τον υπολογιστή σου.</p>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <p style="color: #fff; font-weight: 800; margin-bottom: 5px; font-size: 15px;">🤖 Live AI Music Radar</p>
-          <p style="color: #aaa; font-size: 13px; margin-top: 0;">Τέρμα τα "άγνωστα" κομμάτια. Το AI μας σκανάρει τον ήχο και σου γράφει ακαριαία ποιο τραγούδι παίζει live.</p>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <p style="color: #fff; font-weight: 800; margin-bottom: 5px; font-size: 15px;">🟢 1-Click Spotify</p>
-          <p style="color: #aaa; font-size: 13px; margin-top: 0;">Αναγνώρισες μια κομματάρα; Άνοιξέ τη και αποθήκευσέ τη στην αγαπημένη σου playlist με ένα μόνο πάτημα.</p>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <p style="color: #fff; font-weight: 800; margin-bottom: 5px; font-size: 15px;">🎚️ Studio-Grade EQ</p>
-          <p style="color: #aaa; font-size: 13px; margin-top: 0;">Πάρε τον έλεγχο του ήχου στα χέρια σου. Προσάρμοσε το μπάσο ή ενεργοποίησε το 3D Spatial Audio.</p>
-        </div>
-
-        <div style="margin-bottom: 0;">
-          <p style="color: #fff; font-weight: 800; margin-bottom: 5px; font-size: 15px;">🚗 Smart Car Mode</p>
-          <p style="color: #aaa; font-size: 13px; margin-top: 0;">Οδήγησε με ασφάλεια. Minimal, σκοτεινό περιβάλλον με τεράστια κουμπιά για να μη χάνεις την προσοχή σου.</p>
-        </div>
-
-      </div>
-    </div>
-
-    <div style="text-align: center; margin-top: 40px;">
-      <a href="${escapeHtml(appUrl)}" class="btn">ΑΚΟΥΣΤΕ ΤΩΡΑ</a>
-    </div>
-
-    <p style="text-align: center; color: #555; font-size: 11px; margin-top: 30px;">
-        Μπορείτε να διαχειριστείτε ή να ακυρώσετε τη συνδρομή σας ανά πάσα στιγμή μέσα από τις ρυθμίσεις του προφίλ σας.
-    </p>
-  `;
-  
-  return { 
-    subject: `🎧 Καλωσήρθες στο iRadios Premium!`, 
-    html: baseTemplate(content, 'LISTENER · PREMIUM') 
-  };
+// Shared current Premium onboarding: never advertise retired or unavailable
+// features from the previous generic Listener Premium template.
+const {premiumBillingEmail}=require('./premiumBillingEmailTemplates');
+const listenerPremiumSuccessEmail=(userName,amount='3.99')=>{
+ const cents=Math.round(Number.parseFloat(String(amount).replace(',','.'))*100);
+ return premiumBillingEmail({kind:'welcome',name:userName,
+  amountCents:cents===199?199:399});
 };
 
 module.exports = {
