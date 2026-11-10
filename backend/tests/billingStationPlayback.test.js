@@ -58,3 +58,38 @@ test('Unrelated station grant cannot mask another stations settings',()=>{
  assert.equal(result.dspPreset,'OMNIA');
  assert.equal(result.disableNetworkAds,true);
 });
+
+const paidOrder=(sku,id='station-1',extra={})=>({
+ accountId:'owner-1',sku,resourceId:sku==='B-PREM'?null:id,
+ scopeType:sku==='B-PREM'?'account':'station',environment:'staging',
+ status:'paid',periodStartsAt:new Date('2026-11-10T00:00:00Z'),
+ periodEndsAt:new Date('2026-12-10T00:00:00Z'),...extra
+});
+test('One-off Boost must not disable unrelated legacy DSP and Ad Control presets',()=>{
+ const actual=maskStationPaidControls(station,owner,[],now,[paidOrder('BOOST-G-DAY')]);
+ assert.equal(actual.dspPreset,'OMNIA');
+ assert.equal(actual.disableNetworkAds,true);
+ assert.equal(actual.commercialBoost.priority,200);
+});
+test('Purchased add-on for station A never disables legacy presets for station B',()=>{
+ const other={...station,_id:'station-2'};
+ const actual=maskStationPaidControls(other,owner,[],now,[paidOrder('ADD-DSP')]);
+ assert.equal(actual.dspPreset,'OMNIA');
+ assert.equal(actual.disableNetworkAds,true);
+});
+test('Expired DSP paid order masks its original station without deleting the preset',()=>{
+ const actual=maskStationPaidControls(station,owner,[],now,[
+  paidOrder('ADD-DSP','station-1',{periodEndsAt:new Date('2026-11-14T00:00:00Z')})
+ ]);
+ assert.equal(actual.dspPreset,'OFF');
+ assert.equal(actual.disableNetworkAds,false);
+ assert.equal(station.dspPreset,'OMNIA');
+});
+test('Premium boost requires explicit station selection',()=>{
+ const premium={...owner,broadcasterProfile:{tier:'premium',
+  premiumBoostStationIds:['station-1'],features:{}}};
+ const current=maskStationPaidControls(station,premium,[],now,[]);
+ assert.equal(current.commercialBoost.priority,100);
+ const other=maskStationPaidControls({...station,_id:'station-2'},premium,[],now,[]);
+ assert.equal(other.commercialBoost.priority,0);
+});
