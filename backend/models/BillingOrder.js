@@ -13,6 +13,9 @@ const schema=new mongoose.Schema({
  lockKey:{type:String,default:undefined},
  // Previous paid cycle for manual renewal; never overwrites the first payment.
  renewalOfOrderId:{type:mongoose.Schema.Types.ObjectId,ref:'BillingOrder',default:undefined,immutable:true},
+ // signed Gateway payment is the sole authority for an automatically renewed period.
+ billingOrigin:{type:String,enum:['checkout','automatic_renewal'],default:'checkout',immutable:true},
+ autoRenewRequested:{type:Boolean,default:false,immutable:true},
  gatewayPaymentId:{type:String,default:undefined},
  gatewayOrderId:{type:String,default:undefined},
  checkoutUrl:{type:String,default:null},
