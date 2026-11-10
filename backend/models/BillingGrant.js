@@ -14,7 +14,8 @@ const schema=new mongoose.Schema({
   revokedAt:{type:Date,default:null},
   revokedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User',default:null},
   revokeReason:{type:String,default:'',maxlength:500},
-  requestId:{type:String,required:true,unique:true,immutable:true}
+  requestId:{type:String,required:true,unique:true,immutable:true},
+  requestFingerprint:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/}
 },{timestamps:true,strict:true});
 schema.index({accountId:1,sku:1,scopeType:1,resourceId:1,revokedAt:1});
 module.exports=mongoose.model('BillingGrant',schema);
