@@ -141,8 +141,19 @@ export default function BroadcasterBillingDashboard({stations=[]}){
         <button type="button" disabled={Boolean(busy)}
          onClick={()=>void loadMandate(row)} className="rounded-xl border border-white/20 px-4 py-2.5 text-xs font-bold">
          Κατάσταση ανανέωσης</button>}
-       {mandate&&<span className="rounded-xl border border-white/10 bg-white/[.04] px-4 py-2.5 text-xs text-zinc-300">
-        Αυτόματη ανανέωση: {mandate.state==='active'?'Ενεργή':mandate.state==='cancelled'?'Ακυρωμένη':mandate.state}</span>}
+       {mandate&&<span className={'rounded-xl border px-4 py-2.5 text-xs '+(mandate.state==='past_due'
+       ?'border-amber-400/30 bg-amber-400/10 font-black text-amber-200'
+       :'border-white/10 bg-white/[.04] text-zinc-300')}>
+        Αυτόματη ανανέωση: {mandate.state==='active'?'Ενεργή':
+          mandate.state==='cancelled'?'Ακυρωμένη':
+          mandate.state==='past_due'?'Αποτυχημένη τελευταία χρέωση':
+          mandate.state==='verification_pending'?'Αναμονή επιβεβαίωσης Nexi':mandate.state}</span>}
+      {mandate?.state==='past_due'&&<p role="alert"
+        className="w-full text-xs leading-6 text-amber-200">
+        Δεν επιβεβαιώθηκε η τελευταία αυτόματη χρέωση. Δεν έγινε νέα αυτόματη προσπάθεια.
+        Η προηγούμενη πληρωμένη περίοδος ισχύει μέχρι την αναγραφόμενη λήξη.
+        Μπορείς να ακυρώσεις την ανανέωση από εδώ ή να επικοινωνήσεις με την υποστήριξη.
+      </p>}
        {sub&&mandate&&recurringStates.includes(mandate.state)&&
         <button onClick={()=>setConfirm(row)} className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-2.5 text-xs font-bold text-rose-300">
           Διακοπή ανανέωσης</button>}
