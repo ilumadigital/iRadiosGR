@@ -85,6 +85,14 @@ function validatePaymentEvent(body,eventId,now=new Date()){
  return Number.isFinite(occurredAt)&&occurredAt>Date.UTC(2020,0,1)&&
    occurredAt<=now.getTime()+300000;
 }
+// A signed Gateway GET can confirm provider status, but only the authenticated
+// payment.paid WEBHOOK activates the local subscription.
+function localStatusFromGatewayLookup(providerStatus){
+ if(providerStatus==='paid')return 'pending';
+ if(['pending','redirect','unknown','failed','canceled'].includes(providerStatus))
+  return providerStatus;
+ throw Error('gateway_bad_status');
+}
 function nextMonthlyPeriod(start){
  const d=new Date(start);
  if(!Number.isFinite(d.getTime()))throw Error('Invalid period start');
@@ -104,5 +112,5 @@ function safeOrderStatus(row,now=new Date()){
    autoRenew:false,environment:'staging'};
 }
 module.exports={canonicalSignature,headersForRequest,verifyWebhookHeaders,
-  hostedCheckoutUrl,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
+  hostedCheckoutUrl,validateGatewayPayment,localStatusFromGatewayLookup,nextMonthlyPeriod,safeOrderStatus,
   PAYMENT_ID,ORDER_ID,EVENT_ID,WEBHOOK_PATH,GATEWAY_CHECKOUT_PATH,validatePaymentEvent};
