@@ -18,8 +18,8 @@ const safe=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
 function requiresBroadcaster(req,res,next){
  res.set('Cache-Control','private, no-store');
  if(!ready())return res.status(503).json({code:'STAGING_ONLY',error:'Οι αγορές Broadcaster δεν είναι διαθέσιμες.'});
- if(req.user?.role!=='broadcaster'||req.user.isVerified!==true)
-  return res.status(403).json({error:'Απαιτείται επιβεβαιωμένος Broadcaster.'});
+ if(req.user?.role!=='broadcaster')
+  return res.status(403).json({error:'Απαιτείται λογαριασμός Broadcaster.'});
  next();
 }
 async function ownedApprovedStation(user,stationId){
@@ -29,6 +29,8 @@ async function ownedApprovedStation(user,stationId){
 }
 function display(row){return safeBroadcasterOrder(row);}
 async function checkout(req,res){
+ if(req.user.isVerified!==true)
+  return res.status(403).json({error:'Επιβεβαίωσε το email σου πριν την αγορά.'});
  const payload=req.body||{};
  if(!payload||Array.isArray(payload)||typeof payload!=='object'||
   Object.keys(payload).some(k=>!['sku','stationId','autoRenew'].includes(k)))
@@ -171,12 +173,22 @@ async function readOrder(req,res){
  }
  return res.json({order:display(order)});
 }
+async function canManageSubscription(user,sku,stationId){
+ if(!ID.test(String(stationId||'')))return false;
+ if(await Station.exists({_id:stationId,broadcasterId:user._id}))return true;
+ // A removed or transferred station must not trap its former payer in MIT.
+ // The existing verified checkout is enough to authorize cancellation.
+ return Boolean(await BroadcasterBillingOrder.exists({
+  accountId:user._id,resourceId:stationId,sku,autoRenewRequested:true,
+  environment:'staging'
+ }));
+}
 async function recurringStatus(req,res){
  const {sku,stationId=null}=req.query;
  if(!SUBSCRIPTION_SKUS.includes(sku))
   return res.status(400).json({error:'Invalid subscription SKU'});
  const p=getProduct(sku);
- if(p.scopeType==='station'&&!await ownedApprovedStation(req.user,stationId))
+ if(p.scopeType==='station'&&!await canManageSubscription(req.user,sku,stationId))
   return res.status(403).json({error:'Station not owned'});
  if(p.scopeType==='account'&&stationId!==null)
   return res.status(400).json({error:'Account plan has no station'});
@@ -189,7 +201,7 @@ async function cancel(req,res){
     !SUBSCRIPTION_SKUS.includes(sku))
   return res.status(400).json({error:'Invalid cancellation input'});
  const p=getProduct(sku);
- if(p.scopeType==='station'&&!await ownedApprovedStation(req.user,stationId))
+ if(p.scopeType==='station'&&!await canManageSubscription(req.user,sku,stationId))
   return res.status(403).json({error:'Station not owned'});
  if(p.scopeType==='account'&&stationId!==null)
   return res.status(400).json({error:'Account plan has no station'});
@@ -233,11 +245,9 @@ async function handleVerifiedEvent(event,res){
  if(onRenewal){
   const userId=event.external_user_id.slice('iradios-stage-'.length);
   const user=await User.findById(userId).select('_id role isVerified').lean();
-  if(!user||user.role!=='broadcaster'||user.isVerified!==true)
+  if(!user||user.role!=='broadcaster')
    return res.status(422).json({error:'Broadcaster account missing'});
   const resourceId=product.scopeType==='station'?event.resource_id:null;
-  if(resourceId&&!await ownedApprovedStation(user,resourceId))
-   return res.status(422).json({error:'Station ownership mismatch'});
   const prior=await BroadcasterBillingOrder.findOne({
    accountId:user._id,sku,resourceId,scopeType:product.scopeType,
    status:'paid',environment:'staging',
