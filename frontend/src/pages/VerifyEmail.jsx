@@ -16,7 +16,6 @@ export default function VerifyEmail({API_URL='/api',setCurrentUser}){
     if(!/^[a-f0-9]{64}$/i.test(token)){
       setState({status:'error',message:'Ο σύνδεσμος δεν είναι έγκυρος.'});return;
     }
-    let mounted=true;
     (async()=>{
       try{
         const res=await fetch(API_URL+'/auth/verify-email',{
@@ -24,19 +23,17 @@ export default function VerifyEmail({API_URL='/api',setCurrentUser}){
           body:JSON.stringify({token})
         });
         const data=await res.json().catch(()=>({}));
-        if(!mounted)return;
         if(!res.ok){setState({status:'error',message:data.error||'Ο σύνδεσμος δεν ισχύει.'});return;}
         const session=localStorage.getItem('iluma_token');
         if(session){
           const me=await fetch(API_URL+'/auth/me',{headers:{Authorization:'Bearer '+session},cache:'no-store'});
-          if(mounted&&me.ok)setCurrentUser?.(await me.json());
+          if(me.ok)setCurrentUser?.(await me.json());
         }
-        if(mounted)setState({status:'success',message:'Το email επιβεβαιώθηκε! Μπορείς πλέον να βλέπεις τα playlists των σταθμών.'});
+        setState({status:'success',message:'Το email επιβεβαιώθηκε! Μπορείς πλέον να βλέπεις τα playlists των σταθμών.'});
       }catch{
-        if(mounted)setState({status:'error',message:'Η επιβεβαίωση δεν ολοκληρώθηκε. Άνοιξε ξανά το link από το email σου.'});
+        setState({status:'error',message:'Η επιβεβαίωση δεν ολοκληρώθηκε. Άνοιξε ξανά το link από το email σου.'});
       }
     })();
-    return()=>{mounted=false;};
   },[API_URL,setCurrentUser]);
   return <AuthShell><div className="ir-auth-card my-auto w-full max-w-md rounded-[32px] border border-white/10 bg-zinc-900/70 p-8 text-center">
     <AuthIntro icon={MailCheck} eyebrow="ACCOUNT SECURITY" title="Επιβεβαίωση email" description="Ένα τελευταίο βήμα για την playlist των αγαπημένων σου σταθμών."/>

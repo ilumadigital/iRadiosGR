@@ -21,9 +21,17 @@ for (const filename of ['Login', 'Register', 'ResetPassword']) {
   assert.match(source, /<AuthIntro/, `${filename}: common heading`);
   assert.match(source, /ir-auth-card/, `${filename}: glass card`);
 }
-for (const filename of ['Login', 'Register', 'GoBroadcast', 'GoAgency']) {
+// Listener signup is now non-blocking; OTP remains only for business roles.
+for (const filename of ['Login', 'GoBroadcast', 'GoAgency']) {
   assert.match(read(`frontend/src/pages/${filename}.jsx`), /ir-auth-modal/, `${filename}: glass modal`);
 }
+const listenerRegistration=read('frontend/src/pages/Register.jsx');
+assert.doesNotMatch(listenerRegistration,/ir-auth-modal|showOtpModal|handleVerifyOtp/,
+  'Listener signup must not block on OTP');
+assert.match(listenerRegistration,/localStorage\.setItem\('iluma_token', data\.token\)/,
+  'Listener signup establishes a session immediately');
+assert.match(read('frontend/src/components/EmailVerificationBanner.jsx'),/auth\/resend-verification/,
+  'Unverified listener sees a resend action');
 const css = read('frontend/src/styles/auth.css');
 assert.match(read('frontend/src/index.css'), /@import "\.\/styles\/auth\.css"/);
 assert.match(read('frontend/src/components/AuthShell.jsx'), /iradios-app-logo\.png/);
