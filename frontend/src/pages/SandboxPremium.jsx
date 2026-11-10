@@ -104,6 +104,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  const [catalogError,setCatalogError]=useState('');
  const [order,setOrder]=useState(null);
  const [renewalEligibility,setRenewalEligibility]=useState(null);
+ const [winback,setWinback]=useState(null);
  const [paymentMethod,setPaymentMethod]=useState({state:'none',automaticRenewal:false});
  const [saveCard,setSaveCard]=useState(false);
  const [useSavedCard,setUseSavedCard]=useState(false);
@@ -118,6 +119,8 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  // checkout is allowed from preview mode. Exclusively stage.iradios.gr.
  const renewalPreviewRequested=window.location.hostname==='stage.iradios.gr' &&
    new URLSearchParams(location.search).get('renewal_preview')==='1';
+ const winbackPreviewRequested=window.location.hostname==='stage.iradios.gr'&&
+  new URLSearchParams(location.search).get('winback_preview')==='1';
 
  useEffect(()=>{
   if(!userId){setRenewalEligibility(null);return;}
@@ -131,6 +134,18 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
   void load();
   return()=>{canceled=true;};
  },[API_URL,userId]);
+
+ useEffect(()=>{
+  if(!userId){setWinback(null);return;}
+  let canceled=false;
+  call(API_URL+'/billing/me/winback').then(data=>{
+   if(!canceled)setWinback(data.offer?.eligible?data.offer:null);
+  }).catch(()=>{if(!canceled)setWinback(null);});
+  return()=>{canceled=true;};
+ },[API_URL,userId]);
+ const winbackActive=!!winback?.eligible&&!winback?.requiresCancellation;
+ const winbackShown=winbackPreviewRequested||winbackActive;
+ const winbackNoCharge=winbackPreviewRequested;
 
  const refreshPaymentMethod=useCallback(async()=>{
   if(!userId)return;
@@ -298,7 +313,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
 
  const beginCheckout=async()=>{
   const canRenewActive=['soon','grace'].includes(renewalEligibility?.kind);
-  if(!userId||busy||!catalogOk||renewalPreviewRequested||
+  if(!userId||busy||!catalogOk||renewalPreviewRequested||winbackNoCharge||
      (currentUser?.isPremium&&!canRenewActive))return;
   setBusy(true);setMessage('');
   try{
@@ -309,9 +324,11 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
    );
    rememberReturnPath(userId);
    const key=getOrCreateKey(userId,newAttempt);
-   const cardChoice=autoRenew?{autoRenew:true}:
-     saveCard?{saveCard:true}:
-     useSavedCard&&paymentMethod.state==='active'?{useSavedCard:true}:{};
+   const cardChoice=winbackActive
+     ?{winback:true,...(autoRenew?{autoRenew:true}:{})}
+     :autoRenew?{autoRenew:true}:
+      saveCard?{saveCard:true}:
+      useSavedCard&&paymentMethod.state==='active'?{useSavedCard:true}:{};
    const response=await call(API_URL+'/billing/checkout',{
      method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':key},
      body:JSON.stringify(cardChoice)
@@ -324,7 +341,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
      ?'Το Gateway έχει Order ID αλλά η Nexi δεν επέστρεψε ασφαλή φόρμα πληρωμής. Πάτησε Έλεγχος κατάστασης· μη δημιουργήσεις δεύτερη συναλλαγή.'
      :'Δεν έχει επιβεβαιωθεί ότι το Gateway δημιούργησε συναλλαγή. Πάτησε Έλεγχος κατάστασης μετά από δύο λεπτά, ώστε να ελεγχθεί με ασφάλεια πριν επιχειρήσεις ξανά.');
   }catch(e){
-   if(['GATEWAY_CATALOG_NOT_READY','GATEWAY_ONECLICK_NOT_READY','GATEWAY_RECURRING_NOT_READY'].includes(e.code)){
+   if(['GATEWAY_CATALOG_NOT_READY','GATEWAY_ONECLICK_NOT_READY','GATEWAY_RECURRING_NOT_READY','GATEWAY_WINBACK_NOT_READY'].includes(e.code)){
     // Gateway 422 rejects before Nexi; a new idempotency key is safe
     // only after the product or OneClick preflight issue is repaired.
     sessionStorage.removeItem(KEY_PREFIX+userId);
@@ -363,7 +380,11 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
         ?'Η συνδρομή βρίσκεται σε περίοδο χάριτος. Με νέα χειροκίνητη πληρωμή μέσω Nexi Sandbox ξεκινά καινούρια μηνιαία περίοδος.'
         :'Το Premium σου έχει ολοκληρωθεί. Η χειροκίνητη ανανέωση δημιουργεί νέα συναλλαγή στο ILUMA Gateway, με πληρωμή στην ασφαλή σελίδα Nexi Sandbox. Δεν γίνεται αυτόματη χρέωση.')
      :'Μηνιαίο Listener Premium μέσω Nexi Sandbox. Επίλεξε χειροκίνητες πληρωμές ή εξουσιοδότηση αυτόματων ανανεώσεων.'}</p>
-    <div className="mt-8 flex items-end gap-2"><span className="text-5xl font-black text-[#ccff00]">3,99 €</span><span className="text-zinc-400 pb-2 text-sm">{isRenewal?'για την επόμενη μηνιαία περίοδο':'για έναν μήνα'} · ΦΠΑ 24% συμπεριλαμβάνεται</span></div>
+    <div className="mt-8 flex flex-wrap items-end gap-3">
+      {winbackShown&&<span className="text-2xl text-zinc-500 line-through">3,99 €</span>}
+      <span className="text-5xl font-black text-[#ccff00]">{winbackShown?'1,99 €':'3,99 €'}</span>
+      <span className="text-zinc-400 pb-2 text-sm">{winbackShown?'πρώτος μήνας επιστροφής · έπειτα 3,99 €/μήνα με MIT συγκατάθεση':isRenewal?'για την επόμενη μηνιαία περίοδο':'για έναν μήνα'} · ΦΠΑ 24% συμπεριλαμβάνεται</span>
+     </div>
     <div className="grid sm:grid-cols-2 gap-3 mt-8">
      {['Χωρίς διαφημίσεις του iRadios','Music Radar χειροκίνητης αναγνώρισης',
        'Audio DSP και ισοσταθμιστής','Αναβαθμισμένες λειτουργίες ακρόασης'].map(title=><div key={title} className="flex items-center gap-2 text-sm text-zinc-200"><CheckCircle2 className="text-[#ccff00] shrink-0" size={17}/>{title}</div>)}
@@ -379,12 +400,21 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
    </div>
    {!currentUser&&<p className="text-sm">Για να συνεχίσεις χρειάζεται <Link to="/login" className="font-bold text-[#ccff00]">σύνδεση στον λογαριασμό σου</Link>.</p>}
    {currentUser&&!isListener&&<div role="alert" className="text-sm text-orange-200">Η δοκιμή αυτή αφορά μόνο Listener accounts. Για Broadcaster και Agency θα ακολουθήσουν ξεχωριστές πληρωμές.</div>}
-   {previewOnly&&<div role="note" className="rounded-xl border border-amber-400/40 bg-amber-950/20 p-4 text-sm text-amber-100">
+   
+    {winbackShown&&<div role="note" className="rounded-2xl border border-[#ccff00]/35 bg-[#ccff00]/10 p-5 text-sm text-lime-100">
+       <p className="flex items-center gap-2 font-black text-lg"><Gift size={19}/> Καλώς ήρθες ξανά στο Premium!</p>
+       <p className="mt-2">Ειδική τιμή <strong>1,99 €</strong> μόνο μία φορά ανά λογαριασμό, εντός 30 ημερών από τη λήξη. Μετά τον πρώτο μήνα, οι αυτόματες ανανεώσεις (μόνο με ρητή συγκατάθεση MIT) κοστίζουν <strong>3,99 €/μήνα</strong>.</p>
+       {winbackNoCharge&&<p className="mt-3 font-bold text-amber-200">STAGING ΠΡΟΕΠΙΣΚΟΠΗΣΗ · Καμία χρέωση και καμία εξαργύρωση.</p>}
+       {winback?.offerEndsAt&&!winbackNoCharge&&<p className="mt-2 text-xs">Η προσφορά λήγει στις {dateText(winback.offerEndsAt)}.</p>}
+       {winbackNoCharge&&<Link to="/premium" className="mt-3 inline-flex font-bold text-[#ccff00] underline">Έξοδος από προεπισκόπηση</Link>}
+     </div>}
+    {winback?.requiresCancellation&&!winbackNoCharge&&<p className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-100">Υπάρχει προηγούμενο ενεργό MIT contract. <Link className="underline font-bold" to="/profile?tab=billing">Ακύρωσε πρώτα την αυτόματη ανανέωση στο Billing</Link> για να μην δημιουργηθεί δεύτερη χρέωση.</p>}
+    {previewOnly&&<div role="note" className="rounded-xl border border-amber-400/40 bg-amber-950/20 p-4 text-sm text-amber-100">
       <strong>Προεπισκόπηση ληγμένης συνδρομής — χωρίς χρέωση.</strong>
       <p className="mt-2 text-amber-200/80">Βλέπεις μόνο πώς θα εμφανιστεί η χειροκίνητη ανανέωση στον ακροατή. Η πραγματική συνδρομή παραμένει ενεργή, και το κουμπί πληρωμής είναι απενεργοποιημένο στην προεπισκόπηση.</p>
       <Link className="mt-3 inline-flex font-bold underline" to="/premium" replace>Επιστροφή στην πραγματική κατάσταση</Link>
     </div>}
-   {isRenewal&&<div className="rounded-2xl border border-[#ccff00]/30 bg-[#ccff00]/5 p-5">
+   {isRenewal&&!winbackShown&&<div className="rounded-2xl border border-[#ccff00]/30 bg-[#ccff00]/5 p-5">
       <div className="flex items-center gap-2 text-[#ccff00] font-black"><RefreshCw size={18}/> Ανανέωση Listener Premium</div>
       <p className="mt-2 text-sm text-zinc-300">Νέα περίοδος ενός μήνα με 3,99 €. Θα μεταφερθείς στη Nexi για να πληκτρολογήσεις δοκιμαστική κάρτα. {renewalEligibility?.kind==='soon'
        ?'Αν πληρώσεις πριν τη λήξη, η επόμενη περίοδος ξεκινά όταν ολοκληρωθεί η τωρινή.'
@@ -400,10 +430,10 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
       </div>
       <p className="text-sm leading-6 text-zinc-300">Με ξεχωριστή συγκατάθεση, η Nexi μπορεί να χρεώνει <strong className="text-white">3,99 € με ΦΠΑ κάθε μήνα</strong> μέχρι να ακυρώσεις την ανανέωση στο <Link to="/profile?tab=billing" className="font-bold text-[#ccff00] underline">Billing</Link>.</p>
       {['none','cancelled','unavailable'].includes(recurring.state)&&<label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#ccff00]/20 bg-black/25 p-4 text-sm text-white">
-       <input type="checkbox" checked={autoRenew} disabled={!canCheckout||busy||previewOnly}
+       <input type="checkbox" checked={autoRenew} disabled={!canCheckout||busy||previewOnly||winbackNoCharge}
         onChange={e=>{setAutoRenew(e.target.checked);if(e.target.checked){setSaveCard(false);setUseSavedCard(false);}}}
         className="mt-1 size-5 shrink-0 accent-[#ccff00]"/>
-       <span><strong>Συμφωνώ ρητά σε αυτόματη χρέωση 3,99 € ανά μήνα</strong> μέσω Nexi μετά την πρώτη πληρωμένη περίοδο, μέχρι να ακυρώσω. Η κάρτα φυλάσσεται στη Nexi και μπορώ να σταματήσω τις επόμενες χρεώσεις οποτεδήποτε στο Billing. Χωρίς αυτή την επιλογή γίνεται μεμονωμένη αγορά.</span>
+       <span><strong>Συμφωνώ ρητά σε αυτόματη χρέωση 3,99 € ανά μήνα</strong> μέσω Nexi μετά την πρώτη πληρωμένη περίοδο{winbackShown?' των 1,99 €':''}, μέχρι να ακυρώσω. Η κάρτα φυλάσσεται στη Nexi και μπορώ να σταματήσω τις επόμενες χρεώσεις οποτεδήποτε στο Billing. Χωρίς αυτή την επιλογή γίνεται μεμονωμένη αγορά.</span>
       </label>}
       {['active','pending','verification_pending','past_due'].includes(recurring.state)&&<p className="rounded-xl bg-white/5 p-3 text-sm text-zinc-200">Υπάρχει ήδη εξουσιοδότηση MIT ({recurring.state}). <Link to="/profile?tab=billing" className="font-bold text-[#ccff00] underline">Διαχείριση</Link>.</p>}
       {blocked&&<p className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-5 text-amber-200">Η επιλογή συγκατάθεσης δεν ξεκινά πληρωμή. Υπάρχει εκκρεμές checkout: πάτησε «Έλεγχος κατάστασης». Μόνο αφού το Gateway επιβεβαιώσει οριστική αποτυχία ή ακύρωση, θα εμφανιστεί ξανά το κουμπί συνέχειας στη Nexi.</p>}
@@ -416,7 +446,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
       {paymentMethod.state==='active'&&<>
        <p className="text-sm text-lime-300">Η αποθηκευμένη κάρτα σου έχει επιβεβαιωθεί από τη Nexi.</p>
        <label className="flex items-start gap-3 text-sm cursor-pointer">
-        <input type="checkbox" checked={useSavedCard} disabled={!canCheckout||busy||previewOnly}
+        <input type="checkbox" checked={useSavedCard} disabled={!canCheckout||busy||previewOnly||winbackShown}
          onChange={e=>{setUseSavedCard(e.target.checked);if(e.target.checked){setSaveCard(false);setAutoRenew(false);}}}
          className="mt-1 h-4 w-4 accent-[#ccff00]"/>
         <span>Χρήση αποθηκευμένης κάρτας στην επόμενη χειροκίνητη πληρωμή (με επιβεβαίωση Nexi / 3D Secure όπου ζητηθεί).</span>
@@ -442,9 +472,9 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
    {catalogError&&<div role="alert" className="text-sm text-red-200">{catalogError}</div>}
    <div className="flex gap-3 flex-wrap">
     {canCheckout&&
-      <button type="button" disabled={busy||!catalogOk||previewOnly} onClick={beginCheckout}
+      <button type="button" disabled={busy||!catalogOk||previewOnly||winbackNoCharge||!!winback?.requiresCancellation} onClick={beginCheckout}
        className="inline-flex items-center gap-2 bg-[#ccff00] hover:bg-[#d9ff4a] disabled:opacity-40 rounded-xl px-6 py-3.5 text-black font-black">
-       <CreditCard size={18}/>{busy?'Επεξεργασία...':autoRenew?'Έναρξη μηνιαίας συνδρομής — 3,99 €':isRenewal?'Ανανέωση Premium — 3,99 €':'Συνέχεια στη Nexi Sandbox'}
+       <CreditCard size={18}/>{busy?'Επεξεργασία...':winbackShown?'Επιστροφή στο Premium — 1,99 €':autoRenew?'Έναρξη μηνιαίας συνδρομής — 3,99 €':isRenewal?'Ανανέωση Premium — 3,99 €':'Συνέχεια στη Nexi Sandbox'}
       </button>}
     {order?.status==='redirect'&&verifiedNexiUrl(order.checkoutUrl)&&
       <a href={verifiedNexiUrl(order.checkoutUrl)} className="inline-flex items-center gap-2 rounded-xl bg-[#ccff00] text-black px-5 py-3 font-bold">
