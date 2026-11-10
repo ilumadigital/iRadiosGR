@@ -1,5 +1,6 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Search, FileText, CheckCircle, Circle, Building2, User, 
   Mail, Phone, Calendar, CreditCard, AlertCircle, Check 
@@ -88,7 +89,12 @@ export default function AdminPaid({ API_URL }) {
   return (
     <div className="admin-legacy-page space-y-6">
       
-      {/* HEADER */}
+      <div className="flex justify-end">
+        <Link to="/admin/billing/grants" className="rounded-xl border border-lime-500/30 bg-[#ccff00]/10 text-[#ccff00] px-4 py-3 font-bold text-sm hover:bg-[#ccff00]/20">
+          Διαχείριση δωρεάν συνδρομών
+        </Link>
+      </div>
+            {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">

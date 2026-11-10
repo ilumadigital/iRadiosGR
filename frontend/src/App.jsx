@@ -48,6 +48,7 @@ import ProducerStudio from './pages/ProducerStudio';
 import Admin from './pages/Admin';
 import AdminRadioSet from './pages/AdminRadioSet';
 import AdminPaid from './pages/AdminPaid';
+import AdminBillingGrants from './pages/AdminBillingGrants';
 import AdminEmails from './pages/AdminEmails';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -1887,6 +1888,7 @@ function MainApp() {
             <Route path="/admin/radioset" element={currentUser?.role === 'admin' ? <AdminRadioSet API_URL={API_URL} /> : <Navigate to="/" />} />
             <Route path="/admin/radios" element={currentUser?.role === 'admin' ? <Admin API_URL={API_URL} refreshStations={fetchGlobalStations} /> : <Navigate to="/" />} />
             <Route path="/admin/billing" element={currentUser?.role === 'admin' ? <AdminPaid API_URL={API_URL} /> : <Navigate to="/" />} />
+            <Route path="/admin/billing/grants" element={currentUser?.role === 'admin' ? <AdminBillingGrants API_URL={API_URL} /> : <Navigate to="/" />} />
             <Route path="/admin/emails" element={currentUser?.role === 'admin' ? <AdminEmails API_URL={API_URL} /> : <Navigate to="/" />} />
             <Route path="/admin/users" element={currentUser?.role === 'admin' ? <AdminUsers API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/" />} />
             <Route path="/admin/ads" element={currentUser?.role === 'admin' ? <AdminAds API_URL={API_URL} refreshGlobalAds={loadGlobalAds} /> : <Navigate to="/" />} />

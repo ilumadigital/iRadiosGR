@@ -54,6 +54,7 @@ function loginRateLimit(req,res) {
 
 const publicReads = new Set([
   '/api/health',
+  '/api/billing/catalog',
   '/api/stations',
   '/api/stations/discovery',
   '/api/stats/network',
@@ -111,6 +112,8 @@ function stagePublicAccess(req, res, next) {
 
   // A user may read their own profile and favorites, never another user's.
   if (req.method === 'GET' && path === '/api/auth/me') return protect(req,res,next);
+  if (req.method === 'GET' && (path === '/api/billing/me/grants' ||
+    path === '/api/billing/me/entitlements')) return protect(req,res,next);
 
   // Self-service listener actions are scoped by req.user in protected handlers.
   // Without this allowlist the default admin-only staging policy hides Profile
