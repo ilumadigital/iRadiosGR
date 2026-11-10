@@ -48,7 +48,97 @@ if grep -Eq '^ILUMA_GATEWAY_PRODUCTION_(KEY|SECRET)=' "$ENV_FILE"; then
 fi
 if grep -q '^IRADIOS_BILLING_SANDBOX_ENABLED=' "$ENV_FILE"; then
   if [[ "$(count_key IRADIOS_BILLING_SANDBOX_ENABLED)" != "1" ]] ||
-    ! grep -Eq '^IRADIOS_BILLING_SANDBOX_ENABLED=[01]
+    ! grep -Eq '^IRADIOS_BILLING_SANDBOX_ENABLED=[01]; then
+    echo 'STOP: IRADIOS_BILLING_SANDBOX_ENABLED must be 0 or 1 exactly once.' >&2
+    exit 1
+  fi
+  if grep -qx 'IRADIOS_BILLING_SANDBOX_ENABLED=1' "$ENV_FILE"; then
+    if [[ "$(count_key ILUMA_GATEWAY_STAGING_KEY)" != "1" ]] ||
+      [[ "$(count_key ILUMA_GATEWAY_STAGING_SECRET)" != "1" ]] ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_KEY=ilg_[a-f0-9]{48} ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_SECRET=[a-f0-9]{64}; then
+      echo 'STOP: sandbox checkout requires a valid staging Gateway key and raw HMAC secret.' >&2
+      exit 1
+    fi
+  fi
+fi
+echo 'Staging backend env safety checks passed (no values printed).'
+ "$ENV_FILE"; then
+    echo 'STOP: IRADIOS_BILLING_SANDBOX_ENABLED must be 0 or 1 exactly once.' >&2
+    exit 1
+  fi
+  if grep -qx 'IRADIOS_BILLING_SANDBOX_ENABLED=1' "$ENV_FILE"; then
+    if [[ "$(count_key ILUMA_GATEWAY_STAGING_KEY)" != "1" ]] ||
+      [[ "$(count_key ILUMA_GATEWAY_STAGING_SECRET)" != "1" ]] ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_KEY=ilg_[a-f0-9]{48}
+ "$ENV_FILE" ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_SECRET=[a-f0-9]{64}
+ "$ENV_FILE"; then
+      echo 'STOP: sandbox checkout requires a valid staging Gateway key and raw HMAC secret.' >&2
+      exit 1
+    fi
+  fi
+fi
+echo 'Staging backend env safety checks passed (no values printed).'
+ "$ENV_FILE" ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_SECRET=[a-f0-9]{64}
+ "$ENV_FILE"; then
+      echo 'STOP: sandbox checkout requires a valid staging Gateway key and raw HMAC secret.' >&2
+      exit 1
+    fi
+  fi
+fi
+echo 'Staging backend env safety checks passed (no values printed).'
+ "$ENV_FILE"; then
+    echo 'STOP: IRADIOS_BILLING_SANDBOX_ENABLED must be 0 or 1 exactly once.' >&2
+    exit 1
+  fi
+  if grep -qx 'IRADIOS_BILLING_SANDBOX_ENABLED=1' "$ENV_FILE"; then
+    if [[ "$(count_key ILUMA_GATEWAY_STAGING_KEY)" != "1" ]] ||
+      [[ "$(count_key ILUMA_GATEWAY_STAGING_SECRET)" != "1" ]] ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_KEY=ilg_[a-f0-9]{48}
+ "$ENV_FILE" ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_SECRET=[a-f0-9]{64}
+ "$ENV_FILE"; then
+      echo 'STOP: sandbox checkout requires a valid staging Gateway key and raw HMAC secret.' >&2
+      exit 1
+    fi
+  fi
+fi
+echo 'Staging backend env safety checks passed (no values printed).'
+ "$ENV_FILE"; then
+      echo 'STOP: sandbox checkout requires a valid staging Gateway key and raw HMAC secret.' >&2
+      exit 1
+    fi
+  fi
+fi
+echo 'Staging backend env safety checks passed (no values printed).'
+ "$ENV_FILE"; then
+    echo 'STOP: IRADIOS_BILLING_SANDBOX_ENABLED must be 0 or 1 exactly once.' >&2
+    exit 1
+  fi
+  if grep -qx 'IRADIOS_BILLING_SANDBOX_ENABLED=1' "$ENV_FILE"; then
+    if [[ "$(count_key ILUMA_GATEWAY_STAGING_KEY)" != "1" ]] ||
+      [[ "$(count_key ILUMA_GATEWAY_STAGING_SECRET)" != "1" ]] ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_KEY=ilg_[a-f0-9]{48}
+ "$ENV_FILE" ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_SECRET=[a-f0-9]{64}
+ "$ENV_FILE"; then
+      echo 'STOP: sandbox checkout requires a valid staging Gateway key and raw HMAC secret.' >&2
+      exit 1
+    fi
+  fi
+fi
+echo 'Staging backend env safety checks passed (no values printed).'
+ "$ENV_FILE" ||
+      ! grep -Eq '^ILUMA_GATEWAY_STAGING_SECRET=[a-f0-9]{64}
+ "$ENV_FILE"; then
+      echo 'STOP: sandbox checkout requires a valid staging Gateway key and raw HMAC secret.' >&2
+      exit 1
+    fi
+  fi
+fi
+echo 'Staging backend env safety checks passed (no values printed).'
  "$ENV_FILE"; then
     echo 'STOP: IRADIOS_BILLING_SANDBOX_ENABLED must be 0 or 1 exactly once.' >&2
     exit 1
