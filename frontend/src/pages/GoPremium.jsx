@@ -4,147 +4,13 @@ import {
   Headphones, Star, SlidersHorizontal, Speaker, Sparkles, AlertCircle,
   Car, Music2, Volume2, ShieldCheck, Laptop, Smartphone, Target, Infinity, ScanSearch, MonitorSpeaker
 } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-// ⚠️ Χρησιμοποιούμε το LIVE Key σου
-const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY?.startsWith('pk_test_')
-  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
-  : Promise.resolve(null);
-
-const StripeCheckoutForm = ({ price, onSuccess }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-    setIsProcessing(true);
-    setErrorMessage(null);
-
-    const { error } = await stripe.confirmPayment({
-      elements,
-      redirect: "if_required",
-    });
-
-    if (error) {
-      setErrorMessage(error.message);
-      setIsProcessing(false);
-    } else {
-      onSuccess(); 
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <PaymentElement options={{ layout: 'tabs' }} />
-      {errorMessage && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold flex items-center gap-2">
-          <AlertCircle size={16} /> {errorMessage}
-        </div>
-      )}
-      <button 
-        disabled={isProcessing || !stripe || !elements} 
-        className="w-full h-14 bg-black text-[#ccff00] font-black uppercase tracking-widest rounded-xl hover:scale-[1.02] transition-transform active:scale-95 flex items-center justify-center gap-2 shadow-2xl disabled:opacity-50"
-      >
-        {isProcessing ? <Loader2 className="animate-spin" size={20} /> : `ΕΝΕΡΓΟΠΟΙΗΣΗ ${price}€`}
-      </button>
-    </form>
-  );
-};
-
-export default function GoPremium({ API_URL, currentUser }) {
-  const [loading, setLoading] = useState(false);
-  const [showStripeModal, setShowStripeModal] = useState(false);
-  const [clientSecret, setClientSecret] = useState("");
-  
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
-
-  const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
-  // LIVE PRICE ID
-  const PREMIUM_PRICE_ID = "price_1T8iHoHiixNRiHTmS0vKLUum"; 
-
-  const handleStripeCheckout = async () => {
-    if (!currentUser) {
-      alert("Πρέπει να συνδεθείτε για να γίνετε Premium!");
-      return;
-    }
-    setLoading(true);
-    setPaymentSuccess(false); 
-    try {
-      const res = await fetch(`${BASE_URL}/payments/create-stripe-subscription`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: currentUser._id || currentUser.id, 
-          priceId: PREMIUM_PRICE_ID,
-          planId: 'listener_premium'
-        }) 
-      });
-      const data = await res.json();
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
-        setShowStripeModal(true);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
-  };
-
+export default function GoPremium() {
   return (
     <div className="max-w-7xl mx-auto p-4 lg:p-12 relative pb-40">
       
       {/* --- BACKGROUND GLOW --- */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-[#ccff00]/5 blur-[120px] rounded-full pointer-events-none"></div>
-
-      {/* --- STRIPE MODAL --- */}
-      {showStripeModal && clientSecret && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/95 backdrop-blur-3xl">
-          
-          <div className="bg-white p-8 md:p-12 rounded-[50px] w-full max-w-lg relative shadow-[0_0_100px_rgba(204,255,0,0.2)] animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar transition-all duration-500">
-            
-            {!paymentSuccess && (
-              <button onClick={() => setShowStripeModal(false)} className="absolute top-8 right-8 text-zinc-400 hover:text-black transition-colors z-10">
-                <X size={28} />
-              </button>
-            )}
-            
-            {paymentSuccess ? (
-              <div className="text-center py-6 animate-in fade-in zoom-in duration-500">
-                <div className="w-24 h-24 bg-[#ccff00] rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(204,255,0,0.5)]">
-                  <Check size={48} className="text-black" />
-                </div>
-                <h3 className="text-4xl font-black text-black italic uppercase tracking-tighter">WELCOME TO <span className="text-[#ccff00] bg-black px-2">ELITE</span></h3>
-                <p className="text-zinc-500 mt-4 font-medium leading-relaxed">
-                  Η αναβάθμιση ολοκληρώθηκε επιτυχώς!<br/> Μόλις ξεκλειδώσατε την απόλυτη εμπειρία του iRadios.
-                </p>
-                <button 
-                  onClick={() => window.location.reload()} 
-                  className="mt-10 w-full h-14 bg-black text-[#ccff00] font-black rounded-2xl uppercase tracking-[0.2em] hover:scale-[1.02] transition-transform active:scale-95 shadow-xl flex items-center justify-center gap-2"
-                >
-                  <Headphones size={20} /> ΞΕΚΙΝΑ ΤΗΝ ΑΚΡΟΑΣΗ
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="text-center mb-10 mt-4">
-                  <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-[0.2em] mb-4 inline-block border border-indigo-100">Military Grade Security</span>
-                  <h3 className="text-3xl font-black text-black tracking-tighter italic uppercase">iRadios <span className="text-[#ccff00] bg-black px-2">Elite</span></h3>
-                  <p className="text-5xl font-black text-black mt-6 tracking-tighter">3.99€<span className="text-sm text-zinc-400 font-bold uppercase tracking-widest ml-2">/ month</span></p>
-                </div>
-                
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
-                  <StripeCheckoutForm price={3.99} onSuccess={() => setPaymentSuccess(true)} />
-                </Elements>
-              </>
-            )}
-            
-          </div>
-        </div>
-      )}
 
       {/* --- HERO SECTION --- */}
       <div className="text-center mb-24 relative z-10">
@@ -207,11 +73,11 @@ export default function GoPremium({ API_URL, currentUser }) {
                 </ul>
             </div>
             <button 
-                onClick={handleStripeCheckout}
-                disabled={loading}
+                type="button"
+                disabled title="Η αγορά θα ενεργοποιηθεί μέσω Nexi μετά την ολοκλήρωση των ελέγχων"
                 className="w-full bg-black text-[#ccff00] font-black py-6 rounded-3xl uppercase tracking-[0.2em] italic text-sm hover:scale-[1.03] transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-3"
             >
-                {loading ? <Loader2 className="animate-spin" /> : <><CreditCard /> UPGRADE NOW</>}
+                <><CreditCard /> ΑΓΟΡΕΣ ΣΥΝΤΟΜΑ ΜΕ NEXI</>
             </button>
         </div>
 
@@ -289,7 +155,7 @@ export default function GoPremium({ API_URL, currentUser }) {
 
       {/* --- FOOTER INFO --- */}
       <div className="mt-20 text-center relative z-10">
-        <p className="text-[10px] text-zinc-600 font-black uppercase tracking-[0.4em] mb-4">Secure Infrastructure by Stripe & iRadios Engine</p>
+        <p className="text-[10px] text-zinc-600 font-black uppercase tracking-[0.4em] mb-4">Payments by ILUMA Gateway & Nexi</p>
         <div className="flex justify-center gap-8 opacity-20">
             <Shield size={24} className="text-white" />
             <CreditCard size={24} className="text-white" />

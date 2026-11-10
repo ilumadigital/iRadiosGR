@@ -92,7 +92,7 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null}){
   const [busy,setBusy]=useState(false);
   const [prefBusy,setPrefBusy]=useState('');
   const [deviceBusy,setDeviceBusy]=useState(false);
-  const [cancelId,setCancelId]=useState('');
+
   const [notice,setNotice]=useState(null);
   const [loading,setLoading]=useState(!currentUser);
 
@@ -258,33 +258,11 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null}){
     finally{setDeviceBusy(false);}
   };
 
-  const cancelSubscription=async sub=>{
-    if(!sub?.stripeSubscriptionId||cancelId)return;
-    if(!window.confirm('Να σταματήσει η αυτόματη ανανέωση; Τα προνόμια παραμένουν έως τη λήξη της περιόδου.'))return;
-    setCancelId(sub.stripeSubscriptionId);setNotice(null);
-    try{
-      const response=await fetch(API_URL+'/payments/cancel-subscription',{
-        method:'POST',headers:authHeaders(),body:JSON.stringify({subscriptionId:sub.stripeSubscriptionId})
-      });
-      const data=await response.json().catch(()=>({}));
-      if(!response.ok)throw Error(data.error||'Η ακύρωση δεν ολοκληρώθηκε.');
-      const userResponse=await fetch(API_URL+'/auth/me',{headers:authHeaders()});
-      if(!userResponse.ok)throw Error('Η αίτηση υποβλήθηκε, αλλά δεν ανανεώθηκε η εικόνα της συνδρομής.');
-      setUser(await userResponse.json());
-      setNotice({type:'success',text:'Η ανανέωση ακυρώθηκε. Τα προνόμια παραμένουν μέχρι τη λήξη.'});
-    }catch(error){setNotice({type:'error',text:error.message||'Σφάλμα διαχείρισης συνδρομής.'});}
-    finally{setCancelId('');}
-  };
-
   const subscriptions=useMemo(()=>Array.isArray(user?.activeSubscriptions)?user.activeSubscriptions:[],[user]);
-  const premium=Boolean(user?.isPremium===true ||
-    subscriptions.some(sub=>sub.planId==='listener_premium' &&
-      (['active','trialing'].includes(sub.status) ||
-        (['canceled','cancelled'].includes(sub.status) && new Date(sub.currentPeriodEnd).getTime()>Date.now()))) ||
-    (user?.stripeSubscriptionId&&user?.subscriptionStatus==='active'));
+  // The server projects verified paid/complimentary rights; never infer billing from old rows.
+  const premium=Boolean(user?.isPremium===true);
   const broadcasterPremium=Boolean(user?.broadcasterProfile?.tier==='premium');
   const tierLabel=premium?'Premium μέλος':broadcasterPremium?'Broadcaster Premium':'Free μέλος';
-  const hasManualPremium=premium&&!subscriptions.some(sub=>sub.planId==='listener_premium')&&!user?.stripeSubscriptionId;
   const favoriteCount=user?.favorites?.length||0;
   const tabs=[
     {id:'details',label:'Λογαριασμός',Icon:UserRound},
@@ -444,28 +422,22 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null}){
             <p className="mt-2 text-xs text-zinc-400">{premium?'Έχεις ενεργοποιημένη premium πρόσβαση.':broadcasterPremium?'Η επαγγελματική premium πρόσβαση του σταθμού σου είναι ενεργή.':'Ανακάλυψε περισσότερες δυνατότητες με Premium.'}</p></div>
           {!premium&&!broadcasterPremium&&<button type="button" onClick={()=>navigate('/premium')} className="ir-profile-primary"><Zap size={17}/> Δες το Premium</button>}
         </div>
-        {hasManualPremium&&<div className="ir-profile-subscription-row mb-3"><ShieldCheck size={18} className="text-[#ccff00]"/><div className="flex-1"><p className="text-sm font-black text-white">Premium πρόσβαση</p><p className="mt-1 text-xs text-zinc-400">Παραχωρημένη πρόσβαση · χωρίς Stripe χρέωση.</p></div></div>}
         {subscriptions.length>0?<div className="space-y-3">{subscriptions.map((sub,index)=>{
           const canceled=['canceled','cancelled'].includes(sub.status);
           const active=sub.status==='active'||sub.status==='trialing';
-          const subscriptionId=sub.stripeSubscriptionId;
-          return <div key={subscriptionId||sub._id||index} className="ir-profile-subscription-row">
+          return <div key={sub._id||index} className="ir-profile-subscription-row">
             <span className="ir-profile-section-icon"><CreditCard size={19}/></span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-black text-white">{PLAN_NAMES[sub.planId]||sub.planId||'Συνδρομή'}</p>
               <p className="mt-1 text-xs text-zinc-400">
-                {canceled?'Λήγει':active?'Επόμενη ανανέωση':'Κατάσταση: '+(sub.status||'άγνωστη')} · {fmtDate(sub.currentPeriodEnd)}
+                {canceled?'Λήγει':active?'Τέλος καταχωρημένης περιόδου':'Κατάσταση: '+(sub.status||'άγνωστη')} · {fmtDate(sub.currentPeriodEnd)}
               </p>
               <span className={'mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold '+(canceled?'bg-amber-500/10 text-amber-300':'bg-[#ccff00]/10 text-[#ccff00]')}>
                 {canceled?'Ακύρωση ανανέωσης':active?'Ενεργή':'Σε αναμονή'}</span>
             </div>
-            {subscriptionId&&active&&!canceled&&pushAvailable&&<button type="button" onClick={()=>cancelSubscription(sub)}
-              disabled={Boolean(cancelId)} className="ir-profile-cancel">
-              {cancelId===subscriptionId?<Loader2 size={15} className="animate-spin"/>:<XCircle size={15}/>} Διακοπή ανανέωσης
-            </button>}
           </div>;
         })}</div>:!premium?<p className="rounded-2xl border border-white/10 bg-white/[.025] p-5 text-xs text-zinc-400">Δεν υπάρχει ενεργή συνδρομή στον λογαριασμό σου.</p>:null}
-        {!pushAvailable&&<p className="mt-4 text-xs leading-6 text-amber-200/80">Το staging δεν εκτελεί πραγματικές χρεώσεις ή αλλαγές συνδρομών. Μπορείς να ελέγξεις εδώ την εμφάνιση των στοιχείων.</p>}
+        {!pushAvailable&&<p className="mt-4 text-xs leading-6 text-amber-200/80">Στο staging γίνονται μόνο δοκιμαστικές πληρωμές Nexi Sandbox. Δεν υπάρχουν ενεργές αυτόματες ανανεώσεις.</p>}
       </section>
       <aside className="flex flex-col gap-5">
         <section className="ir-profile-panel p-5"><SectionHeading icon={Headphones} title="Με το iRadios Premium"/>

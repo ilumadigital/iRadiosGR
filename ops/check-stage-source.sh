@@ -21,9 +21,9 @@ if [[ -e frontend/.env || -L frontend/.env ]]; then
   echo "Do not create frontend/.env: frontend VITE_* values are public build args." >&2
   exit 1
 fi
-if grep -R -l -E '(sk_live_|pk_live_|https://play\.iradios\.gr|ghp_[a-zA-Z0-9]{20}|github_pat_[a-zA-Z0-9_]{20})' \
+if grep -R -l -E '(https://play\.iradios\.gr|ghp_[a-zA-Z0-9]{20}|github_pat_[a-zA-Z0-9_]{20})' \
     backend frontend --include='*.js' --include='*.jsx' --include='*.html' --include='*.json' \
     --exclude='package-lock.json' | grep -q .; then
   echo 'Forbidden live reference in staged source' >&2; exit 1
 fi
-echo 'Source preflight: no obvious live Stripe keys/URLs; only expected stage .env symlinks allowed.'
+echo 'Source preflight: no known production URLs or exposed repository tokens; only expected stage .env symlinks allowed.'

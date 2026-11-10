@@ -108,7 +108,6 @@ export default function AdvertiserAds({ API_URL, currentUser }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAd, setEditingAd] = useState(null);
-  const [cancellingId, setCancellingId] = useState(null);
   
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   
@@ -268,23 +267,6 @@ export default function AdvertiserAds({ API_URL, currentUser }) {
     }
   };
 
-  const handleCancelSubscription = async (adId) => {
-    if (!window.confirm("Ακύρωση συνδρομής;")) return;
-    setCancellingId(adId);
-    try {
-      const res = await fetch(`${BASE_URL}/payments/cancel-ad-subscription`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('iluma_token')}`
-        },
-        body: JSON.stringify({ adId, userId: currentUser._id || currentUser.id })
-      });
-      if (res.ok) fetchMyAds();
-    } catch (err) {}
-    setCancellingId(null);
-  };
-
   const getStatusBadge = (status) => {
     switch (status) {
       case 'approved': return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><CheckCircle2 size={12} /> Live</span>;
@@ -380,9 +362,7 @@ export default function AdvertiserAds({ API_URL, currentUser }) {
                           <div className="text-xs font-black text-white">{ad.expiresAt ? new Date(ad.expiresAt).toLocaleDateString('el-GR') : 'Pending Approval'}</div>
                        </div>
                        <div className="flex gap-2">
-                          <button onClick={() => handleEditClick(ad)} className="bg-white/5 hover:bg-[#ccff00] hover:text-black p-3 rounded-2xl transition-all"><Edit2 size={18} /></button>
-                          {!ad.cancelAtPeriodEnd && ad.stripeSubscriptionId && (
-                            <button onClick={() => handleCancelSubscription(ad._id)} className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-3 rounded-2xl transition-all"><Trash2 size={18} /></button>
+                          <button onClick={() => handleEditClick(ad)} className="bg-white/5 hover:bg-[#ccff00] hover:text-black p-3 rounded-2xl transition-all"><Edit2 size={18} /></button> className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-3 rounded-2xl transition-all"><Trash2 size={18} /></button>
                           )}
                        </div>
                     </div>

@@ -181,7 +181,7 @@ export default function AdminUsers({ API_URL, currentUser }) {
 
   // 🟢 DELETE AGENCY CAMPAIGN
   const handleDeleteCampaign = async (campaignId, type) => {
-    if (!window.confirm("ΠΡΟΣΟΧΗ: Είστε σίγουροι; Αυτό θα διαγράψει οριστικά την καμπάνια και θα ακυρώσει τη συνδρομή του Agency στο Stripe.")) return;
+    if (!window.confirm("ΠΡΟΣΟΧΗ: Είστε σίγουροι; Αυτό θα διαγράψει οριστικά την καμπάνια. Τα συνδρομητικά δικαιώματα ελέγχονται χωριστά από τον διαχειριστή.")) return;
     try {
       const res = await fetch(`${API_URL}/agency/${selectedUser._id}/campaign/${type}/${campaignId}`, {
         method: 'DELETE'
@@ -429,7 +429,7 @@ export default function AdminUsers({ API_URL, currentUser }) {
                             </div>
                             <button 
                               onClick={() => handleDeleteCampaign(campaign._id, campaign._type)} 
-                              title="Διαγραφή Καμπάνιας & Ακύρωση Stripe"
+                              title="Διαγραφή καμπάνιας"
                               className="p-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition-all shadow-sm"
                             >
                               <Trash2 size={16} />
