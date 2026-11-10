@@ -78,6 +78,11 @@ function validatePaymentEvent(body,eventId,now=new Date()){
    return false;
  if(body.environment!=='staging'||body.amount_cents!==399||body.currency!=='EUR')
    return false;
+ if(body.billing_origin!==undefined){
+  if(body.billing_origin!=='automatic_renewal'||
+     !/^iradios-stage-[a-f0-9]{24}$/.test(body.external_user_id||'')||
+     !Number.isFinite(Date.parse(body.cycle_due_at)))return false;
+ }
  // Internal Gateway customer ID is not the iRadios account ID.
  if(typeof body.customer_id!=='string'||body.customer_id.length<1||
     body.customer_id.length>190)return false;
@@ -129,6 +134,8 @@ function safeOrderStatus(row,now=new Date()){
    paidAt:row.paidAt||null,periodStartsAt:row.periodStartsAt||null,
    periodEndsAt:row.periodEndsAt||null,
    graceEndsAt:row.graceEndsAt||null,
+   autoRenewRequested:row.autoRenewRequested===true,
+   billingOrigin:row.billingOrigin||'checkout',
    autoRenew:false,environment:'staging'};
 }
 module.exports={canonicalSignature,headersForRequest,verifyWebhookHeaders,

@@ -19,6 +19,7 @@ function reset(){
 }
 reset();
 const BillingOrder={
+ find:()=>({sort:()=>({limit:()=>({lean:async()=>previous?[previous]:[]})})}),
  findOne(q){
   const result=()=>{
    if(q.requestKey)return created?.requestKey===q.requestKey?created:null;
@@ -58,6 +59,9 @@ const gateway={
  configured:()=>true,
  paymentByRequestKey:async()=>{throw Object.assign(new Error('not found'),{code:'GATEWAY_HTTP_404'});},
  paymentStatus:async()=>{throw Object.assign(new Error('lookup unavailable'),{code:'GATEWAY_HTTP_404'});},
+ recurringStatus:async()=>({state:'none',execution_enabled:false}),
+ paymentHistory:async()=>[],
+ cancelRecurring:async()=>({state:'cancelled',auto_renew:false}),
  savedCardStatus:async()=>({state:cardState,automaticRenewal:false}),
  revokeSavedCard:async()=>({state:cardState='revocation_pending',automaticRenewal:false}),
  checkout:async({cardChoice}={})=>{lastCardChoice=cardChoice;providerCalls++;
@@ -68,6 +72,7 @@ const gateway={
 Module._load=function(name,parent,isMain){
  if(String(parent?.filename||'').endsWith('/backend/controllers/gatewayBillingController.js')){
   if(name==='../models/BillingOrder')return BillingOrder;
+  if(name==='../models/User')return {findById:async()=>null};
   if(name==='../models/BillingRenewalSnooze')return Snooze;
   if(name==='../models/GatewayWebhookNonce')return {create:async()=>{}};
   if(name==='../services/ilumaGatewayClient')return gateway;
@@ -159,11 +164,11 @@ test('Card-on-file opt-in is never implicit and requires a boolean selection',as
  reset();hasRight=true;
  const normal=await call(controller.checkout,checkoutReq());
  assert.equal(normal.statusCode,201);
- assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false});
+ assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false,autoRenew:false});
  reset();hasRight=true;
  const opted=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true}});
  assert.equal(opted.statusCode,201);
- assert.deepEqual(lastCardChoice,{saveCard:true,useSavedCard:false});
+ assert.deepEqual(lastCardChoice,{saveCard:true,useSavedCard:false,autoRenew:false});
  reset();hasRight=true;
  const conflict=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true,useSavedCard:true}});
  assert.equal(conflict.statusCode,400);assert.equal(providerCalls,0);
@@ -230,4 +235,35 @@ test('Gateway 404 never releases a lock when a provider payment/order ID is know
  assert.equal(response.body.order.recoveryReason,null);
  assert.equal(created.lockKey,user._id+':L-PREM',
   'Any known provider payment reference demands financial reconciliation');
+});
+
+
+test('MIT enrollment requires independent boolean consent and never combines with CIT',async()=>{
+ reset();hasRight=true;
+ const request=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:true}});
+ assert.equal(request.statusCode,201);
+ assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false,autoRenew:true});
+ assert.equal(created.autoRenewRequested,true);
+ reset();hasRight=true;
+ const mixed=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:true,saveCard:true}});
+ assert.equal(mixed.statusCode,400);
+ assert.equal(providerCalls,0);
+ reset();hasRight=true;
+ const noBoolean=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:'yes'}});
+ assert.equal(noBoolean.statusCode,400);
+ assert.equal(providerCalls,0);
+});
+
+
+test('Authenticated listener may cancel only their own recurring mandate, without client contract',async()=>{
+ reset();
+ const overview=await call(controller.billingOverview,{});
+ assert.equal(overview.statusCode,200);
+ assert.deepEqual(overview.body.invoices,[]);
+ assert.equal(overview.body.recurring.state,'none');
+ const invalid=await call(controller.cancelAutomaticRenewal,{body:{contractId:'FAKE'}});
+ assert.equal(invalid.statusCode,400);
+ const canceled=await call(controller.cancelAutomaticRenewal,{body:{}});
+ assert.equal(canceled.statusCode,200);
+ assert.equal(canceled.body.recurring.state,'cancelled');
 });

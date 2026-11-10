@@ -144,3 +144,64 @@ Closing a preview does not write a real snooze.
 6. If a checkout is pending/unknown, the popup does NOT start a second payment.
    Reconcile the original provider order and ensure Gateway event delivery
    before proceeding. Production remains locked.
+
+
+## Phase: Listener Billing profile + Nexi recurring MIT (staging only)
+
+**OneClick CIT and recurring MIT are distinct financial authorizations.**
+Existing first-month payments or saved OneClick cards CANNOT be converted into
+an automatic recurring agreement. A subscriber must explicitly opt in to a
+new `MIT_SCHEDULED` mandate during a Nexi HPP checkout with first-transaction
+SCA.
+
+### UI
+
+- `/profile?tab=billing`: current paid period, upcoming charge if MIT is
+  active, provider contract verification state, stop-renewal action, authentic
+  Gateway payment history, and a deliberately empty `Τιμολόγια` placeholder.
+- `/premium` on `stage.iradios.gr`: SwiftUI-styled Free/Premium comparison,
+  3.99 EUR/month (VAT 24% included), checkbox for optional standalone
+  OneClick CIT and a **separate unchecked** checkbox for recurring MIT.
+- MIT consent terms: EUR 3.99/month after the first paid period; continues
+  until the listener cancels from Profile Billing. The checkbox is unchecked
+  by default. Legacy one-time payments are not enrolled retroactively.
+- The user can cancel renewals from Profile Billing at any time. This keeps
+  paid listener entitlements until the existing paid/grace period expires.
+- The app does not handle card numbers/CVV or a provider contract ID.
+
+### Service ownership
+
+- Nexi: card credential vault, MIT contract, card authentication and
+  `POST /orders/mit` capture.
+- ILUMA Gateway: explicit consent/timestamp, provider contract verification,
+  mandate state, immutable financial ledger, one charge attempt per exact
+  due cycle, signed account-specific webhook and cancellation.
+- iRadios: verified paid periods, listener Premium rights, grace/expiry,
+  renewal UI and profile/billing tabs.
+
+### Staged deployment and test gate
+
+1. Deploy Gateway main before iRadios, then in the Gateway Hostinger SSH:
+   `php bin/manage.php migrate-staging-recurring`.
+2. Confirm Gateway private staging env:
+   `MIT_SANDBOX_EXECUTION_ENABLED=0` and
+   `MIT_SANDBOX_UAT_APPROVED=0`; production remains locked.
+3. Deploy iRadios staging through `sudo ./ilumadev.sh`.
+4. In an isolated Listener account with **no unresolved checkout**, opt in
+   to MIT, complete the first Nexi HPP card payment and verify that the
+   signed webhook creates a paid iRadios L-PREM record.
+5. Confirm Gateway `recurring/status` reports `active` only when its
+   matching MIT_SCHEDULED contract appears in Nexi contract GET.
+6. Confirm cancellation changes the mandate to cancelled, disables future
+   cycles, and deactivation is retried if Nexi is temporarily unavailable.
+7. Only after a successful controlled Nexi Sandbox MIT payment and
+   HMAC/entitlement/cancellation acceptance may an authorized operator
+   approve the two Gateway sandbox execution flags. No automatic charge
+   occurs when either remains 0.
+8. Test declined/unknown MIT and network timeout: **never repeat a
+   provider POST**, never grant Premium from browser URLs or GET status,
+   and never charge an account after an acknowledged cancellation.
+
+See Gateway `docs/RECURRING_MIT_STAGING_UAT.md`. The production endpoint
+must remain inactive until separate merchant approval, live-key readiness,
+billing notices, invoicing and complete financial UAT.

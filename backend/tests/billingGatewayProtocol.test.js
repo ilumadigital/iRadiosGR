@@ -120,3 +120,27 @@ test('Gateway return never grants rights; grace is iRadios-owned and expires det
  assert.equal(nextGracePeriod('2026-12-10T00:00:00Z',0).toISOString(),'2026-12-10T00:00:00.000Z');
  assert.throws(()=>nextGracePeriod('2026-12-10T00:00:00Z',30));
 });
+
+
+test('Signed MIT events must identify one account and one provider cycle',()=>{
+ const t=new Date();
+ const base={
+  event_id:'b'.repeat(32),event_type:'payment.paid',
+  payment_id:'c'.repeat(32),order_id:'IL'+'D'.repeat(24),
+  customer_id:'gateway-internal',amount_cents:399,currency:'EUR',
+  environment:'staging',occurred_at:t.toISOString(),
+  billing_origin:'automatic_renewal',
+  external_user_id:'iradios-stage-'+'e'.repeat(24),
+  cycle_due_at:t.toISOString()
+ };
+ assert.equal(validatePaymentEvent(base,base.event_id,t),true);
+ for(const invalid of [
+  {...base,billing_origin:'checkout'},
+  {...base,external_user_id:'other-user'},
+  {...base,cycle_due_at:'not-a-date'},
+  {...base,amount_cents:499},
+  {...base,environment:'production'}
+ ]) assert.equal(validatePaymentEvent(invalid,base.event_id,t),false);
+ assert.equal(validatePaymentEvent({...base,billing_origin:undefined},base.event_id,t),true,
+  'Initial checkout events remain compatible without MIT extension');
+});

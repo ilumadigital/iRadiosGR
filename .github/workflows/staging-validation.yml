@@ -53,6 +53,8 @@ jobs:
         run: node --test backend/tests/billingRenewalRules.test.js
       - name: Verify renewal checkout safety, 24h server snooze and cross-cycle uniqueness
         run: node --test ops/check-billing-renewal-endpoints.test.cjs
+      - name: Verify signed MIT renewal idempotency and account correlation
+        run: node --test ops/check-billing-mit-webhook.test.cjs
       - name: Verify atomic signed payment activation, duplicate events and replay protection
         run: node --test ops/check-billing-gateway-webhook.test.cjs
       - name: Verify only confirmed paid or complimentary entitlements unlock Listener Premium

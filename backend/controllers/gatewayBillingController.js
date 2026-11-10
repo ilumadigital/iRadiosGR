@@ -2,6 +2,7 @@
 const BillingOrder=require('../models/BillingOrder');
 const GatewayWebhookNonce=require('../models/GatewayWebhookNonce');
 const BillingRenewalSnooze=require('../models/BillingRenewalSnooze');
+const User=require('../models/User');
 const {DAY_MS,paidRenewalState,paidRenewalPeriod}=require('../services/billingRenewalRules');
 const gateway=require('../services/ilumaGatewayClient');
 const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
@@ -38,6 +39,12 @@ async function renewalNotice(req,res){
  if(req.user?.role!=='user')return res.json({notice:null,renewal:null});
  const renewal=await currentRenewal(req.user);
  if(!renewal)return res.json({notice:null,renewal:null});
+ // Only suppress manual-renewal prompts when a fully verified recurring
+ // mandate is active AND its sandbox recurring worker has been enabled.
+ // Otherwise the listener must still see a truthful renewal warning.
+ const recurring=await gateway.recurringStatus(req.user);
+ if(recurring.state==='active'&&recurring.execution_enabled===true)
+  return res.json({notice:null,renewal:null});
  const snoozed=await BillingRenewalSnooze.findOne({
   accountId:req.user._id,orderId:renewal.cycleId,
   snoozedUntil:{$gt:new Date()}
@@ -67,14 +74,19 @@ async function checkout(req,res){
   return res.status(400).json({error:'Απαιτείται έγκυρο Idempotency-Key UUID.'});
  const options=req.body||{};
  const fields=Object.keys(options);
- if(fields.some(k=>!['saveCard','useSavedCard'].includes(k))||
+ if(fields.some(k=>!['saveCard','useSavedCard','autoRenew'].includes(k))||
     (options.saveCard!==undefined&&typeof options.saveCard!=='boolean')||
     (options.useSavedCard!==undefined&&typeof options.useSavedCard!=='boolean')||
-    (options.saveCard===true&&options.useSavedCard===true))
+    (options.autoRenew!==undefined&&typeof options.autoRenew!=='boolean')||
+    (options.saveCard===true&&options.useSavedCard===true)||
+    (options.autoRenew===true&&(options.saveCard===true||options.useSavedCard===true)))
   return res.status(400).json({error:'Μη έγκυρες επιλογές αποθήκευσης κάρτας.'});
  // No opt-in is the default. The user controls each OneClick choice and
  // cannot trigger a MIT or automatic renewal via this endpoint.
- const cardChoice={saveCard:options.saveCard===true,useSavedCard:options.useSavedCard===true};
+ const cardChoice={
+  saveCard:options.saveCard===true,useSavedCard:options.useSavedCard===true,
+  autoRenew:options.autoRenew===true
+ };
  const requestKey='iradios-stage-'+accountId(req)+'-'+clientKey;
  let order=await BillingOrder.findOne({requestKey}).lean();
  if(order){
@@ -94,12 +106,19 @@ async function checkout(req,res){
  const previousPaid=await BillingOrder.findOne({
   accountId:req.user._id,sku:'L-PREM',environment:'staging',status:'paid'
  }).sort({paidAt:-1,createdAt:-1}).select('_id').lean();
+ // An already-enrolled recurring mandate may create the next paid period
+ // without browser checkout. Never charge manually in parallel with it.
+ const existingMandate=await gateway.recurringStatus(req.user);
+ if(['active','pending','verification_pending'].includes(existingMandate.state))
+  return res.status(409).json({code:'RECURRING_ALREADY_ENROLLED',
+   error:'Υπάρχει ενεργή εξουσιοδότηση αυτόματης συνδρομής. Διαχειρίσου την από το Billing πριν ξεκινήσεις νέα αγορά.'});
  // Require unique indexes before any outbound checkout call.
  await ensureBillingIndexes();
  try{
   order=await BillingOrder.create({accountId:req.user._id,sku:'L-PREM',
     requestKey,lockKey,amountCents:399,currency:'EUR',status:'creating',
-    renewalOfOrderId:previousPaid?._id});
+    renewalOfOrderId:previousPaid?._id,
+    autoRenewRequested:cardChoice.autoRenew});
  }catch(error){
   if(error.code!==11000)throw error;
   const found=await BillingOrder.findOne({$or:[{requestKey},{lockKey}]}).lean();
@@ -127,14 +146,17 @@ async function checkout(req,res){
    // Gateway 422 is emitted only during deterministic validation/preflight
    // BEFORE any Nexi HPP request. No provider payment exists for this key.
    const oneClick=cardChoice.saveCard||cardChoice.useSavedCard;
-   const code=oneClick?'GATEWAY_ONECLICK_NOT_READY':'GATEWAY_CATALOG_NOT_READY';
+   const code=cardChoice.autoRenew?'GATEWAY_RECURRING_NOT_READY':
+     oneClick?'GATEWAY_ONECLICK_NOT_READY':'GATEWAY_CATALOG_NOT_READY';
    await BillingOrder.findOneAndUpdate({_id:order._id,status:'creating'},{
      $set:{status:'failed',lastErrorCode:code},
      $unset:{lockKey:''}
    });
-   return res.status(503).json({code,error:oneClick
-     ?'Η αποθήκευση κάρτας OneClick δεν είναι έτοιμη στο Gateway. Δεν δημιουργήθηκε checkout Nexi. Ελέγξτε τη migration και την κατάσταση της κάρτας πριν ξαναδοκιμάσετε.'
-     :'Το προϊόν L-PREM πρέπει να ενεργοποιηθεί στο Nexi Sandbox Gateway με τιμή 3,99 €.'});
+   return res.status(503).json({code,error:cardChoice.autoRenew
+     ?'Το Gateway δεν έχει ολοκληρώσει την ασφαλή προετοιμασία της συνδρομής MIT. Δεν δημιουργήθηκε χρέωση Nexi. Ελέγξτε τη staging migration.'
+     :oneClick
+      ?'Η αποθήκευση κάρτας OneClick δεν είναι έτοιμη στο Gateway. Δεν δημιουργήθηκε checkout Nexi. Ελέγξτε τη migration και την κατάσταση της κάρτας πριν ξαναδοκιμάσετε.'
+      :'Το προϊόν L-PREM πρέπει να ενεργοποιηθεί στο Nexi Sandbox Gateway με τιμή 3,99 €.'});
   }
   // Gateway or network uncertainty does not mean the customer was NOT charged.
   // Keep the lock and the original Idempotency-Key. Do not retry automatically.
@@ -160,6 +182,31 @@ async function revokeSavedCard(req,res){
   return res.status(400).json({error:'Δεν απαιτούνται στοιχεία κάρτας.'});
  const result=await gateway.revokeSavedCard(req.user);
  return res.json({paymentMethod:result});
+}
+
+async function billingOverview(req,res){
+ if(!permitted())return res.status(503).json({error:'Staging billing unavailable'});
+ if(req.user?.role!=='user')return res.status(403).json({error:'Listener account required'});
+ const [orders,recurring,payments,paymentMethod]=await Promise.all([
+  BillingOrder.find({accountId:req.user._id,sku:'L-PREM',environment:'staging'})
+    .sort({createdAt:-1}).limit(50).lean(),
+  gateway.recurringStatus(req.user),
+  gateway.paymentHistory(req.user),
+  gateway.savedCardStatus(req.user)
+ ]);
+ return res.json({
+  environment:'staging',sku:'L-PREM',currency:'EUR',priceCents:399,
+  recurring,orders:orders.map(display),payments,paymentMethod,
+  invoices:[],invoicesAvailable:false
+ });
+}
+async function cancelAutomaticRenewal(req,res){
+ if(!permitted())return res.status(503).json({error:'Staging billing unavailable'});
+ if(req.user?.role!=='user')return res.status(403).json({error:'Listener account required'});
+ if(req.body&&Object.keys(req.body).length>0)
+  return res.status(400).json({error:'No payment or contract ID accepted'});
+ const recurring=await gateway.cancelRecurring(req.user);
+ return res.json({recurring});
 }
 
 async function listOwnOrders(req,res){
@@ -255,6 +302,44 @@ async function webhook(req,res){
  await ensureBillingIndexes();
  try{await GatewayWebhookNonce.create({nonce:verified.nonce});}
  catch(error){if(error.code===11000)return res.status(409).json({error:'Webhook nonce replay'});throw error;}
+ // An automatic renewal has no browser checkout and therefore no pre-created
+ // local BillingOrder. It may ONLY be created from a verified, signed
+ // Gateway MIT payment event with an account-scoped external reference.
+ if(event.billing_origin==='automatic_renewal'){
+  const id=event.external_user_id.slice('iradios-stage-'.length);
+  const user=await User.findById(id).select('_id role isVerified').lean();
+  if(!user||user.role!=='user'||user.isVerified!==true)
+   return res.status(422).json({error:'MIT account does not exist'});
+  const old=await BillingOrder.findOne({
+   accountId:user._id,sku:'L-PREM',environment:'staging',status:'paid',
+   $or:[{autoRenewRequested:true},{billingOrigin:'automatic_renewal'}]
+  }).sort({periodEndsAt:-1}).select('_id periodEndsAt').lean();
+  if(!old)return res.status(503).json({error:'MIT enrollment confirmation pending'});
+  if(event.event_type!=='payment.paid')
+   return res.json({received:true,activated:false,reason:'unsuccessful_renewal'});
+  const now=new Date();
+  const confirmedAt=new Date(Math.min(Date.parse(event.occurred_at),now.getTime()));
+  const periodStart=paidRenewalPeriod(confirmedAt,old.periodEndsAt);
+  const periodEnd=nextMonthlyPeriod(periodStart);
+  const result=await BillingOrder.findOneAndUpdate({
+   gatewayPaymentId:event.payment_id
+  },{$setOnInsert:{
+   accountId:user._id,sku:'L-PREM',environment:'staging',
+   amountCents:399,currency:'EUR',billingOrigin:'automatic_renewal',
+   autoRenewRequested:true,renewalOfOrderId:old._id,
+   requestKey:'iradios-stage-'+id+'-mit-'+event.payment_id,
+   gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
+   status:'paid',providerStatus:'paid',paidAt:confirmedAt,
+   periodStartsAt:periodStart,periodEndsAt:periodEnd,
+   graceEndsAt:nextGracePeriod(periodEnd),
+   eventIds:[event.event_id],
+   eventLog:[{id:event.event_id,type:event.event_type,at:now}]
+  }},{upsert:true,new:true,setDefaultsOnInsert:true});
+  if(String(result.accountId)!==String(user._id)||
+     result.gatewayOrderId!==event.order_id)
+   return res.status(409).json({error:'MIT payment correlation conflict'});
+  return res.json({received:true,activated:true});
+ }
  const lookup={gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
   amountCents:399,currency:'EUR',sku:'L-PREM',environment:'staging'};
  const order=await BillingOrder.findOne(lookup).select('_id accountId renewalOfOrderId status eventIds').lean();
@@ -311,7 +396,9 @@ async function webhook(req,res){
  return res.json({received:true,activated:false});
 }
 
-module.exports={checkout:safe(checkout),savedCardStatus:safe(savedCardStatus),
+module.exports={checkout:safe(checkout),billingOverview:safe(billingOverview),
+ cancelAutomaticRenewal:safe(cancelAutomaticRenewal),
+ savedCardStatus:safe(savedCardStatus),
  revokeSavedCard:safe(revokeSavedCard),renewalNotice:safe(renewalNotice),
  snoozeRenewalNotice:safe(snoozeRenewalNotice),listOwnOrders:safe(listOwnOrders),
  listAdminOrders:safe(listAdminOrders),

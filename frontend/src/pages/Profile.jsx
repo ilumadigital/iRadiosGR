@@ -9,6 +9,7 @@ import {
 import ProfileFollows from '../components/ProfileFollows';
 import ProfileInbox from '../components/ProfileInbox';
 import ProfileSecurity from '../components/ProfileSecurity';
+import ProfileBilling from '../components/ProfileBilling';
 import '../styles/profile.css';
 
 const TOPICS=[
@@ -65,10 +66,11 @@ function SectionHeading({icon:Icon,title,description}){
 export default function Profile({API_URL='/api',onLogout,currentUser=null,onUserUpdated}){
   const navigate=useNavigate();
   const location=useLocation();
-  const allowedTabs=['details','notifications','follows','inbox','subscription'];
+  const allowedTabs=['details','notifications','follows','inbox','billing'];
   const fromQuery=()=>{
     const requested=new URLSearchParams(location.search).get('tab');
     return requested==='security'||requested==='settings'?'details':
+      requested==='subscription'?'billing':
       allowedTabs.includes(requested)?requested:'details';
   };
   const [tab,setTab]=useState(fromQuery);
@@ -269,7 +271,7 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null,onUser
     {id:'notifications',label:'Ειδοποιήσεις',Icon:BellRing},
     {id:'follows',label:'DJs & Εκπομπές',Icon:Mic2},
     {id:'inbox',label:'Inbox',Icon:Mail},
-    {id:'subscription',label:'Συνδρομή',Icon:Crown}
+    {id:'billing',label:'Billing',Icon:Wallet}
   ];
 
   if(loading)return <div className="mx-auto flex min-h-[55dvh] items-center justify-center gap-3 text-zinc-400"><Loader2 className="animate-spin text-[#ccff00]"/> Φόρτωση προφίλ…</div>;
@@ -306,7 +308,7 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null,onUser
       </div>
       <div className="relative mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <button type="button" onClick={()=>selectTab('inbox')} className="ir-profile-quick"><Bell size={17}/><span>Notification Center</span><ArrowRight size={14} className="ml-auto"/></button>
-        <button type="button" onClick={()=>selectTab('subscription')} className="ir-profile-quick"><Wallet size={17}/><span>Το πλάνο μου</span><ArrowRight size={14} className="ml-auto"/></button>
+        <button type="button" onClick={()=>selectTab('billing')} className="ir-profile-quick"><Wallet size={17}/><span>Το πλάνο μου</span><ArrowRight size={14} className="ml-auto"/></button>
         <button type="button" onClick={()=>selectTab('follows')} className="ir-profile-quick col-span-2 sm:col-span-1">
           <Mic2 size={17}/><span>Οι παραγωγοί & εκπομπές μου</span><ArrowRight size={14} className="ml-auto"/></button>
       </div>
@@ -413,43 +415,8 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null,onUser
     {tab==='follows'&&<div role="tabpanel" className="mt-6"><ProfileFollows API_URL={API_URL}/></div>}
     {tab==='inbox'&&<div role="tabpanel" className="mt-6"><ProfileInbox API_URL={API_URL} onUnread={setInboxUnread}/></div>}
 
-    {tab==='subscription'&&<div role="tabpanel" className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-      <section className="ir-profile-panel p-5 sm:p-7">
-        <SectionHeading icon={Crown} title="Συνδρομές & προνόμια" description="Όλα τα πλάνα και η κατάσταση ανανέωσης, χωρίς κρυφές αλλαγές."/>
-        <div className="ir-profile-plan-hero mb-5 flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div><span className="text-[10px] font-black uppercase tracking-[.15em] text-[#ccff00]">Το τωρινό σου πλάνο</span>
-            <h3 className="mt-2 flex items-center gap-2 text-2xl font-black text-white"><Crown size={23} className="text-[#ccff00]"/>{premium?'iRadios Premium':broadcasterPremium?'Broadcaster Premium':'iRadios Free'}</h3>
-            <p className="mt-2 text-xs text-zinc-400">{premium?'Έχεις ενεργοποιημένη premium πρόσβαση.':broadcasterPremium?'Η επαγγελματική premium πρόσβαση του σταθμού σου είναι ενεργή.':'Ανακάλυψε περισσότερες δυνατότητες με Premium.'}</p></div>
-          {!premium&&!broadcasterPremium&&<button type="button" onClick={()=>navigate('/premium')} className="ir-profile-primary"><Zap size={17}/> Δες το Premium</button>}
-        </div>
-        {subscriptions.length>0?<div className="space-y-3">{subscriptions.map((sub,index)=>{
-          const canceled=['canceled','cancelled'].includes(sub.status);
-          const active=sub.status==='active'||sub.status==='trialing';
-          return <div key={sub._id||index} className="ir-profile-subscription-row">
-            <span className="ir-profile-section-icon"><CreditCard size={19}/></span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-black text-white">{PLAN_NAMES[sub.planId]||sub.planId||'Συνδρομή'}</p>
-              <p className="mt-1 text-xs text-zinc-400">
-                {canceled?'Λήγει':active?'Τέλος καταχωρημένης περιόδου':'Κατάσταση: '+(sub.status||'άγνωστη')} · {fmtDate(sub.currentPeriodEnd)}
-              </p>
-              <span className={'mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-extrabold '+(canceled?'bg-amber-500/10 text-amber-300':'bg-[#ccff00]/10 text-[#ccff00]')}>
-                {canceled?'Ακύρωση ανανέωσης':active?'Ενεργή':'Σε αναμονή'}</span>
-            </div>
-          </div>;
-        })}</div>:!premium?<p className="rounded-2xl border border-white/10 bg-white/[.025] p-5 text-xs text-zinc-400">Δεν υπάρχει ενεργή συνδρομή στον λογαριασμό σου.</p>:null}
-        {!pushAvailable&&<p className="mt-4 text-xs leading-6 text-amber-200/80">Στο staging γίνονται μόνο δοκιμαστικές πληρωμές Nexi Sandbox. Δεν υπάρχουν ενεργές αυτόματες ανανεώσεις.</p>}
-      </section>
-      <aside className="flex flex-col gap-5">
-        <section className="ir-profile-panel p-5"><SectionHeading icon={Headphones} title="Με το iRadios Premium"/>
-          <div className="space-y-3 text-xs text-zinc-300">
-            <p className="flex items-center gap-2"><Check size={15} className="text-[#ccff00]"/> Ακρόαση χωρίς in-app διαφημίσεις</p>
-            <p className="flex items-center gap-2"><Check size={15} className="text-[#ccff00]"/> Περισσότερος έλεγχος ήχου</p>
-            <p className="flex items-center gap-2"><Check size={15} className="text-[#ccff00]"/> Premium εμπειρία σταθμών</p>
-          </div>
-          <Link to="/premium" className="ir-profile-link mt-5">Δες όλα τα προνόμια <ArrowRight size={15}/></Link>
-        </section>
-        <button type="button" onClick={()=>selectTab('details')} className="ir-profile-panel flex items-center gap-3 p-5 text-left hover:border-[#ccff00]/35"><ShieldCheck size={18} className="text-[#ccff00]"/><span className="flex-1 text-sm font-bold">Ρυθμίσεις λογαριασμού</span><ChevronRight size={16}/></button>
-      </aside>
+    {tab==='billing'&&<div role="tabpanel">
+      <ProfileBilling API_URL={API_URL} user={user}/>
     </div>}
   </div>;
 }
