@@ -99,7 +99,8 @@ exports.register = async (req, res) => {
     const verification=createEmailVerification();
     const newUser=new User({
       username,email,password:hashedPassword,fname,lname,birthdate:parsedDate,phone,
-      role:'user',isVerified:false,...verification.fields
+      // Allow the first authenticated resend immediately if the first email is lost.
+      role:'user',isVerified:false,...verification.fields,verificationEmailLastSentAt:null
     });
     await newUser.save();
     // Free is immediately usable even if SMTP/Mailpit delivery fails.
