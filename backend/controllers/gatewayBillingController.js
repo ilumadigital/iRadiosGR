@@ -167,7 +167,7 @@ async function checkout(req,res){
  // An already-enrolled recurring mandate may create the next paid period
  // without browser checkout. Never charge manually in parallel with it.
  const existingMandate=await gateway.recurringStatus(req.user);
- if(['active','pending','verification_pending'].includes(existingMandate.state))
+ if(['active','pending','verification_pending','past_due'].includes(existingMandate.state))
   return res.status(409).json({code:'RECURRING_ALREADY_ENROLLED',
    error:'Υπάρχει ενεργή εξουσιοδότηση αυτόματης συνδρομής. Διαχειρίσου την από το Billing πριν ξεκινήσεις νέα αγορά.'});
  // Require unique indexes before any outbound checkout call.
@@ -252,7 +252,7 @@ async function billingOverview(req,res){
  if(!permitted())return res.status(503).json({error:'Staging billing unavailable'});
  if(req.user?.role!=='user')return res.status(403).json({error:'Listener account required'});
  const [orders,recurring,payments,paymentMethod]=await Promise.all([
-  BillingOrder.find({accountId:req.user._id,sku:'L-PREM',environment:'staging'})
+  BillingOrder.find({accountId:req.user._id,sku:{$in:PREMIUM_SKUS},environment:'staging'})
     .sort({createdAt:-1}).limit(50).lean(),
   gateway.recurringStatus(req.user),
   gateway.paymentHistory(req.user),
@@ -274,7 +274,7 @@ async function cancelAutomaticRenewal(req,res){
 }
 
 async function listOwnOrders(req,res){
- const rows=await BillingOrder.find({accountId:req.user._id,sku:'L-PREM'})
+ const rows=await BillingOrder.find({accountId:req.user._id,sku:{$in:PREMIUM_SKUS}})
   .sort({createdAt:-1}).limit(20).lean();
  return res.json({orders:rows.map(display),renewalEnabled:false});
 }
@@ -293,8 +293,8 @@ async function readOrder(req,res){
     Date.now()-new Date(row.gatewayLastCheckedAt).getTime()>20000) && permitted()){
   try{
    const provider=row.gatewayPaymentId
-    ?await gateway.paymentStatus(row.gatewayPaymentId,row.gatewayOrderId)
-    :await gateway.paymentByRequestKey(row.requestKey);
+    ?await gateway.paymentStatus(row.gatewayPaymentId,row.gatewayOrderId,row.amountCents)
+    :await gateway.paymentByRequestKey(row.requestKey,row.amountCents);
    const localStatus=localStatusFromGatewayLookup(provider.status);
    const change={$set:{
     gatewayPaymentId:provider.payment_id,gatewayOrderId:provider.order_id,
@@ -375,7 +375,7 @@ async function webhook(req,res){
   if(!user||user.role!=='user'||user.isVerified!==true)
    return res.status(422).json({error:'MIT account does not exist'});
   const old=await BillingOrder.findOne({
-   accountId:user._id,sku:'L-PREM',environment:'staging',status:'paid',
+   accountId:user._id,sku:{$in:PREMIUM_SKUS},environment:'staging',status:'paid',
    $or:[{autoRenewRequested:true},{billingOrigin:'automatic_renewal'}]
   }).sort({periodEndsAt:-1}).select('_id periodEndsAt').lean();
   if(!old)return res.status(503).json({error:'MIT enrollment confirmation pending'});
@@ -405,7 +405,8 @@ async function webhook(req,res){
   return res.json({received:true,activated:true});
  }
  const lookup={gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
-  amountCents:399,currency:'EUR',sku:'L-PREM',environment:'staging'};
+  amountCents:event.amount_cents,currency:'EUR',
+  sku:event.amount_cents===199?PROMO_SKU:'L-PREM',environment:'staging'};
  const order=await BillingOrder.findOne(lookup).select('_id accountId renewalOfOrderId status eventIds').lean();
  if(!order){
   // A webhook can race the initial gateway response. Retry with a NEW signed
@@ -422,7 +423,7 @@ async function webhook(req,res){
  if(event.event_type==='payment.paid'&&order.renewalOfOrderId){
   const previous=await BillingOrder.findOne({
    _id:order.renewalOfOrderId,accountId:order.accountId,
-   environment:'staging',sku:'L-PREM',status:'paid'
+   environment:'staging',sku:{$in:PREMIUM_SKUS},status:'paid'
   }).select('periodEndsAt').lean();
   periodStart=paidRenewalPeriod(confirmedAt,previous?.periodEndsAt);
  }
@@ -460,7 +461,8 @@ async function webhook(req,res){
  return res.json({received:true,activated:false});
 }
 
-module.exports={checkout:safe(checkout),recurringStatus:safe(recurringStatus),billingOverview:safe(billingOverview),
+module.exports={checkout:safe(checkout),winbackStatus:safe(winbackStatus),
+ recurringStatus:safe(recurringStatus),billingOverview:safe(billingOverview),
  cancelAutomaticRenewal:safe(cancelAutomaticRenewal),
  savedCardStatus:safe(savedCardStatus),
  revokeSavedCard:safe(revokeSavedCard),renewalNotice:safe(renewalNotice),
