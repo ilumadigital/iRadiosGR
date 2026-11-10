@@ -150,7 +150,7 @@ async function broadcasterCheckout({user,requestKey,sku,stationId=null,autoRenew
   customer_id:'iradios-stage-'+String(user._id),product_sku:sku,
   name:([first,last].filter(Boolean).join(' ')||String(user.username||'Broadcaster')).slice(0,250),
   email:String(user.email||'').trim(),
-  ...(product.scopeType==='station'&&autoRenew?{resource_id:String(stationId)}:{}),
+  ...(product.scopeType==='station'?{resource_id:String(stationId)}:{}),
   ...(autoRenew?{auto_renew:true,recurring_consent_version:'iradios-broadcaster-monthly-v1'}:{})
  },requestKey);
  return gatewayPurchase(response,{sku});
