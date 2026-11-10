@@ -39,6 +39,12 @@ async function renewalNotice(req,res){
  if(req.user?.role!=='user')return res.json({notice:null,renewal:null});
  const renewal=await currentRenewal(req.user);
  if(!renewal)return res.json({notice:null,renewal:null});
+ // Only suppress manual-renewal prompts when a fully verified recurring
+ // mandate is active AND its sandbox recurring worker has been enabled.
+ // Otherwise the listener must still see a truthful renewal warning.
+ const recurring=await gateway.recurringStatus(req.user);
+ if(recurring.state==='active'&&recurring.execution_enabled===true)
+  return res.json({notice:null,renewal:null});
  const snoozed=await BillingRenewalSnooze.findOne({
   accountId:req.user._id,orderId:renewal.cycleId,
   snoozedUntil:{$gt:new Date()}
@@ -100,6 +106,12 @@ async function checkout(req,res){
  const previousPaid=await BillingOrder.findOne({
   accountId:req.user._id,sku:'L-PREM',environment:'staging',status:'paid'
  }).sort({paidAt:-1,createdAt:-1}).select('_id').lean();
+ // An already-enrolled recurring mandate may create the next paid period
+ // without browser checkout. Never charge manually in parallel with it.
+ const existingMandate=await gateway.recurringStatus(req.user);
+ if(['active','pending','verification_pending'].includes(existingMandate.state))
+  return res.status(409).json({code:'RECURRING_ALREADY_ENROLLED',
+   error:'Υπάρχει ενεργή εξουσιοδότηση αυτόματης συνδρομής. Διαχειρίσου την από το Billing πριν ξεκινήσεις νέα αγορά.'});
  // Require unique indexes before any outbound checkout call.
  await ensureBillingIndexes();
  try{
