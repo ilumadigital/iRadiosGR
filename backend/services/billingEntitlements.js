@@ -3,6 +3,7 @@
 // Phase 3 will integrate verified PAID subscription rows without touching
 // legacy manual benefits until a separate audited migration.
 const BillingGrant=require('../models/BillingGrant');
+const BillingOrder=require('../models/BillingOrder');
 const {legacyRights,effectiveRights,projectUserEntitlements}=require('./billingEntitlementRules');
 
 async function activeGrantsFor(user,now=new Date()){
@@ -14,7 +15,13 @@ async function activeGrantsFor(user,now=new Date()){
 }
 
 async function accountRights(user,now=new Date()){
- return effectiveRights(user,await activeGrantsFor(user,now),{now});
+ const rights=new Set(effectiveRights(user,await activeGrantsFor(user,now),{now}));
+ if(user?._id && user.role==='user'){
+  const paid=await BillingOrder.exists({accountId:user._id,sku:'L-PREM',
+   status:'paid',periodEndsAt:{$gt:now},environment:'staging'});
+  if(paid)rights.add('listener.premium');
+ }
+ return [...rights].sort();
 }
 
 async function hasAccountRight(user,entitlement){
