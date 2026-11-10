@@ -36,6 +36,28 @@ async function get(url,signal){
     'Δεν ήταν δυνατή η ανάκτηση των συνδρομών. Δοκίμασε ανανέωση.');
   return response.json();
 }
+async function post(url,body,requestKey=null){
+ const res=await fetch(url,{method:'POST',
+   headers:{...authHeaders(),'Content-Type':'application/json',
+     ...(requestKey?{'Idempotency-Key':requestKey}:{})},
+   body:JSON.stringify(body),cache:'no-store'});
+ const data=await res.json().catch(()=>({}));
+ if(!res.ok)throw Object.assign(new Error(data.error||'Η συναλλαγή δεν ολοκληρώθηκε.'),
+   {code:data.code||'',status:res.status});
+ return data;
+}
+function hostedUrl(value){
+ try{
+  const url=new URL(value);
+  if(url.protocol==='https:'&&!url.username&&!url.password&&!url.port&&
+    (url.hostname==='nexigroup.com'||url.hostname.endsWith('.nexigroup.com')))
+    return url.toString();
+ }catch{}
+ return null;
+}
+const activeStates=new Set(['creating','pending','unknown','redirect']);
+const purchaseKey=(account,sku,station)=>'iradios-broadcaster-key-'+account+'-'+sku+'-'+(station||'account');
+
 function StateTag({active,included=false}){
   return <span className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-wider '+
     (active?'bg-[#ccff00]/15 text-[#ccff00]':included?'bg-sky-400/10 text-sky-300':'bg-white/[.07] text-zinc-400')}>
@@ -54,7 +76,7 @@ function Loading(){
   </div>;
 }
 
-export default function BroadcasterCommerce({stations=[],view='features',role='broadcaster'}){
+export default function BroadcasterCommerce({stations=[],view='features',role='broadcaster',accountId=null}){
   const [catalog,setCatalog]=useState(null);
   const [accountRights,setAccountRights]=useState([]);
   const [byStation,setByStation]=useState({});
@@ -62,6 +84,13 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
   const [period,setPeriod]=useState('month');
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [orders,setOrders]=useState([]);
+  const [order,setOrder]=useState(null);
+  const [busySku,setBusySku]=useState('');
+  const [paymentNotice,setPaymentNotice]=useState('');
+  const [recurring,setRecurring]=useState({});
+  const [cancelTarget,setCancelTarget]=useState(null);
+  const [cancelBusy,setCancelBusy]=useState(false);
   const approved=useMemo(()=>stations.filter(s=>s.status==='approved'),[stations]);
   useEffect(()=>{if(!approved.some(s=>s._id===selectedStation))
     setSelectedStation(approved[0]?._id||'');},[approved,selectedStation]);
@@ -70,16 +99,118 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
     Promise.all([
       get('/api/billing/catalog',controller.signal),
       get('/api/billing/me/entitlements',controller.signal),
-      get('/api/billing/me/station-entitlements',controller.signal)
-    ]).then(([items,account,owned])=>{
+      get('/api/billing/me/station-entitlements',controller.signal),
+      get('/api/billing/broadcaster/orders',controller.signal)
+    ]).then(([items,account,owned,purchases])=>{
       if(controller.signal.aborted)return;
       setCatalog(Object.fromEntries((items.products||[]).map(p=>[p.sku,p])));
       setAccountRights(account.entitlements||[]);
       setByStation(owned.byStation||{});
+      setOrders(purchases.orders||[]);
+      const last=accountId&&sessionStorage.getItem('iradios-broadcaster-order-'+accountId);
+      const current=(purchases.orders||[]).find(p=>p.id===last)||
+       (purchases.orders||[]).find(p=>p.gatewayOrderId&&
+         p.gatewayOrderId===new URLSearchParams(window.location.search).get('order'));
+      if(current)setOrder(current);
     }).catch(e=>{if(!controller.signal.aborted)setError(e.message);})
       .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return ()=>controller.abort();
-  },[]);
+  },[accountId]);
+  const refreshRights=async()=>{
+   const [account,station,purchases]=await Promise.all([
+    get('/api/billing/me/entitlements'),
+    get('/api/billing/me/station-entitlements'),
+    get('/api/billing/broadcaster/orders')
+   ]);
+   setAccountRights(account.entitlements||[]);
+   setByStation(station.byStation||{});
+   setOrders(purchases.orders||[]);
+  };
+  const inspectOrder=async(id=order?.id)=>{
+   if(!id)return;
+   setBusySku('reconcile');
+   try{
+    const data=await get('/api/billing/broadcaster/orders/'+encodeURIComponent(id)+'?refresh=1');
+    setOrder(data.order);
+    if(data.order?.status==='active'||data.order?.status==='expired'){
+     setPaymentNotice('Η πληρωμή έχει επιβεβαιωθεί από το Gateway.');
+     sessionStorage.removeItem('iradios-broadcaster-order-'+accountId);
+     await refreshRights();
+    }else if(['failed','canceled'].includes(data.order?.status)){
+     setPaymentNotice('Η συναλλαγή δεν ολοκληρώθηκε. Δεν ενεργοποιήθηκαν προνόμια.');
+     sessionStorage.removeItem('iradios-broadcaster-order-'+accountId);
+     sessionStorage.removeItem(purchaseKey(accountId,data.order.sku,data.order.stationId));
+    }else{
+     setPaymentNotice('Αναμονή signed επιβεβαίωσης πληρωμής. Δεν θα γίνει δεύτερη χρέωση.');
+    }
+   }catch(e){setPaymentNotice(e.message);}
+   finally{setBusySku('');}
+  };
+  const beginCheckout=async(sku,stationId=null,autoRenew=true)=>{
+   if(busySku||!accountId||role!=='broadcaster'||(stationId&&!available))return;
+   setBusySku(sku);setPaymentNotice('');
+   const keyName=purchaseKey(accountId,sku,stationId);
+   let key=sessionStorage.getItem(keyName);
+   if(!key){key=crypto.randomUUID();sessionStorage.setItem(keyName,key);}
+   try{
+    const result=await post('/api/billing/broadcaster/checkout',{
+      sku,...(stationId?{stationId}:{}),autoRenew
+    },key);
+    if(result.order){
+     setOrder(result.order);
+     sessionStorage.setItem('iradios-broadcaster-order-'+accountId,result.order.id);
+     const url=result.order.status==='redirect'?hostedUrl(result.order.checkoutUrl):null;
+     if(url){window.location.assign(url);return;}
+     setPaymentNotice('Η πληρωμή εκκρεμεί. Έλεγξε πρώτα την υπάρχουσα συναλλαγή, χωρίς νέα χρέωση.');
+    }
+   }catch(e){
+    if(e.code==='GATEWAY_BROADCASTER_NOT_READY'){
+      sessionStorage.removeItem(keyName);
+    }
+    setPaymentNotice(e.message);
+    await get('/api/billing/broadcaster/orders').then(data=>setOrders(data.orders||[])).catch(()=>{});
+   }finally{setBusySku('');}
+  };
+  const recurringKey=(sku,stationId)=>sku+':'+(stationId||'account');
+  const loadRecurring=async(sku,stationId=null)=>{
+   const key=recurringKey(sku,stationId);
+   try{
+    const params=new URLSearchParams({sku,...(stationId?{stationId}:{})});
+    const result=await get('/api/billing/broadcaster/recurring?'+params.toString());
+    setRecurring(prev=>({...prev,[key]:result.recurring}));
+   }catch{setRecurring(prev=>({...prev,[key]:{state:'unavailable'}}));}
+  };
+  useEffect(()=>{
+   if(!accountId||!catalog)return;
+   const scoped=selectedStation?MODULES.map(p=>[p.sku,selectedStation]):[];
+   void Promise.all([loadRecurring('B-PREM'),...scoped.map(([sku,station])=>loadRecurring(sku,station))]);
+  },[accountId,catalog,selectedStation]);
+  useEffect(()=>{
+   if(!order||!activeStates.has(order.status))return;
+   const timer=setInterval(()=>{void inspectOrder(order.id);},20000);
+   return()=>clearInterval(timer);
+  },[order?.id,order?.status]);
+  useEffect(()=>{
+   if(!accountId||!order?.id)return;
+   const params=new URLSearchParams(window.location.search);
+   if(!params.get('gateway_return')||!params.get('order')||
+      order.gatewayOrderId!==params.get('order'))return;
+   void inspectOrder(order.id);
+  },[accountId,order?.id,order?.gatewayOrderId]);
+  const stopRenewal=async()=>{
+   if(!cancelTarget||cancelBusy)return;
+   setCancelBusy(true);
+   try{
+    const payload={sku:cancelTarget.sku,...(cancelTarget.stationId?
+      {stationId:cancelTarget.stationId}:{})};
+    const data=await post('/api/billing/broadcaster/recurring/cancel',payload);
+    setPaymentNotice('Η αυτόματη ανανέωση διακόπηκε. Τα πληρωμένα προνόμια παραμένουν μέχρι τη λήξη.');
+    setRecurring(prev=>({...prev,[recurringKey(payload.sku,payload.stationId)]:
+      data.recurring}));
+    setCancelTarget(null);
+   }catch(e){setPaymentNotice(e.message);}
+   finally{setCancelBusy(false);}
+  };
   const fullPremium=accountRights.includes('broadcaster.unlimited_stations');
   const stationRights=new Set(byStation[selectedStation]||[]);
   const has=right=>fullPremium||stationRights.has(right);
@@ -87,7 +218,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
   const isPreview=role==='admin';
   const duration=PERIODS.find(p=>p.code===period)?.name||'';
   const available=Boolean(selectedStation)&&!isPreview;
-  const gateNote='Οι νέες χρεώσεις Broadcaster δεν έχουν ακόμη ενεργοποιηθεί στο Nexi Sandbox. Καμία αγορά δεν θα εκτελεστεί πριν ολοκληρωθεί ο ασφαλής έλεγχος Gateway, webhook και ανανεώσεων.';
+  const gateNote='Οι αγορές πραγματοποιούνται αποκλειστικά μέσω ασφαλούς Nexi Sandbox checkout. Η ενεργοποίηση γίνεται μόνο μετά από υπογεγραμμένη επιβεβαίωση του Gateway. Σε άγνωστη κατάσταση μην ξεκινήσεις δεύτερη πληρωμή.';
   return <div className="mx-auto max-w-[1300px] space-y-8 pb-16 text-white">
     <header className="relative overflow-hidden rounded-[32px] border border-[#ccff00]/20 bg-gradient-to-br from-[#202920] via-[#151a19] to-[#0a0d0d] p-7 md:p-12">
       <div className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-[#ccff00]/10 blur-[85px]"/>
@@ -109,6 +240,15 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
       </div>
     </header>
 
+    {paymentNotice&&<div role="status" className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-100">{paymentNotice}</div>}
+    {order&&<section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/15 bg-[#161c1c] p-5">
+      <div><p className="text-xs font-black text-white">Τελευταία συναλλαγή · {order.sku}</p>
+        <p className="mt-2 text-xs text-zinc-400">Κατάσταση: <strong className="text-[#ccff00]">{order.status}</strong>
+        {order.periodEndsAt?' · Λήξη: '+new Date(order.periodEndsAt).toLocaleDateString('el-GR'):''}</p></div>
+      {activeStates.has(order.status)&&<button type="button" disabled={Boolean(busySku)}
+        onClick={()=>void inspectOrder(order.id)}
+        className="rounded-xl bg-[#ccff00] px-5 py-3 text-xs font-black text-black disabled:opacity-50">Έλεγχος πληρωμής</button>}
+    </section>}
     {loading?<Loading/>:error?<div role="alert" className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-5 text-sm text-rose-200">
       {error} <button className="ml-3 font-black underline" onClick={()=>window.location.reload()}>Ανανέωση</button></div>:<>
       <section className="flex flex-wrap items-end justify-between gap-5 rounded-[24px] border border-white/10 bg-[#131718] p-5 md:p-7">
@@ -136,9 +276,17 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-300">Τα εργαλεία που χρειάζεται ένας σύγχρονος ραδιοφωνικός σταθμός, σε ένα πακέτο. Περιλαμβάνει WebDSP, Audience Radar, Ad Control και Premium Boost.</p>
               <div className="mt-6 flex items-end gap-2"><span className="text-5xl font-black tracking-tighter text-[#ccff00]">{price('B-PREM')}</span><span className="pb-1 text-sm text-zinc-400">/ μήνα</span></div>
               <p className="mt-2 text-[11px] text-zinc-400">Τελική τιμή με ΦΠΑ 24% · Μηνιαία συνδρομή μέχρι ακύρωσης</p>
+              <p className="mt-2 text-xs leading-6 text-zinc-300">Με την «Έναρξη συνδρομής» συμφωνείς σε επαναλαμβανόμενη χρέωση <strong>{price('B-PREM')}/μήνα</strong> μέσω Nexi, μέχρι να την ακυρώσεις από το Backoffice. Η ακύρωση σταματά τις μελλοντικές χρεώσεις.</p>
+              {fullPremium&&recurring[recurringKey('B-PREM')]?.state==='active'&&<button
+                className="mt-3 text-xs font-bold text-rose-300 underline" type="button"
+                onClick={()=>setCancelTarget({sku:'B-PREM'})}>Διακοπή αυτόματης ανανέωσης Premium</button>}
               <div className="mt-7 flex flex-wrap gap-3">
                 {fullPremium?<span className="inline-flex items-center gap-2 rounded-xl bg-[#ccff00] px-6 py-3.5 text-xs font-black text-black"><CheckCircle2 size={16}/> Το Premium σου είναι ενεργό</span>:
-                  <button disabled title="Απαιτείται ολοκλήρωση Broadcaster Nexi UAT" className="rounded-xl bg-[#ccff00]/35 px-6 py-3.5 text-xs font-black text-black opacity-60">Έναρξη συνδρομής · σύντομα</button>}
+                  <button type="button" disabled={Boolean(busySku)}
+                    onClick={()=>void beginCheckout('B-PREM',null,true)}
+                    className="rounded-xl bg-[#ccff00] px-6 py-3.5 text-xs font-black text-black transition hover:bg-[#e2ff83] disabled:opacity-50">
+                    {busySku==='B-PREM'?'Δημιουργία ασφαλούς πληρωμής…':'Έναρξη συνδρομής με Nexi'}
+                  </button>}
                 <Link to="/backoffice/boost" className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-5 py-3.5 text-xs font-black text-white">Πρόσθετη προβολή <ArrowRight size={15}/></Link>
               </div>
             </div>
@@ -171,9 +319,16 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <h3 className="mt-5 text-2xl font-black tracking-tight">{module.name}</h3>
               <p className="mt-1 text-xs text-zinc-400">{module.subtitle}</p>
               <div className="mt-5 flex items-baseline gap-1"><span className="text-3xl font-black">{price(module.sku)}</span><span className="text-xs text-zinc-500">/ μήνα / σταθμό</span></div>
+              <p className="mt-2 text-[11px] leading-5 text-zinc-400">Μηνιαία επαναλαμβανόμενη χρέωση μέσω Nexi μέχρι ακύρωσης. Περιλαμβάνεται ΦΠΑ 24%.</p>
               <ul className="my-7 flex-1 space-y-3">{module.benefits.map(f=><Bullet key={f}>{f}</Bullet>)}</ul>
               {active?<div className="flex items-center justify-center gap-2 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/10 px-4 py-3.5 text-xs font-black text-[#ccff00]"><CheckCircle2 size={16}/>{included?'Περιλαμβάνεται στο Premium':'Ενεργό στον σταθμό'}</div>:
-              <button disabled title="Απαιτείται ολοκλήρωση Broadcaster Nexi UAT" className="flex items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3.5 text-xs font-black text-zinc-400"><LockKeyhole size={15}/> Ενεργοποίηση · σύντομα</button>}
+              <button type="button" disabled={!available||Boolean(busySku)}
+                onClick={()=>void beginCheckout(module.sku,selectedStation,true)}
+                className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-xs font-black text-black hover:bg-[#ccff00] disabled:opacity-40">
+                <Zap size={15}/>{busySku===module.sku?'Δημιουργία πληρωμής…':'Ενεργοποίηση με Nexi'}</button>}
+              {active&&recurring[recurringKey(module.sku,selectedStation)]?.state==='active'&&
+                <button type="button" onClick={()=>setCancelTarget({sku:module.sku,stationId:selectedStation})}
+                  className="mt-3 text-xs font-bold text-rose-300 underline">Διακοπή αυτόματης ανανέωσης</button>}
             </article>;
           })}
         </section>
@@ -192,7 +347,10 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <p className="mt-3 min-h-14 text-sm leading-6 text-zinc-400">{pack.description}</p>
               <p className="mt-6 text-4xl font-black tracking-tight">{price(pack.prefix+'-'+period.toUpperCase().replace('TWO_WEEKS','2W').replace('MONTH','MONTH'))}</p>
               <p className="mt-2 text-xs text-zinc-400">Τελική τιμή με ΦΠΑ 24% · {duration}</p>
-              <button type="button" disabled title="Το Boost checkout δεν έχει ακόμη περάσει Nexi UAT" className="mt-8 rounded-xl bg-white/10 px-5 py-3.5 text-xs font-black text-zinc-400">Αγορά Boost · σύντομα</button>
+              <button type="button" disabled={!available||Boolean(busySku)}
+                onClick={()=>void beginCheckout(pack.prefix+'-'+period.toUpperCase().replace('TWO_WEEKS','2W'),selectedStation,false)}
+                className="mt-8 rounded-xl bg-[#ccff00] px-5 py-3.5 text-xs font-black text-black transition hover:bg-white disabled:opacity-40">
+                {busySku.startsWith(pack.prefix)?'Δημιουργία πληρωμής…':'Αγορά Boost με Nexi · μία φορά'}</button>
             </article>;
           })}
         </section>
@@ -204,6 +362,20 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
           </div>
         </div>
       </>}
+      {cancelTarget&&<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+        <div role="dialog" aria-modal="true" aria-label="Ακύρωση αυτόματης ανανέωσης"
+          className="w-full max-w-lg rounded-[28px] border border-white/20 bg-[#161b1d] p-8">
+          <h3 className="text-2xl font-black">Διακοπή αυτόματης ανανέωσης;</h3>
+          <p className="mt-4 text-sm leading-7 text-zinc-300">Θα σταματήσουν οι μελλοντικές χρεώσεις για το {cancelTarget.sku}. Όσα προνόμια έχουν ήδη πληρωθεί θα παραμείνουν διαθέσιμα μέχρι τη λήξη της περιόδου.</p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <button disabled={cancelBusy} onClick={()=>setCancelTarget(null)}
+              className="rounded-xl border border-white/20 px-5 py-3 text-xs font-black">Επιστροφή</button>
+            <button disabled={cancelBusy} onClick={()=>void stopRenewal()}
+              className="rounded-xl bg-rose-500 px-5 py-3 text-xs font-black text-white disabled:opacity-50">
+              {cancelBusy?'Ενημέρωση Gateway…':'Επιβεβαίωση ακύρωσης'}</button>
+          </div>
+        </div>
+      </div>}
       <div role="note" className="flex items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/[.06] p-5 text-xs leading-6 text-amber-100">
         <ShieldCheck className="mt-1 shrink-0" size={18}/>
         <span>{gateNote}{!available&&!isPreview?' Για αγορές ανά σταθμό απαιτείται πρώτα εγκεκριμένος σταθμός.':''}</span>
