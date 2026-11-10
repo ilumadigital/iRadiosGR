@@ -171,8 +171,9 @@ export default function AdControl({ API_URL, currentUser }) {
 
       const uploadRes = await fetch(`${API_URL}/uploads/upload-ad`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${localStorage.getItem('iluma_token')}` 
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('iluma_token')||''}`,
+          'X-iRadios-Station':newAd.stationId
         },
         body: fileData
       });
