@@ -5,7 +5,10 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const BroadcasterInvitation = require('../models/BroadcasterInvitation'); // 🟢 ΝΕΟ: Για τη δημιουργία του token ανάκτησης
 const { sendEmail } = require('../utils/myMailer');
-const { otpVerificationEmail, verificationLinkEmail, welcomeEmail, passwordResetEmail } = require('../utils/mailTemp');
+const { otpVerificationEmail, verificationLinkEmail, welcomeEmail, verifiedListenerWelcomeEmail, passwordResetEmail } = require('../utils/mailTemp');
+const {canNotify}=require('../utils/notificationPreferences');
+const {tokenFor}=require('../utils/notificationUnsubscribe');
+const {siteOrigin}=require('../utils/emailDesign');
 const { createEmailVerification, hashEmailVerificationToken } = require('../utils/emailVerification'); // 🟢 ΝΕΟ: Import το νέο template
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -17,6 +20,16 @@ const {
 const FRONTEND_URL = process.env.FRONTEND_URL || '__IRADIOS_SITE_ORIGIN__'; // Για το link του email
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+/** Confirmation always sends; strong Premium purchase CTA requires marketing opt-in. */
+const verifiedListenerEmailForUser=user=>{
+ const promo=Boolean(user&&user.role==='user'&&user.isPremium!==true&&
+  canNotify(user,'email','promotions'));
+ const token=promo?tokenFor(user):'';
+ return verifiedListenerWelcomeEmail(user?.fname,{
+  promotePremium:promo,
+  unsubscribeLink:token?siteOrigin()+'/api/notifications/unsubscribe?token='+encodeURIComponent(token):null
+ });
+};
 
 exports.verifyVat = async (req, res) => {
   try {
@@ -179,9 +192,11 @@ exports.verifyOtp = async (req, res) => {
     user.otpExpires = null;
     await user.save();
 
-    const welcomeData = welcomeEmail(user.fname, (user.role === 'broadcaster' || user.role === 'agency'));
+    const welcomeData = user.role==='user'
+      ?verifiedListenerEmailForUser(user)
+      :welcomeEmail(user.fname, (user.role === 'broadcaster' || user.role === 'agency'));
     await sendEmail({
-      to: email, subject: welcomeData.subject, html: welcomeData.html
+      to: email, subject: welcomeData.subject, html: welcomeData.html,text:welcomeData.text
     }).catch(e => console.log("Welcome email fail, ignoring..."));
 
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
@@ -253,8 +268,11 @@ exports.verifyEmail = async (req,res)=>{
       verificationOtp:'',otpExpires:''
     }},{new:true});
     if(!user)return res.status(400).json({error:'Ο σύνδεσμος έχει λήξει ή χρησιμοποιήθηκε ήδη. Ζήτησε νέο link από τον λογαριασμό σου.'});
-    const welcome=welcomeEmail(user.fname,false);
-    sendEmail({to:user.email,subject:welcome.subject,html:welcome.html}).catch(()=>{});
+    const welcome=verifiedListenerEmailForUser(user);
+    // Single-use verification token + atomic isVerified=false predicate ensure
+    // this confirmation mail is triggered only by the successful first verify.
+    sendEmail({to:user.email,subject:welcome.subject,html:welcome.html,text:welcome.text})
+      .catch(e=>console.warn('[AUTH] Verified welcome email deferred',e?.name));
     res.set('Cache-Control','no-store');
     return res.json({success:true,message:'Το email επιβεβαιώθηκε. Το playlist είναι διαθέσιμο.'});
   }catch(error){

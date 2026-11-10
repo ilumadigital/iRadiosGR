@@ -3,7 +3,7 @@ const express = require('express');
 const { protect } = require('../utils/authMiddleware');
 const { authorizeRoles } = require('../utils/roleMiddleware');
 const {
-  otpVerificationEmail, welcomeEmail, customAdminEmail, passwordResetEmail,
+  otpVerificationEmail, welcomeEmail, verifiedListenerWelcomeEmail, customAdminEmail, passwordResetEmail,
   adPaymentSuccessEmail, adminTransactionAlertEmail, stationApprovedEmail,
   stationRejectedEmail, broadcasterPremiumSuccessEmail, listenerPremiumSuccessEmail
 } = require('../utils/mailTemp');
@@ -19,6 +19,8 @@ const sample = Object.freeze({
   producerInvite: 'Πρόσκληση Producer',
   otp: 'Επαλήθευση OTP',
   welcome: 'Καλωσόρισμα',
+  verifiedListenerPremium: 'Επιβεβαιωμένο email · Αναβάθμιση Premium 3,99 €',
+  verifiedListenerBasic: 'Επιβεβαιωμένο email · Χωρίς εμπορικό CTA',
   passwordReset: 'Επαναφορά κωδικού',
   adPayment: 'Πληρωμή διαφήμισης',
   adminTransaction: 'Ενημέρωση διαχειριστή',
@@ -47,6 +49,13 @@ function previewTemplate(type, body) {
     });
     case 'otp': return otpVerificationEmail('Αλέξανδρε', '123456');
     case 'welcome': return welcomeEmail('Αλέξανδρε', false);
+    case 'verifiedListenerPremium': return verifiedListenerWelcomeEmail('Αλέξανδρε',{
+      promotePremium:true,
+      unsubscribeLink:siteOrigin()+'/api/notifications/unsubscribe?token=preview-only'
+    });
+    case 'verifiedListenerBasic': return verifiedListenerWelcomeEmail('Αλέξανδρε',{
+      promotePremium:false
+    });
     case 'passwordReset': return passwordResetEmail('Αλέξανδρε', demo());
     case 'adPayment': return adPaymentSuccessEmail('Αλέξανδρε', 'iRadios Ad Network', '49.00');
     case 'adminTransaction': return adminTransactionAlertEmail('Demo Radio', '149.00',

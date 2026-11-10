@@ -25,8 +25,8 @@ const euros=cents=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR
 const paragraph=text=>'<p>'+escapeHtml(text)+'</p>';
 const stageNote='<p style="color:#96A3B4;font-size:12px;">Στο δοκιμαστικό περιβάλλον οι επόμενες αυτόματες χρεώσεις παραμένουν απενεργοποιημένες μέχρι την ολοκλήρωση των ελέγχων. Η παρούσα ενημέρωση δεν αποτελεί νέα χρέωση.</p>';
 const primary=(label,path)=>actionButton(label,siteOrigin()+path);
-const list=()=>'<div style="border:1px solid #39442C;background:#141D19;border-radius:18px;padding:18px 22px;margin:20px 0;">'+
- '<p style="margin:0 0 12px;color:#CCFF00;font-size:12px;font-weight:800;letter-spacing:1.2px;">ΤΑ ΠΡΟΝΟΜΙΑ ΣΟΥ</p>'+
+const list=(heading='ΤΑ ΠΡΟΝΟΜΙΑ ΣΟΥ')=>'<div style="border:1px solid #39442C;background:#141D19;border-radius:18px;padding:18px 22px;margin:20px 0;">'+
+ '<p style="margin:0 0 12px;color:#CCFF00;font-size:12px;font-weight:800;letter-spacing:1.2px;">'+escapeHtml(heading)+'</p>'+
  PREMIUM_BENEFITS.map(item=>'<p style="margin:0 0 14px;color:#F6F8FF;font-size:14px;">'+
  '<strong>'+escapeHtml(item.title)+'</strong><br><span style="color:#B5C1C9;font-size:13px;">'+
  escapeHtml(item.description)+'</span></p>').join('')+'</div>';
@@ -102,4 +102,4 @@ function premiumBillingEmail({kind,name='φίλε ακροατή',amountCents=39
    'Διαχείριση συνδρομής: '+siteOrigin()+'/profile?tab=billing',
    kind==='winback'?'Προσφορά 1,99 € για τον πρώτο μήνα, 3,99 €/μήνα μετά. Ισχύει μία φορά ανά λογαριασμό.':''].filter(Boolean).join('\n')};
 }
-module.exports={PREMIUM_BENEFITS,premiumBillingEmail,fmt};
+module.exports={PREMIUM_BENEFITS,premiumBenefitsList:list,premiumBillingEmail,fmt};
