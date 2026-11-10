@@ -77,7 +77,7 @@ function Status({order}){
    creating:{title:'Προετοιμασία ασφαλούς πληρωμής',desc:'Δημιουργείται το αίτημα. Μη δημιουργήσεις δεύτερο checkout.',icon:Clock3,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    redirect:{title:'Αναμονή πληρωμής μέσω Nexi Sandbox',desc:'Το checkout είναι διαθέσιμο. Premium ενεργοποιείται μόνο μετά την επιβεβαίωση.',icon:CreditCard,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    unknown:{title:'Χρειάζεται έλεγχος της συναλλαγής',desc:'Η κατάσταση είναι άγνωστη. Δεν δημιουργούμε δεύτερη χρέωση και περιμένουμε ασφαλή επαλήθευση.',icon:AlertTriangle,style:'border-orange-500/30 bg-orange-900/10 text-orange-200'},
-   failed:{title:'Το checkout δεν ολοκληρώθηκε',desc:'Δεν ενεργοποιήθηκε Premium. Αν επιβεβαιώθηκε ότι δεν δημιουργήθηκε συναλλαγή στο Gateway, μπορείς να ξεκινήσεις νέα δοκιμαστική προσπάθεια.',icon:AlertTriangle,style:'border-red-500/30 bg-red-900/10 text-red-200'},
+   failed:{title:'Η προηγούμενη πληρωμή δεν ολοκληρώθηκε',desc:'Το Gateway επιβεβαίωσε ότι αυτή η προσπάθεια απέτυχε. Δεν ενεργοποιήθηκε συνδρομή από αυτό το Order. Μπορείς να ξεκινήσεις νέα δοκιμή μόνο αφού διορθωθεί η αιτία της απόρριψης Nexi.',icon:AlertTriangle,style:'border-red-500/30 bg-red-900/10 text-red-200'},
    canceled:{title:'Η συναλλαγή ακυρώθηκε',desc:'Δεν ενεργοποιήθηκε Premium και δεν έγινε αυτόματη επαναχρέωση.',icon:AlertTriangle,style:'border-white/10 bg-white/5 text-zinc-200'}
  };
  const waitingForWebhook=order.providerStatus==='paid' &&
@@ -237,6 +237,14 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
      :result.order.status==='active'
       ?'Η πληρωμή επιβεβαιώθηκε από το Gateway. Το Premium είναι ενεργό.'
       :'Η συνδρομή βρίσκεται σε περίοδο χάριτος σύμφωνα με τους κανόνες του iRadios.');
+   }else if(['failed','canceled'].includes(result.order?.status)){
+    // Only a definitive, authenticated Gateway failed/canceled outcome may
+    // free the original local intent. The next click generates a NEW UUID;
+    // we never auto-charge or restart a provider POST from this status poll.
+    sessionStorage.removeItem(KEY_PREFIX+userId);
+    setMessage(result.order.status==='failed'
+     ?'Η Nexi απέρριψε το προηγούμενο checkout και το Gateway ολοκλήρωσε τη διασταύρωση. Η προσπάθεια έκλεισε ως αποτυχημένη. Δεν έγινε αυτόματη επανάληψη· μπορείς να ξεκινήσεις νέα δοκιμή αφού διορθωθεί το αίτημα MIT.'
+     :'Η προηγούμενη πληρωμή ακυρώθηκε. Δεν ενεργοποιήθηκε Premium. Μπορείς να ξεκινήσεις νέα προσπάθεια όποτε το επιλέξεις.');
    }else if(result.order?.recoveryReason==='not_created'){
     setMessage('Το Gateway επιβεβαίωσε ότι δεν δημιουργήθηκε συναλλαγή Nexi. Μπορείς να δοκιμάσεις ξανά αφού ολοκληρωθεί ο έλεγχος OneClick.');
     sessionStorage.removeItem(KEY_PREFIX+userId);
@@ -398,6 +406,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
        <span><strong>Συμφωνώ ρητά σε αυτόματη χρέωση 3,99 € ανά μήνα</strong> μέσω Nexi μετά την πρώτη πληρωμένη περίοδο, μέχρι να ακυρώσω. Η κάρτα φυλάσσεται στη Nexi και μπορώ να σταματήσω τις επόμενες χρεώσεις οποτεδήποτε στο Billing. Χωρίς αυτή την επιλογή γίνεται μεμονωμένη αγορά.</span>
       </label>}
       {['active','pending','verification_pending','past_due'].includes(recurring.state)&&<p className="rounded-xl bg-white/5 p-3 text-sm text-zinc-200">Υπάρχει ήδη εξουσιοδότηση MIT ({recurring.state}). <Link to="/profile?tab=billing" className="font-bold text-[#ccff00] underline">Διαχείριση</Link>.</p>}
+      {blocked&&<p className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-5 text-amber-200">Η επιλογή συγκατάθεσης δεν ξεκινά πληρωμή. Υπάρχει εκκρεμές checkout: πάτησε «Έλεγχος κατάστασης». Μόνο αφού το Gateway επιβεβαιώσει οριστική αποτυχία ή ακύρωση, θα εμφανιστεί ξανά το κουμπί συνέχειας στη Nexi.</p>}
       {autoRenew&&!recurring.execution_enabled&&<p className="text-xs leading-5 text-amber-200">Sandbox: το contract μπορεί να δημιουργηθεί, αλλά οι αυτόματες επόμενες χρεώσεις παραμένουν κλειδωμένες μέχρι την ολοκλήρωση Nexi UAT.</p>}
       <p className="text-xs leading-5 text-zinc-500">Η παλιά κάρτα OneClick (CIT) δεν μετατρέπεται σιωπηρά σε MIT. Χρειάζεται νέα εξουσιοδότηση στη Nexi.</p>
     </div>}
@@ -429,6 +438,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
        className="text-xs font-semibold text-[#ccff00] underline disabled:opacity-40">Ενημέρωση κατάστασης κάρτας</button>
     </div>}
    {message&&<div role="status" className="text-sm text-amber-100 bg-amber-950/30 border border-amber-700/30 p-4 rounded-xl">{message}</div>}
+   {blocked&&<p className="text-xs leading-5 text-amber-300">Η νέα πληρωμή παραμένει κλειδωμένη μέχρι να επιστρέψει οριστική κατάσταση από το Gateway. Η συγκατάθεση MIT δεν είναι απόδειξη πληρωμής.</p>}
    {catalogError&&<div role="alert" className="text-sm text-red-200">{catalogError}</div>}
    <div className="flex gap-3 flex-wrap">
     {canCheckout&&

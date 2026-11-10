@@ -267,3 +267,28 @@ test('Authenticated listener may cancel only their own recurring mandate, withou
  assert.equal(canceled.statusCode,200);
  assert.equal(canceled.body.recurring.state,'cancelled');
 });
+
+test('Gateway-confirmed failed Nexi HPP unlocks account without any additional provider POST',async()=>{
+ reset();hasRight=false;process.env.APP_ENV='staging';
+ created={_id:'d'.repeat(24),accountId:user._id,sku:'L-PREM',
+  status:'unknown',environment:'staging',amountCents:399,currency:'EUR',
+  requestKey:'iradios-stage-'+user._id+'-'+uuid,
+  lockKey:user._id+':L-PREM',
+  gatewayPaymentId:'0'.repeat(32),gatewayOrderId:'IL'+'E'.repeat(24),
+  createdAt:new Date(Date.now()-5*60000)};
+ const original=gateway.paymentStatus;
+ gateway.paymentStatus=async()=>({
+  payment_id:'0'.repeat(32),order_id:'IL'+'E'.repeat(24),
+  status:'failed',amount_cents:399,currency:'EUR',checkout_url:null
+ });
+ try {
+  const refreshed=await call(controller.readOrder,{
+   params:{id:created._id},query:{refresh:'1'}
+  });
+  assert.equal(refreshed.statusCode,200);
+  assert.equal(refreshed.body.order.status,'failed');
+  assert.equal(refreshed.body.order.providerStatus,'failed');
+  assert.equal(created.lockKey,undefined,'Gateway-confirmed failed payment releases account lock');
+  assert.equal(providerCalls,0,'Status checks must never initiate another checkout');
+ }finally{gateway.paymentStatus=original;}
+});
