@@ -14,6 +14,9 @@ require('./utils/listenerNotificationScheduler').start();
 // Staging Premium billing emails use Mailpit; never enable the production
 // general notification dispatcher from this isolated financial scheduler.
 require('./utils/premiumBillingEmailScheduler').start();
+// Recover lost Broadcaster checkout responses using signed GET only.
+// This worker cannot create provider orders, MIT payments or grant entitlements.
+require('./utils/broadcasterCheckoutRecoveryScheduler').start();
 
 // --- 2. IMPORT MODELS & CONTROLLERS ---
 const User = require('./models/User');
