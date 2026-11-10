@@ -44,7 +44,7 @@ function Status({order}){
  const states={
    active:{title:'Η συνδρομή είναι ενεργή',desc:'Η πληρωμή επιβεβαιώθηκε από το Gateway με υπογεγραμμένο webhook.',icon:CheckCircle2,style:'border-lime-500/30 bg-lime-900/10 text-lime-200'},
    expired:{title:'Η περίοδος ολοκληρώθηκε',desc:'Δεν υπάρχει ενεργή συνδρομή και δεν πραγματοποιείται αυτόματη ανανέωση.',icon:Clock3,style:'border-white/10 bg-white/5 text-zinc-200'},
-   pending:{title:'Αναμονή επιβεβαίωσης',desc:'Δεν έχει ληφθεί ακόμη έγκυρη επιβεβαίωση πληρωμής. Μην ξεκινήσεις νέα συναλλαγή.',icon:Clock3,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
+   pending:{title:'Δεν έχει ανοίξει η φόρμα της Nexi',desc:'Δημιουργήθηκε αίτημα πληρωμής, αλλά δεν υπάρχει ακόμη σελίδα καταχώρισης κάρτας. Δεν πρόκειται για επιβεβαιωμένη χρέωση. Μην ξεκινήσεις δεύτερη συναλλαγή.',icon:Clock3,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    creating:{title:'Προετοιμασία ασφαλούς πληρωμής',desc:'Δημιουργείται το αίτημα. Μη δημιουργήσεις δεύτερο checkout.',icon:Clock3,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    redirect:{title:'Αναμονή πληρωμής μέσω Nexi Sandbox',desc:'Το checkout είναι διαθέσιμο. Premium ενεργοποιείται μόνο μετά την επιβεβαίωση.',icon:CreditCard,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    unknown:{title:'Χρειάζεται έλεγχος της συναλλαγής',desc:'Η κατάσταση είναι άγνωστη. Δεν δημιουργούμε δεύτερη χρέωση και περιμένουμε ασφαλή επαλήθευση.',icon:AlertTriangle,style:'border-orange-500/30 bg-orange-900/10 text-orange-200'},
@@ -125,7 +125,7 @@ export default function SandboxPremium({API_URL='/api',currentUser}){
    const url=response.order?.status==='redirect'?
       verifiedNexiUrl(response.order.checkoutUrl):null;
    if(url)window.location.assign(url);
-   else setMessage('Το αίτημα καταχωρίστηκε. Η πληρωμή δεν έχει επιβεβαιωθεί. Έλεγξε την κατάσταση χωρίς να ξεκινήσεις νέα χρέωση.');
+   else setMessage('Το Gateway καταχώρισε το αίτημα αλλά δεν επέστρεψε ασφαλή σελίδα Nexi για δοκιμαστική κάρτα. Δεν έχει επιβεβαιωθεί πληρωμή. Έλεγξε την κατάσταση χωρίς δεύτερη προσπάθεια.');
   }catch(e){
    if(e.code==='GATEWAY_CATALOG_NOT_READY'){
     // Gateway 422 rejects before Nexi; this failed attempt can use a NEW
