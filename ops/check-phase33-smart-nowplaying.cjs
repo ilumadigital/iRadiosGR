@@ -44,13 +44,17 @@ try{
       'manual recognition overrides native titles for four minutes');
     assert.equal(smart.getSharedAI(station._id,now+4*60*1000),null,
       'manual result expires at exactly four minutes');
+    // ACRCloud is MANUAL-ONLY (per the approved staging behavior). The old
+    // regression expected automatic vendor recognition, which is no longer
+    // allowed and caused a TypeError on null.expiresAt in CI.
     const auto=await smart.publishAI(station,ai,'auto',now+4*60*1000);
-    assert.equal(auto.expiresAt-(now+4*60*1000),5*60*1000);
-    assert.equal(smart.resolvedNowPlaying('LIVE SHOW',station,now+4*60*1000).foundWithAI,true);
+    assert.equal(auto,null,'automatic ACR calls must not publish metadata');
+    assert.equal(smart.resolvedNowPlaying('LIVE SHOW',station,now+4*60*1000).foundWithAI,false,
+      'after four minutes the manual result has expired');
     assert.equal(smart.resolvedNowPlaying('Native Artist - Native Song',station,now+4*60*1000).source,'station',
-      'valid native music always beats automatic ACR');
+      'valid native music works without automatic ACR');
     assert.equal(smart.getSharedAI(station._id),null,
-      'automatic result is removed on valid native metadata');
+      'an expired manual result must not be resurrected');
 
     const parser=read('frontend/src/utils/musicMetadata.js')
       .replaceAll('export const ','const ');
