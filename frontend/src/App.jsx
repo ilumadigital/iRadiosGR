@@ -37,6 +37,7 @@ import CarModePrompt from './components/CarModePrompt';
 import CookieConsent from './components/CookieConsent';
 import PremiumRenewalPopup from './components/PremiumRenewalPopup';
 import EmailVerificationBanner from './components/EmailVerificationBanner';
+import WinbackTicker from './components/WinbackTicker';
 import ScrollToTop from './components/ScrollToTop';
 import WidgetPlayer from './components/WidgetPlayer';
 import WidgetNow from './components/WidgetNow';
@@ -1842,6 +1843,7 @@ function MainApp() {
       <main className="flex-1 flex flex-col min-w-0 bg-zinc-950/20 relative">
         <TopBar setIsMobileMenuOpen={setIsMobileMenuOpen} openSmartSearchRequest={openSmartSearchRequest} stations={stations} weather={weather} handleSearchResultClick={(id) => { const s = stations.find(x => String(x._id) === String(id)); if (s) handleStationSelectWithAds(s); navigate(`/station/${s?.slug || id}`); }} currentUser={currentUser} onLogout={handleLogout} />
         <EmailVerificationBanner currentUser={currentUser} API_URL={API_URL} onUserUpdated={setCurrentUser} />
+        <WinbackTicker currentUser={currentUser} API_URL={API_URL} />
         <div id="main-scroll-area" className="flex-1 overflow-y-auto custom-scrollbar pb-44 lg:pb-32" onClick={() => setShowSearchResults(false)}>
         <ScrollToTop />
           <Routes>
