@@ -64,4 +64,14 @@ function requireTurnstile(action){
   };
 }
 
-module.exports={isConfigured,siteKey,verifyTurnstileToken,requireTurnstile};
+// Public widget bootstrap: never include the private Siteverify secret.
+function publicConfig(_req,res){
+  res.setHeader('Cache-Control','no-store, max-age=0');
+  res.setHeader('Pragma','no-cache');
+  if(!isConfigured())return res.status(503).json({
+    ready:false,siteKey:null,error:'turnstile_not_configured'
+  });
+  return res.json({ready:true,siteKey:siteKey()});
+}
+
+module.exports={isConfigured,siteKey,publicConfig,verifyTurnstileToken,requireTurnstile};

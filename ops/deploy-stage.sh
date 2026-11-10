@@ -20,7 +20,14 @@ docker compose --env-file "$ENV" -f compose.stage.yml up -d --remove-orphans
 docker compose --env-file "$ENV" -f compose.stage.yml ps
 for i in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:5511/api/health >/dev/null && curl -fsS http://127.0.0.1:5510/ >/dev/null; then
-    echo 'Stage backend and frontend healthy on localhost.'
+    # A green build is not enough if public sign-in has no Turnstile site key.
+    # Validate the RUNNING backend without printing any key or secret.
+    if ! curl -fsS --max-time 6 http://127.0.0.1:5511/api/auth/turnstile-config |
+      python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get("ready") is True and isinstance(d.get("siteKey"),str) and len(d["siteKey"])>10 else 1)'; then
+      echo 'Stage Turnstile runtime config unavailable; check the backend container and backend.env (keys hidden).' >&2
+      exit 1
+    fi
+    echo 'Stage backend, frontend and Turnstile configuration healthy on localhost.'
     exit 0
   fi
   sleep 5

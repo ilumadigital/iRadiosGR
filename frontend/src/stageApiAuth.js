@@ -13,6 +13,9 @@ export function installStageApiAuth() {
       const raw = typeof resource === 'string' || resource instanceof URL
         ? String(resource) : resource.url;
       const target = new URL(raw, window.location.origin);
+      // Public widget config must not inherit an expired login Authorization.
+      if (target.pathname === '/api/auth/turnstile-config')
+        return nativeFetch(resource,init);
       const jwt = window.localStorage.getItem('iluma_token');
       if (target.origin !== window.location.origin ||
           !target.pathname.startsWith('/api/') ||
