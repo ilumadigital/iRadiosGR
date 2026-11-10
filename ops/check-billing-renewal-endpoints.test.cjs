@@ -58,6 +58,9 @@ const gateway={
  configured:()=>true,
  paymentByRequestKey:async()=>{throw Object.assign(new Error('not found'),{code:'GATEWAY_HTTP_404'});},
  paymentStatus:async()=>{throw Object.assign(new Error('lookup unavailable'),{code:'GATEWAY_HTTP_404'});},
+ recurringStatus:async()=>({state:'none',execution_enabled:false}),
+ paymentHistory:async()=>[],
+ cancelRecurring:async()=>({state:'cancelled',auto_renew:false}),
  savedCardStatus:async()=>({state:cardState,automaticRenewal:false}),
  revokeSavedCard:async()=>({state:cardState='revocation_pending',automaticRenewal:false}),
  checkout:async({cardChoice}={})=>{lastCardChoice=cardChoice;providerCalls++;
@@ -248,4 +251,18 @@ test('MIT enrollment requires independent boolean consent and never combines wit
  const noBoolean=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:'yes'}});
  assert.equal(noBoolean.statusCode,400);
  assert.equal(providerCalls,0);
+});
+
+
+test('Authenticated listener may cancel only their own recurring mandate, without client contract',async()=>{
+ reset();
+ const overview=await call(controller.billingOverview,{});
+ assert.equal(overview.statusCode,200);
+ assert.deepEqual(overview.body.invoices,[]);
+ assert.equal(overview.body.recurring.state,'none');
+ const invalid=await call(controller.cancelAutomaticRenewal,{body:{contractId:'FAKE'}});
+ assert.equal(invalid.statusCode,400);
+ const canceled=await call(controller.cancelAutomaticRenewal,{body:{}});
+ assert.equal(canceled.statusCode,200);
+ assert.equal(canceled.body.recurring.state,'cancelled');
 });
