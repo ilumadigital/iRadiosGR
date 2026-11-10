@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { KeyRound, User, Mail, LogIn, Loader2, CheckCircle2, X, Eye, EyeOff, Send } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
+import useTurnstileSiteKey from '../hooks/useTurnstileSiteKey';
 import AuthShell, { AuthIntro } from '../components/AuthShell';
 
 export default function Login({ API_URL, setCurrentUser }) {
@@ -33,6 +34,7 @@ export default function Login({ API_URL, setCurrentUser }) {
   const [forgotMessage, setForgotMessage] = useState({ type: '', text: '' });
 
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
+  const {siteKey,turnstileError}=useTurnstileSiteKey(BASE_URL);
   const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export default function Login({ API_URL, setCurrentUser }) {
         body: JSON.stringify({ identifier, password, cfToken }) 
       });
       
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       
       if (res.ok) {
         localStorage.setItem('iluma_token', data.token);
@@ -77,7 +79,7 @@ export default function Login({ API_URL, setCurrentUser }) {
         localStorage.setItem('iradios_pending_otp_email', data.email);
         setShowOtpModal(true);
       } else {
-        setError(data.error || 'Λάθος στοιχεία');
+        setError(data.error || data.message || `Η σύνδεση απέτυχε (HTTP ${res.status}).`);
         resetTurnstile(); 
       }
     } catch (err) {
@@ -322,14 +324,18 @@ export default function Login({ API_URL, setCurrentUser }) {
 
             {/* Cloudflare Turnstile Widget */}
             <div className="ir-auth-turnstile flex justify-center my-6">
-              <Turnstile
-                ref={turnstileRef}
-                siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                onSuccess={(token) => setCfToken(token)}
-                onError={() => setCfToken('')}
-                onExpire={() => setCfToken('')}
-                theme="dark"
-              />
+              {siteKey ? (
+                <Turnstile
+                  key={siteKey}
+                  ref={turnstileRef}
+                  siteKey={siteKey}
+                  options={{ action: 'login' }}
+                  onSuccess={(token) => setCfToken(token)}
+                  onError={() => setCfToken('')}
+                  onExpire={() => setCfToken('')}
+                  theme="dark"
+                />
+              ) : <p role="status" className="text-center text-xs text-amber-300">{turnstileError || 'Φόρτωση Cloudflare Turnstile…'}</p>}
             </div>
 
             <button 

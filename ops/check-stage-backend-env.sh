@@ -28,6 +28,18 @@ if grep -Eq '^STAGE_ENABLE_SONOVAULT=' "$ENV_FILE"; then
     exit 1
   fi
 fi
+# Staging auth requires a real Cloudflare Turnstile widget, never demo keys.
+for key in TURNSTILE_SITE_KEY TURNSTILE_SECRET_KEY; do
+  if [[ "$(count_key "$key")" != "1" ]] ||
+     ! grep -Eq "^${key}=[^[:space:]]+$" "$ENV_FILE"; then
+    echo "STOP: configure real $key exactly once for Cloudflare Turnstile." >&2
+    exit 1
+  fi
+  if grep -Eq "^${key}=[123]x0{16}" "$ENV_FILE"; then
+    echo "STOP: Cloudflare test keys are not permitted on public staging ($key)." >&2
+    exit 1
+  fi
+done
 # Nexi Sandbox is an explicit staging-only opt-in; never echo secret values.
 if grep -Eq '^ILUMA_GATEWAY_PRODUCTION_(KEY|SECRET)=' "$ENV_FILE"; then
   echo 'STOP: production Gateway credentials are forbidden on staging.' >&2

@@ -57,8 +57,16 @@ const invitationPreview=call('GET','/broadcaster-invitations/preview');
 assert.equal(invitationPreview.reached,true,'invite-specific public preview is reachable');
 const forbiddenSignup=call('POST','/auth/register-broadcaster',{email:'invalid@example.com'});
 assert.equal(forbiddenSignup.res.code,403,'stage must never allow open broadcaster signup');
-const forbiddenOtp=call('POST','/auth/verify-otp',{email:'invalid@example.com',otp:'000000'});
-assert.equal(forbiddenOtp.res.code,403,'stage OTP must be scoped to an invitation');
+const badOtp=call('POST','/auth/verify-otp',{email:'invalid@example.com',otp:'bad'});
+assert.equal(badOtp.res.code,400,'malformed OTP must be rejected before DB lookup');
+const publicOtp=call('POST','/auth/verify-otp',{email:'listener@example.com',otp:'123456'});
+assert.equal(publicOtp.reached,true,'Listener OTP must be reachable without admin credentials');
+const publicSignup=call('POST','/auth/register',{email:'listener@example.com',username:'listener1'});
+assert.equal(publicSignup.reached,true,'Listener registration must reach mandatory Turnstile middleware');
+const publicAgency=call('POST','/auth/register-agency',{email:'agency@example.com',username:'agency1'});
+assert.equal(publicAgency.reached,true,'Agency registration must reach mandatory Turnstile middleware');
+const config=call('GET','/auth/turnstile-config');
+assert.equal(config.reached,true,'Public site key must be available without admin JWT');
 const blocked=call('POST','/stations');
 assert.equal(blocked.res.code,401);
 (async()=>{

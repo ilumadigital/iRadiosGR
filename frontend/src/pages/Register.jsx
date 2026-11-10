@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, ArrowRight, Loader2, KeyRound, CheckCircle2, X, Eye, EyeOff } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
+import useTurnstileSiteKey from '../hooks/useTurnstileSiteKey';
 import AuthShell, { AuthIntro } from '../components/AuthShell';
 
 export default function Register({ API_URL, setCurrentUser }) {
@@ -21,6 +22,7 @@ export default function Register({ API_URL, setCurrentUser }) {
   const [otpLoading, setOtpLoading] = useState(false);
 
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
+  const {siteKey,turnstileError}=useTurnstileSiteKey(BASE_URL);
   const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
   useEffect(() => {
@@ -57,23 +59,23 @@ export default function Register({ API_URL, setCurrentUser }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // 💡 NEW: Στέλνουμε και το cfToken μαζί με τα υπόλοιπα δεδομένα
-        body: JSON.stringify({ ...formData, cfToken }) 
+        body: JSON.stringify({ ...formData, email:formData.email.trim().toLowerCase(), cfToken }) 
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
         if (data.requireOtp) {
-          localStorage.setItem('iradios_pending_otp_email', formData.email);
+          localStorage.setItem('iradios_pending_otp_email', formData.email.trim().toLowerCase());
           setShowOtpModal(true); 
         } else {
           navigate('/login'); 
         }
       } else {
-        setError(data.error || 'Σφάλμα κατά την εγγραφή');
+        setError(data.error || data.message || `Η εγγραφή απέτυχε (HTTP ${res.status}). Έλεγξε την επαλήθευση Cloudflare και τα στοιχεία σου.`);
         resetTurnstile();
       }
     } catch (err) {
-      setError('Αποτυχία σύνδεσης με τον διακομιστή.');
+      setError('Δεν ήταν δυνατή η σύνδεση με το backend. Έλεγξε τη σύνδεσή σου και προσπάθησε ξανά.');
       resetTurnstile();
     }
     setLoading(false);
@@ -93,7 +95,7 @@ export default function Register({ API_URL, setCurrentUser }) {
       const res = await fetch(`${BASE_URL}/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, otp })
+        body: JSON.stringify({ email: formData.email.trim().toLowerCase(), otp })
       });
       const data = await res.json();
 
@@ -226,14 +228,18 @@ export default function Register({ API_URL, setCurrentUser }) {
 
             {/* 💡 NEW: Cloudflare Turnstile Widget */}
             <div className="ir-auth-turnstile flex justify-center mt-6 mb-2">
-              <Turnstile
-                ref={turnstileRef}
-                siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY} // Αν έχεις CRA, βάλε process.env.REACT_APP_TURNSTILE_SITE_KEY
-                onSuccess={(token) => setCfToken(token)}
-                onError={() => setCfToken('')}
-                onExpire={() => setCfToken('')}
-                theme="dark"
-              />
+              {siteKey ? (
+                <Turnstile
+                  key={siteKey}
+                  ref={turnstileRef}
+                  siteKey={siteKey}
+                  options={{ action: 'register' }}
+                  onSuccess={(token) => setCfToken(token)}
+                  onError={() => setCfToken('')}
+                  onExpire={() => setCfToken('')}
+                  theme="dark"
+                />
+              ) : <p role="status" className="text-center text-xs text-amber-300">{turnstileError || 'Φόρτωση Cloudflare Turnstile…'}</p>}
             </div>
 
             <button 

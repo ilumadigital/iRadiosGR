@@ -11,7 +11,8 @@ const crypto = require('node:crypto');
 const BroadcasterInvitation = require('../models/BroadcasterInvitation');
 
 // Staging remains deny-by-default. Permit *only* email-bound invitation
-// registration/OTP traffic, never a general anonymous signup endpoint.
+// registration/OTP traffic, while public Listener/Agency registration is protected
+// by Cloudflare Siteverify in authRoutes. All other APIs remain deny-by-default.
 async function allowInvitedOnboarding(req, res, next) {
   const token = req.body?.inviteToken;
   const email = String(req.body?.email || '').trim().toLowerCase();
@@ -73,8 +74,28 @@ function stagePublicAccess(req, res, next) {
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
   if (req.method === 'GET' && path === '/api/broadcaster-invitations/preview') return next();
-  if (req.method === 'POST' && (path === '/api/auth/register-broadcaster' ||
-      path === '/api/auth/verify-otp')) return allowInvitedOnboarding(req, res, next);
+  // The runtime public site key is intentionally public; the secret is never returned.
+  if (req.method === 'GET' && path === '/api/auth/turnstile-config') return next();
+  if (req.method === 'POST' && (path === '/api/auth/register' ||
+      path === '/api/auth/register-agency')) {
+    if (!loginRateLimit(req,res))return;
+    const email=req.body?.email, username=req.body?.username;
+    if (typeof email!=='string' || email.length>254 ||
+        typeof username!=='string' || username.length>60)
+      return res.status(400).json({error:'Μη έγκυρα στοιχεία εγγραφής.'});
+    return next(); // Cloudflare verification is mandatory at the next router.
+  }
+  if (req.method==='POST' && path==='/api/auth/register-broadcaster')
+    return allowInvitedOnboarding(req,res,next);
+  if (req.method==='POST' && path==='/api/auth/verify-otp') {
+    if(req.body?.inviteToken)return allowInvitedOnboarding(req,res,next);
+    if(!loginRateLimit(req,res))return;
+    if(typeof req.body?.email!=='string' || req.body.email.length>254 ||
+       !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(req.body.email) ||
+       typeof req.body?.otp!=='string' || !/^\\d{6}$/.test(req.body.otp))
+      return res.status(400).json({error:'Συμπλήρωσε έγκυρο email και 6ψήφιο κωδικό.'});
+    return next();
+  }
   if (req.method === 'POST' && (path === '/api/broadcaster-invitations/claim' ||
       path === '/api/broadcaster-invitations/activate-broadcaster')) return protect(req, res, next);
 

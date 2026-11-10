@@ -64,29 +64,59 @@ exports.registerAgency = async (req, res) => {
 
 exports.register = async (req, res) => {
   try {
-    const { username, email, password, fname, lname, birthdate, phone } = req.body;
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-    if (existingUser) return res.status(400).json({ error: "Ο χρήστης ή το email υπάρχει ήδη" });
+    const body=req.body||{};
+    const username=typeof body.username==='string'?body.username.trim().toLowerCase():'';
+    const email=typeof body.email==='string'?body.email.trim().toLowerCase():'';
+    const fname=typeof body.fname==='string'?body.fname.trim():'';
+    const lname=typeof body.lname==='string'?body.lname.trim():'';
+    const password=body.password;
+    const birthdate=body.birthdate;
+    const phone=typeof body.phone==='string'?body.phone.trim():'';
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const otp = generateOTP();
-    const otpExpires = new Date(Date.now() + 15 * 60000); 
+    if(!/^[a-z0-9_.-]{3,60}$/.test(username))
+      return res.status(400).json({error:'Το username πρέπει να έχει 3–60 λατινικούς χαρακτήρες, αριθμούς, τελείες, παύλες ή κάτω παύλες.'});
+    if(email.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return res.status(400).json({error:'Συμπλήρωσε έγκυρη διεύθυνση email.'});
+    if(!fname || !lname || fname.length>120 || lname.length>120)
+      return res.status(400).json({error:'Συμπλήρωσε σωστά όνομα και επώνυμο.'});
+    if(typeof password!=='string' ||
+       !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%*]).{6,128}$/.test(password))
+      return res.status(400).json({error:'Ο κωδικός πρέπει να περιλαμβάνει κεφαλαίο, πεζό, αριθμό και σύμβολο (!@#$%*).'});
+    if(typeof birthdate!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(birthdate))
+      return res.status(400).json({error:'Συμπλήρωσε έγκυρη ημερομηνία γέννησης.'});
+    const parsedDate=new Date(birthdate+'T00:00:00.000Z');
+    if(!Number.isFinite(parsedDate.getTime()) ||
+       parsedDate.toISOString().slice(0,10)!==birthdate || parsedDate.getTime()>Date.now())
+      return res.status(400).json({error:'Η ημερομηνία γέννησης δεν είναι έγκυρη.'});
 
-    const newUser = new User({
-      username, email, password: hashedPassword,
-      fname, lname, birthdate: new Date(birthdate), phone: phone || "", role: 'user',
-      isVerified: false, verificationOtp: otp, otpExpires
+    // Escape dynamic email before matching historical accounts that used mixed case.
+    const escaped=email.replace(/[.*+?^$\{\}()|[\]\\]/g,'\\$&');
+    const existingUser=await User.findOne({$or:[{email:new RegExp('^'+escaped+'$','i')},{username}]});
+    if(existingUser)return res.status(409).json({error:'Το username ή το email χρησιμοποιείται ήδη. Δοκίμασε σύνδεση.'});
+
+    const hashedPassword=await bcrypt.hash(password,10);
+    const otp=generateOTP();
+    const newUser=new User({
+      username,email,password:hashedPassword,fname,lname,birthdate:parsedDate,phone,
+      role:'user',isVerified:false,verificationOtp:otp,
+      otpExpires:new Date(Date.now()+15*60000)
     });
-
     await newUser.save();
-
-    const emailData = otpVerificationEmail(fname, otp);
-    await sendEmail({
-      to: email, subject: emailData.subject, html: emailData.html
-    });
-
-    res.status(201).json({ message: "Ελέγξτε το email σας για το OTP!", requireOtp: true });
-  } catch (err) { res.status(500).json({ error: "Σφάλμα κατά την εγγραφή" }); }
+    const emailData=otpVerificationEmail(fname,otp);
+    const delivery=await sendEmail({to:email,subject:emailData.subject,html:emailData.html});
+    if(!delivery?.success){
+      // Avoid leaving a duplicate, unusable new account when Mailpit delivery fails.
+      try{await User.deleteOne({_id:newUser._id,isVerified:false});}
+      catch(cleanupError){console.error('[AUTH] Could not roll back undelivered registration:',cleanupError.name);}
+      return res.status(503).json({error:'Η εγγραφή δεν ολοκληρώθηκε γιατί δεν στάλθηκε το email επαλήθευσης. Δοκίμασε ξανά.'});
+    }
+    return res.status(201).json({message:'Ο κωδικός επαλήθευσης στάλθηκε.',requireOtp:true});
+  }catch(err){
+    if(err?.code===11000)return res.status(409).json({error:'Το username ή το email χρησιμοποιείται ήδη.'});
+    if(err?.name==='ValidationError')return res.status(400).json({error:'Κάποια στοιχεία εγγραφής δεν είναι έγκυρα. Έλεγξε τα πεδία.'});
+    console.error('[AUTH] Listener registration failed:',err?.name||'unknown',err?.code||'');
+    return res.status(500).json({error:'Η εγγραφή δεν ολοκληρώθηκε. Δοκίμασε ξανά ή επικοινώνησε με την υποστήριξη.'});
+  }
 };
 
 exports.registerBroadcaster = async (req, res) => {
@@ -133,7 +163,8 @@ exports.registerBroadcaster = async (req, res) => {
 
 exports.verifyOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const email=typeof req.body?.email==='string'?req.body.email.trim().toLowerCase():'';
+    const otp=req.body?.otp;
     const user = await User.findOne({ email });
 
     if (!user) return res.status(404).json({ error: "Ο χρήστης δεν βρέθηκε." });
