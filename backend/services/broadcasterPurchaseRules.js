@@ -38,6 +38,32 @@ function purchasePeriod(sku,paidAt){
  }else throw Error('Invalid Boost duration');
  return {start,end};
 }
+/**
+ * Nexi MIT is anchored to the original day of the month, not the
+ * day of a shortened month. Jan 31 -> Feb 28 -> Mar 31.
+ * The reserved Gateway cycle, not webhook arrival time, defines access.
+ */
+function anchoredMonthlyEnd(start,anchorDay){
+ const time=new Date(start);
+ if(!Number.isFinite(+time)||!Number.isInteger(anchorDay)||
+     anchorDay<1||anchorDay>31)throw Error('Invalid MIT anchor');
+ const year=time.getUTCFullYear(),month=time.getUTCMonth()+1;
+ const max=new Date(Date.UTC(year,month+1,0)).getUTCDate();
+ return new Date(Date.UTC(year,month,Math.min(anchorDay,max),
+   time.getUTCHours(),time.getUTCMinutes(),time.getUTCSeconds(),
+   time.getUTCMilliseconds()));
+}
+function validatedAnchoredCycle(event,now=new Date()){
+ const start=new Date(event?.cycle_due_at);
+ const end=new Date(event?.period_ends_at);
+ if(!Number.isFinite(+start)||!Number.isFinite(+end)||
+   +start<Date.UTC(2020,0,1)||+start>+new Date(now)+300000)
+  throw Error('Invalid signed MIT cycle start');
+ const expected=anchoredMonthlyEnd(start,event?.anchor_day);
+ if(+end!==+expected||+end<=+start)
+  throw Error('Invalid signed MIT cycle end');
+ return {start,end};
+}
 function isPaidInPeriod(row,now=new Date()){
  return row?.status==='paid'&&row.environment==='staging'&&
   new Date(row.periodStartsAt)<=now&&new Date(row.periodEndsAt)>now;
@@ -70,4 +96,5 @@ function boostForStation(orders,stationId,now=new Date(),premium=false){
   {tier:'organic',placement:null,endsAt:null,priority:BOOST_PRIORITY.organic};
 }
 module.exports={SUBSCRIPTION_SKUS,BOOST_SKUS,BILLING_SKUS,isSubscription,isBoost,
- validatePurchase,purchasePeriod,isPaidInPeriod,orderRights,paidRights,boostForStation};
+ validatePurchase,purchasePeriod,anchoredMonthlyEnd,validatedAnchoredCycle,
+ isPaidInPeriod,orderRights,paidRights,boostForStation};
