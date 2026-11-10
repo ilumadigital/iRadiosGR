@@ -49,7 +49,7 @@ export default function StationPlaylistPanel({
   // The playlist always belongs to the station displayed in this panel.
   // No independent station selector can drift away from the home hero or current station.
   const chosen=station;
-  const needsEmailVerification=currentUser?.role==='user' && currentUser?.isVerified===false;
+  const needsEmailVerification=currentUser?.role==='user' && currentUser?.isVerified!==true;
   useEffect(()=>{
     setOpenTrackMenu(null);
   },[chosen?._id]);

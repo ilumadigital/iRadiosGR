@@ -335,6 +335,11 @@ exports.updateMe = async (req, res) => {
       patch.email!==String(req.user.email).trim().toLowerCase();
     let verification;
     if(emailChanged){
+      const last= new Date(req.user.verificationEmailLastSentAt||0).getTime();
+      if(Number.isFinite(last) && Date.now()-last<60000){
+        res.set('Retry-After','60');
+        return res.status(429).json({error:'Περίμενε ένα λεπτό πριν αλλάξεις ξανά email.'});
+      }
       if(await User.findOne({_id:{$ne:req.user._id},email:patch.email}).select('_id'))
         return res.status(409).json({error:'Το email χρησιμοποιείται ήδη.'});
       verification=createEmailVerification();

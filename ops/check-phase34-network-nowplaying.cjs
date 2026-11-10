@@ -88,10 +88,14 @@ async function run(){
   saved.tracks.push(old);
   const res={headers:{},setHeader(k,v){this.headers[k]=v;},
     status(n){this.code=n;return this;},json(data){this.body=data;return this;}};
-  await playlistHandler({params:{id:station._id}},res);
+  await playlistHandler({params:{id:station._id},user:{role:'user',isVerified:true}},res);
   assert.equal(res.body.tracks.length,2,'playlist excludes songs older than 30 minutes');
   assert.equal(res.body.tracks[1].source,'acrcloud','playlist keeps the recognized track badge');
   assert.equal(res.headers['Cache-Control'],'private, no-store');
+  const denied={setHeader(){},status(n){this.code=n;return this;},json(data){this.body=data;return this;}};
+  await playlistHandler({params:{id:station._id},user:{role:'user',isVerified:false}},denied);
+  assert.equal(denied.code,403,'unverified Free account cannot read a station playlist');
+  assert.equal(denied.body.code,'email_verification_required');
 
   const failed=await smart.publishAI(station,{status:{code:1001}},'auto',at);
   assert.equal(failed,null,'no match must never be saved as a song');

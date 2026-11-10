@@ -62,7 +62,7 @@ function SectionHeading({icon:Icon,title,description}){
   </div>;
 }
 
-export default function Profile({API_URL='/api',onLogout,currentUser=null}){
+export default function Profile({API_URL='/api',onLogout,currentUser=null,onUserUpdated}){
   const navigate=useNavigate();
   const location=useLocation();
   const allowedTabs=['details','notifications','follows','inbox','subscription'];
@@ -169,7 +169,7 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null}){
       const response=await fetch(API_URL+'/users/me',{method:'PUT',headers:authHeaders(),body:JSON.stringify(fields)});
       const payload=await response.json().catch(()=>({}));
       if(!response.ok)throw Error(payload.error||'Δεν αποθηκεύτηκαν τα στοιχεία σου.');
-      setUser(payload);setFields(toFields(payload));
+      setUser(payload);setFields(toFields(payload));onUserUpdated?.(payload);
       setNotice({type:'success',text:'Τα στοιχεία του λογαριασμού αποθηκεύτηκαν.'});
     }catch(error){setNotice({type:'error',text:error.message||'Σφάλμα αποθήκευσης.'});}
     finally{setBusy(false);}

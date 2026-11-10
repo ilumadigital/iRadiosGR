@@ -4,7 +4,7 @@ import {AlertTriangle,Mail,RefreshCw} from 'lucide-react';
 export default function EmailVerificationBanner({currentUser,API_URL='/api',onUserUpdated}){
   const [sending,setSending]=useState(false);
   const [message,setMessage]=useState('');
-  if(currentUser?.role!=='user'||currentUser?.isVerified!==false)return null;
+  if(currentUser?.role!=='user'||currentUser?.isVerified===true)return null;
   const resend=async()=>{
     if(sending)return;
     setSending(true);setMessage('');

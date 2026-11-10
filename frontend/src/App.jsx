@@ -1871,7 +1871,7 @@ function MainApp() {
                 <HomeCategories stations={stations} currentUser={currentUser} allLink={false}/>
               </div>
             } />
-            <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} currentUser={currentUser} onLogout={handleLogout} /> : <Navigate to="/login" />} />
+            <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} currentUser={currentUser} onLogout={handleLogout} onUserUpdated={setCurrentUser} /> : <Navigate to="/login" />} />
             <Route path="/settings" element={<Navigate to="/profile?tab=details" replace />} />
             <Route path="/press-kit" element={<PressKit />} />
             <Route path="/newsfeed" element={<NewsFeed stations={stations} userLocation={userLocation} checkGeoMatch={checkGeoMatch} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
