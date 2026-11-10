@@ -1,5 +1,7 @@
 const Ad = require('../models/Ad');
 const User = require('../models/User');
+const Station=require('../models/Station');
+const {hasStationRight}=require('../services/billingEntitlements');
 
 const fs = require('fs').promises;
 const path = require('path');
@@ -103,16 +105,66 @@ exports.getBroadcasterAds = async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Σφάλμα λήψης διαφημίσεων' }); }
 };
 
-exports.createBroadcasterAd = async (req, res) => {
-  try {
-    const user = await User.findById(req.body.broadcasterId);
-    if (user.role !== 'admin' && !user.broadcasterProfile?.features?.adControl) {
-       return res.status(403).json({ error: "Το Ad Control είναι κλειδωμένο." });
-    }
-    const newAd = new Ad({ ...req.body, isGlobal: false, status: 'active' }); 
-    await newAd.save();
-    res.status(201).json(newAd);
-  } catch (err) { res.status(500).json({ error: 'Σφάλμα δημιουργίας' }); }
+// Broadcaster local ad actions must be scoped by the signed-in user and by
+// the station's entitlement, NEVER by a broadcasterId supplied in JSON.
+exports.createBroadcasterAd=async(req,res)=>{
+ try{
+  const user=req.user,stationId=req.body?.stationId;
+  if(!user || user.role!=='broadcaster')
+    return res.status(403).json({error:'Απαιτείται Broadcaster.'});
+  const station=await Station.findOne({_id:stationId,broadcasterId:user._id});
+  if(!station)return res.status(403).json({error:'Ο σταθμός δεν ανήκει στον λογαριασμό σας.'});
+  if(!await hasStationRight(user,station,'broadcaster.ad_control'))
+    return res.status(403).json({error:'Δεν έχετε ενεργό Ad Control για αυτόν τον σταθμό.'});
+  const allowed=['title','client','audioUrl','logoUrl','linkUrl','frequency','dspPreset','targetLocations'];
+  const patch={};
+  for(const field of allowed)if(req.body?.[field]!==undefined)patch[field]=req.body[field];
+  // Legacy frontend calls the entry frequency "first_station".
+  if(patch.frequency==='first_station')patch.frequency='entry';
+  const created=await Ad.create({...patch,agencyId:null,broadcasterId:user._id,
+    stationId:station._id,isGlobal:false,status:'active'});
+  return res.status(201).json(created);
+ }catch(e){
+  console.error('[AD CONTROL] Create failed',e.message);
+  return res.status(400).json({error:'Δεν δημιουργήθηκε το τοπικό spot.'});
+ }
+};
+exports.updateBroadcasterAd=async(req,res)=>{
+ try{
+  const ad=await Ad.findOne({_id:req.params.id,broadcasterId:req.user._id,isGlobal:false});
+  if(!ad)return res.status(404).json({error:'Το spot δεν βρέθηκε.'});
+  const station=await Station.findOne({_id:ad.stationId,broadcasterId:req.user._id});
+  if(!station||!await hasStationRight(req.user,station,'broadcaster.ad_control'))
+    return res.status(403).json({error:'Δεν έχετε Ad Control για αυτόν τον σταθμό.'});
+  const patch={};
+  for(const field of ['title','client','audioUrl','logoUrl','linkUrl','frequency','dspPreset','targetLocations'])
+    if(req.body?.[field]!==undefined)patch[field]=req.body[field];
+  if(patch.frequency==='first_station')patch.frequency='entry';
+  const updated=await Ad.findOneAndUpdate({_id:ad._id,broadcasterId:req.user._id,isGlobal:false},
+    {$set:patch},{new:true,runValidators:true});
+  return res.json(updated);
+ }catch(e){
+  console.error('[AD CONTROL] Update failed',e.message);
+  return res.status(400).json({error:'Δεν αποθηκεύτηκε το spot.'});
+ }
+};
+exports.deleteBroadcasterAd=async(req,res)=>{
+ try{
+  const ad=await Ad.findOne({_id:req.params.id,broadcasterId:req.user._id,isGlobal:false});
+  if(!ad)return res.status(404).json({error:'Το spot δεν βρέθηκε.'});
+  const station=await Station.findOne({_id:ad.stationId,broadcasterId:req.user._id});
+  if(!station||!await hasStationRight(req.user,station,'broadcaster.ad_control'))
+    return res.status(403).json({error:'Δεν έχετε Ad Control για αυτόν τον σταθμό.'});
+  const removed=await Ad.findOneAndDelete({_id:ad._id,broadcasterId:req.user._id,isGlobal:false});
+  if(!removed)return res.status(409).json({error:'Το spot τροποποιήθηκε. Δοκίμασε ξανά.'});
+  // Retain no fake financial record; this is a broadcaster's own local spot.
+  // Existing agency creatives are deliberately NOT affected by this endpoint.
+  await Promise.allSettled([deleteMediaFile(removed.audioUrl),deleteMediaFile(removed.logoUrl)]);
+  return res.json({message:'Το τοπικό spot αφαιρέθηκε.'});
+ }catch(e){
+  console.error('[AD CONTROL] Delete failed',e.message);
+  return res.status(500).json({error:'Δεν αφαιρέθηκε το spot.'});
+ }
 };
 
 exports.logImpression = async (req, res) => {
