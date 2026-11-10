@@ -43,9 +43,17 @@ async function existingOverlappingMandate(user,sku){
   const old=await BroadcasterBillingOrder.find({
    accountId:user._id,environment:'staging',sku:{$in:ADDONS},
    autoRenewRequested:true
-  }).select('sku resourceId').sort({createdAt:-1}).limit(61).lean();
+  }).select('sku resourceId status').sort({createdAt:-1}).limit(61).lean();
   if(old.length>60)return {code:'OVERLAP_REQUIRES_REVIEW',
    error:'Υπάρχουν πολλές προηγούμενες συνδρομές add-ons. Απαιτείται έλεγχος πριν από αναβάθμιση Premium.'};
+  // An in-flight add-on checkout is also a financial conflict, even if
+  // the Gateway contract has not been created yet.
+  for(const row of old){
+   if(['creating','pending','redirect','unknown'].includes(row.status))
+    return {code:'ACTIVE_ADDON_RENEWALS',
+     error:'Υπάρχει εκκρεμής αγορά add-on. Ολοκλήρωσε ή ακύρωσε πρώτα την υπάρχουσα συναλλαγή από τις «Συνδρομές μου».',
+     sku:row.sku,stationId:String(row.resourceId||'')};
+  }
   for(const item of candidateAddons(old)){
    const current=await gateway.broadcasterRecurringStatus(user,item.sku,item.stationId);
    if(current.state==='unavailable')return {code:'GATEWAY_RECURRING_UNAVAILABLE',
@@ -55,6 +63,11 @@ async function existingOverlappingMandate(user,sku){
     sku:item.sku,stationId:item.stationId};
   }
  }else if(ADDONS.includes(sku)){
+  if(await BroadcasterBillingOrder.exists({
+   accountId:user._id,sku:'B-PREM',environment:'staging',
+   status:{$in:['creating','pending','redirect','unknown']}
+  }))return {code:'PREMIUM_RECURRING_ALREADY_ENROLLED',
+   error:'Υπάρχει εκκρεμής αγορά Broadcaster Premium. Έλεγξε την υπάρχουσα συναλλαγή πριν από νέα μηνιαία χρέωση.'};
   const premium=await gateway.broadcasterRecurringStatus(user,'B-PREM');
   if(premium.state==='unavailable')return {code:'GATEWAY_RECURRING_UNAVAILABLE',
    error:'Δεν ήταν δυνατή η επιβεβαίωση της κατάστασης Broadcaster Premium.'};
