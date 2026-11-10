@@ -69,6 +69,22 @@ function validateGatewayPayment(payment,{expectedPaymentId=null,expectedOrderId=
  if(payment.status==='redirect'&&!checkoutUrl)throw Error('gateway_bad_redirect');
  return {...payment,checkout_url:checkoutUrl};
 }
+function validatePaymentEvent(body,eventId,now=new Date()){
+ if(!body||typeof body!=='object'||Array.isArray(body))return false;
+ if(body.event_id!==eventId||!EVENT_ID.test(body.event_id||'')||
+    !PAYMENT_ID.test(body.payment_id||'')||!ORDER_ID.test(body.order_id||''))
+   return false;
+ if(!['payment.paid','payment.failed','payment.canceled'].includes(body.event_type))
+   return false;
+ if(body.environment!=='staging'||body.amount_cents!==399||body.currency!=='EUR')
+   return false;
+ // Internal Gateway customer ID is not the iRadios account ID.
+ if(typeof body.customer_id!=='string'||body.customer_id.length<1||
+    body.customer_id.length>190)return false;
+ const occurredAt=Date.parse(body.occurred_at);
+ return Number.isFinite(occurredAt)&&occurredAt>Date.UTC(2020,0,1)&&
+   occurredAt<=now.getTime()+300000;
+}
 function nextMonthlyPeriod(start){
  const d=new Date(start);
  if(!Number.isFinite(d.getTime()))throw Error('Invalid period start');
@@ -89,4 +105,4 @@ function safeOrderStatus(row,now=new Date()){
 }
 module.exports={canonicalSignature,headersForRequest,verifyWebhookHeaders,
   hostedCheckoutUrl,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
-  PAYMENT_ID,ORDER_ID,EVENT_ID,WEBHOOK_PATH,GATEWAY_CHECKOUT_PATH};
+  PAYMENT_ID,ORDER_ID,EVENT_ID,WEBHOOK_PATH,GATEWAY_CHECKOUT_PATH,validatePaymentEvent};
