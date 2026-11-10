@@ -17,6 +17,8 @@ require('./utils/premiumBillingEmailScheduler').start();
 // Recover lost Broadcaster checkout responses using signed GET only.
 // This worker cannot create provider orders, MIT payments or grant entitlements.
 require('./utils/broadcasterCheckoutRecoveryScheduler').start();
+// Isolated broadcaster transactional outbox, staging -> Mailpit only.
+require('./utils/broadcasterBillingEmailScheduler').start();
 
 // --- 2. IMPORT MODELS & CONTROLLERS ---
 const User = require('./models/User');
