@@ -1,43 +1,62 @@
-# Broadcaster commerce implementation — staging workstream
+# iRadios Broadcaster paid billing — coordinated staging release
 
-## Implemented in this branch
+**Status:** Implemented in **DRAFT** cross-repository PRs, not yet merged/deployed or end-to-end Nexi sandbox UAT-verified.
 
-- Broadcaster-only Backoffice navigation for **Boost My Radio**, **Pro Features**, **WebDSP** and **Ad Control**.
-- Server-sourced station entitlements and catalog pricing in a new responsive commerce experience.
-- Premium 119 EUR/month and three separately licensed station add-ons are shown with owned/locked state.
-- One-time Boost duration/pricing selection for category and global tiers.
-- Old app routes redirect to the Backoffice routes; customer listener navigation no longer contains broadcaster commerce links.
-- WebDSP and Ad Control pages are rendered only after a successful authenticated station entitlement check. Existing backend authorization remains intact.
-- No financial writes or false payment-success behavior have been enabled.
+- iRadios PR: https://github.com/ilumadigital/iRadiosGR/pull/86 (branch `feat/staging-broadcaster-premium-backoffice`, base `staging`)
+- ILUMA Gateway PR: https://github.com/ilumadigital/iluma-gateway/pull/12 (branch `feat/staging-broadcaster-mit-scoped`, base `main`)
 
-## Non-negotiable scope rules
+## Approved product contract (EUR, VAT 24% included)
 
-| Product | Catalog SKU | Catalog scope | Billing |
-|---|---|---|---|
-| Broadcaster Premium | B-PREM | broadcaster account | monthly subscription, 119.00 EUR |
-| DSP | ADD-DSP | station | monthly recurring, 49.90 EUR |
-| Analytics | ADD-AN | station | monthly recurring, 7.90 EUR |
-| Ad Control | ADD-ADS | station | monthly recurring, 29.90 EUR |
-| Category/Region Boost | BOOST-T-* | station | one-off, chosen fixed duration |
-| Global Boost | BOOST-G-* | station | one-off, chosen fixed duration |
+| SKU | Amount cents | Scope | Charging |
+| --- | ---: | --- | --- |
+| B-PREM | 11900 | broadcaster account | monthly recurring |
+| ADD-DSP | 4990 | approved owned station | monthly recurring |
+| ADD-AN | 790 | approved owned station | monthly recurring |
+| ADD-ADS | 2990 | approved owned station | monthly recurring |
+| BOOST-T-DAY / WEEK / 2W / MONTH / YEAR | 490 / 2990 / 5490 / 9900 / 89000 | approved owned station | **one-off**, respectively 1/7/14 days, calendar month/year |
+| BOOST-G-DAY / WEEK / 2W / MONTH / YEAR | 2900 / 17900 / 34900 / 79900 / 848900 | approved owned station | **one-off**, respectively 1/7/14 days, calendar month/year |
 
-All prices include 24% VAT. Premium includes DSP, Analytics and Ad Control for all covered account stations. A separately purchased Boost ranks ahead of Premium Boost in the same placement. Do not turn Boost into an auto-renewable plan.
+The B-PREM account plan includes unlimited stations, all three station add-on rights, and selectable Premium Boost placement. Only broadcaster-selected owned approved stations receive Premium Boost. An active purchased matching-placement Boost outranks included Premium Boost. Editorial/manual rankings are not rewritten and pre-existing manual rights are not migrated into paid events. One-off Boost never creates MIT or a recurring authorization. Orders use server-owned UTC expiry, not browser-supplied duration.
 
-## Gateway dependency — cannot activate charging yet
+## Implemented in iRadios PR #86
 
-The current ILUMA Gateway **MIT** implementation limits consented subscriptions to Listener Premium and the listener winback SKU. It hardcodes 399 cents, a listener-only monthly recurrence, a per-customer single-mandate lookup, and listener-specific renewal webhook correlation. The iRadios local BillingOrder enum, validation, webhook and rights are also listener-only.
+- Backoffice-only Broadcaster pages for **Pro Features**, **Boost**, **Audience Radar**, **WebDSP**, **Ad Control**, and **Οι συνδρομές μου**.
+- Original app routes redirect to these Backoffice tools; Pro modules show owned / locked states based on server entitlements. Active modules open their real tooling, not an inert status label.
+- The existing analytics backend checks entitlements per owned station; Audience Radar renders live listeners, historic and live locations, average listen time and recorded Ad impressions, without claiming unsupported device analytics or a server-side dB meter.
+- User may start a subscription only with explicit monthly consent. Client never chooses a price or provider merchant reference. The product is sourced from the immutable server catalog.
+- Broadcaster checkout generates a per-intent UUID Idempotency-Key. Local unique lock serializes pending checkouts; ambiguous provider results stay locked. Signed lookup of original payment/order only; never replay unknown payment.
+- Separate `BroadcasterBillingOrder` paid-cycle ledger prevents Listener Premium regressions. Signed webhook must validate SKU, exact amount, resource ID, environment, HMAC, event nonce and order correlation.
+- `payment.paid` is the only activation authority. HTTP redirects and provider status lookups are **not** entitlement grants. Period extensions, MIT, one-off Boost, duplicate webhook and grace prevention are server-owned.
+- Paid entitlements are scoped by account or owned station. Public station read-time projection removes expired paid DSP/Ad Control without deleting the persisted user preset. A purchase for station A or a one-off Boost never masks legacy station B.
+- Premium Boost selection is gated to entitled broadcasters and owned approved stations; ranking is read-time and respects paid Boost over Premium.
+- Subscription dashboard shows status and cancellation per SKU/station, without claiming invoices were issued. Cancellation preserves already paid access through original expiry. Removed/transferred station subscriptions remain cancellable by original payer.
+- Regression test coverage for policy duration, scope, paid priority, signed events, and legacy-station isolation. Main Listener Premium code paths retain their existing safeguards.
 
-A superficial UI button or unverified redirect is not a paid entitlement. The Gateway and iRadios changes below must be developed, independently reviewed, and verified in Sandbox together:
+## Implemented in Gateway PR #12
 
-1. Introduce a canonical SKU/scope/resource contract for B-PREM and station add-ons. Prices must be catalog-validated independently in both systems; prohibit client-supplied prices.
-2. Support multiple mandates per broadcaster (one B-PREM account mandate and independently cancellable station add-on mandates) with an explicit per-mandate key; no collision with Listener MIT.
-3. Extend MIT worker without a hardcoded 399-cent product. Sign product SKU, resource ID, cycle identity, order, amount and environment on each Gateway webhook. Never trust browser state for activation.
-4. Create a scope-aware paid-order model in iRadios with unique request/idempotency keys, webhook event replay prevention, lock management, and an atomic paid-cycle grant.
-5. Only release station entitlements for owned stations, verified paid and in-period cycles, or active admin complimentary grants. On expiry/revocation, revoke the effective right immediately without deleting user presets or content.
-6. For Boost, issue one verified single-charge order per station, tier and duration; calculate expiration on the server only after payment.paid. Never make recurring MIT mandates for boosts.
-7. Expose subscription status, renewal schedule, cancel-at-period-end, payment history and payment issues inside Backoffice. Extend branded billing emails with idempotent delivery, without duplicating Listener Premium messages.
-8. Verify all scenarios: new purchase; duplicate checkout click; unknown Nexi response; timeout; webhook before checkout response; duplicate/reordered webhook; price/resource mismatch; cross-account station; MIT success/failure; cancellation; expiry; admin grant overlap; purchased Boost vs premium; sandbox-vs-live separation; zero double charges.
+- New `broadcaster_mandates` and `broadcaster_cycles`: independent monthly contracts per broadcaster/SKU/station without changing Listener L-PREM 399-cent mandate logic.
+- New `broadcaster_boost_scopes`: immutable paid Boost station linkage so Gateway can sign the station ID in the event, rather than trusting frontend checkout state.
+- Gateway HMAC checkout validates SKU and exact catalog price, explicit broadcaster MIT consent, owned-station-format resource, one-off Boost no-MIT, and request-key canonical payload (including station).
+- Signed Gateway outcome events contain exact SKU and station; MIT events additionally sign origin, external account ID and cycle timestamp. iRadios correlates them to one reserved payment/order.
+- One provider MIT attempt per reserved cycle, strict approved sandbox-only execution gates, no retry after unknown charge, read-only Nexi reconciliation, per-SKU station cancellation/deactivation.
+- Server-sourced checkout-return routing to `/backoffice/pro-features` or `/backoffice/boost`; Listener Premium callback remains `/premium`.
+- Staging-only CLI migration and catalog registration in `bin/manage.php migrate-staging-broadcaster`. **Never run against production.**
 
-### Activation rule
+## Gate before staging activation / release
 
-Do not remove the disabled purchase CTAs until the cross-repository changes, Gateway staging product registration, sandbox live UAT, signed webhook/MIT reconciliation and CI checks are confirmed. Production is explicitly out of scope.
+**Keep both following gateway flags at `0` until real MIT approval and a verified controlled sandbox recurring UAT:**
+
+```env
+BROADCASTER_MIT_SANDBOX_EXECUTION_ENABLED=0
+BROADCASTER_MIT_SANDBOX_UAT_APPROVED=0
+```
+
+1. Review both draft PRs. Confirm Gateway Hostinger runtime, actual provider sandbox credentials, and `APP_ENV=staging` before any migration. Register staging broadcaster products and scopes with `php bin/manage.php migrate-staging-broadcaster`. Ensure secrets are stored outside Git and that schema matches.
+2. Deploy the Gateway branch to the staging Gateway first, then the iRadios staging app branch in coordination. Never deploy the iRadios purchase UI alone if the Gateway schema or API has not been installed. No production release.
+3. Test each checkout: B-PREM, ADD-DSP/AN/ADS for two distinct owned stations, 10 Boost durations/types, explicit monthly consent, invalid owner/station/price/currency, HPP cancel, valid capture, expired benefits, duplicate/out-of-order webhooks, replays, uncertain timeout and read-only order recovery.
+4. Verify one-off Boost has exact paid station ID and correctly calculated expiry; duplicate active same-SKU boost cannot double-charge. Test paid Global vs Premium boost ranking on matching and non-matching catalog views. Test old hand-configured station presets are not erased on unpaid expiry.
+5. Check multiple simultaneous broadcaster contracts and per-contract cancellation; verify Gateway cancellation stops future charges and existing entitlements expire naturally. Confirm failed MIT and provider 404/unknown do not trigger another outbound POST automatically.
+6. Execute MIT renewal UAT with real sandbox provider contract lifecycle; only after a verified merchant/provider contract and controlled test should the two flags change to `1`. The first-cycle checkout may be tested while flags are off, but recurring worker execution remains disabled.
+7. Confirm paid email, accounting/fiscal receipt integration and customer support flows separately before describing them as live; **payment success does not imply tax receipt generation**. No invoice data is fabricated.
+
+**Do not merge either PR or turn on Sandbox/production payments merely because lint/CI is green.** Real Nexi gateway / Hostinger e2e tests and a separate production release decision are required.
