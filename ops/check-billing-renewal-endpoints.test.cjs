@@ -24,6 +24,7 @@ const BillingOrder={
    if(q.requestKey)return created?.requestKey===q.requestKey?created:null;
    if(q.lockKey)return created?.lockKey===q.lockKey?created:null;
    if(q.gatewayPaymentId)return null;
+   if(q._id&&q.accountId)return created&&String(created._id)===String(q._id)?created:null;
    if(q.status==='paid')return previous;
    return null;
   };
@@ -55,6 +56,8 @@ let lastCardChoice=null;
 let cardState='none';
 const gateway={
  configured:()=>true,
+ paymentByRequestKey:async()=>{throw Object.assign(new Error('not found'),{code:'GATEWAY_HTTP_404'});},
+ paymentStatus:async()=>{throw Object.assign(new Error('lookup unavailable'),{code:'GATEWAY_HTTP_404'});},
  savedCardStatus:async()=>({state:cardState,automaticRenewal:false}),
  revokeSavedCard:async()=>({state:cardState='revocation_pending',automaticRenewal:false}),
  checkout:async({cardChoice}={})=>{lastCardChoice=cardChoice;providerCalls++;
@@ -180,4 +183,51 @@ test('Only own authenticated listener can inspect/revoke payment method, without
  assert.equal(removed.statusCode,200);
  assert.equal(removed.body.paymentMethod.state,'revocation_pending');
  cardState='none';
+});
+
+
+test('Deterministic OneClick Gateway 422 frees original lock without calling Nexi twice',async()=>{
+ reset();hasRight=true;process.env.APP_ENV='staging';
+ const originalCheckout=gateway.checkout;
+ gateway.checkout=async()=>{throw Object.assign(new Error('preflight rejected'),{
+  code:'GATEWAY_HTTP_422'
+ });};
+ try{
+  const res=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true}});
+  assert.equal(res.statusCode,503);
+  assert.equal(res.body.code,'GATEWAY_ONECLICK_NOT_READY');
+  assert.equal(created.status,'failed');
+  assert.equal(created.lastErrorCode,'GATEWAY_ONECLICK_NOT_READY');
+  assert.equal(created.lockKey,undefined);
+  assert.equal(created.gatewayPaymentId,undefined);
+ }finally{gateway.checkout=originalCheckout;}
+});
+test('Signed Gateway 404 after 2 minutes safely closes local intent without a provider payment reference',async()=>{
+ reset();hasRight=false;process.env.APP_ENV='staging';
+ created={_id:'d'.repeat(24),accountId:user._id,sku:'L-PREM',
+  status:'unknown',environment:'staging',amountCents:399,currency:'EUR',
+  requestKey:'iradios-stage-'+user._id+'-'+uuid,
+  lockKey:user._id+':L-PREM',
+  createdAt:new Date(Date.now()-3*60000)};
+ const response=await call(controller.readOrder,{params:{id:created._id},query:{refresh:'1'}});
+ assert.equal(response.statusCode,200);
+ assert.equal(response.body.order.status,'failed');
+ assert.equal(response.body.order.recoveryReason,'not_created');
+ assert.equal(created.lockKey,undefined);
+ assert.equal(created.gatewayPaymentId,undefined);
+});
+test('Gateway 404 never releases a lock when a provider payment/order ID is known',async()=>{
+ reset();hasRight=false;process.env.APP_ENV='staging';
+ created={_id:'d'.repeat(24),accountId:user._id,sku:'L-PREM',
+  status:'unknown',environment:'staging',amountCents:399,currency:'EUR',
+  requestKey:'iradios-stage-'+user._id+'-'+uuid,
+  lockKey:user._id+':L-PREM',
+  gatewayPaymentId:'0'.repeat(32),gatewayOrderId:'IL'+'E'.repeat(24),
+  createdAt:new Date(Date.now()-3*60000)};
+ const response=await call(controller.readOrder,{params:{id:created._id},query:{refresh:'1'}});
+ assert.equal(response.statusCode,200);
+ assert.equal(response.body.order.status,'unknown');
+ assert.equal(response.body.order.recoveryReason,null);
+ assert.equal(created.lockKey,user._id+':L-PREM',
+  'Any known provider payment reference demands financial reconciliation');
 });
