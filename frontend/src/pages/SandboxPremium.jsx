@@ -5,8 +5,9 @@ import {Crown,ShieldCheck,ExternalLink,RefreshCw,AlertTriangle,
  CreditCard,CheckCircle2,Clock3,LockKeyhole,Gift,ArrowRight,CalendarClock,
  Sparkles,Headphones,Volume2,ScanSearch,Info,Check,ChevronRight} from 'lucide-react';
 
-// Phase 3 is an isolated first-month Nexi SANDBOX checkout. It never stores
-// card details, never confirms success from redirect alone, and never auto-renews.
+// Subscription-only staging checkout: recurring authorization is submitted
+// only after the listener clicks the clearly disclosed subscription button.
+// Browser returns never confirm a payment; signed webhooks remain authoritative.
 const KEY_PREFIX='iradios-nexi-stage-intent:';
 const RETURN_PREFIX='iradios-billing-return:';
 function rememberReturnPath(userId){
@@ -308,15 +309,14 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  const isListener=currentUser?.role==='user';
  const activeSubscription=currentUser?.isPremium===true&&!previewOnly;
  const canRenewActive=['soon','grace'].includes(renewalEligibility?.kind);
- const blocked=['redirect','unknown','pending','creating'].includes(order?.status);
- const hasMandate=['active','pending','verification_pending','past_due'].includes(recurring.state);
+ const blocked=!previewOnly&&['redirect','unknown','pending','creating'].includes(order?.status);
+ const hasMandate=!previewOnly&&['active','pending','verification_pending','past_due'].includes(recurring.state);
  const needsOldCancellation=winback?.requiresCancellation===true&&!previewOnly;
  const canCheckout=isListener&&currentUser?.isVerified===true&&!previewOnly&&
   !blocked&&!hasMandate&&!needsOldCancellation&&
   (!currentUser?.isPremium||canRenewActive)&&
   (!['active','grace','scheduled'].includes(order?.status)||canRenewActive);
  const price=winbackShown?'1,99 €':'3,99 €';
- const hasPendingPaidSync=blocked&&order?.providerStatus==='paid';
  const cards=[
   {icon:ShieldCheck,title:'Χωρίς διαφημίσεις της εφαρμογής',description:'Άκου χωρίς διακοπές από διαφημίσεις του iRadios.'},
   {icon:ScanSearch,title:'Music Radar',description:'Αναγνώρισε τραγούδια όταν το επιλέγεις.'},
