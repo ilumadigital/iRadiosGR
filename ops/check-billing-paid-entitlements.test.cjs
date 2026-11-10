@@ -1,5 +1,7 @@
 'use strict';
 const test=require('node:test');
+// This suite tests the staging-only first-period entitlement projection.
+process.env.APP_ENV='staging';
 const assert=require('node:assert/strict');
 const Module=require('node:module');
 const original=Module._load;
@@ -46,4 +48,15 @@ test('Complimentary grants remain separate from payment records',async()=>{
   expiresAt:new Date('2026-12-01T00:00:00Z'),revokedAt:null}];
  assert.ok((await service.accountRights(listener,NOW)).includes('listener.premium'));
  grants=[];
+});
+
+test('Production never projects a paid staging order even if records were copied',async()=>{
+ const priorEnv=process.env.APP_ENV;
+ process.env.APP_ENV='production';paidFound=true;grants=[];requestedFilter=null;
+ try{
+  assert.deepEqual(await service.accountRights(listener,NOW),[]);
+  assert.equal(requestedFilter,null,'No staging payment lookup is permitted outside staging');
+ }finally{
+  process.env.APP_ENV=priorEnv;paidFound=false;
+ }
 });
