@@ -305,8 +305,8 @@ export default function DSP({ API_URL, currentUser, onUpdateDSP, resumeDSP }) {
           </div>
         )}
         {stations.length === 0 && (
-          <div className="col-span-full text-center py-12 text-zinc-500 font-medium">
-            Δεν βρέθηκαν σταθμοί προς ρύθμιση.
+          <div role="status" className="col-span-full text-center py-12 text-zinc-400 font-medium">
+            {accessError||'Δεν βρέθηκαν σταθμοί προς ρύθμιση.'}
           </div>
         )}
       </div>
