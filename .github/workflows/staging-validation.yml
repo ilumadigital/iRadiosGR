@@ -75,6 +75,8 @@ jobs:
         run: node ops/check-branded-email-design.cjs
       - name: Validate Premium listener lifecycle emails, Spotify and Apple benefits, durable dedupe and marketing consent
         run: node ops/check-premium-billing-emails.cjs
+      - name: Simulate signed Premium welcome, expiry, marketing consent and cancel email delivery once per event
+        run: node --test backend/tests/premiumBillingEmailScheduler.test.js
       - name: Verify authenticated station contact and branded Reply-To
         run: node --test ops/check-station-contact.test.cjs
       - name: Test authenticated staging metadata and SonoVault safety
