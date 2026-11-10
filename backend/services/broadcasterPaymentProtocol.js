@@ -1,6 +1,6 @@
 'use strict';
 const {getProduct}=require('../config/billingCatalog');
-const {BILLING_SKUS,isSubscription}=require('./broadcasterPurchaseRules');
+const {BILLING_SKUS,isSubscription,validatedAnchoredCycle}=require('./broadcasterPurchaseRules');
 const {hostedCheckoutUrl}=require('./gatewayBillingProtocol');
 const {PAYMENT_ID,ORDER_ID,EVENT_ID}=require('./gatewayBillingProtocol');
 const HEX24=/^[a-f0-9]{24}$/;
@@ -38,8 +38,9 @@ function broadcasterEventValid(event,eventId,now=new Date()){
  }else if(typeof event.resource_id!=='string'||!HEX24.test(event.resource_id))return false;
  if(event.billing_origin!==undefined){
   if(event.billing_origin!=='automatic_renewal'||!isSubscription(event.product_sku)||
-   !/^iradios-stage-[a-f0-9]{24}$/.test(event.external_user_id||'')||
-   !Number.isFinite(Date.parse(event.cycle_due_at)))return false;
+   !/^iradios-stage-[a-f0-9]{24}$/.test(event.external_user_id||''))
+    return false;
+  try{validatedAnchoredCycle(event,now);}catch{return false;}
  }
  const occurred=Date.parse(event.occurred_at);
  return Number.isFinite(occurred)&&occurred>Date.UTC(2020,0,1)
