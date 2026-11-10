@@ -50,6 +50,9 @@ Module._load=function(name,parent,isMain){
   if(name==='../models/BillingOrder')return BillingOrder;
   if(name==='../models/GatewayWebhookNonce')return Nonces;
   if(name==='../models/BillingRenewalSnooze')return {};
+  if(name==='../utils/premiumBillingEmailScheduler')return {
+   enqueuePaidWelcome:async()=>true,enqueueCancellation:async()=>true,kick:()=>{}
+  };
   if(name==='../services/ilumaGatewayClient')return {configured:()=>true};
   if(name==='../services/billingEntitlements')return {hasAccountRight:async()=>false};
   if(name==='../services/billingIndexReadiness')return {ensureBillingIndexes:async()=>{}};
