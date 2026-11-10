@@ -70,6 +70,7 @@ function Status({order}){
    active:{title:'Η συνδρομή είναι ενεργή',desc:'Η πληρωμή επιβεβαιώθηκε από το Gateway με υπογεγραμμένο webhook.',icon:CheckCircle2,style:'border-lime-500/30 bg-lime-900/10 text-lime-200'},
    grace:{title:'Περίοδος χάριτος',desc:'Η πληρωμένη περίοδος ολοκληρώθηκε. Τα προνόμια διατηρούνται προσωρινά έως το όριο χάριτος που έχει ορίσει το iRadios.',icon:Clock3,style:'border-amber-500/30 bg-amber-900/10 text-amber-200'},
    expired:{title:'Η περίοδος ολοκληρώθηκε',desc:'Δεν υπάρχει ενεργή συνδρομή και δεν πραγματοποιείται αυτόματη ανανέωση.',icon:Clock3,style:'border-white/10 bg-white/5 text-zinc-200'},
+   awaiting_sync:{title:'Η πληρωμή ολοκληρώθηκε — συγχρονισμός συνδρομής',desc:'Το ILUMA Gateway έχει καταγράψει πληρωμή από τη Nexi, αλλά το iRadios περιμένει την υπογεγραμμένη ειδοποίηση για να ενεργοποιήσει τα προνόμια. Δεν χρειάζεται δεύτερη χρέωση. Η κατάσταση ελέγχεται αυτόματα.',icon:Clock3,style:'border-lime-500/30 bg-lime-900/10 text-lime-200'},
    pending:{title:'Δεν έχει ανοίξει η φόρμα της Nexi',desc:'Δημιουργήθηκε αίτημα πληρωμής, αλλά δεν υπάρχει ακόμη σελίδα καταχώρισης κάρτας. Δεν πρόκειται για επιβεβαιωμένη χρέωση. Μην ξεκινήσεις δεύτερη συναλλαγή.',icon:Clock3,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    creating:{title:'Προετοιμασία ασφαλούς πληρωμής',desc:'Δημιουργείται το αίτημα. Μη δημιουργήσεις δεύτερο checkout.',icon:Clock3,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    redirect:{title:'Αναμονή πληρωμής μέσω Nexi Sandbox',desc:'Το checkout είναι διαθέσιμο. Premium ενεργοποιείται μόνο μετά την επιβεβαίωση.',icon:CreditCard,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
@@ -77,7 +78,9 @@ function Status({order}){
    failed:{title:'Η πληρωμή απέτυχε',desc:'Δεν ενεργοποιήθηκε Premium. Μπορείς να ξεκινήσεις νέα δοκιμαστική συναλλαγή.',icon:AlertTriangle,style:'border-red-500/30 bg-red-900/10 text-red-200'},
    canceled:{title:'Η συναλλαγή ακυρώθηκε',desc:'Δεν ενεργοποιήθηκε Premium και δεν έγινε αυτόματη επαναχρέωση.',icon:AlertTriangle,style:'border-white/10 bg-white/5 text-zinc-200'}
  };
- const state=states[order.status]||states.pending;
+ const waitingForWebhook=order.providerStatus==='paid' &&
+   ['pending','redirect','unknown','creating'].includes(order.status);
+ const state=waitingForWebhook?states.awaiting_sync:(states[order.status]||states.pending);
  const Icon=state.icon;
  return <div role="status" className={'rounded-2xl border p-5 '+state.style}>
    <div className="flex items-start gap-3">
@@ -157,6 +160,8 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
     setMessage(result.order.status==='active'
      ?'Η πληρωμή επιβεβαιώθηκε από το Gateway. Το Premium είναι ενεργό.'
      :'Η συνδρομή βρίσκεται σε περίοδο χάριτος σύμφωνα με τους κανόνες του iRadios.');
+   }else if(result.order?.providerStatus==='paid'){
+    setMessage('Η Nexi επιβεβαίωσε την πληρωμή στο ILUMA Gateway. Εκκρεμεί μόνο η ασφαλής αποστολή της ενημέρωσης προς το iRadios.');
    }
   }catch(e){setMessage(e.message);}
   finally{setBusy(false);}
@@ -184,7 +189,9 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
       navigated=await finishVerified(result.order.status);
       if(canceled||navigated)return;
       setMessage('Η Nexi επιβεβαίωσε την πληρωμή μέσω ILUMA Gateway. Η συνδρομή ενημερώθηκε στο iRadios.');
-     }else if(kind==='cancel')
+     }else if(result.order?.providerStatus==='paid')
+      setMessage('Η πληρωμή είναι καταχωρισμένη ως επιτυχής στο Gateway. Περιμένουμε μόνο το υπογεγραμμένο webhook για την ενεργοποίηση της συνδρομής — μην πληρώσεις ξανά.');
+     else if(kind==='cancel')
       setMessage('Επέστρεψες από ακύρωση. Θα επιβεβαιώσουμε την τελική κατάσταση στη Nexi πριν επιτραπεί άλλη προσπάθεια.');
      else
       setMessage('Επέστρεψες από τη Nexi. Αναμένουμε υπογεγραμμένη επιβεβαίωση από το Gateway πριν ενεργοποιηθεί η συνδρομή.');
