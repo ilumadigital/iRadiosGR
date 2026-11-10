@@ -29,7 +29,7 @@ export default function AdminSandboxPayments({API_URL='/api'}){
  useEffect(()=>{load();},[load]);
  const items=filter==='all'?rows:rows.filter(x=>x.status===filter);
  return <main className="max-w-7xl mx-auto text-white p-4 lg:p-9 pb-40">
-  <Link to="/admin/billing" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
+  <Link to="/backoffice/admin/billing" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
    <ArrowLeft size={16}/> Πίσω στις πληρωμές</Link>
   <div className="mt-6 flex flex-col sm:flex-row justify-between gap-4 sm:items-center">
    <div><h1 className="text-2xl sm:text-3xl font-black flex items-center gap-3"><ReceiptText className="text-[#ccff00]"/> Nexi Sandbox Payments</h1>
