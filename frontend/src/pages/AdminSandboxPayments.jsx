@@ -6,7 +6,7 @@ const money=n=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'}).
 const date=s=>s?new Intl.DateTimeFormat('el-GR',{timeZone:'Europe/Athens',
  dateStyle:'short',timeStyle:'short'}).format(new Date(s)):'—';
 const tone={
- active:'text-lime-300',expired:'text-zinc-400',
+ active:'text-lime-300',grace:'text-amber-300',expired:'text-zinc-400',
  redirect:'text-amber-300',unknown:'text-orange-300',creating:'text-amber-300',
  failed:'text-red-300',canceled:'text-zinc-400',pending:'text-amber-300'
 };
@@ -49,7 +49,7 @@ export default function AdminSandboxPayments({API_URL='/api'}){
    <select id="billing-filter" value={filter} onChange={e=>setFilter(e.target.value)}
     className="bg-zinc-900 border border-white/15 rounded-lg px-3 py-2 text-sm text-white">
     <option value="all">Όλες</option>
-    {['active','pending','redirect','unknown','failed','canceled','expired'].map(x=><option key={x} value={x}>{x}</option>)}
+    {['active','grace','pending','redirect','unknown','failed','canceled','expired'].map(x=><option key={x} value={x}>{x}</option>)}
    </select>
    <span className="text-xs text-zinc-500">{items.length} / {rows.length}</span>
   </div>
@@ -80,6 +80,7 @@ export default function AdminSandboxPayments({API_URL='/api'}){
         <div>Order ID: <code className="text-zinc-200 break-all">{o.gatewayOrderId||'Δεν έχει εκδοθεί'}</code></div>
         <div>Provider status: <strong className="text-white">{o.providerStatus||'—'}</strong></div>
         <div>Περίοδος μέχρι: <strong className="text-white">{date(o.periodEndsAt)}</strong></div>
+        <div>Χάρις μέχρι: <strong className="text-white">{date(o.graceEndsAt)}</strong></div>
        </div>
        <h3 className="mt-5 mb-2 text-xs font-bold">Υπογεγραμμένα Gateway Events</h3>
        {(o.events||[]).length===0?<p className="text-xs text-zinc-500">Δεν έχει ληφθεί ακόμη επιβεβαιωμένο webhook.</p>:
