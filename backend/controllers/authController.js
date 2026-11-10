@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const {projectAccountUser}=require('../services/billingEntitlements');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -154,12 +155,12 @@ exports.verifyOtp = async (req, res) => {
     res.json({ 
       message: "Επιτυχής επαλήθευση!", 
       token, 
-      user: withBroadcasterTermsStatus({
+      user: await projectAccountUser(withBroadcasterTermsStatus({
         _id: user._id, username: user.username, email: user.email, isVerified: user.isVerified, role: user.role, isPremium: user.isPremium,
         broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile,
         hasAcceptedTerms: user.hasAcceptedTerms, termsAcceptedAt: user.termsAcceptedAt,
         termsAcceptedVersion: user.termsAcceptedVersion
-      }) 
+      })) 
     });
   } catch (err) { res.status(500).json({ error: "Σφάλμα επαλήθευσης." }); }
 };
@@ -192,20 +193,21 @@ exports.login = async (req, res) => {
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     res.json({
       token,
-      user: withBroadcasterTermsStatus({
+      user: await projectAccountUser(withBroadcasterTermsStatus({
         _id: user._id, username: user.username, email: user.email, isVerified: user.isVerified, fname: user.fname, lname: user.lname,
         birthdate: user.birthdate, isPremium: user.isPremium, favorites: user.favorites, role: user.role,
         broadcasterProfile: user.broadcasterProfile, agencyProfile: user.agencyProfile,
         hasAcceptedTerms: user.hasAcceptedTerms, termsAcceptedAt: user.termsAcceptedAt,
         termsAcceptedVersion: user.termsAcceptedVersion
-      })
+      }))
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 exports.getMe = async (req, res) => {
   // protect middleware verified the JWT and loaded this user from MongoDB.
-  return res.json(withBroadcasterTermsStatus(req.user));
+  res.set('Cache-Control','private, no-store');
+  return res.json(await projectAccountUser(req.user));
 };
 
 exports.updateMe = async (req, res) => {
@@ -241,7 +243,7 @@ exports.updateMe = async (req, res) => {
       {new:true,runValidators:true});
     if(!updated)return res.status(404).json({error:'Ο λογαριασμός δεν βρέθηκε.'});
     res.set('Cache-Control','no-store');
-    return res.json(withBroadcasterTermsStatus(updated));
+    return res.json(await projectAccountUser(updated));
   }catch(error){
     if(error.code===11000)return res.status(409).json({error:'Το όνομα χρήστη ή το email χρησιμοποιείται ήδη.'});
     console.error('[PROFILE] Save failed:',error.message);
