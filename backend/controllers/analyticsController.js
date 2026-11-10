@@ -90,7 +90,7 @@ exports.getBroadcasterAnalytics = async (req, res) => {
       .sort((a, b) => b.percentage - a.percentage);
     
     // Advertising statistics
-    const ads = await Ad.find({ broadcasterId: req.params.userId });
+    const ads = await Ad.find({ broadcasterId: req.params.userId, stationId: { $in: stationIds } });
     let totalImpressions = 0;
     let topAdName = "N/A";
     let maxImp = -1;
