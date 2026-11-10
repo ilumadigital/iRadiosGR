@@ -60,6 +60,15 @@ async function checkout(req,res){
  }
  existing=await BroadcasterBillingOrder.findOne({lockKey}).lean();
  if(existing)return res.json({order:display(existing),alreadyProcessed:true});
+ // Never sell overlapping identical fixed-duration Boosts.
+ // Unknown/pending attempts are already locked by lockKey.
+ if(isBoost(sku) && await BroadcasterBillingOrder.exists({
+   accountId:req.user._id,resourceId:stationId,sku,
+   environment:'staging',status:'paid',periodEndsAt:{$gt:new Date()}
+ })){
+  return res.status(409).json({code:'BOOST_ALREADY_ACTIVE',
+   error:'Έχεις ήδη ενεργό Boost αυτού του τύπου στον σταθμό. Η επόμενη αγορά επιτρέπεται μετά τη λήξη του.'});
+ }
  if(isSubscription(sku)){
   if(sku==='B-PREM'?
     await hasAccountRight(req.user,'broadcaster.unlimited_stations'):
