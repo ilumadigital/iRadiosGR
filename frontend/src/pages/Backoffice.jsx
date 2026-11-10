@@ -31,6 +31,7 @@ const AdminRadioSet=lazy(()=>import('./AdminRadioSet'));
 const AdminAdControl=lazy(()=>import('./AdminAdControl'));
 const Boost=lazy(()=>import('./Boost'));
 const BroadcasterCommerce=lazy(()=>import('./BroadcasterCommerce'));
+const BroadcasterBillingDashboard=lazy(()=>import('./BroadcasterBillingDashboard'));
 const BroadcasterDSP=lazy(()=>import('./DSP'));
 const BroadcasterAds=lazy(()=>import('./AdControl'));
 const NewPush=lazy(()=>import('./NewPush'));
@@ -251,7 +252,9 @@ function Dashboard({data}){
       {to:'/backoffice/boost',icon:Sparkles,name:'Boost My Radio',
         desc:'Εφάπαξ προβολή με διάρκεια, όχι συνδρομή.',label:'One-off'},
       {to:'/backoffice/pro-features',icon:ShieldCheck,name:'Pro Features',
-        desc:'Premium και πρόσθετα εργαλεία ανά σταθμό.',label:'Premium'}]:[]),
+        desc:'Premium και πρόσθετα εργαλεία ανά σταθμό.',label:'Premium'},
+      {to:'/backoffice/billing',icon:FileCheck2,name:'Οι συνδρομές μου',
+        desc:'Ιστορικό πληρωμών, ανανεώσεις και ακυρώσεις.',label:'Billing'}]:[]),
     ...(admin?[{to:'/backoffice/review',icon:FileCheck2,name:'Εγκρίσεις',
       desc:'Δες συγκεντρωμένα τα αιτήματα.',label:pending+' σε αναμονή'},
       {to:'/backoffice/admin',icon:SlidersHorizontal,name:'Κέντρο διαχείρισης',
@@ -1366,6 +1369,7 @@ export default function Backoffice(){
     ...(data?.user.role==='broadcaster'?[{section:'PRO ΕΡΓΑΛΕΙΑ & ΣΥΝΔΡΟΜΕΣ',items:[
       {to:'/backoffice/boost',label:'Boost My Radio',icon:Sparkles},
       {to:'/backoffice/pro-features',label:'Pro Features & Premium',icon:ShieldCheck},
+      {to:'/backoffice/billing',label:'Οι συνδρομές μου',icon:FileCheck2},
       {to:'/backoffice/audio',label:'WebDSP Audio Engine',icon:SlidersHorizontal},
       {to:'/backoffice/ad-control',label:'iRadios Ad Control',icon:Activity}
     ]}]:[]),
@@ -1465,6 +1469,7 @@ export default function Backoffice(){
           <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
           <Route path="/backoffice/pro-features" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="features" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/boost" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="boost" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/billing" element={data.user.role==='broadcaster'?<BroadcasterBillingDashboard stations={data.stations}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/audio" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.webdsp"><BroadcasterDSP API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/ad-control" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.ad_control"><BroadcasterAds API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
