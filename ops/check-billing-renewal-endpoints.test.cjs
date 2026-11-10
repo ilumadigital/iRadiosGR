@@ -51,9 +51,13 @@ const Snooze={
   snoozed={accountId:q.accountId,orderId:q.orderId,...update.$set};return snoozed;
  }
 };
+let lastCardChoice=null;
+let cardState='none';
 const gateway={
  configured:()=>true,
- checkout:async()=>{providerCalls++;
+ savedCardStatus:async()=>({state:cardState,automaticRenewal:false}),
+ revokeSavedCard:async()=>({state:cardState='revocation_pending',automaticRenewal:false}),
+ checkout:async({cardChoice}={})=>{lastCardChoice=cardChoice;providerCalls++;
   return {payment_id:'0'.repeat(32),order_id:'IL'+'E'.repeat(24),
     status:'redirect',checkout_url:'https://pay.nexigroup.com/demo'};
  }
@@ -145,4 +149,35 @@ test('Expired paid period creates a new manual cycle only when no other Premium 
  assert.equal((await call(controller.renewalNotice,{})).body.notice,null,
   'Complimentary/manual premium suppresses expired paid-cycle popup');
  assert.equal((await call(controller.checkout,checkoutReq())).statusCode,409);
+});
+
+
+test('Card-on-file opt-in is never implicit and requires a boolean selection',async()=>{
+ reset();hasRight=true;
+ const normal=await call(controller.checkout,checkoutReq());
+ assert.equal(normal.statusCode,201);
+ assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false});
+ reset();hasRight=true;
+ const opted=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true}});
+ assert.equal(opted.statusCode,201);
+ assert.deepEqual(lastCardChoice,{saveCard:true,useSavedCard:false});
+ reset();hasRight=true;
+ const conflict=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true,useSavedCard:true}});
+ assert.equal(conflict.statusCode,400);assert.equal(providerCalls,0);
+ const invalid=await call(controller.checkout,{...checkoutReq(),body:{saveCard:'yes'}});
+ assert.equal(invalid.statusCode,400);assert.equal(providerCalls,0);
+});
+test('Only own authenticated listener can inspect/revoke payment method, without contract ID input',async()=>{
+ reset();
+ cardState='active';
+ const status=await call(controller.savedCardStatus,{});
+ assert.equal(status.statusCode,200);
+ assert.equal(status.body.paymentMethod.state,'active');
+ assert.equal(status.body.paymentMethod.automaticRenewal,false);
+ const wrong=await call(controller.revokeSavedCard,{body:{contractId:'FORGED'}});
+ assert.equal(wrong.statusCode,400);assert.equal(cardState,'active');
+ const removed=await call(controller.revokeSavedCard,{body:{}});
+ assert.equal(removed.statusCode,200);
+ assert.equal(removed.body.paymentMethod.state,'revocation_pending');
+ cardState='none';
 });

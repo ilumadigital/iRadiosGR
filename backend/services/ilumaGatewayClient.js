@@ -52,13 +52,16 @@ function signedRequest(method,path,data=null,idempotencyKey=null){
   req.end(raw);
  });
 }
-async function checkout({user,requestKey}){
+async function checkout({user,requestKey,cardChoice={}}){
  if(!configured())throw unavailable();
  const first=String(user.fname||'').trim(),last=String(user.lname||'').trim();
  const response=await signedRequest('POST',GATEWAY_CHECKOUT_PATH,{
    customer_id:'iradios-stage-'+String(user._id),
    product_sku:'L-PREM',name:([first,last].filter(Boolean).join(' ')||String(user.username||'Listener')).slice(0,250),
-   email:String(user.email||'').trim()
+   email:String(user.email||'').trim(),
+   ...(cardChoice.saveCard===true?{
+     save_card:true,card_consent_version:'iradios-stored-card-v1'
+   }:cardChoice.useSavedCard===true?{use_saved_card:true}:{})
  },requestKey);
  return validateGatewayPayment(response);
 }
@@ -75,4 +78,23 @@ async function paymentByRequestKey(requestKey){
  const data=await signedRequest('GET','/api/v1/payments/by-request-key/'+requestKey);
  return validateGatewayPayment(data);
 }
-module.exports={configured,checkout,paymentStatus,paymentByRequestKey,signedRequest};
+async function savedCardStatus(user){
+ if(!user?._id)throw Error('Authenticated account required');
+ const data=await signedRequest('POST','/api/v1/payment-methods/status',{
+  customer_id:'iradios-stage-'+String(user._id)
+ });
+ if(!data||!['none','pending','active','revocation_pending','revoked'].includes(data.state)||
+    data.automatic_renewal!==false)throw Error('Invalid Gateway stored-card status');
+ return {state:data.state,type:data.type||null,automaticRenewal:false};
+}
+async function revokeSavedCard(user){
+ if(!user?._id)throw Error('Authenticated account required');
+ const data=await signedRequest('POST','/api/v1/payment-methods/revoke',{
+  customer_id:'iradios-stage-'+String(user._id)
+ });
+ if(!data||!['none','revocation_pending','revoked'].includes(data.state))
+  throw Error('Invalid Gateway card-revocation result');
+ return {state:data.state,automaticRenewal:false};
+}
+module.exports={configured,checkout,paymentStatus,paymentByRequestKey,signedRequest,
+ savedCardStatus,revokeSavedCard};

@@ -65,8 +65,16 @@ async function checkout(req,res){
  const clientKey=req.get('Idempotency-Key')||'';
  if(!CLIENT_KEY.test(clientKey))
   return res.status(400).json({error:'Απαιτείται έγκυρο Idempotency-Key UUID.'});
- if(req.body && Object.keys(req.body).length>0)
-  return res.status(400).json({error:'Το ποσό και το προϊόν ορίζονται από τον server.'});
+ const options=req.body||{};
+ const fields=Object.keys(options);
+ if(fields.some(k=>!['saveCard','useSavedCard'].includes(k))||
+    (options.saveCard!==undefined&&typeof options.saveCard!=='boolean')||
+    (options.useSavedCard!==undefined&&typeof options.useSavedCard!=='boolean')||
+    (options.saveCard===true&&options.useSavedCard===true))
+  return res.status(400).json({error:'Μη έγκυρες επιλογές αποθήκευσης κάρτας.'});
+ // No opt-in is the default. The user controls each OneClick choice and
+ // cannot trigger a MIT or automatic renewal via this endpoint.
+ const cardChoice={saveCard:options.saveCard===true,useSavedCard:options.useSavedCard===true};
  const requestKey='iradios-stage-'+accountId(req)+'-'+clientKey;
  let order=await BillingOrder.findOne({requestKey}).lean();
  if(order){
@@ -102,7 +110,7 @@ async function checkout(req,res){
  // Exactly ONE outgoing checkout for this local intent. A timeout is UNKNOWN.
  // Never create a different provider order or reuse a new idempotency key.
  try{
-  const returned=await gateway.checkout({user:req.user,requestKey});
+  const returned=await gateway.checkout({user:req.user,requestKey,cardChoice});
   const status=['failed','canceled','redirect','unknown'].includes(returned.status)?
     returned.status:'pending'; // Never credit a "paid" checkout response.
   const update={$set:{
@@ -131,6 +139,22 @@ async function checkout(req,res){
   return res.status(202).json({order:display(updated||order),
     note:'Η κατάσταση είναι άγνωστη. Δεν επιχειρήθηκε δεύτερη χρέωση.'});
  }
+}
+
+async function savedCardStatus(req,res){
+ if(!permitted())return res.status(503).json({error:'Nexi Sandbox unavailable'});
+ if(req.user?.role!=='user')return res.status(403).json({error:'Listener required'});
+ const result=await gateway.savedCardStatus(req.user);
+ return res.json({paymentMethod:result});
+}
+
+async function revokeSavedCard(req,res){
+ if(!permitted())return res.status(503).json({error:'Nexi Sandbox unavailable'});
+ if(req.user?.role!=='user')return res.status(403).json({error:'Listener required'});
+ if(req.body&&Object.keys(req.body).length>0)
+  return res.status(400).json({error:'Δεν απαιτούνται στοιχεία κάρτας.'});
+ const result=await gateway.revokeSavedCard(req.user);
+ return res.json({paymentMethod:result});
 }
 
 async function listOwnOrders(req,res){
@@ -269,7 +293,8 @@ async function webhook(req,res){
  return res.json({received:true,activated:false});
 }
 
-module.exports={checkout:safe(checkout),renewalNotice:safe(renewalNotice),
+module.exports={checkout:safe(checkout),savedCardStatus:safe(savedCardStatus),
+ revokeSavedCard:safe(revokeSavedCard),renewalNotice:safe(renewalNotice),
  snoozeRenewalNotice:safe(snoozeRenewalNotice),listOwnOrders:safe(listOwnOrders),
  listAdminOrders:safe(listAdminOrders),
  readOrder:safe(readOrder),webhook:safe(webhook)};

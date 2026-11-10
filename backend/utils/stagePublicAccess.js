@@ -141,8 +141,10 @@ function stagePublicAccess(req, res, next) {
   // paid intent. The controller also enforces the explicit staging feature gate.
   if (req.method==='POST'&&path==='/api/billing/checkout')return protect(req,res,next);
   if (req.method==='POST'&&path==='/api/billing/me/renewal-notice/snooze')return protect(req,res,next);
+  if(req.method==='POST'&&path==='/api/billing/me/payment-method/revoke')return protect(req,res,next);
   if (req.method==='GET'&&(path==='/api/billing/me/orders'||
     path==='/api/billing/me/renewal-notice'||
+    path==='/api/billing/me/payment-method'||
     /^\/api\/billing\/orders\/[a-f0-9]{24}$/i.test(path)))return protect(req,res,next);
 
   // Premium station writes are authorized again by the route AND resource owner.

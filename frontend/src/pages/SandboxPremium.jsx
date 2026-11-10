@@ -102,6 +102,11 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  const [catalogError,setCatalogError]=useState('');
  const [order,setOrder]=useState(null);
  const [renewalEligibility,setRenewalEligibility]=useState(null);
+ const [paymentMethod,setPaymentMethod]=useState({state:'none',automaticRenewal:false});
+ const [saveCard,setSaveCard]=useState(false);
+ const [useSavedCard,setUseSavedCard]=useState(false);
+ const [methodBusy,setMethodBusy]=useState(false);
+ const [methodError,setMethodError]=useState('');
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState('');
  const userId=currentUser?._id||currentUser?.id||'';
@@ -122,6 +127,37 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
   void load();
   return()=>{canceled=true;};
  },[API_URL,userId]);
+
+ const refreshPaymentMethod=useCallback(async()=>{
+  if(!userId)return;
+  try{
+   const response=await call(API_URL+'/billing/me/payment-method');
+   const pm=response.paymentMethod;
+   if(pm)setPaymentMethod(pm);
+  }catch{
+   setPaymentMethod({state:'unavailable',automaticRenewal:false});
+   setMethodError('Η αποθηκευμένη κάρτα δεν είναι διαθέσιμη αυτή τη στιγμή. Μπορείς να πληρώσεις κανονικά με Nexi.');
+  }
+ },[API_URL,userId]);
+ useEffect(()=>{
+  if(!userId)return;
+  void refreshPaymentMethod();
+  const refresh=()=>void refreshPaymentMethod();
+  window.addEventListener('focus',refresh);
+  return()=>window.removeEventListener('focus',refresh);
+ },[userId,refreshPaymentMethod]);
+ const revokePaymentMethod=async()=>{
+  if(methodBusy||!window.confirm('Να αφαιρεθεί η αποθηκευμένη κάρτα σου από τη Nexi; Δεν ακυρώνεται η ήδη πληρωμένη περίοδος.'))return;
+  setMethodBusy(true);setMethodError('');
+  try{
+   const result=await call(API_URL+'/billing/me/payment-method/revoke',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:'{}'
+   });
+   setPaymentMethod(result.paymentMethod||{state:'revocation_pending'});
+   setUseSavedCard(false);setSaveCard(false);
+  }catch(e){setMethodError('Η αφαίρεση δεν ολοκληρώθηκε: '+e.message);}
+  finally{setMethodBusy(false);}
+ };
 
  const loadOrders=useCallback(async()=>{
   if(!userId)return;
@@ -249,9 +285,11 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
    );
    rememberReturnPath(userId);
    const key=getOrCreateKey(userId,newAttempt);
+   const cardChoice=saveCard?{saveCard:true}:
+     useSavedCard&&paymentMethod.state==='active'?{useSavedCard:true}:{};
    const response=await call(API_URL+'/billing/checkout',{
      method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':key},
-     body:'{}'
+     body:JSON.stringify(cardChoice)
    });
    setOrder(response.order);
    const url=response.order?.status==='redirect'?
@@ -327,6 +365,33 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
    {currentUser?.isPremium&&!previewOnly&&order?.status!=='expired'&&
      <div className="flex items-center gap-2 text-lime-200 text-sm"><Gift size={18}/> Ο λογαριασμός σου έχει ήδη ενεργό Premium.</div>}
    {visibleOrder&&<Status order={visibleOrder}/>}
+   {isListener&&<div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-4 sm:p-5 space-y-3">
+      <div className="flex items-center gap-2"><CreditCard size={18} className="text-[#ccff00]"/><h3 className="font-black">Τρόπος πληρωμής Nexi OneClick</h3></div>
+      <p className="text-xs leading-6 text-zinc-400">Η κάρτα αποθηκεύεται μόνο στη Nexi. Το iRadios και το ILUMA Gateway δεν λαμβάνουν αριθμό κάρτας, CVV ή ημερομηνία λήξης. Καμία αυτόματη χρέωση δεν είναι ενεργή.</p>
+      {paymentMethod.state==='active'&&<>
+       <p className="text-sm text-lime-300">Η αποθηκευμένη κάρτα σου έχει επιβεβαιωθεί από τη Nexi.</p>
+       <label className="flex items-start gap-3 text-sm cursor-pointer">
+        <input type="checkbox" checked={useSavedCard} disabled={!canCheckout||busy||previewOnly}
+         onChange={e=>{setUseSavedCard(e.target.checked);if(e.target.checked)setSaveCard(false);}}
+         className="mt-1 h-4 w-4 accent-[#ccff00]"/>
+        <span>Χρήση αποθηκευμένης κάρτας στην επόμενη χειροκίνητη πληρωμή (με επιβεβαίωση Nexi / 3D Secure όπου ζητηθεί).</span>
+       </label>
+       <button type="button" onClick={revokePaymentMethod} disabled={methodBusy}
+        className="text-sm underline text-zinc-300 hover:text-white disabled:opacity-50">Αφαίρεση αποθηκευμένης κάρτας</button>
+      </>}
+      {['none','revoked'].includes(paymentMethod.state)&&<label className="flex items-start gap-3 cursor-pointer text-sm">
+       <input type="checkbox" checked={saveCard} disabled={!canCheckout||busy||previewOnly}
+        onChange={e=>{setSaveCard(e.target.checked);if(e.target.checked)setUseSavedCard(false);}}
+        className="mt-1 h-4 w-4 accent-[#ccff00]"/>
+       <span>Επιλέγω προαιρετικά να αποθηκεύσει η Nexi την κάρτα μου για μελλοντικές πληρωμές που θα ξεκινώ εγώ. Μπορώ να την αφαιρέσω οποτεδήποτε. <strong>Δεν συμφωνώ σε αυτόματες χρεώσεις.</strong></span>
+      </label>}
+      {paymentMethod.state==='pending'&&<p className="text-sm text-amber-200">Η αποθήκευση της κάρτας εκκρεμεί μέχρι να επαληθευτεί το OneClick contract από τη Nexi.</p>}
+      {paymentMethod.state==='revocation_pending'&&<p className="text-sm text-amber-200">Η αφαίρεση ζητήθηκε. Η κάρτα έχει ήδη απενεργοποιηθεί για νέες πληρωμές και περιμένουμε επιβεβαίωση Nexi.</p>}
+      {paymentMethod.state==='revoked'&&<p className="text-sm text-zinc-300">Η προηγούμενη αποθηκευμένη κάρτα έχει αφαιρεθεί. Σε νέα πληρωμή θα πληκτρολογήσεις κάρτα.</p>}
+      {methodError&&<p role="alert" className="text-sm text-amber-200">{methodError}</p>}
+      <button type="button" disabled={methodBusy} onClick={refreshPaymentMethod}
+       className="text-xs font-semibold text-[#ccff00] underline disabled:opacity-40">Ενημέρωση κατάστασης κάρτας</button>
+    </div>}
    {message&&<div role="status" className="text-sm text-amber-100 bg-amber-950/30 border border-amber-700/30 p-4 rounded-xl">{message}</div>}
    {catalogError&&<div role="alert" className="text-sm text-red-200">{catalogError}</div>}
    <div className="flex gap-3 flex-wrap">
