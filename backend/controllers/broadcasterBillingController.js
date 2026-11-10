@@ -11,6 +11,7 @@ const {paidRenewalPeriod}=require('../services/billingRenewalRules');
 const {localStatusFromGatewayLookup}=require('../services/gatewayBillingProtocol');
 const {hasAccountRight,hasStationRight}=require('../services/billingEntitlements');
 const billingMail=require('../utils/broadcasterBillingEmailScheduler');
+const {ADDONS,isConflict,candidateAddons}=require('../services/broadcasterSubscriptionOverlap');
 const KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const ID=/^[a-f0-9]{24}$/i;
 const statusSet=new Set(['creating','pending','redirect','unknown']);
@@ -29,6 +30,38 @@ async function ownedApprovedStation(user,stationId){
   .select('_id name status').lean();
 }
 function display(row){return safeBroadcasterOrder(row);}
+/**
+ * Financial preflight: do NOT open a new monthly Nexi agreement if the
+ * account already has an overlapping agreement for the same Premium benefits.
+ * The broadcaster explicitly cancels older ADD-* auto-renewals in Billing
+ * before choosing B-PREM. Already-paid addon rights remain until their end.
+ * Unknown Gateway state fails closed; no provider checkout POST is made.
+ */
+async function existingOverlappingMandate(user,sku){
+ if(sku==='B-PREM'){
+  const old=await BroadcasterBillingOrder.find({
+   accountId:user._id,environment:'staging',sku:{$in:ADDONS},
+   autoRenewRequested:true
+  }).select('sku resourceId').sort({createdAt:-1}).limit(61).lean();
+  if(old.length>60)return {code:'OVERLAP_REQUIRES_REVIEW',
+   error:'Υπάρχουν πολλές προηγούμενες συνδρομές add-ons. Απαιτείται έλεγχος πριν από αναβάθμιση Premium.'};
+  for(const item of candidateAddons(old)){
+   const current=await gateway.broadcasterRecurringStatus(user,item.sku,item.stationId);
+   if(current.state==='unavailable')return {code:'GATEWAY_RECURRING_UNAVAILABLE',
+    error:'Δεν ήταν δυνατή η ασφαλής επιβεβαίωση προηγούμενων συνδρομών.'};
+   if(isConflict(sku,item.sku,current.state))return {code:'ACTIVE_ADDON_RENEWALS',
+    error:'Ακύρωσε πρώτα τις μελλοντικές ανανεώσεις των ενεργών add-ons από τις «Συνδρομές μου», ώστε να μην έχεις διπλές μηνιαίες χρεώσεις με το Premium.',
+    sku:item.sku,stationId:item.stationId};
+  }
+ }else if(ADDONS.includes(sku)){
+  const premium=await gateway.broadcasterRecurringStatus(user,'B-PREM');
+  if(premium.state==='unavailable')return {code:'GATEWAY_RECURRING_UNAVAILABLE',
+   error:'Δεν ήταν δυνατή η επιβεβαίωση της κατάστασης Broadcaster Premium.'};
+  if(isConflict(sku,'B-PREM',premium.state))return {code:'PREMIUM_RECURRING_ALREADY_ENROLLED',
+   error:'Υπάρχει ήδη ενεργή ή εκκρεμής συνδρομή Broadcaster Premium, που περιλαμβάνει αυτό το add-on. Δεν δημιουργήθηκε χρέωση.'};
+ }
+ return null;
+}
 async function checkout(req,res){
  if(req.user.isVerified!==true)
   return res.status(403).json({error:'Επιβεβαίωσε το email σου πριν την αγορά.'});
@@ -86,6 +119,17 @@ async function checkout(req,res){
   if(['pending','active','verification_pending','past_due'].includes(current.state))
    return res.status(409).json({code:'RECURRING_ALREADY_ENROLLED',
      error:'Υπάρχει ενεργή ή εκκρεμής συνδρομή για αυτό το προϊόν.'});
+  // Includes still-pending MIT consents not yet reflected by paid entitlements.
+  // Do not start Nexi HPP while monthly contracts overlap.
+  let overlap;
+  try{overlap=await existingOverlappingMandate(req.user,sku);}
+  catch(error){
+   console.warn('[BROADCASTER BILLING] Overlap preflight deferred',error.code||'gateway');
+   return res.status(503).json({code:'OVERLAP_PREFLIGHT_UNAVAILABLE',
+    error:'Δεν επιβεβαιώθηκαν οι υπάρχουσες μηνιαίες συνδρομές. Δεν δημιουργήθηκε χρέωση.'});
+  }
+  if(overlap)return res.status(overlap.code==='GATEWAY_RECURRING_UNAVAILABLE'||
+   overlap.code==='OVERLAP_REQUIRES_REVIEW'?503:409).json(overlap);
  }
  await BroadcasterBillingOrder.init();
  try{
