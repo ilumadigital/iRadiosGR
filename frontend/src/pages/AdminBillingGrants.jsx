@@ -116,7 +116,7 @@ export default function AdminBillingGrants({API_URL='/api'}){
     finally{setBusy(false);}
   };
   return <div className="admin-legacy-page max-w-6xl mx-auto p-4 lg:p-8 pb-32 text-white space-y-6">
-    <Link to="/admin/billing" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16}/> Συναλλαγές & παραστατικά</Link>
+    <Link to="/backoffice/admin/billing" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"><ArrowLeft size={16}/> Συναλλαγές & παραστατικά</Link>
     <div className="flex items-start gap-4">
       <div className="p-3 rounded-2xl bg-[#ccff00]/10 text-[#ccff00]"><Gift/></div>
       <div><h1 className="text-2xl lg:text-3xl font-black">Δωρεάν συνδρομές</h1>
