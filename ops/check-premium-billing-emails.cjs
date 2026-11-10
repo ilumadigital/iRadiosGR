@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {PREMIUM_BENEFITS,premiumBillingEmail}=require('../backend/utils/premiumBillingEmailTemplates');
-const {BRAND_MARKER}=require('../backend/utils/emailDesign');
+const {BRAND_MARKER,escapeHtml}=require('../backend/utils/emailDesign');
 const root=path.resolve(__dirname,'..');
 const read=path=>fs.readFileSync(require('node:path').join(root,path),'utf8');
 const compare=read('frontend/src/components/PremiumCompare.jsx');
@@ -41,7 +41,7 @@ assert.ok(premiumBillingEmail({...base,kind:'welcome',amountCents:399}).html.inc
 for(const {title} of PREMIUM_BENEFITS){
  assert.ok(compare.includes("label:'"+title+"'"), 'PremiumCompare missing email benefit '+title);
  const email=premiumBillingEmail({...base,kind:'welcome'});
- assert.ok(email.html.includes(title),'Welcome onboarding missing Premium benefit '+title);
+ assert.ok(email.html.includes(escapeHtml(title)),'Welcome onboarding missing Premium benefit '+title);
 }
 for(const title of ['1Click to Spotify Search','1Click to Apple Music Search']){
  assert.ok(premium.includes(title),'Premium landing benefits missing '+title);
