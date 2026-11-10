@@ -274,8 +274,15 @@ async function handleVerifiedEvent(event,res){
    $or:[{autoRenewRequested:true},{billingOrigin:'automatic_renewal'}]
   }).sort({periodEndsAt:-1}).lean();
   if(!prior)return res.status(503).json({error:'Signed MIT cycle predecessor pending'});
-  if(event.event_type!=='payment.paid')
+  if(event.event_type!=='payment.paid'){
+   if(event.event_type==='payment.failed'){
+    try{
+     if(await billingMail.enqueueFailedRenewal(prior,event.payment_id))
+      billingMail.kick();
+    }catch(e){console.warn('[BROADCASTER MAIL] Failed MIT notice deferred',e.code||e.message);}
+   }
    return res.json({received:true,activated:false,reason:'unsuccessful_renewal'});
+  }
   const confirmedAt=new Date(Math.min(Date.parse(event.occurred_at),now.getTime()));
   const updated=await BroadcasterBillingOrder.findOneAndUpdate({
    gatewayPaymentId:event.payment_id
