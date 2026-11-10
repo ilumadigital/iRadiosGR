@@ -7,8 +7,7 @@ function configured(){
  return process.env.APP_ENV==='staging' &&
    process.env.IRADIOS_BILLING_SANDBOX_ENABLED==='1' &&
    /^ilg_[a-f0-9]{48}$/.test(process.env.ILUMA_GATEWAY_STAGING_KEY||'') &&
-   typeof process.env.ILUMA_GATEWAY_STAGING_SECRET==='string' &&
-   process.env.ILUMA_GATEWAY_STAGING_SECRET.length>=32;
+   /^[a-f0-9]{64}$/.test(process.env.ILUMA_GATEWAY_STAGING_SECRET||'');
 }
 function unavailable(){
  const err=new Error('Nexi Sandbox checkout is not configured');
