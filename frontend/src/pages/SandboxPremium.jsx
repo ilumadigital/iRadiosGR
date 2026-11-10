@@ -320,6 +320,8 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  const cards=[
   {icon:ShieldCheck,title:'Χωρίς διαφημίσεις της εφαρμογής',description:'Άκου χωρίς διακοπές από διαφημίσεις του iRadios.'},
   {icon:ScanSearch,title:'Music Radar',description:'Αναγνώρισε τραγούδια όταν το επιλέγεις.'},
+  {icon:Headphones,title:'1Click to Spotify Search',description:'Βρες το τραγούδι που ακούς στο Spotify με ένα πάτημα.'},
+  {icon:Headphones,title:'1Click to Apple Music Search',description:'Αναζήτησε το τραγούδι στο Apple Music με ένα πάτημα.'},
   {icon:Volume2,title:'Audio DSP & ισοσταθμιστής',description:'Προσάρμοσε την ακρόαση όπως σου ταιριάζει.'},
   {icon:Headphones,title:'Περισσότερες δυνατότητες',description:'Απόλαυσε τα πρόσθετα εργαλεία του Premium.'}
  ];
