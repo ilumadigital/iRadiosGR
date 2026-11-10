@@ -2,6 +2,7 @@
 const BillingOrder=require('../models/BillingOrder');
 const GatewayWebhookNonce=require('../models/GatewayWebhookNonce');
 const gateway=require('../services/ilumaGatewayClient');
+const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
 const {hasAccountRight}=require('../services/billingEntitlements');
 const {verifyWebhookHeaders,validateGatewayPayment,nextMonthlyPeriod,safeOrderStatus,
  validatePaymentEvent}=require('../services/gatewayBillingProtocol');
@@ -32,8 +33,8 @@ async function checkout(req,res){
  const lockKey=accountId(req)+':L-PREM';
  order=await BillingOrder.findOne({lockKey}).lean();
  if(order)return res.status(200).json({order:display(order),alreadyProcessed:true});
- // Wait for unique indexes before accepting any financial intent.
- await BillingOrder.init();
+ // Require unique indexes before any outbound checkout call.
+ await ensureBillingIndexes();
  try{
   order=await BillingOrder.create({accountId:req.user._id,sku:'L-PREM',
     requestKey,lockKey,amountCents:399,currency:'EUR',status:'creating'});
@@ -134,7 +135,7 @@ async function webhook(req,res){
  try{event=JSON.parse(raw.toString('utf8'));}catch{return res.status(400).json({error:'Invalid JSON'});}
  if(!validatePaymentEvent(event,verified.eventId))
   return res.status(422).json({error:'Invalid payment event'});
- await GatewayWebhookNonce.init();
+ await ensureBillingIndexes();
  try{await GatewayWebhookNonce.create({nonce:verified.nonce});}
  catch(error){if(error.code===11000)return res.status(409).json({error:'Webhook nonce replay'});throw error;}
  const lookup={gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
