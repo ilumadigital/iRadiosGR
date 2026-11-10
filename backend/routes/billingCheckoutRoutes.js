@@ -1,0 +1,10 @@
+'use strict';
+const express=require('express');
+const {protect}=require('../utils/authMiddleware');
+const controller=require('../controllers/gatewayBillingController');
+const router=express.Router();
+router.use((req,res,next)=>{res.set('Cache-Control','private, no-store');next();});
+router.post('/billing/checkout',protect,controller.checkout);
+router.get('/billing/me/orders',protect,controller.listOwnOrders);
+router.get('/billing/orders/:id',protect,controller.readOrder);
+module.exports=router;
