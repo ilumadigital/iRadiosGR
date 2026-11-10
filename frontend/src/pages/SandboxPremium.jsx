@@ -67,6 +67,7 @@ function verifiedNexiUrl(value){
 function Status({order}){
  if(!order)return null;
  const states={
+   scheduled:{title:'Η ανανέωση ολοκληρώθηκε',desc:'Η νέα πληρωμή επιβεβαιώθηκε από το Gateway. Η επόμενη μηνιαία περίοδος θα ξεκινήσει στη λήξη της τρέχουσας, χωρίς να χαθούν πληρωμένες ημέρες.',icon:CheckCircle2,style:'border-lime-500/30 bg-lime-900/10 text-lime-200'},
    active:{title:'Η συνδρομή είναι ενεργή',desc:'Η πληρωμή επιβεβαιώθηκε από το Gateway με υπογεγραμμένο webhook.',icon:CheckCircle2,style:'border-lime-500/30 bg-lime-900/10 text-lime-200'},
    grace:{title:'Περίοδος χάριτος',desc:'Η πληρωμένη περίοδος ολοκληρώθηκε. Τα προνόμια διατηρούνται προσωρινά έως το όριο χάριτος που έχει ορίσει το iRadios.',icon:Clock3,style:'border-amber-500/30 bg-amber-900/10 text-amber-200'},
    expired:{title:'Η συνδρομή Premium έληξε',desc:'Τα πληρωμένα προνόμια έχουν ολοκληρωθεί. Μπορείς να ανανεώσεις χειροκίνητα για μία νέα μηνιαία περίοδο με ασφαλή πληρωμή μέσω ILUMA Gateway και Nexi.',icon:Clock3,style:'border-white/10 bg-white/5 text-zinc-200'},
@@ -87,6 +88,7 @@ function Status({order}){
     <Icon size={24} className="shrink-0"/>
     <div><h3 className="font-black text-lg">{state.title}</h3>
       <p className="mt-2 text-sm opacity-80 leading-6">{state.desc}</p>
+      {order.status==='scheduled'&&order.periodStartsAt&&<p className="mt-2 text-sm">Έναρξη νέας περιόδου: <strong>{dateText(order.periodStartsAt)}</strong></p>}
       {order.periodEndsAt&&<p className="mt-2 text-sm">Τέλος πληρωμένης περιόδου: <strong>{dateText(order.periodEndsAt)}</strong></p>}
       {order.status==='grace'&&order.graceEndsAt&&<p className="mt-2 text-sm">Λήξη χάριτος: <strong>{dateText(order.graceEndsAt)}</strong></p>}
     </div>
@@ -99,6 +101,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  const [catalogOk,setCatalogOk]=useState(false);
  const [catalogError,setCatalogError]=useState('');
  const [order,setOrder]=useState(null);
+ const [renewalEligibility,setRenewalEligibility]=useState(null);
  const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState('');
  const userId=currentUser?._id||currentUser?.id||'';
@@ -106,6 +109,19 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  // checkout is allowed from preview mode. Exclusively stage.iradios.gr.
  const renewalPreviewRequested=window.location.hostname==='stage.iradios.gr' &&
    new URLSearchParams(location.search).get('renewal_preview')==='1';
+
+ useEffect(()=>{
+  if(!userId){setRenewalEligibility(null);return;}
+  let canceled=false;
+  const load=async()=>{
+   try{
+    const info=await call(API_URL+'/billing/me/renewal-notice');
+    if(!canceled)setRenewalEligibility(info.renewal||null);
+   }catch{if(!canceled)setRenewalEligibility(null);}
+  };
+  void load();
+  return()=>{canceled=true;};
+ },[API_URL,userId]);
 
  const loadOrders=useCallback(async()=>{
   if(!userId)return;
@@ -146,7 +162,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  // The path is local to the tab, never provided to the Gateway.
  const finishVerified=useCallback(async(status)=>{
   await updateAccount();
-  if(status==='active'){
+  if(['active','scheduled'].includes(status)){
    const destination=takeReturnPath(userId);
    if(destination){
     navigate(destination,{replace:true,state:{billingCompleted:true}});
@@ -164,12 +180,14 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
    const result=await call(API_URL+'/billing/orders/'+encodeURIComponent(current.id)+'?refresh=1');
    setOrder(result.order);
    // A browser return or a signed provider GET does NOT grant Premium.
-   if(['active','grace'].includes(result.order?.status)){
+   if(['active','grace','scheduled'].includes(result.order?.status)){
     const navigated=await finishVerified(result.order.status);
     if(navigated)return;
-    setMessage(result.order.status==='active'
-     ?'Η πληρωμή επιβεβαιώθηκε από το Gateway. Το Premium είναι ενεργό.'
-     :'Η συνδρομή βρίσκεται σε περίοδο χάριτος σύμφωνα με τους κανόνες του iRadios.');
+    setMessage(result.order.status==='scheduled'
+     ?'Η ανανέωση πληρώθηκε. Η επόμενη περίοδος ξεκινά μετά τη λήξη της τρέχουσας.'
+     :result.order.status==='active'
+      ?'Η πληρωμή επιβεβαιώθηκε από το Gateway. Το Premium είναι ενεργό.'
+      :'Η συνδρομή βρίσκεται σε περίοδο χάριτος σύμφωνα με τους κανόνες του iRadios.');
    }else if(result.order?.providerStatus==='paid'){
     setMessage('Η Nexi επιβεβαίωσε την πληρωμή στο ILUMA Gateway. Εκκρεμεί μόνο η ασφαλής αποστολή της ενημέρωσης προς το iRadios.');
    }
@@ -195,7 +213,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
      const result=await call(API_URL+'/billing/orders/'+encodeURIComponent(recent.id)+'?refresh=1');
      if(canceled)return;
      setOrder(result.order);
-     if(['active','grace'].includes(result.order?.status)){
+     if(['active','grace','scheduled'].includes(result.order?.status)){
       navigated=await finishVerified(result.order.status);
       if(canceled||navigated)return;
       setMessage('Η Nexi επιβεβαίωσε την πληρωμή μέσω ILUMA Gateway. Η συνδρομή ενημερώθηκε στο iRadios.');
@@ -219,10 +237,16 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  },[order?.id,order?.status,checkStatus]);
 
  const beginCheckout=async()=>{
-  if(!userId||busy||!catalogOk||currentUser?.isPremium||renewalPreviewRequested)return;
+  const canRenewActive=['soon','grace'].includes(renewalEligibility?.kind);
+  if(!userId||busy||!catalogOk||renewalPreviewRequested||
+     (currentUser?.isPremium&&!canRenewActive))return;
   setBusy(true);setMessage('');
   try{
-   const newAttempt=order&&['failed','canceled','expired'].includes(order.status);
+   const newAttempt=order&&(
+    ['failed','canceled','expired'].includes(order.status) ||
+    (['active','grace'].includes(order.status)&&
+     ['soon','grace'].includes(renewalEligibility?.kind))
+   );
    rememberReturnPath(userId);
    const key=getOrCreateKey(userId,newAttempt);
    const response=await call(API_URL+'/billing/checkout',{
@@ -251,12 +275,14 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
  // The displayed expired state is a demonstration only; checkout always
  // checks real server entitlements and never sends preview flags to Gateway.
  const visibleOrder=previewOnly?{...order,status:'expired'}:order;
- const isRenewal=visibleOrder?.status==='expired' &&
-   visibleOrder?.providerStatus==='paid';
- const paid=['active','grace'].includes(order?.status);
+ const isRenewal=(visibleOrder?.status==='expired' &&
+   visibleOrder?.providerStatus==='paid') ||
+   ['soon','grace'].includes(renewalEligibility?.kind);
+ const paid=['active','grace','scheduled'].includes(order?.status);
  const blocked=['redirect','unknown','pending','creating'].includes(order?.status);
- const canCheckout=isListener&&(!currentUser?.isPremium||previewOnly)&&
-   (!paid||previewOnly)&&!blocked;
+ const canCheckout=isListener&&
+   (!currentUser?.isPremium||previewOnly||['soon','grace'].includes(renewalEligibility?.kind))&&
+   (!paid||previewOnly||['soon','grace'].includes(renewalEligibility?.kind))&&!blocked;
  return <main className="mx-auto max-w-4xl px-4 pt-8 pb-44 lg:pt-14 text-white">
   <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-[#191e10] via-[#111411] to-[#090a08] p-6 sm:p-10 lg:p-12 overflow-hidden relative">
    <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#ccff00]/10 blur-[80px] pointer-events-none"/>
@@ -266,7 +292,11 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
     </div>
     <h1 className="mt-5 text-3xl sm:text-5xl font-black tracking-tight">Περισσότερη μουσική. Χωρίς διαφημίσεις της εφαρμογής.</h1>
     <p className="mt-4 text-zinc-400 leading-7">{isRenewal
-     ?'Το Premium σου έχει ολοκληρωθεί. Η χειροκίνητη ανανέωση δημιουργεί νέα συναλλαγή στο ILUMA Gateway, με πληρωμή στην ασφαλή σελίδα Nexi Sandbox. Δεν γίνεται αυτόματη χρέωση.'
+     ?(renewalEligibility?.kind==='soon'
+       ?'Το Premium πλησιάζει στη λήξη του. Ανανέωσε χειροκίνητα μέσω Nexi Sandbox: ο επόμενος μήνας θα ξεκινήσει όταν ολοκληρωθεί ο τρέχων, χωρίς να χάσεις ημέρες.'
+       :renewalEligibility?.kind==='grace'
+        ?'Η συνδρομή βρίσκεται σε περίοδο χάριτος. Με νέα χειροκίνητη πληρωμή μέσω Nexi Sandbox ξεκινά καινούρια μηνιαία περίοδος.'
+        :'Το Premium σου έχει ολοκληρωθεί. Η χειροκίνητη ανανέωση δημιουργεί νέα συναλλαγή στο ILUMA Gateway, με πληρωμή στην ασφαλή σελίδα Nexi Sandbox. Δεν γίνεται αυτόματη χρέωση.')
      :'Μηνιαίο Listener Premium μέσω Nexi Sandbox, αποκλειστικά στο staging. Κάθε νέα περίοδος απαιτεί ξεχωριστή, χειροκίνητη πληρωμή.'}</p>
     <div className="mt-8 flex items-end gap-2"><span className="text-5xl font-black text-[#ccff00]">3,99 €</span><span className="text-zinc-400 pb-2 text-sm">{isRenewal?'για την επόμενη μηνιαία περίοδο':'για έναν μήνα'} · ΦΠΑ 24% συμπεριλαμβάνεται</span></div>
     <div className="grid sm:grid-cols-2 gap-3 mt-8">
@@ -290,7 +320,9 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
     </div>}
    {isRenewal&&<div className="rounded-2xl border border-[#ccff00]/30 bg-[#ccff00]/5 p-5">
       <div className="flex items-center gap-2 text-[#ccff00] font-black"><RefreshCw size={18}/> Ανανέωση Listener Premium</div>
-      <p className="mt-2 text-sm text-zinc-300">Νέα περίοδος ενός μήνα με 3,99 €. Θα μεταφερθείς στη Nexi για να πληκτρολογήσεις δοκιμαστική κάρτα. Το iRadios ενεργοποιεί την περίοδο μόνο όταν επιβεβαιωθεί η νέα πληρωμή από το ILUMA Gateway.</p>
+      <p className="mt-2 text-sm text-zinc-300">Νέα περίοδος ενός μήνα με 3,99 €. Θα μεταφερθείς στη Nexi για να πληκτρολογήσεις δοκιμαστική κάρτα. {renewalEligibility?.kind==='soon'
+       ?'Αν πληρώσεις πριν τη λήξη, η επόμενη περίοδος ξεκινά όταν ολοκληρωθεί η τωρινή.'
+       :'Το iRadios ενεργοποιεί την περίοδο μόνο όταν επιβεβαιωθεί η νέα πληρωμή από το ILUMA Gateway.'}</p>
     </div>}
    {currentUser?.isPremium&&!previewOnly&&order?.status!=='expired'&&
      <div className="flex items-center gap-2 text-lime-200 text-sm"><Gift size={18}/> Ο λογαριασμός σου έχει ήδη ενεργό Premium.</div>}
