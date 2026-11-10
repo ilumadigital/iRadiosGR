@@ -1463,8 +1463,8 @@ export default function Backoffice(){
           <Route path="/backoffice/schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
           <Route path="/backoffice/insights" element={<BroadcasterInsights data={data}/>}/>
           <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
-          <Route path="/backoffice/pro-features" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="features" stations={data.stations} role={data.user.role}/>:<Navigate to="/backoffice" replace/>}/>
-          <Route path="/backoffice/boost" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="boost" stations={data.stations} role={data.user.role}/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/pro-features" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="features" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/boost" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="boost" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/audio" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.webdsp"><BroadcasterDSP API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/ad-control" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.ad_control"><BroadcasterAds API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
