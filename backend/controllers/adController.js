@@ -12,9 +12,11 @@ const deleteMediaFile = async (fileUrl) => {
     
     try {
         // Παίρνουμε το κομμάτι μετά το /media/ (π.χ. "audio/iluma/123-spot.mp3")
-        const relativePath = fileUrl.split('/media/')[1]; 
-        const fullPath = path.join(process.cwd(), 'uploads', relativePath);
-        
+        const relativePath=String(fileUrl.split('/media/')[1]||'').split(/[?#]/)[0];
+        const uploadRoot=path.resolve(process.cwd(),'uploads');
+        const fullPath=path.resolve(uploadRoot,relativePath);
+        if(!relativePath||!fullPath.startsWith(uploadRoot+path.sep))
+          throw new Error('Rejected unsafe media path');
         await fs.unlink(fullPath);
         console.log(`✅ Το αρχείο διαγράφηκε: ${relativePath}`);
     } catch (error) {
