@@ -62,7 +62,8 @@ function boostForStation(orders,stationId,now=new Date(),premium=false){
    ||new Date(b.periodEndsAt)-new Date(a.periodEndsAt));
   const row=eligible[0];
   return {tier:'purchased',placement:row.sku.startsWith('BOOST-G-')?'global':'targeted',
-   endsAt:row.periodEndsAt,priority:BOOST_PRIORITY.purchased};
+   endsAt:row.periodEndsAt,priority:BOOST_PRIORITY.purchased,
+   premiumIncluded:Boolean(premium)};
  }
  return premium?{tier:'premium',placement:'eligible',endsAt:null,
   priority:BOOST_PRIORITY.premium}:
