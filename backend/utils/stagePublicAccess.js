@@ -167,6 +167,8 @@ function stagePublicAccess(req, res, next) {
     ||/^\/api\/billing\/broadcaster\/orders\/[a-f0-9]{24}$/i.test(path)
    ));
   if(broadcasterBilling)return protect(req,res,next);
+  if((req.method==='GET'||req.method==='POST')&&
+   path==='/api/billing/broadcaster/premium-boost')return protect(req,res,next);
 
   // Premium station writes are authorized again by the route AND resource owner.
   if ((req.method==='PUT' &&
