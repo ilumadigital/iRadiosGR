@@ -55,11 +55,26 @@ function frequency(station){
   const result=Number.parseFloat(String(station.frequency).replace(',','.'));
   return Number.isFinite(result)?result:Number.POSITIVE_INFINITY;
 }
-// "Δημοτικότητα": the saved editorial position comes FIRST. Listener counts
+// Commercial placement never rewrites editorial positions. Paid Boost
+// outranks included Premium Boost only in a matching discovery scope.
+export function commercialBoostPriority(station,scope='global'){
+ const boost=station?.commercialBoost;
+ if(boost?.tier==='purchased'){
+  if(boost.placement==='global')return 200;
+  if((scope==='genre'||scope==='region')&&boost.placement==='targeted')return 200;
+  // A targeted purchased Boost should not suppress a simultaneously
+  // entitled Premium Boost in a global placement.
+  return boost.premiumIncluded===true?100:0;
+ }
+ return boost?.tier==='premium'?100:0;
+}
+// "Δημοτικότητα": a matching commercial placement comes first, followed by saved editorial position. Listener counts
 // are only a deterministic tiebreaker (e.g. stations with default position 999).
 export function compareCatalogPopularity(a,b,_byId={},_clock=null,scope='global',scopeValue=''){
   const offline=compareAvailability(a,b);
   if(offline)return offline;
+  const promotions=commercialBoostPriority(b,scope)-commercialBoostPriority(a,scope);
+  if(promotions)return promotions;
   const positions=stationPosition(a,scope,scopeValue)-stationPosition(b,scope,scopeValue);
   if(positions)return positions;
   return popularity(b)-popularity(a)||stationName(a,b);
