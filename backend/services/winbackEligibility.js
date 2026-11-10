@@ -4,7 +4,12 @@
 const WINDOW_MS=30*86400000;
 const PROMO_SKU='L-WINBACK-199';
 function evaluate({lastPaid,hasPremium=false,used=false,pending=false,now=new Date()}={}){
- const end=lastPaid?.status==='paid'?new Date(lastPaid.periodEndsAt):null;
+ const paidEnd=lastPaid?.status==='paid'?new Date(lastPaid.periodEndsAt):null;
+ const grace=lastPaid?.graceEndsAt?new Date(lastPaid.graceEndsAt):null;
+ // Premium actually expires when its paid period AND any configured grace
+ // have both finished. The 30-day offer then starts at the effective end.
+ const end=paidEnd&&Number.isFinite(+paidEnd)?
+   new Date(Math.max(+paidEnd,Number.isFinite(+grace)?+grace:+paidEnd)):null;
  const today=+new Date(now);
  if(!end||!Number.isFinite(+end)||!Number.isFinite(today))
   return {eligible:false,reason:'no_verified_expiry'};
