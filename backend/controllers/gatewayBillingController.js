@@ -35,6 +35,18 @@ async function currentRenewal(user,now=new Date()){
   return null;
  return notice;
 }
+async function recurringStatus(req,res){
+ if(!permitted())return res.status(503).json({error:'Staging billing unavailable'});
+ if(req.user?.role!=='user')return res.status(403).json({error:'Listener account required'});
+ const recurring=await gateway.recurringStatus(req.user);
+ // No provider contract ID, card number or gateway secrets in this response.
+ return res.json({recurring:{
+  state:recurring.state,
+  execution_enabled:recurring.execution_enabled===true,
+  next_charge_at:recurring.next_charge_at||null
+ }});
+}
+
 async function renewalNotice(req,res){
  if(req.user?.role!=='user')return res.json({notice:null,renewal:null});
  const renewal=await currentRenewal(req.user);
@@ -396,7 +408,7 @@ async function webhook(req,res){
  return res.json({received:true,activated:false});
 }
 
-module.exports={checkout:safe(checkout),billingOverview:safe(billingOverview),
+module.exports={checkout:safe(checkout),recurringStatus:safe(recurringStatus),billingOverview:safe(billingOverview),
  cancelAutomaticRenewal:safe(cancelAutomaticRenewal),
  savedCardStatus:safe(savedCardStatus),
  revokeSavedCard:safe(revokeSavedCard),renewalNotice:safe(renewalNotice),

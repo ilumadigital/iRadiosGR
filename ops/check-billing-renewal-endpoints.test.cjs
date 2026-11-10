@@ -292,3 +292,14 @@ test('Gateway-confirmed failed Nexi HPP unlocks account without any additional p
   assert.equal(providerCalls,0,'Status checks must never initiate another checkout');
  }finally{gateway.paymentStatus=original;}
 });
+
+
+test('Listener can read only safe MIT status for a correct renewal destination',async()=>{
+ reset();
+ const result=await call(controller.recurringStatus,{});
+ assert.equal(result.statusCode,200);
+ assert.deepEqual(result.body.recurring,{
+  state:'none',execution_enabled:false,next_charge_at:null
+ });
+ assert.equal(providerCalls,0,'Status lookup does not initiate checkout or a charge');
+});
