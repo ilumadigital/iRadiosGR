@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {validatePurchase,purchasePeriod,paidRights,boostForStation}=
+const {validatePurchase,purchasePeriod,paidRights,boostForStation,anchoredMonthlyEnd,validatedAnchoredCycle}=
  require('../services/broadcasterPurchaseRules');
 const SID='507f1f77bcf86cd799439011';
 const OTHER='507f191e810c19729de860ea';
@@ -62,4 +62,25 @@ test('purchased Boost wins over Premium; expired Boost falls back',()=>{
  assert.equal(boostForStation([row],OTHER,now,true).priority,100);
  assert.equal(boostForStation([paid('BOOST-G-DAY',SID,{periodEndsAt:new Date('2026-11-10')})],SID,now,true).priority,100);
  assert.equal(boostForStation([],SID,now,false).priority,0);
+});
+
+test('MIT follows the ORIGINAL day of month across February and leap years',()=>{
+ const due='2027-02-28T15:04:05Z';
+ assert.equal(anchoredMonthlyEnd(due,31).toISOString(),'2027-03-31T15:04:05.000Z');
+ assert.equal(anchoredMonthlyEnd('2028-02-29T00:00:00Z',31).toISOString(),'2028-03-31T00:00:00.000Z');
+ assert.equal(anchoredMonthlyEnd('2027-04-30T12:00:00Z',31).toISOString(),'2027-05-31T12:00:00.000Z');
+ assert.equal(anchoredMonthlyEnd('2027-01-31T00:00:00Z',31).toISOString(),'2027-02-28T00:00:00.000Z');
+ assert.throws(()=>anchoredMonthlyEnd(due,0),/Invalid MIT anchor/);
+});
+test('signed MIT calendar due and end are deterministic, not arrival-order dependent',()=>{
+ const event={cycle_due_at:'2027-02-28T15:04:05+00:00',
+  period_ends_at:'2027-03-31T15:04:05+00:00',anchor_day:31};
+ const now=new Date('2027-03-01T00:00:00Z');
+ const {start,end}=validatedAnchoredCycle(event,now);
+ assert.equal(start.toISOString(),'2027-02-28T15:04:05.000Z');
+ assert.equal(end.toISOString(),'2027-03-31T15:04:05.000Z');
+ assert.throws(()=>validatedAnchoredCycle({...event,period_ends_at:'2027-03-28T15:04:05Z'},now),
+  /Invalid signed MIT cycle end/);
+ assert.throws(()=>validatedAnchoredCycle({...event,cycle_due_at:'2027-04-30T15:04:05Z'},now),
+  /Invalid signed MIT cycle start/);
 });
