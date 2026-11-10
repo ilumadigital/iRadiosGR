@@ -41,7 +41,7 @@ const dispatch={
  async createIndexes(){},
  async create(document){
   if(ledger.has(document._id))throw Object.assign(new Error('duplicate'),{code:11000});
-  ledger.set(document._id,{...document,status:'pending',attempts:0,createdAt:new Date()});
+  ledger.set(document._id,{...document,dueAt:new Date('2020-01-01T00:00:00Z'),status:'pending',attempts:0,createdAt:new Date()});
   return document;
  },
  find(q){
