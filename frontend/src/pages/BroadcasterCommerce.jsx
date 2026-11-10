@@ -10,7 +10,8 @@ const MODULES=[
   {sku:'ADD-AN',right:'broadcaster.analytics',name:'Audience Radar',
    subtitle:'Κάθε ακροατής μετράει',icon:BarChart3,accent:'sky',
    benefits:['Live Listeners Tracker','Χάρτης ακροατών και περιοχές',
-    'Μέση διάρκεια ακρόασης','Ανάλυση συσκευών','Live Master Output meter']},
+    'Μέση διάρκεια ακρόασης','Ιστορικές περιοχές ακροατών','Στατιστικά διαφημίσεων']},
+,
   {sku:'ADD-DSP',right:'broadcaster.webdsp',name:'WebDSP Audio Engine',
    subtitle:'Το δικό σου επαγγελματικό sound',icon:SlidersHorizontal,accent:'violet',
    benefits:['Audio Engine με επαγγελματικά presets','Dynamic range & προσαρμογή ήχου',
@@ -370,7 +371,9 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <div className="mt-5 flex items-baseline gap-1"><span className="text-3xl font-black">{price(module.sku)}</span><span className="text-xs text-zinc-500">/ μήνα / σταθμό</span></div>
               <p className="mt-2 text-[11px] leading-5 text-zinc-400">Μηνιαία επαναλαμβανόμενη χρέωση μέσω Nexi μέχρι ακύρωσης. Περιλαμβάνεται ΦΠΑ 24%.</p>
               <ul className="my-7 flex-1 space-y-3">{module.benefits.map(f=><Bullet key={f}>{f}</Bullet>)}</ul>
-              {active?<div className="flex items-center justify-center gap-2 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/10 px-4 py-3.5 text-xs font-black text-[#ccff00]"><CheckCircle2 size={16}/>{included?'Περιλαμβάνεται στο Premium':'Ενεργό στον σταθμό'}</div>:
+              {active?<Link to={{'ADD-AN':'/backoffice/radar','ADD-DSP':'/backoffice/audio','ADD-ADS':'/backoffice/ad-control'}[module.sku]}
+                className="flex items-center justify-center gap-2 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/10 px-4 py-3.5 text-xs font-black text-[#ccff00] transition hover:bg-[#ccff00]/20">
+                <CheckCircle2 size={16}/>{included?'Περιλαμβάνεται · Άνοιγμα':'Ενεργό · Άνοιγμα εργαλείου'} <ArrowRight size={14}/></Link>:
               <button type="button" disabled={!available||Boolean(busySku)}
                 onClick={()=>void beginCheckout(module.sku,selectedStation,true)}
                 className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-xs font-black text-black hover:bg-[#ccff00] disabled:opacity-40">
