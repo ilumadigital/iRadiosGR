@@ -306,6 +306,9 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <div className="mt-6 flex items-end gap-2"><span className="text-5xl font-black tracking-tighter text-[#ccff00]">{price('B-PREM')}</span><span className="pb-1 text-sm text-zinc-400">/ μήνα</span></div>
               <p className="mt-2 text-[11px] text-zinc-400">Τελική τιμή με ΦΠΑ 24% · Μηνιαία συνδρομή μέχρι ακύρωσης</p>
               <p className="mt-2 text-xs leading-6 text-zinc-300">Με την «Έναρξη συνδρομής» συμφωνείς σε επαναλαμβανόμενη χρέωση <strong>{price('B-PREM')}/μήνα</strong> μέσω Nexi, μέχρι να την ακυρώσεις από το Backoffice. Η ακύρωση σταματά τις μελλοντικές χρεώσεις.</p>
+              {!fullPremium&&<p className="mt-3 rounded-xl border border-sky-400/20 bg-sky-400/10 p-3 text-xs leading-6 text-sky-100">
+                Έχεις ήδη συνδρομητικά add-ons; Για να αποφύγεις διπλές μηνιαίες χρεώσεις μετά την αναβάθμιση, ακύρωσε πρώτα τις <strong>μελλοντικές ανανεώσεις</strong> τους από τις <Link to="/backoffice/billing" className="font-black underline">Συνδρομές μου</Link>. Η πληρωμένη πρόσβαση των add-ons διατηρείται μέχρι τη λήξη της.
+              </p>}
               {fullPremium&&recurring[recurringKey('B-PREM')]?.state==='active'&&<button
                 className="mt-3 text-xs font-bold text-rose-300 underline" type="button"
                 onClick={()=>setCancelTarget({sku:'B-PREM'})}>Διακοπή αυτόματης ανανέωσης Premium</button>}
