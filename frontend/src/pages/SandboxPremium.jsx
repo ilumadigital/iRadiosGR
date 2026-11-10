@@ -59,7 +59,7 @@ function getOrCreateKey(userId,newAttempt=false){
  }
  return key;
 }
-function verifiedNexiUrl(value){
+function verifiedHostedPaymentUrl(value){
  try{
   const url=new URL(value);
   return url.protocol==='https:'&&!url.username&&!url.password&&!url.port&&
@@ -289,7 +289,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
    });
    setOrder(response.order);
    const url=response.order?.status==='redirect'?
-      verifiedNexiUrl(response.order.checkoutUrl):null;
+      verifiedHostedPaymentUrl(response.order.checkoutUrl):null;
    if(url)window.location.assign(url);
    else setMessage(response.order?.gatewayOrderId
      ?'Η ασφαλής φόρμα πληρωμής δεν άνοιξε. Πάτησε «Έλεγχος πληρωμής» πριν δοκιμάσεις ξανά.'
@@ -410,8 +410,8 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
          </div>
          {blocked?<div className="space-y-3">
            <p className="text-sm leading-6 text-amber-200">Υπάρχει ήδη εκκρεμής πληρωμή. Μην ξεκινήσεις δεύτερη χρέωση.</p>
-           {order?.status==='redirect'&&!previewOnly&&verifiedNexiUrl(order.checkoutUrl)&&
-            <a href={verifiedNexiUrl(order.checkoutUrl)} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ccff00] px-5 py-4 text-sm font-black text-black">
+           {order?.status==='redirect'&&!previewOnly&&verifiedHostedPaymentUrl(order.checkoutUrl)&&
+            <a href={verifiedHostedPaymentUrl(order.checkoutUrl)} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ccff00] px-5 py-4 text-sm font-black text-black">
              Συνέχεια στην ασφαλή πληρωμή <ExternalLink size={17}/>
             </a>}
          </div>:!currentUser?<Link to="/login" className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ccff00] px-5 py-4 text-sm font-black text-black transition hover:bg-[#dfff62]">
