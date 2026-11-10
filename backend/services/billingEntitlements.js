@@ -19,7 +19,7 @@ async function accountRights(user,now=new Date()){
  // Sandbox paid orders must never unlock rights in production, even if staging
  // records are copied during a data migration.
  if(process.env.APP_ENV==='staging' && user?._id && user.role==='user'){
-  const paid=await BillingOrder.exists({accountId:user._id,sku:'L-PREM',
+  const paid=await BillingOrder.exists({accountId:user._id,sku:{$in:['L-PREM','L-WINBACK-199']},
    status:'paid',environment:'staging',periodStartsAt:{$lte:now},
    $or:[{periodEndsAt:{$gt:now}},{graceEndsAt:{$gt:now}}]});
   if(paid)rights.add('listener.premium');
