@@ -62,24 +62,23 @@ const verifiedListenerWelcomeEmail = (userName,{promotePremium=false,unsubscribe
   const name=escapeHtml(userName||'φίλε ακροατή');
   const origin=siteOrigin();
   const premium=promotePremium===true;
-  const title='Το email σου επιβεβαιώθηκε!';
-  const verified=\`
+  const verified=`
    <div style="margin:0 0 24px;border:1px solid #52683D;background:#1B2920;border-radius:18px;padding:18px 21px;">
     <p style="color:#CCFF00;margin:0 0 7px;font-weight:800;font-size:12px;letter-spacing:1px;">✓ ΕΠΙΒΕΒΑΙΩΜΕΝΟΣ ΛΟΓΑΡΙΑΣΜΟΣ</p>
     <p style="color:#F6F8FF;margin:0;font-size:20px;font-weight:800;line-height:1.35;">Ο λογαριασμός σου επιβεβαιώθηκε με επιτυχία!</p>
    </div>
-   <h3>Καλωσόρισες στο iRadiosGR, \${name}!</h3>
+   <h3>Καλωσόρισες στο iRadiosGR, ${name}!</h3>
    <p>Το email σου επιβεβαιώθηκε και ο λογαριασμός σου είναι πλέον ενεργός. Μπορείς να ακούσεις τους αγαπημένους σου σταθμούς, να τους αποθηκεύσεις στα Αγαπημένα και να δεις τα playlists των σταθμών.</p>
    <p>Η δωρεάν ακρόαση παραμένει διαθέσιμη κανονικά. Η αναβάθμιση σε Premium είναι προαιρετική.</p>
-   \${actionButton('ΜΠΕΣ ΣΤΟ IRADIOS',origin+'/')}
-  \`;
-  const upgrade=premium?\`
+   ${actionButton('ΜΠΕΣ ΣΤΟ IRADIOS',origin+'/')}
+  `;
+  const upgrade=premium?`
    <div style="margin:32px 0 0;padding:24px 22px;border-radius:22px;border:1px solid #566E2E;background-color:#182317;">
     <p style="margin:0 0 8px;color:#CCFF00;letter-spacing:1.7px;font-size:11px;font-weight:800;">Η ΜΟΥΣΙΚΗ ΣΟΥ. ΣΤΟ ΕΠΟΜΕΝΟ ΕΠΙΠΕΔΟ.</p>
     <h2 style="font-size:25px;line-height:1.2;letter-spacing:-.5px;margin:0 0 12px;color:#FFFFFF;">Το Free είναι μόνο η αρχή. Το Premium είναι η πλήρης εμπειρία.</h2>
     <p style="font-size:14px;line-height:1.75;margin:0;color:#D0DACD;">Περισσότερος έλεγχος στον ήχο, αναγνώριση τραγουδιών και γρήγορη αναζήτηση στο Spotify και το Apple Music. Δες τι ξεκλειδώνει το iRadiosGR Premium.</p>
    </div>
-   \${premiumBenefitsList('ΟΛΑ ΟΣΑ ΑΠΟΛΑΜΒΑΝΕΙΣ ΜΕ PREMIUM')}
+   ${premiumBenefitsList('ΟΛΑ ΟΣΑ ΑΠΟΛΑΜΒΑΝΕΙΣ ΜΕ PREMIUM')}
    <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:18px 0 0;background:#222B1A;border:1px solid #566E2E;border-radius:18px;">
     <tr><td style="padding:24px 22px;text-align:center;">
      <p style="margin:0 0 5px;color:#D7E7CA;font-size:12px;font-weight:700;">ΞΕΚΙΝΑ ΤΗΝ PREMIUM ΕΜΠΕΙΡΙΑ</p>
@@ -87,11 +86,11 @@ const verifiedListenerWelcomeEmail = (userName,{promotePremium=false,unsubscribe
      <p style="margin:10px 0 0;color:#BAC6B2;font-size:12px;">Τελική τιμή με ΦΠΑ 24% · Μηνιαία συνδρομή · Ακύρωση όποτε θέλεις</p>
     </td></tr>
    </table>
-   \${actionButton('ΑΝΑΒΑΘΜΙΣΗ ΣΕ PREMIUM — 3,99 €/ΜΗΝΑ',origin+'/premium')}
+   ${actionButton('ΑΝΑΒΑΘΜΙΣΗ ΣΕ PREMIUM — 3,99 €/ΜΗΝΑ',origin+'/premium')}
    <p style="color:#AEB9C4;font-size:12px;line-height:1.8;">Η συνδρομή ανανεώνεται αυτόματα με 3,99 € κάθε μήνα, έως ότου την ακυρώσεις από το Billing. Δεν γίνεται καμία χρέωση μέσω αυτού του email — πρώτα επιλέγεις εσύ «Έναρξη συνδρομής» και ολοκληρώνεις την ασφαλή πληρωμή.</p>
    <p style="color:#AEB9C4;font-size:12px;line-height:1.8;">Προτιμάς μόνο το Free; Συνέχισε κανονικά, χωρίς καμία υποχρέωση.</p>
-   \${unsubscribeLink?'<p style="font-size:12px;"><a style="color:#B9C6D3;text-decoration:underline;" href="'+escapeHtml(unsubscribeLink)+'">Διακοπή προωθητικών emails</a></p>':''}
-  \`:'';
+   ${unsubscribeLink?'<p style="font-size:12px;"><a style="color:#B9C6D3;text-decoration:underline;" href="'+escapeHtml(unsubscribeLink)+'">Διακοπή προωθητικών emails</a></p>':''}
+  `:'';
   const html=baseTemplate(verified+upgrade,'EMAIL VERIFIED · IRADIOSGR');
   return {
     subject:'✅ Το email σου επιβεβαιώθηκε — iRadiosGR',
