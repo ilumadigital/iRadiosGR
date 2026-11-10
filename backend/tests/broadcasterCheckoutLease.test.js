@@ -35,7 +35,7 @@ test('Only one distinct monthly checkout may preflight an account at a time',asy
  lease=null;
  assert.equal(await guard.acquire(account,key1,new Date('2026-11-11T12:00:00Z')),true);
  assert.equal(await guard.acquire(account,key2,new Date('2026-11-11T12:00:01Z')),false);
- assert.equal(await guard.release(account,key1),1>0?{deletedCount:1}:null);
+ assert.deepEqual(await guard.release(account,key1),{deletedCount:1});
  assert.equal(await guard.acquire(account,key2,new Date('2026-11-11T12:00:02Z')),true);
  assert.ok(indexes>=2);
 });
