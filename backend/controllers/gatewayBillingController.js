@@ -1,6 +1,8 @@
 'use strict';
 const BillingOrder=require('../models/BillingOrder');
 const GatewayWebhookNonce=require('../models/GatewayWebhookNonce');
+const BillingRenewalSnooze=require('../models/BillingRenewalSnooze');
+const {DAY_MS,paidRenewalState,paidRenewalPeriod}=require('../services/billingRenewalRules');
 const gateway=require('../services/ilumaGatewayClient');
 const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
 const {hasAccountRight}=require('../services/billingEntitlements');
@@ -13,6 +15,49 @@ const permitted=()=>process.env.APP_ENV==='staging'&&gateway.configured();
 const accountId=req=>String(req.user?._id||'');
 const display=row=>safeOrderStatus(row);
 
+// The latest VERIFIED paid period is the only authority for a manual renewal
+// prompt. An unresolved checkout is never bypassed with another payment.
+async function currentRenewal(user,now=new Date()){
+ if(!user||user.role!=='user')return null;
+ const prior=await BillingOrder.findOne({
+  accountId:user._id,sku:'L-PREM',environment:'staging',status:'paid'
+ }).sort({paidAt:-1,createdAt:-1}).lean();
+ const notice=paidRenewalState(prior,now);
+ if(!notice)return null;
+ const inFlight=await BillingOrder.exists({
+  accountId:user._id,sku:'L-PREM',lockKey:String(user._id)+':L-PREM'
+ });
+ if(inFlight)return null;
+ // Don't request a renewal after expiry if complimentary/manual rights or a
+ // separate paid period are still active for this same listener.
+ if(notice.kind==='expired' && await hasAccountRight(user,'listener.premium'))
+  return null;
+ return notice;
+}
+async function renewalNotice(req,res){
+ if(req.user?.role!=='user')return res.json({notice:null,renewal:null});
+ const renewal=await currentRenewal(req.user);
+ if(!renewal)return res.json({notice:null,renewal:null});
+ const snoozed=await BillingRenewalSnooze.findOne({
+  accountId:req.user._id,orderId:renewal.cycleId,
+  snoozedUntil:{$gt:new Date()}
+ }).lean();
+ return res.json({notice:snoozed?null:renewal,renewal});
+}
+async function snoozeRenewalNotice(req,res){
+ if(req.user?.role!=='user')return res.status(403).json({error:'Listener account required'});
+ if(req.body&&Object.keys(req.body).length>0)
+  return res.status(400).json({error:'No input is required'});
+ const renewal=await currentRenewal(req.user);
+ if(!renewal)return res.status(409).json({error:'No renewal reminder is due'});
+ await BillingRenewalSnooze.init();
+ const until=new Date(Date.now()+DAY_MS);
+ await BillingRenewalSnooze.findOneAndUpdate({
+  accountId:req.user._id,orderId:renewal.cycleId
+ },{$set:{snoozedUntil:until}},{new:true,upsert:true});
+ return res.json({snoozedUntil:until.toISOString(),cycleId:renewal.cycleId});
+}
+
 async function checkout(req,res){
  if(!permitted())return res.status(503).json({code:'SANDBOX_DISABLED',error:'Το Nexi Sandbox δεν έχει ενεργοποιηθεί.'});
  if(!req.user||req.user.role!=='user'||req.user.isVerified!==true)
@@ -22,8 +67,6 @@ async function checkout(req,res){
   return res.status(400).json({error:'Απαιτείται έγκυρο Idempotency-Key UUID.'});
  if(req.body && Object.keys(req.body).length>0)
   return res.status(400).json({error:'Το ποσό και το προϊόν ορίζονται από τον server.'});
- if(await hasAccountRight(req.user,'listener.premium'))
-  return res.status(409).json({code:'ALREADY_PREMIUM',error:'Έχεις ήδη ενεργό Listener Premium.'});
  const requestKey='iradios-stage-'+accountId(req)+'-'+clientKey;
  let order=await BillingOrder.findOne({requestKey}).lean();
  if(order){
@@ -33,11 +76,22 @@ async function checkout(req,res){
  const lockKey=accountId(req)+':L-PREM';
  order=await BillingOrder.findOne({lockKey}).lean();
  if(order)return res.status(200).json({order:display(order),alreadyProcessed:true});
+ // Active premium cannot buy arbitrary overlapping periods. Exception: the
+ // last 24 hours of the verified paid cycle (or its explicit grace period).
+ const renewal=await currentRenewal(req.user);
+ if(await hasAccountRight(req.user,'listener.premium') &&
+    !['soon','grace'].includes(renewal?.kind))
+  return res.status(409).json({code:'ALREADY_PREMIUM',
+   error:'Το Premium είναι ενεργό. Μπορείς να ανανεώσεις μέσα στις τελευταίες 24 ώρες πριν τη λήξη.'});
+ const previousPaid=await BillingOrder.findOne({
+  accountId:req.user._id,sku:'L-PREM',environment:'staging',status:'paid'
+ }).sort({paidAt:-1,createdAt:-1}).select('_id').lean();
  // Require unique indexes before any outbound checkout call.
  await ensureBillingIndexes();
  try{
   order=await BillingOrder.create({accountId:req.user._id,sku:'L-PREM',
-    requestKey,lockKey,amountCents:399,currency:'EUR',status:'creating'});
+    requestKey,lockKey,amountCents:399,currency:'EUR',status:'creating',
+    renewalOfOrderId:previousPaid?._id});
  }catch(error){
   if(error.code!==11000)throw error;
   const found=await BillingOrder.findOne({$or:[{requestKey},{lockKey}]}).lean();
@@ -161,7 +215,7 @@ async function webhook(req,res){
  catch(error){if(error.code===11000)return res.status(409).json({error:'Webhook nonce replay'});throw error;}
  const lookup={gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
   amountCents:399,currency:'EUR',sku:'L-PREM',environment:'staging'};
- const order=await BillingOrder.findOne(lookup).select('_id status eventIds').lean();
+ const order=await BillingOrder.findOne(lookup).select('_id accountId renewalOfOrderId status eventIds').lean();
  if(!order){
   // A webhook can race the initial gateway response. Retry with a NEW signed
   // nonce after checkout has written the external IDs.
@@ -173,7 +227,15 @@ async function webhook(req,res){
  // A delayed Gateway worker delivery must NOT extend the purchased period.
  // The event's occurred_at is signed by Gateway. Clamp small clock skew to now.
  const confirmedAt=new Date(Math.min(Date.parse(event.occurred_at),now.getTime()));
- const periodEnd=nextMonthlyPeriod(confirmedAt);
+ let periodStart=confirmedAt;
+ if(event.event_type==='payment.paid'&&order.renewalOfOrderId){
+  const previous=await BillingOrder.findOne({
+   _id:order.renewalOfOrderId,accountId:order.accountId,
+   environment:'staging',sku:'L-PREM',status:'paid'
+  }).select('periodEndsAt').lean();
+  periodStart=paidRenewalPeriod(confirmedAt,previous?.periodEndsAt);
+ }
+ const periodEnd=nextMonthlyPeriod(periodStart);
  const marker={id:event.event_id,type:event.event_type,at:now};
  const isPaid=event.event_type==='payment.paid';
  const nextStatus=event.event_type.substring('payment.'.length);
@@ -182,7 +244,7 @@ async function webhook(req,res){
  // This avoids any MongoDB replica-set transaction requirement.
  if(isPaid){
   const updated=await BillingOrder.findOneAndUpdate({...filter,status:{$ne:'paid'}},{
-   $set:{status:'paid',providerStatus:'paid',paidAt:confirmedAt,periodStartsAt:confirmedAt,
+   $set:{status:'paid',providerStatus:'paid',paidAt:confirmedAt,periodStartsAt:periodStart,
     periodEndsAt:periodEnd,graceEndsAt:nextGracePeriod(periodEnd)},
    $unset:{lockKey:''},
    $addToSet:{eventIds:event.event_id},
@@ -207,6 +269,7 @@ async function webhook(req,res){
  return res.json({received:true,activated:false});
 }
 
-module.exports={checkout:safe(checkout),listOwnOrders:safe(listOwnOrders),
+module.exports={checkout:safe(checkout),renewalNotice:safe(renewalNotice),
+ snoozeRenewalNotice:safe(snoozeRenewalNotice),listOwnOrders:safe(listOwnOrders),
  listAdminOrders:safe(listAdminOrders),
  readOrder:safe(readOrder),webhook:safe(webhook)};
