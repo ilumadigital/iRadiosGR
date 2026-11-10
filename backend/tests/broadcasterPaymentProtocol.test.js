@@ -24,8 +24,8 @@ test('account premium forbids station resource and boost forbids MIT origin',()=
  assert.equal(broadcasterEventValid(premium,base.event_id,now),true);
  assert.equal(broadcasterEventValid({...premium,resource_id:base.resource_id},base.event_id,now),false);
  const boost={...base,product_sku:'BOOST-G-MONTH',amount_cents:79900};
- delete boost.resource_id;
  assert.equal(broadcasterEventValid(boost,base.event_id,now),true);
+ assert.equal(broadcasterEventValid({...boost,resource_id:null},base.event_id,now),false);
  assert.equal(broadcasterEventValid({...boost,billing_origin:'automatic_renewal',
   external_user_id:'iradios-stage-'+base.resource_id,cycle_due_at:'2026-11-11T12:00:00Z'},
   base.event_id,now),false);
