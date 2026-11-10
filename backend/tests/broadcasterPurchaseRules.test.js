@@ -93,3 +93,25 @@ test('a malformed/null station-scoped add-on never grants account-wide access',(
  assert.deepEqual(paidRights([paid('B-PREM',null,{scopeType:'station'})],SID,now),[]);
  assert.equal(boostForStation([paid('BOOST-G-DAY',SID,{scopeType:'account'})],SID,now,false).priority,0);
 });
+
+const {ADDONS,isConflict,candidateAddons}=require('../services/broadcasterSubscriptionOverlap');
+test('existing station addon MIT must not renew in parallel with newly purchased account Premium',()=>{
+ for(const sku of ADDONS){
+  for(const state of ['active','pending','verification_pending','past_due']){
+   assert.equal(isConflict('B-PREM',sku,state),true);
+   assert.equal(isConflict(sku,'B-PREM',state),true);
+  }
+  for(const state of ['none','cancelled','failed','unavailable']){
+   assert.equal(isConflict('B-PREM',sku,state),false);
+  }
+ }
+ assert.equal(isConflict('B-PREM','BOOST-G-DAY','active'),false);
+});
+test('dedupe addon mandate lookup per owned station and SKU',()=>{
+ const rows=[{sku:'ADD-DSP',resourceId:SID},{sku:'ADD-DSP',resourceId:SID},
+  {sku:'ADD-AN',resourceId:SID},{sku:'B-PREM',resourceId:null},
+  {sku:'ADD-DSP',resourceId:'garbage'}];
+ assert.deepEqual(candidateAddons(rows),[
+  {sku:'ADD-DSP',stationId:SID},{sku:'ADD-AN',stationId:SID}
+ ]);
+});
