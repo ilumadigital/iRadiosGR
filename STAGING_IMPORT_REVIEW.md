@@ -18,7 +18,7 @@ This package was reconstructed from `iradios_gr_project_dump.txt`, not from an o
 
 ## BLOCKERS before public staging, GitHub commit, or launch
 
-1. **Manually review and scan all source files for additional secrets and credentials.** Rotate all known-exposed original secrets (Stripe, SMTP, JWT, VAPID, ACRcloud, Nexi, Turnstile) in a coordinated manner.
+1. **Manually review and scan all source files for additional secrets and credentials.** Rotate all known-exposed original secrets (retired payment provider, SMTP, JWT, VAPID, ACRcloud, Nexi, Turnstile) in a coordinated manner.
 2. Source contains **many hardcoded `play.iradios.gr` URLs**, including API calls, websocket, station uploads, widgets, SEO and canonical links. These must be made environment-aware **before stage launches**, or stage actions may reach live systems.
 3. Stage must disable real outbound email, push notifications, production payments, scheduled jobs and third-party callbacks; set test-mode credentials and a separate MongoDB database.
 4. Verify the integrity of missing binary assets, public images and required uploads against original filesystem archives.

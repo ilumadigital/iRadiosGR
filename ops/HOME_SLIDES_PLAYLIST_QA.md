@@ -46,7 +46,7 @@ For each approved station, authenticated `/api/metadata` reads from the approved
 1. Inspect CI on the feature PR; merge into `staging` only after green checks.
 2. On Hostinger staging: `sudo /srv/iradios/staging/app/ilumadev.sh`.
 3. Verify the deploy script's terminal success and health endpoints, then inspect functionality and UI on `https://stage.iradios.gr`.
-4. Do not imply live data/cover art/playlist is verified before testing against actual stations. Keep Nexi and Stripe payment traffic disabled in staging.
+4. Do not imply live data/cover art/playlist is verified before testing against actual stations. Keep all payment traffic disabled unless explicitly performing a guarded Nexi Sandbox UAT.
 5. If a new error appears, capture **nonsecret** logs and create a targeted fix; never copy live secrets into the GitHub repository.
 
 No production deployment occurs automatically from GitHub merges.

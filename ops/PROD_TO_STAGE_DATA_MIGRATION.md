@@ -13,7 +13,7 @@ Stage Hostinger: `mongo:9.0.4-resolute`, network `iradios_stage_internal`, stage
 
 ## Critical security
 - Production MongoDB is published to `0.0.0.0:4545` / `[::]:4545`; database listing succeeded without Mongo credentials. Assess and restrict external access immediately, confirming legitimate dependencies before changes. Docker can bypass UFW for published ports.
-- Never copy production `.env`, Mongo root credentials, Stripe, Nexi, JWT, VAPID, SMTP keys, or tokens into stage or GitHub.
+- Never copy production `.env`, Mongo root credentials, Nexi, JWT, VAPID, SMTP keys, or tokens into stage or GitHub.
 - Data dump includes personal information, password HASHES (not plaintext), potentially password-reset/OTP tokens, subscription/payment references. Only handle on trusted machines with encrypted storage, owner-only directories, secure SSH transfer. No public downloads, third-party uploads, or Git commits.
 - Restore into the review database only; not into `iradios_stage` yet. Stage Nginx Basic Auth is not enough for unfettered production PII on a long-lived stage.
 - Do not use `docker compose down -v` or `mongorestore --drop`.

@@ -31,7 +31,7 @@ Editorial placements remain separate from sponsored ads; existing billing, ad la
 - Play a station from Home hero; confirm **Παίζει τώρα**. Pause from footer; confirm **Άκου τώρα**. Resume without replaying an unrelated station. Verify same on Genre/Region card play actions and favorites/recent.
 - Confirm that guest user can **listen** but sees the exact login notice instead of metadata on Home, station profile, desktop, mobile, footer and playlist.
 - Test popup filters using mouse, touch, keyboard Escape, click outside, search, reset, grid/list/map and combinations of genre/region and transmission. No native filter `<select>` remains in Genre/Region.
-- Confirm sponsored ad insertions and click/impression tracking still work and are clearly marked; no change to Stripe/Nexi or other billing.
+- Confirm sponsored ad insertions and click/impression tracking still work and are clearly marked; no change to the approved ILUMA Gateway/Nexi billing integration.
 - Check radio streams without metadata still appear and are listenable in catalog. "Τώρα παίζουν" music-only list shows valid artist–track pairs and no bogus metadata.
 - Confirm no admin controls are exposed to normal listeners. Confirm existing consent/role checks are intact.
 
