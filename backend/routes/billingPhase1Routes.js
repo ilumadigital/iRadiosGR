@@ -3,6 +3,7 @@
 // This route does not create payments, claim paid transactions or auto-renew.
 const express=require('express');
 const crypto=require('node:crypto');
+const {fingerprintGrant}=require('../utils/billingGrantRequest');
 const mongoose=require('mongoose');
 const User=require('../models/User');
 const Station=require('../models/Station');
@@ -123,8 +124,17 @@ router.post('/admin/billing/grants',...admin,safe(async(req,res)=>{
  if(resourceId!==null && !idOk(resourceId))return res.status(400).json({error:'Invalid resourceId'});
  const scopeError=validateComplimentaryScope(sku,product.scopeType,resourceId);
  if(scopeError)return res.status(400).json({error:scopeError});
+ const now=new Date();
+ const end=expiresAt?new Date(expiresAt):null;
+ if(end && (!Number.isFinite(end.getTime())||end<=now))
+   return res.status(400).json({error:'Expiry must be in the future'});
+ const requestFingerprint=fingerprintGrant({accountId,sku,resourceId,expiresAt:end,reason});
  const already=await BillingGrant.findOne({requestId}).lean();
- if(already)return res.status(already.accountId.toString()===accountId && already.sku===sku && String(already.resourceId||'')===String(resourceId||'')?200:409).json({grant:already,alreadyProcessed:true});
+ if(already){
+   if(already.requestFingerprint!==requestFingerprint)
+     return res.status(409).json({error:'Idempotency-Key already used for different grant terms'});
+   return res.status(200).json({grant:already,alreadyProcessed:true});
+ }
  const account=await User.findById(accountId).select('role');
  if(!account)return res.status(404).json({error:'Account not found'});
  if(sku==='L-PREM' && !['user','admin'].includes(account.role))return res.status(403).json({error:'Listener account required'});
@@ -141,10 +151,6 @@ router.post('/admin/billing/grants',...admin,safe(async(req,res)=>{
         placement:{'AG-RADIO':'radio_feed','AG-HERO':'hero','AG-NEWS':'news_feed'}[sku]});
    if(!good)return res.status(403).json({error:'Campaign does not belong to agency or placement mismatch'});
  }
- const now=new Date();
- const end=expiresAt?new Date(expiresAt):null;
- if(end && (!Number.isFinite(end.getTime())||end<=now))
-   return res.status(400).json({error:'Expiry must be in the future'});
  const exists=await BillingGrant.findOne({accountId,sku,
    scopeType:product.scopeType,resourceId,revokedAt:null,
    startsAt:{$lte:now},$or:[{expiresAt:null},{expiresAt:{$gt:now}}]}).lean();
@@ -152,10 +158,15 @@ router.post('/admin/billing/grants',...admin,safe(async(req,res)=>{
  try {
    const grant=await BillingGrant.create({accountId,sku,scopeType:product.scopeType,
      resourceId,source:'admin_complimentary',reason,grantedBy:req.user._id,
-     startsAt:now,expiresAt:end,requestId});
+     startsAt:now,expiresAt:end,requestId,requestFingerprint});
    res.status(201).json({grant,paid:false});
  }catch(e){
-   if(e.code===11000)return res.status(409).json({error:'Duplicate grant request'});
+   if(e.code===11000){
+     const duplicate=await BillingGrant.findOne({requestId}).lean();
+     if(duplicate?.requestFingerprint===requestFingerprint)
+       return res.status(200).json({grant:duplicate,alreadyProcessed:true});
+     return res.status(409).json({error:'Duplicate grant request'});
+   }
    throw e;
  }
 }));
