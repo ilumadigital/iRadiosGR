@@ -4,14 +4,7 @@ import {
   Megaphone, Plus, LayoutPanelTop, Rows3, LayoutGrid, Activity, X, Eye, ShieldCheck, 
   Clock, Mic2, BarChart3, RotateCw, Target, CreditCard, Building2, AlertTriangle, Loader2, SlidersHorizontal, Image as ImageIcon, Link as LinkIcon, Users
 } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { useAlert } from '../context/AlertContext';
-
-// ⚠️ Βάλε το LIVE Publishable Key σου
-const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY?.startsWith('pk_test_')
-  ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
-  : Promise.resolve(null);
 
 // 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
 const LOCATION_DATA = { 
@@ -96,54 +89,6 @@ const LOCATION_DATA = {
   }
 };
 
-const StripeCheckoutForm = ({ plan, price, onSuccess }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-    setIsProcessing(true);
-    setErrorMessage(null);
-
-    const { error } = await stripe.confirmPayment({
-      elements,
-      redirect: "if_required",
-    });
-
-    if (error) {
-      setErrorMessage(error.message);
-      setIsProcessing(false);
-    } else {
-      onSuccess();
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <PaymentElement options={{ layout: 'tabs' }} />
-      {errorMessage && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex items-start gap-3 border border-red-100">
-          <AlertTriangle size={18} className="shrink-0 mt-0.5" /> 
-          <span>{errorMessage}</span>
-        </div>
-      )}
-      <button 
-        disabled={isProcessing || !stripe || !elements} 
-        className="w-full h-14 bg-[#ccff00] text-black font-black uppercase tracking-[0.2em] text-xs rounded-xl hover:scale-[1.02] transition-all active:scale-95 flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(204,255,0,0.3)] disabled:opacity-50 disabled:hover:scale-100"
-      >
-        {isProcessing ? <Loader2 className="animate-spin" size={20} /> : `ΟΛΟΚΛΗΡΩΣΗ ΠΛΗΡΩΜΗΣ ${price}€`}
-      </button>
-      <div className="text-center text-[10px] text-zinc-500 font-medium mt-2 flex items-center justify-center gap-1">
-        <ShieldCheck size={12} /> Ασφαλής Συναλλαγή μέσω Stripe
-      </div>
-    </form>
-  );
-};
-
-
 // --- MAIN AGENCY DASHBOARD ---
 export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) {
   const navigate = useNavigate();
@@ -172,8 +117,6 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
   const [selectedDuration, setSelectedDuration] = useState('month');
   
   // Payment States
-  const [clientSecret, setClientSecret] = useState("");
-  const [pendingCampaignData, setPendingCampaignData] = useState(null);
 
   const [bannerForm, setBannerForm] = useState({ 
     title: '', description: '', imageUrl: '', squareImageUrl: '', targetUrl: '', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
@@ -183,23 +126,18 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
     title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'every_4', dspPreset: 'OFF', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
   });
 
-  const stripePriceIds = {
-    hero: { day: 'price_1T96oJHiixNRiHTmeb9TWjQW', month: 'price_1T96suHiixNRiHTmMnAGpnQZ', quarter: 'price_1T96suHiixNRiHTmCPmZ3BRd', half: 'price_1T96suHiixNRiHTmSQj85CK3', year: 'price_1T96suHiixNRiHTmCdtdzMKm' },
-    radio_feed: { day: 'price_1T96w3HiixNRiHTm8aqYWio0', month: 'price_1TAGGXHiixNRiHTmypD7t8jI', quarter: 'price_1T96x5HiixNRiHTmOfnKC8OF', half: 'price_1T96x5HiixNRiHTmlmTyYIsu', year: 'price_1T96x5HiixNRiHTmmlZFKfwJ' },
-    home: { day: 'price_1T96ydHiixNRiHTmRjYMJqnk', month: 'price_1T96zNHiixNRiHTmPiLVQ3li', quarter: 'price_1T96zNHiixNRiHTmtwJ6ntfW', half: 'price_1T96zNHiixNRiHTmPeM5gw9G', year: 'price_1T96zNHiixNRiHTmbYwsshrH' },
-    audio: { day: 'price_1TAFyEHiixNRiHTmpFiRvRok', month: 'price_1T9726HiixNRiHTm8wXBwGU3', quarter: 'price_1T9726HiixNRiHTmlS91sdPK', half: 'price_1T9726HiixNRiHTmoK55GgRY', year: 'price_1T9726HiixNRiHTmtD8XQIqi' }
-  };
-
+  // Final VAT-inclusive monthly price catalog. Each campaign is billed separately.
+  // Gateway campaign checkout is not enabled during Listener-only Sandbox UAT.
   const displayPrices = {
-    radio_feed: { day: 3.99, month: 89.00, quarter: 239.00, half: 449.00, year: 899.00 },
-    home:       { day: 5.99, month: 129.00, quarter: 349.00, half: 649.00, year: 1290.00 },
-    hero:       { day: 8.99, month: 199.00, quarter: 539.00, half: 999.00, year: 1990.00 },
-    audio:      { day: 9.99, month: 229.00, quarter: 619.00, half: 1149.00, year: 2290.00 }
+    radio_feed: { month: 29.00 },
+    news_feed: { month: 149.00 },
+    hero: { month: 289.00 },
+    audio: { month: 79.00 }
   };
 
   const placementOptions = [
     { id: 'hero', label: 'Hero Banner', desc: 'Στην κορυφή της αρχικής.', icon: <LayoutPanelTop size={24} />, type: 'banner' },
-    { id: 'home', label: 'Home Feed', desc: 'Ανάμεσα στα ραδιόφωνα.', icon: <Rows3 size={24} />, type: 'banner' },
+    { id: 'news_feed', label: 'News Grid', desc: 'Στην ενότητα ειδήσεων.', icon: <Rows3 size={24} />, type: 'banner' },
     { id: 'radio_feed', label: 'Radio Grid', desc: 'Στο grid αναζήτησης.', icon: <LayoutGrid size={24} />, type: 'banner' },
     { id: 'audio', label: 'Audio Spot', desc: 'Pre-roll ή Mid-roll ήχος.', icon: <Mic2 size={24} />, type: 'audio' },
   ];
@@ -276,89 +214,10 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
     return result.url;
   };
 
-  // 🟢 PROCEED TO PAYMENT (Uploads Files first)
-  const handleProceedToPayment = async (e) => {
-    e.preventDefault();
-    setUploading(true);
-    
-    let finalAudioUrl = audioForm.audioUrl;
-    let finalAudioLogoUrl = '/favicon.png';
-    let finalBannerUrl = bannerForm.imageUrl;
-    let finalSquareUrl = bannerForm.squareImageUrl;
-
-    try {
-      if (selectedType === 'audio') {
-        if (!audioFile) throw new Error("Παρακαλώ επιλέξτε ένα αρχείο ήχου (mp3/wav).");
-        // Upload Audio
-        finalAudioUrl = await uploadFile(audioFile, 'upload-ad', 'audioFile');
-        // Upload Logo (Αν υπάρχει)
-        if (logoFile) {
-          finalAudioLogoUrl = await uploadFile(logoFile, 'upload-logo', 'logoFile');
-        }
-      } 
-      else {
-        if (!bannerFile && !finalBannerUrl) throw new Error("Παρακαλώ επιλέξτε το βασικό εικαστικό (Horizontal Banner).");
-        if (bannerFile) finalBannerUrl = await uploadFile(bannerFile, 'upload-banner', 'imageFile');
-        if (squareBannerFile) finalSquareUrl = await uploadFile(squareBannerFile, 'upload-banner', 'imageFile');
-      }
-    } catch (err) {
-      setUploading(false);
-      return showAlert('Σφάλμα Upload', err.message, 'error');
-    }
-
-    setUploading(false);
-
-    const priceId = stripePriceIds[selectedType][selectedDuration];
-    
-    const payload = selectedType === 'audio' 
-      ? { ...audioForm, audioUrl: finalAudioUrl, logoUrl: finalAudioLogoUrl, adType: 'audio', duration: selectedDuration, status: 'pending', agencyId: currentUser._id }
-      : { ...bannerForm, imageUrl: finalBannerUrl, squareImageUrl: finalSquareUrl, placement: [selectedType], duration: selectedDuration, status: 'pending', agencyId: currentUser._id };
-
-    try {
-      const res = await fetch(`${BASE_URL}/payments/create-ad-checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser._id, priceId, adType: selectedType })
-      });
-      const data = await res.json();
-      
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
-        setPendingCampaignData(payload); 
-        setCreationStep(3); 
-      }
-    } catch (err) {
-      showAlert('Σφάλμα', 'Αποτυχία σύνδεσης με Stripe. Δοκιμάστε ξανά.', 'error');
-    }
-  };
-
-  const handlePaymentSuccess = async () => {
-    try {
-      const endpoint = selectedType === 'audio' ? '/agency/audio-ads' : '/agency/banners';
-      const res = await fetch(`${BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pendingCampaignData)
-      });
-
-      if (res.ok) {
-        showAlert('Επιτυχία!', 'Η πληρωμή ολοκληρώθηκε. Η καμπάνια σας εστάλη για έγκριση.', 'success');
-        setShowCreationModal(false);
-        setCreationStep(1);
-        
-        setBannerForm({ title: '', description: '', imageUrl: '', squareImageUrl: '', targetUrl: '', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All'] });
-        setAudioForm({ title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'every_4', dspPreset: 'OFF', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All'] });
-        setAudioFile(null);
-        setLogoFile(null);
-        setBannerFile(null);
-        setSquareBannerFile(null);
-
-        loadDashboardData();
-        fetchNetworkStats(); 
-      }
-    } catch (err) {
-      showAlert('Σφάλμα', 'Η πληρωμή πέρασε, αλλά υπήρξε σφάλμα αποθήκευσης.', 'error');
-    }
+  // No campaign checkout until the separately approved Agency billing phase.
+  const handleProceedToPayment=(event)=>{
+    event.preventDefault();
+    showAlert('Συνδρομές Agency', 'Οι αγορές καμπανιών μέσω Nexi θα ενεργοποιηθούν σε επόμενο billing phase.', 'info');
   };
 
   const totalImpressions = [...campaigns.banners, ...campaigns.audio].reduce((acc, curr) => acc + (curr.impressions || curr.plays || 0), 0);
@@ -755,7 +614,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                       <Clock size={14}/> Επιλογη Πακετου (Διαρκεια)
                     </label>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3">
-                      {['day', 'month', 'quarter', 'half', 'year'].map(dur => (
+                      {['month'].map(dur => (
                         <div 
                           key={dur} 
                           onClick={() => setSelectedDuration(dur)}
@@ -776,33 +635,13 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
 
                   <div className="flex gap-4 pt-4">
                     <button type="button" onClick={() => setCreationStep(1)} className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-colors">Πισω</button>
-                    <button type="submit" disabled={uploading} className="flex-1 py-4 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase text-xs tracking-[0.2em] rounded-xl transition-all active:scale-95 shadow-[0_10px_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2 disabled:opacity-50">
-                      {uploading ? <Loader2 className="animate-spin" size={16} /> : <>Πληρωμη <CreditCard size={16} /></>}
+                    <button type="submit" disabled title="Η αγορά καμπανιών δεν έχει ακόμη ενεργοποιηθεί" className="flex-1 py-4 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase text-xs tracking-[0.2em] rounded-xl transition-all active:scale-95 shadow-[0_10px_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2 disabled:opacity-50">
+                      ΑΓΟΡΑ ΣΥΝΤΟΜΑ ΜΕ NEXI
                     </button>
                   </div>
                 </form>
               )}
 
-              {creationStep === 3 && clientSecret && (
-                <div className="max-w-md mx-auto animate-in slide-in-from-right-8 pt-8">
-                  <div className="text-center mb-10">
-                    <div className="w-16 h-16 bg-[#ccff00]/20 text-[#ccff00] rounded-full flex items-center justify-center mx-auto mb-4 border border-[#ccff00]/30">
-                      <CreditCard size={32} />
-                    </div>
-                    <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">Checkout</h3>
-                    <p className="text-zinc-400 mt-2 font-medium">Σύνολο πληρωμής: <span className="text-white font-black text-xl ml-1">{displayPrices[selectedType][selectedDuration]}€</span></p>
-                  </div>
-                  <div className="bg-white p-6 rounded-3xl">
-                    <Elements stripe={stripePromise} options={{ clientSecret }}>
-                      <StripeCheckoutForm 
-                        price={displayPrices[selectedType][selectedDuration]} 
-                        onSuccess={handlePaymentSuccess} 
-                      />
-                    </Elements>
-                  </div>
-                  <button onClick={() => setCreationStep(2)} className="w-full mt-6 py-4 text-zinc-500 hover:text-white text-xs font-black uppercase tracking-widest transition-colors">Ακυρωση & Πισω</button>
-                </div>
-              )}
 
             </div>
           </div>
