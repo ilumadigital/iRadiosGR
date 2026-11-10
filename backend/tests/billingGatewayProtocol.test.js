@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const {
  canonicalSignature,headersForRequest,verifyWebhookHeaders,
- hostedCheckoutUrl,validateGatewayPayment,validatePaymentEvent,nextMonthlyPeriod,safeOrderStatus
+ hostedCheckoutUrl,validateGatewayPayment,validatePaymentEvent,localStatusFromGatewayLookup,nextMonthlyPeriod,safeOrderStatus
 }=require('../services/gatewayBillingProtocol');
 const secret='a'.repeat(64);
 const key='ilg_'+'b'.repeat(48);
@@ -92,4 +92,17 @@ test('Calendar-month periods do not use a fixed 30-day shortcut',()=>{
  assert.equal(nextMonthlyPeriod('2026-01-31T13:12:30.000Z').toISOString(),'2026-02-28T13:12:30.000Z');
  assert.equal(nextMonthlyPeriod('2028-01-31T00:00:00Z').toISOString(),'2028-02-29T00:00:00.000Z');
  assert.equal(nextMonthlyPeriod('2026-11-10T00:00:00Z').toISOString(),'2026-12-10T00:00:00.000Z');
+});
+
+test('Status poll never enables Premium, while canceled and failed release locally',()=>{
+ assert.equal(localStatusFromGatewayLookup('paid'),'pending',
+  'A signed GET is not an activation webhook');
+ assert.equal(localStatusFromGatewayLookup('redirect'),'redirect');
+ assert.equal(localStatusFromGatewayLookup('unknown'),'unknown');
+ assert.equal(localStatusFromGatewayLookup('failed'),'failed');
+ assert.equal(localStatusFromGatewayLookup('canceled'),'canceled');
+ assert.throws(()=>localStatusFromGatewayLookup('refunded'));
+ const row={_id:'a'.repeat(24),sku:'L-PREM',amountCents:399,currency:'EUR',
+  status:localStatusFromGatewayLookup('paid'),providerStatus:'paid'};
+ assert.equal(safeOrderStatus(row,now).status,'pending');
 });
