@@ -91,7 +91,7 @@ function response(){
 async function call(handler,req){
  const res=response();await handler({user,...req},res,e=>{throw e;});return res;
 }
-const checkoutReq=(key=uuid)=>({body:{},get:header=>header==='Idempotency-Key'?key:''});
+const checkoutReq=(key=uuid)=>({body:{autoRenew:true},get:header=>header==='Idempotency-Key'?key:''});
 
 test('Account-specific warning can be snoozed 24h without changing entitlement',async()=>{
  reset();
@@ -160,20 +160,24 @@ test('Expired paid period creates a new manual cycle only when no other Premium 
 });
 
 
-test('Card-on-file opt-in is never implicit and requires a boolean selection',async()=>{
+test('Premium is subscription-only: the explicit checkout button supplies recurring consent',async()=>{
  reset();hasRight=true;
- const normal=await call(controller.checkout,checkoutReq());
- assert.equal(normal.statusCode,201);
- assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false,autoRenew:false});
- reset();hasRight=true;
- const opted=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true}});
+ process.env.APP_ENV='staging';
+ const oneOff=await call(controller.checkout,{...checkoutReq(),body:{}});
+ assert.equal(oneOff.statusCode,400);
+ assert.equal(oneOff.body.code,'SUBSCRIPTION_CONSENT_REQUIRED');
+ assert.equal(providerCalls,0,'Missing affirmative consent cannot create a payment');
+ const hiddenOneOff=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:false}});
+ assert.equal(hiddenOneOff.statusCode,400);
+ assert.equal(providerCalls,0);
+ const opted=await call(controller.checkout,checkoutReq());
  assert.equal(opted.statusCode,201);
- assert.deepEqual(lastCardChoice,{saveCard:true,useSavedCard:false,autoRenew:false});
+ assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false,autoRenew:true});
+ assert.equal(created.autoRenewRequested,true);
  reset();hasRight=true;
- const conflict=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true,useSavedCard:true}});
- assert.equal(conflict.statusCode,400);assert.equal(providerCalls,0);
- const invalid=await call(controller.checkout,{...checkoutReq(),body:{saveCard:'yes'}});
- assert.equal(invalid.statusCode,400);assert.equal(providerCalls,0);
+ const savedCard=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:true,saveCard:true}});
+ assert.equal(savedCard.statusCode,400);
+ assert.equal(providerCalls,0,'CIT OneClick is never available in subscription checkout');
 });
 test('Only own authenticated listener can inspect/revoke payment method, without contract ID input',async()=>{
  reset();
@@ -191,18 +195,18 @@ test('Only own authenticated listener can inspect/revoke payment method, without
 });
 
 
-test('Deterministic OneClick Gateway 422 frees original lock without calling Nexi twice',async()=>{
+test('Deterministic recurring-consent preflight 422 releases checkout lock safely',async()=>{
  reset();hasRight=true;process.env.APP_ENV='staging';
  const originalCheckout=gateway.checkout;
  gateway.checkout=async()=>{throw Object.assign(new Error('preflight rejected'),{
   code:'GATEWAY_HTTP_422'
  });};
  try{
-  const res=await call(controller.checkout,{...checkoutReq(),body:{saveCard:true}});
+  const res=await call(controller.checkout,checkoutReq());
   assert.equal(res.statusCode,503);
-  assert.equal(res.body.code,'GATEWAY_ONECLICK_NOT_READY');
+  assert.equal(res.body.code,'GATEWAY_RECURRING_NOT_READY');
   assert.equal(created.status,'failed');
-  assert.equal(created.lastErrorCode,'GATEWAY_ONECLICK_NOT_READY');
+  assert.equal(created.lastErrorCode,'GATEWAY_RECURRING_NOT_READY');
   assert.equal(created.lockKey,undefined);
   assert.equal(created.gatewayPaymentId,undefined);
  }finally{gateway.checkout=originalCheckout;}
