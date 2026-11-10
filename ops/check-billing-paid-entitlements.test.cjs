@@ -25,7 +25,7 @@ test('Verified paid L-PREM grants Listener Premium only during the purchased or 
  const rights=await service.accountRights(listener,NOW);
  assert.ok(rights.includes('listener.premium'));
  assert.equal(requestedFilter.accountId,'l1');
- assert.equal(requestedFilter.sku,'L-PREM');
+ assert.deepEqual(requestedFilter.sku,{$in:['L-PREM','L-WINBACK-199']},'Discounted captured Premium and regular paid Premium must grant identical rights');
  assert.equal(requestedFilter.status,'paid');
  assert.deepEqual(requestedFilter.periodStartsAt,{$lte:NOW},'Scheduled future cycle cannot unlock benefits before start');
  assert.deepEqual(requestedFilter.$or,[{periodEndsAt:{$gt:NOW}},{graceEndsAt:{$gt:NOW}}],
