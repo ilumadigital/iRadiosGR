@@ -75,6 +75,9 @@ Module._load=function(name,parent,isMain){
   if(name==='../models/User')return {findById:async()=>null};
   if(name==='../models/BillingRenewalSnooze')return Snooze;
   if(name==='../models/GatewayWebhookNonce')return {create:async()=>{}};
+  if(name==='../utils/premiumBillingEmailScheduler')return {
+   enqueuePaidWelcome:async()=>true,enqueueCancellation:async()=>true,kick:()=>{}
+  };
   if(name==='../services/ilumaGatewayClient')return gateway;
   if(name==='../services/billingEntitlements')return {hasAccountRight:async()=>hasRight};
   if(name==='../services/billingIndexReadiness')return {ensureBillingIndexes:async()=>{}};
