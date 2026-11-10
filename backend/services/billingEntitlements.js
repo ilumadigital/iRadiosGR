@@ -20,7 +20,7 @@ async function accountRights(user,now=new Date()){
  // records are copied during a data migration.
  if(process.env.APP_ENV==='staging' && user?._id && user.role==='user'){
   const paid=await BillingOrder.exists({accountId:user._id,sku:'L-PREM',
-   status:'paid',environment:'staging',
+   status:'paid',environment:'staging',periodStartsAt:{$lte:now},
    $or:[{periodEndsAt:{$gt:now}},{graceEndsAt:{$gt:now}}]});
   if(paid)rights.add('listener.premium');
  }
