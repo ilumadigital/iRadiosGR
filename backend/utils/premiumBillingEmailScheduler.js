@@ -104,12 +104,16 @@ async function scanBillingWindows(now=new Date()){
    // Expiry announcement only once around real expiry (including grace).
    const expiry=+new Date(state.graceEndsAt);
    if(+now-expiry<DAY_MS && await enqueue('expired',user._id,order._id))queued++;
-   // Marketing offer is entirely separate: only after explicit marketing
-   // permission and verified Gateway one-time entitlement check.
-   try{
-    if(await winbackAllowed(user,order,now) &&
-       await enqueue('winback',user._id,order._id))queued++;
-   }catch(e){console.warn('[PREMIUM MAIL] Winback eligibility deferred',e.code||e.message);}
+   // Don't deliver two emails at the same instant the Premium expires.
+   // The offer ticker starts immediately; marketing email follows at least
+   // 24 hours later, only with explicit marketing consent and verified
+   // Gateway one-time entitlement. This is not a billing reminder.
+   if(+now-expiry>=DAY_MS){
+    try{
+     if(await winbackAllowed(user,order,now) &&
+        await enqueue('winback',user._id,order._id))queued++;
+    }catch(e){console.warn('[PREMIUM MAIL] Winback eligibility deferred',e.code||e.message);}
+   }
   }
  }
  return queued;
