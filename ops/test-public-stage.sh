@@ -21,6 +21,9 @@ check "Legacy websockets denied" 403 GET /api/socket.io/
 check "Private stream SSRF guard" 400 GET '/api/proxy-stream?url=http%3A%2F%2F127.0.0.1%3A27017'
 check "Unapproved stream forbidden" 403 GET '/api/proxy-stream?url=https%3A%2F%2Fexample.com%2Fstream'
 check "Imported private user record blocked" 401 GET /api/auth/me
+check "Anonymous Cloudflare config available" 200 GET /api/auth/turnstile-config
+curl "${OPT[@]}" -fsS "$BASE/api/auth/turnstile-config" |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ready") is True and isinstance(d.get("siteKey"),str) and len(d["siteKey"])>10; assert "secret" not in d; print("Turnstile public config ready (key hidden)")'
 curl "${OPT[@]}" -fsS "$BASE/api/stations" |
   python3 -c 'import json,sys; a=json.load(sys.stdin); assert isinstance(a,list); assert len(a)>=1; assert all("email" not in x and "phone" not in x and "pendingEdits" not in x for x in a); print("Public stations: "+str(len(a))+"; personal fields excluded")'
 echo "PUBLIC STAGE HTTPS SECURITY SMOKE CHECKS PASSED"

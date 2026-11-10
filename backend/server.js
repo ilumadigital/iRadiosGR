@@ -76,6 +76,10 @@ app.post('/api/gateway/webhook',express.raw({type:'application/json',limit:'64kb
 app.use(cors());
 app.use(express.json());
 
+// The public Turnstile site key must be reachable before stage's JWT guard.
+// This route exposes no secret and fails closed if runtime keys are missing.
+app.get('/api/auth/turnstile-config',require('./utils/turnstile').publicConfig);
+
 // PUBLIC STAGING: browsable radio UI; all sensitive APIs require an admin JWT.
 // This is installed after JSON parsing and before any API router.
 if (process.env.APP_ENV === 'staging') {

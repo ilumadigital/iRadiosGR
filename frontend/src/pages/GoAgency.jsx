@@ -13,7 +13,7 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
   const navigate = useNavigate();
   const { showAlert } = useAlert();
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
-  const {siteKey,turnstileError}=useTurnstileSiteKey(BASE_URL);
+  const {siteKey,turnstileError,retryTurnstile}=useTurnstileSiteKey(BASE_URL);
   const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
   const isGuest = !currentUser;
@@ -542,7 +542,10 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
                   onExpire={() => setCfToken('')}
                   theme="dark"
                 />
-              ) : <p role="status" className="text-center text-xs text-amber-300">{turnstileError || 'Φόρτωση Cloudflare Turnstile…'}</p>}
+              ) : <div role="status" className="flex flex-col items-center gap-2 text-center">
+                    <p className="text-xs text-amber-300">{turnstileError || 'Φόρτωση Cloudflare Turnstile…'}</p>
+                    {turnstileError && <button type="button" onClick={retryTurnstile} className="text-xs font-bold text-[#ccff00] underline underline-offset-4 hover:text-white">Επανάληψη φόρτωσης</button>}
+                  </div>}
               </div>
 
               {feedback.show && (

@@ -7,11 +7,8 @@ const { protect } = require('../utils/authMiddleware');
 
 // Auth & OTP
 router.get('/auth/verify-vat/:countryCode/:vat', authController.verifyVat);
-const {requireTurnstile,isConfigured,siteKey}=require('../utils/turnstile');
-router.get('/auth/turnstile-config', (_req,res)=>{
-  res.setHeader('Cache-Control','no-store');
-  res.json({siteKey:isConfigured()?siteKey():null,ready:isConfigured()});
-});
+const {requireTurnstile,publicConfig}=require('../utils/turnstile');
+router.get('/auth/turnstile-config', publicConfig);
 router.post('/auth/register', requireTurnstile('register'), authController.register);
 router.post('/auth/register-broadcaster', requireTurnstile('register-broadcaster'), authController.registerBroadcaster);
 router.post('/auth/register-agency', requireTurnstile('register-agency'), authController.registerAgency);

@@ -11,7 +11,7 @@ process.env.APP_ENV='staging';
 process.env.FRONTEND_URL='https://stage.iradios.gr';
 process.env.TURNSTILE_SITE_KEY='0x4AAAAAAAAAAAAAAAAAAAAAAAA';
 process.env.TURNSTILE_SECRET_KEY='0x4BBBBBBBBBBBBBBBBBBBBBBBB';
-const {verifyTurnstileToken,requireTurnstile,isConfigured}=require('../backend/utils/turnstile');
+const {verifyTurnstileToken,requireTurnstile,isConfigured,publicConfig}=require('../backend/utils/turnstile');
 
 test('stage requires real Turnstile credentials; official test keys are rejected',()=>{
   assert.equal(isConfigured(),true);
@@ -20,6 +20,22 @@ test('stage requires real Turnstile credentials; official test keys are rejected
   process.env.TURNSTILE_SITE_KEY='0x4AAAAAAAAAAAAAAAAAAAAAAAA';
   process.env.TURNSTILE_SECRET_KEY='1x0000000000000000000000000000000AA';
   assert.equal(isConfigured(),false);
+  process.env.TURNSTILE_SECRET_KEY='0x4BBBBBBBBBBBBBBBBBBBBBBBB';
+});
+
+test('public Turnstile config exposes site key only, and fails closed without secret',()=>{
+  const res={headers:{},status(n){this.statusCode=n;return this},
+    setHeader(k,v){this.headers[k.toLowerCase()]=v;return this},
+    json(value){this.body=value;return this}};
+  publicConfig({},res);
+  assert.equal(res.body.ready,true);
+  assert.equal(res.body.siteKey,process.env.TURNSTILE_SITE_KEY);
+  assert.equal(JSON.stringify(res.body).includes(process.env.TURNSTILE_SECRET_KEY),false);
+  assert.match(res.headers['cache-control'],/no-store/);
+  process.env.TURNSTILE_SECRET_KEY='';
+  publicConfig({},res);
+  assert.equal(res.statusCode,503);
+  assert.deepEqual(res.body,{ready:false,siteKey:null,error:'turnstile_not_configured'});
   process.env.TURNSTILE_SECRET_KEY='0x4BBBBBBBBBBBBBBBBBBBBBBBB';
 });
 
@@ -67,6 +83,12 @@ test('login and all signup actions require Turnstile middleware, with public run
     assert.ok(src.includes("'/auth/"+action+"', requireTurnstile('"+action+"')"));
   }
   assert.ok(src.includes("'/auth/turnstile-config'"));
+  const server=fs.readFileSync(path.join(__dirname,'../backend/server.js'),'utf8');
+  assert.ok(server.indexOf("app.get('/api/auth/turnstile-config'")>0);
+  assert.ok(server.indexOf("app.get('/api/auth/turnstile-config'")<
+    server.indexOf("app.use('/api', require('./utils/stagePublicAccess')"));
+  const stageFetch=fs.readFileSync(path.join(__dirname,'../frontend/src/stageApiAuth.js'),'utf8');
+  assert.ok(stageFetch.includes("target.pathname === '/api/auth/turnstile-config'"));
   const stage=fs.readFileSync(path.join(__dirname,'../backend/utils/stagePublicAccess.js'),'utf8');
   assert.ok(stage.includes("path === '/api/auth/register'"));
   assert.ok(stage.includes("path==='/api/auth/verify-otp'"));
