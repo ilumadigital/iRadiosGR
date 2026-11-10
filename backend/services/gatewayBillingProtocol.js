@@ -17,7 +17,7 @@ function canonicalSignature(secret,method,path,timestamp,nonce,rawBody){
  return crypto.createHmac('sha256',secret).update(canonical,'utf8').digest('hex');
 }
 function headersForRequest({secret,key,method,path,rawBody,nonce,now=new Date()}){
- if(typeof secret!=='string'||secret.length<32||typeof key!=='string'||
+ if(!(/^[a-f0-9]{64}$/.test(secret||''))||typeof key!=='string'||
     !/^ilg_[a-f0-9]{48}$/.test(key))throw Error('Gateway credential configuration invalid');
  const timestamp=String(Math.floor(now.getTime()/1000));
  const n=nonce||crypto.randomBytes(16).toString('hex');
@@ -26,7 +26,7 @@ function headersForRequest({secret,key,method,path,rawBody,nonce,now=new Date()}
    'X-Iluma-Signature':canonicalSignature(secret,method,path,timestamp,n,rawBody)};
 }
 function verifyWebhookHeaders({secret,headers,rawBody,now=new Date()}){
- if(typeof secret!=='string'||secret.length<32)return {valid:false,reason:'unconfigured'};
+ if(!/^[a-f0-9]{64}$/.test(secret||''))return {valid:false,reason:'unconfigured'};
  if(!Buffer.isBuffer(rawBody)||rawBody.length<2||rawBody.length>65536)
    return {valid:false,reason:'body'};
  const timestamp=headers['x-iluma-timestamp'];
