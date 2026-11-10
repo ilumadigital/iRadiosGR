@@ -91,8 +91,8 @@ function stagePublicAccess(req, res, next) {
     if(req.body?.inviteToken)return allowInvitedOnboarding(req,res,next);
     if(!loginRateLimit(req,res))return;
     if(typeof req.body?.email!=='string' || req.body.email.length>254 ||
-       !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(req.body.email) ||
-       typeof req.body?.otp!=='string' || !/^\\d{6}$/.test(req.body.otp))
+       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(req.body.email) ||
+       typeof req.body?.otp!=='string' || !/^\d{6}$/.test(req.body.otp))
       return res.status(400).json({error:'Συμπλήρωσε έγκυρο email και 6ψήφιο κωδικό.'});
     return next();
   }
