@@ -59,6 +59,9 @@ async function checkout({user,requestKey,cardChoice={}}){
    customer_id:'iradios-stage-'+String(user._id),
    product_sku:'L-PREM',name:([first,last].filter(Boolean).join(' ')||String(user.username||'Listener')).slice(0,250),
    email:String(user.email||'').trim(),
+   ...(cardChoice.autoRenew===true?{
+      auto_renew:true,recurring_consent_version:'iradios-mit-monthly-v1'
+   }:{ }),
    ...(cardChoice.saveCard===true?{
      save_card:true,card_consent_version:'iradios-stored-card-v1'
    }:cardChoice.useSavedCard===true?{use_saved_card:true}:{})
@@ -96,5 +99,32 @@ async function revokeSavedCard(user){
   throw Error('Invalid Gateway card-revocation result');
  return {state:data.state,automaticRenewal:false};
 }
+async function recurringStatus(user){
+ if(!user?._id)throw Error('Authenticated user required');
+ const data=await signedRequest('POST','/api/v1/recurring/status',{
+  customer_id:'iradios-stage-'+String(user._id)
+ });
+ if(!data||!['none','unavailable','pending','verification_pending','active','cancelled','past_due'].includes(data.state)||
+    data.amount_cents!==399||data.currency!=='EUR')throw Error('Invalid recurring status');
+ return data;
+}
+async function cancelRecurring(user){
+ if(!user?._id)throw Error('Authenticated user required');
+ const data=await signedRequest('POST','/api/v1/recurring/cancel',{
+  customer_id:'iradios-stage-'+String(user._id)
+ });
+ if(!data||!['none','cancelled','unavailable'].includes(data.state))
+  throw Error('Invalid cancellation response');
+ return data;
+}
+async function paymentHistory(user){
+ if(!user?._id)throw Error('Authenticated user required');
+ const data=await signedRequest('POST','/api/v1/billing/history',{
+  customer_id:'iradios-stage-'+String(user._id)
+ });
+ if(!Array.isArray(data?.payments)||data.payments.length>60)
+  throw Error('Invalid billing history');
+ return data.payments;
+}
 module.exports={configured,checkout,paymentStatus,paymentByRequestKey,signedRequest,
- savedCardStatus,revokeSavedCard};
+ savedCardStatus,revokeSavedCard,recurringStatus,cancelRecurring,paymentHistory};
