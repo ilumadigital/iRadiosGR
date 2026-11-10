@@ -4,7 +4,6 @@
 // legacy manual benefits until a separate audited migration.
 const BillingGrant=require('../models/BillingGrant');
 const BillingOrder=require('../models/BillingOrder');
-const BroadcasterBillingOrder=require('../models/BroadcasterBillingOrder');
 const {paidRights}=require('./broadcasterPurchaseRules');
 const {legacyRights,effectiveRights,projectUserEntitlements}=require('./billingEntitlementRules');
 
@@ -18,7 +17,7 @@ async function activeGrantsFor(user,now=new Date()){
 
 async function activeBroadcasterOrders(user,now=new Date()){
  if(process.env.APP_ENV!=='staging'||!user?._id||user.role!=='broadcaster')return [];
- return BroadcasterBillingOrder.find({accountId:user._id,
+ return require('../models/BroadcasterBillingOrder').find({accountId:user._id,
   environment:'staging',status:'paid',
   sku:{$in:['B-PREM','ADD-DSP','ADD-AN','ADD-ADS']},
   periodStartsAt:{$lte:now},periodEndsAt:{$gt:now}}).lean();
