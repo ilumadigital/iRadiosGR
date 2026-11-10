@@ -70,7 +70,16 @@ function isPaidInPeriod(row,now=new Date()){
 }
 function orderRights(order,stationId,now=new Date()){
  if(!isPaidInPeriod(order,now)||!isSubscription(order.sku))return [];
- if(order.scopeType==='station'&&String(order.resourceId)!==String(stationId))return [];
+ // Account Premium is the ONLY SKU allowed to grant account-wide rights.
+ if(order.sku==='B-PREM')
+  return order.scopeType==='account'&&order.resourceId==null?
+   ENTITLEMENTS[order.sku]||[]:[];
+ // Even malformed/imported station purchases must never accidentally grant
+ // account-level rights when both resource IDs are null/undefined.
+ if(order.scopeType!=='station'||
+    !/^[a-f0-9]{24}$/i.test(String(stationId||''))||
+    !/^[a-f0-9]{24}$/i.test(String(order.resourceId||''))||
+    String(order.resourceId)!==String(stationId))return [];
  return ENTITLEMENTS[order.sku]||[];
 }
 function paidRights(orders,stationId,now=new Date()){
@@ -82,6 +91,7 @@ function paidRights(orders,stationId,now=new Date()){
 }
 function boostForStation(orders,stationId,now=new Date(),premium=false){
  const eligible=(orders||[]).filter(order=>isBoost(order.sku)&&
+  order.scopeType==='station'&&/^[a-f0-9]{24}$/i.test(String(stationId||''))&&
   String(order.resourceId)===String(stationId)&&isPaidInPeriod(order,now));
  if(eligible.length){
   eligible.sort((a,b)=>(a.sku.startsWith('BOOST-G-')?0:1)-(b.sku.startsWith('BOOST-G-')?0:1)
