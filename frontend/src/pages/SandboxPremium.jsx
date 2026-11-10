@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
-import {Link} from 'react-router-dom';
+import {Link,useLocation,useNavigate} from 'react-router-dom';
 import {Crown,ShieldCheck,ExternalLink,RefreshCw,AlertTriangle,
  CreditCard,CheckCircle2,Clock3,LockKeyhole,Gift} from 'lucide-react';
 
@@ -43,6 +43,7 @@ function Status({order}){
  if(!order)return null;
  const states={
    active:{title:'Η συνδρομή είναι ενεργή',desc:'Η πληρωμή επιβεβαιώθηκε από το Gateway με υπογεγραμμένο webhook.',icon:CheckCircle2,style:'border-lime-500/30 bg-lime-900/10 text-lime-200'},
+   grace:{title:'Περίοδος χάριτος',desc:'Η πληρωμένη περίοδος ολοκληρώθηκε. Τα προνόμια διατηρούνται προσωρινά έως το όριο χάριτος που έχει ορίσει το iRadios.',icon:Clock3,style:'border-amber-500/30 bg-amber-900/10 text-amber-200'},
    expired:{title:'Η περίοδος ολοκληρώθηκε',desc:'Δεν υπάρχει ενεργή συνδρομή και δεν πραγματοποιείται αυτόματη ανανέωση.',icon:Clock3,style:'border-white/10 bg-white/5 text-zinc-200'},
    pending:{title:'Δεν έχει ανοίξει η φόρμα της Nexi',desc:'Δημιουργήθηκε αίτημα πληρωμής, αλλά δεν υπάρχει ακόμη σελίδα καταχώρισης κάρτας. Δεν πρόκειται για επιβεβαιωμένη χρέωση. Μην ξεκινήσεις δεύτερη συναλλαγή.',icon:Clock3,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
    creating:{title:'Προετοιμασία ασφαλούς πληρωμής',desc:'Δημιουργείται το αίτημα. Μη δημιουργήσεις δεύτερο checkout.',icon:Clock3,style:'border-yellow-500/30 bg-yellow-900/10 text-yellow-200'},
@@ -58,12 +59,15 @@ function Status({order}){
     <Icon size={24} className="shrink-0"/>
     <div><h3 className="font-black text-lg">{state.title}</h3>
       <p className="mt-2 text-sm opacity-80 leading-6">{state.desc}</p>
-      {order.periodEndsAt&&<p className="mt-2 text-sm">Τέλος περιόδου: <strong>{dateText(order.periodEndsAt)}</strong></p>}
+      {order.periodEndsAt&&<p className="mt-2 text-sm">Τέλος πληρωμένης περιόδου: <strong>{dateText(order.periodEndsAt)}</strong></p>}
+      {order.status==='grace'&&order.graceEndsAt&&<p className="mt-2 text-sm">Λήξη χάριτος: <strong>{dateText(order.graceEndsAt)}</strong></p>}
     </div>
    </div>
   </div>;
 }
-export default function SandboxPremium({API_URL='/api',currentUser}){
+export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUser}){
+ const location=useLocation();
+ const navigate=useNavigate();
  const [catalogOk,setCatalogOk]=useState(false);
  const [catalogError,setCatalogError]=useState('');
  const [order,setOrder]=useState(null);
@@ -92,18 +96,63 @@ export default function SandboxPremium({API_URL='/api',currentUser}){
   return()=>{canceled=true;};
  },[API_URL,userId,loadOrders]);
 
+ const updateAccount=useCallback(async()=>{
+  if(!setCurrentUser)return;
+  try{
+   const me=await call(API_URL+'/auth/me');
+   setCurrentUser(me);
+  }catch{/* The billing order remains server-authoritative; retry on next refresh. */}
+ },[API_URL,setCurrentUser]);
+
  const checkStatus=useCallback(async()=>{
-  if(!order?.id)return loadOrders();
   setBusy(true);setMessage('');
   try{
-   const result=await call(API_URL+'/billing/orders/'+encodeURIComponent(order.id)+'?refresh=1');
+   const current=order?.id?order:await loadOrders();
+   if(!current?.id)return;
+   const result=await call(API_URL+'/billing/orders/'+encodeURIComponent(current.id)+'?refresh=1');
    setOrder(result.order);
-   // The backend refuses to mark an order paid until an HMAC-verified webhook.
-   if(result.order?.status==='active')
-    setMessage('Η Nexi επιβεβαίωσε την πληρωμή και ενεργοποιήθηκε το Premium. Κάνε ανανέωση για να ενημερωθεί όλη η εφαρμογή.');
+   // A browser return or a signed provider GET does NOT grant Premium.
+   if(['active','grace'].includes(result.order?.status)){
+    await updateAccount();
+    setMessage(result.order.status==='active'
+     ?'Η πληρωμή επιβεβαιώθηκε από το Gateway. Το Premium είναι ενεργό.'
+     :'Η συνδρομή βρίσκεται σε περίοδο χάριτος σύμφωνα με τους κανόνες του iRadios.');
+   }
   }catch(e){setMessage(e.message);}
   finally{setBusy(false);}
- },[API_URL,order?.id,loadOrders]);
+ },[API_URL,order,loadOrders,updateAccount]);
+
+ // Nexi returns through ILUMA Gateway to this exact iRadios route.
+ // The URL is a navigation hint, NOT a proof of payment.
+ useEffect(()=>{
+  const query=new URLSearchParams(location.search);
+  const kind=query.get('gateway_return'),paymentOrder=query.get('order');
+  if(!userId||!['result','cancel'].includes(kind))return;
+  let canceled=false;
+  (async()=>{
+   try{
+    const recent=await loadOrders();
+    if(canceled)return;
+    if(!recent||!paymentOrder||recent.gatewayOrderId!==paymentOrder){
+     setMessage('Η επιστροφή δεν αντιστοιχεί στην τελευταία συναλλαγή σου. Έλεγξε το ιστορικό πριν συνεχίσεις.');
+    }else{
+     const result=await call(API_URL+'/billing/orders/'+encodeURIComponent(recent.id)+'?refresh=1');
+     if(canceled)return;
+     setOrder(result.order);
+     if(['active','grace'].includes(result.order?.status)){
+      await updateAccount();
+      if(canceled)return;
+      setMessage('Η Nexi επιβεβαίωσε την πληρωμή μέσω ILUMA Gateway. Η συνδρομή ενημερώθηκε στο iRadios.');
+     }else if(kind==='cancel')
+      setMessage('Επέστρεψες από ακύρωση. Θα επιβεβαιώσουμε την τελική κατάσταση στη Nexi πριν επιτραπεί άλλη προσπάθεια.');
+     else
+      setMessage('Επέστρεψες από τη Nexi. Αναμένουμε υπογεγραμμένη επιβεβαίωση από το Gateway πριν ενεργοποιηθεί η συνδρομή.');
+    }
+   }catch(e){if(!canceled)setMessage(e.message);}
+   finally{if(!canceled)navigate('/premium',{replace:true});}
+  })();
+  return()=>{canceled=true;};
+ },[API_URL,location.search,userId,loadOrders,navigate,updateAccount]);
 
  useEffect(()=>{
   if(!order||!['redirect','unknown','pending','creating'].includes(order.status))return;
@@ -138,7 +187,7 @@ export default function SandboxPremium({API_URL='/api',currentUser}){
   finally{setBusy(false);}
  };
  const isListener=currentUser?.role==='user';
- const paid=order?.status==='active';
+ const paid=['active','grace'].includes(order?.status);
  const blocked=['redirect','unknown','pending','creating'].includes(order?.status);
  return <main className="mx-auto max-w-4xl px-4 pt-8 pb-44 lg:pt-14 text-white">
   <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-[#191e10] via-[#111411] to-[#090a08] p-6 sm:p-10 lg:p-12 overflow-hidden relative">
