@@ -148,7 +148,9 @@ export default function ProfileBilling({API_URL='/api',user}){
    <div className="space-y-5">
     <Surface>
      <h4 className="flex items-center gap-2 font-black text-white"><CreditCard size={19} className="text-[#ccff00]"/> Τρόπος πληρωμής</h4>
-     <p className="mt-3 text-sm text-zinc-300">{card.state==='active'?'Nexi OneClick — επαληθευμένο':'Καμία ενεργή OneClick κάρτα'}</p>
+     <p className="mt-3 text-sm text-zinc-300">{['active','pending','verification_pending','past_due'].includes(recurring.state)
+      ?'Nexi recurring MIT — εξουσιοδότηση συνδρομής'
+      :card.state==='active'?'Nexi OneClick — επαληθευμένο':'Δεν υπάρχει αποθηκευμένη κάρτα'}</p>
      <p className="mt-2 text-xs leading-5 text-zinc-500">Τα πλήρη στοιχεία κάρτας αποθηκεύονται μόνο στη Nexi, ποτέ στο iRadios.</p>
      <Link to="/premium" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-[#ccff00]">Διαχείριση κάρτας <ChevronRight size={14}/></Link>
     </Surface>
