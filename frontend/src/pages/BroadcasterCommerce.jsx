@@ -263,6 +263,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
         <div className="mt-7 flex flex-wrap gap-3">
           <Link to="/backoffice/pro-features" className={'rounded-xl px-5 py-3 text-xs font-black '+(view==='features'?'bg-[#ccff00] text-black':'border border-white/20 text-white hover:bg-white/10')}>Pro Features</Link>
           <Link to="/backoffice/boost" className={'rounded-xl px-5 py-3 text-xs font-black '+(view==='boost'?'bg-[#ccff00] text-black':'border border-white/20 text-white hover:bg-white/10')}>Boost My Radio</Link>
+          <Link to="/backoffice/billing" className="rounded-xl border border-white/20 px-5 py-3 text-xs font-black text-white hover:bg-white/10">Οι συνδρομές μου</Link>
         </div>
       </div>
     </header>
