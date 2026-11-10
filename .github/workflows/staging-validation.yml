@@ -73,6 +73,8 @@ jobs:
         run: node ops/check-broadcaster-invitations.cjs
       - name: Validate universal branded transactional emails and admin previews
         run: node ops/check-branded-email-design.cjs
+      - name: Validate verified-email welcome, strong 3.99 Premium CTA, full feature parity and marketing consent
+        run: node ops/check-verified-premium-upsell-email.cjs
       - name: Validate Premium listener lifecycle emails, Spotify and Apple benefits, durable dedupe and marketing consent
         run: node ops/check-premium-billing-emails.cjs
       - name: Simulate signed Premium welcome, expiry, marketing consent and cancel email delivery once per event
