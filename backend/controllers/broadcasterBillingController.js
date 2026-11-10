@@ -5,7 +5,7 @@ const User=require('../models/User');
 const Station=require('../models/Station');
 const gateway=require('../services/ilumaGatewayClient');
 const {getProduct}=require('../config/billingCatalog');
-const {validatePurchase,purchasePeriod,isSubscription,isBoost,SUBSCRIPTION_SKUS}=require('../services/broadcasterPurchaseRules');
+const {validatePurchase,purchasePeriod,isSubscription,isBoost,SUBSCRIPTION_SKUS,validatedAnchoredCycle}=require('../services/broadcasterPurchaseRules');
 const {safeBroadcasterOrder}=require('../services/broadcasterPaymentProtocol');
 const {paidRenewalPeriod}=require('../services/billingRenewalRules');
 const {localStatusFromGatewayLookup}=require('../services/gatewayBillingProtocol');
@@ -257,17 +257,20 @@ async function handleVerifiedEvent(event,res){
   if(!user||user.role!=='broadcaster')
    return res.status(422).json({error:'Broadcaster account missing'});
   const resourceId=product.scopeType==='station'?event.resource_id:null;
+  // A late Jan renewal must not append another month after a Feb renewal.
+  // Correlate the signed reserved cycle to the specific paid predecessor,
+  // not just whichever paid order happens to be most recent.
+  const {start:periodStart,end}=validatedAnchoredCycle(event,now);
   const prior=await BroadcasterBillingOrder.findOne({
    accountId:user._id,sku,resourceId,scopeType:product.scopeType,
    status:'paid',environment:'staging',
+   periodEndsAt:{$gte:new Date(+periodStart-2000),$lte:new Date(+periodStart+2000)},
    $or:[{autoRenewRequested:true},{billingOrigin:'automatic_renewal'}]
   }).sort({periodEndsAt:-1}).lean();
-  if(!prior)return res.status(503).json({error:'Recurring enrollment pending'});
+  if(!prior)return res.status(503).json({error:'Signed MIT cycle predecessor pending'});
   if(event.event_type!=='payment.paid')
    return res.json({received:true,activated:false,reason:'unsuccessful_renewal'});
   const confirmedAt=new Date(Math.min(Date.parse(event.occurred_at),now.getTime()));
-  const periodStart=paidRenewalPeriod(confirmedAt,prior.periodEndsAt);
-  const {end}=purchasePeriod(sku,periodStart);
   const updated=await BroadcasterBillingOrder.findOneAndUpdate({
    gatewayPaymentId:event.payment_id
   },{$setOnInsert:{
