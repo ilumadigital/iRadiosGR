@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const adController = require('../controllers/adController');
+const {protect}=require('../utils/authMiddleware');
+const {authorizeRoles}=require('../utils/roleMiddleware');
 
 router.get('/ads/public', adController.getPublicAds);
 router.post('/ads/:id/impression', adController.logImpression);
@@ -12,9 +14,12 @@ router.post('/admin/ads', adController.createAdminAd);
 router.put('/admin/ads/:id', adController.updateAd);
 router.delete('/admin/ads/:id', adController.deleteAd);
 
-router.get('/broadcaster/:userId/ads', adController.getBroadcasterAds);
-router.post('/broadcaster/ads', adController.createBroadcasterAd);
-router.put('/broadcaster/ads/:id', adController.updateAd); 
-router.delete('/broadcaster/ads/:id', adController.deleteAd);
+router.get('/broadcaster/:userId/ads',protect,(req,res,next)=>{
+  if(req.user.role==='admin'||String(req.user._id)===req.params.userId)return next();
+  return res.status(403).json({error:'Forbidden'});
+},adController.getBroadcasterAds);
+router.post('/broadcaster/ads',protect,authorizeRoles('broadcaster'),adController.createBroadcasterAd);
+router.put('/broadcaster/ads/:id',protect,authorizeRoles('broadcaster'),adController.updateBroadcasterAd); 
+router.delete('/broadcaster/ads/:id',protect,authorizeRoles('broadcaster'),adController.deleteBroadcasterAd);
 
 module.exports = router;
