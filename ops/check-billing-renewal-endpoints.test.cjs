@@ -68,6 +68,7 @@ const gateway={
 Module._load=function(name,parent,isMain){
  if(String(parent?.filename||'').endsWith('/backend/controllers/gatewayBillingController.js')){
   if(name==='../models/BillingOrder')return BillingOrder;
+  if(name==='../models/User')return {findById:async()=>null};
   if(name==='../models/BillingRenewalSnooze')return Snooze;
   if(name==='../models/GatewayWebhookNonce')return {create:async()=>{}};
   if(name==='../services/ilumaGatewayClient')return gateway;
