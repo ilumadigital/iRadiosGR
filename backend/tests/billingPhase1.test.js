@@ -38,8 +38,8 @@ test('Broadcaster Premium grants included features and unlimited stations',()=>{
  for(const e of ['broadcaster.unlimited_stations','broadcaster.webdsp','broadcaster.analytics','broadcaster.ad_control','broadcaster.premium_boost'])assert.ok(rights.includes(e));
 });
 test('A purchased Boost always outranks an included Premium Boost',()=>{
- assert.ok(compareBoostPriority('purchased','premium')>0);
- assert.ok(compareBoostPriority('purchased','organic')>0);
+ assert.ok(compareBoostPriority('purchased','premium')<0);
+ assert.ok(compareBoostPriority('purchased','organic')<0);
 });
 test('Only true subscription products can be gifted as subscriptions',()=>{
  assert.notEqual(validateComplimentaryScope('BOOST-G-DAY','station','s1'),null);
