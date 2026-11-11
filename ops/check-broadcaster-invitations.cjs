@@ -61,5 +61,7 @@ assert.ok(goBroadcast.includes('/broadcast/register?invite=') &&
 assert.ok(auth.includes('verificationLinkEmail(fname,verification.token,{broadcaster:true})') &&
   auth.includes("role:{$in:['user','broadcaster']}"),
   'Broadcaster registration and confirmation use a single-use email link');
+assert.ok(auth.includes("user.role==='broadcaster'") && auth.includes('BROADCASTER_EMAIL_LINK_REQUIRED'),
+  'Broadcaster OTP activation is explicitly blocked, including pre-existing accounts');
 assert.ok(terms.includes('/broadcaster-invite?token='), 'B2B terms must resume invitation');
 console.log('Broadcaster station invitation safety and UI integration contracts passed.');

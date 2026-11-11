@@ -188,6 +188,8 @@ exports.verifyOtp = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) return res.status(404).json({ error: "Ο χρήστης δεν βρέθηκε." });
+    // Broadcaster verification is email-link-only, even for old pending accounts.
+    if(user.role==='broadcaster')return res.status(403).json({code:'BROADCASTER_EMAIL_LINK_REQUIRED',error:'Επιβεβαίωσε το email από τον μοναδικό σύνδεσμο. Συνδέσου για να ζητήσεις νέο link.'});
     if (user.isVerified) return res.status(400).json({ error: "Ο λογαριασμός είναι ήδη ενεργός." });
     if (user.verificationOtp !== otp) return res.status(400).json({ error: "Λάθος κωδικός OTP." });
     if (new Date() > user.otpExpires) return res.status(400).json({ error: "Ο κωδικός έχει λήξει." });
