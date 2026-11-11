@@ -55,6 +55,16 @@ async function stopStationRenewals({Station,Order,Account,gateway,station}){
    await cancelAndVerify(gateway,byId.get(ownerId),'B-PREM',null);
    cancelled.push({payerId:ownerId,sku:'B-PREM',stationId:null});
   }
+  // Recheck after remote calls: a checkout racing with the deletion lease
+  // must not activate a future mandate after station removal.
+  const lateCheckout=await Order.exists({environment:'staging',autoRenewRequested:true,
+   status:{$in:INFLIGHT},$or:[
+    {resourceId:station._id,scopeType:'station',sku:{$in:ADDONS}},
+    ...(cancelPremium?[{accountId:station.broadcasterId,sku:'B-PREM'}]:[])
+   ]});
+  if(lateCheckout)throw new StationDeletionError(409,
+   'Εντοπίστηκε νέα εκκρεμής πληρωμή κατά τη διαγραφή. Δεν διαγράφηκε ο σταθμός.',
+   'STATION_BILLING_IN_FLIGHT');
  }catch(error){
   if(error instanceof StationDeletionError)throw error;
   throw billingFailure();

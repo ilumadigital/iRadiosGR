@@ -9,7 +9,6 @@ const fs=require('node:fs/promises');
 const path=require('node:path');
 const Station=require('../models/Station');
 const {deleteStationRecord}=require('../services/stationDeletion');
-const stationController=require('../controllers/stationController');
 const {validateStationCategories}=require('../utils/stationCategories');
 const {validateStationLocation}=require('../utils/stationLocations');
 const User=require('../models/User');
@@ -263,7 +262,8 @@ router.delete('/backoffice/stations/:id',authorizeRoles('admin'),async(req,res)=
   }catch(error){return fail(res,error);}
 });
 // Share the existing three-state Admin workflow and owner notifications.
-router.patch('/backoffice/stations/:id/status',authorizeRoles('admin'),stationController.updateStationStatus);
+router.patch('/backoffice/stations/:id/status',authorizeRoles('admin'),(req,res)=>
+  require('../controllers/stationController').updateStationStatus(req,res));
 router.post('/backoffice/stations/:id/review',authorizeRoles('admin'),async(req,res)=>{
   try{
     const station=await ownedStation(req,res);

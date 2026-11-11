@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const {deleteStationRecord}=require('../services/stationDeletion');
 const ID='a'.repeat(24),OWNER='b'.repeat(24),OLD='c'.repeat(24);
 function fixture({otherStations=0,history=[],pending=false,failSku=null,
- unavailableSku=null,userMissing=false,broadcasterId=OWNER,oldLock=false}={}){
+ unavailableSku=null,userMissing=false,broadcasterId=OWNER,oldLock=false,latePending=false}={}){
  const events=[];let record={_id:ID,name:'Test FM',broadcasterId};
  let lock=oldLock?'already-locked':null;
  const Station={
@@ -21,9 +21,10 @@ function fixture({otherStations=0,history=[],pending=false,failSku=null,
   updateOne:async()=>{events.push('lease:release');lock=null;},
   countDocuments:async()=>otherStations
  };
+ let checks=0;
  const Order={
   find:()=>({select:()=>({limit:()=>({lean:async()=>history.map(accountId=>({accountId}))})})}),
-  exists:async()=>pending
+  exists:async()=>pending||(latePending&&++checks===2)
  };
  const Account={find:()=>({select:()=>({lean:async()=>[OWNER,OLD].filter(id=>!userMissing||id!==OLD)
   .map(_id=>({_id,role:'broadcaster'}))})})};
@@ -70,6 +71,12 @@ test('Unresolved checkout prevents deletion without contacting Gateway',async()=
  const f=fixture({pending:true});
  await assert.rejects(()=>deleteStationRecord(f.request),{code:'STATION_BILLING_IN_FLIGHT'});
  assert.deepEqual(f.events,['lease','lease:release']);
+});
+test('A payment starting during Gateway cancellation prevents station removal',async()=>{
+ const f=fixture({latePending:true});
+ await assert.rejects(()=>deleteStationRecord(f.request),{code:'STATION_BILLING_IN_FLIGHT'});
+ assert.ok(!f.events.includes('station:delete'));
+ assert.equal(f.events.at(-1),'lease:release');
 });
 test('Missing past payer blocks deletion',async()=>{
  const f=fixture({history:[OLD],userMissing:true});
