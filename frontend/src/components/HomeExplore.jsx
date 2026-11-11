@@ -148,7 +148,7 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {regionSlides.filter((slide,index,all)=>canSeeSlide(slide)&&regionList.includes(slide.placementValue)&&
                 all.findIndex(other=>other.placementValue===slide.placementValue)===index).slice(0,3).map(slide=>
-                <button type="button" key={slide._id}
+                <button type="button" key={slide._id+':'+slide.placementValue}
                   onClick={()=>{setRegion(slide.placementValue);setTab('all');setShowAll(false);}}
                   className={`group relative aspect-[40/21] min-w-0 overflow-hidden rounded-2xl border bg-[#101419] text-left transition-colors ${region===slide.placementValue?'border-[#ccff00]':'border-white/10 hover:border-[#ccff00]/40'}`}>
                   <img src={slide.imageUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-contain opacity-90"/>
