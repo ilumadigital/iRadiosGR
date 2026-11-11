@@ -32,7 +32,7 @@ function createStageListenerTracker({Station,StationAnalytics,clock=Date.now}){
     const allowed=stationIds?new Set(stationIds.map(String)):null;
     let count=0;
     for(const session of sessions.values()){
-      if(!allowed||allowed.has(session.stationId))count++;
+      if(session.ready&&(!allowed||allowed.has(session.stationId)))count++;
     }
     return count;
   }
@@ -51,12 +51,13 @@ function createStageListenerTracker({Station,StationAnalytics,clock=Date.now}){
     if(!session){
       if(!playing)return 204;
       if(sessions.size>=MAX_SESSIONS)return 429;
-      const station=await Station.exists({_id:sid,status:'approved',isOffline:{$ne:true}});
-      if(!station)return 404;
-      // Insert before DB awaits: concurrent identical starts are idempotent.
-      const pending={stationId:sid,lastSeen:now,busy:true};
+      // Reserve the session BEFORE the first await. Two concurrent requests
+      // with the same UUID may otherwise both increment totalSessions.
+      const pending={stationId:sid,lastSeen:now,busy:true,ready:false};
       sessions.set(key,pending);
       try{
+        const station=await Station.exists({_id:sid,status:'approved',isOffline:{$ne:true}});
+        if(!station){sessions.delete(key);return 404;}
         await StationAnalytics.findOneAndUpdate({stationId:sid},
           {$inc:{totalSessions:1,['daily.'+utcDay(now)+'.sessions']:1}},
           {upsert:true,setDefaultsOnInsert:true});
@@ -64,6 +65,7 @@ function createStageListenerTracker({Station,StationAnalytics,clock=Date.now}){
         sessions.delete(key);
         throw error;
       }
+      pending.ready=true;
       pending.busy=false;
       // Legacy station plays are a secondary presentation counter. A failure
       // must not retry the already committed listening session increment.
