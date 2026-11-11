@@ -3,7 +3,7 @@ import {Activity,AlertTriangle,CheckCircle2,Headphones,Pause,Play,RotateCcw,
   Save,Search,SlidersHorizontal,Volume2,PowerOff} from 'lucide-react';
 import {DSP_DEFAULTS,DSP_MODES,normalizeBroadcasterMode,DSP_COMPRESSOR_DEFAULTS,PEAK_WARNING_DBFS,
   normalizeDSPSettings,normalizeDSPCompressor,normalizeDSPClipper,normalizeAutoBalance,autoStereoWidth,
-  updateAdaptiveDSP,compressorForPreset,calculateHeadroomDb,
+  updateAdaptiveDSP,resetAdaptiveDSP,compressorForPreset,calculateHeadroomDb,
   createDSPGraph,applyDSPGraph,measurePeakDbfs} from '../utils/dspEngine';
 
 const blank=()=>({dspPreset:'OFF',dspSettings:{...DSP_DEFAULTS},
@@ -142,6 +142,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   useEffect(()=>{
     const config=fromStation(station);
     setSaved(config);setDraft(config);setBypass(false);setNotice('');
+    resetAdaptiveDSP(graphRef.current);
     setMeter({before:-120,after:-120,final:-120});setGainReduction(0);setAutoGainDb(0);
     const audio=audioRef.current;
     if(audio){audio.pause();audio.removeAttribute('src');audio.load();}
