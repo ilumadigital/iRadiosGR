@@ -1,8 +1,8 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {Helmet} from 'react-helmet-async';
-import {Activity,ArrowRight,AudioLines,Check,ChevronDown,Crown,Headphones,
-  Pause,Play,Radio,ShieldCheck,Sparkles,Volume2,Waveform,Zap} from 'lucide-react';
+import {ArrowRight,AudioLines,Check,ChevronDown,Crown,Headphones,
+  Pause,Play,Radio,ShieldCheck,Sparkles,Volume2,Zap} from 'lucide-react';
 import {DSP_DEFAULTS,DSP_COMPRESSOR_DEFAULTS,normalizeBroadcasterMode,
   createDSPGraph,applyDSPGraph,applyListenerMode,updateAdaptiveDSP,resetAdaptiveDSP,
   measurePeakDbfs} from '../utils/dspEngine';
