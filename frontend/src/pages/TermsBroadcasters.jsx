@@ -1,104 +1,128 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
-import { 
-  Scale, Radio, Banknote, AlertTriangle, SlidersHorizontal, 
-  BarChart3, Users, Crown, ShieldCheck, Lock, MapPin, CheckSquare, Loader2
-} from 'lucide-react';
+import React,{useEffect,useState} from 'react';
+import {Helmet} from 'react-helmet-async';
+import {Link,useSearchParams} from 'react-router-dom';
+import {ArrowLeft,ArrowRight,Banknote,AlertTriangle,BarChart3,BookOpen,CheckCircle2,
+  CheckSquare,FileText,Lock,Loader2,MailCheck,MapPin,Radio,Scale,ShieldCheck,
+  SlidersHorizontal,Users,Crown} from 'lucide-react';
 
-export default function TermsBroadcasters({ API_URL, currentUser }) {
-  const navigate = useNavigate();
-  const [query] = useSearchParams();
-  const inviteToken = query.get('invite');
-  const [isChecked, setIsChecked] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const hasAlreadyAccepted = currentUser?.hasAcceptedCurrentBroadcasterTerms === true;
-  const [submitError, setSubmitError] = useState('');
+const titles=["Πρόσβαση και ασφάλεια","Πνευματικά δικαιώματα","Συνδρομές & πληρωμές","DSP & παραγωγοί","Διαφημίσεις","Analytics & δεδομένα","Αναστολή συνεργασίας","Συγκατάθεση περιεχομένου","Εγγραφή και έγκριση σταθμών","Email & προσκλήσεις","Προσωπικά δεδομένα"];
+export default function TermsBroadcasters({API_URL='/api',currentUser:initialUser=null}){
+  const [query]=useSearchParams();
+  const inviteToken=query.get('invite')||'';
+  const [account,setAccount]=useState(initialUser);
+  const [status,setStatus]=useState(initialUser?'ready':'loading');
+  const [checked,setChecked]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState('');
+  const broadcaster=account?.role==='broadcaster';
+  const verified=broadcaster&&account.isVerified===true;
+  const accepted=account?.hasAcceptedCurrentBroadcasterTerms===true;
+  const destination=inviteToken?'/broadcaster-invite?token='+encodeURIComponent(inviteToken):'/backoffice';
 
-  const handleAcceptTerms = async () => {
-    if (!isChecked || isSubmitting) return;
+  useEffect(()=>{
+    if(initialUser){setAccount(initialUser);setStatus('ready');return;}
+    const token=localStorage.getItem('iluma_token');
+    if(!token){setAccount(null);setStatus('guest');return;}
+    let active=true;
+    fetch(API_URL+'/auth/me',{headers:{Authorization:'Bearer '+token},cache:'no-store'})
+      .then(async response=>{
+        if(!response.ok)throw new Error('Μη ενεργή σύνδεση.');
+        return response.json();
+      })
+      .then(user=>{if(active){setAccount(user);setStatus('ready');}})
+      .catch(()=>{if(active){setAccount(null);setStatus('guest');}});
+    return ()=>{active=false;};
+  },[API_URL,initialUser]);
 
-    const termsVersion = currentUser?.requiredBroadcasterTermsVersion;
-    const token = localStorage.getItem('iluma_token');
-    if (!token || !termsVersion) {
-      setSubmitError('Η συνεδρία δεν είναι έτοιμη. Συνδεθείτε ξανά και ανανεώστε τη σελίδα.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setSubmitError('');
-    try {
-      const res = await fetch(`${API_URL}/users/me/accept-terms`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ termsVersion })
+  async function accept(event){
+    event.preventDefault();
+    if(!verified||accepted||!checked||saving)return;
+    const termsVersion=account?.requiredBroadcasterTermsVersion;
+    const token=localStorage.getItem('iluma_token');
+    if(!token||!termsVersion){setError('Συνδέσου ξανά για να επιβεβαιώσεις την έκδοση των όρων.');return;}
+    setSaving(true);setError('');
+    try{
+      const response=await fetch(API_URL+'/users/me/accept-terms',{
+        method:'PUT',
+        headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body:JSON.stringify({termsVersion})
       });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.user?.hasAcceptedCurrentBroadcasterTerms === true) {
-        // Reload the authenticated profile from /auth/me on the next page load.
-        window.location.assign(inviteToken ? `/broadcaster-invite?token=${encodeURIComponent(inviteToken)}` : '/studio');
-        return;
-      }
-      setSubmitError(data.error || 'Η αποθήκευση της συγκατάθεσης απέτυχε. Δοκιμάστε ξανά.');
-    } catch (error) {
-      setSubmitError('Δεν ήταν δυνατή η σύνδεση με τον server. Δοκιμάστε ξανά.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||data.user?.hasAcceptedCurrentBroadcasterTerms!==true)
+        throw new Error(data.error||'Η αποδοχή δεν αποθηκεύτηκε.');
+      // Skip /studio entirely: never initialize the listener player.
+      window.location.assign(destination);
+    }catch(problem){setError(problem.message);}
+    finally{setSaving(false);}
+  }
 
-  // Email verification is mandatory before B2B terms or the Backoffice.
-  if(currentUser?.role==='broadcaster'&&currentUser.isVerified!==true)
-    return <Navigate to="/broadcast/pending" replace/>;
-
-  return (
-    <div className="min-h-screen bg-black text-zinc-300 p-6 md:p-12 font-sans selection:bg-blue-500 selection:text-white">
-      <Helmet><title>Broadcaster Agreement | iRadios</title></Helmet>
-
-      <div className="max-w-4xl mx-auto space-y-12 pb-40">
-        
-        {/* HEADER SECTION */}
-        <div className="text-center space-y-4 animate-fade-in">
-          <Scale className="w-16 h-16 text-blue-500 mx-auto mb-6" />
-          <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight">Σύμβαση Παροχής Υπηρεσιών (B2B)</h1>
-          <p className="text-zinc-500 text-sm tracking-widest uppercase">Αυστηρα για επαγγελματικη χρηση - Broadcaster Agreement</p>
+  return <div className="min-h-screen bg-[#080c0c] font-sans text-white selection:bg-[#ccff00] selection:text-black">
+    <Helmet><title>Όροι Broadcaster | iRadiosGR</title>
+      <meta name="description" content="Όροι συνεργασίας Broadcaster στο iRadiosGR: επαλήθευση, σταθμοί, άδειες, υπηρεσίες και ασφαλής αποδοχή."/></Helmet>
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0c1111]/95 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+        <Link to="/broadcast" className="flex items-center gap-3"><img src="/iradios-app-logo.png" className="h-11 w-11 object-contain" alt=""/><span><strong className="block text-base font-black">iRadios<span className="text-[#ccff00]">GR</span></strong><small className="block text-[9px] font-bold uppercase tracking-[.2em] text-zinc-400">Broadcaster Network</small></span></Link>
+        <div className="flex items-center gap-4"><Link to="/broadcast" className="flex items-center gap-2 text-xs font-bold text-zinc-300 hover:text-white"><ArrowLeft size={17}/> Broadcaster</Link>
+          {verified&&accepted?<Link to={destination} className="rounded-xl bg-[#ccff00] px-4 py-2.5 text-xs font-black text-black">Backoffice</Link>:
+          !broadcaster?<Link to="/broadcast/register" className="rounded-xl bg-[#ccff00] px-4 py-2.5 text-xs font-black text-black">Εγγραφή</Link>:null}</div>
+      </div>
+    </header>
+    <main>
+      <section className="relative isolate overflow-hidden border-b border-white/10">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-44 -top-40 h-[560px] w-[560px] rounded-full bg-[#ccff00]/[.1] blur-[120px]"/>
+        <div className="relative mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-24">
+          <p className="inline-flex items-center gap-2 rounded-full border border-[#ccff00]/25 bg-[#ccff00]/10 px-4 py-2 text-[10px] font-black uppercase tracking-[.18em] text-[#ccff00]"><Scale size={17}/> Broadcaster Agreement · B2B</p>
+          <h1 className="mt-7 max-w-3xl text-4xl font-black leading-[1.1] tracking-[-.05em] sm:text-6xl">Μαζί στο δίκτυο.<span className="block text-[#ccff00]">Με ξεκάθαρους όρους.</span></h1>
+          <p className="mt-6 max-w-3xl text-sm leading-8 text-zinc-300 sm:text-base">Η επαγγελματική συμφωνία του iRadiosGR καλύπτει τα δικαιώματα των σταθμών, τη χρήση της πλατφόρμας, την ασφάλεια, τις συνδρομές και την πρόσβαση στα εργαλεία Broadcaster.</p>
+          <div className="mt-8 flex flex-wrap gap-3 text-[11px] font-bold"><span className="rounded-full border border-white/15 bg-white/[.05] px-4 py-2">11 αναλυτικές ενότητες</span><span className="rounded-full border border-white/15 bg-white/[.05] px-4 py-2">Έκδοση B2B v2</span><span className="rounded-full border border-white/15 bg-white/[.05] px-4 py-2">Μοναδική αποδοχή ανά έκδοση</span></div>
         </div>
-
-        <div className="space-y-8 text-sm md:text-base leading-relaxed">
-          
-          <div className="bg-blue-900/10 border border-blue-500/30 p-6 rounded-2xl text-blue-200">
+      </section>
+      <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:py-16">
+        <div className="mb-12 grid gap-4 md:grid-cols-3">
+          <div className="rounded-3xl border border-white/10 bg-[#111819] p-6"><Radio size={29} className="text-[#ccff00]"/><h2 className="mt-6 text-lg font-black">Ταυτότητα σταθμού</h2><p className="mt-3 text-sm leading-7 text-zinc-400">Σωστά στοιχεία, νόμιμο stream και δυνατότητα διαχειριστικού ελέγχου πριν από τη δημοσίευση.</p></div>
+          <div className="rounded-3xl border border-white/10 bg-[#111819] p-6"><MailCheck size={29} className="text-[#ccff00]"/><h2 className="mt-6 text-lg font-black">Επιβεβαίωση email</h2><p className="mt-3 text-sm leading-7 text-zinc-400">Προσωρινός σύνδεσμος μίας χρήσης πριν από τη διαχείριση σταθμών και την αποδοχή των όρων.</p></div>
+          <div className="rounded-3xl border border-white/10 bg-[#111819] p-6"><ShieldCheck size={29} className="text-[#ccff00]"/><h2 className="mt-6 text-lg font-black">Δικαιώματα περιεχομένου</h2><p className="mt-3 text-sm leading-7 text-zinc-400">Άδειες, εμπορικά σήματα, μουσική και υλικό παραγωγών παραμένουν ευθύνη του κατόχου τους.</p></div>
+        </div>
+        <div className="grid items-start gap-10 lg:grid-cols-[240px_minmax(0,1fr)]">
+          <aside className="hidden lg:sticky lg:top-28 lg:block">
+            <p className="mb-4 text-[10px] font-black uppercase tracking-[.2em] text-[#ccff00]">Ενότητες</p>
+            <nav className="space-y-1" aria-label="Περιεχόμενα όρων">{titles.map((title,i)=>
+              <a key={title} href={'#term-'+(i+1)} className="flex gap-3 rounded-xl px-3 py-2 text-xs leading-5 text-zinc-400 transition hover:bg-white/[.06] hover:text-white"><span className="w-5 shrink-0 font-black text-[#ccff00]">{String(i+1).padStart(2,'0')}</span>{title}</a>)}</nav>
+            <Link to="/privacy" className="mt-6 flex items-center gap-2 border-t border-white/10 pt-5 text-xs font-semibold text-zinc-300 hover:text-white"><FileText size={17}/> Πολιτική Απορρήτου</Link>
+          </aside>
+          <article className="min-w-0 space-y-9">
+            <div className="rounded-3xl border border-[#ccff00]/25 bg-[#ccff00]/[.05] p-6 sm:p-8"><h2 className="flex items-center gap-3 text-xl font-black"><BookOpen className="text-[#ccff00]" size={25}/> Πλήρεις όροι συνεργασίας</h2><p className="mt-4 text-sm leading-7 text-zinc-300">Η αποδοχή της τρέχουσας σύμβασης είναι απαραίτητη για τον επαληθευμένο Broadcaster πριν από την πρόσβαση στο Backoffice. Μπορείς να διαβάσεις ολόκληρο το κείμενο και χωρίς σύνδεση.</p></div>
+            <div className="space-y-9 text-sm leading-8 sm:text-base">
+<div className="bg-[#ccff00]/[.055] border border-[#ccff00]/25 p-6 rounded-2xl text-[#e5f8c9]">
             <strong>ΠΡΟΣΟΧΗ (ΝΟΜΙΚΗ ΔΕΣΜΕΥΣΗ):</strong> Η εγγραφή, πρόσβαση και χρήση του Broadcaster Portal συνιστά νομικά δεσμευτική σύμβαση (Service Level Agreement - SLA) μεταξύ της επιχείρησής/οργανισμού σας (εφεξής "Broadcaster" ή "Πάροχος Περιεχομένου") και της <strong>ILUMA Digital Agency</strong> (Μοσχονησίων 1, Αιγάλεω), ιδιοκτήτριας και διαχειρίστριας της πλατφόρμας iRadios.
           </div>
 
           {/* 1. ΕΓΓΡΑΦΗ & ΚΥΒΕΡΝΟΑΣΦΑΛΕΙΑ */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3"><Lock className="w-5 h-5 text-blue-500" />1. Εγγραφή, Διαπιστευτήρια & Κυβερνοασφάλεια</h2>
-            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-4 text-zinc-400 hover:border-white/10 transition-colors">
+          <section id="term-1" className="space-y-4 scroll-mt-28">
+            <h2 className="text-xl font-black text-white flex items-start gap-3 leading-snug"><Lock className="w-5 h-5 text-[#ccff00]" />1. Εγγραφή, Διαπιστευτήρια & Κυβερνοασφάλεια</h2>
+            <div className="bg-[#111819] p-6 rounded-2xl border border-white/10 space-y-4 text-zinc-300 hover:border-[#ccff00]/30 transition-colors">
               <p>Η δημιουργία λογαριασμού απαιτεί την παροχή έγκυρων στοιχείων. Ο Broadcaster φέρει την <strong>απόλυτη και αδιαπραγμάτευτη ευθύνη</strong> για την ασφάλεια των διαπιστευτηρίων (username/password) του ιδίου και των εξουσιοδοτημένων Παραγωγών (Producers) του.</p>
-              <p><strong>Τεχνική Θωράκιση (Enterprise-Grade Security):</strong> Η ILUMA Digital Agency εφαρμόζει πρωτόκολλα υψίστης ασφαλείας για την προστασία της υποδομής και των B2B λογαριασμών (Double Token Authentication, Cloudflare Turnstile).</p>
+              <p><strong>Μέτρα ασφαλείας:</strong> Η ILUMA Digital Agency εφαρμόζει πρωτόκολλα υψίστης ασφαλείας για την προστασία της υποδομής και των B2B λογαριασμών (επιβεβαίωση email με μοναδικό σύνδεσμο μίας χρήσης, έλεγχο πρόσβασης και Cloudflare Turnstile).</p>
             </div>
           </section>
 
           {/* 2. ΝΟΜΙΚΗ ΕΥΘΥΝΗ & ΠΝΕΥΜΑΤΙΚΑ ΔΙΚΑΙΩΜΑΤΑ */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3"><Radio className="w-5 h-5 text-blue-500" />2. Ρήτρα Αποποίησης Ευθύνης & Πνευματικά Δικαιώματα</h2>
-            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-4 text-zinc-400 hover:border-white/10 transition-colors">
+          <section id="term-2" className="space-y-4 scroll-mt-28">
+            <h2 className="text-xl font-black text-white flex items-start gap-3 leading-snug"><Radio className="w-5 h-5 text-[#ccff00]" />2. Ρήτρα Αποποίησης Ευθύνης & Πνευματικά Δικαιώματα</h2>
+            <div className="bg-[#111819] p-6 rounded-2xl border border-white/10 space-y-4 text-zinc-300 hover:border-[#ccff00]/30 transition-colors">
               <p>Η πλατφόρμα λειτουργεί <strong>αποκλειστικά ως ενδιάμεσος τεχνολογικός πάροχος</strong>. Κατέχετε στο ακέραιο όλες τις νόμιμες άδειες, δικαιώματα και εξουσιοδοτήσεις από τους αρμόδιους Οργανισμούς Συλλογικής Διαχείρισης (ΟΣΔ) για τη δημόσια εκτέλεση του περιεχομένου σας.</p>
               <p><strong>Ρήτρα Αποζημίωσης:</strong> Σε περίπτωση νομικής όχλησης από τρίτα μέρη κατά της ILUMA Digital Agency εξαιτίας του δικού σας περιεχομένου, υποχρεούστε να μας αποζημιώσετε στο ακέραιο για κάθε ζημία.</p>
             </div>
           </section>
 
           {/* 3. FREE VS PREMIUM & ΠΛΗΡΩΜΕΣ */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3"><Crown className="w-5 h-5 text-blue-500" />3. Εμπορική Πολιτική, Συνδρομές & Εκκαθάριση</h2>
-            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-4 text-zinc-400 hover:border-white/10 transition-colors">
+          <section id="term-3" className="space-y-4 scroll-mt-28">
+            <h2 className="text-xl font-black text-white flex items-start gap-3 leading-snug"><Crown className="w-5 h-5 text-[#ccff00]" />3. Εμπορική Πολιτική, Συνδρομές & Εκκαθάριση</h2>
+            <div className="bg-[#111819] p-6 rounded-2xl border border-white/10 space-y-4 text-zinc-300 hover:border-[#ccff00]/30 transition-colors">
               <p>Οι μελλοντικές αγορές Broadcaster θα διεκπεραιώνονται μέσω ILUMA Gateway / Nexi, αφού ολοκληρωθούν οι έλεγχοι. Δεν πραγματοποιούνται αυτόματες ανανεώσεις στην παρούσα φάση. Οι ειδικοί όροι τιμολόγησης και ακύρωσης θα γνωστοποιούνται πριν από κάθε ενεργοποίηση.</p>
-              <div className="bg-blue-900/10 border border-blue-500/20 p-4 rounded-xl mt-4">
-                  <p className="text-blue-300 mb-2"><strong>Πολιτική Αναβάθμισης (Upgrade) & Συγχώνευσης Συνδρομών:</strong></p>
-                  <p className="text-zinc-400 text-sm leading-relaxed">
+              <div className="bg-[#ccff00]/[.055] border border-[#ccff00]/20 p-4 rounded-xl mt-4">
+                  <p className="text-[#d9ff7b] mb-2"><strong>Πολιτική Αναβάθμισης (Upgrade) & Συγχώνευσης Συνδρομών:</strong></p>
+                  <p className="text-zinc-300 text-sm leading-relaxed">
                     Σε περίπτωση που διατηρείτε ενεργές μία ή περισσότερες μεμονωμένες συνδρομές πρόσθετων υπηρεσιών (Add-ons) και επιλέξετε να αναβαθμίσετε στο πλήρες πακέτο ("THE PRO PACK"), <strong>η αλλαγή πακέτου θα απαιτεί ρητή επιβεβαίωση και επαλήθευση της επίδρασης στα ήδη ενεργά Add-ons</strong>. Η μετάβαση προϋποθέτει την πλήρη προπληρωμή της αξίας του πακέτου κατά τη στιγμή της αναβάθμισης. <strong>Δεν εφαρμόζεται αναλογικός συμψηφισμός (pro-rating) ή επιστροφή χρημάτων</strong> για τον υπολειπόμενο χρόνο των ακυρωθέντων Add-ons.
                   </p>
               </div>
@@ -106,9 +130,9 @@ export default function TermsBroadcasters({ API_URL, currentUser }) {
           </section>
 
           {/* 4. ΛΕΙΤΟΥΡΓΙΕΣ & ΠΕΡΙΟΡΙΣΜΟΙ */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3"><SlidersHorizontal className="w-5 h-5 text-blue-500" />4. Τεχνική Διαχείριση, DSP & Εποπτεία Παραγωγών</h2>
-            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-6 text-zinc-400 hover:border-white/10 transition-colors">
+          <section id="term-4" className="space-y-4 scroll-mt-28">
+            <h2 className="text-xl font-black text-white flex items-start gap-3 leading-snug"><SlidersHorizontal className="w-5 h-5 text-[#ccff00]" />4. Τεχνική Διαχείριση, DSP & Εποπτεία Παραγωγών</h2>
+            <div className="bg-[#111819] p-6 rounded-2xl border border-white/10 space-y-6 text-zinc-300 hover:border-[#ccff00]/30 transition-colors">
               <div>
                 <h3 className="text-white font-bold flex items-center gap-2 mb-2"><SlidersHorizontal size={16} className="text-purple-400"/> DSP Engine (Ψηφιακή Επεξεργασία Ήχου)</h3>
                 <p>Εάν η εφαρμογή ακραίων παραμέτρων προκαλέσει σημαντική ακουστική παραμόρφωση, η ILUMA διατηρεί το <strong>μονομερές δικαίωμα παράκαμψης (bypass)</strong> των ρυθμίσεών σας.</p>
@@ -121,12 +145,12 @@ export default function TermsBroadcasters({ API_URL, currentUser }) {
           </section>
 
           {/* 5. ΔΙΑΦΗΜΙΣΕΙΣ */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3"><Banknote className="w-5 h-5 text-blue-500" />5. Monetization, Πολιτική Διαφημίσεων & Geo-Targeting</h2>
-            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-4 text-zinc-400 hover:border-white/10 transition-colors">
+          <section id="term-5" className="space-y-4 scroll-mt-28">
+            <h2 className="text-xl font-black text-white flex items-start gap-3 leading-snug"><Banknote className="w-5 h-5 text-[#ccff00]" />5. Monetization, Πολιτική Διαφημίσεων & Geo-Targeting</h2>
+            <div className="bg-[#111819] p-6 rounded-2xl border border-white/10 space-y-4 text-zinc-300 hover:border-[#ccff00]/30 transition-colors">
               <p>Για λογαριασμούς "Free Tier", το iRadios διατηρεί το αποκλειστικό δικαίωμα προβολής/αναπαραγωγής ιδίων εμπορικών μηνυμάτων (Network Ads) κατά την ακρόαση του σταθμού σας.</p>
               <div className="flex items-start gap-2 mt-2">
-                <MapPin className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                <MapPin className="w-5 h-5 text-[#ccff00] shrink-0 mt-0.5" />
                 <span>
                   <strong>Γεωγραφική Στόχευση (Geo-Targeting):</strong> Μέσω των Premium εργαλείων, παρέχεται η δυνατότητα τοπικής στόχευσης των δικών σας διαφημίσεων με βάση την τοποθεσία του ακροατή (Geo-Location IP). Η ILUMA <strong>δεν φέρει καμία ευθύνη</strong> για εσφαλμένη στόχευση λόγω χρήσης VPN ή Proxy.
                 </span>
@@ -135,28 +159,28 @@ export default function TermsBroadcasters({ API_URL, currentUser }) {
           </section>
 
           {/* 6. ΑΝΑΛΥΤΙΚΑ ΣΤΟΙΧΕΙΑ */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3"><BarChart3 className="w-5 h-5 text-blue-500" />6. Εμπιστευτικότητα Δεδομένων & Analytics</h2>
-            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-4 text-zinc-400 hover:border-white/10 transition-colors">
+          <section id="term-6" className="space-y-4 scroll-mt-28">
+            <h2 className="text-xl font-black text-white flex items-start gap-3 leading-snug"><BarChart3 className="w-5 h-5 text-[#ccff00]" />6. Εμπιστευτικότητα Δεδομένων & Analytics</h2>
+            <div className="bg-[#111819] p-6 rounded-2xl border border-white/10 space-y-4 text-zinc-300 hover:border-[#ccff00]/30 transition-colors">
               <p>Η παροχή στατιστικών δεδομένων προορίζεται αποκλειστικά για εσωτερική επιχειρηματική αξιολόγηση. Απαγορεύεται αυστηρά η πώληση ή μεταβίβαση αυτών των δεδομένων προς τρίτους (Data Brokers).</p>
             </div>
           </section>
 
           {/* 7. ΑΝΑΣΤΟΛΗ & ΔΙΑΓΡΑΦΗ */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3"><AlertTriangle className="w-5 h-5 text-blue-500" />7. Πολιτική Αναστολής & Λύσης Συνεργασίας</h2>
-            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-4 text-zinc-400 hover:border-white/10 transition-colors">
+          <section id="term-7" className="space-y-4 scroll-mt-28">
+            <h2 className="text-xl font-black text-white flex items-start gap-3 leading-snug"><AlertTriangle className="w-5 h-5 text-[#ccff00]" />7. Πολιτική Αναστολής & Λύσης Συνεργασίας</h2>
+            <div className="bg-[#111819] p-6 rounded-2xl border border-white/10 space-y-4 text-zinc-300 hover:border-[#ccff00]/30 transition-colors">
               <p>Η ILUMA Digital Agency διατηρεί το δικαίωμα άμεσης αναστολής ή οριστικής διαγραφής του σταθμού/λογαριασμού σας, αζημίως, σε περιπτώσεις μακροχρόνιας τεχνικής αδυναμίας (downtime), λήψης DMCA, ή καταχρηστικής συμπεριφοράς.</p>
             </div>
           </section>
 
           {/* 🟢 8. ΡΗΤΗ ΣΥΓΚΑΤΑΘΕΣΗ */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3">
-              <ShieldCheck className="w-5 h-5 text-blue-500" />
+          <section id="term-8" className="space-y-4 scroll-mt-28">
+            <h2 className="text-xl font-black text-white flex items-start gap-3 leading-snug">
+              <ShieldCheck className="w-5 h-5 text-[#ccff00]" />
               8. Ρητή Συγκατάθεση Προσθήκης Σταθμών & Περιεχομένου
             </h2>
-            <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-4 text-zinc-400 hover:border-white/10 transition-colors">
+            <div className="bg-[#111819] p-6 rounded-2xl border border-white/10 space-y-4 text-zinc-300 hover:border-[#ccff00]/30 transition-colors">
               <p>Με την αποδοχή της παρούσας, παρέχετε τη <strong>ρητή, ειδική και ανεπιφύλακτη συγκατάθεσή σας</strong> προς την ILUMA Digital Agency προκειμένου να:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>Εντάξει, κατηγοριοποιήσει και προβάλλει τους ραδιοφωνικούς σταθμούς που καταχωρείτε στον παγκόσμιο κατάλογο του iRadios.</li>
@@ -167,57 +191,48 @@ export default function TermsBroadcasters({ API_URL, currentUser }) {
             </div>
           </section>
 
-        </div>
-
-        {/* 🟢 ACTION BAR (Sticky Bottom) - ΚΡΥΜΜΕΝΟ ΓΙΑ ADMIN */}
-        {currentUser && currentUser.role !== 'admin' && (
-          <div className="fixed bottom-20 md:bottom-24 left-0 w-full bg-zinc-950/90 backdrop-blur-xl border-t-2 border-[#ccff00]/30 p-6 z-[9999] shadow-[0_-10px_40px_rgba(0,0,0,0.8)]">
-            <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-              
-              {hasAlreadyAccepted ? (
-                <div className="flex w-full items-center justify-between">
-                  <div className="flex items-center gap-3 text-green-500">
-                    <CheckSquare size={24} />
-                    <span className="font-bold text-sm uppercase tracking-widest">Έχετε αποδεχτεί τους όρους</span>
-                  </div>
-                  <button 
-                    onClick={() => navigate('/studio')}
-                    className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-xs tracking-widest rounded-xl transition-all"
-                  >
-                    Μεταβαση στο Studio
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div 
-                    className="flex items-center gap-4 cursor-pointer group flex-1"
-                    onClick={() => setIsChecked(!isChecked)}
-                  >
-                    <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors shrink-0 ${isChecked ? 'bg-blue-500 border-blue-500' : 'bg-black border-zinc-600 group-hover:border-blue-500'}`}>
-                      {isChecked && <CheckSquare size={16} className="text-white" />}
-                    </div>
-                    <span className="text-xs md:text-sm text-zinc-400 font-medium select-none">
-                      Διάβασα, κατανοώ πλήρως και <strong className="text-white">αποδέχομαι ανεπιφύλακτα</strong> τους παρόντες όρους B2B συνεργασίας.
-                    </span>
-                  </div>
-
-                  <button 
-                    onClick={handleAcceptTerms}
-                    disabled={!isChecked || isSubmitting}
-                    className="w-full md:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-xs tracking-widest rounded-xl transition-all disabled:opacity-30 disabled:hover:bg-blue-600 flex items-center justify-center gap-2"
-                  >
-                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
-                    Αποδοχη & Μεταβαση στο Studio
-                  </button>
-                  {submitError && <p role="alert" className="text-red-400 text-xs font-medium max-w-md">{submitError}</p>}
-                </>
-              )}
-
+<section id="term-9" className="scroll-mt-28 space-y-4">
+  <h2 className="flex items-center gap-3 text-xl font-black text-white"><Radio size={22} className="shrink-0 text-[#ccff00]"/>9. Καταχώριση, Έγκριση & Πληροφορίες Σταθμών</h2>
+  <div className="space-y-4 rounded-2xl border border-white/10 bg-[#111819] p-6 text-zinc-300">
+    <p>Ο Broadcaster οφείλει να καταχωρίζει αληθή και ενημερωμένα στοιχεία ταυτότητας, συχνότητας, ιστοσελίδας, stream, προγράμματος και επικοινωνίας. Δηλώνει ότι νομιμοποιείται να διαχειρίζεται τους αντίστοιχους σταθμούς.</p>
+    <p>Η καταχώριση σταθμού, καθώς και οι προτεινόμενες αλλαγές δημόσιων πληροφοριών, μπορούν να υπόκεινται σε διαχειριστικό έλεγχο. Η δημιουργία λογαριασμού δεν αποτελεί αυτόματη έγκριση δημοσίευσης σταθμού.</p>
+    <p>Ο Broadcaster είναι υπεύθυνος για τη λειτουργία και τη νομιμότητα της πηγής μετάδοσής του. Η πλατφόρμα δεν εγγυάται τη διαθεσιμότητα ή απόδοση εξωτερικών streaming υποδομών.</p>
+  </div>
+</section>
+<section id="term-10" className="scroll-mt-28 space-y-4">
+  <h2 className="flex items-center gap-3 text-xl font-black text-white"><MailCheck size={22} className="shrink-0 text-[#ccff00]"/>10. Επιβεβαίωση Email, Συνεδρίες & Προσκλήσεις</h2>
+  <div className="space-y-4 rounded-2xl border border-white/10 bg-[#111819] p-6 text-zinc-300">
+    <p>Για την πρόσβαση στο Broadcaster Backoffice απαιτείται επιβεβαίωση της διεύθυνσης email με προσωρινό σύνδεσμο μίας χρήσης. Η δημιουργία λογαριασμού ή η είσοδος χωρίς επαλήθευση δεν παρέχει δικαίωμα διαχείρισης.</p>
+    <p>Η αποδοχή πρόσκλησης σταθμού επιτρέπεται μόνο από επαληθευμένο λογαριασμό με το email της πρόσκλησης και αποδοχή της ισχύουσας έκδοσης των όρων. Οι προσκλήσεις έχουν περιορισμένη διάρκεια και μπορούν να ανακληθούν.</p>
+    <p>Ο Broadcaster φέρει ευθύνη να χορηγεί και να ανακαλεί εγκαίρως δικαιώματα πρόσβασης στους παραγωγούς και τους συνεργάτες του.</p>
+  </div>
+</section>
+<section id="term-11" className="scroll-mt-28 space-y-4">
+  <h2 className="flex items-center gap-3 text-xl font-black text-white"><ShieldCheck size={22} className="shrink-0 text-[#ccff00]"/>11. Προσωπικά Δεδομένα, Υλικό & Προβολή</h2>
+  <div className="space-y-4 rounded-2xl border border-white/10 bg-[#111819] p-6 text-zinc-300">
+    <p>Η επεξεργασία προσωπικών δεδομένων διέπεται από την <Link to="/privacy" className="font-bold text-[#ccff00] underline underline-offset-4">Πολιτική Απορρήτου</Link> του iRadios. Ο Broadcaster δηλώνει ότι διαθέτει τις απαιτούμενες άδειες ή συγκαταθέσεις για ονόματα και φωτογραφίες παραγωγών, λογότυπα και λοιπό υλικό.</p>
+    <p>Τα στατιστικά δεδομένα αποτελούν τεχνικές μετρήσεις και ενδέχεται να επηρεάζονται από VPN, αποκλεισμούς δικτύου, συσκευές και εξωτερικούς παρόχους. Δεν αποτελούν εγγυημένο αριθμό μοναδικών φυσικών προσώπων.</p>
+    <p>Οι αναβαθμίσεις Premium, τα Add-ons και τα Boost ενεργοποιούνται σύμφωνα με τα δικαιώματα του λογαριασμού ή του συγκεκριμένου σταθμού και τους ειδικότερους όρους κάθε ενεργοποίησης. Η προβολή Boost δεν εγγυάται συγκεκριμένο αριθμό ακροατών ή εμπορικό αποτέλεσμα.</p>
+  </div>
+</section>
             </div>
-          </div>
-        )}
-
+            <section id="acceptance" className="scroll-mt-28 rounded-[32px] border border-[#ccff00]/30 bg-gradient-to-br from-[#263519] to-[#101817] p-6 sm:p-9">
+              <div className="flex items-center gap-3"><ShieldCheck size={30} className="text-[#ccff00]"/><h2 className="text-xl font-black sm:text-2xl">Αποδοχή όρων συνεργασίας</h2></div>
+              {status==='loading'?<p role="status" className="mt-6 flex items-center gap-3 text-sm text-zinc-300"><Loader2 className="animate-spin" size={18}/> Έλεγχος σύνδεσης…</p>:
+                !account?<div className="mt-5 space-y-5"><p className="text-sm leading-7 text-zinc-300">Μπορείς να διαβάσεις τους όρους ελεύθερα. Για αποδοχή απαιτείται επιβεβαιωμένος λογαριασμός Broadcaster.</p><div className="flex flex-wrap gap-3"><Link to="/broadcast/register" className="inline-flex items-center gap-2 rounded-xl bg-[#ccff00] px-5 py-3 text-sm font-black text-black">Εγγραφή Broadcaster <ArrowRight size={17}/></Link><Link to={'/login'+(inviteToken?'?invite='+encodeURIComponent(inviteToken):'')} className="rounded-xl border border-white/15 px-5 py-3 text-sm font-bold text-white hover:bg-white/10">Σύνδεση</Link></div></div>:
+                !broadcaster?<p className="mt-5 text-sm leading-7 text-zinc-300">Οι όροι είναι διαθέσιμοι για ανάγνωση. Η αποδοχή τους απαιτεί λογαριασμό Broadcaster.</p>:
+                !verified?<div className="mt-5 space-y-4"><p className="text-sm leading-7 text-amber-200">Το email σου πρέπει να επιβεβαιωθεί πριν από την αποδοχή της σύμβασης και την πρόσβαση στο Backoffice.</p><Link to="/broadcast/pending" className="inline-flex items-center gap-2 rounded-xl bg-[#ccff00] px-5 py-3 text-sm font-black text-black"><MailCheck size={18}/> Επιβεβαίωσε το email σου</Link></div>:
+                accepted?<div className="mt-5 space-y-4"><p className="flex items-center gap-3 text-sm font-black text-[#ccff00]"><CheckCircle2 size={22}/> Η ισχύουσα σύμβαση έχει ήδη γίνει αποδεκτή.</p><Link to={destination} className="inline-flex items-center gap-2 rounded-xl bg-[#ccff00] px-5 py-3 text-sm font-black text-black">Άνοιγμα Backoffice <ArrowRight size={17}/></Link></div>:
+                <form onSubmit={accept} className="mt-6 space-y-5"><p className="text-sm leading-7 text-zinc-300">Για να συνεχίσεις, αποδέξου ρητά την τρέχουσα έκδοση των όρων B2B.</p>
+                  <label className="flex cursor-pointer items-start gap-4 rounded-2xl border border-white/15 bg-black/20 p-5 text-sm leading-7 text-zinc-200"><input type="checkbox" checked={checked} onChange={event=>setChecked(event.target.checked)} required className="mt-1 h-5 w-5 shrink-0 accent-[#ccff00]"/><span>Διάβασα, κατανοώ και <strong className="text-white">αποδέχομαι τους όρους B2B συνεργασίας</strong>.</span></label>
+                  {error&&<p role="alert" className="rounded-xl border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-200">{error}</p>}
+                  <button type="submit" disabled={!checked||saving} className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#ccff00] px-6 py-4 text-sm font-black text-black transition hover:bg-[#e1ff79] disabled:cursor-not-allowed disabled:opacity-50">{saving?<Loader2 size={18} className="animate-spin"/>:<CheckSquare size={18}/>} Αποδέχομαι και συνεχίζω <ArrowRight size={17}/></button>
+                </form>}
+            </section>
+          </article>
+        </div>
       </div>
-    </div>
-  );
+    </main>
+    <footer className="border-t border-white/10 px-5 py-8 text-xs text-zinc-500"><div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-5"><span>iRadiosGR · Broadcaster Network</span><div className="flex gap-5"><Link to="/broadcast" className="hover:text-white">Broadcaster</Link><Link to="/privacy" className="hover:text-white">Απόρρητο</Link><Link to="/terms" className="hover:text-white">Γενικοί όροι</Link></div></div></footer>
+  </div>;
 }

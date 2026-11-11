@@ -2050,6 +2050,8 @@ function AppContent(){
   if(location.pathname==='/broadcast')return <GoBroadcast/>;
   if(location.pathname==='/broadcast/register')return <BroadcasterRegister/>;
   if(location.pathname==='/broadcast/pending')return <BroadcasterPending/>;
+  // Keep the B2B agreement completely player-free like /broadcast.
+  if(location.pathname==='/broadcaster-terms')return <TermsBroadcasters API_URL="/api"/>;
   if(location.pathname==='/verify-email')return <VerifyEmail API_URL="/api"/>;
   // Existing bookmarks remain functional, but operational pages now open
   // the separate management shell instead of instantiating radio playback.

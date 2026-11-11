@@ -3,7 +3,7 @@
 // This version identifies the existing B2B agreement displayed by TermsBroadcasters.
 // Increase CURRENT when the legal text changes; NEVER change LEGACY (historic records).
 const LEGACY_BROADCASTER_TERMS_VERSION = 'broadcaster-b2b-v1';
-const CURRENT_BROADCASTER_TERMS_VERSION = 'broadcaster-b2b-v1';
+const CURRENT_BROADCASTER_TERMS_VERSION = 'broadcaster-b2b-v2';
 
 function hasAcceptedCurrentBroadcasterTerms(user) {
   if (!user || user.role !== 'broadcaster' || user.hasAcceptedTerms !== true) {

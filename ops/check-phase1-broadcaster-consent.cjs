@@ -33,7 +33,21 @@ const response = withBroadcasterTermsStatus({
 assert.equal(response.password,undefined);
 assert.equal(response.verificationOtp,undefined);
 assert.equal(response.resetPasswordToken,undefined);
-assert.equal(response.hasAcceptedCurrentBroadcasterTerms,true);
+assert.equal(response.hasAcceptedCurrentBroadcasterTerms,
+ CURRENT_BROADCASTER_TERMS_VERSION === LEGACY_BROADCASTER_TERMS_VERSION,
+ 'prior agreement consent cannot silently approve changed B2B terms');
 assert.equal(response.requiredBroadcasterTermsVersion,CURRENT_BROADCASTER_TERMS_VERSION);
 assert.equal(response.termsAcceptedAt.getFullYear(),2025);
 console.log('Phase 1 broadcaster consent compatibility tests passed.');
+
+const fs=require('node:fs'),path=require('node:path');
+const app=fs.readFileSync(path.join(__dirname,'../frontend/src/App.jsx'),'utf8');
+const terms=fs.readFileSync(path.join(__dirname,'../frontend/src/pages/TermsBroadcasters.jsx'),'utf8');
+assert.ok(app.includes("if(location.pathname==='/broadcaster-terms')return <TermsBroadcasters API_URL=\"/api\"/>;"),
+ 'Broadcaster agreement loads outside the player MainApp');
+assert.ok(terms.includes("window.location.assign(destination)")&&terms.includes("'/backoffice'")&&!terms.includes("navigate('/studio')"),
+ 'Accepted agreement routes directly to the isolated Backoffice');
+assert.ok(terms.includes("requiredBroadcasterTermsVersion")&&terms.includes("'/auth/me'"),
+ 'Accepting terms requires a signed account and current legal version');
+assert.ok(terms.includes('id="term-11"')&&terms.includes('type="checkbox"'),
+ 'All 11 legal sections and explicit consent control remain visible');
