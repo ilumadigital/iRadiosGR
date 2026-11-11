@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {createDSPGraph,applyDSPGraph,applyListenerMode,updateAdaptiveDSP,normalizeListenerMode,DSP_DEFAULTS,DSP_COMPRESSOR_DEFAULTS} from '../utils/dspEngine';
+import {createDSPGraph,applyDSPGraph,applyListenerMode,updateAdaptiveDSP,resetAdaptiveDSP,normalizeListenerMode,DSP_DEFAULTS,DSP_COMPRESSOR_DEFAULTS} from '../utils/dspEngine';
 
 // Listener and broadcaster audition use the same processing rules. The audio
 // element is attached only once; station changes reconfigure the existing graph.
@@ -10,6 +10,7 @@ export default function useAudioDSP(
   const graphRef=useRef(null);
   const audioCtxRef=useRef(null);
   const analyserRef=useRef(null);
+  const lastStationScopeRef=useRef('');
   const [isDspReady,setIsDspReady]=useState(false);
 
   const unsupportedDevice=(()=>{
@@ -60,6 +61,11 @@ export default function useAudioDSP(
   useEffect(()=>{
     const graph=graphRef.current;
     if(!graph||!isDspReady)return;
+    const nextScope=(currentStation?._id||'none')+':'+Boolean(isPlayingAd);
+    if(lastStationScopeRef.current!==nextScope){
+      resetAdaptiveDSP(graph);
+      lastStationScopeRef.current=nextScope;
+    }
     let preset='OFF',settings=DSP_DEFAULTS,compressor=DSP_COMPRESSOR_DEFAULTS,clipper,autoBalance=0;
     let personalMode='DEFAULT';
     if(isPlayingAd){
