@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {legacyRights,effectiveRights,projectUserEntitlements}=require('../services/billingEntitlementRules');
+const {effectiveRights,projectUserEntitlements}=require('../services/billingEntitlementRules');
 const NOW=new Date('2026-11-15T12:00:00Z');
 const account={_id:'account-1',role:'broadcaster',
  broadcasterProfile:{tier:'free',maxStations:3,features:{dspEngine:false,analytics:false,adControl:false}}};
@@ -37,13 +37,13 @@ test('Complimentary benefits are isolated between accounts',()=>{
   const stranger={...account,_id:'account-2'};
   assert.deepEqual(effectiveRights(stranger,[a],{now:NOW}),[]);
 });
-test('Expiry and revocation remove gifts but preserve legacy manual Premium',()=>{
+test('Expiry and revocation remove gifted rights and never re-enable legacy Broadcaster Premium',()=>{
   const legacy={...account,broadcasterProfile:{tier:'premium',features:{dspEngine:false,analytics:false,adControl:false}}};
-  assert.ok(legacyRights(legacy).includes('broadcaster.unlimited_stations'));
+  assert.deepEqual(effectiveRights(legacy,[],{now:NOW}),[]);
   const expired={...grant('ADD-DSP','station','station-1'),expiresAt:new Date('2026-11-14T00:00:00Z')};
   const revoked={...grant('ADD-ADS','station','station-1'),revokedAt:new Date('2026-11-13T00:00:00Z')};
   assert.deepEqual(effectiveRights(account,[expired,revoked],{stationId:'station-1',now:NOW}),[]);
-  assert.ok(effectiveRights(legacy,[expired,revoked],{now:NOW}).includes('broadcaster.unlimited_stations'));
+  assert.deepEqual(effectiveRights(legacy,[expired,revoked],{now:NOW}),[]);
 });
 test('Listener grant projects premium to response only, no synthetic payment subscription',()=>{
   const listener={_id:'u-1',role:'user',isPremium:false,activeSubscriptions:[],subscriptionStatus:null};
@@ -55,10 +55,10 @@ test('Listener grant projects premium to response only, no synthetic payment sub
   assert.equal(listener.isPremium,false);
   assert.equal(view.billingAutomaticRenewalsAvailable,false);
 });
-test('An existing manual station feature remains available until audited migration',()=>{
+test('Old manual station flags have no entitlement authority after migration',()=>{
   const user={...account,broadcasterProfile:{tier:'free',features:{analytics:true}}};
-  assert.deepEqual(legacyRights(user),['broadcaster.analytics']);
-  assert.deepEqual(effectiveRights(user,[],{now:NOW}),['broadcaster.analytics']);
+  assert.deepEqual(effectiveRights(user,[],{now:NOW}),[]);
+  assert.equal(projectUserEntitlements(user,[]).broadcasterProfile.features.analytics,false);
 });
 test('Agency gifts are scoped to one campaign only',()=>{
   const agency={_id:'agency-1',role:'agency'};
