@@ -1,5 +1,5 @@
 'use strict';
-// Offline checks: unique scoped promotion, snapshot-only Now Playing and compact 70/30 layout.
+// Offline checks: unique scoped promotion, guest-safe schedule presentation and compact 70/30 layout.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
