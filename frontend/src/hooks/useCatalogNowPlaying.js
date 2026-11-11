@@ -1,17 +1,22 @@
 import {useEffect,useState} from 'react';
 import {getAthensClock} from '../utils/schedule';
 // One catalog snapshot per minute; never one request per station.
-export default function useCatalogNowPlaying(){
+export default function useCatalogNowPlaying(currentUser){
   const [byId,setById]=useState({});
   const [clock,setClock]=useState(()=>getAthensClock());
   useEffect(()=>{
+    setById({}); // Purge old account's song titles on logout or entitlement changes.
     let active=true,inFlight=false,request;
     const load=async()=>{
       if(!active||inFlight||document.hidden)return;
       inFlight=true;
       request=new AbortController();
       try{
-        const response=await fetch('/api/catalog/now-playing',{signal:request.signal});
+        const token=localStorage.getItem('iluma_token');
+        const response=await fetch('/api/catalog/now-playing',{
+          signal:request.signal,cache:'no-store',
+          ...(token?{headers:{Authorization:'Bearer '+token}}:{})
+        });
         if(!response.ok)throw new Error('Catalog now-playing unavailable');
         const data=await response.json();
         if(active)setById(data?.stations&&typeof data.stations==='object'?data.stations:{});
@@ -27,7 +32,7 @@ export default function useCatalogNowPlaying(){
       active=false;request?.abort();clearInterval(timer);
       document.removeEventListener('visibilitychange',onVisible);
     };
-  },[]);
+  },[currentUser?._id,currentUser?.isPremium,currentUser?.broadcasterProfile?.tier]);
   // Drop ACRCloud titles at the server's exact four-minute deadline,
   // even if the catalog GET is cached or the next polling cycle has not run.
   useEffect(()=>{

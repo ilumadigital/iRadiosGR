@@ -4,6 +4,7 @@ const Station=require('../models/Station');
 const Playlist=require('../models/StationPlaylist');
 const {snapshotSong}=require('../utils/stageNativeNow');
 const {parseTrack}=require('../utils/recordStationTrack');
+const {catalogViewer,catalogEntryForViewer}=require('../services/nowPlayingVisibility');
 let cached=null,cacheUntil=0,pending=null;
 async function load(){
   const now=Date.now();
@@ -28,7 +29,7 @@ async function load(){
   }
   return {stations};
 }
-exports.publicCatalogNowPlaying=async(_req,res)=>{
+exports.publicCatalogNowPlaying=async(req,res)=>{
   try{
     if(!cached||Date.now()>=cacheUntil){
       if(!pending)pending=load().then(value=>{
@@ -36,8 +37,16 @@ exports.publicCatalogNowPlaying=async(_req,res)=>{
       }).finally(()=>{pending=null;});
       await pending;
     }
-    res.setHeader('Cache-Control','public, max-age=20, stale-while-revalidate=15');
-    return res.json(cached);
+    const viewer=await catalogViewer(req);
+    const stations={};
+    for(const [id,value] of Object.entries(cached.stations)){
+      const item=catalogEntryForViewer(value,viewer);
+      if(item)stations[id]=item;
+    }
+    // Never let a shared CDN or browser cache a Premium response for a guest.
+    res.setHeader('Cache-Control','private, no-store');
+    res.setHeader('Vary','Authorization');
+    return res.json({stations});
   }catch{
     return res.status(503).json({error:'Τα ζωντανά στοιχεία δεν είναι προσωρινά διαθέσιμα.'});
   }

@@ -7,6 +7,7 @@ const {statusFromNative,hydrateSharedAI} = require('./stageSmartTracks');
 const Playlist = require('../models/StationPlaylist');
 const {rememberNativeSong,clearInvalidNativeSong,rememberNativeShow,clearNativeShow,broadcastHint,snapshotSong} = require('./stageNativeNow');
 const { readPublicUrl } = require('./stageSafeRadioFetch');
+const {protectedViewer,snapshotForViewer}=require('../services/nowPlayingVisibility');
 
 const cache = new Map();
 const CACHE_MS = 15000;
@@ -179,7 +180,8 @@ async function stageMetadata(req,res){
     // hosts from an API read. Background workers prefetch every two minutes.
     const snapshot=await Playlist.findOne({stationId:station._id})
       .select('nativeNow currentAI nativeShow').lean();
-    return res.json(snapshotSong(snapshot)||{title:'',source:'none',foundWithAI:false});
+    const viewer=await protectedViewer(req);
+    return res.json(snapshotForViewer(snapshotSong(snapshot),viewer));
   }catch{
     return res.status(503).json({title:'',source:'none',foundWithAI:false});
   }

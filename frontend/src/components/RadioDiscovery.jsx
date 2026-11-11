@@ -19,6 +19,7 @@ const DiscoverySlide = ({ station, isActive, onPlayLive, toggleFavorite, isFavor
   const [showBigHeart, setShowBigHeart] = useState(false);
   const [copied, setCopied] = useState(false);
   const [nowPlaying, setNowPlaying] = useState('');
+  const [aiTeaser,setAiTeaser]=useState(false);
   const [coverArt, setCoverArt] = useState(null); // 🟢 State για το cover art
 
   const isLoggedIn = !!currentUser;
@@ -39,7 +40,8 @@ const DiscoverySlide = ({ station, isActive, onPlayLive, toggleFavorite, isFavor
   // 1. Fetch Metadata & Cover Art
   useEffect(() => {
     let interval;
-    if (!isActive || !station) { 
+    if (!isActive || !station || !isLoggedIn) { 
+      setAiTeaser(false);
       setNowPlaying(''); 
       setCoverArt(null); 
       return; 
@@ -47,8 +49,14 @@ const DiscoverySlide = ({ station, isActive, onPlayLive, toggleFavorite, isFavor
     
     const fetchMeta = async () => {
       try {
-        const res = await fetch(`${safeApiUrl}/metadata?stream=${encodeURIComponent(station.stream)}`);
+        const token=localStorage.getItem('iluma_token');
+        if(!token)return;
+        const res = await fetch(`${safeApiUrl}/metadata?stream=${encodeURIComponent(station.stream)}`,{
+          headers:{Authorization:'Bearer '+token},cache:'no-store'
+        });
+        if(!res.ok)throw new Error('Metadata unavailable');
         const data = await res.json();
+        setAiTeaser(data?.premiumOnly===true);
         
         if (data && data.title) {
           const cleanTitle = cleanMetadata(data.title);
@@ -78,6 +86,7 @@ const DiscoverySlide = ({ station, isActive, onPlayLive, toggleFavorite, isFavor
           setCoverArt(null);
         }
       } catch (e) { 
+        setAiTeaser(false);
         setNowPlaying(''); 
         setCoverArt(null);
       }
@@ -86,7 +95,7 @@ const DiscoverySlide = ({ station, isActive, onPlayLive, toggleFavorite, isFavor
     fetchMeta(); 
     interval = setInterval(fetchMeta, 15000);
     return () => { if (interval) clearInterval(interval); };
-  }, [isActive, station, safeApiUrl]);
+  }, [isActive, station, safeApiUrl, isLoggedIn]);
 
   // 2. Play Audio & Initialize Real-Time Visualizer
   useEffect(() => {
@@ -256,7 +265,10 @@ const DiscoverySlide = ({ station, isActive, onPlayLive, toggleFavorite, isFavor
 
         {/* NOW PLAYING METADATA */}
         <div className="h-8 flex items-center justify-center mb-4">
-          {nowPlaying ? (
+          {aiTeaser ? (
+             <a href="/premium" onClick={event=>event.stopPropagation()}
+               className="text-center text-xs font-black text-[#ccff00] hover:underline">✦ AI ανακάλυψη από Premium μέλος · Δες το με Premium</a>
+           ) : nowPlaying ? (
             <p className="text-[#ccff00] text-sm md:text-base font-bold text-center px-4 line-clamp-1 max-w-[300px] md:max-w-md drop-shadow-md">
               {nowPlaying}
             </p>

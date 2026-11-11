@@ -89,7 +89,7 @@ async function run(){
   assert.equal(feed.headers['Cache-Control'],'private, no-store');
 
   const live=response();
-  await stage.stageMetadata({query:{stationId:id}},live);
+  await stage.stageMetadata({query:{stationId:id},user:{role:'admin'}},live);
   assert.equal(live.body.title,'Daft Punk - One More Time','profile gets last native song');
   assert.equal(upstreamInApi,0,'GET metadata MUST NOT fetch any remote metadata');
   assert.equal(live.body.source,'station');
@@ -123,7 +123,7 @@ async function run(){
   doc.currentAI.kind='manual';
   doc.currentAI.recognizedAt=new Date(now+150000);
   const nativeRead=response();
-  await stage.stageMetadata({query:{stationId:id}},nativeRead);
+  await stage.stageMetadata({query:{stationId:id},user:{role:'admin'}},nativeRead);
   assert.equal(nativeRead.body.source,'acrcloud','manual AI fallback visible after invalid metadata');
   assert.equal(upstreamInApi,0);
 

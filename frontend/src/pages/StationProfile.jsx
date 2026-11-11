@@ -90,10 +90,11 @@ export default function StationProfile({
   ];
 
   const useGlobal=Boolean(currentUser&&isThisPlaying&&isPlaying&&
-    (globalNowPlaying||globalNowPlayingInfo?.broadcastHint)&&
+    (globalNowPlaying||globalNowPlayingInfo?.premiumOnly||globalNowPlayingInfo?.broadcastHint)&&
     !LOADING_MESSAGES.includes(globalNowPlaying));
   const effectiveNowPlaying=currentUser?(useGlobal?globalNowPlaying:localNowPlaying):null;
   const currentMetadataInfo=useGlobal?globalNowPlayingInfo:localNowPlayingInfo;
+  const aiPremiumTeaser=Boolean(currentUser&&currentMetadataInfo?.premiumOnly===true);
   const localBroadcast=resolveLiveShowArtwork({
     station,nowPlaying:effectiveNowPlaying,nowPlayingInfo:currentMetadataInfo,clock:athensClock
   });
@@ -144,6 +145,7 @@ export default function StationProfile({
           setLocalNowPlaying(title);
           setLocalNowPlayingInfo({source:data?.source||'none',
             foundWithAI:Boolean(title&&data?.foundWithAI),
+            premiumOnly:data?.premiumOnly===true,
             broadcastHint:typeof data?.broadcastHint==='string'?data.broadcastHint:''});
         }
       }catch{
@@ -168,6 +170,9 @@ export default function StationProfile({
     if (!currentUser) {
       showAlert("Συνδέσου στο iRadios για να βρεις ποιο τραγούδι παίζει.");
       return;
+    }
+    if (!(currentUser.role==='admin'||currentUser.isPremium===true||currentUser?.broadcasterProfile?.tier==='premium')) {
+      navigate('/premium');return;
     }
     if (handleRecognizeTrack) handleRecognizeTrack();
   };
@@ -575,6 +580,12 @@ export default function StationProfile({
                   </div>
                   <h2 className="ir-station-track-title">{validatedMusic?.title||effectiveNowPlaying}</h2>
                   {validatedMusic?.artist&&<p className="ir-station-track-artist">{validatedMusic.artist}</p>}
+                </div>
+              ) : aiPremiumTeaser ? (
+                <div className="flex flex-col items-start gap-2 text-left" role="status">
+                  <span className="text-xs font-black text-[#ccff00]">✦ Premium μέλος ανακάλυψε τραγούδι με AI</span>
+                  <p className="text-sm text-zinc-300">Ξεκλείδωσε τίτλο και καλλιτέχνη με το iRadios Premium.</p>
+                  <button type="button" onClick={()=>navigate('/premium')} className="rounded-xl bg-[#ccff00] px-4 py-2 text-xs font-black text-black">Αναβάθμιση σε Premium</button>
                 </div>
               ) : !currentUser ? (
                 <button type="button" onClick={()=>navigate('/login')} className="min-h-11 text-left text-sm font-bold text-[#ccff00] hover:underline">

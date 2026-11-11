@@ -353,6 +353,8 @@ export default function MobileMiniPlayer({
                     isRecognizing ? 'Αναγνώριση…' :
                     isActualSong ? currentTrack.artist :
                     (liveBroadcast?.show?.host || (currentUser ? 'στο iRadiosGR' : 'Συνδέσου στο iRadios για NowPlaying'))}</p>
+                {nowPlayingInfo?.premiumOnly&&!isPlayingAd&&<a href="/premium"
+                  className="text-xs font-bold text-[#ccff00] underline underline-offset-2">✦ AI ανακάλυψη από Premium μέλος · Αναβάθμιση</a>}
                 {visibleSong && !isPlayingAd && nowPlayingInfo?.foundWithAI &&
                   <FoundWithAI compact className="ir-glass-found-ai"/>}
               </div>

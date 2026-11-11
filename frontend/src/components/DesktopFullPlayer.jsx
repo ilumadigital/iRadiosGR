@@ -95,7 +95,9 @@ export default function DesktopFullPlayer({
             {!isPlayingAd&&<OnAirShowCard show={currentShow} stationName={station.name}
               className="mt-[clamp(0.45rem,1.8dvh,1rem)]"/>}
             {isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-300">{currentAdInfo?.title||'Διαφημιστικό διάλειμμα'}{Number.isFinite(adTimeRemaining)?' · '+adTimeRemaining+'″':''}</p>}
-            {!isPlayingAd&&!validTitle&&!showProducerArt&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">{currentUser?'Δεν γνωρίζουμε ποιο τραγούδι παίζει αυτή τη στιγμή.':'Συνδέσου στο iRadios για NowPlaying'}</p>}
+            {!isPlayingAd&&!validTitle&&!showProducerArt&&nowPlayingInfo?.premiumOnly&&<a href="/premium"
+              className="ir-desktop-player-show mt-2 inline-block text-xs font-black text-[#ccff00] hover:underline">✦ Premium μέλος ανακάλυψε τραγούδι με AI · Δες το με Premium</a>}
+            {!isPlayingAd&&!validTitle&&!showProducerArt&&!nowPlayingInfo?.premiumOnly&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">{currentUser?'Δεν γνωρίζουμε ποιο τραγούδι παίζει αυτή τη στιγμή.':'Συνδέσου στο iRadios για NowPlaying'}</p>}
             {!isPlayingAd && !isRecognizing && (
               <MusicServiceLinks song={nowPlaying} stationName={station.name}
                 currentUser={currentUser} compact className="ir-music-links--desktop-player" />

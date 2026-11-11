@@ -97,7 +97,7 @@ const CITY_COORDINATES = {
 export default function Home({ stations, weather, currentStation, setCurrentStation, userLocation, checkGeoMatch, isPlaying, onPlayPause, currentUser, analyser, onOpenDiscovery, onOpenSmartSearch, API_URL }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying();
+  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying(currentUser);
   const rankedStations=useMemo(()=>[...stations].sort((a,b)=>
     compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock)),[stations,catalogNowPlaying,catalogClock]);
   const [heroStationId,setHeroStationId] = useState(null);

@@ -124,16 +124,19 @@ export default function StationPlaylistPanel({
         <p className="mt-2 text-xs text-zinc-500">Τα τραγούδια θα εμφανιστούν εδώ μόλις τα μάθουμε.</p>
       </div>:null}
       {tracks.length>0&&<div className={`ir-playlist-tracks mt-3 min-h-0 divide-y divide-white/5 overflow-y-auto pr-1 ${compact?'flex-1':'max-h-[560px]'}`} aria-live="polite">
-        {tracks.map((track,i)=><div key={track.raw+'-'+track.playedAt+'-'+i}
+        {tracks.map((track,i)=><div key={(track.raw||'ai-teaser')+'-'+track.playedAt+'-'+i}
           className={`ir-station-playlist-track flex min-w-0 items-center gap-3 rounded-lg px-2 py-2.5 ${i===0?'bg-[#ccff00]/10':''}`}>
-          <TrackCover track={track} fallback={chosen?.logo||'/iradios-app-logo.png'}/>
-          <div className="ir-station-playlist-song min-w-0 flex-1">
+          {!track.premiumOnly&&<TrackCover track={track} fallback={chosen?.logo||'/iradios-app-logo.png'}/>}
+          {track.premiumOnly?<div className="min-w-0 flex-1 text-left">
+            <p className="text-xs font-bold text-[#ccff00]">✦ Premium μέλος ανακάλυψε τραγούδι με AI</p>
+            <button type="button" onClick={()=>navigate('/premium')} className="mt-1 text-[11px] font-black text-white underline underline-offset-2 hover:text-[#ccff00]">Αναβάθμιση για να δεις το τραγούδι</button>
+          </div>:<div className="ir-station-playlist-song min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-white" title={track.title}>{track.title}</p>
             <p className="truncate text-xs text-zinc-400">{track.artist}</p>
             {track.source==='acrcloud'&&<FoundWithAI compact className="mt-1"/>}
-          </div>
+          </div>}
           <time dateTime={track.playedAt} className="ir-station-playlist-time shrink-0 text-[11px] tabular-nums text-zinc-500">{resolveTime(track.playedAt)}</time>
-          {mobileShowcase&&<div className="ir-playlist-track-more-wrap" ref={openTrackMenu===i?trackMenuRef:undefined}>
+          {mobileShowcase&&!track.premiumOnly&&<div className="ir-playlist-track-more-wrap" ref={openTrackMenu===i?trackMenuRef:undefined}>
             <button type="button" className="ir-playlist-track-more" aria-label={'Ενέργειες για ' + track.title}
               aria-expanded={openTrackMenu===i} aria-controls={'ir-playlist-track-menu-'+i}
               onClick={()=>setOpenTrackMenu(old=>old===i?null:i)}><MoreHorizontal size={17}/></button>

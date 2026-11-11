@@ -36,6 +36,7 @@ export default function RadioGeoMap({
   centerName,
   nowPlayingById,
   catalogClock,
+  currentUser,
   sortMode,
   rankingScope = 'global',
   rankingValue = '',
@@ -292,13 +293,16 @@ export default function RadioGeoMap({
                         ? formatFMFrequency(station.frequency) + ' · ' : ''}
                       {station.genre || station.region || 'Live Radio'}
                     </span>
-                    {live?.song&&<span className="mt-1 block truncate text-[10px] text-[#e5f2c9]">
+                    {currentUser&&live?.song&&<span className="mt-1 block truncate text-[10px] text-[#e5f2c9]">
                       {live.song.artist} — {live.song.title}
                     </span>}
+                    {live?.premiumOnly&&<span className="mt-1 block text-[10px] font-semibold text-[#ccff00]">✦ AI ανακάλυψη από Premium μέλος</span>}
                     {(live?.host||live?.showTitle)&&<span className="mt-0.5 block truncate text-[10px] text-zinc-400">
                       Στον αέρα: {live.host||live.showTitle}
                     </span>}
                   </button>
+                  {live?.premiumOnly&&<button type="button" onClick={()=>navigate('/premium')}
+                    className="shrink-0 rounded-lg border border-[#ccff00]/40 px-2 py-1.5 text-[10px] font-black text-[#ccff00]">Premium</button>}
                   <button type="button"
                     disabled={offline}
                      aria-label={(offline ? 'OFFLINE' : playing ? 'Παύση' : 'Αναπαραγωγή') + ' ' + station.name}

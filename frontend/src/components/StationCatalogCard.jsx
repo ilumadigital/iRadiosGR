@@ -8,7 +8,7 @@ import {catalogStationInfo} from '../utils/catalogLive';
 // Keep playback and station profile as two separate accessible actions.
 export default function StationCatalogCard({
   station,currentStation,isPlaying,onPlayStation,onPlayPause,mode='grid',
-  nowPlaying,clock
+  nowPlaying,clock,currentUser
 }){
   const navigate=useNavigate();
   const active=stationIsPlaying(station,currentStation,isPlaying);
@@ -40,15 +40,17 @@ export default function StationCatalogCard({
           <MapPin size={14} className="shrink-0 text-[#ccff00]/70"/>
           <span className="truncate">{station.city||station.region||'Online'}</span>
         </span>
-        <span className="flex min-w-0 items-start gap-2">
+        {currentUser&&<span className="flex min-w-0 items-start gap-2">
           <AudioLines size={15} className={'mt-0.5 shrink-0 '+(info.song?'text-[#ccff00]':'text-zinc-600')}/>
           <span className="min-w-0">
             <span className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500">Παίζει τώρα{info.song&&info.foundWithAI?' · AI':''}</span>
-            {info.song?
-              <span className="mt-0.5 block truncate text-xs font-semibold text-white" title={info.song.artist+' - '+info.song.title}>{info.song.artist} — {info.song.title}</span>
-              :<span className="mt-0.5 block text-xs text-zinc-600">—</span>}
+            {info.premiumOnly?
+              <span className="mt-0.5 block text-xs font-bold text-[#ccff00]">Premium μέλος ανακάλυψε τραγούδι με AI</span>
+              :info.song?
+                <span className="mt-0.5 block truncate text-xs font-semibold text-white" title={info.song.artist+' - '+info.song.title}>{info.song.artist} — {info.song.title}</span>
+                :<span className="mt-0.5 block text-xs text-zinc-600">—</span>}
           </span>
-        </span>
+        </span>}
         <span className="flex min-w-0 items-start gap-2">
           <Mic2 size={15} className={'mt-0.5 shrink-0 '+(info.host||info.showTitle?'text-[#ccff00]':'text-zinc-600')}/>
           <span className="min-w-0">
@@ -61,7 +63,11 @@ export default function StationCatalogCard({
           </span>
         </span>
       </button>
-      <div className="w-full shrink-0 sm:w-auto lg:ml-auto">{listen}</div>
+      <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto lg:ml-auto">
+        {info.premiumOnly&&<button type="button" onClick={()=>navigate('/premium')}
+          className="rounded-lg border border-[#ccff00]/40 px-3 py-2 text-xs font-bold text-[#ccff00] hover:bg-[#ccff00]/10">Αναβάθμιση σε Premium</button>}
+        {listen}
+      </div>
     </article>
   );
   return (
@@ -84,6 +90,10 @@ export default function StationCatalogCard({
           <MapPin size={11} className="shrink-0"/><span className="truncate">{station.city||station.region||'Online'}</span>
         </p>
       </button>
+      {info.premiumOnly&&<div className="mt-2 flex flex-col gap-2 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/5 px-3 py-2">
+        <span className="text-[10px] font-semibold text-zinc-300">Premium μέλος ανακάλυψε τραγούδι με AI</span>
+        <button type="button" onClick={()=>navigate('/premium')} className="text-left text-[11px] font-black text-[#ccff00] hover:underline">Δες το με Premium</button>
+      </div>}
       <div className="mt-3">{listen}</div>
     </article>
   );

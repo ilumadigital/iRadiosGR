@@ -71,7 +71,10 @@ assert.equal(sono.toExistingRecognitionShape({matched:false,results:[]}).status.
   await assert.rejects(readPublicUrl('http://127.0.0.1/private'),/Non-public|Private|Invalid/);
   await assert.rejects(readPublicUrl('file:///etc/passwd'),/Unsupported|Invalid/);
   await assert.rejects(readPublicUrl('http://169.254.169.254/latest'),/Non-public|Private|Invalid/);
-  const req={query:{stream:station.stream,customMeta:'http://127.0.0.1/private'}};
+  // Phase C: endpoint song metadata is only visible to an authenticated user.
+  // Admin test identity bypasses paid entitlement lookup; no live accounts needed.
+  const req={user:{_id:'0123456789abcdef01234568',role:'admin'},
+    query:{stream:station.stream,customMeta:'http://127.0.0.1/private'}};
   const res={code:200,status(n){this.code=n;return this;},
     setHeader(){},json(body){this.body=body;return this;}};
   await meta.readCachedNativeMetadata(station);

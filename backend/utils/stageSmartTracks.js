@@ -4,6 +4,7 @@
 const Playlist=require('../models/StationPlaylist');
 const {parseTrack,recordStationTrack}=require('./recordStationTrack');
 const {VALID_FOR,snapshotSong}=require('./stageNativeNow');
+const {protectedViewer,liveTrackForViewer}=require('../services/nowPlayingVisibility');
 
 const results=new Map();
 const FOUR_MINUTES=4*60*1000;
@@ -110,7 +111,8 @@ async function stageLiveAI(req,res){
       return {stationId:String(doc.stationId),...item};
     }).filter(Boolean).sort((a,b)=>String(b.recognizedAt||b.changedAt||'')
       .localeCompare(String(a.recognizedAt||a.changedAt||'')));
-    return res.json({tracks});
+    const viewer=await protectedViewer(req);
+    return res.json({tracks:tracks.map(item=>liveTrackForViewer(item,viewer))});
   }catch{
     return res.status(503).json({tracks:[],error:'Now Playing temporarily unavailable'});
   }

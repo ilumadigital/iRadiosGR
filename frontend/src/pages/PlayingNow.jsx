@@ -9,13 +9,14 @@ import FoundWithAI from '../components/FoundWithAI';
 export default function PlayingNow({ stations = [], API_URL, currentUser }) {
   const navigate=useNavigate();
   const [liveStations,setLiveStations]=useState([]);
+  const [aiTeasers,setAiTeasers]=useState([]);
   const [isLoading,setIsLoading]=useState(true);
   const stripRef=useRef(null);
   const displayStations=liveStations;
 
   useEffect(()=>{
     if(!currentUser){
-      setLiveStations([]);setIsLoading(false);return;
+      setLiveStations([]);setAiTeasers([]);setIsLoading(false);return;
     }
     const controller=new AbortController();
     let running=false,alive=true;
@@ -26,13 +27,16 @@ export default function PlayingNow({ stations = [], API_URL, currentUser }) {
       running=true;
       try{
         const token=localStorage.getItem('iluma_token');
-        if(!token){setLiveStations([]);return;}
+        if(!token){setLiveStations([]);setAiTeasers([]);return;}
         const response=await fetch(`${API_URL}/metadata/live`,{
           headers:{Authorization:`Bearer ${token}`},signal:controller.signal
         });
         if(!response.ok)throw new Error('Music feed unavailable');
         const json=await response.json();
-        const next=(Array.isArray(json?.tracks)?json.tracks:[])
+        const entries=Array.isArray(json?.tracks)?json.tracks:[];
+        const teasers=entries.filter(entry=>entry?.premiumOnly===true)
+          .map(entry=>lookup.get(String(entry.stationId||''))).filter(Boolean);
+        const next=entries
           .map(entry=>{
             const station=lookup.get(String(entry.stationId||''));
             const music=parseMusicMetadata(entry.title,station?.name);
@@ -42,6 +46,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser }) {
               foundWithAI:entry.source==='acrcloud'&&entry.foundWithAI===true};
           }).filter(Boolean);
         if(alive){
+          setAiTeasers(teasers);
           // When the backend confirms the same song after two minutes,
           // the public card remains untouched: no re-render or cover refetch.
           setLiveStations(prev=>{
@@ -59,7 +64,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser }) {
           });
         }
       }catch(error){
-        if(error.name!=='AbortError'&&alive)setLiveStations([]);
+        if(error.name!=='AbortError'&&alive){setLiveStations([]);setAiTeasers([]);}
       }finally{
         if(alive)setIsLoading(false);
         running=false;
@@ -122,13 +127,17 @@ export default function PlayingNow({ stations = [], API_URL, currentUser }) {
           {Array.from({length:5},(_,i)=><div key={i} className="h-44 w-36 shrink-0 animate-pulse rounded-2xl bg-white/5"/>)}
         </div>
       }
-      {!isLoading && !displayStations.length &&
+      {!isLoading && !displayStations.length && !aiTeasers.length &&
         <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.025] p-6 text-center">
           <Radio size={27} className="mx-auto text-[#ccff00]/60"/>
           <p className="mt-3 text-sm text-zinc-300">Δεν έχουμε τραγούδια να σου δείξουμε αυτή τη στιγμή.</p>
           <p className="mt-1 text-xs text-zinc-500">Δοκίμασε ξανά σε λίγο ή ανακάλυψε άλλους σταθμούς.</p>
         </div>
       }
+      {!!aiTeasers.length&&<div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#ccff00]/25 bg-[#ccff00]/5 px-4 py-3" role="status">
+        <span className="flex-1 text-xs font-semibold text-zinc-200">✦ Premium μέλος ανακάλυψε τραγούδι με AI σε {aiTeasers.length} {aiTeasers.length===1?'σταθμό':'σταθμούς'}. Τα αποτελέσματα είναι διαθέσιμα στο Premium.</span>
+        <button type="button" onClick={()=>navigate('/premium')} className="rounded-lg bg-[#ccff00] px-3 py-2 text-xs font-black text-black">Δες τα με Premium</button>
+      </div>}
       {!!displayStations.length &&
         <div ref={stripRef} className="ir-now-playing-scroll flex snap-x gap-3 overflow-x-auto pb-3" aria-live="polite">
           {displayStations.map(item=>

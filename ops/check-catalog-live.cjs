@@ -19,7 +19,7 @@ assert.match(card,/Στον αέρα/);
 assert.match(card,/catalogStationInfo/);
 for(const name of ['Region','Genre']){
  const page=read('frontend/src/pages/'+name+'.jsx');
- assert.match(page,/useCatalogNowPlaying\(\)/);
+ assert.match(page,/useCatalogNowPlaying\(currentUser\)/);
  assert.match(page,/compareCatalogPopularity/);
  assert.match(page,/flex w-full min-w-0 flex-col gap-3/);
  assert.match(page,/nowPlaying=\{catalogNowPlaying\[String\(station\._id\)\]\}/);

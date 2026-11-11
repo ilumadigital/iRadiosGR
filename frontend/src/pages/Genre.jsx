@@ -17,7 +17,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
   const [sortBy, setSortBy] = useState('popularity');
   const [viewMode, setViewMode] = useState('grid');
   const [promotedStationId,setPromotedStationId] = useState(null);
-  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying();
+  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying(currentUser);
   useEffect(()=>setPromotedStationId(null),[genreName]);
   
   const [selectedRegion, setSelectedRegion] = useState('all');
@@ -276,7 +276,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
                 {/* Shared premium station card; profile navigation is separate from live playback. */}
                 <StationCatalogCard station={station} currentStation={currentStation} isPlaying={isPlaying}
                   onPlayStation={setCurrentStation} onPlayPause={onPlayPause} mode={viewMode}
-                  nowPlaying={catalogNowPlaying[String(station._id)]} clock={catalogClock} />
+                  nowPlaying={catalogNowPlaying[String(station._id)]} clock={catalogClock} currentUser={currentUser} />
               </React.Fragment>
             );
           })}

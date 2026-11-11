@@ -86,7 +86,7 @@ async function main(){
     {_id:'one',position:1,popularity:0})>0,true,'null position must not be ranked as zero');
   const map=read('frontend/src/components/RadioGeoMap.jsx');
   const rootMap=read('frontend/src/components/MapMode.jsx');
-  assert.match(rootMap,/useCatalogNowPlaying\(\)/);
+  assert.match(rootMap,/useCatalogNowPlaying\(currentUser\)/);
   assert.match(rootMap,/nowPlayingById=\{catalogNowPlaying\}/);
   assert.match(map,/compareCatalogStations/);
   assert.match(map,/<option value="completeness">Πληρότητα<\/option>/);
