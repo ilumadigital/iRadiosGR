@@ -149,6 +149,8 @@ jobs:
         run: node ops/check-phase34-network-nowplaying.cjs
       - name: Test Phase 4 player-free backoffice, station ownership and approval workflow
         run: node ops/check-phase4-backoffice.cjs
+      - name: Verify locked Broadcaster add-ons and billing entitlement aware sidebar
+        run: node ops/check-broadcaster-locked-addons.cjs
       - name: Check Phase 4.1 Backoffice simplicity, schedules and admin authorization
         run: node ops/check-phase41-backoffice-ux.cjs
       - name: Validate canonical weekdays, midnight schedule splits and station display
