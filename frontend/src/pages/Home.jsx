@@ -18,7 +18,7 @@ import HomeCategories from '../components/HomeCategories';
 import HomeTopStations from '../components/HomeTopStations';
 import HomeNewsFeed from '../components/HomeNewsFeed';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
-import {compareCatalogPopularity} from '../utils/catalogLive';
+import {sortCatalogStations} from '../utils/catalogLive';
 
 // 🌍 Αλγόριθμος Haversine: Υπολογίζει την απόσταση μεταξύ 2 συντεταγμένων σε χιλιόμετρα
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
@@ -98,8 +98,8 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
   const navigate = useNavigate();
   const location = useLocation();
   const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying(currentUser);
-  const rankedStations=useMemo(()=>[...stations].sort((a,b)=>
-    compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock)),[stations,catalogNowPlaying,catalogClock]);
+  const rankedStations=useMemo(()=>sortCatalogStations(stations,catalogNowPlaying,catalogClock),
+    [stations,catalogNowPlaying,catalogClock]);
   const [heroStationId,setHeroStationId] = useState(null);
   useEffect(()=>{
     if(new URLSearchParams(location.search).get('explore')==='playlist'){
