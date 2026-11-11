@@ -21,12 +21,15 @@ function summarizePayments(transactions=[],listenerOrders=[],broadcasterOrders=[
     const timestamp=source==='order'?(r.paidAt||r.createdAt):r.createdAt;
     const date=new Date(timestamp);
     if(!Number.isFinite(date.getTime()))continue;
-    const providerId=r.gatewayPaymentId||r.externalPaymentId||
-      r.gatewayOrderId||r.externalOrderId;
-    const id=providerId?'provider:'+String(providerId):
-      source+':'+String(r._id||r.requestKey||'');
-    if(id==='legacy:'||id==='order:'||seen.has(id))continue;
-    seen.add(id);
+    // A legacy row may only know the Gateway order ID, while the paid
+    // order has both its payment and order IDs. Reserve *all* identifiers.
+    const providerIds=[r.gatewayPaymentId,r.externalPaymentId,
+      r.gatewayOrderId,r.externalOrderId].filter(Boolean)
+      .map(id=>'provider:'+String(id));
+    const fallback=source+':'+String(r._id||r.requestKey||'');
+    const ids=providerIds.length?providerIds:[fallback];
+    if(ids.some(id=>id==='legacy:'||id==='order:'||seen.has(id)))continue;
+    for(const id of ids)seen.add(id);
     const month=date.toISOString().slice(0,7);
     monthly.set(month,(monthly.get(month)||0)+amount);
     totalCents+=amount;
