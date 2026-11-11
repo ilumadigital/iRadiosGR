@@ -60,7 +60,7 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  adjacent(g.merge,g.output);
  adjacent(g.output,g.autoProbe);adjacent(g.autoProbe,g.autoGain);
  adjacent(g.autoGain,g.beforePeak);
- adjacent(g.output,g.beforePeak);
+ assert.equal(g.autoProbe.fftSize,4096);
  adjacent(g.beforePeak,g.headroom);
  adjacent(g.headroom,g.clipperDry);adjacent(g.clipperDry,g.clipperMix);
  adjacent(g.headroom,g.clipperDrive);adjacent(g.clipperDrive,g.clipper);
@@ -161,7 +161,7 @@ test('SONOS 110%, virtual Dolby stereo and VMax are distinct listener-only FX',a
 test('Listener presets are Premium-only, local to an account and bypass ads',()=>{
  const hook=read('frontend/src/hooks/useAudioDSP.js');
  assert.match(hook,/currentUser\?\.isPremium===true/);
- assert.match(hook,/applyDSPGraph\(graph,preset,settings,compressor,false,clipper\)/);
+ assert.match(hook,/applyDSPGraph\(graph,preset,settings,compressor,false,clipper,autoBalance\)/);
  assert.match(hook,/applyListenerMode\(graph,personalMode\)/);
  assert.match(hook,/if\(isPlayingAd\)/);
  const app=read('frontend/src/App.jsx');
