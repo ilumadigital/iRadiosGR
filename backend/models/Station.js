@@ -94,8 +94,10 @@ const stationSchema = new mongoose.Schema({
     release: { type: Number, default: .34, min: .08, max: 1.2 },
     makeup: { type: Number, default: 0, min: -6, max: 6 }
   },
-  // Per-mode master processing: Headroom defaults ON for compatibility;
-  // Clipper strength defaults OFF (0) and only runs in the selected mode.
+  // Legacy field name kept to preserve existing station DSP settings.
+  // "level" is the per-mode Booster (0–8); headroomEnabled is a deprecated
+  // compatibility field ignored by the shared engine, which enforces -0.5 dBFS
+  // peak Headroom in every active broadcaster DSP mode.
   dspClipper: {
     ENHANCER: {
       headroomEnabled: { type: Boolean, default: true },

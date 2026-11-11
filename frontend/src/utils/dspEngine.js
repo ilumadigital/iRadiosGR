@@ -41,8 +41,8 @@ export const DSP_CLIPPER_DEFAULTS=Object.freeze({
   ENHANCER:Object.freeze({headroomEnabled:true,level:0}),
   FM_MODE:Object.freeze({headroomEnabled:true,level:0})
 });
-export const PEAK_WARNING_DBFS=-.5;
-export const HEADROOM_CEILING_DBFS=-0.6;
+export const PEAK_WARNING_DBFS=-.4;
+export const HEADROOM_CEILING_DBFS=-0.5;
 export const dbToGain=db=>10**(db/20);
 const gainToDb=gain=>20*Math.log10(Math.max(1e-12,gain));
 
@@ -72,8 +72,9 @@ export function normalizeDSPClipper(value){
   for(const mode of ['ENHANCER','FM_MODE']){
     const config=value[mode];
     if(!config||typeof config!=='object')continue;
-    if(typeof config.headroomEnabled==='boolean')
-      modes[mode].headroomEnabled=config.headroomEnabled;
+    // Legacy station documents can contain headroomEnabled:false.
+    // Keep the persisted shape for API compatibility, but never allow OFF.
+    modes[mode].headroomEnabled=true;
     if(Number.isInteger(config.level)&&config.level>=0&&config.level<=8)
       modes[mode].level=config.level;
   }
@@ -107,15 +108,12 @@ export function resolvedCompressor(preset,settings){
   return c;
 }
 
-// Headroom now means a PEAK CEILING, not a fixed gain cut. Former conservative
-// EQ-based attenuation could remove >15 dB and make strong streams sound quiet.
-// With the ceiling enabled, samples below the soft knee pass at unity gain.
-// Near full scale a 4x oversampled waveshaper catches excess sample peaks.
-// This is not a certified true-peak limiter and can't fix a clipped source.
-export function calculateHeadroomDb(preset,_settings,_compressor,clipperSettings){
-  const mode=normalizeBroadcasterMode(preset);
-  if(mode==='OFF'||!normalizeDSPClipper(clipperSettings)[mode].headroomEnabled)return 0;
-  return HEADROOM_CEILING_DBFS;
+// Headroom is a mandatory PEAK CEILING for Enhancer and FM Mode, not a gain cut.
+// Never read the historic headroomEnabled boolean as a bypass command. Modes
+// OFF and explicit full-preview BYPASS still preserve the original raw stream.
+// Normal-level samples pass at unity gain; only near-full-scale peaks are shaped.
+export function calculateHeadroomDb(preset,_settings,_compressor,_legacyClipperSettings){
+  return normalizeBroadcasterMode(preset)==='OFF'?0:HEADROOM_CEILING_DBFS;
 }
 export function createPeakCeilingCurve(){
   const ceiling=dbToGain(HEADROOM_CEILING_DBFS);
@@ -298,7 +296,8 @@ export function applyDSPGraph(graph,preset,settings,compressorSettings,bypass=fa
   // headroomDb is the ceiling displayed to the broadcaster, not attenuation.
   graph.headroomDb=isDry?0:calculateHeadroomDb(key,s,c,graph.clipperSettings);
   setAudioParam(graph.headroom.gain,1,ctx);
-  const ceilingOn=!isDry&&graph.clipperSettings[key].headroomEnabled;
+  // Never switch off peak protection for either active broadcaster DSP mode.
+  const ceilingOn=!isDry;
   setAudioParam(graph.peakCeilingDry.gain,ceilingOn?0:1,ctx);
   setAudioParam(graph.peakCeilingWet.gain,ceilingOn?1:0,ctx);
   const level=isDry?0:graph.clipperSettings[key].level;

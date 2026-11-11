@@ -141,7 +141,7 @@ test('SONOS 110%, virtual Dolby stereo and VMax are distinct listener-only FX',a
  applyDSPGraph(g,'OFF',DSP_DEFAULTS);
  applyListenerMode(g,'VMAX');
  assert.ok(g.listenerHeadroomDb<-4,'do not boost potentially clipped raw streams');
- assert.equal(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,bass:12,stereoWidth:150}),-.6,
+ assert.equal(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,bass:12,stereoWidth:150}),-.5,
   'boosted EQ must not cause huge static headroom attenuation');
 });
 test('Listener presets are Premium-only, local to an account and bypass ads',()=>{
@@ -169,18 +169,21 @@ test('Listener presets are Premium-only, local to an account and bypass ads',()=
 test('Optional soft clipper and live peaks preserve raw bypass and sample warning',async()=>{
  const {measurePeakDbfs,PEAK_WARNING_DBFS}=await engine();
  assert.ok(Math.abs(measurePeakDbfs(new Node(),new Float32Array(32))+6.0206)<.001);
- assert.equal(PEAK_WARNING_DBFS,-.5);
+ assert.equal(PEAK_WARNING_DBFS,-.4);
  const source=read('frontend/src/utils/dspEngine.js');
  assert.match(source,/createWaveShaper\(/);
  assert.doesNotMatch(source,/limiter\.threshold|safety\.curve/);
  const ui=read('frontend/src/pages/DSP.jsx');
- assert.match(ui,/Clipper level/);
+ assert.match(ui,/Booster level/);
+ assert.match(ui,/Booster &amp; Headroom/);
+ assert.doesNotMatch(ui,/role="switch"|updateMaster\('headroomEnabled'/);
+ assert.match(ui,/ALWAYS ON/);
  assert.match(ui,/beforeWaveRef/);
  assert.match(ui,/afterWaveRef/);
  assert.ok(ui.includes('min={-7} max={7}'));
 });
 
-test('Headroom switches, clipper curve and independent broadcaster modes',async()=>{
+test('Headroom cannot be switched OFF; Booster processing remains mode-specific',async()=>{
  const {createDSPGraph,applyDSPGraph,calculateHeadroomDb,
    DSP_DEFAULTS,createSoftClipCurve,normalizeDSPClipper}=await engine();
  const graph=createDSPGraph(context(),new Node());
@@ -189,12 +192,13 @@ test('Headroom switches, clipper curve and independent broadcaster modes',async(
  assert.deepEqual(normalizeDSPClipper(),{
    ENHANCER:{headroomEnabled:true,level:0},
    FM_MODE:{headroomEnabled:true,level:0}});
- assert.equal(calculateHeadroomDb('ENHANCER',DSP_DEFAULTS,undefined,config),0);
+ assert.deepEqual(normalizeDSPClipper(config).ENHANCER,{headroomEnabled:true,level:4});
+ assert.equal(calculateHeadroomDb('ENHANCER',DSP_DEFAULTS,undefined,config),-.5);
  assert.equal(calculateHeadroomDb('FM_MODE',DSP_DEFAULTS,undefined,config)<0,true);
  applyDSPGraph(graph,'ENHANCER',DSP_DEFAULTS,undefined,false,config);
- assert.equal(graph.headroomDb,0);
- assert.equal(graph.peakCeilingDry.gain.value,1);
- assert.equal(graph.peakCeilingWet.gain.value,0);
+ assert.equal(graph.headroomDb,-.5);
+ assert.equal(graph.peakCeilingDry.gain.value,0);
+ assert.equal(graph.peakCeilingWet.gain.value,1);
  assert.equal(graph.clipperLevel,4);
  assert.ok(graph.clipperDrive.gain.value>1);
  assert.equal(graph.clipperDry.gain.value,0);
@@ -207,7 +211,7 @@ test('Headroom switches, clipper curve and independent broadcaster modes',async(
  assert.equal(createSoftClipCurve(0),null);
  applyDSPGraph(graph,'FM_MODE',DSP_DEFAULTS,undefined,false,config);
  assert.equal(graph.clipperLevel,8);
- assert.equal(graph.headroomDb,-.6);
+ assert.equal(graph.headroomDb,-.5);
  assert.equal(graph.headroom.gain.value,1,'peak ceiling must not reduce the whole stream');
  assert.equal(graph.peakCeilingDry.gain.value,0);
  assert.equal(graph.peakCeilingWet.gain.value,1);
@@ -221,11 +225,11 @@ test('Headroom switches, clipper curve and independent broadcaster modes',async(
  assert.equal(graph.dry.gain.value,1);
 });
 
-test('Headroom ON guards peaks at -0.6 dBFS without lowering normal loudness',async()=>{
+test('Always-on Headroom guards peaks at -0.5 dBFS without lowering normal loudness',async()=>{
  const {createPeakCeilingCurve,HEADROOM_CEILING_DBFS,createDSPGraph,applyDSPGraph,
    calculateHeadroomDb,DSP_DEFAULTS}=await engine();
- assert.equal(HEADROOM_CEILING_DBFS,-.6);
- const curve=createPeakCeilingCurve(),ceiling=10**(-.6/20);
+ assert.equal(HEADROOM_CEILING_DBFS,-.5);
+ const curve=createPeakCeilingCurve(),ceiling=10**(-.5/20);
  assert.equal(curve.length,8192);
  const sampleAt=x=>curve[Math.round((x+1)/2*(curve.length-1))];
  assert.ok(Math.abs(sampleAt(.4)-.4)<.001,'quiet audio must have unity transfer');
@@ -234,7 +238,7 @@ test('Headroom ON guards peaks at -0.6 dBFS without lowering normal loudness',as
  assert.ok(sampleAt(1)>.9,'0 dBFS should remain loud near the ceiling');
  assert.ok(Math.abs(sampleAt(1)+sampleAt(-1))<1e-6);
  assert.equal(calculateHeadroomDb('OFF',DSP_DEFAULTS),0);
- assert.equal(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,output:7}),-.6);
+ assert.equal(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,output:7}),-.5);
  const g=createDSPGraph(context(),new Node());
  applyDSPGraph(g,'ENHANCER',{...DSP_DEFAULTS,bass:12,output:7});
  assert.equal(g.headroom.gain.value,1,'positive EQ must never trigger static attenuation');
@@ -242,5 +246,23 @@ test('Headroom ON guards peaks at -0.6 dBFS without lowering normal loudness',as
  assert.equal(g.peakCeilingDry.gain.value,0);
  applyDSPGraph(g,'ENHANCER',DSP_DEFAULTS,undefined,true);
  assert.equal(g.dry.gain.value,1,'manual bypass stays raw');
+ assert.equal(g.peakCeilingWet.gain.value,0);
+});
+
+test('Legacy Headroom OFF is ignored even with Booster 0, across every active mode',async()=>{
+ const {createDSPGraph,applyDSPGraph,calculateHeadroomDb,DSP_DEFAULTS}=await engine();
+ const config={ENHANCER:{headroomEnabled:false,level:0},
+   FM_MODE:{headroomEnabled:false,level:8}};
+ const g=createDSPGraph(context(),new Node());
+ for(const mode of ['ENHANCER','FM_MODE']){
+   assert.equal(calculateHeadroomDb(mode,DSP_DEFAULTS,undefined,config),-.5);
+   applyDSPGraph(g,mode,DSP_DEFAULTS,undefined,false,config);
+   assert.equal(g.headroomDb,-.5);
+   assert.equal(g.peakCeilingDry.gain.value,0);
+   assert.equal(g.peakCeilingWet.gain.value,1);
+ }
+ assert.equal(g.clipperLevel,8);
+ applyDSPGraph(g,'OFF',DSP_DEFAULTS,undefined,false,config);
+ assert.equal(g.dry.gain.value,1,'OFF stays completely raw');
  assert.equal(g.peakCeilingWet.gain.value,0);
 });

@@ -43,7 +43,7 @@ function PeakBar({label,db}){
       <div className="h-full transition-[width] duration-100"
         style={{width:meterWidth(db)+'%',background:db>=PEAK_WARNING_DBFS?'#fb7185':'linear-gradient(90deg,#94a3b8,#caff00)'}}/>
     </div>
-    <div className="flex justify-between text-[10px] text-zinc-500"><span>−60 dBFS</span><span>−0.5 dBFS · WARNING</span><span>0 dBFS · CLIP</span></div>
+    <div className="flex justify-between text-[10px] text-zinc-500"><span>−60 dBFS</span><span>−0.4 dBFS · WARNING</span><span>0 dBFS · CLIP</span></div>
   </div>;
 }
 function drawWaveform(canvas,samples,color){
@@ -106,9 +106,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   const displayedCompressor=draft.dspCompressor.mode==='preset'?
     compressorForPreset(draft.dspPreset):draft.dspCompressor;
   const activeMaster=draft.dspPreset==='OFF'?null:draft.dspClipper[draft.dspPreset];
-  const ceilingActive=!bypass&&Boolean(activeMaster?.headroomEnabled);
-  const automaticHeadroom=ceilingActive?
-    calculateHeadroomDb(draft.dspPreset,draft.dspSettings,draft.dspCompressor,draft.dspClipper):0;
+  const automaticHeadroom=calculateHeadroomDb(draft.dspPreset,draft.dspSettings,draft.dspCompressor,draft.dspClipper);
   const token=()=>localStorage.getItem('iluma_token')||'';
 
   useEffect(()=>{
@@ -182,11 +180,11 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     apply(next,bypass);setDraft(next);setNotice('');
   };
 
-  const updateMaster=(key,value)=>{
+  const updateBooster=level=>{
     if(draft.dspPreset==='OFF')return;
     const mode=draft.dspPreset;
     const next={...draft,dspClipper:{...draft.dspClipper,
-      [mode]:{...draft.dspClipper[mode],[key]:value}}};
+      [mode]:{...draft.dspClipper[mode],headroomEnabled:true,level}}};
     apply(next,bypass);setDraft(next);setNotice('');
   };
 
@@ -290,7 +288,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
       <div className="flex items-center gap-4">
         <div className="rounded-2xl border border-[#caff00]/20 bg-[#caff00]/10 p-3"><SlidersHorizontal className="text-[#caff00]"/></div>
         <div><h1 className="text-3xl font-black">WebDSP Audio Engine</h1>
-          <p className="mt-1 text-sm text-zinc-400">OFF, Enhancer και FM Mode · EQ, Stereo, Compressor και προαιρετικό Master Clipper.</p>
+          <p className="mt-1 text-sm text-zinc-400">OFF, Enhancer και FM Mode · EQ, Stereo, Compressor, Booster και σταθερό Headroom −0.5 dBFS.</p>
         </div>
       </div>
       <div className="rounded-full border border-white/10 px-4 py-2 text-[11px] uppercase tracking-widest text-zinc-300">
@@ -441,7 +439,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
               className={'rounded-xl border px-2 py-3 text-[11px] font-black '+(draft.dspSettings.stereoWidth===width?
                 'border-[#caff00] text-[#caff00] bg-[#caff00]/10':'border-white/10 text-zinc-300 bg-white/5')}>{label}</button>)}
           </div>
-          <p className="mt-5 text-xs leading-6 text-zinc-500">100% = αυθεντικό stereo • 0% = mono • πάνω από 100% = διεύρυνση. Με Headroom ON, το gain staging προσαρμόζεται στο συνολικό boost.</p>
+          <p className="mt-5 text-xs leading-6 text-zinc-500">100% = αυθεντικό stereo • 0% = mono • πάνω από 100% = διεύρυνση. Το Headroom προστατεύει μόνιμα τα peaks στα −0.5 dBFS στα ενεργά DSP modes.</p>
         </section>
       </div>
 
@@ -451,10 +449,10 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">04 / MASTER PROCESSING</span>
-            <h2 className="mt-2 text-2xl font-bold">Clipper &amp; Headroom</h2>
+            <h2 className="mt-2 text-2xl font-bold">Booster &amp; Headroom</h2>
             <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-              Ανεξάρτητες ρυθμίσεις ανά mode. Headroom: μέγιστο sample peak περίπου −0.6 dBFS,
-              χωρίς μόνιμη μείωση έντασης. Clipper: soft clipping 0–8 πριν από το τελικό peak ceiling.
+              Headroom: μόνιμα ενεργό στα −0.5 dBFS σε Enhancer και FM Mode, χωρίς διακόπτη.
+              Booster: ρυθμιζόμενη ένταση 0–8 ανά mode, πριν από το τελικό peak ceiling.
             </p>
           </div>
           <span className="rounded-full border border-white/10 px-4 py-2 text-xs text-zinc-300">
@@ -465,33 +463,29 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
           <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-5">
             <div className="flex items-center justify-between gap-4">
               <div><h3 className="font-bold">Peak Headroom</h3>
-                <p className="mt-1 text-xs text-zinc-500">Ceiling −0.6 dBFS · χωρίς σταθερό −3 dB trim.</p>
+                <p className="mt-1 text-xs text-zinc-500">Μόνιμο sample-peak ceiling · χωρίς σταθερή μείωση gain.</p>
               </div>
-              <button type="button" role="switch" aria-label="Auto Headroom"
-                aria-checked={activeMaster.headroomEnabled}
-                onClick={()=>updateMaster('headroomEnabled',!activeMaster.headroomEnabled)}
-                className={'min-w-20 rounded-xl border px-4 py-2 text-xs font-black '+
-                  (activeMaster.headroomEnabled?'border-[#caff00] bg-[#caff00]/10 text-[#caff00]':'border-white/20 bg-white/5 text-zinc-400')}>
-                {activeMaster.headroomEnabled?'ON':'OFF'}
-              </button>
+              <span className="rounded-xl border border-[#caff00]/40 bg-[#caff00]/10 px-4 py-2 text-xs font-black text-[#caff00]">
+                ALWAYS ON
+              </span>
             </div>
-            <p className="mt-5 text-3xl font-black tabular-nums">{ceilingActive?automaticHeadroom.toFixed(1):'OFF'}
-              {ceilingActive&&<span className="text-base text-zinc-400"> dBFS peak</span>}</p>
-            <p className="mt-2 text-xs text-amber-300">{activeMaster.headroomEnabled?
-              'Δεν χαμηλώνει όλο το stream. Περιορίζει μόνο τις υψηλές κορυφές.':
-              'Χωρίς peak ceiling: το έντονο EQ μπορεί να προκαλέσει clipping.'}</p>
+            <p className="mt-5 text-3xl font-black tabular-nums">{automaticHeadroom.toFixed(1)}
+              <span className="text-base text-zinc-400"> dBFS peak</span></p>
+            <p className="mt-2 text-xs text-amber-300">
+              Το Headroom δεν απενεργοποιείται σε Enhancer ή FM Mode. Περιορίζει μόνο τις πολύ υψηλές κορυφές.
+            </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-5">
             <div className="flex items-center justify-between gap-4">
-              <div><h3 className="font-bold">Clipper</h3>
+              <div><h3 className="font-bold">Booster</h3>
                 <p className="mt-1 text-xs text-zinc-500">Soft clipping · 4× oversampling · προοδευτική ένταση.</p></div>
               <span className="text-3xl font-black tabular-nums text-[#caff00]">{activeMaster.level}<span className="text-base text-zinc-500"> / 8</span></span>
             </div>
-            <input type="range" aria-label="Clipper level" min="0" max="8" step="1"
-              value={activeMaster.level} onChange={e=>updateMaster('level',Number(e.target.value))}
+            <input type="range" aria-label="Booster level" min="0" max="8" step="1"
+              value={activeMaster.level} onChange={e=>updateBooster(Number(e.target.value))}
               className={inputStyle+' mt-7'}/>
             <div className="mt-3 flex justify-between text-xs text-zinc-400"><span>0 · BYPASS</span><span>4 · MEDIUM</span><span>8 · STRONG</span></div>
-            <p className="mt-5 text-xs text-zinc-500">Ο Clipper λειτουργεί πριν από το Headroom. Με Headroom ON, το τελικό sample ceiling στοχεύει τα −0.6 dBFS. Δεν είναι πιστοποιημένος true-peak limiter.</p>
+            <p className="mt-5 text-xs text-zinc-500">Ο Booster λειτουργεί πριν από το πάντα ενεργό Headroom −0.5 dBFS. Δεν αποτελεί πιστοποιημένο true-peak limiter.</p>
           </div>
         </div>
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -504,7 +498,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
           </div>
           <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-4">
             <div className="mb-3 flex items-center justify-between text-xs font-bold text-zinc-300">
-              <span>AFTER · HEADROOM / CLIPPER</span><span className="tabular-nums">{meter.after<=-119?'−∞':formatDb(meter.after)}</span>
+              <span>AFTER · BOOSTER / HEADROOM</span><span className="tabular-nums">{meter.after<=-119?'−∞':formatDb(meter.after)}</span>
             </div>
             <canvas ref={afterWaveRef} role="img" aria-label="Live waveform after master processing"
               className="h-36 w-full rounded-lg bg-black/30"/>
@@ -552,14 +546,14 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
               {playing&&meter.final>=PEAK_WARNING_DBFS?<AlertTriangle size={16}/>:<CheckCircle2 size={16}/>}
               {playing&&meter.final>=PEAK_WARNING_DBFS?
                 'PEAK WARNING: η τελική στάθμη πλησιάζει τα 0 dBFS. Έλεγξε το αρχικό stream και τις ρυθμίσεις.':
-                'Προαιρετικό Headroom και Clipper · έλεγξε το τελικό sample peak.'}
+                'Μόνιμο Headroom −0.5 dBFS και ρυθμιζόμενο Booster · έλεγξε το τελικό sample peak.'}
             </div>
           </div>
           <div className="flex flex-col justify-center rounded-2xl border border-white/10 bg-[#0d1113] p-5">
             <Headphones className="mb-4 text-[#caff00]" size={28}/>
             <h3 className="text-lg font-bold">Peak control χωρίς πτώση στάθμης</h3>
-            <p className="mt-2 text-sm leading-7 text-zinc-400">Με Headroom ON διατηρείται η στάθμη και περιορίζονται μόνο οι κορυφές κοντά στο 0 dBFS προς −0.6 dBFS. Ο Clipper 1–8 παραμένει ανεξάρτητος. Οι μετρητές δείχνουν sample peaks, όχι πιστοποιημένα true peaks. Καμία ρύθμιση δεν διορθώνει ήδη παραμορφωμένο stream.</p>
-            <p className="mt-3 text-xs text-zinc-500">OFF και BYPASS FX περνούν το αρχικό stream ανεπεξέργαστο. Peak ceiling: {automaticHeadroom?automaticHeadroom.toFixed(1)+' dBFS':'OFF'}.</p>
+            <p className="mt-2 text-sm leading-7 text-zinc-400">Με μόνιμο Headroom διατηρείται η στάθμη και περιορίζονται μόνο οι κορυφές κοντά στο 0 dBFS προς −0.5 dBFS. Ο Booster 0–8 παραμένει ρυθμιζόμενος. Οι μετρητές δείχνουν sample peaks, όχι πιστοποιημένα true peaks. Καμία ρύθμιση δεν διορθώνει ήδη παραμορφωμένο stream.</p>
+            <p className="mt-3 text-xs text-zinc-500">Το Headroom είναι μόνιμο στα ενεργά DSP modes. Μόνο το OFF και το πλήρες BYPASS FX περνούν το αρχικό stream ανεπεξέργαστο.</p>
           </div>
         </div>
       </section>

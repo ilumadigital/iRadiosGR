@@ -9,8 +9,8 @@ const DSP_DEFAULTS=Object.freeze({bass:0,mid:0,treble:0,output:0,stereoWidth:100
 const DSP_RANGES=Object.freeze({
   bass:[-12,12],mid:[-12,12],treble:[-12,12],output:[-7,7],stereoWidth:[0,150]
 });
-// Levels are integer steps 0 (transparent) through 8 (strong soft clipping).
-// Headroom is independently configurable per broadcaster mode.
+// Booster intensity is 0–8, backed by the legacy dspClipper field.
+// Peak Headroom is permanently ON at -0.5 dBFS in both active DSP modes.
 const DSP_CLIPPER_DEFAULTS=Object.freeze({
   ENHANCER:Object.freeze({headroomEnabled:true,level:0}),
   FM_MODE:Object.freeze({headroomEnabled:true,level:0})
@@ -69,7 +69,7 @@ function validateDSPUpdate(body){
     if(!modes||typeof modes!=='object'||Array.isArray(modes)||
       Object.keys(modes).length!==2||
       Object.keys(modes).some(mode=>!Object.hasOwn(DSP_CLIPPER_DEFAULTS,mode)))
-      return {error:'Μη έγκυρες ρυθμίσεις Clipper.'};
+      return {error:'Μη έγκυρες ρυθμίσεις Booster.'};
     const normalized={};
     for(const mode of Object.keys(DSP_CLIPPER_DEFAULTS)){
       const item=modes[mode];
@@ -78,8 +78,10 @@ function validateDSPUpdate(body){
         !Object.hasOwn(item,'headroomEnabled')||!Object.hasOwn(item,'level')||
         typeof item.headroomEnabled!=='boolean'||
         !Number.isInteger(item.level)||item.level<0||item.level>8)
-        return {error:'Μη έγκυρη ρύθμιση Clipper: '+mode};
-      normalized[mode]={headroomEnabled:item.headroomEnabled,level:item.level};
+        return {error:'Μη έγκυρη ρύθμιση Booster: '+mode};
+      // The historic flag must never disable final peak protection.
+      // Accept old client payloads but normalize all writes to always ON.
+      normalized[mode]={headroomEnabled:true,level:item.level};
     }
     value.dspClipper=normalized;
   }
