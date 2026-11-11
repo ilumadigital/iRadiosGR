@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { 
   Scale, Radio, Banknote, AlertTriangle, SlidersHorizontal, 
@@ -49,6 +49,10 @@ export default function TermsBroadcasters({ API_URL, currentUser }) {
       setIsSubmitting(false);
     }
   };
+
+  // Email verification is mandatory before B2B terms or the Backoffice.
+  if(currentUser?.role==='broadcaster'&&currentUser.isVerified!==true)
+    return <Navigate to="/broadcast/pending" replace/>;
 
   return (
     <div className="min-h-screen bg-black text-zinc-300 p-6 md:p-12 font-sans selection:bg-blue-500 selection:text-white">
