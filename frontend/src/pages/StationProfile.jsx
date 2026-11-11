@@ -1,3 +1,5 @@
+import PremiumSoundModes from '../components/PremiumSoundModes';
+import {normalizeListenerMode} from '../utils/dspEngine';
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import {scheduleDayBase,toCanonical,minutes,getAthensClock} from '../utils/schedule';
@@ -251,8 +253,8 @@ export default function StationProfile({
   </div>;
 
   const isFav = isFavorite ? isFavorite(station._id) : false;
-  const canUseCustomEQ = currentUser?.isPremium && isFav;
-  const currentPreset = userOverrides?.[station._id] || 'Station Default';
+  const canUseCustomEQ = currentUser?.isPremium === true;
+  const currentPreset = normalizeListenerMode(userOverrides?.[station._id]);
 
   const handlePlayClick = () => {
     if(station?.isOffline === true)return;
@@ -669,47 +671,16 @@ export default function StationProfile({
                   <div className="relative" ref={eqMenuRef}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); setShowEQMenu(!showEQMenu); }}
-                      className={`w-12 h-12 lg:w-14 lg:h-14 border rounded-full flex items-center justify-center transition-all shrink-0 ${showEQMenu || currentPreset !== 'Station Default' ? 'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]' : 'border-white/20 text-white hover:bg-white/10'}`}
+                      className={`w-12 h-12 lg:w-14 lg:h-14 border rounded-full flex items-center justify-center transition-all shrink-0 ${showEQMenu || currentPreset !== 'DEFAULT' ? 'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]' : 'border-white/20 text-white hover:bg-white/10'}`}
                       title="Προσαρμογή Ήχου (Premium)"
                     >
                       <SlidersHorizontal size={24} />
                     </button>
 
                     {showEQMenu && (
-                      <div className="absolute bottom-full left-0 lg:left-1/2 lg:-translate-x-1/2 mb-3 w-56 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-[100] animate-fade-in">
-                        <div className="px-3 py-2 mb-2 border-b border-white/5">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Ρυθμιση ηχου</span>
-                        </div>
-                        
-                        <button 
-                          onClick={() => { onUserDSPChange(station._id, 'Station Default'); setShowEQMenu(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${currentPreset === 'Station Default' ? 'bg-[#ccff00]/10 text-[#ccff00]' : 'text-white hover:bg-white/5'}`}
-                        >
-                          <Radio size={16} /> <span>Προεπιλογή Σταθμού</span>
-                        </button>
-
-                        <button 
-                          onClick={() => { onUserDSPChange(station._id, 'HomeTheater'); setShowEQMenu(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${currentPreset === 'HomeTheater' ? 'bg-[#ccff00]/10 text-[#ccff00]' : 'text-white hover:bg-white/5'}`}
-                        >
-                          <MonitorSpeaker size={16} /> <span>Κινηματογράφος</span>
-                        </button>
-
-                        <button 
-                          onClick={() => { onUserDSPChange(station._id, 'HiRes'); setShowEQMenu(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${currentPreset === 'HiRes' ? 'bg-[#ccff00]/10 text-[#ccff00]' : 'text-white hover:bg-white/5'}`}
-                        >
-                          <Headphones size={16} /> <span>Καθαρός ήχος</span>
-                        </button>
-
-                        <div className="my-1 border-t border-white/5"></div>
-
-                        <button 
-                          onClick={() => { onUserDSPChange(station._id, 'OFF'); setShowEQMenu(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${currentPreset === 'OFF' ? 'bg-red-500/10 text-red-500' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
-                        >
-                          <PowerOff size={16} /> <span>Χωρίς εφέ</span>
-                        </button>
+                      <div className="absolute bottom-full left-0 mb-3 z-[100] w-72">
+                        <PremiumSoundModes value={currentPreset}
+                          onChange={mode=>{onUserDSPChange(station._id,mode);setShowEQMenu(false);}}/>
                       </div>
                     )}
                   </div>

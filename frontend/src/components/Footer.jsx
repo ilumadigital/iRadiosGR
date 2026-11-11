@@ -1,3 +1,5 @@
+import PremiumSoundModes from './PremiumSoundModes';
+import {normalizeListenerMode} from '../utils/dspEngine';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -132,8 +134,8 @@ export default function Footer({
     }
   };
 
-  const canUseCustomEQ = currentStation && isPremium && isCurrentlyFavorite;
-  const currentPreset = (currentStation && userOverrides?.[currentStation._id]) || 'Station Default';
+  const canUseCustomEQ = Boolean(currentStation && isPremium);
+  const currentPreset = normalizeListenerMode(currentStation&&userOverrides?.[currentStation._id]);
 
   return (
     <>
@@ -246,26 +248,13 @@ export default function Footer({
                 <button onClick={() => toggleFavorite(currentStation._id)} className={`p-2 transition-all hover:scale-125 active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-zinc-500 hover:text-white'}`}><Heart size={20} fill={isCurrentlyFavorite ? "currentColor" : "none"} strokeWidth={isCurrentlyFavorite ? 2.5 : 2} /></button>
                 {canUseCustomEQ && !isPlayingAd && (
                   <div className="relative" ref={eqMenuRef}>
-                    <button onClick={() => setShowEQMenu(!showEQMenu)} className={`p-2 transition-all duration-300 hover:scale-110 rounded-full ${showEQMenu || currentPreset !== 'Station Default' ? 'bg-[#ccff00]/20 text-[#ccff00]' : 'text-zinc-500 hover:text-white'}`}>
+                    <button onClick={() => setShowEQMenu(!showEQMenu)} className={`p-2 transition-all duration-300 hover:scale-110 rounded-full ${showEQMenu || currentPreset !== 'DEFAULT' ? 'bg-[#ccff00]/20 text-[#ccff00]' : 'text-zinc-500 hover:text-white'}`}>
                       <SlidersHorizontal size={18} />
                     </button>
                     {showEQMenu && (
-                      <div className="absolute bottom-full left-0 mb-4 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-2 animate-in fade-in slide-in-from-bottom-2">
-                        <div className="px-3 py-2 mb-2 border-b border-white/5"><span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00]">Audio Studio</span></div>
-                        {[
-                          { id: 'Station Default', label: 'Προεπιλογή Σταθμού', icon: Radio },
-                          { id: 'HomeTheater', label: 'Home Theater', icon: MonitorSpeaker },
-                          { id: 'HiRes', label: 'Hi-Res Audio (Studio)', icon: Headphones },
-                          { id: 'Immersive3D', label: 'Immersive 3D (Spatial)', icon: Waves }
-                        ].map(preset => (
-                          <button key={preset.id} onClick={() => { onUserDSPChange(currentStation._id, preset.id); setShowEQMenu(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${currentPreset === preset.id ? 'bg-[#ccff00]/10 text-[#ccff00]' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}>
-                            <preset.icon size={14} /> <span>{preset.label}</span>
-                          </button>
-                        ))}
-                        <div className="my-1 border-t border-white/5"></div>
-                        <button onClick={() => { onUserDSPChange(currentStation._id, 'OFF'); setShowEQMenu(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${currentPreset === 'OFF' ? 'bg-red-500/10 text-red-500' : 'text-zinc-500 hover:text-white'}`}>
-                          <PowerOff size={14} /> <span>Χωρίς εφέ</span>
-                        </button>
+                      <div className="absolute bottom-full left-0 mb-3 z-[100] w-72">
+                        <PremiumSoundModes value={currentPreset}
+                          onChange={mode=>{onUserDSPChange(currentStation._id,mode);setShowEQMenu(false);}}/>
                       </div>
                     )}
                   </div>

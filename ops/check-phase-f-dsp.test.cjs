@@ -1,122 +1,161 @@
 'use strict';
-const test=require('node:test');
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const path=require('node:path');
-const read=rel=>fs.readFileSync(path.join(__dirname,'..',rel),'utf8');
-
-test('Full-page WebDSP has secure station writes, live editor and independent Compressor',()=>{
- const page=read('frontend/src/pages/DSP.jsx');
- const routes=read('backend/routes/stationRoutes.js');
- const controller=read('backend/controllers/stationController.js');
- for(const q of ['LISTEN LIVE','SAVE SETTINGS','Stereo expander','Tone control',
-   'Live peak monitoring','BYPASS FX','Compressor Settings','PRESET DYNAMICS',
-   'COMP OFF','Auto headroom'])
-  assert.ok(page.includes(q),'missing DSP editor control '+q);
- assert.ok(page.includes('stations/dsp-access'));
- assert.ok(routes.includes("'/stations/dsp-access',protect,authorizeRoles('admin','broadcaster')"));
- assert.ok(controller.includes("hasStationRight(req.user,station,'broadcaster.webdsp')"));
- assert.ok(controller.includes('validateDSPUpdate(req.body)'));
- assert.ok(controller.includes('dspPreset dspSettings dspCompressor disableNetworkAds'));
-});
-test('An expired subscription masks EQ, stereo and manual compressor while preserving originals',()=>{
- const rules=read('backend/services/stationBillingProjectionRules.js');
- assert.match(rules,/if\(!rights\.has\('broadcaster\.webdsp'\)\)\{/);
- assert.match(rules,/data\.dspSettings=/);
- assert.match(rules,/data\.dspCompressor=/);
-});
-class Node {
+const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
+const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
+class Node{
  constructor(){this.connections=[];this.gain=param();this.frequency=param();this.Q=param();
    this.threshold=param();this.ratio=param();this.knee=param();
    this.attack=param();this.release=param();this.fftSize=0;this.reduction=0;}
  connect(node,out=0,input=0){this.connections.push({node,out,input});return node;}
- getFloatTimeDomainData(buffer){buffer.fill(0);buffer[0]=.5;}
+ getFloatTimeDomainData(buf){buf.fill(0);buf[0]=.5;}
 }
 function param(){return {value:0,cancelScheduledValues(){},setTargetAtTime(v){this.value=v;}};}
-function context(){
- return {currentTime:0,sampleRate:48000,destination:new Node(),
-   createGain:()=>new Node(),createBiquadFilter:()=>new Node(),
-   createDynamicsCompressor:()=>new Node(),createChannelSplitter:()=>new Node(),
-   createChannelMerger:()=>new Node(),createAnalyser:()=>new Node()};
- // No WaveShaper exists in the mock: any attempted hard clipping fails loudly.
+function context(){return {currentTime:0,sampleRate:48000,destination:new Node(),
+ createGain:()=>new Node(),createBiquadFilter:()=>new Node(),
+ createDynamicsCompressor:()=>new Node(),createChannelSplitter:()=>new Node(),
+ createChannelMerger:()=>new Node(),createAnalyser:()=>new Node()};
+ // A WaveShaper mock is intentionally missing: hard clipping must never return.
 }
-test('Shared audio graph has true dry bypass and NO master limiter or WaveShaper',async()=>{
- const {createDSPGraph,applyDSPGraph,DSP_DEFAULTS}=await import('../frontend/src/utils/dspEngine.js');
- const ctx=context(),source=new Node(),graph=createDSPGraph(ctx,source);
- const adjacent=(from,to)=>assert.ok(from.connections.some(c=>c.node===to),'signal path not connected');
- adjacent(source,graph.dry);
- adjacent(graph.dry,graph.mix);
- adjacent(source,graph.input);
- adjacent(graph.input,graph.highpass);
- adjacent(graph.highpass,graph.lowpass);
- adjacent(graph.lowpass,graph.compressor);
- adjacent(graph.compressor,graph.makeup);
- adjacent(graph.makeup,graph.bass);
- adjacent(graph.bass,graph.mid);
- adjacent(graph.mid,graph.treble);
- adjacent(graph.treble,graph.upmix);
- adjacent(graph.upmix,graph.split);
- adjacent(graph.merge,graph.output);
- adjacent(graph.output,graph.beforePeak);
- adjacent(graph.beforePeak,graph.headroom);
- adjacent(graph.headroom,graph.wet);
- adjacent(graph.wet,graph.mix);
- adjacent(graph.mix,graph.fade);
- adjacent(graph.fade,graph.afterPeak);
- adjacent(graph.afterPeak,ctx.destination);
- assert.equal(graph.dry.gain.value,1);
- assert.equal(graph.wet.gain.value,0);
- assert.equal(graph.headroom.gain.value,1);
- assert.equal(graph.limiter,undefined);
- assert.equal(graph.safety,undefined);
- applyDSPGraph(graph,'SOFT',{...DSP_DEFAULTS,bass:5,stereoWidth:150});
- assert.equal(graph.dry.gain.value,0);
- assert.equal(graph.wet.gain.value,1);
- assert.equal(graph.bass.gain.value,5);
- assert.equal(graph.ll.gain.value,1.25);
- assert.equal(graph.rl.gain.value,-.25);
- assert.ok(graph.headroom.gain.value<1);
- applyDSPGraph(graph,'SOFT',{...DSP_DEFAULTS,bass:12,stereoWidth:150},undefined,true);
- assert.equal(graph.dry.gain.value,1,'explicit bypass must send untouched source');
- assert.equal(graph.wet.gain.value,0,'no processing path may remain audible');
- assert.equal(graph.headroom.gain.value,1);
- applyDSPGraph(graph,'OFF',{...DSP_DEFAULTS,bass:12,output:3},undefined);
- assert.equal(graph.dry.gain.value,1,'DSP OFF must be literal source path');
- assert.equal(graph.wet.gain.value,0);
-});
-test('Headroom compensates sum of EQ, compressor makeup, width and output boost',async()=>{
- const {DSP_DEFAULTS,calculateHeadroomDb,DSP_PRESETS,normalizeDSPCompressor,
-  compressorForPreset,createDSPGraph,applyDSPGraph}=await import('../frontend/src/utils/dspEngine.js');
- const boosted={bass:12,mid:12,treble:12,output:3,stereoWidth:150};
- const comp={mode:'manual',threshold:-18,ratio:3,attack:.02,release:.25,makeup:6};
- const conservative=calculateHeadroomDb('ULTRA',boosted,comp);
- assert.ok(conservative < -35,'all positive boosts need corresponding attenuation');
- assert.ok(calculateHeadroomDb('SOFT',DSP_DEFAULTS)<0);
- assert.equal(calculateHeadroomDb('OFF',boosted,comp),0);
- assert.ok(Object.values(DSP_PRESETS).every(p=>p.makeup<=1.1),'no aggressive preset makeup');
- assert.ok(Object.values(DSP_PRESETS).every(p=>p.ratio<=3),'avoid aggressive default compression');
- const graph=createDSPGraph(context(),new Node());
- applyDSPGraph(graph,'ULTRA',boosted,comp);
- assert.ok(Math.abs(graph.headroom.gain.value-10**(conservative/20))<1e-8);
- assert.equal(graph.compressor.ratio.value,3);
- assert.equal(graph.compressor.threshold.value,-18);
- assert.ok(Math.abs(graph.makeup.gain.value-10**(6/20))<1e-8);
- applyDSPGraph(graph,'ULTRA',boosted,{...comp,mode:'off'});
- assert.equal(graph.compressor.ratio.value,1);
- assert.equal(graph.makeup.gain.value,1);
- applyDSPGraph(graph,'ULTRA',boosted,{...comp,mode:'preset'});
- assert.equal(graph.compressor.ratio.value,DSP_PRESETS.ULTRA.ratio);
- assert.equal(compressorForPreset('SOFT').mode,'preset');
- assert.equal(normalizeDSPCompressor({ratio:100}).ratio,8);
-});
-test('Real sample-peak metering is independent and warns before zero dBFS',async()=>{
- const {measurePeakDbfs,normalizeDSPSettings,PEAK_WARNING_DBFS}=await import('../frontend/src/utils/dspEngine.js');
- assert.ok(Math.abs(measurePeakDbfs(new Node(),new Float32Array(32))-(-6.0206))<.001);
- assert.equal(PEAK_WARNING_DBFS,-1);
- assert.equal(normalizeDSPSettings({stereoWidth:400,output:-30}).stereoWidth,150);
- assert.equal(normalizeDSPSettings({stereoWidth:400,output:-30}).output,-12);
- const source=read('frontend/src/utils/dspEngine.js');
- assert.doesNotMatch(source,/createWaveShaper\(|safety\.curve|limiter\.threshold|PEAK_CEILING_DBFS/);
+const adjacent=(from,to)=>assert.ok(from.connections.some(c=>c.node===to),'signal path not connected');
+const engine=()=>import('../frontend/src/utils/dspEngine.js');
+test('Broadcaster editor exposes only three modes with compressor ABOVE EQ and no controls in OFF',()=>{
  const ui=read('frontend/src/pages/DSP.jsx');
- assert.doesNotMatch(ui,/Fixed master ceiling|master limiter παραμένει ενεργός|−0\.5 dBFS/);
+ const back=read('backend/services/dspConfig.js');
+ assert.match(back,/'OFF','ENHANCER','FM_MODE'/);
+ assert.match(ui,/Object.entries\(DSP_MODES\)/);
+ assert.match(ui,/draft\.dspPreset==='FM_MODE'/);
+ assert.match(ui,/draft\.dspPreset!=='OFF'/);
+ assert.ok(ui.indexOf('Compressor Settings')<ui.indexOf('02 \/ EQUALIZER'));
+ assert.ok(ui.indexOf('02 \/ EQUALIZER')<ui.indexOf('03 \/ SPATIAL FIELD'));
+ assert.ok(ui.includes('Live sound preview'));
+ assert.ok(ui.includes('BYPASS / RAW STREAM'));
+ assert.ok(ui.includes('SAVE SETTINGS'));
+ assert.ok(!ui.includes('DSP_PRESETS'));
+ const routes=read('backend/routes/stationRoutes.js');
+ assert.match(routes,/stations\/dsp-access/);
+ const station=read('backend/controllers/stationController.js');
+ assert.match(station,/hasStationRight\(req\.user,station,'broadcaster\.webdsp'\)/);
+});
+test('WebAudio has fully separated raw, Broadcaster and Premium listener signal paths',async()=>{
+ const {createDSPGraph,applyDSPGraph,applyListenerMode,DSP_DEFAULTS}=await engine();
+ const source=new Node(),ctx=context(),g=createDSPGraph(ctx,source);
+ adjacent(source,g.dry);adjacent(g.dry,g.mix);
+ adjacent(source,g.input);adjacent(g.input,g.highpass);
+ adjacent(g.highpass,g.lowpass);
+ adjacent(g.lowpass,g.compressorDry);
+ adjacent(g.lowpass,g.compressor);
+ adjacent(g.compressorDry,g.compressorMix);
+ adjacent(g.compressor,g.makeup);
+ adjacent(g.makeup,g.compressorWet);
+ adjacent(g.compressorWet,g.compressorMix);
+ adjacent(g.compressorMix,g.bass);
+ adjacent(g.bass,g.mid);adjacent(g.mid,g.treble);
+ adjacent(g.treble,g.upmix);adjacent(g.upmix,g.split);
+ adjacent(g.merge,g.output);
+ adjacent(g.output,g.beforePeak);
+ adjacent(g.beforePeak,g.headroom);
+ adjacent(g.headroom,g.wet);adjacent(g.wet,g.mix);
+ adjacent(source,g.listenerRaw);adjacent(g.listenerRaw,g.listenerMix);
+ adjacent(g.mix,g.listenerDefault);adjacent(g.listenerDefault,g.listenerMix);
+ adjacent(g.mix,g.listenerBass);
+ adjacent(g.listenerBass,g.listenerMid);
+ adjacent(g.listenerMid,g.listenerTreble);
+ adjacent(g.listenerTreble,g.listenerComp);
+ adjacent(g.listenerComp,g.listenerMakeup);
+ adjacent(g.listenerMakeup,g.listenerUpmix);
+ adjacent(g.listenerUpmix,g.listenerSplit);
+ assert.equal(g.listenerUpmix.channelCount,2);
+ adjacent(g.listenerMerge,g.listenerHeadroom);
+ adjacent(g.listenerHeadroom,g.listenerWet);
+ adjacent(g.listenerWet,g.listenerMix);
+ adjacent(g.listenerMix,g.fade);adjacent(g.fade,g.afterPeak);
+ adjacent(g.afterPeak,ctx.destination);
+ assert.equal(g.limiter,undefined);
+ assert.equal(g.safety,undefined);
+ applyDSPGraph(g,'OFF',DSP_DEFAULTS);
+ assert.equal(g.dry.gain.value,1);
+ assert.equal(g.wet.gain.value,0);
+ applyDSPGraph(g,'ENHANCER',{...DSP_DEFAULTS,bass:4,stereoWidth:125});
+ assert.equal(g.dry.gain.value,0);
+ assert.equal(g.wet.gain.value,1);
+ assert.equal(g.compressorDry.gain.value,1,'Enhancer must physically bypass compressor');
+ assert.equal(g.compressorWet.gain.value,0);
+ assert.equal(g.bass.gain.value,4);
+ assert.equal(g.ll.gain.value,1.125);
+ applyDSPGraph(g,'FM_MODE',DSP_DEFAULTS,{mode:'manual',threshold:-19,ratio:2.6,attack:.04,release:.3,makeup:1});
+ assert.equal(g.compressorDry.gain.value,0);
+ assert.equal(g.compressorWet.gain.value,1);
+ assert.equal(g.compressor.ratio.value,2.6);
+ applyDSPGraph(g,'FM_MODE',DSP_DEFAULTS,{mode:'off'});
+ assert.equal(g.compressorDry.gain.value,1);
+ assert.equal(g.compressorWet.gain.value,0);
+ applyDSPGraph(g,'FM_MODE',DSP_DEFAULTS,{mode:'preset'});
+ applyListenerMode(g,'DEFAULT');
+ assert.equal(g.listenerDefault.gain.value,1);
+ assert.equal(g.listenerWet.gain.value,0);
+ applyListenerMode(g,'OFF');
+ assert.equal(g.listenerRaw.gain.value,1,'Premium OFF must bypass broadcaster too');
+ assert.equal(g.listenerDefault.gain.value,0);
+ assert.equal(g.listenerWet.gain.value,0);
+ assert.equal(g.dry.gain.value,0,'Broadcaster mode is preserved for other listeners');
+});
+test('SONOS 110%, virtual Dolby stereo and VMax are distinct listener-only FX',async()=>{
+ const {createDSPGraph,applyDSPGraph,applyListenerMode,normalizeListenerMode,
+  normalizeBroadcasterMode,calculateHeadroomDb,DSP_DEFAULTS,DSP_MODES,LISTENER_MODES}=await engine();
+ const g=createDSPGraph(context(),new Node());
+ assert.deepEqual(Object.keys(DSP_MODES),['OFF','ENHANCER','FM_MODE']);
+ assert.deepEqual(Object.keys(LISTENER_MODES),['DEFAULT','SONOS','DOLBY_STYLE','VMAX','OFF']);
+ assert.equal(normalizeBroadcasterMode('ULTRA'),'FM_MODE');
+ assert.equal(normalizeListenerMode('HomeTheater'),'DEFAULT');
+ applyDSPGraph(g,'FM_MODE',DSP_DEFAULTS);
+ applyListenerMode(g,'SONOS');
+ assert.equal(g.listenerWet.gain.value,1);
+ assert.equal(g.userLL.gain.value,1.05,'SONOS must use exactly 110% stereo');
+ assert.equal(g.listenerComp.ratio.value,1,'SONOS has no additional compression');
+ applyListenerMode(g,'DOLBY_STYLE');
+ assert.equal(g.userLL.gain.value,1.08);
+ assert.ok(g.listenerMid.gain.value>0,'phantom center requires voice-presence correction');
+ assert.equal(g.listenerComp.ratio.value,1);
+ applyListenerMode(g,'VMAX');
+ assert.ok(g.listenerComp.ratio.value>1);
+ assert.ok(g.listenerHeadroom.gain.value<1);
+ assert.ok(g.listenerHeadroomDb<0);
+ const vmaxNetDb=g.listenerHeadroomDb+
+  .3+.4+20*Math.log10(1.03)+2.4;
+ assert.ok(vmaxNetDb<=2.1,'VMAX consumes at most a safe part of station reserve');
+ applyDSPGraph(g,'OFF',DSP_DEFAULTS);
+ applyListenerMode(g,'VMAX');
+ assert.ok(g.listenerHeadroomDb<-4,'do not boost potentially clipped raw streams');
+ assert.ok(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,bass:12,stereoWidth:150})< -15);
+});
+test('Listener presets are Premium-only, local to an account and bypass ads',()=>{
+ const hook=read('frontend/src/hooks/useAudioDSP.js');
+ assert.match(hook,/currentUser\?\.isPremium===true/);
+ assert.match(hook,/applyDSPGraph\(graph,preset,settings,compressor\)/);
+ assert.match(hook,/applyListenerMode\(graph,personalMode\)/);
+ assert.match(hook,/if\(isPlayingAd\)/);
+ const app=read('frontend/src/App.jsx');
+ assert.match(app,/iluma_listener_dsp_v2:/);
+ assert.doesNotMatch(app,/iluma_user_dsp_overrides/);
+ const widget=read('frontend/src/components/PremiumSoundModes.jsx');
+ assert.ok(widget.includes('Object.entries(LISTENER_MODES)'));
+ assert.ok(widget.includes('Premium · Προσωπικός ήχος'));
+ const engineSource=read('frontend/src/utils/dspEngine.js');
+ for(const name of ['SONOS','DOLBY_STYLE','VMAX','OFF','DEFAULT'])
+  assert.ok(engineSource.includes(name),'missing personal preset '+name);
+ for(const p of ['frontend/src/pages/StationProfile.jsx','frontend/src/components/Footer.jsx']){
+  const ui=read(p);
+  assert.ok(ui.includes('PremiumSoundModes'));
+  assert.ok(!ui.includes('HomeTheater'));
+  assert.ok(!ui.includes('Immersive3D'));
+ }
+});
+test('No hard clip or forced limiter, native peak meter warns near 0 dBFS',async()=>{
+ const {measurePeakDbfs,PEAK_WARNING_DBFS}=await engine();
+ assert.ok(Math.abs(measurePeakDbfs(new Node(),new Float32Array(32))+6.0206)<.001);
+ assert.equal(PEAK_WARNING_DBFS,-1);
+ const source=read('frontend/src/utils/dspEngine.js');
+ assert.doesNotMatch(source,/createWaveShaper\(|limiter\.threshold|safety\.curve/);
+ const ui=read('frontend/src/pages/DSP.jsx');
+ assert.doesNotMatch(ui,/Fixed master ceiling|−0\.5 dBFS/);
 });

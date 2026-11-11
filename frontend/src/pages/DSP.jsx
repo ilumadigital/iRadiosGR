@@ -1,14 +1,14 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Activity,AlertTriangle,CheckCircle2,Headphones,Pause,Play,RotateCcw,
   Save,Search,SlidersHorizontal,Volume2,PowerOff} from 'lucide-react';
-import {DSP_DEFAULTS,DSP_PRESETS,DSP_COMPRESSOR_DEFAULTS,PEAK_WARNING_DBFS,
+import {DSP_DEFAULTS,DSP_MODES,normalizeBroadcasterMode,DSP_COMPRESSOR_DEFAULTS,PEAK_WARNING_DBFS,
   normalizeDSPSettings,normalizeDSPCompressor,compressorForPreset,calculateHeadroomDb,
   createDSPGraph,applyDSPGraph,measurePeakDbfs} from '../utils/dspEngine';
 
 const blank=()=>({dspPreset:'OFF',dspSettings:{...DSP_DEFAULTS},
   dspCompressor:{...DSP_COMPRESSOR_DEFAULTS}});
 const fromStation=station=>({
-  dspPreset:Object.hasOwn(DSP_PRESETS,station?.dspPreset)?station.dspPreset:'OFF',
+  dspPreset:normalizeBroadcasterMode(station?.dspPreset),
   dspSettings:normalizeDSPSettings(station?.dspSettings),
   dspCompressor:normalizeDSPCompressor(station?.dspCompressor)
 });
@@ -69,7 +69,9 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     [stations,stationId]);
   const filtered=useMemo(()=>stations.filter(item=>
     (item.name||'').toLocaleLowerCase().includes(search.toLocaleLowerCase())),[stations,search]);
-  const dirty=JSON.stringify(draft)!==JSON.stringify(saved);
+  const needsMigration=Boolean(station&&station.dspPreset&&
+    station.dspPreset!==normalizeBroadcasterMode(station.dspPreset));
+  const dirty=JSON.stringify(draft)!==JSON.stringify(saved)||needsMigration;
   const displayedCompressor=draft.dspCompressor.mode==='preset'?
     compressorForPreset(draft.dspPreset):draft.dspCompressor;
   const automaticHeadroom=bypass?0:
@@ -236,7 +238,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
       <div className="flex items-center gap-4">
         <div className="rounded-2xl border border-[#caff00]/20 bg-[#caff00]/10 p-3"><SlidersHorizontal className="text-[#caff00]"/></div>
         <div><h1 className="text-3xl font-black">WebDSP Audio Engine</h1>
-          <p className="mt-1 text-sm text-zinc-400">Presets, Compressor, EQ και Stereo Expander · χωρίς hard clipping ή master limiter.</p>
+          <p className="mt-1 text-sm text-zinc-400">OFF, Enhancer και FM Mode · μουσικό EQ, stereo και compressor χωρίς hard clipping.</p>
         </div>
       </div>
       <div className="rounded-full border border-white/10 px-4 py-2 text-[11px] uppercase tracking-widest text-zinc-300">
@@ -273,14 +275,14 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     {station&&<>
       <section className={shell+' p-5 md:p-7'}>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div><span className="text-[11px] font-bold tracking-widest text-zinc-500">00 / STUDIO PRESETS</span>
-            <h2 className="mt-1 text-2xl font-bold">Processing profile</h2>
-            <p className="mt-1 text-sm text-zinc-400">Το preset και οι χειροκίνητες ρυθμίσεις εφαρμόζονται ταυτόχρονα.</p>
+          <div><span className="text-[11px] font-bold tracking-widest text-zinc-500">00 / AUDIO MODES</span>
+            <h2 className="mt-1 text-2xl font-bold">Audio Mode</h2>
+            <p className="mt-1 text-sm text-zinc-400">OFF: raw stream · Enhancer: EQ + Stereo · FM Mode: EQ + Stereo + Compressor.</p>
           </div>
           <div className="rounded-full border border-white/10 px-4 py-2 text-xs text-zinc-300">{draft.dspPreset}</div>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
-          {Object.entries(DSP_PRESETS).map(([key,value])=><button key={key} type="button"
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {Object.entries(DSP_MODES).map(([key,value])=><button key={key} type="button"
             onClick={()=>selectPreset(key)} aria-pressed={draft.dspPreset===key}
             className={'min-h-20 rounded-xl border p-3 text-left text-xs font-bold transition-colors '+
               (draft.dspPreset===key?'border-[#caff00] bg-[#caff00]/10 text-[#caff00]':'border-white/10 bg-[#0d1113] text-zinc-300 hover:border-white/40')}>
@@ -288,62 +290,21 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[1.43fr_1fr]">
-        <section className={shell+' p-5 md:p-7'}>
-          <div className="mb-8 flex items-start justify-between gap-3">
-            <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">01 / EQUALIZER</span>
-              <h2 className="mt-2 text-2xl font-bold">Tone control</h2></div>
-            <span className="rounded-full border border-white/10 px-3 py-2 text-[10px] tracking-widest text-zinc-400">3 BAND EQ</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Fader label="Bass" value={draft.dspSettings.bass} min={-12} max={12}
-              sub={['180 Hz','Low shelf']} onChange={v=>updateSetting('bass',v)}/>
-            <Fader label="Mid" value={draft.dspSettings.mid} min={-12} max={12}
-              sub={['1.3 kHz','Presence']} onChange={v=>updateSetting('mid',v)}/>
-            <Fader label="Treble" value={draft.dspSettings.treble} min={-12} max={12}
-              sub={['4.3 kHz','High shelf']} onChange={v=>updateSetting('treble',v)}/>
-            <Fader label="Output" value={draft.dspSettings.output} min={-12} max={3}
-              sub={['MASTER','Trim']} onChange={v=>updateSetting('output',v)}/>
-          </div>
-        </section>
-
-        <section className={shell+' p-5 md:p-7'}>
-          <div className="flex items-start justify-between gap-3">
-            <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">02 / SPATIAL FIELD</span>
-              <h2 className="mt-2 text-2xl font-bold">Stereo expander</h2></div>
-            <span className="rounded-full border border-white/10 px-3 py-2 text-[10px] tracking-widest text-zinc-400">MID / SIDE</span>
-          </div>
-          <div aria-hidden="true" className="relative mx-auto mt-7 flex h-48 max-w-md items-center justify-center overflow-hidden">
-            {[95,78,61,44].map((width,i)=><div key={width}
-              className="absolute rounded-[100%] border border-slate-400/15"
-              style={{width:width+'%',height:(50+i*11)+'%',transform:'scaleX('+Math.max(.35,draft.dspSettings.stereoWidth/100)+')'}}/>)}
-            <span className="relative z-10 text-5xl font-black tabular-nums">{draft.dspSettings.stereoWidth}%</span>
-          </div>
-          <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest">
-            <span>Stereo width</span><span className="text-xl">{draft.dspSettings.stereoWidth}%</span>
-          </div>
-          <input aria-label="Stereo width" className={inputStyle+' mt-6'} type="range"
-            min="0" max="150" step="1" value={draft.dspSettings.stereoWidth}
-            onChange={event=>updateSetting('stereoWidth',Number(event.target.value))}/>
-          <div className="mt-3 flex justify-between text-[10px] text-zinc-500"><span>MONO / 0%</span><span>NATURAL / 100%</span><span>WIDE / 150%</span></div>
-          <div className="mt-7 grid grid-cols-3 gap-2">
-            {[[0,'MONO'],[100,'STEREO'],[125,'EXPAND']].map(([width,label])=><button
-              type="button" key={label} onClick={()=>updateSetting('stereoWidth',width)}
-              className={'rounded-xl border px-2 py-3 text-[11px] font-black '+(draft.dspSettings.stereoWidth===width?
-                'border-[#caff00] text-[#caff00] bg-[#caff00]/10':'border-white/10 text-zinc-300 bg-white/5')}>{label}</button>)}
-          </div>
-          <p className="mt-5 text-xs leading-6 text-zinc-500">100% = αυθεντικό stereo • 0% = mono • πάνω από 100% = διεύρυνση. Το gain staging προσαρμόζεται αυτόματα στο συνολικό boost.</p>
-        </section>
-      </div>
-
+      {draft.dspPreset==='OFF'&&
+        <div className="rounded-2xl border border-[#caff00]/20 bg-[#caff00]/5 p-5 text-sm text-zinc-200">
+          <strong className="text-[#caff00]">BYPASS / RAW STREAM</strong>
+          <p className="mt-2">EQ, Stereo Expander και Compressor έχουν απενεργοποιηθεί.
+          Ακούς το αρχικό stream χωρίς ψηφιακή επεξεργασία.</p>
+        </div>}
+      {draft.dspPreset==='FM_MODE'&&<>
       <section className={shell+' p-5 md:p-7'}>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">03 / DYNAMICS</span>
+          <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">01 / DYNAMICS</span>
             <h2 className="mt-2 text-2xl font-bold">Compressor Settings</h2>
-            <p className="mt-2 text-sm text-zinc-400">Ένας μόνο μουσικός compressor, μαζί με το preset, το EQ και το Stereo Expander. Δεν υπάρχει master limiter.</p>
+            <p className="mt-2 text-sm text-zinc-400">Προσαρμόζεις τα πατήματα του FM compressor χωρίς να επηρεάζεις EQ και Stereo. Χωρίς master limiter.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {[[ 'preset','PRESET DYNAMICS'],['manual','MANUAL'],['off','COMP OFF']].map(([mode,label])=>
+            {[[ 'preset','FM DEFAULTS'],['manual','MANUAL'],['off','COMP OFF']].map(([mode,label])=>
               <button key={mode} type="button" onClick={()=>setCompressorMode(mode)}
                 aria-pressed={draft.dspCompressor.mode===mode}
                 className={'rounded-xl border px-3 py-2 text-xs font-black '+
@@ -378,13 +339,65 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
         <div className="mt-5 flex flex-wrap items-center gap-4 text-xs text-zinc-400">
           <span>Live gain reduction: <strong className="text-white tabular-nums">{gainReduction.toFixed(1)} dB</strong></span>
           <span>Auto headroom: <strong className="text-white tabular-nums">{automaticHeadroom.toFixed(1)} dB</strong></span>
-          <span>Τα presets παραμένουν ανεξάρτητα από τις χειροκίνητες αλλαγές Compressor.</span>
+          <span>Οι δυναμικές ρυθμίσεις αφορούν μόνο το FM Mode.</span>
         </div>
       </section>
 
+      </>}
+      {draft.dspPreset!=='OFF'&&(
+      <div className="grid gap-5 xl:grid-cols-[1.43fr_1fr]">
+        <section className={shell+' p-5 md:p-7'}>
+          <div className="mb-8 flex items-start justify-between gap-3">
+            <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">02 / EQUALIZER</span>
+              <h2 className="mt-2 text-2xl font-bold">Tone control</h2></div>
+            <span className="rounded-full border border-white/10 px-3 py-2 text-[10px] tracking-widest text-zinc-400">3 BAND EQ</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Fader label="Bass" value={draft.dspSettings.bass} min={-12} max={12}
+              sub={['180 Hz','Low shelf']} onChange={v=>updateSetting('bass',v)}/>
+            <Fader label="Mid" value={draft.dspSettings.mid} min={-12} max={12}
+              sub={['1.3 kHz','Presence']} onChange={v=>updateSetting('mid',v)}/>
+            <Fader label="Treble" value={draft.dspSettings.treble} min={-12} max={12}
+              sub={['4.3 kHz','High shelf']} onChange={v=>updateSetting('treble',v)}/>
+            <Fader label="Output" value={draft.dspSettings.output} min={-12} max={3}
+              sub={['MASTER','Trim']} onChange={v=>updateSetting('output',v)}/>
+          </div>
+        </section>
+
+        <section className={shell+' p-5 md:p-7'}>
+          <div className="flex items-start justify-between gap-3">
+            <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">03 / SPATIAL FIELD</span>
+              <h2 className="mt-2 text-2xl font-bold">Stereo expander</h2></div>
+            <span className="rounded-full border border-white/10 px-3 py-2 text-[10px] tracking-widest text-zinc-400">MID / SIDE</span>
+          </div>
+          <div aria-hidden="true" className="relative mx-auto mt-7 flex h-48 max-w-md items-center justify-center overflow-hidden">
+            {[95,78,61,44].map((width,i)=><div key={width}
+              className="absolute rounded-[100%] border border-slate-400/15"
+              style={{width:width+'%',height:(50+i*11)+'%',transform:'scaleX('+Math.max(.35,draft.dspSettings.stereoWidth/100)+')'}}/>)}
+            <span className="relative z-10 text-5xl font-black tabular-nums">{draft.dspSettings.stereoWidth}%</span>
+          </div>
+          <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest">
+            <span>Stereo width</span><span className="text-xl">{draft.dspSettings.stereoWidth}%</span>
+          </div>
+          <input aria-label="Stereo width" className={inputStyle+' mt-6'} type="range"
+            min="0" max="150" step="1" value={draft.dspSettings.stereoWidth}
+            onChange={event=>updateSetting('stereoWidth',Number(event.target.value))}/>
+          <div className="mt-3 flex justify-between text-[10px] text-zinc-500"><span>MONO / 0%</span><span>NATURAL / 100%</span><span>WIDE / 150%</span></div>
+          <div className="mt-7 grid grid-cols-3 gap-2">
+            {[[0,'MONO'],[100,'STEREO'],[125,'EXPAND']].map(([width,label])=><button
+              type="button" key={label} onClick={()=>updateSetting('stereoWidth',width)}
+              className={'rounded-xl border px-2 py-3 text-[11px] font-black '+(draft.dspSettings.stereoWidth===width?
+                'border-[#caff00] text-[#caff00] bg-[#caff00]/10':'border-white/10 text-zinc-300 bg-white/5')}>{label}</button>)}
+          </div>
+          <p className="mt-5 text-xs leading-6 text-zinc-500">100% = αυθεντικό stereo • 0% = mono • πάνω από 100% = διεύρυνση. Το gain staging προσαρμόζεται αυτόματα στο συνολικό boost.</p>
+        </section>
+      </div>
+
+      )}
+
       <section className={shell+' p-5 md:p-7'}>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">04 / AUDITION</span>
+          <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">04 / LIVE PRELISTEN</span>
             <h2 className="mt-2 text-2xl font-bold">Live sound preview</h2>
             <p className="mt-2 max-w-2xl text-sm text-zinc-400">Άκου το πραγματικό live stream του επιλεγμένου σταθμού. Κάθε αλλαγή εφαρμόζεται αμέσως μόνο στην ακρόασή σου μέχρι να πατήσεις Save.</p></div>
           <span className="rounded-full border border-white/10 px-4 py-2 text-[11px] text-zinc-300">{playing?'LIVE PREVIEW':'READY TO PREVIEW'}</span>
@@ -397,11 +410,11 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
             className="inline-flex items-center gap-2 rounded-xl bg-[#c5d0d5] px-5 py-3 text-xs font-black text-black disabled:opacity-40">
             {playing?<Pause size={16}/>:<Play size={16}/>} {playing?'PAUSE PREVIEW':'LISTEN LIVE'}
           </button>
-          <button type="button" onClick={()=>{const next=!bypass;setBypass(next);apply(draft,next);}}
+          {draft.dspPreset!=='OFF'&&<button type="button" onClick={()=>{const next=!bypass;setBypass(next);apply(draft,next);}}
             aria-pressed={bypass}
             className={'inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-xs font-bold '+(bypass?'border-amber-400 text-amber-300':'border-white/20 text-zinc-300')}>
             <PowerOff size={15}/> {bypass?'FX BYPASSED':'BYPASS FX'}
-          </button>
+          </button>}
           <label className="ml-auto flex min-w-48 items-center gap-3 text-xs text-zinc-300">
             <Volume2 size={18}/><span>MONITOR</span>
             <input aria-label="Monitor level" type="range" min="0" max="100" step="1"
@@ -425,19 +438,20 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
             <Headphones className="mb-4 text-[#caff00]" size={28}/>
             <h3 className="text-lg font-bold">Ασφαλής προακρόαση</h3>
             <p className="mt-2 text-sm leading-7 text-zinc-400">Ο ήχος προστατεύεται με προληπτική μείωση gain αντί για clipping. Ο μετρητής δείχνει πραγματικά sample peaks, όχι πιστοποιημένα true peaks. Το DSP δεν μπορεί να επιδιορθώσει ήδη παραμορφωμένο αρχικό stream.</p>
-            <p className="mt-3 text-xs text-zinc-500">DSP OFF και BYPASS FX περνούν το αρχικό stream ανεπεξέργαστο. Gain staging: {automaticHeadroom.toFixed(1)} dB για τις τρέχουσες ρυθμίσεις.</p>
+            <p className="mt-3 text-xs text-zinc-500">OFF και BYPASS FX περνούν το αρχικό stream ανεπεξέργαστο. Gain staging: {automaticHeadroom.toFixed(1)} dB για τις τρέχουσες ρυθμίσεις.</p>
           </div>
         </div>
       </section>
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-[#111517] p-4">
-        <button type="button" onClick={()=>{const next={...draft,dspSettings:{...DSP_DEFAULTS}};setDraft(next);apply(next,bypass);}}
+        {draft.dspPreset!=='OFF'&&<button type="button" onClick={()=>{const next={...draft,dspSettings:{...DSP_DEFAULTS}};setDraft(next);apply(next,bypass);}}
           className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-3 text-xs font-bold text-zinc-300">
-          <RotateCcw size={16}/> RESET EQ / WIDTH</button>
+          <RotateCcw size={16}/> RESET EQ / WIDTH</button>}
         <button type="button" disabled={!dirty||saving} onClick={save}
           className="inline-flex items-center gap-2 rounded-xl bg-[#caff00] px-6 py-3 text-xs font-black text-black disabled:cursor-not-allowed disabled:opacity-40">
           <Save size={16}/> {saving?'SAVING…':'SAVE SETTINGS'}</button>
-        <span className="text-xs text-zinc-400">{dirty?'Μη αποθηκευμένες αλλαγές':'Οι αλλαγές έχουν αποθηκευτεί.'}</span>
+        <span className="text-xs text-zinc-400">{needsMigration?'Παλιό DSP preset: αποθήκευσέ το ως FM Mode.':
+          dirty?'Μη αποθηκευμένες αλλαγές':'Οι αλλαγές έχουν αποθηκευτεί.'}</span>
       </div>
     </>}
 
