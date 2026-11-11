@@ -110,7 +110,8 @@ const response=()=>({statusCode:200,body:null,headers:{},
     'station deep links must preselect the correct radio');
   for(const name of ['Region','Genre']){
     const source=read('frontend/src/pages/'+name+'.jsx');
-    assert.ok(source.includes('viewMode={viewMode}')&&source.includes('fallbackStation={baseStations[0]}'));
+    assert.ok(source.includes('viewMode={viewMode}')&&!source.includes('fallbackStation={baseStations[0]}'),
+      'catalog must not fill an empty editorial header with an arbitrary station');
   }
   assert.ok(read('frontend/src/components/PromotedStationCard.jsx').includes('activeStationShow'));
   console.log('Compact 70/30 catalog hero, 1200x630 assets, promoted station backoffice contracts passed.');
