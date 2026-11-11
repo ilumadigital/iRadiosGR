@@ -13,6 +13,7 @@ const auth = read('backend/controllers/authController.js');
 const admin = read('frontend/src/pages/AdminRadioSet.jsx');
 const onboarding = read('frontend/src/pages/BroadcasterInvitation.jsx');
 const goBroadcast = read('frontend/src/pages/GoBroadcast.jsx');
+const broadcasterRegister = read('frontend/src/pages/BroadcasterRegister.jsx');
 const app = read('frontend/src/App.jsx');
 const terms = read('frontend/src/pages/TermsBroadcasters.jsx');
 
@@ -40,8 +41,10 @@ assert.ok(!api.includes('res.json({ token:'), 'never return invite token in admi
 assert.ok(station.includes("router.put('/admin/stations/:id/assign', protect, authorizeRoles('admin')"),
   'manual assignment remains admin-only');
 assert.ok(station.includes('BroadcasterInvitation.updateMany'), 'manual ownership invalidates old links');
-assert.ok(stage.includes("'/api/auth/register-broadcaster'") && stage.includes("allowInvitedOnboarding(req, res, next)"),
-  'staging allows only invitation-scoped broadcaster signup');
+assert.ok(stage.includes("'/api/auth/register-broadcaster'") && stage.includes("allowInvitedOnboarding(req, res, next)") &&
+  stage.includes('if(req.body?.inviteToken!==undefined)return allowInvitedOnboarding(req,res,next);') &&
+  stage.includes('if(!loginRateLimit(req,res))return;'),
+  'staging allows Turnstile-gated public signup and separately validates invitations');
 assert.ok(stage.includes("'/api/broadcaster-invitations/preview'"),
   'staging allows public token preview');
 assert.ok(auth.includes("if (inviteToken !== undefined)") &&
@@ -52,6 +55,11 @@ for (const snippet of ['modalTab', 'inviteEmail', 'handleSendInvite', 'handleRev
 for (const snippet of ['activate-broadcaster', 'broadcaster-invitations/claim', 'hasAcceptedCurrentBroadcasterTerms'])
   assert.ok(onboarding.includes(snippet), 'onboarding flow missing ' + snippet);
 assert.ok(app.includes('path="/broadcaster-invite"'), 'registered public invite route missing');
-assert.ok(goBroadcast.includes('inviteToken ? { inviteToken }'), 'invite token must survive OTP');
+assert.ok(goBroadcast.includes('/broadcast/register?invite=') &&
+  broadcasterRegister.includes('...(inviteToken?{inviteToken}:{})'),
+  'invitation survives landing redirect and email-link registration');
+assert.ok(auth.includes('verificationLinkEmail(fname,verification.token,{broadcaster:true})') &&
+  auth.includes("role:{$in:['user','broadcaster']}"),
+  'Broadcaster registration and confirmation use a single-use email link');
 assert.ok(terms.includes('/broadcaster-invite?token='), 'B2B terms must resume invitation');
 console.log('Broadcaster station invitation safety and UI integration contracts passed.');

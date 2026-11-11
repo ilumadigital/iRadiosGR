@@ -55,8 +55,10 @@ const validInvite=call('POST','/producers/accept-invite',{
 assert.equal(validInvite.reached,true,'signed invite verification endpoint is reachable for guests');
 const invitationPreview=call('GET','/broadcaster-invitations/preview');
 assert.equal(invitationPreview.reached,true,'invite-specific public preview is reachable');
-const forbiddenSignup=call('POST','/auth/register-broadcaster',{email:'invalid@example.com'});
-assert.equal(forbiddenSignup.res.code,403,'stage must never allow open broadcaster signup');
+const invalidSignup=call('POST','/auth/register-broadcaster',{email:'invalid@example.com'});
+assert.equal(invalidSignup.res.code,400,'public broadcaster signup validates input before Turnstile');
+const broadcasterSignup=call('POST','/auth/register-broadcaster',{email:'valid@example.com',username:'stationowner'});
+assert.equal(broadcasterSignup.reached,true,'public broadcaster signup reaches mandatory Turnstile middleware');
 const badOtp=call('POST','/auth/verify-otp',{email:'invalid@example.com',otp:'bad'});
 assert.equal(badOtp.res.code,400,'malformed OTP must be rejected before DB lookup');
 const publicOtp=call('POST','/auth/verify-otp',{email:'listener@example.com',otp:'123456'});

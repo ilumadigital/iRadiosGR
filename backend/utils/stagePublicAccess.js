@@ -10,9 +10,9 @@ const User = require('../models/User');
 const crypto = require('node:crypto');
 const BroadcasterInvitation = require('../models/BroadcasterInvitation');
 
-// Staging remains deny-by-default. Permit *only* email-bound invitation
-// registration/OTP traffic, while public Listener/Agency registration is protected
-// by Cloudflare Siteverify in authRoutes. All other APIs remain deny-by-default.
+// Staging remains deny-by-default. Public Broadcaster signup requires rate
+// limiting and Cloudflare Siteverify, while invite-bound requests also prove
+// the valid emailed invitation token.
 async function allowInvitedOnboarding(req, res, next) {
   const token = req.body?.inviteToken;
   const email = String(req.body?.email || '').trim().toLowerCase();
@@ -92,8 +92,18 @@ function stagePublicAccess(req, res, next) {
     return next();
   }
   if(req.method==='POST' && path==='/api/auth/resend-verification')return protect(req,res,next);
-  if (req.method==='POST' && path==='/api/auth/register-broadcaster')
-    return allowInvitedOnboarding(req,res,next);
+  if (req.method==='POST' && path==='/api/auth/register-broadcaster') {
+    if(req.body?.inviteToken!==undefined)return allowInvitedOnboarding(req,res,next);
+    if(!loginRateLimit(req,res))return;
+    const email=req.body?.email, username=req.body?.username;
+    if(typeof email!=='string'||email.length>254||
+       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||
+       typeof username!=='string'||username.length>60||
+       !/^[a-zA-Z0-9_.-]{3,60}$/.test(username))
+      return res.status(400).json({error:'Μη έγκυρα στοιχεία εγγραφής Broadcaster.'});
+    // Auth route performs mandatory server-side Cloudflare Turnstile validation.
+    return next();
+  }
   if (req.method==='POST' && path==='/api/auth/verify-otp') {
     if(req.body?.inviteToken)return allowInvitedOnboarding(req,res,next);
     if(!loginRateLimit(req,res))return;
