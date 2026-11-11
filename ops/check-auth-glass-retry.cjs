@@ -53,3 +53,19 @@ assert.match(css, /@media \(max-width: 480px\)/, 'small-screen breakpoints');
 assert.match(css, /backdrop-filter: blur/, 'translucent glass');
 assert.match(css, /prefers-reduced-motion/, 'reduced-motion support');
 console.log('Authentication glass layout + retry contracts passed');
+
+const app=read('frontend/src/App.jsx');
+const shell=read('frontend/src/components/AuthShell.jsx');
+assert.match(app,/if\(location\.pathname==='\/login'\)return <StandaloneAuthPage type="login"\/>/,
+  'Login must be routed outside MainApp and audio player');
+assert.match(app,/if\(location\.pathname==='\/register'\)return <StandaloneAuthPage type="register"\/>/,
+  'Listener Register must be routed outside MainApp and player');
+assert.ok(app.indexOf("if(location.pathname==='/login')") < app.indexOf("return location.pathname==='/backoffice'"),
+  'Authentication route is evaluated before the listener app is created');
+assert.match(shell,/ir-auth-page--/, 'Authentication shell exposes scoped layout classes');
+assert.match(css,/\.ir-auth-page--login \.ir-auth-shell[\s\S]*?height: 90dvh;/,
+  'Desktop login shell uses 90dvh');
+assert.match(css,/\.ir-auth-page--register \.ir-auth-card/,
+  'Registration has its own responsive sizing and does not inherit login 90vh');
+assert.match(read('frontend/src/pages/Login.jsx'),/ir-auth-card--login/, 'Login has compact layout marker');
+assert.match(read('frontend/src/pages/Register.jsx'),/ir-auth-card--register/, 'Register has its own compact card');

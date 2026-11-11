@@ -259,8 +259,8 @@ export default function Login({ API_URL, setCurrentUser }) {
 
       {/* --- STANDARD LOGIN FORM --- */}
       {!showOtpModal && !showForgotModal && (
-        <div className="ir-auth-card w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-10 rounded-[40px] shadow-2xl relative z-10 animate-fade-in">
-          <AuthIntro icon={LogIn} eyebrow="WELCOME BACK" title="Καλώς ήρθες ξανά" description="Συνδέσου και συνέχισε να ακούς ό,τι αγαπάς." />
+        <div className="ir-auth-card ir-auth-card--login w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-6 sm:p-7 rounded-[28px] shadow-2xl relative z-10 animate-fade-in">
+          <AuthIntro icon={LogIn} eyebrow="WELCOME BACK" title="Καλώς ήρθες ξανά" description="Συνδέσου στο iRadiosGR, χωρίς περιττά βήματα." />
 
           {error && (
             <div role="alert" className="ir-auth-feedback bg-red-500/10 border border-red-500/50 text-red-400 text-sm font-bold px-4 py-4 rounded-xl mb-6 text-center tracking-wide">
@@ -268,7 +268,7 @@ export default function Login({ API_URL, setCurrentUser }) {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-3">
             <div className="relative group">
               {identifier.includes('@') ? (
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-[#ccff00] transition-colors" size={20} />
@@ -280,7 +280,7 @@ export default function Login({ API_URL, setCurrentUser }) {
                 placeholder="Username ή Email" autoComplete="username" aria-label="Username ή Email" 
                 value={identifier} 
                 onChange={(e) => { setIdentifier(e.target.value); setError(''); }} 
-                className="w-full bg-black/50 border border-white/5 h-16 rounded-2xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-[#ccff00]/50 text-white transition-colors" 
+                className="w-full bg-black/50 border border-white/10 h-14 rounded-xl pl-12 pr-4 text-sm font-medium focus:outline-none focus:border-[#ccff00]/50 text-white transition-colors" 
                 required 
               />
             </div>
@@ -293,7 +293,7 @@ export default function Login({ API_URL, setCurrentUser }) {
                   placeholder="Κωδικός Πρόσβασης" autoComplete="current-password" aria-label="Κωδικός πρόσβασης" 
                   value={password} 
                   onChange={(e) => { setPassword(e.target.value); setError(''); }} 
-                  className="w-full bg-black/50 border border-white/5 h-16 rounded-2xl pl-12 pr-12 text-sm font-medium focus:outline-none focus:border-[#ccff00]/50 text-white transition-colors" 
+                  className="w-full bg-black/50 border border-white/10 h-14 rounded-xl pl-12 pr-12 text-sm font-medium focus:outline-none focus:border-[#ccff00]/50 text-white transition-colors" 
                   required 
                 />
                 <button
@@ -319,7 +319,7 @@ export default function Login({ API_URL, setCurrentUser }) {
             </div>
 
             {/* Cloudflare Turnstile Widget */}
-            <div className="ir-auth-turnstile flex justify-center my-6">
+            <div className="ir-auth-turnstile flex justify-center my-3">
               {siteKey ? (
                 <Turnstile
                   key={siteKey}
@@ -340,7 +340,7 @@ export default function Login({ API_URL, setCurrentUser }) {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-[#ccff00] text-black font-black uppercase tracking-widest h-16 rounded-2xl hover:bg-[#b3e600] active:scale-95 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-[#ccff00] text-black font-black uppercase tracking-wider h-14 rounded-xl hover:bg-[#b3e600] active:scale-95 transition-all mt-2 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 size={20} className="animate-spin" /> : "Συνδεση"}
             </button>
@@ -350,7 +350,7 @@ export default function Login({ API_URL, setCurrentUser }) {
             </p>
           </form>
 
-          <p className="text-center text-sm text-zinc-500 mt-8 font-medium">
+          <p className="text-center text-sm text-zinc-500 mt-4 font-medium">
             Δεν έχετε λογαριασμό; <Link to={inviteToken ? `/broadcast/register?invite=${encodeURIComponent(inviteToken)}` : "/register"} className="text-white font-bold hover:text-[#ccff00] transition-colors">Εγγραφή</Link>
           </p>
         </div>

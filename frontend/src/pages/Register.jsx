@@ -71,7 +71,7 @@ export default function Register({ API_URL, setCurrentUser }) {
       
       {/* --- REGISTRATION FORM --- */}
       {(
-        <div className="ir-auth-card w-full max-w-md bg-zinc-900/50 border border-white/10 p-8 rounded-[40px] backdrop-blur-sm relative z-10 my-auto">
+        <div className="ir-auth-card ir-auth-card--register w-full max-w-xl bg-zinc-900/50 border border-white/10 p-6 sm:p-8 rounded-[28px] backdrop-blur-sm relative z-10 my-auto">
           
           <AuthIntro icon={UserPlus} eyebrow="JOIN THE EXPERIENCE" title="Φτιάξε τον λογαριασμό σου" description="Ένα προφίλ. Αμέτρητοι σταθμοί και μουσικές στιγμές." />
 
@@ -81,7 +81,7 @@ export default function Register({ API_URL, setCurrentUser }) {
             </div>
           )}
 
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-3">
             <div className="grid grid-cols-2 gap-4">
               <div className="relative">
                 <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
@@ -90,18 +90,20 @@ export default function Register({ API_URL, setCurrentUser }) {
               <input type="text" placeholder="Επίθετο" aria-label="Επίθετο" autoComplete="family-name" required value={formData.lname} onChange={(e) => setFormData({...formData, lname: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-4 text-white focus:border-[#ccff00] transition-colors outline-none" />
             </div>
 
-            <div className="relative">
-              <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input type="text" placeholder="Username" aria-label="Username" autoComplete="username" required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none font-mono" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="relative">
+                <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input type="text" placeholder="Username" aria-label="Username" autoComplete="username" required value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value.toLowerCase().replace(/\s/g, '')})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none font-mono" />
+              </div>
+              <div className="relative">
+                <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input type="email" placeholder="Email" aria-label="Email" autoComplete="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none" />
+              </div>
             </div>
 
-            <div className="relative">
-              <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input type="email" placeholder="Email" aria-label="Email" autoComplete="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl pl-12 pr-4 text-white focus:border-[#ccff00] transition-colors outline-none" />
-            </div>
-
-            <div className="relative">
-              <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="relative">
+                <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
               <input 
                 type={showPassword ? "text" : "password"} 
                 placeholder="Κωδικός (Min 6 χαρακτήρες)" aria-label="Κωδικός πρόσβασης" autoComplete="new-password" 
@@ -119,15 +121,15 @@ export default function Register({ API_URL, setCurrentUser }) {
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
-            </div>
-
-            <div>
+              </div>
+              <div>
               <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Ημερομηνία Γέννησης</label>
               <input type="date" aria-label="Ημερομηνία γέννησης" autoComplete="bday" required value={formData.birthdate} onChange={(e) => setFormData({...formData, birthdate: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-4 text-white focus:border-[#ccff00] transition-colors outline-none text-sm" />
+              </div>
             </div>
 
             {/* 💡 NEW: Cloudflare Turnstile Widget */}
-            <div className="ir-auth-turnstile flex justify-center mt-6 mb-2">
+            <div className="ir-auth-turnstile flex justify-center mt-3 mb-2">
               {siteKey ? (
                 <Turnstile
                   key={siteKey}
@@ -148,7 +150,7 @@ export default function Register({ API_URL, setCurrentUser }) {
             <button 
               type="submit" 
               disabled={loading} // 💡 NEW: Απενεργοποίηση αν λείπει το token
-              className="w-full mt-4 bg-white text-black font-black py-4 rounded-2xl uppercase tracking-widest text-sm hover:bg-[#ccff00] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full mt-3 bg-[#ccff00] text-black font-black py-3.5 rounded-2xl uppercase tracking-widest text-sm hover:bg-[#ccff00] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <>ΕΓΓΡΑΦΗ <ArrowRight size={18} /></>}
             </button>
@@ -158,7 +160,7 @@ export default function Register({ API_URL, setCurrentUser }) {
             </p>
           </form>
 
-          <p className="text-center text-zinc-500 text-sm mt-8">
+          <p className="text-center text-zinc-500 text-sm mt-5">
             Έχεις ήδη λογαριασμό; <Link to="/login" className="text-white font-bold hover:text-[#ccff00] transition-colors">Συνδέσου</Link>
           </p>
         </div>

@@ -1,8 +1,11 @@
 import React from 'react';
+import {useLocation} from 'react-router-dom';
 
 export default function AuthShell({ children }) {
+  const {pathname}=useLocation();
+  const mode=pathname==='/login'?'login':pathname==='/register'?'register':'other';
   return (
-    <section className="ir-auth-page">
+    <section className={'ir-auth-page ir-auth-page--'+mode}>
       <div className="ir-auth-shell">
         <aside className="ir-auth-story">
           <div className="ir-auth-story__brand">
