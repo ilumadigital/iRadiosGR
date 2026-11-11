@@ -43,7 +43,7 @@ function PeakBar({label,db}){
       <div className="h-full transition-[width] duration-100"
         style={{width:meterWidth(db)+'%',background:db>=PEAK_WARNING_DBFS?'#fb7185':'linear-gradient(90deg,#94a3b8,#caff00)'}}/>
     </div>
-    <div className="flex justify-between text-[10px] text-zinc-500"><span>−60 dBFS</span><span>−1 dBFS · WARNING</span><span>0 dBFS · CLIP</span></div>
+    <div className="flex justify-between text-[10px] text-zinc-500"><span>−60 dBFS</span><span>−0.5 dBFS · WARNING</span><span>0 dBFS · CLIP</span></div>
   </div>;
 }
 function drawWaveform(canvas,samples,color){
@@ -106,8 +106,9 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   const displayedCompressor=draft.dspCompressor.mode==='preset'?
     compressorForPreset(draft.dspPreset):draft.dspCompressor;
   const activeMaster=draft.dspPreset==='OFF'?null:draft.dspClipper[draft.dspPreset];
-  const automaticHeadroom=bypass?0:
-    calculateHeadroomDb(draft.dspPreset,draft.dspSettings,draft.dspCompressor,draft.dspClipper);
+  const ceilingActive=!bypass&&Boolean(activeMaster?.headroomEnabled);
+  const automaticHeadroom=ceilingActive?
+    calculateHeadroomDb(draft.dspPreset,draft.dspSettings,draft.dspCompressor,draft.dspClipper):0;
   const token=()=>localStorage.getItem('iluma_token')||'';
 
   useEffect(()=>{
@@ -474,8 +475,8 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
                 {activeMaster.headroomEnabled?'ON':'OFF'}
               </button>
             </div>
-            <p className="mt-5 text-3xl font-black tabular-nums">{activeMaster.headroomEnabled?automaticHeadroom.toFixed(1):'OFF'}
-              {activeMaster.headroomEnabled&&<span className="text-base text-zinc-400"> dBFS peak</span>}</p>
+            <p className="mt-5 text-3xl font-black tabular-nums">{ceilingActive?automaticHeadroom.toFixed(1):'OFF'}
+              {ceilingActive&&<span className="text-base text-zinc-400"> dBFS peak</span>}</p>
             <p className="mt-2 text-xs text-amber-300">{activeMaster.headroomEnabled?
               'Δεν χαμηλώνει όλο το stream. Περιορίζει μόνο τις υψηλές κορυφές.':
               'Χωρίς peak ceiling: το έντονο EQ μπορεί να προκαλέσει clipping.'}</p>
