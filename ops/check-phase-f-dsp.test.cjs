@@ -169,7 +169,7 @@ test('Listener presets are Premium-only, local to an account and bypass ads',()=
 test('Optional soft clipper and live peaks preserve raw bypass and sample warning',async()=>{
  const {measurePeakDbfs,PEAK_WARNING_DBFS}=await engine();
  assert.ok(Math.abs(measurePeakDbfs(new Node(),new Float32Array(32))+6.0206)<.001);
- assert.equal(PEAK_WARNING_DBFS,-1);
+ assert.equal(PEAK_WARNING_DBFS,-.5);
  const source=read('frontend/src/utils/dspEngine.js');
  assert.match(source,/createWaveShaper\(/);
  assert.doesNotMatch(source,/limiter\.threshold|safety\.curve/);
