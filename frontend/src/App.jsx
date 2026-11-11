@@ -598,7 +598,7 @@ function MainApp() {
   // Admin's independent DSP audition must not be mixed with the global
   // listener player's audio when entering the full-page editor.
   useEffect(()=>{
-    if(location.pathname!=='/dsp')return;
+    if(location.pathname!=='/dsp'&&location.pathname!=='/backoffice/admin/audio')return;
     intendedPlayState.current=false;
     if(audioRef.current&&!audioRef.current.paused)audioRef.current.pause();
     setIsPlaying(false);
@@ -1930,7 +1930,7 @@ function MainApp() {
             } />
             <Route path="/dsp" element={
               <RequireTerms currentUser={currentUser}>
-                {currentUser?.role === 'broadcaster' ? <Navigate to="/backoffice/audio" replace /> : currentUser?.role === 'admin' ? <DSP API_URL={API_URL} currentUser={currentUser} onUpdateDSP={handleUpdateStationDSP} resumeDSP={resumeDSP} /> : <Navigate to="/" />}
+                {currentUser?.role === 'broadcaster' ? <Navigate to="/backoffice/audio" replace /> : currentUser?.role === 'admin' ? <Navigate to="/backoffice/admin/audio" replace /> : <Navigate to="/" />}
               </RequireTerms>
             } />
             <Route path="/ad-control" element={
