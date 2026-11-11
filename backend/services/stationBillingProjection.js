@@ -8,7 +8,9 @@ const {maskStationPaidControls}=require('./stationBillingProjectionRules');
 // billing cancellation never deletes DSP presets or historical station data.
 async function projectPublicStations(stations,now=new Date()){
  const ids=[...new Set(stations.map(s=>String(s.broadcasterId||'')).filter(Boolean))];
- if(!ids.length)return stations.map(s=>s.toObject?s.toObject():s);
+ // Even when NO stations have owners, custom Admin DSP settings are stored
+ // but must not become public processing without a new paid/granted entitlement.
+ if(!ids.length)return stations.map(s=>maskStationPaidControls(s,null,[],now,[]));
  const [owners,history,paidOrders]=await Promise.all([
   User.find({_id:{$in:ids}}).select('_id role isPremium broadcasterProfile').lean(),
   BillingGrant.find({accountId:{$in:ids},
