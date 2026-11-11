@@ -14,6 +14,7 @@ export default function HomeHeroSlider({
 }) {
   const navigate=useNavigate();
   const [slides,setSlides]=useState([]);
+  const [loadedScope,setLoadedScope]=useState(null);
   const [index,setIndex]=useState(0);
   const [hover,setHover]=useState(false);
   const [athensClock,setAthensClock]=useState(()=>getAthensClock());
@@ -27,19 +28,23 @@ export default function HomeHeroSlider({
     const controller=new AbortController();
     setIndex(0);
     setSlides([]);
+    setLoadedScope(null);
     if(!['home','news'].includes(placement)&&!value)return()=>controller.abort();
     const query=placement==='home'?'':'?'+new URLSearchParams({placement,value}).toString();
+    const scopeKey=placement+':'+value;
     fetch('/api/home-slides'+query,{signal:controller.signal})
       .then(r=>r.ok?r.json():[])
-      .then(data=>{if(!controller.signal.aborted)setSlides(Array.isArray(data)?data:[]);})
-      .catch(()=>{if(!controller.signal.aborted)setSlides([]);});
+      .then(data=>{if(!controller.signal.aborted){setSlides(Array.isArray(data)?data:[]);setLoadedScope(scopeKey);}})
+      .catch(()=>{if(!controller.signal.aborted){setSlides([]);setLoadedScope(scopeKey);}});
     return ()=>controller.abort();
   },[placement,value]);
   // Only an explicitly featured station may fill the unconfigured Home hero.
   // Catalog pages never fall back to the current, first or random station.
   const stationFallback=useMemo(()=>homeFeaturedFallback(stations,placement),[stations,placement]);
-  const visible=useMemo(()=>visibleEditorialSlides(slides,currentUser,stations,excludeStationId),
-    [slides,currentUser,stations,excludeStationId]);
+  // Never flash a previous category's CMS slides while a new placement loads.
+  const visible=useMemo(()=>loadedScope===placement+':'+value
+    ? visibleEditorialSlides(slides,currentUser,stations,excludeStationId):[],
+    [loadedScope,placement,value,slides,currentUser,stations,excludeStationId]);
   useEffect(()=>{onAvailabilityChange?.(visible.length>0);},
     [visible.length,onAvailabilityChange]);
   const activeIndex=visible.length?index%visible.length:0;
