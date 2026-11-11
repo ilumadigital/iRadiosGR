@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {createDSPGraph,applyDSPGraph,DSP_DEFAULTS,DSP_COMPRESSOR_DEFAULTS} from '../utils/dspEngine';
+import {createDSPGraph,applyDSPGraph,applyListenerMode,normalizeListenerMode,DSP_DEFAULTS,DSP_COMPRESSOR_DEFAULTS} from '../utils/dspEngine';
 
 // Listener and broadcaster audition use the same processing rules. The audio
 // element is attached only once; station changes reconfigure the existing graph.
@@ -61,19 +61,22 @@ export default function useAudioDSP(
     const graph=graphRef.current;
     if(!graph||!isDspReady)return;
     let preset='OFF',settings=DSP_DEFAULTS,compressor=DSP_COMPRESSOR_DEFAULTS;
-    if(isPlayingAd&&currentAdInfo){
-      preset=currentAdInfo.dspPreset||'OFF';
-      // Paid station EQ/width and manual compressor settings never touch ads.
+    let personalMode='DEFAULT';
+    if(isPlayingAd){
+      // Never apply personal DSP to advertisements, regardless of Premium.
+      preset=currentAdInfo?.dspPreset||'OFF';
     }else if(currentStation){
       preset=currentStation.dspPreset||'OFF';
       settings=currentStation.dspSettings||DSP_DEFAULTS;
       compressor=currentStation.dspCompressor||DSP_COMPRESSOR_DEFAULTS;
-      if(currentUser?.isPremium&&currentUser?.favorites?.includes(currentStation._id)){
-        const choice=userOverrides[currentStation._id];
-        if(choice&&choice!=='Station Default')preset=choice;
+      // Premium listener presets only touch this local WebAudio instance.
+      // They neither write to Mongo nor alter what other listeners hear.
+      if(currentUser?.isPremium===true){
+        personalMode=normalizeListenerMode(userOverrides[String(currentStation._id)]);
       }
     }
     applyDSPGraph(graph,preset,settings,compressor);
+    applyListenerMode(graph,personalMode);
   },[currentStation,isPlayingAd,currentAdInfo,currentUser,userOverrides,isDspReady]);
 
   const fadeAudio=useCallback((targetVolume,duration=1)=>{
