@@ -289,7 +289,7 @@ async function main(){
   assert.ok(!frontend.includes('<Route index'),
     'Backoffice root must be an absolute path, not an unmatched index route');
 
-  assert.ok(frontend.includes('Business Console'));
+  assert.ok(frontend.includes('Station Console v6'));
   assert.ok(frontend.includes('function DeleteStationDialog(')&&
     frontend.includes("method:'DELETE',body:JSON.stringify({confirmationName:typedName})")&&
     frontend.includes('typedName!==station.name')&&frontend.includes('onDelete={requestDelete}'),

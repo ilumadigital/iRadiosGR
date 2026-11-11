@@ -181,6 +181,8 @@ jobs:
         run: node ops/check-phase4-backoffice.cjs
       - name: Verify locked Broadcaster add-ons and billing entitlement aware sidebar
         run: node ops/check-broadcaster-locked-addons.cjs
+      - name: Validate official Station Console v6 branding and WebDSP-first compact navigation
+        run: node --test ops/check-station-console-sidebar.test.cjs
       - name: Check Phase 4.1 Backoffice simplicity, schedules and admin authorization
         run: node ops/check-phase41-backoffice-ux.cjs
       - name: Validate canonical weekdays, midnight schedule splits and station display

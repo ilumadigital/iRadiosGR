@@ -115,8 +115,8 @@ function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false
       ?'Δεν ήταν δυνατή η επιβεβαίωση των δικαιωμάτων.'
       :'Απαιτείται ενεργό Add-on ή Broadcaster Premium.';
     return <span aria-disabled="true" title={reason}
-      className="flex cursor-not-allowed items-center gap-3 rounded-2xl border border-transparent px-4 py-3.5 text-[13px] font-bold text-zinc-600 opacity-80"
-    ><Icon size={18} strokeWidth={2} aria-hidden="true"/>
+      className="flex min-h-[35px] cursor-not-allowed items-center gap-2.5 rounded-xl border border-transparent px-3 py-[7px] text-[12px] font-semibold text-zinc-600 opacity-80"
+    ><Icon size={16} strokeWidth={2} aria-hidden="true"/>
       <span className="min-w-0 flex-1">{label}</span>
       {checking?<RefreshCw size={14} className="shrink-0 animate-spin" aria-hidden="true"/>:
         <LockKeyhole size={15} className="shrink-0 text-zinc-500" aria-hidden="true"/>}
@@ -124,19 +124,24 @@ function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false
     </span>;
   }
   return <NavLink to={to} end={end} onClick={close} className={({isActive})=>
-    'flex items-center gap-3 rounded-2xl px-4 py-3.5 text-[13px] font-bold transition '+
-    (isActive?'bg-[#caff00] text-[#111400] shadow-[0_12px_30px_rgba(202,255,0,.15)]':
-      promoted?'border border-[#caff00]/35 bg-[#caff00]/[.09] text-[#dfff7f] shadow-[0_0_24px_rgba(202,255,0,.08)] hover:bg-[#caff00]/[.15]':
-      'text-zinc-400 hover:bg-white/[.07] hover:text-white')
-  }><Icon size={18} strokeWidth={2}/><span className="min-w-0 flex-1">{label}</span>
+    'group flex min-h-[35px] items-center gap-2.5 rounded-xl border border-transparent px-3 py-[7px] text-[12px] font-semibold leading-5 transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#caff00] '+
+    (isActive?'border-[#caff00]/25 bg-[#caff00] text-[#111400] shadow-[0_5px_20px_rgba(202,255,0,.11)]':
+      promoted?'border-[#caff00]/35 bg-[#caff00]/[.09] text-[#dfff7f] hover:bg-[#caff00]/[.15]':
+      'text-zinc-400 hover:border-white/[.06] hover:bg-white/[.06] hover:text-white')
+  }><Icon size={16} strokeWidth={2} className="shrink-0"/><span className="min-w-0 flex-1 truncate">{label}</span>
     {promoted&&<span className="rounded-full bg-[#caff00] px-2 py-0.5 text-[9px] font-black tracking-wide text-[#111600]">NEW</span>}
   </NavLink>;
 }
 function Logo(){
-  return <div className="flex items-center gap-2.5">
-    <div className="flex size-10 items-center justify-center rounded-xl bg-[#caff00] text-[#101300] shadow-[0_0_26px_rgba(202,255,0,.18)]"><Radio size={23} strokeWidth={3}/></div>
-    <div className="leading-none"><div className="text-[19px] font-black tracking-[-.07em] text-white">iRadios<span className="text-[#caff00]">GR</span></div>
-      <p className="mt-1.5 text-[8px] font-black uppercase tracking-[.26em] text-zinc-500">Business Console</p></div>
+  return <div className="flex min-w-0 items-center gap-2.5">
+    <img src="/iradios-logo.png" alt="" className="size-10 shrink-0 rounded-xl object-contain"/>
+    <div className="min-w-0">
+      <div className="flex items-center gap-1">
+        <img src="/noicon-iradios-app-logo.png" alt="iRadios" className="h-[29px] w-[100px] object-contain object-left"/>
+        <span className="text-[21px] font-black tracking-[-.065em] text-[#caff00]">GR</span>
+      </div>
+      <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-[.18em] text-zinc-400">Station Console <span className="text-[#caff00]">v6</span></p>
+    </div>
   </div>;
 }
 async function api(url,options={}){
@@ -331,7 +336,7 @@ function Dashboard({data}){
       <div className="absolute -right-20 -top-28 size-80 rounded-full bg-[#caff00]/[.11] blur-[90px]"/>
       <div className="relative flex flex-col justify-between gap-7 lg:flex-row lg:items-center">
         <div className="max-w-2xl">
-          <Badge tone="lime"><Sparkles size={12}/> iRadios Business Console</Badge>
+          <Badge tone="lime"><Sparkles size={12}/> iRadios Station Console v6</Badge>
           <h1 className="mt-4 text-3xl font-black tracking-[-.05em] text-white md:text-5xl">
             {admin?'Το δίκτυο με μια ματιά.':producer?'Το πρόγραμμά σου, απλά.':
               'Καλώς ήρθες στο στούντιό σου.'}</h1>
@@ -1454,6 +1459,14 @@ export default function Backoffice(){
   const requestDelete=useCallback(station=>setDeleteTarget(station),[]);
   const closeDelete=useCallback(()=>setDeleteTarget(null),[]);
   const [navFilter,setNavFilter]=useState('');
+  const [shortSidebar,setShortSidebar]=useState(()=>typeof window!=='undefined'&&window.innerHeight<810);
+  const [expandedSection,setExpandedSection]=useState('');
+  // Tall viewports display all groups; short viewports use an accessible accordion.
+  useEffect(()=>{
+    const update=()=>setShortSidebar(window.innerHeight<810);
+    window.addEventListener('resize',update);
+    return()=>window.removeEventListener('resize',update);
+  },[]);
   const [addonAccess,setAddonAccess]=useState({status:'loading',rights:new Set(),path:''});
   const [previewAccess,setPreviewAccess]=useState({status:'loading',stations:[],path:''});
   // Refresh whenever the Broadcaster changes pages or returns from checkout.
@@ -1509,7 +1522,9 @@ export default function Backoffice(){
       .finally(()=>{if(alive)setLoading(false);});
     return ()=>{alive=false;};
   },[reload]);
-  useEffect(()=>{setSidebarOpen(false);setNotice(null);setNavFilter('');},[location.pathname]);
+  useEffect(()=>{
+    setSidebarOpen(false);setNotice(null);setNavFilter('');setExpandedSection('');
+  },[location.pathname]);
   const admin=data?.user.role==='admin',producer=data?.user.role==='producer';
   const logout=()=>{localStorage.removeItem('iluma_token');window.location.assign('/login');};
   const nav=[
@@ -1526,7 +1541,6 @@ export default function Backoffice(){
       {to:'/backoffice/boost',label:'Boost My Radio',icon:Sparkles},
       {to:'/backoffice/pro-features',label:'Pro Features & Premium',icon:ShieldCheck},
       {to:'/backoffice/billing',label:'Οι συνδρομές μου',icon:FileCheck2},
-      ...(previewStations.length?[{to:'/backoffice/audio-preview',label:'WebDSP Preview',icon:Headphones,promoted:true}]:[]),
       {to:'/backoffice/radar',label:'Audience Radar',icon:BarChart3,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/radar']},
       {to:'/backoffice/audio',label:'WebDSP Audio Engine',icon:SlidersHorizontal,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/audio']},
       {to:'/backoffice/ad-control',label:'iRadios Ad Control',icon:Activity,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/ad-control']}
@@ -1557,8 +1571,13 @@ export default function Backoffice(){
       ]}
     ]:[])
   ];
+  const activeSection=nav.find(group=>group.items.some(item=>
+    item.end?location.pathname===item.to:
+      location.pathname===item.to||location.pathname.startsWith(item.to+'/')
+  ))?.section||'Ο ΧΩΡΟΣ ΜΟΥ';
+  const accordionSidebar=shortSidebar||admin;
   if(loading)return <div className="flex min-h-screen items-center justify-center bg-[#080a0b] text-[#caff00]">
-    <RefreshCw className="animate-spin" size={28}/><span className="ml-3 text-sm font-black">iRadios Business Console</span></div>;
+    <RefreshCw className="animate-spin" size={28}/><span className="ml-3 text-sm font-black">iRadios Station Console v6</span></div>;
   if(error){
     if(error.code==='BROADCASTER_EMAIL_UNVERIFIED')return <AuthGate title="Επιβεβαίωση email"
       description="Για να μπεις στο Broadcaster Backoffice, επιβεβαίωσε πρώτα το email σου από το link που σου στείλαμε."
@@ -1573,36 +1592,93 @@ export default function Backoffice(){
       label={error.status===403?'Επιστροφή στο iRadios':'Σύνδεση'}/>;
   }
   return <div className="flex min-h-screen bg-[#090b0d] font-sans text-white">
-    <Helmet><title>iRadiosGR Business Console | Backoffice</title><meta name="robots" content="noindex,nofollow"/></Helmet>
+    <Helmet><title>iRadiosGR Station Console v6 | Backoffice</title><meta name="robots" content="noindex,nofollow"/></Helmet>
     {sidebarOpen&&<button onClick={()=>setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/80 lg:hidden" aria-label="Κλείσιμο μενού"/>}
-    <aside className={'fixed inset-y-0 left-0 z-50 flex w-[272px] shrink-0 flex-col overflow-y-auto border-r border-white/[.08] bg-[#0e1112] p-5 transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 '+(sidebarOpen?'translate-x-0':'-translate-x-full')}>
-      <Link to="/backoffice" onClick={()=>setSidebarOpen(false)} className="mb-9 block px-2 pt-3"><Logo/></Link>
-      <div className="mb-8 rounded-2xl border border-[#caff00]/15 bg-[#caff00]/[.045] p-4">
-        <div className="flex items-center gap-2"><span className="size-2 rounded-full bg-[#caff00] shadow-[0_0_12px_#caff00]"/>
-          <span className="text-[10px] font-black uppercase tracking-[.13em] text-[#caff00]">Private workspace</span></div>
-        <p className="mt-3 truncate text-sm font-black text-white">{data.user.fname||data.user.username||roleLabels[data.user.role]}</p>
-        <p className="mt-1 text-[11px] text-zinc-500">{roleLabels[data.user.role]}</p>
+    <aside aria-label="Station Console πλοήγηση" className={'fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[272px] shrink-0 flex-col overflow-y-auto border-r border-white/[.08] lg:overflow-hidden bg-[#0e1112] px-3 pb-3 pt-4 shadow-[18px_0_65px_rgba(0,0,0,.14)] transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 '+(sidebarOpen?'translate-x-0':'-translate-x-full')}>
+      <Link to="/backoffice" onClick={()=>setSidebarOpen(false)}
+        className="mb-3 block shrink-0 rounded-xl px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#caff00]">
+        <Logo/>
+      </Link>
+
+      <div className="mb-3 flex shrink-0 items-center gap-3 rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2.5">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[#caff00]/20 bg-[#caff00]/10 text-xs font-black text-[#caff00]">
+          {(data.user.fname||data.user.username||'I')[0]?.toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-[#caff00]" aria-hidden="true"/>
+            <span className="truncate text-[9px] font-extrabold uppercase tracking-[.12em] text-[#d8ff73]">Private workspace</span>
+          </div>
+          <p className="mt-0.5 truncate text-[12px] font-bold text-white">
+            {data.user.fname||data.user.username||roleLabels[data.user.role]}
+            <span className="ml-1.5 text-[10px] font-medium text-zinc-500">· {roleLabels[data.user.role]}</span>
+          </p>
+        </div>
       </div>
-      {admin&&<label className="relative mb-5 block">
+
+      {data.user.role==='broadcaster'&&previewStations.length>0&&
+        <NavLink to="/backoffice/audio-preview" onClick={()=>setSidebarOpen(false)}
+          className={({isActive})=>'group relative mb-3 block shrink-0 overflow-hidden rounded-[22px] border px-4 py-3.5 transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#caff00] '+
+            (isActive?'border-[#caff00] bg-[#25351a] shadow-[0_8px_32px_rgba(202,255,0,.13)]':
+            'border-[#caff00]/35 bg-gradient-to-br from-[#28381b] via-[#1b281b] to-[#141c1c] shadow-[0_12px_28px_rgba(202,255,0,.06)] hover:border-[#caff00]/70 hover:from-[#304620]')}>
+          <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-12 size-32 rounded-full bg-[#caff00]/10 blur-2xl"/>
+          <div className="relative flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.13em] text-[#caff00]">
+              <Headphones size={16}/> WebDSP Preview
+            </span>
+            <span className="rounded-full bg-[#caff00] px-2 py-0.5 text-[9px] font-black text-[#111700]">NEW</span>
+          </div>
+          <p className="relative mt-2 truncate text-[13px] font-black text-white">
+            Άκου τον {previewStations[0].name} αλλιώς.
+          </p>
+          <div className="relative mt-2 flex items-center justify-between text-[10px] font-extrabold text-[#d8ff91]">
+            <span>ΔΟΚΙΜΑΣΕ ΤΟΝ ΗΧΟ</span><ArrowRight size={16} className="transition-transform group-hover:translate-x-1"/>
+          </div>
+        </NavLink>}
+
+      {admin&&<label className="relative mb-2 block shrink-0">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"/>
         <input aria-label="Αναζήτηση στο μενού" placeholder="Αναζήτηση εργαλείου…"
           value={navFilter} onChange={e=>setNavFilter(e.target.value)}
-          className="w-full rounded-xl border border-white/10 bg-[#090b0d] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-[#caff00]/50"/>
+          className="w-full rounded-xl border border-white/10 bg-[#090b0d] py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-[#caff00]/50"/>
       </label>}
-      <nav className="flex-1 space-y-7">{nav.map(group=>{
-        const items=group.items.filter(item=>item.label.toLocaleLowerCase('el')
-          .includes(navFilter.toLocaleLowerCase('el')));
-        if(!items.length)return null;
-        return <div key={group.section}>
-        <p className="mb-3 px-4 text-[9px] font-black tracking-[.24em] text-zinc-600">{group.section}</p>
-        <div className="space-y-1">{items.map(item=><NavItem key={item.to} {...item}
-          locked={Boolean(item.entitlement)&&addonStatus==='ready'&&!addonRights.has(item.entitlement)}
-          checking={Boolean(item.entitlement)&&addonStatus==='loading'}
-          unavailable={Boolean(item.entitlement)&&addonStatus==='error'}
-          close={()=>setSidebarOpen(false)}/>)}</div></div>;})}</nav>
-      <div className="mt-7 space-y-2 border-t border-white/10 pt-5">
-        <a href="/" className="flex items-center gap-3 rounded-xl px-4 py-3 text-[12px] font-bold text-zinc-400 hover:bg-white/5 hover:text-white"><ExternalLink size={17}/> Άνοιγμα iRadios App</a>
-        <button onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[12px] font-bold text-zinc-400 hover:bg-rose-500/10 hover:text-rose-300"><LogOut size={17}/> Αποσύνδεση</button>
+
+      <nav aria-label="Εργαλεία Station Console" className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:#394337_transparent]">
+        {nav.map(group=>{
+          const items=group.items.filter(item=>item.label.toLocaleLowerCase('el')
+            .includes(navFilter.toLocaleLowerCase('el')));
+          if(!items.length)return null;
+          const open=!accordionSidebar||((expandedSection||activeSection)===group.section);
+          return <section key={group.section} className="min-w-0">
+            {accordionSidebar?
+              <button type="button" onClick={()=>setExpandedSection(current=>
+                (current||activeSection)===group.section?'__closed__':group.section)}
+                aria-expanded={open}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-[9px] font-extrabold uppercase tracking-[.16em] text-zinc-500 transition hover:bg-white/[.045] hover:text-zinc-300">
+                {group.section}
+                <ChevronDown size={13} className={'shrink-0 transition-transform '+(open?'rotate-180':'')}/>
+              </button>:
+              <p className="px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[.16em] text-zinc-500">
+                {group.section}
+              </p>}
+            {open&&<div className="mt-0.5 space-y-0.5">{items.map(item=>
+              <NavItem key={item.to} {...item}
+                locked={Boolean(item.entitlement)&&addonStatus==='ready'&&!addonRights.has(item.entitlement)}
+                checking={Boolean(item.entitlement)&&addonStatus==='loading'}
+                unavailable={Boolean(item.entitlement)&&addonStatus==='error'}
+                close={()=>setSidebarOpen(false)}/>
+            )}</div>}
+          </section>;
+        })}
+      </nav>
+
+      <div className="mt-2 grid shrink-0 grid-cols-2 gap-1.5 border-t border-white/[.08] pt-2">
+        <a href="/" className="flex items-center justify-center gap-1.5 rounded-xl border border-white/[.06] px-2 py-2 text-[10px] font-semibold text-zinc-400 transition hover:bg-white/[.06] hover:text-white">
+          <ExternalLink size={14}/> iRadios App
+        </a>
+        <button onClick={logout} className="flex items-center justify-center gap-1.5 rounded-xl border border-white/[.06] px-2 py-2 text-[10px] font-semibold text-zinc-400 transition hover:border-rose-400/20 hover:bg-rose-500/10 hover:text-rose-300">
+          <LogOut size={14}/> Αποσύνδεση
+        </button>
       </div>
     </aside>
     <div className="min-w-0 flex-1">
