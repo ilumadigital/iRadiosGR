@@ -74,7 +74,7 @@ const stationSchema = new mongoose.Schema({
   broadcasterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   isFeatured: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
-  dspPreset: { type: String, default: 'OFF' },
+  dspPreset: { type: String, default: 'AUTO_MODE' },
   // EQ and stereo persist independently of the selected preset.
   // Soft clipper is optional and disabled (level 0) for existing stations.
   dspSettings: {
