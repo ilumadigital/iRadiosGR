@@ -69,12 +69,16 @@ test('Paid Broadcaster Premium and gifted account Premium each apply to all owne
  const gift=overview(otherStation,[grant('B-PREM')]);
  assert.ok(Object.values(gift.addons).every(x=>x.enabled&&x.sources[0].type==='complimentary_premium'));
 });
-test('Legacy account feature flags are shown truthfully, but never written to by status',()=>{
- const legacy={...user,broadcasterProfile:{tier:'free',features:{dspEngine:true}}};
+test('Historical broadcaster Premium and feature flags never grant or show paid Addons',()=>{
+ const legacy={...user,broadcasterProfile:{
+  tier:'premium',features:{dspEngine:true,analytics:true,adControl:true}
+ }};
  const before=JSON.stringify(legacy);
  const status=overview(station,[],[],legacy);
- assert.deepEqual(status.addons['ADD-DSP'].sources.map(x=>x.type),['legacy_manual']);
- assert.equal(status.addons['ADD-AN'].enabled,false);
+ for(const item of Object.values(status.addons)){
+  assert.equal(item.enabled,false);
+  assert.deepEqual(item.sources,[]);
+ }
  assert.equal(JSON.stringify(legacy),before);
 });
 test('Revoking a free grant cannot imply that a concurrently paid addon disappeared',()=>{
