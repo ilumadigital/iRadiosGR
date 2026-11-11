@@ -41,7 +41,7 @@ function titleFromText(text,mount=''){
   if(jsonp){try{return titleFromObject(JSON.parse(jsonp[1]),mount);}catch{}}
   const xml=raw.match(/<(?:title|song|songtitle|currentSong|StreamTitle)>\s*([^<]{1,250})\s*<\//i);
   if(xml)return safeTitle(xml[1]);
-  if(/<\s*(?:html|head|body|script|!doctype)/i.test(raw))return '';
+  if(raw.startsWith('<'))return '';
   return safeTitle(raw);
  }
 }

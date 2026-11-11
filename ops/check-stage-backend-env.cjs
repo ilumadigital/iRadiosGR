@@ -14,6 +14,11 @@ const safe = [
   'APP_ENV=staging',
   'SMTP_HOST=mailpit',
   'SMTP_PORT=1025',
+  'ADMIN_2FA_SMTP_HOST=smtp.example.test',
+  'ADMIN_2FA_SMTP_PORT=465',
+  'ADMIN_2FA_SMTP_USER=security@example.invalid',
+  'ADMIN_2FA_SMTP_PASS=test-only-secret',
+  'ADMIN_2FA_SMTP_FROM=no-reply@example.invalid',
   'TURNSTILE_SITE_KEY=0x4AAAAAAAAAAAAAAAAAAAAAAAA',
   'TURNSTILE_SECRET_KEY=0x4BBBBBBBBBBBBBBBBBBBBBBBB',
   'STAGE_ENABLE_SONOVAULT=0'
@@ -26,6 +31,12 @@ function verify(content, success, label) {
 }
 try {
   verify(safe,true,'safe staging backend env');
+  verify(safe.replace('ADMIN_2FA_SMTP_HOST=smtp.example.test','ADMIN_2FA_SMTP_HOST=mailpit'),
+    false,'Admin 2FA cannot use Mailpit');
+  verify(safe.replace('ADMIN_2FA_SMTP_PASS=test-only-secret','ADMIN_2FA_SMTP_PASS='),
+    false,'missing Admin 2FA password blocks deployment');
+  verify(safe.replace('ADMIN_2FA_SMTP_HOST=smtp.example.test\n',''),
+    false,'missing Admin 2FA host blocks deployment');
   verify(safe.replace('SMTP_HOST=mailpit','SMTP_HOST=smtp.hostinger.com').replace('SMTP_PORT=1025','SMTP_PORT=587')+'SMTP_USER=test@example.invalid\nSMTP_PASS=fake-only\n',true,'staging SMTP environment accepted; Mailpit enforced in app');
   verify(safe.replace('TURNSTILE_SITE_KEY=0x4AAAAAAAAAAAAAAAAAAAAAAAA',''),false,'missing Turnstile site key');
   verify(safe+'TURNSTILE_SECRET_KEY=0x4CCCCCCCCCCCCCCCCCCCCCCCC\n',false,'duplicate Turnstile secret');
