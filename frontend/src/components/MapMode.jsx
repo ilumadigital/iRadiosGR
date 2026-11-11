@@ -4,8 +4,8 @@ import RadioGeoMap from './RadioGeoMap';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 
 // Η κεντρική προβολή /map και όλες οι περιοχές μοιράζονται την ίδια map engine.
-export default function MapMode({ stations, currentStation, onPlayStation, isPlaying, onPlayPause }) {
-  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying();
+export default function MapMode({ stations, currentStation, onPlayStation, isPlaying, onPlayPause, currentUser }) {
+  const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying(currentUser);
   return (
     <>
       <Helmet>
@@ -18,6 +18,7 @@ export default function MapMode({ stations, currentStation, onPlayStation, isPla
         stations={stations}
         nowPlayingById={catalogNowPlaying}
         catalogClock={catalogClock}
+        currentUser={currentUser}
         currentStation={currentStation}
         onPlayStation={onPlayStation}
         isPlaying={isPlaying}

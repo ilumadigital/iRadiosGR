@@ -22,7 +22,8 @@ export function catalogStationInfo(station,snapshot,clock){
   const tier=liveProgramme&&host&&hasShowPhoto&&(song||hasBroadcastMetadata)
     ?0:song?1:liveProgramme?2:3;
   return {song,host,showTitle:showTitle||broadcastHint,tier,hasShowPhoto,
-    foundWithAI:snapshot?.foundWithAI===true};
+    foundWithAI:snapshot?.foundWithAI===true,
+    premiumOnly:snapshot?.premiumOnly===true};
 }
 
 // Availability overrides every other ranking mode.

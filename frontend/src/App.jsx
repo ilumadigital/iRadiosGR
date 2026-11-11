@@ -1353,6 +1353,10 @@ function MainApp() {
         return;
       }
 
+      if (!(currentUser.role==='admin'||currentUser.isPremium===true||currentUser?.broadcasterProfile?.tier==='premium')) {
+        showAlert('Το AI Music Discovery είναι προνόμιο του Premium.');
+        navigate('/premium');return;
+      }
       if (isRecognizing || isPlayingAd) return;
 
       // Invalidate older requests so they cannot overwrite a fresh AI match.
@@ -1410,7 +1414,8 @@ function MainApp() {
             STREAM_SHORT: 'Δεν ακούστηκε αρκετή μουσική. Δοκίμασε ξανά σε λίγο.',
             STATION_INVALID: 'Επίλεξε έναν σταθμό.',
             STATION_MISSING: 'Ο σταθμός δεν βρέθηκε.',
-            AUTH_REQUIRED: 'Συνδέσου ξανά στο iRadios για να βρεις το τραγούδι.'
+            AUTH_REQUIRED: 'Συνδέσου ξανά στο iRadios για να βρεις το τραγούδι.',
+            PREMIUM_REQUIRED: 'Αναβάθμισε σε Premium για την αναγνώριση τραγουδιών με AI.'
           };
           const message=messages[data?.code] ||
             (res.status===401?'Συνδέσου ξανά στο iRadios.':
@@ -1493,7 +1498,8 @@ function MainApp() {
       setNowPlaying(title?cleanMetadata(title):'');
       setNowPlayingInfo({source:data?.source==='acrcloud'?'acrcloud':title?'station':'none',
         foundWithAI:Boolean(title&&data?.foundWithAI),
-        expiresAt:data?.source==='acrcloud'?data.expiresAt:undefined,
+        premiumOnly:data?.premiumOnly===true,
+        expiresAt:data?.expiresAt,
         recognizedAt:data?.source==='acrcloud'?data.recognizedAt:undefined,
         broadcastHint:typeof data?.broadcastHint==='string'?data.broadcastHint:
           isBroadcastMetadata(title,currentStation.name)?title:''});
@@ -1879,7 +1885,7 @@ function MainApp() {
             <Route path="/press-kit" element={<PressKit />} />
             <Route path="/newsfeed" element={<NewsFeed stations={stations} userLocation={userLocation} checkGeoMatch={checkGeoMatch} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
             <Route path="/newsfeed/:key" element={<NewsArticle />} />
-            <Route path="/map" element={<MapMode stations={stations} currentStation={currentStation} onPlayStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} />} />
+            <Route path="/map" element={<MapMode stations={stations} currentUser={currentUser} currentStation={currentStation} onPlayStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} />} />
 
             <Route path="/studio" element={
               <RequireTerms currentUser={currentUser}>
