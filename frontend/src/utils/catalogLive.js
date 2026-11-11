@@ -80,6 +80,45 @@ export function compareCatalogPopularity(a,b,_byId={},_clock=null,scope='global'
   if(positions)return positions;
   return popularity(b)-popularity(a)||stationName(a,b);
 }
+// Apply the post-Boost reward to actual list SLOTS, not numeric rank values:
+// manually saved positions may contain gaps (or be absent altogether).
+// Expired campaigns never outrank active paid/Premium Boosts or offline radios.
+export function applyPostBoostLift(orderedStations,scope='global'){
+ const stations=[...(orderedStations||[])];
+ const liftFor=station=>{
+   if(stationIsOffline(station)||commercialBoostPriority(station,scope)!==0)return 0;
+   const reward=station?.commercialBoost?.postBoost;
+   const matches=reward?.placement==='global'||
+     (reward?.placement==='targeted'&&(scope==='genre'||scope==='region'));
+   const lift=Number(reward?.positions);
+   return matches&&Number.isInteger(lift)&&lift>=1&&lift<=4?lift:0;
+ };
+ // Work through the baseline in order, so no station can leapfrog an
+ // active commercial placement. The result is stable across re-renders.
+ for(const station of [...stations]){
+   const lift=liftFor(station);
+   if(!lift)continue;
+   const current=stations.indexOf(station);
+   const firstOrganic=stations.findIndex(item=>!stationIsOffline(item)&&
+     commercialBoostPriority(item,scope)===0);
+   if(firstOrganic<0)break;
+   const target=Math.max(firstOrganic,current-lift);
+   if(target<current){
+     stations.splice(current,1);
+     stations.splice(target,0,station);
+   }
+ }
+ return stations;
+}
+
+// Unified list sort for Home, category, region and map. Other explicit
+// sort modes remain independent of commercial ranking.
+export function sortCatalogStations(stations,byId={},clock=null,sortBy='popularity',
+  scope='global',scopeValue=''){
+ const ordered=[...(stations||[])].sort((a,b)=>
+   compareCatalogStations(a,b,byId,clock,sortBy,scope,scopeValue));
+ return sortBy==='popularity'?applyPostBoostLift(ordered,scope):ordered;
+}
 // "Πληρότητα": independent, live four-tier ranking, then saved position.
 export function compareCatalogCompleteness(a,b,byId={},clock,scope='global',scopeValue=''){
   const aTier=catalogStationInfo(a,byId?.[String(a?._id)],clock).tier;
