@@ -58,9 +58,7 @@ const response=()=>({statusCode:200,body:null,headers:{},
   await controller.publicPromoted({query:{placement:'region',value:'Αττική'}},res);
   assert.equal(res.statusCode,200);
   assert.equal(query.placementValue,'Αττική');
-  assert.deepEqual(res.body,{stationId:id,nowPlaying:{
-    title:'Artist - Song',source:'acrcloud',foundWithAI:true
-  }});
+  assert.deepEqual(res.body,{stationId:id},'guest response must be free of native and AI track metadata');
   approved=false;
   res=response();
   await controller.publicPromoted({query:{placement:'region',value:'Αττική'}},res);
