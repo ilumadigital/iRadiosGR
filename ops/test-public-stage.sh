@@ -22,6 +22,12 @@ check "Private stream SSRF guard" 400 GET '/api/proxy-stream?url=http%3A%2F%2F12
 check "Unapproved stream forbidden" 403 GET '/api/proxy-stream?url=https%3A%2F%2Fexample.com%2Fstream'
 check "Imported private user record blocked" 401 GET /api/auth/me
 check "Anonymous Cloudflare config available" 200 GET /api/auth/turnstile-config
+# Without a Cloudflare challenge, public login must return 400 turnstile_missing,
+# never 401 from an unrelated global JWT middleware. No real credentials used.
+curl "${OPT[@]}" -H 'Content-Type: application/json' \
+  --data '{"identifier":"iradios-stage-smoke","password":"test-only","cfToken":""}' \
+  -w '\n%{http_code}' "$BASE/api/auth/login" |
+  python3 -c 'import json,sys; parts=sys.stdin.read().splitlines(); assert parts[-1]=="400", "Login did not reach Turnstile"; assert json.loads("\n".join(parts[:-1])).get("code")=="turnstile_missing"; print("Anonymous login reaches mandatory Cloudflare verification; no JWT precondition")'
 curl "${OPT[@]}" -fsS "$BASE/api/auth/turnstile-config" |
   python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ready") is True and isinstance(d.get("siteKey"),str) and len(d["siteKey"])>10; assert "secret" not in d; print("Turnstile public config ready (key hidden)")'
 curl "${OPT[@]}" -fsS "$BASE/api/stations" |

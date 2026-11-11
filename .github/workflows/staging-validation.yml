@@ -95,6 +95,8 @@ jobs:
         run: node ops/check-mobile-fullscreen-glass.cjs
       - name: Verify Cloudflare Turnstile server-side login/signup protection
         run: node --test ops/check-turnstile-auth.test.cjs
+      - name: Validate scoped billing routers never intercept public authentication
+        run: node --test ops/check-billing-router-scope.test.cjs
       - name: Validate responsive auth screens and retry after wrong credentials
         run: node ops/check-auth-glass-retry.cjs
       - name: Validate Phase 2 listener player and station UI contracts
