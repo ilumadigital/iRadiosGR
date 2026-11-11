@@ -9,10 +9,12 @@ export default function EditorialPlacement({
   onPlayStation,onPlayPause,viewMode='grid',onPromotedStationChange
 }){
   const [hasPromoted,setHasPromoted]=useState(false);
+  const [promotedId,setPromotedId]=useState(null);
   const [hasEditorial,setHasEditorial]=useState(false);
-  useEffect(()=>{setHasPromoted(false);setHasEditorial(false);},[placement,value]);
+  useEffect(()=>{setHasPromoted(false);setHasEditorial(false);setPromotedId(null);},[placement,value]);
   const updatePromoted=useCallback(id=>{
     setHasPromoted(Boolean(id));
+    setPromotedId(id||null);
     onPromotedStationChange?.(id);
   },[onPromotedStationChange]);
   // Editorial slides are independent from paid promotions and rankings.
@@ -22,7 +24,7 @@ export default function EditorialPlacement({
       <HomeHeroSlider placement={placement} value={value} fallbackStation={fallbackStation}
         currentUser={currentUser} stations={stations} currentStation={currentStation}
         isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}
-        onAvailabilityChange={setHasEditorial}/>
+        onAvailabilityChange={setHasEditorial} excludeStationId={promotedId}/>
       <PromotedStationCard placement={placement} value={value}
         stations={stations} currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={onPlayStation} onPlayPause={onPlayPause}
