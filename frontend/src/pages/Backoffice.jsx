@@ -257,6 +257,10 @@ function StationCard({station,role,onDelete,onStatusChange}){
         </select>}
       <Link to={to} className={buttonSecondary}>
         {role==='producer'?'Πρόγραμμα':'Επεξεργασία'}<ArrowRight size={15}/></Link>
+      {role==='admin'&&<Link to={'/backoffice/admin/audio?station='+encodeURIComponent(station._id)}
+        className={buttonSecondary} title={'Ρύθμιση ήχου '+station.name}>
+        <Headphones size={15} className="text-[#caff00]"/> Ήχος
+      </Link>}
       {role==='admin'&&<Link to={'/backoffice/admin/addons?stationId='+encodeURIComponent(station._id)}
         className={buttonSecondary} title={'Addons '+station.name}>
         <SlidersHorizontal size={15} className="text-[#caff00]"/> Addons
@@ -538,6 +542,10 @@ function StationEditor({data,reload,notify,requestDelete}){
       title={actionTitle} description={isAdmin?'Οι αλλαγές σου δημοσιεύονται αμέσως.':
         'Οι αλλαγές προφίλ υποβάλλονται για έγκριση από την ομάδα iRadios.'}
       aside={!isNew&&<div className="flex flex-wrap items-center gap-2">
+        {isAdmin&&<Link to={'/backoffice/admin/audio?station='+encodeURIComponent(station._id)}
+          className={buttonSecondary}>
+          <Headphones size={16} className="text-[#caff00]"/> Ρύθμιση Ήχου
+        </Link>}
         {isAdmin&&<Link to={'/backoffice/admin/addons?stationId='+encodeURIComponent(station._id)}
           className={buttonSecondary}>
           <SlidersHorizontal size={16} className="text-[#caff00]"/> Addons σταθμού
@@ -1252,6 +1260,7 @@ const ADMIN_TOOLS=[
   {id:'analytics',name:'Αναλύσεις',desc:'Στοιχεία δικτύου και απόδοση',icon:BarChart3,group:'Δίκτυο'},
   {id:'users',name:'Χρήστες & ρόλοι',desc:'Λογαριασμοί, άδειες και πρόσβαση',icon:Users,group:'Δίκτυο'},
   {id:'addons',name:'Διαχείριση Addons',desc:'WebDSP, Analytics και Ad Control ανά Broadcaster και σταθμό',icon:SlidersHorizontal,group:'Δίκτυο'},
+  {id:'audio',name:'Ρύθμιση Ήχου',desc:'Πλήρης WebDSP Editor για όλους τους σταθμούς ανεξάρτητα από συνδρομή',icon:Headphones,group:'Δίκτυο'},
   {id:'radioset',name:'Αναθέσεις σταθμών',desc:'Σύνδεσε σταθμούς με broadcasters',icon:Radio,group:'Δίκτυο'},
   {id:'boost',name:'Προβολή σταθμών',desc:'Προτεραιότητες και boost σταθμών',icon:Sparkles,group:'Δίκτυο'},
   {id:'promoted',name:'Promoted Stations',desc:'Επίλεξε σταθμό δίπλα στα slides ανά Περιοχή ή Είδος',icon:Sparkles,group:'Δίκτυο'},
@@ -1500,6 +1509,7 @@ export default function Backoffice(){
         {to:'/backoffice/admin/analytics',label:'Αναλύσεις',icon:BarChart3},
         {to:'/backoffice/admin/users',label:'Χρήστες & ρόλοι',icon:Users},
         {to:'/backoffice/admin/addons',label:'Διαχείριση Addons',icon:SlidersHorizontal},
+        {to:'/backoffice/admin/audio',label:'Ρύθμιση Ήχου',icon:Headphones},
         {to:'/backoffice/admin/radioset',label:'Αναθέσεις σταθμών',icon:Radio},
         {to:'/backoffice/admin/boost',label:'Προβολή σταθμών',icon:Sparkles},
         {to:'/backoffice/admin/promoted',label:'Promoted Stations',icon:Sparkles}
@@ -1607,6 +1617,9 @@ export default function Backoffice(){
             <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
           <Route path="/backoffice/admin/addons" element={admin?
              <AdminAddons API_URL="/api"/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/admin/audio" element={admin?
+             <BroadcasterDSP API_URL="/api" currentUser={data.user}/>:
+             <Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/admin/billing/grants" element={admin?
              <AdminBillingGrants API_URL="/api"/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/admin/billing/sandbox" element={admin?
