@@ -595,6 +595,15 @@ function MainApp() {
   const lastStationRefresh=useRef(0);
   const intendedPlayState = useRef(false);
 
+  // Admin's independent DSP audition must not be mixed with the global
+  // listener player's audio when entering the full-page editor.
+  useEffect(()=>{
+    if(location.pathname!=='/dsp')return;
+    intendedPlayState.current=false;
+    if(audioRef.current&&!audioRef.current.paused)audioRef.current.pause();
+    setIsPlaying(false);
+  },[location.pathname]);
+
   const recognitionLock = useRef(false);
   const recognitionTimeout = useRef(null);
 

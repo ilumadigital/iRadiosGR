@@ -34,39 +34,14 @@ export default function useStations(API_URL, currentUser, currentStation, setCur
   // ==============================================================
   // 🚀 ADMIN OVERRIDE FIX: Στέλνει το Token στο Backend για DSP!
   // ==============================================================
-  const handleUpdateStationDSP = async (stationId, newPreset) => {
-    try {
-      // 1. Παίρνουμε το κλειδί του Admin/Broadcaster
-      const token = localStorage.getItem('iluma_token'); 
-
-      // 2. Στέλνουμε το αίτημα στο Backend με την Ταυτότητά μας
-      const res = await fetch(`${API_URL}/stations/${stationId}/dsp`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // 🔑 ΕΔΩ ΕΙΝΑΙ ΤΟ ΜΥΣΤΙΚΟ!
-        },
-        body: JSON.stringify({ dspPreset: newPreset })
-      });
-      
-      if (res.ok) {
-        const updatedStation = await res.json();
-        
-        // 3. Ενημερώνουμε το UI
-        setStations(prev => prev.map(s => s._id === stationId ? updatedStation : s));
-        if (currentStation && currentStation._id === stationId) {
-          setCurrentStation(prev => ({ ...prev, dspPreset: newPreset }));
-        }
-        return true;
-      } else {
-        const errorData = await res.json();
-        console.error("Αποτυχία ενημέρωσης DSP:", errorData.error);
-        return false;
-      }
-    } catch (err) {
-      console.error("Σφάλμα κατά την επικοινωνία με τον server:", err);
-      return false;
-    }
+  // DSP editor already sent an authenticated, entitlement-checked PUT.
+  // Apply the response locally without a second request that could overwrite
+  // the newly saved EQ/stereo settings with stale values.
+  const handleUpdateStationDSP = (stationId, newPreset, newSettings) => {
+    setStations(prev=>prev.map(station=>station._id===stationId?
+      {...station,dspPreset:newPreset,dspSettings:newSettings}:station));
+    if(currentStation&&currentStation._id===stationId)
+      setCurrentStation(prev=>({...prev,dspPreset:newPreset,dspSettings:newSettings}));
   };
 
   const filteredSearch = searchTerm.length > 0 

@@ -5,7 +5,8 @@ const {maskStationPaidControls}=require('../services/stationBillingProjectionRul
 const now=new Date('2026-11-15T12:00:00Z');
 const owner={_id:'owner-1',role:'broadcaster',
  broadcasterProfile:{tier:'free',features:{dspEngine:false,adControl:false,analytics:false}}};
-const station={_id:'507f1f77bcf86cd799439011',broadcasterId:'owner-1',dspPreset:'OMNIA',disableNetworkAds:true};
+const station={_id:'507f1f77bcf86cd799439011',broadcasterId:'owner-1',dspPreset:'OMNIA',
+ dspSettings:{bass:3,mid:2,treble:1,output:-1,stereoWidth:125},disableNetworkAds:true};
 const grant=(sku,options={})=>({
  accountId:'owner-1',sku,
  scopeType:sku==='B-PREM'?'account':'station',
@@ -24,12 +25,15 @@ test('Legacy manually assigned station preset survives without grant history',()
 test('Active station-scoped gifts permit only the included features',()=>{
  const output=maskStationPaidControls(station,owner,[grant('ADD-DSP')],now);
  assert.equal(output.dspPreset,'OMNIA');
+ assert.equal(output.dspSettings.stereoWidth,125);
  assert.equal(output.disableNetworkAds,false);
 });
 test('Expired gifted WebDSP is disabled in public playback, preset saved in database',()=>{
  const output=maskStationPaidControls(station,owner,[grant('ADD-DSP',
   {expiresAt:new Date('2026-11-14T00:00:00Z')})],now);
  assert.equal(output.dspPreset,'OFF');
+ assert.deepEqual(output.dspSettings,{bass:0,mid:0,treble:0,output:0,stereoWidth:100});
+ assert.equal(station.dspSettings.stereoWidth,125);
  assert.equal(station.dspPreset,'OMNIA');
  assert.equal(output.disableNetworkAds,false);
 });

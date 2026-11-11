@@ -1,461 +1,373 @@
-import React, { useState, useEffect } from 'react';
-import { SlidersHorizontal, Activity, ShieldCheck, X, Loader2, Search, PowerOff, AudioWaveform, Speaker, RadioTower, Gauge } from 'lucide-react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {Activity,AlertTriangle,CheckCircle2,Headphones,Pause,Play,RotateCcw,
+  Save,Search,SlidersHorizontal,Volume2,PowerOff} from 'lucide-react';
+import {DSP_DEFAULTS,DSP_PRESETS,PEAK_CEILING_DBFS,normalizeDSPSettings,
+  createDSPGraph,applyDSPGraph,measurePeakDbfs} from '../utils/dspEngine';
 
-// 🟢 NEW COMPONENT: Professional Frequency Response Curve (Millimeter/SVG)
-const DSPCurveVisualizer = ({ preset }) => {
-  // Η λογική της καμπύλης με βάση τα ΠΡΑΓΜΑΤΙΚΑ νούμερα του useAudioDSP:
-  // Σημεία: [20Hz, 100Hz, 500Hz, 1kHz, 5kHz, 10kHz, 20kHz]
-  // 0% = Κάτω τέρμα, 100% = Πάνω τέρμα, 50% = 0dB (Unity Gain)
-  const getCurvePoints = () => {
-    switch (preset) {
-      case 'SOFT': 
-        // HPF: 28Hz, LPF: 17800Hz, Makeup: 1.55
-        return [30, 65, 75, 70, 75, 65, 30]; 
-      
-      case 'NORMALIZE': 
-        // HPF: 25Hz, LPF: 17500Hz, Makeup: 1.35
-        return [35, 60, 65, 65, 65, 60, 35]; 
-      
-      case 'ULTRABAND': 
-        // HPF: 30Hz, LPF: 16500Hz, Makeup: 1.55 (Smiley Face)
-        return [25, 80, 50, 45, 60, 75, 20]; 
-      
-      case 'ULTRA': 
-        // HPF: 35Hz, LPF: 16000Hz, Makeup: 1.70 (Massive/Thick)
-        return [20, 85, 85, 85, 85, 85, 15]; 
-      
-      case 'OMNIA': 
-        // HPF: 40Hz, LPF: 17500Hz, Makeup: 1.85 (High-end clarity, low bass)
-        return [15, 60, 70, 85, 95, 95, 45]; 
-      
-      case '0DB_LEVELER': 
-        // HPF: 30Hz, LPF: 18000Hz, Makeup: 1.8 (Brickwall Limiting, Flat Top)
-        return [25, 90, 95, 95, 95, 95, 40]; 
-      
-      case 'OFF':
-      default: 
-        // HPF: 10Hz, LPF: 22000Hz, Makeup: 1.0 (True Bypass)
-        return [50, 50, 50, 50, 50, 50, 50]; 
-    }
-  };
+const blank=()=>({dspPreset:'OFF',dspSettings:{...DSP_DEFAULTS}});
+const fromStation=station=>({
+  dspPreset:Object.hasOwn(DSP_PRESETS,station?.dspPreset)?station.dspPreset:'OFF',
+  dspSettings:normalizeDSPSettings(station?.dspSettings)
+});
+const formatDb=value=>(value>0?'+':'')+value.toFixed(1)+' dB';
+const meterWidth=value=>Math.max(0,Math.min(100,((value+60)/60)*100));
+const shell='rounded-[26px] border border-white/10 bg-[#131719] shadow-lg';
+const inputStyle='w-full accent-[#caff00] cursor-pointer';
 
-  const points = getCurvePoints();
-  const isOff = !preset || preset === 'OFF';
-
-  // Μετατροπή των σημείων (0-100) σε συντεταγμένες SVG (Width: 1000, Height: 300)
-  // Height είναι αντεστραμμένο (0 είναι πάνω, 300 είναι κάτω)
-  const svgWidth = 1000;
-  const svgHeight = 300;
-  const stepX = svgWidth / (points.length - 1);
-
-  // Δημιουργία ομαλής καμπύλης (Cubic Bezier / Catmull-Rom)
-  let pathD = `M 0 ${svgHeight - (points[0] / 100) * svgHeight}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const currX = i * stepX;
-    const currY = svgHeight - (points[i] / 100) * svgHeight;
-    const nextX = (i + 1) * stepX;
-    const nextY = svgHeight - (points[i + 1] / 100) * svgHeight;
-    
-    const cpX1 = currX + stepX / 2;
-    const cpY1 = currY;
-    const cpX2 = currX + stepX / 2;
-    const cpY2 = nextY;
-    
-    pathD += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${nextX} ${nextY}`;
-  }
-
-  // Για το "γέμισμα" (fill) κάτω από την καμπύλη
-  const fillPathD = `${pathD} L ${svgWidth} ${svgHeight} L 0 ${svgHeight} Z`;
-
-  return (
-    <div className="relative w-full h-[180px] md:h-[240px] bg-[#121212] rounded-2xl border border-white/10 shadow-inner overflow-hidden mb-8 group">
-      
-      {/* Μιλιμετρέ Background (Grid) */}
-      <svg className="absolute inset-0 w-full h-full opacity-20 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="smallGrid" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.5" />
-          </pattern>
-          <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-            <rect width="50" height="50" fill="url(#smallGrid)" />
-            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="white" strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
-      </svg>
-
-      {/* Axis Labels (Σημάδια για dB και Hz) */}
-      <div className="absolute top-2 left-3 flex flex-col justify-between h-[calc(100%-30px)] text-[9px] font-mono text-zinc-500 select-none">
-        <span>+12dB</span>
-        <span>0dB</span>
-        <span>-12dB</span>
-      </div>
-      <div className="absolute bottom-1 left-0 w-full px-8 flex justify-between text-[9px] font-mono text-zinc-500 select-none">
-        <span>20Hz</span>
-        <span>100Hz</span>
-        <span>500Hz</span>
-        <span>1kHz</span>
-        <span>5kHz</span>
-        <span>10kHz</span>
-        <span>20kHz</span>
-      </div>
-
-      {/* Active Preset Badge */}
-      <div className="absolute top-4 right-4 bg-black/50 backdrop-blur-md border border-white/10 px-3 py-1 rounded-md flex items-center gap-2 z-10">
-        <div className={`w-1.5 h-1.5 rounded-full ${isOff ? 'bg-zinc-500' : 'bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]'}`}></div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-white">
-          {preset || 'OFF'}
-        </span>
-      </div>
-
-      {/* Η Καμπύλη (SVG Curve) */}
-      <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="absolute inset-0 w-full h-full drop-shadow-2xl" preserveAspectRatio="none">
-        {/* Fill με Gradient */}
-        <defs>
-          <linearGradient id="curveGradient" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={isOff ? '#52525b' : '#ccff00'} stopOpacity={isOff ? "0.1" : "0.3"} />
-            <stop offset="100%" stopColor={isOff ? '#52525b' : '#ccff00'} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={fillPathD} fill="url(#curveGradient)" className="transition-all duration-700 ease-in-out" />
-        
-        {/* Η κύρια γραμμή */}
-        <path 
-          d={pathD} 
-          fill="none" 
-          stroke={isOff ? '#52525b' : '#ccff00'} 
-          strokeWidth="4" 
-          strokeLinecap="round" 
-          strokeLinejoin="round" 
-          className="transition-all duration-700 ease-in-out drop-shadow-[0_0_8px_rgba(204,255,0,0.5)]" 
-        />
-      </svg>
+function Fader({label,value,min,max,step=.5,sub,onChange}){
+  return <div className="flex min-w-0 flex-col items-center rounded-[22px] border border-white/10 bg-[#0d1113] px-3 py-6 text-center">
+    <div className="text-[11px] font-black uppercase tracking-[.12em] text-zinc-300">{label}</div>
+    <div className="mt-3 text-xl font-extrabold text-white tabular-nums">{formatDb(value)}</div>
+    <div className="mt-7 flex flex-1 flex-col items-center justify-center gap-2">
+      <span className="text-[10px] text-zinc-500">+{max}</span>
+      <input aria-label={label} type="range" min={min} max={max} step={step}
+        value={value} onChange={event=>onChange(Number(event.target.value))}
+        style={{writingMode:'vertical-lr',direction:'rtl',height:180,accentColor:'#c5d0d5'}}
+        className="w-7 cursor-pointer"/>
+      <span className="text-[10px] text-zinc-500">{min}</span>
     </div>
-  );
-};
+    <div className="mt-5 text-xs font-bold text-white">{sub[0]}</div>
+    <div className="mt-2 text-[10px] uppercase tracking-wider text-zinc-500">{sub[1]}</div>
+  </div>;
+}
+function PeakBar({label,db}){
+  return <div className="space-y-2">
+    <div className="flex items-center justify-between text-xs font-bold text-zinc-300">
+      <span>{label}</span><span className="tabular-nums">{db<=-119?'−∞':formatDb(db)}</span>
+    </div>
+    <div className="h-3 rounded-full bg-black/60 border border-white/10 overflow-hidden">
+      <div className="h-full transition-[width] duration-100"
+        style={{width:meterWidth(db)+'%',background:db>=PEAK_CEILING_DBFS?'#fb7185':'linear-gradient(90deg,#94a3b8,#caff00)'}}/>
+    </div>
+    <div className="flex justify-between text-[10px] text-zinc-500"><span>−60 dBFS</span><span>−0.5 dBFS</span><span>0 dBFS</span></div>
+  </div>;
+}
+export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
+  const [stations,setStations]=useState([]);
+  const [stationId,setStationId]=useState('');
+  const [search,setSearch]=useState('');
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [draft,setDraft]=useState(blank);
+  const [saved,setSaved]=useState(blank);
+  const [saving,setSaving]=useState(false);
+  const [notice,setNotice]=useState('');
+  const [bypass,setBypass]=useState(false);
+  const [playing,setPlaying]=useState(false);
+  const [monitor,setMonitor]=useState(100);
+  const [meter,setMeter]=useState({before:-120,after:-120});
+  const audioRef=useRef(null);
+  const graphRef=useRef(null);
+  const ctxRef=useRef(null);
 
-// 🟢 MAIN COMPONENT: DSP PAGE
-export default function DSP({ API_URL, currentUser, onUpdateDSP, resumeDSP }) {
-  const [stations, setStations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedStation, setSelectedStation] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // State για το ποιο preset να δείχνει το Visualizer στην κορυφή της σελίδας
-  const [previewPreset, setPreviewPreset] = useState('OFF');
+  const station=useMemo(()=>stations.find(item=>String(item._id)===String(stationId)),
+    [stations,stationId]);
+  const filtered=useMemo(()=>stations.filter(item=>
+    (item.name||'').toLocaleLowerCase().includes(search.toLocaleLowerCase())),[stations,search]);
+  const dirty=JSON.stringify(draft)!==JSON.stringify(saved);
+  const token=()=>localStorage.getItem('iluma_token')||'';
 
-  const [accessError,setAccessError]=useState('');
-  // The public /stations payload intentionally omits ownership on staging.
-  // Fetch OWNED station records and the per-station billing rights under JWT.
-  useEffect(() => {
+  useEffect(()=>{
     let cancelled=false;
-    const fetchStations=async()=>{
-      setLoading(true);setAccessError('');
+    async function load(){
+      setLoading(true);setError('');
       try{
-        const token=localStorage.getItem('iluma_token')||'';
-        const headers={Authorization:`Bearer ${token}`};
-        const admin=currentUser?.role==='admin';
-        const id=currentUser?._id||currentUser?.id;
-        const urls=admin?[`${API_URL}/stations/all`]:
-          [`${API_URL}/broadcaster/${id}/stations`,`${API_URL}/billing/me/station-entitlements`];
-        const responses=await Promise.all(urls.map(url=>fetch(url,{headers,cache:'no-store'})));
-        if(responses.some(r=>!r.ok))throw Error('Δεν φορτώθηκαν οι σταθμοί ή τα δικαιώματα συνδρομής.');
-        const stationData=await responses[0].json();
-        const rights=admin?null:await responses[1].json();
-        if(!Array.isArray(stationData))throw Error('Μη έγκυρη λίστα σταθμών.');
-        const entitled=admin?stationData:stationData.filter(station=>
-          (rights.byStation?.[station._id]||[]).includes('broadcaster.webdsp'));
+        const res=await fetch(API_URL+'/stations/dsp-access',{
+          headers:{Authorization:'Bearer '+token()},cache:'no-store'
+        });
+        const body=await res.json().catch(()=>({}));
+        if(!res.ok)throw Error(body.error||'Δεν φορτώθηκαν οι σταθμοί WebDSP.');
+        if(!Array.isArray(body))throw Error('Μη έγκυρη απάντηση WebDSP.');
         if(cancelled)return;
-        setStations(entitled);
-        if(entitled.length===1)setPreviewPreset(entitled[0].dspPreset||'OFF');
-        if(!entitled.length)setAccessError('Δεν υπάρχει ενεργό WebDSP για τους σταθμούς σου. Μπορείς να το ενεργοποιήσεις ανά σταθμό ή μέσω Broadcaster Premium.');
-      }catch(error){
-        if(!cancelled){setStations([]);setAccessError(error.message);}
-      }finally{if(!cancelled)setLoading(false);}
-    };
-    if(currentUser)fetchStations();
-    return ()=>{cancelled=true;};
-  },[API_URL,currentUser]);
+        setStations(body);
+        const fromUrl=new URLSearchParams(window.location.search).get('station');
+        setStationId(current=>body.find(s=>s._id===current)?current:
+          (body.find(s=>s._id===fromUrl)?fromUrl:body[0]?._id||''));
+      }catch(e){if(!cancelled){setStations([]);setError(e.message);}}
+      finally{if(!cancelled)setLoading(false);}
+    }
+    if(currentUser?.role==='admin'||currentUser?.role==='broadcaster')load();
+    else {setError('Απαιτείται λογαριασμός διαχειριστή ή broadcaster.');setLoading(false);}
+    return()=>{cancelled=true;};
+  },[API_URL,currentUser?._id,currentUser?.role]);
 
-  const openDSPModal = (station) => {
-    setSelectedStation(station);
-    setPreviewPreset(station.dspPreset || 'OFF');
-    setIsModalOpen(true);
+  // A station switch is an intentional boundary: never continue playing
+  // another station or carry its unsaved settings into the new station.
+  useEffect(()=>{
+    const config=fromStation(station);
+    setSaved(config);setDraft(config);setBypass(false);setNotice('');setMeter({before:-120,after:-120});
+    const audio=audioRef.current;
+    if(audio){audio.pause();audio.removeAttribute('src');audio.load();}
+    setPlaying(false);
+  },[stationId,station?._id]);
+
+  useEffect(()=>{
+    return ()=>{
+      audioRef.current?.pause();
+      if(ctxRef.current&&ctxRef.current.state!=='closed')ctxRef.current.close().catch(()=>{});
+    };
+  },[]);
+
+  const apply=useCallback((config,bypassed)=>{
+    if(!graphRef.current)return;
+    applyDSPGraph(graphRef.current,
+      bypassed?'OFF':config.dspPreset,
+      bypassed?DSP_DEFAULTS:config.dspSettings);
+  },[]);
+  useEffect(()=>{apply(draft,bypass);},[draft,bypass,apply]);
+
+  const updateSetting=(key,value)=>{
+    const next={...draft,dspSettings:{...draft.dspSettings,[key]:value}};
+    apply(next,bypass);setDraft(next);setNotice('');
+  };
+  const selectPreset=key=>{
+    const next={...draft,dspPreset:key};
+    apply(next,bypass);setDraft(next);setNotice('');
   };
 
-  const handleSaveDSP = async (preset) => {
-    setSaving(true);
-    try {
-      const token = localStorage.getItem('iluma_token');
-
-      const res = await fetch(`${API_URL}/stations/${selectedStation._id}/dsp`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify({ dspPreset: preset })
-      });
-
-      if (res.ok) {
-        const updatedStation = await res.json();
-        
-        setStations(prevStations => 
-          prevStations.map(s => s._id === updatedStation._id ? updatedStation : s)
-        );
-        
-        if (onUpdateDSP) {
-          onUpdateDSP(updatedStation._id, updatedStation.dspPreset);
-        }
-        
-        setIsModalOpen(false);
-        setSelectedStation(null);
-        setPreviewPreset(updatedStation.dspPreset || 'OFF');
-      } else {
-        const errorData = await res.json();
-        alert(`Αποτυχία αποθήκευσης DSP: ${errorData.error || 'Server Error'}`);
+  const stop=()=>{
+    audioRef.current?.pause();
+    setPlaying(false);
+  };
+  const togglePreview=async()=>{
+    if(playing){stop();return;}
+    const audio=audioRef.current;
+    if(!station?.stream||!audio||station.isOffline){
+      setError('Ο σταθμός δεν διαθέτει ενεργό stream για ακρόαση.');return;
+    }
+    setError('');
+    try{
+      const Ctx=window.AudioContext||window.webkitAudioContext;
+      if(!Ctx)throw Error('Ο browser δεν υποστηρίζει Web Audio.');
+      if(!graphRef.current){
+        const ctx=new Ctx({latencyHint:'interactive'});
+        ctxRef.current=ctx;
+        graphRef.current=createDSPGraph(ctx,ctx.createMediaElementSource(audio));
       }
-    } catch (err) {
-      console.error(err);
-      alert("Σφάλμα σύνδεσης");
-    } finally {
-      setSaving(false);
+      // Real DSP processing (never a preset curve simulation).
+      apply(draft,bypass);
+      const stream=station.streamUrl||station.stream;
+      const requested=API_URL+'/proxy-stream?url='+encodeURIComponent(stream);
+      if(audio.dataset.stationId!==String(station._id)||!audio.src){
+        audio.src=requested;
+        audio.dataset.stationId=String(station._id);
+      }
+      audio.volume=monitor/100;
+      const contextStart=ctxRef.current.resume();
+      const started=audio.play();
+      await Promise.all([contextStart,started]);
+      setPlaying(true);
+    }catch(e){
+      stop();
+      setError('Δεν ξεκίνησε το live preview: '+(e.message||'Άγνωστο σφάλμα')+
+        '. Έλεγξε το stream και το Web Audio proxy.');
     }
   };
+  useEffect(()=>{
+    if(audioRef.current)audioRef.current.volume=monitor/100;
+  },[monitor]);
 
-  const filteredStations = stations.filter(station => 
-    station.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(()=>{
+    if(!playing||!graphRef.current)return;
+    const graph=graphRef.current;
+    const pre=new Float32Array(graph.beforePeak.fftSize);
+    const post=new Float32Array(graph.afterPeak.fftSize);
+    let animation=0,last=0,active=true;
+    const tick=now=>{
+      if(!active)return;
+      if(now-last>=90){
+        setMeter({before:measurePeakDbfs(graph.beforePeak,pre),
+          after:measurePeakDbfs(graph.afterPeak,post)});
+        last=now;
+      }
+      animation=requestAnimationFrame(tick);
+    };
+    animation=requestAnimationFrame(tick);
+    return()=>{active=false;cancelAnimationFrame(animation);};
+  },[playing,stationId]);
 
-  if (loading) return <div className="p-8 text-center text-[#ccff00] animate-pulse">Φόρτωση DSP Engine...</div>;
+  const save=async()=>{
+    if(!station||saving)return;
+    setSaving(true);setError('');setNotice('');
+    try{
+      const res=await fetch(API_URL+'/stations/'+station._id+'/dsp',{
+        method:'PUT',headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'},
+        body:JSON.stringify(draft)
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw Error(data.error||'Αποτυχία αποθήκευσης.');
+      const updated=fromStation(data);
+      setStations(prev=>prev.map(item=>item._id===data._id?{...item,...data}:item));
+      setSaved(updated);setDraft(updated);
+      apply(updated,bypass);
+      setNotice('Οι ρυθμίσεις αποθηκεύτηκαν για τον συγκεκριμένο σταθμό.');
+      onUpdateDSP?.(data._id,data.dspPreset,data.dspSettings);
+    }catch(e){setError(e.message||'Σφάλμα σύνδεσης.');}
+    finally{setSaving(false);}
+  };
 
-  return (
-    <div className="p-4 lg:p-8 max-w-6xl mx-auto animate-fade-in pb-32">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-        
-        {/* ΤΙΤΛΟΣ */}
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-[#ccff00]/10 rounded-xl flex items-center justify-center border border-[#ccff00]/20">
-            <SlidersHorizontal className="text-[#ccff00]" size={24} />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black text-white tracking-tight">DSP Engine</h1>
-            <p className="text-zinc-400 text-sm">Ρυθμίστε την ψηφιακή επεξεργασία ήχου.</p>
-          </div>
-        </div>
-
-        {/* ΜΠΑΡΑ ΑΝΑΖΗΤΗΣΗΣ */}
-        <div className="relative w-full md:w-80 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-[#ccff00] transition-colors" size={18} />
-          <input
-            type="text"
-            placeholder="Αναζήτηση σταθμού..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-zinc-900/50 border border-white/5 h-12 rounded-2xl pl-12 pr-10 text-sm text-white focus:outline-none focus:border-[#ccff00]/30 transition-all shadow-inner"
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors">
-              <X size={16} />
-            </button>
-          )}
+  if(loading)return <div className="p-8 text-[#caff00]">Φόρτωση DSP Engine…</div>;
+  return <main className="mx-auto max-w-[1550px] space-y-5 px-3 py-6 pb-32 text-white md:px-7">
+    <header className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center gap-4">
+        <div className="rounded-2xl border border-[#caff00]/20 bg-[#caff00]/10 p-3"><SlidersHorizontal className="text-[#caff00]"/></div>
+        <div><h1 className="text-3xl font-black">WebDSP Audio Engine</h1>
+          <p className="mt-1 text-sm text-zinc-400">Studio presets, tone shaping, stereo width & master peak monitoring.</p>
         </div>
       </div>
+      <div className="rounded-full border border-white/10 px-4 py-2 text-[11px] uppercase tracking-widest text-zinc-300">
+        {currentUser?.role==='admin'?'Admin · all stations':'Broadcaster · entitled stations'}
+      </div>
+    </header>
 
-      {/* 🟢 ΤΟ MASTER EQUALIZER VISUALIZER 🟢 */}
-      <DSPCurveVisualizer preset={previewPreset} />
+    <section className={shell+' p-5'}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div><h2 className="text-lg font-bold">Επιλογή σταθμού</h2>
+          <p className="text-xs text-zinc-400">Οι αλλαγές και η ακρόαση αφορούν αποκλειστικά τον επιλεγμένο σταθμό.</p></div>
+        <div className="relative w-full sm:w-72"><Search className="absolute left-3 top-3 text-zinc-500" size={16}/>
+          <input aria-label="Αναζήτηση σταθμού" value={search} onChange={e=>setSearch(e.target.value)}
+            placeholder="Αναζήτηση…" className="w-full rounded-xl border border-white/10 bg-[#0c0e10] p-2.5 pl-10 text-sm text-white"/></div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {filtered.map(item=><button key={item._id} type="button" disabled={saving}
+          onClick={()=>setStationId(item._id)}
+          aria-pressed={stationId===item._id}
+          className={'flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition-colors '+
+            (stationId===item._id?'border-[#caff00] bg-[#caff00]/10 text-white':'border-white/10 bg-black/20 text-zinc-300 hover:border-white/30')}>
+          {item.logo&&<img src={item.logo} alt="" className="h-7 w-7 rounded object-cover"/>}
+          <span>{item.name}</span>
+          {item.isOffline&&<span className="text-[10px] text-amber-300">OFFLINE</span>}
+        </button>)}
+        {!stations.length&&<p className="text-sm text-zinc-400">Δεν υπάρχουν σταθμοί με ενεργό δικαίωμα WebDSP.</p>}
+      </div>
+    </section>
 
-      {/* ΛΙΣΤΑ ΣΤΑΘΜΩΝ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredStations.map(station => (
-          <div 
-            key={station._id} 
-            onMouseEnter={() => setPreviewPreset(station.dspPreset || 'OFF')} // Αλλάζει το γράφημα στο hover!
-            className="bg-zinc-900/40 border border-white/5 rounded-2xl p-5 flex flex-col justify-between hover:border-white/10 transition-colors group cursor-default"
-          >
-            <div className="flex items-center gap-4 mb-6">
-              <img src={station.logo} alt={station.name} className="w-16 h-16 rounded-xl object-cover border border-white/10 shadow-md bg-white" />
-              <div className="min-w-0">
-                <h3 className="font-bold text-white text-lg truncate group-hover:text-[#ccff00] transition-colors">{station.name}</h3>
-                <span className={`text-[10px] font-black tracking-widest uppercase px-2 py-1 rounded-lg inline-block mt-1 border ${
-                  !station.dspPreset || station.dspPreset === 'OFF' 
-                    ? 'text-zinc-500 bg-zinc-900 border-zinc-800' 
-                    : 'text-[#ccff00] bg-[#ccff00]/10 border-[#ccff00]/20'
-                }`}>
-                  {station.dspPreset || 'OFF'}
-                </span>
-              </div>
-            </div>
-            
-            <button 
-              onClick={() => openDSPModal(station)}
-              className="w-full bg-white/5 hover:bg-[#ccff00] hover:text-black text-white text-xs font-black uppercase tracking-widest py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              <SlidersHorizontal size={14} />
-              Ρυθμιση DSP
-            </button>
+    {station&&<>
+      <section className={shell+' p-5 md:p-7'}>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div><span className="text-[11px] font-bold tracking-widest text-zinc-500">00 / STUDIO PRESETS</span>
+            <h2 className="mt-1 text-2xl font-bold">Processing profile</h2>
+            <p className="mt-1 text-sm text-zinc-400">Το preset και οι χειροκίνητες ρυθμίσεις εφαρμόζονται ταυτόχρονα.</p>
           </div>
-        ))}
-        
-        {stations.length > 0 && filteredStations.length === 0 && (
-          <div className="col-span-full text-center py-12 text-zinc-500 font-medium">
-            Δεν βρέθηκε σταθμός με το όνομα "{searchTerm}".
+          <div className="rounded-full border border-white/10 px-4 py-2 text-xs text-zinc-300">{draft.dspPreset}</div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
+          {Object.entries(DSP_PRESETS).map(([key,value])=><button key={key} type="button"
+            onClick={()=>selectPreset(key)} aria-pressed={draft.dspPreset===key}
+            className={'min-h-20 rounded-xl border p-3 text-left text-xs font-bold transition-colors '+
+              (draft.dspPreset===key?'border-[#caff00] bg-[#caff00]/10 text-[#caff00]':'border-white/10 bg-[#0d1113] text-zinc-300 hover:border-white/40')}>
+            {value.label}</button>)}
+        </div>
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-[1.43fr_1fr]">
+        <section className={shell+' p-5 md:p-7'}>
+          <div className="mb-8 flex items-start justify-between gap-3">
+            <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">01 / EQUALIZER</span>
+              <h2 className="mt-2 text-2xl font-bold">Tone control</h2></div>
+            <span className="rounded-full border border-white/10 px-3 py-2 text-[10px] tracking-widest text-zinc-400">3 BAND EQ</span>
           </div>
-        )}
-        {stations.length === 0 && (
-          <div role="status" className="col-span-full text-center py-12 text-zinc-400 font-medium">
-            {accessError||'Δεν βρέθηκαν σταθμοί προς ρύθμιση.'}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Fader label="Bass" value={draft.dspSettings.bass} min={-12} max={12}
+              sub={['180 Hz','Low shelf']} onChange={v=>updateSetting('bass',v)}/>
+            <Fader label="Mid" value={draft.dspSettings.mid} min={-12} max={12}
+              sub={['1.3 kHz','Presence']} onChange={v=>updateSetting('mid',v)}/>
+            <Fader label="Treble" value={draft.dspSettings.treble} min={-12} max={12}
+              sub={['4.3 kHz','High shelf']} onChange={v=>updateSetting('treble',v)}/>
+            <Fader label="Output" value={draft.dspSettings.output} min={-12} max={3}
+              sub={['MASTER','Trim']} onChange={v=>updateSetting('output',v)}/>
           </div>
-        )}
+        </section>
+
+        <section className={shell+' p-5 md:p-7'}>
+          <div className="flex items-start justify-between gap-3">
+            <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">02 / SPATIAL FIELD</span>
+              <h2 className="mt-2 text-2xl font-bold">Stereo expander</h2></div>
+            <span className="rounded-full border border-white/10 px-3 py-2 text-[10px] tracking-widest text-zinc-400">MID / SIDE</span>
+          </div>
+          <div aria-hidden="true" className="relative mx-auto mt-7 flex h-48 max-w-md items-center justify-center overflow-hidden">
+            {[95,78,61,44].map((width,i)=><div key={width}
+              className="absolute rounded-[100%] border border-slate-400/15"
+              style={{width:width+'%',height:(50+i*11)+'%',transform:'scaleX('+Math.max(.35,draft.dspSettings.stereoWidth/100)+')'}}/>)}
+            <span className="relative z-10 text-5xl font-black tabular-nums">{draft.dspSettings.stereoWidth}%</span>
+          </div>
+          <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-widest">
+            <span>Stereo width</span><span className="text-xl">{draft.dspSettings.stereoWidth}%</span>
+          </div>
+          <input aria-label="Stereo width" className={inputStyle+' mt-6'} type="range"
+            min="0" max="150" step="1" value={draft.dspSettings.stereoWidth}
+            onChange={event=>updateSetting('stereoWidth',Number(event.target.value))}/>
+          <div className="mt-3 flex justify-between text-[10px] text-zinc-500"><span>MONO / 0%</span><span>NATURAL / 100%</span><span>WIDE / 150%</span></div>
+          <div className="mt-7 grid grid-cols-3 gap-2">
+            {[[0,'MONO'],[100,'STEREO'],[125,'EXPAND']].map(([width,label])=><button
+              type="button" key={label} onClick={()=>updateSetting('stereoWidth',width)}
+              className={'rounded-xl border px-2 py-3 text-[11px] font-black '+(draft.dspSettings.stereoWidth===width?
+                'border-[#caff00] text-[#caff00] bg-[#caff00]/10':'border-white/10 text-zinc-300 bg-white/5')}>{label}</button>)}
+          </div>
+          <p className="mt-5 text-xs leading-6 text-zinc-500">100% = αυθεντικό stereo • 0% = mono • πάνω από 100% = διεύρυνση. Ο limiter προστατεύει την τελική έξοδο.</p>
+        </section>
       </div>
 
-      {/* DSP SELECTION MODAL */}
-      {isModalOpen && selectedStation && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
-          <div className="bg-zinc-950 border border-white/10 p-6 lg:p-8 rounded-[32px] w-full max-w-2xl relative shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
-            
-            <button onClick={() => setIsModalOpen(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full z-10">
-              <X size={20} />
-            </button>
-
-            <div className="text-center mb-8 mt-2">
-              <h2 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase mb-1">Studio Presets</h2>
-              <p className="text-[#ccff00] text-[10px] font-black uppercase tracking-widest">Master Output: {selectedStation.name}</p>
+      <section className={shell+' p-5 md:p-7'}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">03 / AUDITION</span>
+            <h2 className="mt-2 text-2xl font-bold">Live sound preview</h2>
+            <p className="mt-2 max-w-2xl text-sm text-zinc-400">Άκου το πραγματικό live stream του επιλεγμένου σταθμού. Κάθε αλλαγή εφαρμόζεται αμέσως μόνο στην ακρόασή σου μέχρι να πατήσεις Save.</p></div>
+          <span className="rounded-full border border-white/10 px-4 py-2 text-[11px] text-zinc-300">{playing?'LIVE PREVIEW':'READY TO PREVIEW'}</span>
+        </div>
+        <audio ref={audioRef} crossOrigin="anonymous" preload="none" playsInline
+          onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)}
+          onError={()=>{setPlaying(false);setError('Το stream δεν είναι διαθέσιμο για preview.');}}/>
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={togglePreview} disabled={station.isOffline}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#c5d0d5] px-5 py-3 text-xs font-black text-black disabled:opacity-40">
+            {playing?<Pause size={16}/>:<Play size={16}/>} {playing?'PAUSE PREVIEW':'LISTEN LIVE'}
+          </button>
+          <button type="button" onClick={()=>{const next=!bypass;setBypass(next);apply(draft,next);}}
+            aria-pressed={bypass}
+            className={'inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-xs font-bold '+(bypass?'border-amber-400 text-amber-300':'border-white/20 text-zinc-300')}>
+            <PowerOff size={15}/> {bypass?'FX BYPASSED':'BYPASS FX'}
+          </button>
+          <label className="ml-auto flex min-w-48 items-center gap-3 text-xs text-zinc-300">
+            <Volume2 size={18}/><span>MONITOR</span>
+            <input aria-label="Monitor level" type="range" min="0" max="100" step="1"
+              value={monitor} onChange={e=>setMonitor(Number(e.target.value))} className={inputStyle}/>
+            <span className="tabular-nums">{monitor}%</span>
+          </label>
+        </div>
+        <div className="mt-8 grid gap-5 lg:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-5">
+            <div className="mb-5 flex items-center gap-2 text-sm font-bold"><Activity size={18}/> Live peak monitoring</div>
+            <PeakBar label="PRE-MASTER / peak προς περιορισμό" db={meter.before}/>
+            <div className="mt-6"><PeakBar label="FINAL MASTER / sample peak" db={meter.after}/></div>
+            <div className={'mt-5 flex items-center gap-2 text-xs '+(playing&&meter.before>=PEAK_CEILING_DBFS?'text-rose-300':'text-zinc-400')}>
+              {playing&&meter.before>=PEAK_CEILING_DBFS?<AlertTriangle size={16}/>:<CheckCircle2 size={16}/>}
+              {playing&&meter.before>=PEAK_CEILING_DBFS?
+                'PEAK WARNING: Ο επεξεργασμένος ήχος ξεπερνά το όριο πριν το master.':
+                'Fixed master ceiling: −0.5 dBFS · τελευταίο στάδιο του DSP.'}
             </div>
-
-            <div className="space-y-4">
-              
-              {/* 1. OFF / BYPASS PRESET */}
-              <button 
-                onMouseEnter={() => setPreviewPreset('OFF')} // Δείχνει το preview στο γράφημα πίσω από το modal
-                onClick={() => {if (resumeDSP) resumeDSP(); handleSaveDSP('OFF')}} 
-                disabled={saving} 
-                className={`w-full text-left bg-zinc-900 border p-5 rounded-2xl transition-all group ${selectedStation.dspPreset === 'OFF' ? 'border-white/50' : 'border-white/5 hover:border-zinc-500/50'}`}
-              >
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center shrink-0 group-hover:bg-zinc-700 transition-colors">
-                    <PowerOff className="text-zinc-400 group-hover:text-white" size={20} />
-                  </div>
-                  <h3 className="text-lg font-bold text-white">DSP Off (Bypass)</h3>
-                </div>
-                <p className="text-sm text-zinc-400 pl-14 leading-relaxed">
-                  <strong>True Bypass / Unity Gain.</strong> Δεν εφαρμόζεται καμία επεξεργασία. Ο ήχος περνάει 100% αυτούσιος. Είναι η ιδανική επιλογή αν το stream σας έρχεται ήδη τέλεια επεξεργασμένο από το studio.
-                </p>
-              </button>
-              
-              {/* 2. SOFT DSP */}
-              <button 
-                onMouseEnter={() => setPreviewPreset('SOFT')}
-                onClick={() => {if (resumeDSP) resumeDSP(); handleSaveDSP('SOFT')}} 
-                disabled={saving} 
-                className={`w-full text-left bg-zinc-900 border p-5 rounded-2xl transition-all group ${selectedStation.dspPreset === 'SOFT' ? 'border-blue-500' : 'border-white/5 hover:border-blue-500/50'}`}
-              >
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 group-hover:bg-blue-500/20"><ShieldCheck className="text-blue-500" size={20} /></div>
-                  <h3 className="text-lg font-bold text-white">Soft (Acoustic / Jazz)</h3>
-                </div>
-                <p className="text-sm text-zinc-400 pl-14 leading-relaxed">
-                  <strong>Φυσικότητα & Δυναμικές.</strong> Πολύ ελαφριά και διάφανη συμπίεση. Διατηρεί ανέπαφη τη φυσική δυναμική περιοχή των οργάνων και των φωνητικών, ιδανικό για Κλασική ή Jazz.
-                </p>
-              </button>
-
-              {/* 3. NORMALIZE DSP (Recommended) */}
-              <button 
-                onMouseEnter={() => setPreviewPreset('NORMALIZE')}
-                onClick={() => {if (resumeDSP) resumeDSP(); handleSaveDSP('NORMALIZE')}} 
-                disabled={saving} 
-                className={`w-full text-left bg-zinc-900 border p-5 rounded-2xl transition-all group relative overflow-hidden ${selectedStation.dspPreset === 'NORMALIZE' ? 'border-[#ccff00]' : 'border-white/5 hover:border-[#ccff00]/50'}`}
-              >
-                <div className="absolute top-0 right-0 bg-[#ccff00] text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">Recommended</div>
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-[#ccff00]/10 flex items-center justify-center shrink-0 group-hover:bg-[#ccff00]/20"><Activity className="text-[#ccff00]" size={20} /></div>
-                  <h3 className="text-lg font-bold text-white">Normalize (General Radio)</h3>
-                </div>
-                <p className="text-sm text-zinc-400 pl-14 leading-relaxed">
-                  <strong>Balanced & Fatigue-Free.</strong> Η πιο ασφαλής επιλογή για τα περισσότερα Web Radios. "Σιδερώνει" γλυκά τις διαφορές έντασης. Παρέχει ένα ξεκούραστο, σταθερό άκουσμα.
-                </p>
-              </button>
-
-              {/* 4. ULTRABAND DSP */}
-              <button 
-                onMouseEnter={() => setPreviewPreset('ULTRABAND')}
-                onClick={() => {if (resumeDSP) resumeDSP(); handleSaveDSP('ULTRABAND')}} 
-                disabled={saving} 
-                className={`w-full text-left bg-zinc-900 border p-5 rounded-2xl transition-all group ${selectedStation.dspPreset === 'ULTRABAND' ? 'border-purple-500' : 'border-white/5 hover:border-purple-500/50'}`}
-              >
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0 group-hover:bg-purple-500/20"><AudioWaveform className="text-purple-500" size={20} /></div>
-                  <h3 className="text-lg font-bold text-white">UltraBand (Dance / Hit Radio)</h3>
-                </div>
-                <p className="text-sm text-zinc-400 pl-14 leading-relaxed">
-                  <strong>Club & Electronic Vibes.</strong> Έντονο loudness με βαθύ drive που κάνει τα μπάσα εξαιρετικά συμπαγή. Ειδικά ρυθμισμένο για σύγχρονη χορευτική, Pop, House ή RnB.
-                </p>
-              </button>
-
-              {/* 5. ULTRA (Behringer Sim) */}
-              <button 
-                onMouseEnter={() => setPreviewPreset('ULTRA')}
-                onClick={() => {if (resumeDSP) resumeDSP(); handleSaveDSP('ULTRA')}} 
-                disabled={saving} 
-                className={`w-full text-left bg-zinc-900 border p-5 rounded-2xl transition-all group relative overflow-hidden ${selectedStation.dspPreset === 'ULTRA' ? 'border-orange-500' : 'border-white/5 hover:border-orange-500/50'}`}
-              >
-                 <div className="absolute top-0 right-0 bg-orange-500 text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">Digital Maximizer</div>
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center shrink-0 group-hover:bg-orange-500/20"><Speaker className="text-orange-500" size={20} /></div>
-                  <h3 className="text-lg font-bold text-white">Ultra (Massive FM)</h3>
-                </div>
-                <p className="text-sm text-zinc-400 pl-14 leading-relaxed">
-                  <strong>Αναλογικός Όγκος.</strong> Ο κλασικός, τεράστιος ήχος των ερτζιανών. Εφαρμόζει βαθύ compression για να δημιουργήσει έναν "δεμένο" και ζεστό ήχο.
-                </p>
-              </button>
-
-              {/* 6. OMNIA (CHR/Top 40 Sim) */}
-              <button 
-                onMouseEnter={() => setPreviewPreset('OMNIA')}
-                onClick={() => {if (resumeDSP) resumeDSP(); handleSaveDSP('OMNIA')}} 
-                disabled={saving} 
-                className={`w-full text-left bg-zinc-900 border p-5 rounded-2xl transition-all group relative overflow-hidden ${selectedStation.dspPreset === 'OMNIA' ? 'border-cyan-500' : 'border-white/5 hover:border-cyan-500/50'}`}
-              >
-                 <div className="absolute top-0 right-0 bg-cyan-500 text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">Top 40 / CHR</div>
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center shrink-0 group-hover:bg-cyan-500/20"><RadioTower className="text-cyan-500" size={20} /></div>
-                  <h3 className="text-lg font-bold text-white">Omnia (CHR Signature)</h3>
-                </div>
-                <p className="text-sm text-zinc-400 pl-14 leading-relaxed">
-                  <strong>Απόλυτη Διαύγεια.</strong> Ο ήχος γίνεται "γυαλί". Μαζεύει τη "λάσπη" από τις υποσυχνότητες και φέρνει τις φωνές των παραγωγών και τα πρίμα μπροστά. 
-                </p>
-              </button>
-
-              {/* 7. 0DB LEVELER (Broadcast Standard) */}
-              <button 
-                onMouseEnter={() => setPreviewPreset('0DB_LEVELER')}
-                onClick={() => {if (resumeDSP) resumeDSP(); handleSaveDSP('0DB_LEVELER')}} 
-                disabled={saving} 
-                className={`w-full text-left bg-zinc-900 border p-5 rounded-2xl transition-all group relative overflow-hidden ${selectedStation.dspPreset === '0DB_LEVELER' ? 'border-emerald-500' : 'border-white/5 hover:border-emerald-500/50'}`}
-              >
-                 <div className="absolute top-0 right-0 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">Pro Broadcast</div>
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 group-hover:bg-emerald-500/20"><Gauge className="text-emerald-500" size={20} /></div>
-                  <h3 className="text-lg font-bold text-white">0dB Leveler (RMS Boost)</h3>
-                </div>
-                <p className="text-sm text-zinc-400 pl-14 leading-relaxed">
-                  <strong>Μέγιστη Ένταση χωρίς Clipping.</strong> Επαγγελματικό Broadcast AGC. Ενισχύει δραματικά τα χαμηλά streams ώστε να ακούγονται "δυνατά" (0dBFS) με αόρατο Brickwall Limiting.
-                </p>
-              </button>
-
-            </div>
-
-            {saving && (
-              <div className="absolute inset-0 bg-black/80 rounded-[32px] flex items-center justify-center z-10">
-                <Loader2 className="animate-spin text-[#ccff00]" size={48} />
-              </div>
-            )}
+          </div>
+          <div className="flex flex-col justify-center rounded-2xl border border-white/10 bg-[#0d1113] p-5">
+            <Headphones className="mb-4 text-[#caff00]" size={28}/>
+            <h3 className="text-lg font-bold">Ασφαλής προακρόαση</h3>
+            <p className="mt-2 text-sm leading-7 text-zinc-400">Το meter διαβάζει πραγματικά samples πριν και μετά το τελικό master. Το όριο −0.5 dBFS εφαρμόζεται ως sample-peak safety ceiling· δεν είναι πιστοποιημένος true-peak (dBTP) μετρητής.</p>
+            <p className="mt-3 text-xs text-zinc-500">Ο master limiter παραμένει ενεργός ακόμη και στο FX Bypass. Οι ρυθμίσεις αποθηκεύονται ανά σταθμό.</p>
           </div>
         </div>
-      )}
+      </section>
 
-    </div>
-  );
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-[#111517] p-4">
+        <button type="button" onClick={()=>{const next={...draft,dspSettings:{...DSP_DEFAULTS}};setDraft(next);apply(next,bypass);}}
+          className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-3 text-xs font-bold text-zinc-300">
+          <RotateCcw size={16}/> RESET EQ / WIDTH</button>
+        <button type="button" disabled={!dirty||saving} onClick={save}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#caff00] px-6 py-3 text-xs font-black text-black disabled:cursor-not-allowed disabled:opacity-40">
+          <Save size={16}/> {saving?'SAVING…':'SAVE SETTINGS'}</button>
+        <span className="text-xs text-zinc-400">{dirty?'Μη αποθηκευμένες αλλαγές':'Οι αλλαγές έχουν αποθηκευτεί.'}</span>
+      </div>
+    </>}
+
+    {notice&&<p role="status" className="rounded-xl border border-[#caff00]/20 bg-[#caff00]/5 p-3 text-sm text-[#caff00]">{notice}</p>}
+    {error&&<p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-sm text-rose-300">{error}</p>}
+  </main>;
 }
