@@ -61,3 +61,16 @@ test('Recorded paid orders and legacy transactions dedupe by provider payment',(
   {name:'11/2026',amount:10.98}]);
  assert.deepEqual(summarizePayments().revenueData,[]);
 });
+
+test('Legacy order-only IDs dedupe against the signed Gateway payment record',()=>{
+ const date='2026-11-11T15:00:00Z';
+ const revenue=summarizePayments([
+  {_id:'legacy',status:'completed',amount:3.99,currency:'eur',
+    externalOrderId:'order-123',createdAt:date}
+ ],[
+  {_id:'confirmed',status:'paid',gatewayPaymentId:'payment-123',
+    gatewayOrderId:'order-123',amountCents:399,currency:'EUR',paidAt:date}
+ ]);
+ assert.equal(revenue.payments,1);
+ assert.equal(revenue.revenue,3.99);
+});
