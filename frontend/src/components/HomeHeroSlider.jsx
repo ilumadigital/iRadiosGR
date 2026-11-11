@@ -10,7 +10,7 @@ import {visibleEditorialSlides,homeFeaturedFallback} from '../utils/editorialPre
 export default function HomeHeroSlider({
   currentUser, currentStation, stations=[], isPlaying, onPlayPause,
   onPlayStation, onOpenDiscovery, onFeaturedStationChange,
-  placement='home', value='', fallbackStation=null, onAvailabilityChange, excludeStationId=null
+  placement='home', value='', onAvailabilityChange, excludeStationId=null
 }) {
   const navigate=useNavigate();
   const [slides,setSlides]=useState([]);
@@ -79,8 +79,7 @@ export default function HomeHeroSlider({
   const activeShow=stationAction?activeStationShow(featuredStation,athensClock):null;
   const onAirName=[activeShow?.host,activeShow?.title]
     .find(value=>typeof value==='string'&&value.trim())?.trim()||'';
-  // This default station card represents the listener's most recent station,
-  // not an editorial recommendation. Reflect actual shared playback state.
+  // Playback state highlights only the chosen editorial or featured station.
   const featuredStationIsPlaying=Boolean(isPlaying && currentStation?._id &&
     String(currentStation._id)===String(featuredStation?._id));
   const heroEyebrow=slide?.eyebrow || (featuredStationIsPlaying
