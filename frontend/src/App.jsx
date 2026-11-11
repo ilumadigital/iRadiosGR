@@ -7,6 +7,7 @@ import io from 'socket.io-client';
 
 // --- CUSTOM HOOKS ---
 import useAudioDSP from './hooks/useAudioDSP';
+import {normalizeListenerMode} from './utils/dspEngine';
 import useStations from './hooks/useStations';
 import useAdEngine from './hooks/useAdEngine';
 import useMediaSession from './hooks/useMediaSession';
@@ -635,12 +636,25 @@ function MainApp() {
 
   const [isCarModeActive, setIsCarModeActive] = useState(false);
 
-  const [userOverrides, setUserOverrides] = useState(() => {
-    try {
-      const saved = localStorage.getItem('iluma_user_dsp_overrides');
-      return saved ? JSON.parse(saved) : {};
-    } catch (e) { return {}; }
-  });
+  // Personal DSP is scoped per Premium account and browser. NEVER write these
+  // choices into Station docs or share them between different login accounts.
+  const [userOverrides, setUserOverrides] = useState({});
+  const premiumAccountId=currentUser?.isPremium===true?
+    String(currentUser?._id||currentUser?.id||''):'';
+  useEffect(()=>{
+    if(!premiumAccountId){setUserOverrides({});return;}
+    try{
+      const saved=JSON.parse(localStorage.getItem('iluma_listener_dsp_v2:'+premiumAccountId)||'{}');
+      setUserOverrides(saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{});
+    }catch{setUserOverrides({});}
+  },[premiumAccountId]);
+  const changeUserDSP=(stationId,mode)=>{
+    if(!premiumAccountId||!stationId)return;
+    const choice=normalizeListenerMode(mode);
+    const next={...userOverrides,[String(stationId)]:choice};
+    setUserOverrides(next);
+    try{localStorage.setItem('iluma_listener_dsp_v2:'+premiumAccountId,JSON.stringify(next));}catch{}
+  };
 
   const isMobile = useMemo(() => {
     return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -1907,7 +1921,7 @@ function MainApp() {
 
             <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
@@ -1993,7 +2007,7 @@ function MainApp() {
           adTimeRemaining={adTimeRemaining} adWarning={adWarning} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo}
           isPlaying={isPlaying} togglePlayPause={togglePlayPause} isBuffering={isBuffering}
           toggleFavorite={handleToggleFavorite} isFavorite={isFavorite}
-          currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))}
+          currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP}
           handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}
           shuffleEnabled={stationShuffle}
           onShuffleToggle={() => { shuffleHistoryRef.current = []; setStationShuffle(value => !value); }}
@@ -2016,7 +2030,7 @@ function MainApp() {
         volume={volume} setVolume={setVolume} togglePlayPause={togglePlayPause} 
         toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} 
         handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}  
-        currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={(sid, p) => setUserOverrides(prev => ({...prev, [sid]: p}))}
+        currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP}
         isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} spotifyUrl={spotifyUrl}
         globalCoverArt={globalCoverArt}
         liveBroadcast={liveBroadcast}
