@@ -14,7 +14,8 @@ const {getProduct,listProducts}=require('../config/billingCatalog');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {validateComplimentaryScope,resolveComplimentaryEntitlements,isActiveGrant}=require('../services/billingPolicy');
-const {effectiveRights,legacyRights,activeGrantsFor,activeBroadcasterOrders,accountRights}=require('../services/billingEntitlements');
+const {effectiveRights,activeGrantsFor,activeBroadcasterOrders,accountRights}=require('../services/billingEntitlements');
+const {listenerCompatibilityRights}=require('../services/billingEntitlementRules');
 const {paidRights}=require('../services/broadcasterPurchaseRules');
 const {describeStationAddons}=require('../services/adminAddonOverview');
 const router=express.Router();
@@ -60,7 +61,7 @@ router.get('/billing/me/entitlements',protect,safe(async(req,res)=>{
  res.json({
    entitlements:[...entitlementSet].sort(),
    complimentaryEntitlements:resolveComplimentaryEntitlements(grants,{stationId,campaignId,now}),
-   legacyEntitlements:legacyRights(req.user),
+   legacyEntitlements:listenerCompatibilityRights(req.user),
    paidSubscriptionsIntegrated:process.env.APP_ENV==='staging' && ['user','broadcaster'].includes(req.user.role),
    renewalsAvailable:false
  });
