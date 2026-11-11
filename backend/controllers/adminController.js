@@ -88,11 +88,26 @@ exports.updateUserRole = async (req, res) => {
     if (!oldUser) return res.status(404).json({ error: 'Ο χρήστης δεν βρέθηκε' });
 
     // 2. Εκτελούμε την ενημέρωση (διατηρώντας τα πεδία σου)
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.id, 
-      { role, isPremium, broadcasterProfile, assignedStation }, 
-      { new: true }
-    ).select('-password');
+    const nextRole=role||oldUser.role;
+    // A role edit must never re-enable historical Broadcaster Premium,
+    // custom station allowances or standalone addon flags. Paid/granted
+    // entitlements are managed solely through Billing Engine.
+    const setFields={
+      role:nextRole,
+      assignedStation:nextRole==='producer'?(assignedStation||null):null,
+      isPremium:nextRole==='user'?isPremium===true:false
+    };
+    if(nextRole==='broadcaster'){
+      Object.assign(setFields,{
+        'broadcasterProfile.tier':'free',
+        'broadcasterProfile.maxStations':3,
+        'broadcasterProfile.features.dspEngine':false,
+        'broadcasterProfile.features.analytics':false,
+        'broadcasterProfile.features.adControl':false
+      });
+    }
+    const updatedUser=await User.findByIdAndUpdate(req.params.id,
+      {$set:setFields},{new:true,runValidators:true}).select('-password');
 
     // 3. 🚀 ΕΛΕΓΧΟΣ ΓΙΑ ΑΠΟΣΤΟΛΗ EMAIL
     if (typeof sendEmail === 'function') {

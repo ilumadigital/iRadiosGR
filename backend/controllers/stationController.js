@@ -118,7 +118,7 @@ exports.createBroadcasterStation = async (req,res)=>{
     const unlimited=await hasAccountRight(user,'broadcaster.unlimited_stations');
     if(!unlimited){
       const current=await Station.countDocuments({broadcasterId:user._id});
-      const max=Number(user.broadcasterProfile?.maxStations||3);
+      const max=3; // A legacy maxStations flag never bypasses the Free limit.
       if(current>=max)
         return res.status(403).json({error:'Έχετε φτάσει το όριο νέων σταθμών.'});
     }

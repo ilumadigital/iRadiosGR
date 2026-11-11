@@ -245,7 +245,7 @@ router.post('/backoffice/stations',async(req,res)=>{
         const total=await Station.countDocuments({broadcasterId:req.user._id});
         // Preserve pre-existing manually assigned station limits. A Free plan
         // cannot delete or disable legacy stations: only NEW creates are gated.
-        const max=Number(req.user.broadcasterProfile?.maxStations||3);
+        const max=3; // A legacy maxStations flag never bypasses the Free limit.
         if(total>=max)return res.status(403).json({error:'Έχεις φτάσει το όριο σταθμών του λογαριασμού σου.'});
       }
     }

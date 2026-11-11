@@ -2,16 +2,19 @@
 const {effectiveRights}=require('./billingEntitlementRules');
 const {paidRights,boostForStation,isBoost}=require('./broadcasterPurchaseRules');
 
-// Old manual presets survive unchanged. NEW billing-managed presets become
-// effectively OFF when their entitlement has expired or been revoked.
+// Admin DSP configurations are always stored, but public output is processed
+// ONLY while a matching, active *new* WebDSP entitlement exists. Neither a
+// legacy broadcaster flag nor an unassigned station can unlock processing.
 function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidHistory=[]){
  const data=typeof station.toObject==='function'?station.toObject():{...station};
- if(!owner||owner.role==='admin')return data;
- const relevant=(grantHistory||[]).some(g=>
-   String(g.accountId)===String(owner._id)&&
-   (g.sku==='B-PREM'&&g.scopeType==='account'||
-    g.scopeType==='station'&&String(g.resourceId)===String(station._id)&&
-      ['ADD-DSP','ADD-ADS'].includes(g.sku)));
+ const zeroPaidFx=()=>{
+   data.dspPreset='OFF';
+   data.dspSettings={bass:0,mid:0,treble:0,output:0,stereoWidth:100};
+   data.disableNetworkAds=false;
+   return data;
+ };
+ // Stations without a verified Broadcaster owner cannot have paid rights.
+ if(!owner||owner.role!=='broadcaster')return zeroPaidFx();
  // Purchased Boost and the included Premium boost are projected at read time.
  // Manual editorial ordering stays untouched and is not overwritten by billing.
  const paid=paidHistory||[];
@@ -61,13 +64,8 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
      placement:postPlacements.has('global')?'global':'targeted'
    };
  }
- // A purchased Boost or an unrelated station add-on MUST NOT disable
- // legacy manually configured DSP / ad controls on this station.
- const relevantPaid=paid.some(p=>String(p.accountId)===String(owner._id) &&
-  (p.sku==='B-PREM'&&p.scopeType==='account' ||
-   p.scopeType==='station'&&String(p.resourceId)===String(station._id) &&
-     ['ADD-DSP','ADD-ADS'].includes(p.sku)));
- if(!relevant && !relevantPaid)return data;
+ // Unsubscribed stations must never process custom DSP in public playback,
+ // regardless of when an Admin authored the stored configuration.
  if(!rights.has('broadcaster.webdsp')){
    data.dspPreset='OFF';
    // Never leak or apply paid tone/width processing once access expires.

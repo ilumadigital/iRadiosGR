@@ -3,97 +3,105 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {maskStationPaidControls}=require('../services/stationBillingProjectionRules');
 const now=new Date('2026-11-15T12:00:00Z');
+const stationId='507f1f77bcf86cd799439011';
+const otherId='507f191e810c19729de860ea';
 const owner={_id:'owner-1',role:'broadcaster',
  broadcasterProfile:{tier:'free',features:{dspEngine:false,adControl:false,analytics:false}}};
-const station={_id:'507f1f77bcf86cd799439011',broadcasterId:'owner-1',dspPreset:'OMNIA',
- dspSettings:{bass:3,mid:2,treble:1,output:-1,stereoWidth:125},disableNetworkAds:true};
+const settings={bass:3,mid:2,treble:1,output:-1,stereoWidth:125};
+const defaults={bass:0,mid:0,treble:0,output:0,stereoWidth:100};
+const station={_id:stationId,broadcasterId:'owner-1',dspPreset:'OMNIA',dspSettings:settings,disableNetworkAds:true};
 const grant=(sku,options={})=>({
- accountId:'owner-1',sku,
- scopeType:sku==='B-PREM'?'account':'station',
- resourceId:sku==='B-PREM'?null:'507f1f77bcf86cd799439011',
+ accountId:'owner-1',sku,scopeType:sku==='B-PREM'?'account':'station',
+ resourceId:sku==='B-PREM'?null:stationId,
  source:'admin_complimentary',
  startsAt:new Date('2026-11-10T00:00:00Z'),expiresAt:null,revokedAt:null,
  ...options
 });
-test('Legacy manually assigned station preset survives without grant history',()=>{
- const copy={...station};
- const output=maskStationPaidControls(station,owner,[],now);
- assert.equal(output.dspPreset,'OMNIA');
- assert.equal(output.disableNetworkAds,true);
- assert.deepEqual(station,copy);
-});
-test('Active station-scoped gifts permit only the included features',()=>{
- const output=maskStationPaidControls(station,owner,[grant('ADD-DSP')],now);
- assert.equal(output.dspPreset,'OMNIA');
- assert.equal(output.dspSettings.stereoWidth,125);
- assert.equal(output.disableNetworkAds,false);
-});
-test('Expired gifted WebDSP is disabled in public playback, preset saved in database',()=>{
- const output=maskStationPaidControls(station,owner,[grant('ADD-DSP',
-  {expiresAt:new Date('2026-11-14T00:00:00Z')})],now);
- assert.equal(output.dspPreset,'OFF');
- assert.deepEqual(output.dspSettings,{bass:0,mid:0,treble:0,output:0,stereoWidth:100});
- assert.equal(station.dspSettings.stereoWidth,125);
- assert.equal(station.dspPreset,'OMNIA');
- assert.equal(output.disableNetworkAds,false);
-});
-test('Revoked Ad Control enables network ads again without destroying stored settings',()=>{
- const result=maskStationPaidControls(station,owner,[grant('ADD-ADS',
-  {revokedAt:new Date('2026-11-14T00:00:00Z')})],now);
- assert.equal(result.disableNetworkAds,false);
- assert.equal(station.disableNetworkAds,true);
-});
-test('Expired broadcaster account Premium masks both paid station controls',()=>{
- const result=maskStationPaidControls(station,owner,[grant('B-PREM',
-  {expiresAt:new Date('2026-11-14T00:00:00Z')})],now);
- assert.equal(result.dspPreset,'OFF');
- assert.equal(result.disableNetworkAds,false);
-});
-test('Legacy manual Premium continues despite an expired gift',()=>{
- const manual={...owner,broadcasterProfile:{tier:'premium',features:{}}};
- const result=maskStationPaidControls(station,manual,[grant('B-PREM',
-  {expiresAt:new Date('2026-11-14T00:00:00Z')})],now);
- assert.equal(result.dspPreset,'OMNIA');
- assert.equal(result.disableNetworkAds,true);
-});
-test('Unrelated station grant cannot mask another stations settings',()=>{
- const otherGrant=grant('ADD-DSP',{resourceId:'507f191e810c19729de860ea'});
- const result=maskStationPaidControls(station,owner,[otherGrant],now);
- assert.equal(result.dspPreset,'OMNIA');
- assert.equal(result.disableNetworkAds,true);
-});
-
-const paidOrder=(sku,id='507f1f77bcf86cd799439011',extra={})=>({
+const paidOrder=(sku,id=stationId,extra={})=>({
  accountId:'owner-1',sku,resourceId:sku==='B-PREM'?null:id,
  scopeType:sku==='B-PREM'?'account':'station',environment:'staging',
  status:'paid',periodStartsAt:new Date('2026-11-10T00:00:00Z'),
  periodEndsAt:new Date('2026-12-10T00:00:00Z'),...extra
 });
-test('One-off Boost must not disable unrelated legacy DSP and Ad Control presets',()=>{
- const actual=maskStationPaidControls(station,owner,[],now,[paidOrder('BOOST-G-DAY')]);
- assert.equal(actual.dspPreset,'OMNIA');
- assert.equal(actual.disableNetworkAds,true);
- assert.equal(actual.commercialBoost.priority,200);
+const render=(grants=[],orders=[],user=owner,radio=station)=>
+ maskStationPaidControls(radio,user,grants,now,orders);
+test('Admin-authored DSP stays in DB but never applies publicly without new rights',()=>{
+ const original=JSON.stringify(station);
+ const output=render();
+ assert.equal(output.dspPreset,'OFF');
+ assert.deepEqual(output.dspSettings,defaults);
+ assert.equal(output.disableNetworkAds,false);
+ assert.equal(JSON.stringify(station),original);
 });
-test('Purchased add-on for station A never disables legacy presets for station B',()=>{
- const other={...station,_id:'507f191e810c19729de860ea'};
- const actual=maskStationPaidControls(other,owner,[],now,[paidOrder('ADD-DSP')]);
- assert.equal(actual.dspPreset,'OMNIA');
- assert.equal(actual.disableNetworkAds,true);
+test('Revoked, expired, other-station grant or irrelevant paid boost never unlock saved DSP',()=>{
+ for(const grants of [
+  [grant('ADD-DSP',{revokedAt:now})],
+  [grant('ADD-DSP',{expiresAt:new Date('2026-11-14T00:00:00Z')})],
+  [grant('ADD-DSP',{resourceId:otherId})]
+ ])assert.equal(render(grants).dspPreset,'OFF');
+ assert.equal(render([],[paidOrder('BOOST-G-DAY')]).dspPreset,'OFF');
+ assert.equal(render([],[paidOrder('ADD-DSP',otherId)]).dspPreset,'OFF');
 });
-test('Expired DSP paid order masks its original station without deleting the preset',()=>{
- const actual=maskStationPaidControls(station,owner,[],now,[
-  paidOrder('ADD-DSP','507f1f77bcf86cd799439011',{periodEndsAt:new Date('2026-11-14T00:00:00Z')})
- ]);
- assert.equal(actual.dspPreset,'OFF');
- assert.equal(actual.disableNetworkAds,false);
- assert.equal(station.dspPreset,'OMNIA');
+test('New active DSP station grant unlocks saved sound but not Ad Control',()=>{
+ const data=render([grant('ADD-DSP')]);
+ assert.equal(data.dspPreset,'OMNIA');
+ assert.deepEqual(data.dspSettings,settings);
+ assert.equal(data.disableNetworkAds,false);
 });
-test('Premium boost requires explicit station selection',()=>{
- const premium={...owner,broadcasterProfile:{tier:'premium',
-  premiumBoostStationIds:['507f1f77bcf86cd799439011'],features:{}}};
- const current=maskStationPaidControls(station,premium,[],now,[]);
- assert.equal(current.commercialBoost.priority,100);
- const other=maskStationPaidControls({...station,_id:'507f191e810c19729de860ea'},premium,[],now,[]);
- assert.equal(other.commercialBoost.priority,0);
+test('New active Ad Control grants only opt-out, not DSP',()=>{
+ const data=render([grant('ADD-ADS')]);
+ assert.equal(data.dspPreset,'OFF');
+ assert.equal(data.disableNetworkAds,true);
+});
+test('Revoked Ad Control restores ads without touching stored settings',()=>{
+ const data=render([grant('ADD-ADS',{revokedAt:now})]);
+ assert.equal(data.disableNetworkAds,false);
+ assert.deepEqual(station.dspSettings,settings);
+});
+test('Account Broadcaster Premium grant unlocks both DSP and Ad Control',()=>{
+ const data=render([grant('B-PREM')]);
+ assert.equal(data.dspPreset,'OMNIA');
+ assert.equal(data.disableNetworkAds,true);
+});
+test('Expired account Premium grant cannot unlock DSP or network ad controls',()=>{
+ const data=render([grant('B-PREM',{expiresAt:new Date('2026-11-14T00:00:00Z')})]);
+ assert.equal(data.dspPreset,'OFF');
+ assert.equal(data.disableNetworkAds,false);
+});
+test('Historical manual Premium and feature flags never restore access',()=>{
+ const legacy={...owner,broadcasterProfile:{tier:'premium',
+  features:{dspEngine:true,adControl:true,analytics:true}}};
+ const data=render([],[],legacy);
+ assert.equal(data.dspPreset,'OFF');
+ assert.equal(data.disableNetworkAds,false);
+});
+test('An active paid station DSP addon applies only to the purchased station',()=>{
+ assert.equal(render([],[paidOrder('ADD-DSP')]).dspPreset,'OMNIA');
+ assert.equal(render([],[paidOrder('ADD-DSP',stationId)],owner,
+  {...station,_id:otherId}).dspPreset,'OFF');
+});
+test('Expired paid DSP order leaves saved controls in Mongo, masked in playback',()=>{
+ const data=render([],[paidOrder('ADD-DSP',stationId,{
+  periodEndsAt:new Date('2026-11-14T00:00:00Z')
+ })]);
+ assert.equal(data.dspPreset,'OFF');
+ assert.deepEqual(station.dspSettings,settings);
+});
+test('Active paid Premium grants DSP, ad control and boost only on selected station',()=>{
+ const premium={...owner,broadcasterProfile:{tier:'free',
+  premiumBoostStationIds:[stationId],features:{}}};
+ const data=render([],[paidOrder('B-PREM')],premium);
+ assert.equal(data.dspPreset,'OMNIA');
+ assert.equal(data.disableNetworkAds,true);
+ assert.equal(data.commercialBoost.priority,100);
+ assert.equal(render([],[paidOrder('B-PREM')],premium,{...station,_id:otherId})
+  .commercialBoost.priority,0);
+});
+test('Unowned and Admin-owned stations have stored sound but cannot apply unbilled public DSP',()=>{
+ for(const noOwner of [null,{_id:'admin-1',role:'admin'}]){
+  const projected=render([],[],noOwner,{...station,broadcasterId:noOwner?noOwner._id:null});
+  assert.equal(projected.dspPreset,'OFF');
+  assert.deepEqual(projected.dspSettings,defaults);
+  assert.equal(projected.disableNetworkAds,false);
+ }
 });

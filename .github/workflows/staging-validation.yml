@@ -69,6 +69,12 @@ jobs:
         run: node --test backend/tests/adminAddonOverview.test.js
       - name: Validate Admin Addon routes, grant write protection and navigation
         run: node --test ops/check-admin-addons.test.cjs
+      - name: Require Billing Engine only for Broadcaster Premium and Addons
+        run: node --test backend/tests/broadcasterBillingOnly.test.js
+      - name: Verify authenticated Broadcaster WebDSP routes in staging
+        run: node --test backend/tests/dspStageAccess.test.js
+      - name: Verify independent Admin Audio tab and legacy permission retirement
+        run: node --test ops/check-admin-audio-new-rights.test.cjs
       - name: Verify Phase F DSP preset EQ and stereo saving validation
         run: node --test backend/tests/dspPhaseF.test.js
       - name: Verify Phase F realtime graph, master ceiling and full-page controls
