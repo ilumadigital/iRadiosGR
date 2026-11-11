@@ -38,7 +38,7 @@ const analytics=read(paths[0]);
 assert.ok(analytics.includes('Όλο το iRadios σε μία εικόνα.'),
   'network analytics must use the rebuilt dashboard');
 for(const token of ['admin/dashboard-stats','stats/network','loading','refreshing',
-  'role="alert"','Κορυφαίοι σταθμοί','Απόδοση διαφημίσεων','Ακροατές τώρα']){
+  'role="alert"','Κορυφαίοι σταθμοί','Απόδοση διαφημίσεων','Ενεργές συνεδρίες player']){
   assert.ok(analytics.includes(token),'missing analytics feature '+token);
 }
 assert.ok(!analytics.includes('Control Center</h2>'),
