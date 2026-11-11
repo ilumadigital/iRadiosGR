@@ -6,7 +6,8 @@
 export const DSP_MODES=Object.freeze({
   OFF:{label:'OFF',input:1,hpf:10,lpf:22000,threshold:0,ratio:1,knee:0,attack:.045,release:.34,makeup:1},
   ENHANCER:{label:'Enhancer',input:1,hpf:12,lpf:22000,threshold:0,ratio:1,knee:0,attack:.045,release:.34,makeup:1},
-  FM_MODE:{label:'FM Mode',input:.91,hpf:25,lpf:19800,threshold:-18,ratio:2.1,knee:18,attack:.045,release:.34,makeup:1}
+  FM_MODE:{label:'FM Mode',input:.91,hpf:25,lpf:19800,threshold:-18,ratio:2.1,knee:18,attack:.045,release:.34,makeup:1},
+  AUTO_MODE:{label:'Auto Mode',input:1,hpf:18,lpf:21000,threshold:-17,ratio:1.7,knee:18,attack:.028,release:.36,makeup:1}
 });
 export const DSP_PRESETS=DSP_MODES; // Internal compatibility export; no legacy preset UI.
 const OLD_PRESET_KEYS=new Set(['SOFT','NORMALIZE','ULTRABAND','ULTRA','OMNIA','0DB_LEVELER']);
@@ -20,7 +21,7 @@ export const LISTENER_MODES=Object.freeze({
   DEFAULT:{label:'Default',description:'Ο ήχος που έχει επιλέξει ο σταθμός'},
   SONOS:{label:'SONOS',description:'Ήπια EQ, καθαρά mids και 110% stereo'},
   DOLBY_STYLE:{label:'Dolby Style',description:'Stereo-compatible virtual surround, phantom center'},
-  VMAX:{label:'VMax',description:'Δυνατή ακρόαση με ομαλή συμπίεση και headroom'},
+  VMAX:{label:'VMax',description:'Αυτόματη στάθμη ανά σταθμό · peak ceiling −0.2 dBFS'},
   OFF:{label:'OFF',description:'Πλήρες raw bypass, ανεξάρτητο από το WebDSP'}
 });
 export function normalizeListenerMode(value){
@@ -43,6 +44,9 @@ export const DSP_CLIPPER_DEFAULTS=Object.freeze({
 });
 export const PEAK_WARNING_DBFS=-.4;
 export const HEADROOM_CEILING_DBFS=-0.5;
+export const VMAX_CEILING_DBFS=-0.2;
+export const normalizeAutoBalance=value=>
+  Number.isInteger(value)?Math.max(-100,Math.min(100,value)):0;
 export const dbToGain=db=>10**(db/20);
 const gainToDb=gain=>20*Math.log10(Math.max(1e-12,gain));
 
@@ -115,10 +119,10 @@ export function resolvedCompressor(preset,settings){
 export function calculateHeadroomDb(preset,_settings,_compressor,_legacyClipperSettings){
   return normalizeBroadcasterMode(preset)==='OFF'?0:HEADROOM_CEILING_DBFS;
 }
-export function createPeakCeilingCurve(){
-  const ceiling=dbToGain(HEADROOM_CEILING_DBFS);
-  // Unity through ~-1.1 dBFS, with a smooth soft knee only at high peaks.
-  const knee=.88,travel=ceiling-knee,curve=new Float32Array(8192);
+export function createPeakCeilingCurve(targetDbfs=HEADROOM_CEILING_DBFS){
+  const ceiling=dbToGain(targetDbfs);
+  // Normal levels remain at unity; a smooth knee softens only high peaks.
+  const knee=Math.min(.9,ceiling-.064),travel=ceiling-knee,curve=new Float32Array(8192);
   for(let i=0;i<curve.length;i++){
     const x=2*i/(curve.length-1)-1,amplitude=Math.abs(x);
     const shaped=amplitude<=knee?amplitude:
@@ -126,6 +130,14 @@ export function createPeakCeilingCurve(){
     curve[i]=Math.sign(x)*Math.min(shaped,ceiling);
   }
   return curve;
+}
+// A silence gate and a capped gain range prevent runaway automatic boosting.
+export function calculateAdaptiveGainDb(peakDb,targetDb=-1.1,maxBoostDb=14){
+  if(!Number.isFinite(peakDb)||peakDb< -52)return null;
+  return Math.max(-16,Math.min(maxBoostDb,targetDb-peakDb));
+}
+export function autoStereoWidth(balance){
+  return 100+(normalizeAutoBalance(balance)+100)*.125; // 100..125%
 }
 const setAudioParam=(param,value,ctx)=>{
   const at=ctx.currentTime;
@@ -153,7 +165,8 @@ export function createDSPGraph(ctx,source){
   const split=ctx.createChannelSplitter(2);
   const ll=ctx.createGain(),rl=ctx.createGain(),lr=ctx.createGain(),rr=ctx.createGain();
   const merge=ctx.createChannelMerger(2);
-  const output=ctx.createGain(),beforePeak=ctx.createAnalyser();
+  const output=ctx.createGain(),autoProbe=ctx.createAnalyser();
+  const autoGain=ctx.createGain(),beforePeak=ctx.createAnalyser();
   const headroom=ctx.createGain(),fade=ctx.createGain();
   const clipper=ctx.createWaveShaper(),clipperDrive=ctx.createGain(),clipperDry=ctx.createGain();
   const clipperWet=ctx.createGain(),clipperMix=ctx.createGain();
@@ -172,12 +185,19 @@ export function createDSPGraph(ctx,source){
   const listenerTreble=filter(ctx,'highshelf',4700);
   const listenerComp=ctx.createDynamicsCompressor();
   const listenerMakeup=ctx.createGain(),listenerHeadroom=ctx.createGain();
+  const listenerProbe=ctx.createAnalyser(),listenerAutoGain=ctx.createGain();
+  const listenerVmaxCeiling=ctx.createWaveShaper(),listenerVmaxDry=ctx.createGain();
+  const listenerVmaxWet=ctx.createGain(),listenerVmaxMix=ctx.createGain();
+  listenerVmaxCeiling.oversample='4x';
+  listenerVmaxCeiling.curve=createPeakCeilingCurve(VMAX_CEILING_DBFS);
   const listenerUpmix=ctx.createGain();
   listenerUpmix.channelCount=2;listenerUpmix.channelCountMode='explicit';
   const listenerSplit=ctx.createChannelSplitter(2);
   const userLL=ctx.createGain(),userLR=ctx.createGain(),userRL=ctx.createGain(),userRR=ctx.createGain();
   const listenerMerge=ctx.createChannelMerger(2);
   const afterPeak=ctx.createAnalyser();
+  autoProbe.fftSize=4096;autoProbe.smoothingTimeConstant=0;
+  listenerProbe.fftSize=4096;listenerProbe.smoothingTimeConstant=0;
   beforePeak.fftSize=2048;beforePeak.smoothingTimeConstant=0;
   postPeak.fftSize=2048;postPeak.smoothingTimeConstant=0;
   afterPeak.fftSize=2048;afterPeak.smoothingTimeConstant=0;
@@ -204,7 +224,9 @@ export function createDSPGraph(ctx,source){
   ll.connect(merge,0,0);rl.connect(merge,0,0);
   lr.connect(merge,0,1);rr.connect(merge,0,1);
   merge.connect(output);
-  output.connect(beforePeak);
+  output.connect(autoProbe);
+  autoProbe.connect(autoGain);
+  autoGain.connect(beforePeak);
   beforePeak.connect(headroom);
   headroom.connect(clipperDry);clipperDry.connect(clipperMix);
   headroom.connect(clipperDrive);clipperDrive.connect(clipper);
@@ -230,27 +252,35 @@ export function createDSPGraph(ctx,source){
   listenerSplit.connect(userRL,1);listenerSplit.connect(userRR,1);
   userLL.connect(listenerMerge,0,0);userRL.connect(listenerMerge,0,0);
   userLR.connect(listenerMerge,0,1);userRR.connect(listenerMerge,0,1);
-  listenerMerge.connect(listenerHeadroom);listenerHeadroom.connect(listenerWet);
-  listenerWet.connect(listenerMix);
+  listenerMerge.connect(listenerHeadroom);
+  listenerHeadroom.connect(listenerProbe);listenerProbe.connect(listenerAutoGain);
+  listenerAutoGain.connect(listenerVmaxDry);listenerVmaxDry.connect(listenerVmaxMix);
+  listenerAutoGain.connect(listenerVmaxCeiling);
+  listenerVmaxCeiling.connect(listenerVmaxWet);listenerVmaxWet.connect(listenerVmaxMix);
+  listenerVmaxMix.connect(listenerWet);listenerWet.connect(listenerMix);
   listenerMix.connect(fade);
   fade.connect(afterPeak);
   afterPeak.connect(ctx.destination);
 
   const graph={ctx,source,dry,wet,mix,input,highpass,lowpass,compressor,
     compressorDry,compressorWet,compressorMix,
-    makeup,bass,mid,treble,upmix,split,ll,rl,lr,rr,merge,output,
+    makeup,bass,mid,treble,upmix,split,ll,rl,lr,rr,merge,output,autoProbe,autoGain,
     beforePeak,headroom,clipperDrive,clipper,clipperDry,clipperWet,clipperMix,
     peakCeiling,peakCeilingDry,peakCeilingWet,peakCeilingMix,postPeak,
     fade,afterPeak,setting:{...DSP_DEFAULTS},
     listenerRaw,listenerDefault,listenerWet,listenerMix,listenerBass,
     listenerMid,listenerTreble,listenerComp,listenerMakeup,listenerUpmix,listenerSplit,
     userLL,userLR,userRL,userRR,listenerMerge,listenerHeadroom,
+    listenerProbe,listenerAutoGain,listenerVmaxCeiling,listenerVmaxDry,listenerVmaxWet,listenerVmaxMix,
     compressorSettings:{...DSP_COMPRESSOR_DEFAULTS},
     clipperSettings:normalizeDSPClipper(),clipperLevel:0,preset:'OFF',headroomDb:0,
+    autoBalance:0,autoGainDb:0,autoPeakDb:-120,listenerGainDb:0,listenerPeakDb:-120,
     listenerMode:'DEFAULT'};
   dry.gain.value=1;wet.gain.value=0;headroom.gain.value=1;
   clipperDry.gain.value=1;clipperWet.gain.value=0;clipperDrive.gain.value=1;
   peakCeilingDry.gain.value=1;peakCeilingWet.gain.value=0;
+  autoGain.gain.value=1;listenerAutoGain.gain.value=1;
+  listenerVmaxDry.gain.value=1;listenerVmaxWet.gain.value=0;
   listenerRaw.gain.value=0;listenerDefault.gain.value=1;
   listenerWet.gain.value=0;listenerHeadroom.gain.value=1;
   applyDSPGraph(graph,'OFF',DSP_DEFAULTS);
