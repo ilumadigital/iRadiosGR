@@ -6,8 +6,8 @@ const {DSP_DEFAULTS,DSP_PRESETS,DSP_COMPRESSOR_DEFAULTS,DSP_CLIPPER_DEFAULTS,val
 const full={bass:3,mid:.5,treble:-2,output:-1,stereoWidth:125};
 const comp={mode:'manual',threshold:-21,ratio:2.6,attack:.04,release:.35,makeup:1.5};
 
-test('Broadcaster saves exactly three audio modes, not the retired presets',()=>{
- assert.deepEqual(DSP_PRESETS,['OFF','ENHANCER','FM_MODE']);
+test('Broadcaster saves OFF, Enhancer, FM Mode and Auto Mode without retired presets',()=>{
+ assert.deepEqual(DSP_PRESETS,['OFF','ENHANCER','FM_MODE','AUTO_MODE']);
  for(const mode of DSP_PRESETS)
   assert.deepEqual(validateDSPUpdate({dspPreset:mode}),{value:{dspPreset:mode}});
  for(const old of ['SOFT','NORMALIZE','ULTRABAND','ULTRA','OMNIA','0DB_LEVELER'])
@@ -45,6 +45,8 @@ test('Unknown fields, NaN, infinity and numeric strings cannot bypass validation
   {dspCompressor:{...comp,extra:true}},
   {dspCompressor:null},
   {dspSettings:{...full,output:-7.01}},
+  {dspAutoBalance:-101},{dspAutoBalance:101},{dspAutoBalance:1.5},
+  {dspAutoBalance:'10'},{dspAutoBalance:null},
   {dspClipper:{ENHANCER:{headroomEnabled:true,level:0}}},
   {dspClipper:null},
   {dspClipper:{ENHANCER:{headroomEnabled:'yes',level:0},FM_MODE:{headroomEnabled:true,level:0}}},
@@ -87,4 +89,12 @@ test('Headroom is permanently ON while Booster 0–8 saves per mode',()=>{
  for(const output of [-7,0,7]){
    assert.equal(validateDSPUpdate({dspSettings:{...full,output}}).value.dspSettings.output,output);
  }
+});
+
+test('Auto Mode has one persisted -100..100 volume/stereo preference',()=>{
+ for(const balance of [-100,-67,0,73,100]){
+  assert.deepEqual(validateDSPUpdate({dspPreset:'AUTO_MODE',dspAutoBalance:balance}),
+   {value:{dspPreset:'AUTO_MODE',dspAutoBalance:balance}});
+ }
+ assert.equal(validateDSPUpdate({dspAutoBalance:-100}).value.dspAutoBalance,-100);
 });
