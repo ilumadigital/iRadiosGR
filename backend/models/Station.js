@@ -66,6 +66,9 @@ const stationSchema = new mongoose.Schema({
   email: { type: String },
   explicit: { type: Boolean, default: false },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
+  // Atomic deletion lease; never exposed in the public station payload.
+  deletionLockToken: { type: String, default: undefined, select: false },
+  deletionLockUntil: { type: Date, default: undefined, select: false },
   // Approval and stream availability are independent: offline stations remain visible.
   isOffline: { type: Boolean, default: false },
   broadcasterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
