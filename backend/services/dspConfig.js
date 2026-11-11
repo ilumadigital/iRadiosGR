@@ -4,7 +4,7 @@
 // The station's single DSP selection is now a MODE, not an audio preset.
 // Existing legacy values are still readable in Mongo and treated as FM_MODE
 // by the frontend until an Admin/Broadcaster explicitly saves the new mode.
-const DSP_PRESETS=Object.freeze(['OFF','ENHANCER','FM_MODE']);
+const DSP_PRESETS=Object.freeze(['OFF','ENHANCER','FM_MODE','AUTO_MODE']);
 const DSP_DEFAULTS=Object.freeze({bass:0,mid:0,treble:0,output:0,stereoWidth:100});
 const DSP_RANGES=Object.freeze({
   bass:[-12,12],mid:[-12,12],treble:[-12,12],output:[-7,7],stereoWidth:[0,150]
@@ -25,7 +25,7 @@ function validateDSPUpdate(body){
   if(!body||typeof body!=='object'||Array.isArray(body))
     return {error:'Μη έγκυρο DSP payload.'};
   const keys=Object.keys(body);
-  if(!keys.length||keys.some(key=>!['dspPreset','dspSettings','dspCompressor','dspClipper'].includes(key)))
+  if(!keys.length||keys.some(key=>!['dspPreset','dspSettings','dspCompressor','dspClipper','dspAutoBalance'].includes(key)))
     return {error:'Μη έγκυρα πεδία DSP.'};
   const value={};
   if(Object.hasOwn(body,'dspPreset')){
@@ -63,6 +63,11 @@ function validateDSPUpdate(body){
       normalized[key]=n;
     }
     value.dspCompressor=normalized;
+  }
+  if(Object.hasOwn(body,'dspAutoBalance')){
+    if(!Number.isInteger(body.dspAutoBalance)||body.dspAutoBalance< -100||body.dspAutoBalance>100)
+      return {error:'Μη έγκυρη ρύθμιση Auto Mode: επιτρέπονται ακέραιοι -100 έως +100.'};
+    value.dspAutoBalance=body.dspAutoBalance;
   }
   if(Object.hasOwn(body,'dspClipper')){
     const modes=body.dspClipper;
