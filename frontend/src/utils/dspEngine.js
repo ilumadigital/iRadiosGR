@@ -410,6 +410,14 @@ export function applyListenerMode(graph,choice='DEFAULT'){
 
 // Called only while audio is playing by the shared player/prelisten loops.
 // The pre-gain peak is held briefly so boost does not chase its own output.
+export function resetAdaptiveDSP(graph){
+  if(!graph)return;
+  graph.autoGainDb=0;graph.autoPeakDb=-120;
+  graph.listenerGainDb=0;graph.listenerPeakDb=-120;
+  setAudioParam(graph.autoGain.gain,1,graph.ctx);
+  setAudioParam(graph.listenerAutoGain.gain,1,graph.ctx);
+}
+
 export function updateAdaptiveDSP(graph){
   if(!graph)return;
   const ctx=graph.ctx;
