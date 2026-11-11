@@ -76,6 +76,7 @@ import Boost from './pages/Boost';
 import AdControl from './pages/AdControl';
 import AdminAdControl from './pages/AdminAdControl';
 import GoBroadcast from './pages/GoBroadcast';
+import BroadcasterRegister, { BroadcasterPending } from './pages/BroadcasterRegister';
 import GoPremiumBroadcast from './pages/GoPremiumBroadcast';
 import BoostStation from './pages/BoostStation';
 import AdminBanners from './pages/AdminBanners';
@@ -2045,6 +2046,11 @@ function MainApp() {
  // station playback, ad engine, player widgets or Socket.IO are mounted there.
 function AppContent(){
   const location=useLocation();
+  // No MainApp, audio hooks, socket, player, menus or advertisements in Broadcaster onboarding.
+  if(location.pathname==='/broadcast')return <GoBroadcast/>;
+  if(location.pathname==='/broadcast/register')return <BroadcasterRegister/>;
+  if(location.pathname==='/broadcast/pending')return <BroadcasterPending/>;
+  if(location.pathname==='/verify-email')return <VerifyEmail API_URL="/api"/>;
   // Existing bookmarks remain functional, but operational pages now open
   // the separate management shell instead of instantiating radio playback.
   const legacyBackofficePaths={

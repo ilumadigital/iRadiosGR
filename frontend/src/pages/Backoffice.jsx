@@ -1402,6 +1402,9 @@ export default function Backoffice(){
   if(loading)return <div className="flex min-h-screen items-center justify-center bg-[#080a0b] text-[#caff00]">
     <RefreshCw className="animate-spin" size={28}/><span className="ml-3 text-sm font-black">iRadios Business Console</span></div>;
   if(error){
+    if(error.code==='BROADCASTER_EMAIL_UNVERIFIED')return <AuthGate title="Επιβεβαίωση email"
+      description="Για να μπεις στο Broadcaster Backoffice, επιβεβαίωσε πρώτα το email σου από το link που σου στείλαμε."
+      href="/broadcast/pending" label="Έλεγξε το email σου"/>;
     if(error.status===409||error.code==='BROADCASTER_TERMS')return <AuthGate title="Όροι Broadcaster"
       description="Για να συνεχίσεις στο Backoffice, πρέπει να αποδεχτείς την ισχύουσα έκδοση των όρων συνεργασίας."
       href="/broadcaster-terms" label="Προβολή όρων"/>;

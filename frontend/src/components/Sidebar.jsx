@@ -404,7 +404,7 @@ export default function Sidebar({
                           </Link>
                         </>
                       )}
-                      <Link to="/broadcast" onClick={()=>setIsMobileMenuOpen(false)}
+                      <Link to="/broadcast" target="_blank" rel="noopener noreferrer" onClick={()=>setIsMobileMenuOpen(false)}
                         className="mt-3 block text-center text-[10px] font-semibold text-zinc-300 underline decoration-white/20 underline-offset-4 hover:text-[#ccff00]">Έχεις ραδιοφωνικό σταθμό;</Link>
                     </div>
                   </div>

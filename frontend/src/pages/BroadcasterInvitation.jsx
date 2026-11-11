@@ -101,7 +101,7 @@ export default function BroadcasterInvitation({ API_URL, currentUser, setCurrent
               : invitation && !currentUser ? (
                 <div className="space-y-3">
                   <p className="text-zinc-400 text-sm">Για να αποκτήσεις τον σταθμό, πρέπει να ολοκληρώσεις εγγραφή Broadcaster και επαλήθευση email.</p>
-                  <Link className="block text-center bg-[#ccff00] text-black font-black p-4 rounded-xl" to={`/broadcast?invite=${next}`}><MailCheck className="inline mr-2" size={18} />Δημιουργία λογαριασμού Broadcaster</Link>
+                  <Link className="block text-center bg-[#ccff00] text-black font-black p-4 rounded-xl" to={`/broadcast/register?invite=${next}`} target="_blank" rel="noopener noreferrer"><MailCheck className="inline mr-2" size={18} />Δημιουργία λογαριασμού Broadcaster</Link>
                   <Link className="block text-center bg-white/10 text-white font-bold p-4 rounded-xl" to={`/login?invite=${next}`}>Έχω ήδη λογαριασμό · Σύνδεση</Link>
                 </div>
               ) : invitation && currentUser?.role === 'broadcaster' && !currentUser.hasAcceptedCurrentBroadcasterTerms ? (

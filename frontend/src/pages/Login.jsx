@@ -63,7 +63,10 @@ export default function Login({ API_URL, setCurrentUser }) {
         localStorage.setItem('iluma_token', data.token);
         setCurrentUser(data.user);
         
-        if (afterLogin) navigate(afterLogin);
+        if (data.user.role === 'broadcaster' && data.user.isVerified !== true) navigate('/broadcast/pending');
+        else if (data.user.role === 'broadcaster' && data.user.hasAcceptedCurrentBroadcasterTerms !== true)
+          navigate('/broadcaster-terms'+(inviteToken?'?invite='+encodeURIComponent(inviteToken):''));
+        else if (afterLogin) navigate(afterLogin);
         else if (['admin','broadcaster','producer'].includes(data.user.role)) navigate('/backoffice');
         else navigate('/');
       } 
@@ -348,7 +351,7 @@ export default function Login({ API_URL, setCurrentUser }) {
           </form>
 
           <p className="text-center text-sm text-zinc-500 mt-8 font-medium">
-            Δεν έχετε λογαριασμό; <Link to={inviteToken ? `/broadcast?invite=${encodeURIComponent(inviteToken)}` : "/register"} className="text-white font-bold hover:text-[#ccff00] transition-colors">Εγγραφή</Link>
+            Δεν έχετε λογαριασμό; <Link to={inviteToken ? `/broadcast/register?invite=${encodeURIComponent(inviteToken)}` : "/register"} className="text-white font-bold hover:text-[#ccff00] transition-colors">Εγγραφή</Link>
           </p>
         </div>
       )}

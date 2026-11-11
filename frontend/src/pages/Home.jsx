@@ -716,12 +716,11 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
                </p>
             </div>
             
-            <button 
-              onClick={() => navigate('/broadcast')}
+            <a href="/broadcast" target="_blank" rel="noopener noreferrer"
               className="relative z-10 w-full md:w-auto px-10 py-5 bg-white text-black hover:bg-zinc-200 rounded-2xl font-black uppercase text-xs md:text-sm tracking-[0.15em] transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] group-hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] group-hover:scale-105 shrink-0"
             >
               Ξεκίνα δωρεάν
-            </button>
+            </a>
           </div>
         </section>
       )}
