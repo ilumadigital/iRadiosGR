@@ -5,7 +5,7 @@ export function meetsEditorialAudience(slide,user){
   if(slide?.audience==='premium')return Boolean(user?.isPremium||user?.role==='admin'||user?.broadcasterProfile?.tier==='premium');
   return true;
 }
-export function visibleEditorialSlides(slides,user,stations=[]){
+export function visibleEditorialSlides(slides,user,stations=[],excludeStationId=null){
   const approved=new Set(stations.filter(station=>station?._id &&
     (station.status==='approved'||!station.status) && station.isOffline!==true)
     .map(station=>String(station._id)));
@@ -14,7 +14,7 @@ export function visibleEditorialSlides(slides,user,stations=[]){
     if(!meetsEditorialAudience(slide,user))return false;
     if(slide.targetType!=='station')return true;
     const id=String(slide.stationId||'');
-    if(!approved.has(id)||seen.has(id))return false;
+    if(!approved.has(id)||seen.has(id)||id===String(excludeStationId))return false;
     seen.add(id);
     return true;
   });
