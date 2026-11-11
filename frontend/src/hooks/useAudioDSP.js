@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
-import {createDSPGraph,applyDSPGraph,applyListenerMode,normalizeListenerMode,DSP_DEFAULTS,DSP_COMPRESSOR_DEFAULTS} from '../utils/dspEngine';
+import {createDSPGraph,applyDSPGraph,applyListenerMode,updateAdaptiveDSP,resetAdaptiveDSP,normalizeListenerMode,DSP_DEFAULTS,DSP_COMPRESSOR_DEFAULTS} from '../utils/dspEngine';
 
 // Listener and broadcaster audition use the same processing rules. The audio
 // element is attached only once; station changes reconfigure the existing graph.
@@ -10,6 +10,7 @@ export default function useAudioDSP(
   const graphRef=useRef(null);
   const audioCtxRef=useRef(null);
   const analyserRef=useRef(null);
+  const lastStationScopeRef=useRef('');
   const [isDspReady,setIsDspReady]=useState(false);
 
   const unsupportedDevice=(()=>{
@@ -60,7 +61,12 @@ export default function useAudioDSP(
   useEffect(()=>{
     const graph=graphRef.current;
     if(!graph||!isDspReady)return;
-    let preset='OFF',settings=DSP_DEFAULTS,compressor=DSP_COMPRESSOR_DEFAULTS,clipper;
+    const nextScope=(currentStation?._id||'none')+':'+Boolean(isPlayingAd);
+    if(lastStationScopeRef.current!==nextScope){
+      resetAdaptiveDSP(graph);
+      lastStationScopeRef.current=nextScope;
+    }
+    let preset='OFF',settings=DSP_DEFAULTS,compressor=DSP_COMPRESSOR_DEFAULTS,clipper,autoBalance=0;
     let personalMode='DEFAULT';
     if(isPlayingAd){
       // Never apply personal DSP to advertisements, regardless of Premium.
@@ -70,15 +76,28 @@ export default function useAudioDSP(
       settings=currentStation.dspSettings||DSP_DEFAULTS;
       compressor=currentStation.dspCompressor||DSP_COMPRESSOR_DEFAULTS;
       clipper=currentStation.dspClipper;
+      autoBalance=currentStation.dspAutoBalance||0;
       // Premium listener presets only touch this local WebAudio instance.
       // They neither write to Mongo nor alter what other listeners hear.
       if(currentUser?.isPremium===true){
         personalMode=normalizeListenerMode(userOverrides[String(currentStation._id)]);
       }
     }
-    applyDSPGraph(graph,preset,settings,compressor,false,clipper);
+    applyDSPGraph(graph,preset,settings,compressor,false,clipper,autoBalance);
     applyListenerMode(graph,personalMode);
   },[currentStation,isPlayingAd,currentAdInfo,currentUser,userOverrides,isDspReady]);
+
+  // Adaptation is local to this player's AudioContext and never alters the
+  // broadcaster's stored settings. Silence and paused streams are ignored.
+  useEffect(()=>{
+    if(!isDspReady)return;
+    const interval=setInterval(()=>{
+      const audio=audioRef.current,graph=graphRef.current;
+      if(!audio||!graph||audio.paused||audio.ended||isPlayingAd)return;
+      updateAdaptiveDSP(graph);
+    },120);
+    return()=>clearInterval(interval);
+  },[audioRef,isDspReady,isPlayingAd]);
 
   const fadeAudio=useCallback((targetVolume,duration=1)=>{
     const graph=graphRef.current;
