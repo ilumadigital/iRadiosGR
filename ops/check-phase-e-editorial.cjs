@@ -8,10 +8,13 @@ const {pathToFileURL}=require('node:url');
 const root=path.resolve(__dirname,'..');
 const read=relative=>fs.readFileSync(path.join(root,relative),'utf8');
 const id='0123456789abcdef01234567';
-let rows=[],stationOnline=true,promo={stationId:id,enabled:true};
+let rows=[],stationOnline=true,promo={stationId:id,enabled:true},occupied=[];
 const Slide={find(){return {select(){return this;},sort(){return this;},
   limit(){return this;},async lean(){return rows;}};}};
-const Promotion={findOne(){return {select(){return this;},async lean(){return promo;}};}};
+const Promotion={
+  findOne(){return {select(){return this;},async lean(){return promo;}};},
+  find(){return {select(){return this;},async lean(){return occupied;}};}
+};
 const Station={findOne(){return {select(){return this;},
   async lean(){return stationOnline?{_id:id}:null;}};},exists:async()=>true};
 const original=Module._load;
@@ -70,6 +73,13 @@ async function publicSlides(query){
   stationOnline=true;promo=null;
   res=response();await promoted.publicPromoted({query:{placement:'genre',value:'House'}},res);
   assert.equal(res.body,null,'empty CMS placements never become random promotions');
+
+  occupied=[{campaignId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',stationId:'someone-else'}];
+  res=response();
+  await promoted.saveCampaign({body:{stationId:id,enabled:true,
+    placements:[{placement:'genre',value:'House'}]}},res);
+  assert.equal(res.statusCode,409,'admin cannot overwrite an occupied campaign slot');
+  assert.match(res.body.error,/άλλη καμπάνια/);
 
   const {visibleEditorialSlides,homeFeaturedFallback,meetsEditorialAudience}=
     await import(pathToFileURL(path.join(root,'frontend/src/utils/editorialPresentation.js')).href);
