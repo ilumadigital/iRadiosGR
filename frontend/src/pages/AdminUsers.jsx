@@ -125,9 +125,8 @@ export default function AdminUsers({ API_URL, currentUser }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           role: editForm.role,
-          isPremium: editForm.isPremium,
-          assignedStation: editForm.role === 'producer' ? editForm.assignedStation : null,
-          broadcasterProfile: editForm.broadcasterProfile
+          isPremium: editForm.role === 'user' ? editForm.isPremium : false,
+          assignedStation: editForm.role === 'producer' ? editForm.assignedStation : null
         })
       });
       if (res.ok) {
@@ -331,15 +330,16 @@ export default function AdminUsers({ API_URL, currentUser }) {
                         </div>
                       )}
                       
-                      {user.broadcasterProfile?.tier === 'premium' && <span className="text-[9px] font-bold text-[#ccff00] flex items-center gap-1 bg-[#ccff00]/10 px-2 py-0.5 rounded border border-[#ccff00]/20"><Crown size={10} /> PRO</span>}
+                      {user.role==='broadcaster'&&<span className="text-[9px] font-bold text-zinc-400">Premium: Billing Engine</span>}
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg border ${user.broadcasterProfile?.features?.adControl ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-zinc-900 border-white/5 text-zinc-700'}`} title="AdControl"><Target size={14} /></div>
-                      <div className={`p-1.5 rounded-lg border ${user.broadcasterProfile?.features?.dspEngine ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-zinc-900 border-white/5 text-zinc-700'}`} title="DSP Engine"><SlidersHorizontal size={14} /></div>
-                      <div className={`p-1.5 rounded-lg border ${user.broadcasterProfile?.features?.analytics ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' : 'bg-zinc-900 border-white/5 text-zinc-700'}`} title="Analytics"><BarChart3 size={14} /></div>
-                    </div>
+                    {user.role==='broadcaster'?
+                      <Link to={'/backoffice/admin/addons?accountId='+encodeURIComponent(user._id)}
+                        className="text-xs font-bold text-[#ccff00] hover:underline">
+                        Προβολή πραγματικών Addons
+                      </Link>:
+                      <span className="text-xs text-zinc-500">—</span>}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -495,96 +495,23 @@ export default function AdminUsers({ API_URL, currentUser }) {
                 </div>
               )}
 
-              {/* BROADCASTER SETTINGS */}
-              {(editForm.role === 'broadcaster' || editForm.role === 'admin') && (
-                <div className="bg-zinc-900/50 border border-white/5 p-6 md:p-8 rounded-[40px] space-y-8">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-6">
-                    <div className="flex items-center gap-3">
-                       <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center"><Star className="text-blue-400" size={20} /></div>
-                       <div>
-                          <span className="text-xs font-black uppercase block">Station Pro Plan</span>
-                          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{editForm.broadcasterProfile.tier === 'premium' ? 'Premium Tier Active' : 'Free Tier'}</span>
-                       </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={editForm.broadcasterProfile.tier === 'premium'} 
-                        onChange={(e) => {
-                          const isPremium = e.target.checked;
-                          setEditForm({
-                            ...editForm,
-                            broadcasterProfile: {
-                              ...editForm.broadcasterProfile,
-                              tier: isPremium ? 'premium' : 'free',
-                              maxStations: isPremium ? 999 : 3,
-                              features: {
-                                adControl: isPremium,
-                                dspEngine: isPremium,
-                                analytics: isPremium
-                              }
-                            }
-                          });
-                        }} 
-                      />
-                      <div className="w-14 h-7 bg-zinc-800 rounded-full peer peer-checked:bg-blue-600 transition-all after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-zinc-400 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-7 peer-checked:after:bg-white"></div>
-                    </label>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <label className="text-[10px] font-black text-zinc-500 uppercase mb-3 block ml-1 tracking-widest">Max Stations</label>
-                      <div className="flex items-center gap-3 bg-black border border-white/10 rounded-2xl px-5 py-3 focus-within:border-blue-500/50 transition-colors">
-                         {editForm.broadcasterProfile.maxStations > 100 ? <Infinity size={16} className="text-blue-400" /> : <HardDrive size={16} className="text-zinc-500" />}
-                         <input 
-                          type="number" 
-                          value={editForm.broadcasterProfile.maxStations} 
-                          onChange={e => setEditForm({
-                            ...editForm, 
-                            broadcasterProfile: { ...editForm.broadcasterProfile, maxStations: parseInt(e.target.value) || 0 }
-                          })} 
-                          className="bg-transparent w-full outline-none text-sm font-black" 
-                         />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-zinc-500 uppercase block tracking-widest mb-2 ml-1">Unlocked Modules</label>
-                      {[
-                        { key: 'adControl', label: 'Ad Control', icon: <Target size={14} />, color: 'emerald' },
-                        { key: 'dspEngine', label: 'DSP Engine', icon: <SlidersHorizontal size={14} />, color: 'blue' },
-                        { key: 'analytics', label: 'Analytics (Radar)', icon: <BarChart3 size={14} />, color: 'orange' }
-                      ].map(module => (
-                        <button 
-                          key={module.key}
-                          onClick={() => setEditForm({
-                            ...editForm, 
-                            broadcasterProfile: {
-                              ...editForm.broadcasterProfile, 
-                              features: {
-                                ...editForm.broadcasterProfile.features, 
-                                [module.key]: !editForm.broadcasterProfile.features[module.key]
-                              }
-                            }
-                          })} 
-                          className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border transition-all ${editForm.broadcasterProfile.features[module.key] ? `bg-zinc-800 border-${module.color}-500/30 text-${module.color}-400` : 'bg-black border-white/5 text-zinc-700'}`}
-                        >
-                          <span className="text-[10px] font-black uppercase">{module.label}</span>
-                          {module.icon}
-                        </button>
-                      ))}
-                      <div className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-white/5 bg-black/50 text-zinc-800 italic">
-                        <span className="text-[9px] font-black uppercase tracking-tighter">Beta Access (Soon)</span>
-                        <Sparkles size={12} />
-                      </div>
-                    </div>
-                  </div>
+              {/* Broadcaster subscriptions are always Billing Engine managed. */}
+              {editForm.role === 'broadcaster' && selectedUser?.role === 'broadcaster' && (
+                <div className="rounded-3xl border border-[#ccff00]/20 bg-[#ccff00]/5 p-6 text-sm text-zinc-300">
+                  <h3 className="mb-2 text-base font-black text-white">Premium και Addons</h3>
+                  <p className="leading-6">Τα παλιά χειροκίνητα Premium, DSP, Analytics και Ad Control
+                    δεν χορηγούν πλέον δικαιώματα. Διαχειρίσου ενεργές πληρωμές και
+                    δωρεάν παραχωρήσεις μόνο από το νέο Billing Engine.</p>
+                  <Link to={'/backoffice/admin/addons?accountId='+encodeURIComponent(selectedUser._id)}
+                    onClick={()=>setIsModalOpen(false)}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#ccff00] px-4 py-3 text-xs font-black text-black">
+                    <SlidersHorizontal size={15}/> Διαχείριση Addons ανά σταθμό
+                  </Link>
                 </div>
               )}
 
               {/* LISTENER PREMIUM TOGGLE */}
-              <div className="flex items-center justify-between p-6 bg-zinc-900 border border-white/5 rounded-[30px] group hover:border-[#ccff00]/30 transition-all">
+              {editForm.role === 'user' && <div className="flex items-center justify-between p-6 bg-zinc-900 border border-white/5 rounded-[30px] group hover:border-[#ccff00]/30 transition-all">
                  <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-[#ccff00]/10 flex items-center justify-center group-hover:scale-110 transition-transform"><Crown className="text-[#ccff00]" size={24} /></div>
                     <div>
@@ -593,7 +520,7 @@ export default function AdminUsers({ API_URL, currentUser }) {
                     </div>
                  </div>
                  <input type="checkbox" className="w-6 h-6 rounded-lg border-zinc-700 text-[#ccff00] focus:ring-[#ccff00] bg-black cursor-pointer" checked={editForm.isPremium} onChange={e => setEditForm({...editForm, isPremium: e.target.checked})} />
-              </div>
+              </div>}
             </div>
 
             <button onClick={handleSaveRole} disabled={loading} className="w-full bg-[#ccff00] text-black font-black py-5 rounded-[24px] uppercase tracking-widest text-xs mt-12 shadow-2xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
