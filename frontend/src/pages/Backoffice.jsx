@@ -35,6 +35,7 @@ const BroadcasterCommerce=lazy(()=>import('./BroadcasterCommerce'));
 const BroadcasterBillingDashboard=lazy(()=>import('./BroadcasterBillingDashboard'));
 const BroadcasterRadar=lazy(()=>import('./BroadcasterRadar'));
 const BroadcasterDSP=lazy(()=>import('./DSP'));
+const BroadcasterWebDSPPreview=lazy(()=>import('./BroadcasterWebDSPPreview'));
 const BroadcasterAds=lazy(()=>import('./AdControl'));
 const NewPush=lazy(()=>import('./NewPush'));
 const DAY_NAMES=['','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
@@ -108,7 +109,7 @@ async function fetchBroadcasterAddonRights(signal){
   }
   return rights;
 }
-function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false,unavailable=false}){
+function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false,unavailable=false,promoted=false}){
   if(locked||checking||unavailable){
     const reason=checking?'Έλεγχος δικαιωμάτων…':unavailable
       ?'Δεν ήταν δυνατή η επιβεβαίωση των δικαιωμάτων.'
@@ -125,8 +126,11 @@ function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false
   return <NavLink to={to} end={end} onClick={close} className={({isActive})=>
     'flex items-center gap-3 rounded-2xl px-4 py-3.5 text-[13px] font-bold transition '+
     (isActive?'bg-[#caff00] text-[#111400] shadow-[0_12px_30px_rgba(202,255,0,.15)]':
+      promoted?'border border-[#caff00]/35 bg-[#caff00]/[.09] text-[#dfff7f] shadow-[0_0_24px_rgba(202,255,0,.08)] hover:bg-[#caff00]/[.15]':
       'text-zinc-400 hover:bg-white/[.07] hover:text-white')
-  }><Icon size={18} strokeWidth={2}/><span className="min-w-0 flex-1">{label}</span></NavLink>;
+  }><Icon size={18} strokeWidth={2}/><span className="min-w-0 flex-1">{label}</span>
+    {promoted&&<span className="rounded-full bg-[#caff00] px-2 py-0.5 text-[9px] font-black tracking-wide text-[#111600]">NEW</span>}
+  </NavLink>;
 }
 function Logo(){
   return <div className="flex items-center gap-2.5">
@@ -1451,6 +1455,7 @@ export default function Backoffice(){
   const closeDelete=useCallback(()=>setDeleteTarget(null),[]);
   const [navFilter,setNavFilter]=useState('');
   const [addonAccess,setAddonAccess]=useState({status:'loading',rights:new Set(),path:''});
+  const [previewAccess,setPreviewAccess]=useState({status:'loading',stations:[],path:''});
   // Refresh whenever the Broadcaster changes pages or returns from checkout.
   // Fail closed: a network error never unlocks the tools.
   useEffect(()=>{
@@ -1464,6 +1469,29 @@ export default function Backoffice(){
         setAddonAccess({status:'error',rights:new Set(),path:location.pathname});});
     return ()=>controller.abort();
   },[data?.user?._id,data?.user?.role,location.pathname]);
+  // Separate preview access: never infer eligibility from the presence of a
+  // station or from legacy account flags. The server filters approval, owner
+  // identity and active station-scoped WebDSP / Broadcaster Premium rights.
+  useEffect(()=>{
+    if(data?.user?.role!=='broadcaster')return;
+    const controller=new AbortController();
+    setPreviewAccess({status:'loading',stations:[],path:location.pathname});
+    fetch('/api/stations/dsp-preview-access',{
+      headers:{Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')},
+      cache:'no-store',signal:controller.signal
+    }).then(async res=>{
+      const body=await res.json().catch(()=>({}));
+      if(!res.ok||!Array.isArray(body))throw Error('Preview unavailable');
+      if(!controller.signal.aborted)
+        setPreviewAccess({status:'ready',stations:body,path:location.pathname});
+    }).catch(()=>{
+      if(!controller.signal.aborted)
+        setPreviewAccess({status:'error',stations:[],path:location.pathname});
+    });
+    return()=>controller.abort();
+  },[data?.user?._id,data?.user?.role,location.pathname]);
+  const previewStatus=previewAccess.path===location.pathname?previewAccess.status:'loading';
+  const previewStations=previewStatus==='ready'?previewAccess.stations:[];
   const addonStatus=addonAccess.path===location.pathname?addonAccess.status:'loading';
   const addonRights=addonStatus==='ready'?addonAccess.rights:new Set();
   const notify=useCallback((message,type='success')=>{
@@ -1498,6 +1526,7 @@ export default function Backoffice(){
       {to:'/backoffice/boost',label:'Boost My Radio',icon:Sparkles},
       {to:'/backoffice/pro-features',label:'Pro Features & Premium',icon:ShieldCheck},
       {to:'/backoffice/billing',label:'Οι συνδρομές μου',icon:FileCheck2},
+      ...(previewStations.length?[{to:'/backoffice/audio-preview',label:'WebDSP Preview',icon:Headphones,promoted:true}]:[]),
       {to:'/backoffice/radar',label:'Audience Radar',icon:BarChart3,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/radar']},
       {to:'/backoffice/audio',label:'WebDSP Audio Engine',icon:SlidersHorizontal,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/audio']},
       {to:'/backoffice/ad-control',label:'iRadios Ad Control',icon:Activity,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/ad-control']}
@@ -1609,6 +1638,10 @@ export default function Backoffice(){
           <Route path="/backoffice/boost" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="boost" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/billing" element={data.user.role==='broadcaster'?<BroadcasterBillingDashboard stations={data.stations}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/radar" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.analytics" rights={addonRights} status={addonStatus}><BroadcasterRadar accountId={data.user._id}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/audio-preview" element={data.user.role==='broadcaster'?
+            previewStatus==='loading'?<div role="status" className={panel+' p-8 text-[#caff00]'}>Ελέγχουμε τους εγκεκριμένους σταθμούς σου…</div>:
+            previewStations.length?<BroadcasterWebDSPPreview API_URL="/api" stations={previewStations}/>:
+            <Navigate to="/backoffice" replace/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/audio" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.webdsp" rights={addonRights} status={addonStatus}><BroadcasterDSP API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/ad-control" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.ad_control" rights={addonRights} status={addonStatus}><BroadcasterAds API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
