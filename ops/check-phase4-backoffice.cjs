@@ -103,7 +103,7 @@ try{require('../backend/routes/backofficeRoutes');}
 finally{Module._load=originalLoad;}
 const admin={_id:'cccccccccccccccccccccccc',role:'admin',email:'admin@example.test',fname:'Admin'};
 const owner={_id:ownerId,role:'broadcaster',email:'owner@example.test',
-  fname:'Station Owner',termsOk:true,broadcasterProfile:{maxStations:3}};
+  fname:'Station Owner',isVerified:true,termsOk:true,broadcasterProfile:{maxStations:3}};
 const producer={_id:'dddddddddddddddddddddddd',role:'producer',assignedStation:songId,
   email:'producer@example.test'};
 function findRoute(method,name){
@@ -129,6 +129,9 @@ async function call(method,name,user,body={},stationId=songId,file){
 async function main(){
   assert.equal((await call('GET','/backoffice/overview',null)).code,401);
   assert.equal((await call('GET','/backoffice/overview',{role:'user'})).code,403);
+  const unverified=await call('GET','/backoffice/overview',{...owner,isVerified:false});
+  assert.equal(unverified.code,403,'unverified broadcaster is denied all Backoffice APIs');
+  assert.equal(unverified.body.code,'BROADCASTER_EMAIL_UNVERIFIED');
   assert.equal((await call('GET','/backoffice/overview',{...owner,termsOk:false})).code,409);
   const own=await call('GET','/backoffice/overview',owner);
   assert.equal(own.code,200);
