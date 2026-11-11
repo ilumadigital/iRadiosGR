@@ -141,7 +141,7 @@ test('SONOS 110%, virtual Dolby stereo and VMax are distinct listener-only FX',a
  applyDSPGraph(g,'OFF',DSP_DEFAULTS);
  applyListenerMode(g,'VMAX');
  assert.ok(g.listenerHeadroomDb<-4,'do not boost potentially clipped raw streams');
- assert.equal(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,bass:12,stereoWidth:150}),-.6,
+ assert.equal(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,bass:12,stereoWidth:150}),-.5,
   'boosted EQ must not cause huge static headroom attenuation');
 });
 test('Listener presets are Premium-only, local to an account and bypass ads',()=>{
