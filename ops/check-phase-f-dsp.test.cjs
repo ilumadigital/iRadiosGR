@@ -170,7 +170,7 @@ test('Optional soft clipper and live peaks preserve raw bypass and sample warnin
  assert.match(ui,/Clipper level/);
  assert.match(ui,/beforeWaveRef/);
  assert.match(ui,/afterWaveRef/);
- assert.match(ui,/min={-7} max={7}/);
+ assert.ok(ui.includes('min={-7} max={7}'));
 });
 
 test('Headroom switches, clipper curve and independent broadcaster modes',async()=>{
