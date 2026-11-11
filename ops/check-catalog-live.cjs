@@ -10,7 +10,10 @@ assert.doesNotMatch(controller,/axios|https?:\/\/|req\.query|streamUrl/);
 assert.match(read('backend/routes/catalogNowPlayingRoutes.js'),/router\.get\('\/catalog\/now-playing'/);
 assert.match(read('backend/utils/stagePublicAccess.js'),/'\/api\/catalog\/now-playing'/);
 const placement=read('frontend/src/components/EditorialPlacement.jsx');
-assert.match(placement,/const showPromoted=true/);
+assert.match(placement,/hasEditorial&&hasPromoted/,
+  '70/30 split only applies when both Admin CMS placements actually exist');
+assert.match(placement,/empty:hidden/,
+  'empty editorial sections must collapse instead of showing an unrelated station');
 assert.match(placement,/PromotedStationCard/);
 const card=read('frontend/src/components/StationCatalogCard.jsx');
 assert.match(card,/flex w-full min-w-0 flex-col/);

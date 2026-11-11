@@ -117,6 +117,8 @@ jobs:
         run: node ops/check-home-mockup-navigation.cjs
       - name: Validate Phase 3.1 editorial CMS, branded hero, playback and catalog
         run: node ops/check-phase31-editorial.cjs
+      - name: Regression Phase E promoted privacy, exclusive campaigns and scoped presentation
+        run: node ops/check-phase-e-editorial.cjs
       - name: Validate newsfeed RSS, dates, image and access contracts
         run: node ops/check-newsfeed.cjs
       - name: Verify in-app news article RSS preview and safe share links

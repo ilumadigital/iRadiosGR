@@ -5,20 +5,16 @@ import StationListenButton from './StationListenButton';
 import { useStationAmbient } from '../hooks/useStationAmbient';
 import { activeStationShow } from '../utils/liveBroadcast';
 import { getAthensClock } from '../utils/schedule';
+import {visibleEditorialSlides,homeFeaturedFallback} from '../utils/editorialPresentation';
 
-const meetsAudience=(slide,user)=>{
-  if(slide.audience==='guest')return !user;
-  if(slide.audience==='member')return Boolean(user);
-  if(slide.audience==='premium')return Boolean(user?.isPremium||user?.role==='admin'||user?.broadcasterProfile?.tier==='premium');
-  return true;
-};
 export default function HomeHeroSlider({
   currentUser, currentStation, stations=[], isPlaying, onPlayPause,
   onPlayStation, onOpenDiscovery, onFeaturedStationChange,
-  placement='home', value='', fallbackStation=null
+  placement='home', value='', onAvailabilityChange, excludeStationId=null
 }) {
   const navigate=useNavigate();
   const [slides,setSlides]=useState([]);
+  const [loadedScope,setLoadedScope]=useState(null);
   const [index,setIndex]=useState(0);
   const [hover,setHover]=useState(false);
   const [athensClock,setAthensClock]=useState(()=>getAthensClock());
@@ -32,29 +28,31 @@ export default function HomeHeroSlider({
     const controller=new AbortController();
     setIndex(0);
     setSlides([]);
+    setLoadedScope(null);
     if(!['home','news'].includes(placement)&&!value)return()=>controller.abort();
     const query=placement==='home'?'':'?'+new URLSearchParams({placement,value}).toString();
+    const scopeKey=placement+':'+value;
     fetch('/api/home-slides'+query,{signal:controller.signal})
       .then(r=>r.ok?r.json():[])
-      .then(data=>{if(!controller.signal.aborted)setSlides(Array.isArray(data)?data:[]);})
-      .catch(()=>{if(!controller.signal.aborted)setSlides([]);});
+      .then(data=>{if(!controller.signal.aborted){setSlides(Array.isArray(data)?data:[]);setLoadedScope(scopeKey);}})
+      .catch(()=>{if(!controller.signal.aborted){setSlides([]);setLoadedScope(scopeKey);}});
     return ()=>controller.abort();
   },[placement,value]);
-  const stationFallback=useMemo(()=>
-    (placement==='home'?currentStation:null) || fallbackStation ||
-    stations.find(s=>s.isFeatured) || stations[0],
-    [placement,currentStation,fallbackStation,stations]);
-  const visible=useMemo(()=>{
-    const approved=new Set(stations.map(s=>String(s._id)));
-    return slides.filter(item=>meetsAudience(item,currentUser) &&
-      (item.targetType!=='station'||approved.has(String(item.stationId))));
-  },[slides,currentUser,stations]);
+  // Only an explicitly featured station may fill the unconfigured Home hero.
+  // Catalog pages never fall back to the current, first or random station.
+  const stationFallback=useMemo(()=>homeFeaturedFallback(stations,placement),[stations,placement]);
+  // Never flash a previous category's CMS slides while a new placement loads.
+  const visible=useMemo(()=>loadedScope===placement+':'+value
+    ? visibleEditorialSlides(slides,currentUser,stations,excludeStationId):[],
+    [loadedScope,placement,value,slides,currentUser,stations,excludeStationId]);
+  useEffect(()=>{onAvailabilityChange?.(visible.length>0);},
+    [visible.length,onAvailabilityChange]);
   const activeIndex=visible.length?index%visible.length:0;
   const slide=visible[activeIndex];
   // The playlist always follows the visible station, including changes of editorial slide.
   const featuredStation=slide?.targetType==='station'
-    ? stations.find(s=>String(s._id)===String(slide.stationId)) || stationFallback
-    : stationFallback;
+    ? stations.find(s=>String(s._id)===String(slide.stationId))
+    : !slide?stationFallback:null;
   const isStationHero=!slide||slide.targetType==='station';
   const displayLogo=isStationHero?featuredStation?.logo:null;
   const brandRgb=useStationAmbient(displayLogo);
@@ -86,17 +84,15 @@ export default function HomeHeroSlider({
   const activeShow=stationAction?activeStationShow(featuredStation,athensClock):null;
   const onAirName=[activeShow?.host,activeShow?.title]
     .find(value=>typeof value==='string'&&value.trim())?.trim()||'';
-  // This default station card represents the listener's most recent station,
-  // not an editorial recommendation. Reflect actual shared playback state.
+  // Playback state highlights only the chosen editorial or featured station.
   const featuredStationIsPlaying=Boolean(isPlaying && currentStation?._id &&
     String(currentStation._id)===String(featuredStation?._id));
   const heroEyebrow=slide?.eyebrow || (featuredStationIsPlaying
     ? 'Ακούς LIVE στο iRadios GR'
-    : (currentStation?._id || fallbackStation?._id)
-      ? 'Άκουσες πρόσφατα'
-      : 'Ανακάλυψε σταθμούς');
+    : featuredStation?'Επιλεγμένος σταθμός':'Ανακάλυψε σταθμούς');
   const linkAction=slide?.targetType==='genre'||slide?.targetType==='external'||
-    (slide?.targetType==='none'&&Boolean(onOpenDiscovery));
+    ((!slide||slide.targetType==='none')&&Boolean(onOpenDiscovery));
+  if(placement!=='home'&&!slide)return null;
 
   return (
     <section aria-roledescription="carousel" aria-label="Επιλεγμένοι σταθμοί και editorial slides iRadios"

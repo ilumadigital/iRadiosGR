@@ -3,8 +3,6 @@ const mongoose=require('mongoose');
 const crypto=require('crypto');
 const Promotion=require('../models/PromotedStation');
 const Station=require('../models/Station');
-const Playlist=require('../models/StationPlaylist');
-const {snapshotSong}=require('../utils/stageNativeNow');
 
 const clean=v=>typeof v==='string'?v.trim():'';
 const fail=(res,e)=>res.status(e.status||503).json({error:e.status?e.message:'Αδυναμία διαχείρισης προτεινόμενου σταθμού.'});
@@ -31,19 +29,14 @@ exports.publicPromoted=async(req,res)=>{
     const key=scope(req.query);
     const promotion=await Promotion.findOne({...key,enabled:true}).select('stationId').lean();
     if(!promotion)return res.json(null);
-    const station=await Station.findOne({_id:promotion.stationId,status:'approved'})
+    const station=await Station.findOne({_id:promotion.stationId,status:'approved',isOffline:{$ne:true}})
       .select('_id').lean();
     if(!station)return res.json(null);
-    // Only a single admin-selected, approved station has public editorial now-playing.
-    // No private profiles, streams, metadata URLs, playlist histories or listener IDs.
-    const playlist=await Playlist.findOne({stationId:station._id})
-      .select('nativeNow nativeShow currentAI').lean();
-    const song=snapshotSong(playlist,Date.now());
-    const track=typeof song?.title==='string' && song.title.trim() ?
-      {title:song.title,source:song.source==='acrcloud'?'acrcloud':'station',
-        foundWithAI:song.foundWithAI===true} : null;
+    // This endpoint is guest-accessible: never reveal native/AI song titles,
+    // stream credentials, playlist records or listener information. The
+    // frontend renders the station's public schedule independently.
     res.setHeader('Cache-Control','public, max-age=15');
-    return res.json({stationId:String(station._id),nowPlaying:track});
+    return res.json({stationId:String(station._id)});
   }catch(e){fail(res,e);}
 };
 exports.list=async(_req,res)=>{
@@ -56,7 +49,11 @@ exports.save=async(req,res)=>{
     if(!await Station.exists({_id:payload.stationId,status:'approved'}))
       invalid('Ο σταθμός δεν είναι εγκεκριμένος.');
     const {placement,placementValue,...fields}=payload;
-    const doc=await Promotion.findOneAndUpdate({placement,placementValue},
+    const occupied=await Promotion.findOne({placement,placementValue})
+      .select('campaignId').lean();
+    if(occupied?.campaignId)
+      return res.status(409).json({error:'Η θέση ανήκει σε καμπάνια. Επεξεργάσου την από το Promoted Stations Admin.'});
+    const doc=await Promotion.findOneAndUpdate({placement,placementValue,campaignId:{$in:['',null]}},
       {$set:fields},{upsert:true,new:true,runValidators:true,setDefaultsOnInsert:true});
     res.json(doc);
   }catch(e){
@@ -94,9 +91,19 @@ exports.saveCampaign=async(req,res)=>{
     if(provided && !/^[a-f0-9-]{36}$/.test(provided))invalid('Μη έγκυρη καμπάνια.');
     const campaignId=provided||crypto.randomUUID();
     const keys=placements.map(p=>({placement:p.placement,placementValue:p.placementValue}));
-    // Reuse the same campaign ID for every selected placement, never duplicate the creative.
+    // An exclusive slot must never be silently stolen from a different campaign.
+    // Reusing a matching legacy station's ungrouped slot remains supported.
+    const occupied=await Promotion.find({$or:keys})
+      .select('campaignId stationId placement placementValue').lean();
+    if(occupied.some(p=>p.campaignId
+      ? p.campaignId!==campaignId : String(p.stationId)!==stationId))
+      return res.status(409).json({error:'Μία θέση ανήκει ήδη σε άλλη καμπάνια. Αφαίρεσέ την πρώτα από την προηγούμενη καμπάνια.'});
+    // The guard also prevents a concurrent editor from hijacking an existing
+    // campaign between validation and the individual write.
     for(const key of keys){
-      await Promotion.findOneAndUpdate(key,{$set:{stationId,enabled:req.body.enabled,campaignId}},
+      await Promotion.findOneAndUpdate({...key,$or:[
+        {campaignId},{campaignId:{$in:['',null]},stationId}
+      ]},{$set:{stationId,enabled:req.body.enabled,campaignId}},
         {upsert:true,new:true,runValidators:true,setDefaultsOnInsert:true});
     }
     await Promotion.deleteMany({campaignId,$nor:keys});

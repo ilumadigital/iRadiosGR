@@ -627,7 +627,6 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         <HomeHeroSlider
           currentUser={currentUser}
           currentStation={currentStation}
-          fallbackStation={recentlyPlayed[0] || null}
           stations={stations}
           isPlaying={isPlaying}
           onPlayPause={onPlayPause}

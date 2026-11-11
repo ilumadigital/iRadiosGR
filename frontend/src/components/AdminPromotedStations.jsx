@@ -92,9 +92,9 @@ export default function AdminPromotedStations({stations=[]}){
   };
   return <section className="ir-glass space-y-5 p-5 sm:p-7" aria-labelledby="promoted-station-heading">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.12em] text-[#ccff00]"><Star size={15}/> Featured editorial</p>
+      <div><p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.12em] text-[#ccff00]"><Star size={15}/> Promoted placement</p>
         <h2 id="promoted-station-heading" className="mt-2 text-2xl font-black text-white">Promoted Stations</h2>
-        <p className="mt-2 max-w-3xl text-sm text-zinc-400">Ο ίδιος σταθμός σε πολλές σελίδες με μία καμπάνια. Η κάρτα, τα live metadata και το slide δίπλα της παραμένουν ακριβώς όπως πριν.</p>
+        <p className="mt-2 max-w-3xl text-sm text-zinc-400">Ο ίδιος σταθμός σε πολλές σελίδες με μία καμπάνια. Η κάρτα Promoted εμφανίζει το δημόσιο πρόγραμμα, χωρίς να εκθέτει στοιχεία τραγουδιών στους επισκέπτες. Το editorial slide ελέγχεται ξεχωριστά.</p>
       </div>
       <button type="button" onClick={reset} className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-xs font-bold text-zinc-200"><Plus size={15}/> Νέα καμπάνια</button>
     </div>
@@ -103,7 +103,7 @@ export default function AdminPromotedStations({stations=[]}){
     <form className="space-y-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5" onSubmit={save}>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <label><span className={label}>Εγκεκριμένος σταθμός</span><select required className={field} value={stationId} onChange={e=>setStationId(e.target.value)}>
-          <option value="">Επιλογή σταθμού…</option>{eligible.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}
+          <option value="">Επιλογή σταθμού…</option>{eligible.map(s=><option key={s._id} value={s._id}>{s.name}{s.isOffline?' (OFFLINE – κρυφό μέχρι να επανέλθει)':''}</option>)}
         </select></label>
         <button type="submit" disabled={busy||!stationId||!scopes.length} className="ir-action-primary min-h-11 px-5"><Save size={16}/>{busy?'Αποθήκευση…':'Αποθήκευση καμπάνιας'}</button>
       </div>

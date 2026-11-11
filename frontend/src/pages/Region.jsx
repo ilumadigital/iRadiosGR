@@ -101,7 +101,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
   // Όλα τα region pages έχουν map view. Χωρίς γεωγραφικό σημείο δείχνουμε ξεχωριστή λίστα.
   const canShowMap = Boolean(regionName);
 
-  const displayStations=useMemo(()=>viewMode==='grid' && promotedStationId
+  const displayStations=useMemo(()=>viewMode!=='map' && promotedStationId
     ? filteredAndSorted.filter(s=>String(s._id)!==String(promotedStationId))
     : filteredAndSorted,[filteredAndSorted,viewMode,promotedStationId]);
 
@@ -209,7 +209,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
       </div>
 
       <EditorialPlacement placement="region" value={regionName} viewMode={viewMode} onPromotedStationChange={setPromotedStationId}
-        currentUser={currentUser} stations={stations} fallbackStation={baseStations[0]}
+        currentUser={currentUser} stations={stations}
         currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 

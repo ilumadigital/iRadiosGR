@@ -1,5 +1,5 @@
 'use strict';
-// Offline checks: unique scoped promotion, snapshot-only Now Playing and compact 70/30 layout.
+// Offline checks: unique scoped promotion, guest-safe schedule presentation and compact 70/30 layout.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
@@ -58,9 +58,7 @@ const response=()=>({statusCode:200,body:null,headers:{},
   await controller.publicPromoted({query:{placement:'region',value:'Αττική'}},res);
   assert.equal(res.statusCode,200);
   assert.equal(query.placementValue,'Αττική');
-  assert.deepEqual(res.body,{stationId:id,nowPlaying:{
-    title:'Artist - Song',source:'acrcloud',foundWithAI:true
-  }});
+  assert.deepEqual(res.body,{stationId:id},'guest response must be free of native and AI track metadata');
   approved=false;
   res=response();
   await controller.publicPromoted({query:{placement:'region',value:'Αττική'}},res);
@@ -112,7 +110,8 @@ const response=()=>({statusCode:200,body:null,headers:{},
     'station deep links must preselect the correct radio');
   for(const name of ['Region','Genre']){
     const source=read('frontend/src/pages/'+name+'.jsx');
-    assert.ok(source.includes('viewMode={viewMode}')&&source.includes('fallbackStation={baseStations[0]}'));
+    assert.ok(source.includes('viewMode={viewMode}')&&!source.includes('fallbackStation={baseStations[0]}'),
+      'catalog must not fill an empty editorial header with an arbitrary station');
   }
   assert.ok(read('frontend/src/components/PromotedStationCard.jsx').includes('activeStationShow'));
   console.log('Compact 70/30 catalog hero, 1200x630 assets, promoted station backoffice contracts passed.');
