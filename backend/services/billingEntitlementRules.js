@@ -1,32 +1,21 @@
 'use strict';
-// Side-effect-free rules: easy to test without MongoDB or a payment provider.
-const {resolveComplimentaryEntitlements,ENTITLEMENTS}=require('./billingPolicy');
+// Account and station rights must originate from verified paid periods or
+// unexpired, admin-issued complimentary grants. Broadcaster legacy flags and
+// tier are historical only and must never unlock a new billing right.
+const {resolveComplimentaryEntitlements}=require('./billingPolicy');
 const {withBroadcasterTermsStatus}=require('../utils/broadcasterTerms');
 
-const LEGACY_FEATURES=Object.freeze({
-  dspEngine:'broadcaster.webdsp',
-  analytics:'broadcaster.analytics',
-  adControl:'broadcaster.ad_control'
-});
-
-function legacyRights(user){
- const rights=new Set();
- if(!user)return [];
- if(user.isPremium===true)rights.add('listener.premium');
- if(user.role==='broadcaster'){
-  if(user.broadcasterProfile?.tier==='premium')
-   for(const right of ENTITLEMENTS['B-PREM'])rights.add(right);
-  for(const [flag,right] of Object.entries(LEGACY_FEATURES))
-   if(user.broadcasterProfile?.features?.[flag]===true)rights.add(right);
- }
- return [...rights].sort();
-}
+// Listener migration is deliberately separate: existing manually granted
+// Listener Premium accounts retain their old rights until the Listener billing
+// migration. This compatibility NEVER applies to a Broadcaster.
+const listenerCompatibilityRights=user=>user?.role==='user'&&user.isPremium===true?
+ ['listener.premium']:[];
 
 function effectiveRights(user,grants,{stationId=null,campaignId=null,now=new Date()}={}){
  if(!user)return [];
  const ownGrants=(grants||[]).filter(g=>String(g.accountId)===String(user._id));
  const rights=new Set([
-   ...legacyRights(user),
+   ...listenerCompatibilityRights(user),
    ...resolveComplimentaryEntitlements(ownGrants,{stationId,campaignId,now})
  ]);
  return [...rights].sort();
@@ -36,22 +25,27 @@ function projectUserEntitlements(user,rights){
  const data=withBroadcasterTermsStatus(user);
  if(!data)return data;
  const set=new Set(rights||[]);
- if(set.has('listener.premium'))data.isPremium=true;
  if(data.role==='broadcaster'){
+  // Legacy Premium and feature flags can remain in historical documents but
+  // cannot be re-surfaced as active entitlements in any API response.
+  data.isPremium=false;
   const p={...(data.broadcasterProfile||{})};
-  if(set.has('broadcaster.unlimited_stations'))p.tier='premium';
-  // Account-level included features only. Per-STATION add-ons must never
-  // be written to this account-wide compatibility structure.
-  const features={...(p.features||{})};
-  if(set.has('broadcaster.unlimited_stations')){
-   features.adControl=true;features.analytics=true;features.dspEngine=true;
-  }
-  p.features=features;
+  const premium=set.has('broadcaster.unlimited_stations');
+  p.tier=premium?'premium':'free';
+  p.maxStations=premium?Math.max(3,Number(p.maxStations)||3):3;
+  p.features={
+   ...(p.features||{}),
+   dspEngine:set.has('broadcaster.webdsp'),
+   analytics:set.has('broadcaster.analytics'),
+   adControl:set.has('broadcaster.ad_control')
+  };
+  // No station-scoped addon is promoted to a global profile feature.
   data.broadcasterProfile=p;
+ }else{
+  data.isPremium=set.has('listener.premium');
  }
  data.billingEntitlements=[...set].sort();
  data.billingAutomaticRenewalsAvailable=false;
  return data;
 }
-
-module.exports={legacyRights,effectiveRights,projectUserEntitlements};
+module.exports={effectiveRights,listenerCompatibilityRights,projectUserEntitlements};
