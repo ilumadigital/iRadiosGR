@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {DSP_DEFAULTS,DSP_PRESETS,DSP_COMPRESSOR_DEFAULTS,validateDSPUpdate}=
+const {DSP_DEFAULTS,DSP_PRESETS,DSP_COMPRESSOR_DEFAULTS,DSP_CLIPPER_DEFAULTS,validateDSPUpdate}=
  require('../services/dspConfig');
 const full={bass:3,mid:.5,treble:-2,output:-1,stereoWidth:125};
 const comp={mode:'manual',threshold:-21,ratio:2.6,attack:.04,release:.35,makeup:1.5};
@@ -32,7 +32,7 @@ test('Unknown fields, NaN, infinity and numeric strings cannot bypass validation
   {dspPreset:'ENHANCER',isFeatured:true},
   {dspPreset:'FAKE'}, {dspSettings:{...full,bass:'8'}},
   {dspSettings:{...full,mid:NaN}}, {dspSettings:{...full,output:Infinity}},
-  {dspSettings:{...full,stereoWidth:151}}, {dspSettings:{...full,output:3.01}},
+  {dspSettings:{...full,stereoWidth:151}}, {dspSettings:{...full,output:7.01}},
   {dspSettings:{...full,extra:1}}, {dspSettings:null}, {},
   {dspCompressor:{...comp,mode:'unknown'}},
   {dspCompressor:{...comp,threshold:1}},
@@ -43,7 +43,14 @@ test('Unknown fields, NaN, infinity and numeric strings cannot bypass validation
   {dspCompressor:{...comp,makeup:'2'}},
   {dspCompressor:{...comp,ratio:NaN}},
   {dspCompressor:{...comp,extra:true}},
-  {dspCompressor:null}
+  {dspCompressor:null},
+  {dspSettings:{...full,output:-7.01}},
+  {dspClipper:{ENHANCER:{headroomEnabled:true,level:0}}},
+  {dspClipper:null},
+  {dspClipper:{ENHANCER:{headroomEnabled:'yes',level:0},FM_MODE:{headroomEnabled:true,level:0}}},
+  {dspClipper:{ENHANCER:{headroomEnabled:true,level:8.5},FM_MODE:{headroomEnabled:true,level:0}}},
+  {dspClipper:{ENHANCER:{headroomEnabled:true,level:9},FM_MODE:{headroomEnabled:true,level:0}}},
+  {dspClipper:{ENHANCER:{headroomEnabled:true,level:0,extra:true},FM_MODE:{headroomEnabled:true,level:0}}}
  ])assert.ok(validateDSPUpdate(invalid).error,JSON.stringify(invalid));
 });
 test('Safe defaults contain NO forced master limiter or user-adjustable clip ceiling',()=>{
@@ -60,5 +67,19 @@ test('Compressor has preset, manual and off modes without affecting stereo / EQ'
  }
  for(const stereoWidth of [0,100,150]){
   assert.equal(validateDSPUpdate({dspSettings:{...full,stereoWidth}}).value.dspSettings.stereoWidth,stereoWidth);
+ }
+});
+
+test('Per-mode Headroom ON/OFF and integer Clipper 0–8 save independently',()=>{
+ const configured={ENHANCER:{headroomEnabled:false,level:5},
+   FM_MODE:{headroomEnabled:true,level:8}};
+ assert.deepEqual(validateDSPUpdate({dspClipper:configured}),
+   {value:{dspClipper:configured}});
+ assert.deepEqual(DSP_CLIPPER_DEFAULTS,{
+   ENHANCER:{headroomEnabled:true,level:0},
+   FM_MODE:{headroomEnabled:true,level:0}
+ });
+ for(const output of [-7,0,7]){
+   assert.equal(validateDSPUpdate({dspSettings:{...full,output}}).value.dspSettings.output,output);
  }
 });
