@@ -270,7 +270,13 @@ export function applyListenerMode(graph,choice='DEFAULT'){
   const peaks=Math.max(0,config.bass)+Math.max(0,config.mid)+
     Math.max(0,config.treble)+Math.max(0,20*Math.log10(w))+
     Math.max(0,config.makeup);
-  const net=Math.min(-.8,config.trim+peaks);
+  // FM / Enhancer already reserve 3 dB of headroom, which VMax may use
+  // to improve loudness without touching the broadcaster's station settings.
+  // For a raw/OFF station, never boost a potentially full-scale source.
+  const usableStationReserve=graph.preset==='OFF'?0:HEADROOM_RESERVE_DB;
+  const net=mode==='VMAX'?
+    Math.min(2,usableStationReserve-.9):
+    Math.min(-.8,config.trim+peaks);
   graph.listenerHeadroomDb=net-peaks;
   setAudioParam(graph.listenerHeadroom.gain,dbToGain(graph.listenerHeadroomDb),ctx);
 }
