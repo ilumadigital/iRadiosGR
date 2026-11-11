@@ -1,7 +1,10 @@
 'use strict';
 // DSP is station-scoped. Headroom compensation is computed transparently by
 // the shared WebAudio engine, NOT persisted as a forced master limiter.
-const DSP_PRESETS=Object.freeze(['OFF','SOFT','NORMALIZE','ULTRABAND','ULTRA','OMNIA','0DB_LEVELER']);
+// The station's single DSP selection is now a MODE, not an audio preset.
+// Existing legacy values are still readable in Mongo and treated as FM_MODE
+// by the frontend until an Admin/Broadcaster explicitly saves the new mode.
+const DSP_PRESETS=Object.freeze(['OFF','ENHANCER','FM_MODE']);
 const DSP_DEFAULTS=Object.freeze({bass:0,mid:0,treble:0,output:0,stereoWidth:100});
 const DSP_RANGES=Object.freeze({
   bass:[-12,12],mid:[-12,12],treble:[-12,12],output:[-12,3],stereoWidth:[0,150]
