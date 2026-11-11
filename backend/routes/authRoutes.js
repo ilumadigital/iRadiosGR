@@ -16,6 +16,7 @@ router.post('/auth/verify-otp', authController.verifyOtp);
 router.post('/auth/verify-email', authController.verifyEmail);
 router.post('/auth/resend-verification', protect, authController.resendVerificationEmail);
 router.post('/auth/login', requireTurnstile('login'), authController.login);
+router.post('/auth/admin-2fa/verify', authController.verifyAdmin2fa);
 router.get('/auth/me', protect, authController.getMe);
 
 // 🟢 ΑΝΑΚΤΗΣΗ ΚΩΔΙΚΟΥ

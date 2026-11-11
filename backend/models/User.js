@@ -83,6 +83,12 @@ const userSchema = new mongoose.Schema({
   verificationTokenHash: { type: String, default: null },
   verificationTokenExpires: { type: Date, default: null },
   verificationEmailLastSentAt: { type: Date, default: null },
+  // Dedicated, hashed and short-lived Admin login verification. Never serialized.
+  adminOtpChallengeHash: { type: String, default: undefined, select: false },
+  adminOtpCodeHash: { type: String, default: undefined, select: false },
+  adminOtpExpiresAt: { type: Date, default: undefined, select: false },
+  adminOtpAttempts: { type: Number, default: undefined, select: false },
+  adminOtpLastSentAt: { type: Date, default: undefined, select: false },
 
   hasAcceptedTerms: { type: Boolean, default: false },
   termsAcceptedAt: { type: Date, default: null },
