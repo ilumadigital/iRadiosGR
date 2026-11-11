@@ -62,7 +62,9 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  adjacent(g.listenerMid,g.listenerTreble);
  adjacent(g.listenerTreble,g.listenerComp);
  adjacent(g.listenerComp,g.listenerMakeup);
- adjacent(g.listenerMakeup,g.listenerSplit);
+ adjacent(g.listenerMakeup,g.listenerUpmix);
+ adjacent(g.listenerUpmix,g.listenerSplit);
+ assert.equal(g.listenerUpmix.channelCount,2);
  adjacent(g.listenerMerge,g.listenerHeadroom);
  adjacent(g.listenerHeadroom,g.listenerWet);
  adjacent(g.listenerWet,g.listenerMix);
