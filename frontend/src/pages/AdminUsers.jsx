@@ -1,4 +1,5 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
+import {Link} from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { 
   Search, Grid, List, Edit, Trash2, X, Shield, Radio, 
@@ -344,6 +345,12 @@ export default function AdminUsers({ API_URL, currentUser }) {
                     <div className="flex items-center justify-end gap-2">
                       <button type="button" aria-label={'Στοιχεία λογαριασμού '+user.email} title="Στοιχεία λογαριασμού" onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg"><Settings size={16} /></button>
                       <button type="button" aria-label={'Δικαιώματα '+user.email} title="Δικαιώματα" onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] hover:bg-[#ccff00]/10 rounded-lg"><Edit size={16} /></button>
+                      {user.role==='broadcaster'&&<Link
+                        to={'/backoffice/admin/addons?accountId='+encodeURIComponent(user._id)}
+                        aria-label={'Addons σταθμών '+user.email} title="Addons ανά σταθμό"
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#ccff00]/30 px-2 py-2 text-[11px] font-bold text-[#ccff00]">
+                        <SlidersHorizontal size={15}/> Addons
+                      </Link>}
                       <button type="button" aria-label={'Διαγραφή '+user.email} title="Διαγραφή χρήστη" onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
                     </div>
                   </td>
@@ -372,6 +379,12 @@ export default function AdminUsers({ API_URL, currentUser }) {
                <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
                   <button type="button" aria-label={'Στοιχεία λογαριασμού '+user.email} title="Στοιχεία λογαριασμού" onClick={() => handleFullEditClick(user)} className="p-2 text-zinc-400 hover:text-white bg-zinc-800 rounded-lg transition-colors"><Settings size={16} /></button>
                   <button type="button" aria-label={'Δικαιώματα '+user.email} title="Δικαιώματα" onClick={() => handleEditClick(user)} className="p-2 text-[#ccff00] bg-[#ccff00]/10 rounded-lg transition-colors"><Edit size={16} /></button>
+                  {user.role==='broadcaster'&&<Link
+                    to={'/backoffice/admin/addons?accountId='+encodeURIComponent(user._id)}
+                    aria-label={'Addons σταθμών '+user.email} title="Addons ανά σταθμό"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#ccff00]/30 px-2 py-2 text-xs font-bold text-[#ccff00]">
+                    <SlidersHorizontal size={15}/> Addons
+                  </Link>}
                   <button type="button" aria-label={'Διαγραφή '+user.email} title="Διαγραφή χρήστη" onClick={() => handleDeleteUser(user._id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors ml-auto"><Trash2 size={16} /></button>
                </div>
             </div>
@@ -386,6 +399,12 @@ export default function AdminUsers({ API_URL, currentUser }) {
             <button onClick={() => setIsModalOpen(false)} className="absolute top-8 right-8 text-zinc-500 hover:text-white bg-white/5 p-2 rounded-full transition-colors z-10"><X size={20} /></button>
             <h2 className="text-3xl font-black italic uppercase mb-2">Permissions</h2>
             <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.2em] mb-10">Manage Access for: <span className="text-[#ccff00]">{selectedUser.username}</span></p>
+            {selectedUser.role==='broadcaster'&&<div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-zinc-300">
+              Τα station-scoped Addons και οι δωρεάν παραχωρήσεις διαχειρίζονται χωριστά από τους legacy λογαριασμούς.
+              <Link className="mt-3 flex items-center gap-2 font-bold text-[#ccff00]"
+                to={'/backoffice/admin/addons?accountId='+encodeURIComponent(selectedUser._id)}
+                onClick={()=>setIsModalOpen(false)}><SlidersHorizontal size={15}/> Διαχείριση Addons ανά σταθμό</Link>
+            </div>}
 
             <div className="space-y-10">
               {/* SYSTEM ROLE SELECTION */}

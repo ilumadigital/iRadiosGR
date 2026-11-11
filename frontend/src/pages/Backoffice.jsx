@@ -26,6 +26,7 @@ const AdminPromotedStations=lazy(()=>import('../components/AdminPromotedStations
 const AdminEmails=lazy(()=>import('./AdminEmails'));
 const AdminPaid=lazy(()=>import('./AdminPaid'));
 const AdminBillingGrants=lazy(()=>import('./AdminBillingGrants'));
+const AdminAddons=lazy(()=>import('./AdminAddons'));
 const AdminSandboxPayments=lazy(()=>import('./AdminSandboxPayments'));
 const AdminRadioSet=lazy(()=>import('./AdminRadioSet'));
 const AdminAdControl=lazy(()=>import('./AdminAdControl'));
@@ -256,6 +257,10 @@ function StationCard({station,role,onDelete,onStatusChange}){
         </select>}
       <Link to={to} className={buttonSecondary}>
         {role==='producer'?'Πρόγραμμα':'Επεξεργασία'}<ArrowRight size={15}/></Link>
+      {role==='admin'&&<Link to={'/backoffice/admin/addons?stationId='+encodeURIComponent(station._id)}
+        className={buttonSecondary} title={'Addons '+station.name}>
+        <SlidersHorizontal size={15} className="text-[#caff00]"/> Addons
+      </Link>}
       {role==='admin'&&station.status==='approved'&&
         <Link to={'/backoffice/admin/promoted?station='+encodeURIComponent(station._id)}
           className={buttonSecondary} title={'Προώθηση '+station.name}>
@@ -533,6 +538,10 @@ function StationEditor({data,reload,notify,requestDelete}){
       title={actionTitle} description={isAdmin?'Οι αλλαγές σου δημοσιεύονται αμέσως.':
         'Οι αλλαγές προφίλ υποβάλλονται για έγκριση από την ομάδα iRadios.'}
       aside={!isNew&&<div className="flex flex-wrap items-center gap-2">
+        {isAdmin&&<Link to={'/backoffice/admin/addons?stationId='+encodeURIComponent(station._id)}
+          className={buttonSecondary}>
+          <SlidersHorizontal size={16} className="text-[#caff00]"/> Addons σταθμού
+        </Link>}
         {isAdmin&&station.status==='approved'&&<Link
           to={'/backoffice/admin/promoted?station='+encodeURIComponent(station._id)}
           className={buttonSecondary}>
@@ -1242,6 +1251,7 @@ function BroadcasterInsights({data}){
 const ADMIN_TOOLS=[
   {id:'analytics',name:'Αναλύσεις',desc:'Στοιχεία δικτύου και απόδοση',icon:BarChart3,group:'Δίκτυο'},
   {id:'users',name:'Χρήστες & ρόλοι',desc:'Λογαριασμοί, άδειες και πρόσβαση',icon:Users,group:'Δίκτυο'},
+  {id:'addons',name:'Διαχείριση Addons',desc:'WebDSP, Analytics και Ad Control ανά Broadcaster και σταθμό',icon:SlidersHorizontal,group:'Δίκτυο'},
   {id:'radioset',name:'Αναθέσεις σταθμών',desc:'Σύνδεσε σταθμούς με broadcasters',icon:Radio,group:'Δίκτυο'},
   {id:'boost',name:'Προβολή σταθμών',desc:'Προτεραιότητες και boost σταθμών',icon:Sparkles,group:'Δίκτυο'},
   {id:'promoted',name:'Promoted Stations',desc:'Επίλεξε σταθμό δίπλα στα slides ανά Περιοχή ή Είδος',icon:Sparkles,group:'Δίκτυο'},
@@ -1489,6 +1499,7 @@ export default function Backoffice(){
         {to:'/backoffice/review',label:'Εγκρίσεις',icon:FileCheck2},
         {to:'/backoffice/admin/analytics',label:'Αναλύσεις',icon:BarChart3},
         {to:'/backoffice/admin/users',label:'Χρήστες & ρόλοι',icon:Users},
+        {to:'/backoffice/admin/addons',label:'Διαχείριση Addons',icon:SlidersHorizontal},
         {to:'/backoffice/admin/radioset',label:'Αναθέσεις σταθμών',icon:Radio},
         {to:'/backoffice/admin/boost',label:'Προβολή σταθμών',icon:Sparkles},
         {to:'/backoffice/admin/promoted',label:'Promoted Stations',icon:Sparkles}
@@ -1594,6 +1605,8 @@ export default function Backoffice(){
           <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
           {['analytics','users','ads','banners','slides','newsfeed','promoted','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
+          <Route path="/backoffice/admin/addons" element={admin?
+             <AdminAddons API_URL="/api"/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/admin/billing/grants" element={admin?
              <AdminBillingGrants API_URL="/api"/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/admin/billing/sandbox" element={admin?

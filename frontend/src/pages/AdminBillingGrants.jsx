@@ -125,7 +125,7 @@ export default function AdminBillingGrants({API_URL='/api'}){
     </div>
     <div className="rounded-2xl border border-amber-600/30 p-4 bg-amber-950/10 text-amber-200 text-xs flex gap-2">
       <AlertCircle size={17} className="shrink-0"/>
-      Πρώτη φάση: οι παραχωρήσεις αποθηκεύονται στο νέο Billing Engine. Η ενεργοποίησή τους στα υπάρχοντα premium features θα γίνει μετά τους ελέγχους entitlements. Τα υπάρχοντα χειροκίνητα Premium δικαιώματα παραμένουν ανέπαφα.
+      Οι δωρεάν παραχωρήσεις εφαρμόζονται στα δικαιώματα μέσω του server, ανά λογαριασμό ή συγκεκριμένο σταθμό/καμπάνια. Δεν θεωρούνται πληρωμές, δεν αλλάζουν τις πληρωμένες συνδρομές και δεν εκκινούν αυτόματη χρέωση. Τα υπάρχοντα χειροκίνητα Premium δικαιώματα παραμένουν ανέπαφα.
     </div>
     {message&&<div role="status" className={'rounded-xl p-4 text-sm border '+(message.error?'border-red-500/30 bg-red-950/20 text-red-200':'border-lime-500/30 bg-lime-950/20 text-lime-200')}>{message.text}</div>}
     <section className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5 space-y-4">
