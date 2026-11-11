@@ -91,6 +91,8 @@ async function publicSlides(query){
   assert.deepEqual(visibleEditorialSlides(cms,null,stations).map(s=>s._id),['1','6'],
     'guest sees one approved live station only, no duplicate, pending or premium slide');
   assert.deepEqual(visibleEditorialSlides(cms,{isPremium:true},stations).map(s=>s._id),['1','5','6']);
+  assert.deepEqual(visibleEditorialSlides(cms,null,stations,'a').map(s=>s._id),['6'],
+    'promoted station takes its own slot instead of repeating in the editorial hero');
 
   const hero=read('frontend/src/components/HomeHeroSlider.jsx');
   const wrapper=read('frontend/src/components/EditorialPlacement.jsx');
