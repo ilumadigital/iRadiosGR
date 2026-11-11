@@ -26,7 +26,7 @@ test('New station-scoped grants work only for owning station while old flags rem
  assert.deepEqual(effectiveRights(clean,[grant('ADD-DSP')],{stationId,now}),
   ['broadcaster.webdsp']);
  assert.deepEqual(effectiveRights(clean,[grant('ADD-DSP')],{stationId:otherStationId,now}),[]);
- assert.deepEqual(effectiveRights(clean,[grant('ADD-DSP',{expiresAt:new Date('2026-11-01')})],
+ assert.deepEqual(effectiveRights(clean,[grant('ADD-DSP',stationId,{expiresAt:new Date('2026-11-01')})],
   {stationId,now}),[]);
  assert.deepEqual(effectiveRights(legacy,[grant('ADD-AN')],{stationId,now}),
   ['broadcaster.analytics']);
