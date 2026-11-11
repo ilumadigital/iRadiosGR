@@ -1459,11 +1459,11 @@ export default function Backoffice(){
   const requestDelete=useCallback(station=>setDeleteTarget(station),[]);
   const closeDelete=useCallback(()=>setDeleteTarget(null),[]);
   const [navFilter,setNavFilter]=useState('');
-  const [shortSidebar,setShortSidebar]=useState(()=>typeof window!=='undefined'&&window.innerHeight<740);
+  const [shortSidebar,setShortSidebar]=useState(()=>typeof window!=='undefined'&&window.innerHeight<810);
   const [expandedSection,setExpandedSection]=useState('');
   // Tall viewports display all groups; short viewports use an accessible accordion.
   useEffect(()=>{
-    const update=()=>setShortSidebar(window.innerHeight<740);
+    const update=()=>setShortSidebar(window.innerHeight<810);
     window.addEventListener('resize',update);
     return()=>window.removeEventListener('resize',update);
   },[]);
@@ -1594,7 +1594,7 @@ export default function Backoffice(){
   return <div className="flex min-h-screen bg-[#090b0d] font-sans text-white">
     <Helmet><title>iRadiosGR Station Console v6 | Backoffice</title><meta name="robots" content="noindex,nofollow"/></Helmet>
     {sidebarOpen&&<button onClick={()=>setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/80 lg:hidden" aria-label="Κλείσιμο μενού"/>}
-    <aside aria-label="Station Console πλοήγηση" className={'fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[272px] shrink-0 flex-col overflow-y-auto border-r border-white/[.08] bg-[#0e1112] px-3 pb-3 pt-4 shadow-[18px_0_65px_rgba(0,0,0,.14)] transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 '+(sidebarOpen?'translate-x-0':'-translate-x-full')}>
+    <aside aria-label="Station Console πλοήγηση" className={'fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[272px] shrink-0 flex-col overflow-y-auto border-r border-white/[.08] lg:overflow-hidden bg-[#0e1112] px-3 pb-3 pt-4 shadow-[18px_0_65px_rgba(0,0,0,.14)] transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 '+(sidebarOpen?'translate-x-0':'-translate-x-full')}>
       <Link to="/backoffice" onClick={()=>setSidebarOpen(false)}
         className="mb-3 block shrink-0 rounded-xl px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#caff00]">
         <Logo/>
@@ -1650,13 +1650,17 @@ export default function Backoffice(){
           if(!items.length)return null;
           const open=!accordionSidebar||((expandedSection||activeSection)===group.section);
           return <section key={group.section} className="min-w-0">
-            <button type="button" onClick={()=>setExpandedSection(current=>
-              (current||activeSection)===group.section?'__closed__':group.section)}
-              aria-expanded={open}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-[9px] font-extrabold uppercase tracking-[.16em] text-zinc-500 transition hover:bg-white/[.045] hover:text-zinc-300">
-              {group.section}
-              {accordionSidebar&&<ChevronDown size={13} className={'shrink-0 transition-transform '+(open?'rotate-180':'')}/>}
-            </button>
+            {accordionSidebar?
+              <button type="button" onClick={()=>setExpandedSection(current=>
+                (current||activeSection)===group.section?'__closed__':group.section)}
+                aria-expanded={open}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-[9px] font-extrabold uppercase tracking-[.16em] text-zinc-500 transition hover:bg-white/[.045] hover:text-zinc-300">
+                {group.section}
+                <ChevronDown size={13} className={'shrink-0 transition-transform '+(open?'rotate-180':'')}/>
+              </button>:
+              <p className="px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[.16em] text-zinc-500">
+                {group.section}
+              </p>}
             {open&&<div className="mt-0.5 space-y-0.5">{items.map(item=>
               <NavItem key={item.to} {...item}
                 locked={Boolean(item.entitlement)&&addonStatus==='ready'&&!addonRights.has(item.entitlement)}
