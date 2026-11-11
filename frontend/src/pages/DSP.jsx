@@ -446,9 +446,77 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
 
       )}
 
+      {draft.dspPreset!=='OFF'&&<section className={shell+' p-5 md:p-7'}>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">04 / MASTER PROCESSING</span>
+            <h2 className="mt-2 text-2xl font-bold">Clipper &amp; Headroom</h2>
+            <p className="mt-2 max-w-2xl text-sm text-zinc-400">
+              Ανεξάρτητες ρυθμίσεις ανά mode. Headroom: αυτόματη προληπτική μείωση gain.
+              Clipper: ήπια μη γραμμική επεξεργασία στο τέλος του DSP, με 0 = καθαρό bypass.
+            </p>
+          </div>
+          <span className="rounded-full border border-white/10 px-4 py-2 text-xs text-zinc-300">
+            {DSP_MODES[draft.dspPreset].label} · MASTER
+          </span>
+        </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div><h3 className="font-bold">Auto Headroom</h3>
+                <p className="mt-1 text-xs text-zinc-500">Προσαρμοζόμενη εξασθένηση ανάλογα με EQ, Stereo και Output.</p>
+              </div>
+              <button type="button" role="switch" aria-label="Auto Headroom"
+                aria-checked={activeMaster.headroomEnabled}
+                onClick={()=>updateMaster('headroomEnabled',!activeMaster.headroomEnabled)}
+                className={'min-w-20 rounded-xl border px-4 py-2 text-xs font-black '+
+                  (activeMaster.headroomEnabled?'border-[#caff00] bg-[#caff00]/10 text-[#caff00]':'border-white/20 bg-white/5 text-zinc-400')}>
+                {activeMaster.headroomEnabled?'ON':'OFF'}
+              </button>
+            </div>
+            <p className="mt-5 text-3xl font-black tabular-nums">{automaticHeadroom.toFixed(1)} <span className="text-base text-zinc-400">dB</span></p>
+            <p className="mt-2 text-xs text-amber-300">{activeMaster.headroomEnabled?
+              'Αυτόματο περιθώριο 3 dB + εκτίμηση των boosts.':
+              'Χωρίς προληπτικό headroom: πρόσεχε τα peaks και το clipping.'}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div><h3 className="font-bold">Clipper</h3>
+                <p className="mt-1 text-xs text-zinc-500">Soft clipping · 4× oversampling · προοδευτική ένταση.</p></div>
+              <span className="text-3xl font-black tabular-nums text-[#caff00]">{activeMaster.level}<span className="text-base text-zinc-500"> / 8</span></span>
+            </div>
+            <input type="range" aria-label="Clipper level" min="0" max="8" step="1"
+              value={activeMaster.level} onChange={e=>updateMaster('level',Number(e.target.value))}
+              className={inputStyle+' mt-7'}/>
+            <div className="mt-3 flex justify-between text-xs text-zinc-400"><span>0 · BYPASS</span><span>4 · MEDIUM</span><span>8 · STRONG</span></div>
+            <p className="mt-5 text-xs text-zinc-500">Ενδεικτικό sample ceiling −0.5 dBFS όταν είναι ενεργό. Δεν αποτελεί true-peak limiter.</p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-4">
+            <div className="mb-3 flex items-center justify-between text-xs font-bold text-zinc-300">
+              <span>BEFORE · EQ / STEREO / COMP</span><span className="tabular-nums">{meter.before<=-119?'−∞':formatDb(meter.before)}</span>
+            </div>
+            <canvas ref={beforeWaveRef} role="img" aria-label="Live waveform before master processing"
+              className="h-36 w-full rounded-lg bg-black/30"/>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-4">
+            <div className="mb-3 flex items-center justify-between text-xs font-bold text-zinc-300">
+              <span>AFTER · HEADROOM / CLIPPER</span><span className="tabular-nums">{meter.after<=-119?'−∞':formatDb(meter.after)}</span>
+            </div>
+            <canvas ref={afterWaveRef} role="img" aria-label="Live waveform after master processing"
+              className="h-36 w-full rounded-lg bg-black/30"/>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-zinc-500">
+          Οι κυματομορφές προέρχονται από πραγματικά audio samples του Live Prelisten, όχι προσομοίωση.
+          Πάτησε LISTEN LIVE παρακάτω για να τις δεις. Οι αλλαγές εφαρμόζονται αμέσως, και αποθηκεύονται μόνο με Save.
+        </p>
+      </section>}
+
       <section className={shell+' p-5 md:p-7'}>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">04 / LIVE PRELISTEN</span>
+          <div><span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">05 / LIVE PRELISTEN</span>
             <h2 className="mt-2 text-2xl font-bold">Live sound preview</h2>
             <p className="mt-2 max-w-2xl text-sm text-zinc-400">Άκου το πραγματικό live stream του επιλεγμένου σταθμού. Κάθε αλλαγή εφαρμόζεται αμέσως μόνο στην ακρόασή σου μέχρι να πατήσεις Save.</p></div>
           <span className="rounded-full border border-white/10 px-4 py-2 text-[11px] text-zinc-300">{playing?'LIVE PREVIEW':'READY TO PREVIEW'}</span>
