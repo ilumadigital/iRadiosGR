@@ -5,6 +5,7 @@ const Station=require('../models/Station');
 const Playlist=require('../models/StationPlaylist');
 const {protect}=require('../utils/authMiddleware');
 const {THIRTY_MINUTES,MAX_HISTORY_TRACKS}=require('../utils/recordStationTrack');
+const {protectedViewer,historyTrackForViewer}=require('../services/nowPlayingVisibility');
 router.get('/stations/:id/playlist', protect, async(req,res)=>{
   if(!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({error:'Μη έγκυρος σταθμός.'});
   if(req.user.role==='user' && req.user.isVerified!==true){
@@ -23,7 +24,9 @@ router.get('/stations/:id/playlist', protect, async(req,res)=>{
       const time=new Date(track.playedAt).getTime();
       return Number.isFinite(time)&&time>=cutoff&&time<=Date.now();
     }).slice(0,MAX_HISTORY_TRACKS);
-    res.json({station:{_id:station._id,name:station.name,logo:station.logo},tracks});
+    const viewer=await protectedViewer(req);
+    res.json({station:{_id:station._id,name:station.name,logo:station.logo},
+      tracks:tracks.map(track=>historyTrackForViewer(track,viewer))});
   } catch {
     res.status(503).json({error:'Το ιστορικό δεν είναι διαθέσιμο αυτή τη στιγμή.'});
   }

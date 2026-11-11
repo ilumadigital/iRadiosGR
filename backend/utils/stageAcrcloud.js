@@ -7,6 +7,7 @@ const FormData=require('form-data');
 const Station=require('../models/Station');
 const {captureAudio}=require('./stageAcrcloudAudio');
 const {publishAI,validTrackFromAcr}=require('./stageSmartTracks');
+const {protectedViewer}=require('../services/nowPlayingVisibility');
 
 const API_PATH='/v1/identify';
 const WINDOW_MS=15*60*1000,MAX_CALLS=3,MAX_CAPTURES=6;
@@ -153,6 +154,10 @@ async function recognizeApprovedStation(station,config,beforeVendorCall){
 }
 async function stageRecognizeProxy(req,res){
   res.setHeader('Cache-Control','private, no-store');
+  const viewer=await protectedViewer(req);
+  if(!viewer.canSeeAI)return res.status(403).json({
+    code:'PREMIUM_REQUIRED',error:'Η αναγνώριση μουσικής με AI είναι διαθέσιμη στο Premium.'
+  });
   if(process.env.STAGE_ENABLE_ACRCLOUD!=='1')return fail(res,'ACR_DISABLED');
   const config=providerConfig();
   if(!config)return fail(res,'ACR_CONFIG');
