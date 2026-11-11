@@ -216,6 +216,16 @@ function stagePublicAccess(req, res, next) {
     return protect(req,res,next);
   // All other sensitive email, payment and push APIs remain admin-only on staging.
 
+  // WebDSP routes were previously rejected by staging's default admin-only
+  // middleware before the controller could check a broadcaster's station
+  // entitlement. Allow authenticated operators here; the DSP controller
+  // enforces station ownership and a *new* paid/granted WebDSP right for writes.
+  const dspList=req.method==='GET'&&path==='/api/stations/dsp-access';
+  const dspSave=req.method==='PUT'&&
+    /^\/api\/stations\/[0-9a-f]{24}\/dsp$/i.test(path);
+  if(dspList||dspSave)
+    return protect(req,res,()=>authorizeRoles('admin','broadcaster')(req,res,next));
+
   // Phase 4 Backoffice: signed-in operational roles only. Each backoffice
   // route additionally enforces station ownership and action-specific roles.
   if (path === '/api/backoffice' || path.startsWith('/api/backoffice/')) {
