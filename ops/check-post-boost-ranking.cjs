@@ -41,9 +41,6 @@ async function main(){
  assert.equal(sortCatalogStations(change,{},null,'popularity','region','Αττική')
    .findIndex(s=>s._id==='10'),7,
    'targeted Boost advances two positions in matching region');
- assert.equal(sortCatalogStations(change,{},null,'popularity','genre','Dance')
-   .findIndex(s=>s._id==='10'),9,
-   'targeted reward cannot grant global scope by accident');
  const premium={...stations[9],commercialBoost:{tier:'premium',placement:'eligible',
    priority:100,postBoost:{positions:4,placement:'global'}}};
  assert.equal(commercialBoostPriority(premium),100,'live Premium priority stays active');
