@@ -126,6 +126,8 @@ export function createDSPGraph(ctx,source){
   const listenerTreble=filter(ctx,'highshelf',4700);
   const listenerComp=ctx.createDynamicsCompressor();
   const listenerMakeup=ctx.createGain(),listenerHeadroom=ctx.createGain();
+  const listenerUpmix=ctx.createGain();
+  listenerUpmix.channelCount=2;listenerUpmix.channelCountMode='explicit';
   const listenerSplit=ctx.createChannelSplitter(2);
   const userLL=ctx.createGain(),userLR=ctx.createGain(),userRL=ctx.createGain(),userRR=ctx.createGain();
   const listenerMerge=ctx.createChannelMerger(2);
@@ -166,7 +168,8 @@ export function createDSPGraph(ctx,source){
   listenerMid.connect(listenerTreble);
   listenerTreble.connect(listenerComp);
   listenerComp.connect(listenerMakeup);
-  listenerMakeup.connect(listenerSplit);
+  listenerMakeup.connect(listenerUpmix);
+  listenerUpmix.connect(listenerSplit);
   listenerSplit.connect(userLL,0);listenerSplit.connect(userLR,0);
   listenerSplit.connect(userRL,1);listenerSplit.connect(userRR,1);
   userLL.connect(listenerMerge,0,0);userRL.connect(listenerMerge,0,0);
@@ -182,7 +185,7 @@ export function createDSPGraph(ctx,source){
     makeup,bass,mid,treble,upmix,split,ll,rl,lr,rr,merge,output,
     beforePeak,headroom,fade,afterPeak,setting:{...DSP_DEFAULTS},
     listenerRaw,listenerDefault,listenerWet,listenerMix,listenerBass,
-    listenerMid,listenerTreble,listenerComp,listenerMakeup,listenerSplit,
+    listenerMid,listenerTreble,listenerComp,listenerMakeup,listenerUpmix,listenerSplit,
     userLL,userLR,userRL,userRR,listenerMerge,listenerHeadroom,
     compressorSettings:{...DSP_COMPRESSOR_DEFAULTS},preset:'OFF',headroomDb:0,
     listenerMode:'DEFAULT'};
