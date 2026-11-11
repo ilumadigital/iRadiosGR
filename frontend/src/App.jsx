@@ -2044,6 +2044,25 @@ function MainApp() {
 
 // Keep the business console completely isolated: no listener/audio hooks,
  // station playback, ad engine, player widgets or Socket.IO are mounted there.
+// Invitations complete in the same player-free Broadcaster shell as registration.
+function StandaloneBroadcasterInvitation(){
+  const [currentUser,setCurrentUser]=useState(null);
+  const [loading,setLoading]=useState(true);
+  useEffect(()=>{
+    const token=localStorage.getItem('iluma_token');
+    if(!token){setLoading(false);return;}
+    let alive=true;
+    fetch('/api/auth/me',{headers:{Authorization:'Bearer '+token},cache:'no-store'})
+      .then(async response=>response.ok?response.json():null)
+      .then(user=>{if(alive)setCurrentUser(user);})
+      .catch(()=>{if(alive)setCurrentUser(null);})
+      .finally(()=>{if(alive)setLoading(false);});
+    return ()=>{alive=false;};
+  },[]);
+  if(loading)return <div role="status" className="flex min-h-screen items-center justify-center bg-[#080c0c] text-sm text-[#ccff00]">Έλεγχος πρόσκλησης Broadcaster…</div>;
+  return <BroadcasterInvitation API_URL="/api" currentUser={currentUser} setCurrentUser={setCurrentUser}/>;
+}
+
 function AppContent(){
   const location=useLocation();
   // No MainApp, audio hooks, socket, player, menus or advertisements in Broadcaster onboarding.
@@ -2052,6 +2071,7 @@ function AppContent(){
   if(location.pathname==='/broadcast/pending')return <BroadcasterPending/>;
   // Keep the B2B agreement completely player-free like /broadcast.
   if(location.pathname==='/broadcaster-terms')return <TermsBroadcasters API_URL="/api"/>;
+  if(location.pathname==='/broadcaster-invite')return <StandaloneBroadcasterInvitation/>;
   if(location.pathname==='/verify-email')return <VerifyEmail API_URL="/api"/>;
   // Existing bookmarks remain functional, but operational pages now open
   // the separate management shell instead of instantiating radio playback.

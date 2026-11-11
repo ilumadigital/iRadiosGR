@@ -51,3 +51,6 @@ assert.ok(terms.includes("requiredBroadcasterTermsVersion")&&terms.includes("'/a
  'Accepting terms requires a signed account and current legal version');
 assert.ok(terms.includes('id="term-11"')&&terms.includes('type="checkbox"'),
  'All 11 legal sections and explicit consent control remain visible');
+
+assert.ok(app.includes("if(location.pathname==='/broadcaster-invite')return <StandaloneBroadcasterInvitation/>;"),
+ 'Invitation completion after consent cannot mount the listener player');
