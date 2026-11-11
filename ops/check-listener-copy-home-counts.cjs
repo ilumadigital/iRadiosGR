@@ -66,7 +66,7 @@ const home=read('frontend/src/pages/Home.jsx');
 assert.ok(home.includes('chosenIds') && home.includes('all.findIndex'),
   'fill For You with real distinct stations if preferred genres are sparse');
 assert.ok(home.includes('eligibleTopStations') && home.includes('const topStations') &&
-  home.includes('.slice(0,7)') && home.includes('compareCatalogPopularity'),
+  home.includes('.slice(0,7)') && home.includes('sortCatalogStations'),
   'fill Top with up to seven approved stations, ranked by saved position');
 assert.ok(!home.includes('Το iRadios AI αναλύει'), 'do not claim AI recommendations');
 assert.ok(!home.includes('άσε τον αλγόριθμο'), 'do not use synthetic marketing copy');
