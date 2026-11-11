@@ -27,9 +27,14 @@ function fixture(){
   for(const [key,value] of Object.entries(update.$inc||{}))record[key]=(record[key]||0)+value;
  }
  const User={
-  findOneAndUpdate:(q,update)=>({select:async()=>{
-   if(!matching(q))return null;modify(update);return {...record};
-  }}),
+  findOneAndUpdate:(q,update)=>{
+   // Mongoose queries support BOTH .select() and direct await/then().
+   const execute=async()=>{
+    if(!matching(q))return null;
+    modify(update);return {...record};
+   };
+   return {select:execute,then:(resolve,reject)=>execute().then(resolve,reject)};
+  },
   findOne:q=>({select:async()=>matching(q)?{...record}:null}),
   updateOne:async(q,update)=>{updates.push(update);if(matching(q))modify(update);}
  };
@@ -53,6 +58,8 @@ test('Wrong codes consume attempts, correct one yields one-use admin2fa token',a
  const granted=await verifyChallenge(f.User,{challenge,code:f.emails[0].code},
   claims=>JSON.stringify(claims));
  assert.equal(JSON.parse(granted.token).admin2fa,true);
+ assert.equal(JSON.parse(granted.token).id,ID);
+ assert.equal(f.record.adminOtpChallengeHash,undefined);
  await assert.rejects(()=>verifyChallenge(f.User,{challenge,code:f.emails[0].code}),{status:401});
 });
 test('Expired, exhausted, failed delivery, non-admin and bad input fail closed',async()=>{

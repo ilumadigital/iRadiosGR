@@ -267,7 +267,11 @@ exports.login = async (req, res) => {
         termsAcceptedVersion: user.termsAcceptedVersion
       }))
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    if(err?.status)return res.status(err.status).json({code:err.code,error:err.message});
+    console.error('[AUTH] Login failed',err?.code||err?.name);
+    return res.status(503).json({error:'Η σύνδεση δεν ολοκληρώθηκε. Δοκίμασε ξανά.'});
+  }
 };
 
 exports.verifyAdmin2fa=async(req,res)=>{
