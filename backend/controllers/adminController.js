@@ -5,6 +5,7 @@ const Ad = require('../models/Ad');
 const Transaction = require('../models/Transaction'); 
 const EmailHistory = require('../models/EmailHistory');
 const bcrypt = require('bcryptjs');
+const gatewayBilling = require('../services/ilumaGatewayClient');
 
 // 🟢 ΠΡΟΣΘΗΚΕΣ ΓΙΑ ΤΑ ΑΡΧΕΙΑ:
 const fs = require('fs').promises; // Χρησιμοποιούμε το promises API
@@ -133,7 +134,7 @@ exports.updateUserRole = async (req, res) => {
 // 🟢 ΑΝΑΒΑΘΜΙΣΜΕΝΟ: ΠΛΗΡΗΣ ΔΙΑΓΡΑΦΗ ΧΡΗΣΤΗ (CASCADE DELETE ΜΕ UPLOADS)
 exports.deleteUser = async (req, res) => {
   try {
-    const adminId = req.headers['admin-id'];
+    const adminId = String(req.user?._id || req.headers['admin-id'] || '');
     const userIdToDelete = req.params.id;
 
     if (userIdToDelete === adminId) {
@@ -143,6 +144,20 @@ exports.deleteUser = async (req, res) => {
     const user = await User.findById(userIdToDelete);
     if (!user) {
       return res.status(404).json({ error: 'Ο χρήστης δεν βρέθηκε.' });
+    }
+
+    // Financial safety barrier: stop ALL Listener and Broadcaster MIT mandates
+    // (including station add-ons) in Gateway before destroying the account.
+    // If Gateway cannot confirm the shutdown, retain the user and their files.
+    let billingShutdown;
+    try {
+      billingShutdown = await gatewayBilling.cancelAllOnAccountDeletion(user);
+    } catch (error) {
+      console.error('[ADMIN DELETE] Gateway subscription shutdown failed:', error.code || error.name);
+      return res.status(503).json({
+        code: 'GATEWAY_SUBSCRIPTIONS_NOT_CANCELLED',
+        error: 'Η διαγραφή δεν έγινε, επειδή δεν επιβεβαιώθηκε η ακύρωση όλων των συνδρομών στο Gateway. Δοκιμάστε ξανά ή ελέγξτε τις συνδρομές.'
+      });
     }
 
     // 🧹 1. ΚΑΘΑΡΙΣΜΟΣ ΦΑΚΕΛΩΝ ΣΤΟN ΔΙΣΚΟ (UPLOADS)
@@ -173,7 +188,14 @@ exports.deleteUser = async (req, res) => {
     // 🗑️ ΤΕΛΟΣ: Διαγραφή του ίδιου του χρήστη
     await User.findByIdAndDelete(userIdToDelete);
 
-    res.json({ message: 'Ο χρήστης, τα αρχεία του, και όλα τα συνδεδεμένα δεδομένα διεγράφησαν επιτυχώς!' });
+    res.json({
+      message: 'Ο λογαριασμός διαγράφηκε και οι επόμενες χρεώσεις ακυρώθηκαν στο Gateway.',
+      billing: {
+        listenerCancelled: billingShutdown.listener_cancelled,
+        broadcasterCancelled: billingShutdown.broadcaster_cancelled,
+        subscriptionsCancelled: billingShutdown.subscriptions_cancelled
+      }
+    });
   } catch (err) { 
     console.error("Σφάλμα διαγραφής χρήστη:", err);
     res.status(500).json({ error: 'Εσωτερικό σφάλμα κατά τη διαγραφή.' }); 
