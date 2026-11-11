@@ -68,7 +68,11 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
    p.scopeType==='station'&&String(p.resourceId)===String(station._id) &&
      ['ADD-DSP','ADD-ADS'].includes(p.sku)));
  if(!relevant && !relevantPaid)return data;
- if(!rights.has('broadcaster.webdsp'))data.dspPreset='OFF';
+ if(!rights.has('broadcaster.webdsp')){
+   data.dspPreset='OFF';
+   // Never leak or apply paid tone/width processing once access expires.
+   data.dspSettings={bass:0,mid:0,treble:0,output:0,stereoWidth:100};
+ }
  if(!rights.has('broadcaster.ad_control'))data.disableNetworkAds=false;
  return data;
 }
