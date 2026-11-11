@@ -151,7 +151,7 @@ export function createDSPGraph(ctx,source){
   const merge=ctx.createChannelMerger(2);
   const output=ctx.createGain(),beforePeak=ctx.createAnalyser();
   const headroom=ctx.createGain(),fade=ctx.createGain();
-  const clipper=ctx.createWaveShaper(),clipperDry=ctx.createGain();
+  const clipper=ctx.createWaveShaper(),clipperDrive=ctx.createGain(),clipperDry=ctx.createGain();
   const clipperWet=ctx.createGain(),clipperMix=ctx.createGain();
   const postPeak=ctx.createAnalyser();
   clipper.oversample='4x';
@@ -199,7 +199,8 @@ export function createDSPGraph(ctx,source){
   output.connect(beforePeak);
   beforePeak.connect(headroom);
   headroom.connect(clipperDry);clipperDry.connect(clipperMix);
-  headroom.connect(clipper);clipper.connect(clipperWet);
+  headroom.connect(clipperDrive);clipperDrive.connect(clipper);
+  clipper.connect(clipperWet);
   clipperWet.connect(clipperMix);
   clipperMix.connect(postPeak);postPeak.connect(wet);
   wet.connect(mix);
@@ -225,7 +226,7 @@ export function createDSPGraph(ctx,source){
   const graph={ctx,source,dry,wet,mix,input,highpass,lowpass,compressor,
     compressorDry,compressorWet,compressorMix,
     makeup,bass,mid,treble,upmix,split,ll,rl,lr,rr,merge,output,
-    beforePeak,headroom,clipper,clipperDry,clipperWet,clipperMix,postPeak,
+    beforePeak,headroom,clipperDrive,clipper,clipperDry,clipperWet,clipperMix,postPeak,
     fade,afterPeak,setting:{...DSP_DEFAULTS},
     listenerRaw,listenerDefault,listenerWet,listenerMix,listenerBass,
     listenerMid,listenerTreble,listenerComp,listenerMakeup,listenerUpmix,listenerSplit,
@@ -234,7 +235,7 @@ export function createDSPGraph(ctx,source){
     clipperSettings:normalizeDSPClipper(),clipperLevel:0,preset:'OFF',headroomDb:0,
     listenerMode:'DEFAULT'};
   dry.gain.value=1;wet.gain.value=0;headroom.gain.value=1;
-  clipperDry.gain.value=1;clipperWet.gain.value=0;
+  clipperDry.gain.value=1;clipperWet.gain.value=0;clipperDrive.gain.value=1;
   listenerRaw.gain.value=0;listenerDefault.gain.value=1;
   listenerWet.gain.value=0;listenerHeadroom.gain.value=1;
   applyDSPGraph(graph,'OFF',DSP_DEFAULTS);
@@ -282,6 +283,7 @@ export function applyDSPGraph(graph,preset,settings,compressorSettings,bypass=fa
   const level=isDry?0:graph.clipperSettings[key].level;
   if(level>0&&graph.clipperLevel!==level)graph.clipper.curve=createSoftClipCurve(level);
   graph.clipperLevel=level;
+  setAudioParam(graph.clipperDrive.gain,dbToGain(level),ctx);
   setAudioParam(graph.clipperDry.gain,level>0?0:1,ctx);
   setAudioParam(graph.clipperWet.gain,level>0?1:0,ctx);
 }
