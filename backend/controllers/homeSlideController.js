@@ -105,10 +105,19 @@ exports.publicSlides = async (req,res) => {
         { $or: [{startsAt: null}, {startsAt: {$lte:now}}] },
         { $or: [{endsAt: null}, {endsAt: {$gt:now}}] }
       ]
-    }).select('title subtitle eyebrow imageUrl ctaLabel targetType stationId genre externalUrl audience priority placement placementValue')
+    }).select('title subtitle eyebrow imageUrl ctaLabel targetType stationId genre externalUrl audience priority placement placementValue placements')
       .sort({ priority:-1, createdAt:-1 }).limit(tileFeed ? 80 : 16).lean();
+    // A single CMS creative can target multiple category/region tiles. Expand
+    // each configured destination instead of leaking the legacy first placement
+    // into unrelated tiles. Keep the CMS priority order and audience rules.
+    const tiles = tileFeed ? slides.flatMap(slide => {
+      const placements = Array.isArray(slide.placements) && slide.placements.length
+        ? slide.placements : [{placement:slide.placement,placementValue:slide.placementValue}];
+      return placements.filter(item=>item.placement===placement && clean(item.placementValue))
+        .map(item=>({...slide,placement,placementValue:item.placementValue}));
+    }).slice(0,80) : slides;
     res.setHeader('Cache-Control', 'public, max-age=30');
-    res.json(slides);
+    res.json(tiles);
   } catch(e) { fail(res,e); }
 };
 exports.adminSlides = async (_req,res) => {
