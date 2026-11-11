@@ -84,12 +84,47 @@ function Field({label,help,children,wide=false}){
     {children}{help&&<span className="block text-[10px] leading-4 text-zinc-500">{help}</span>}
   </label>;
 }
-function NavItem({to,icon:Icon,label,close,end=false}){
+
+const BROADCASTER_ADDON_RIGHTS=Object.freeze({
+  '/backoffice/radar':'broadcaster.analytics',
+  '/backoffice/audio':'broadcaster.webdsp',
+  '/backoffice/ad-control':'broadcaster.ad_control'
+});
+// Entitlements are server-authoritative: include Premium at account scope,
+// purchased single-station add-ons, and free grants assigned by admin.
+async function fetchBroadcasterAddonRights(signal){
+  const authorization='Bearer '+(localStorage.getItem('iluma_token')||'');
+  const paths=['/api/billing/me/entitlements','/api/billing/me/station-entitlements'];
+  const responses=await Promise.all(paths.map(url=>fetch(url,{
+    headers:{Authorization:authorization},cache:'no-store',signal
+  })));
+  if(responses.some(response=>!response.ok))throw new Error('Entitlements unavailable');
+  const [account,stations]=await Promise.all(responses.map(response=>response.json()));
+  const rights=new Set(Array.isArray(account.entitlements)?account.entitlements:[]);
+  for(const values of Object.values(stations.byStation||{})){
+    if(Array.isArray(values))for(const right of values)rights.add(right);
+  }
+  return rights;
+}
+function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false,unavailable=false}){
+  if(locked||checking||unavailable){
+    const reason=checking?'Έλεγχος δικαιωμάτων…':unavailable
+      ?'Δεν ήταν δυνατή η επιβεβαίωση των δικαιωμάτων.'
+      :'Απαιτείται ενεργό Add-on ή Broadcaster Premium.';
+    return <span aria-disabled="true" title={reason}
+      className="flex cursor-not-allowed items-center gap-3 rounded-2xl border border-transparent px-4 py-3.5 text-[13px] font-bold text-zinc-600 opacity-80"
+    ><Icon size={18} strokeWidth={2} aria-hidden="true"/>
+      <span className="min-w-0 flex-1">{label}</span>
+      {checking?<RefreshCw size={14} className="shrink-0 animate-spin" aria-hidden="true"/>:
+        <LockKeyhole size={15} className="shrink-0 text-zinc-500" aria-hidden="true"/>}
+      <span className="sr-only">{reason}</span>
+    </span>;
+  }
   return <NavLink to={to} end={end} onClick={close} className={({isActive})=>
     'flex items-center gap-3 rounded-2xl px-4 py-3.5 text-[13px] font-bold transition '+
     (isActive?'bg-[#caff00] text-[#111400] shadow-[0_12px_30px_rgba(202,255,0,.15)]':
       'text-zinc-400 hover:bg-white/[.07] hover:text-white')
-  }><Icon size={18} strokeWidth={2}/>{label}</NavLink>;
+  }><Icon size={18} strokeWidth={2}/><span className="min-w-0 flex-1">{label}</span></NavLink>;
 }
 function Logo(){
   return <div className="flex items-center gap-2.5">
@@ -1302,27 +1337,14 @@ function Operations({data,section,reload}){
     </div>
   </div>;
 }
-// Navigation-only guard: the backend remains the authority for every write.
-function BroadcasterToolGate({entitlement,children}){
-  const [rights,setRights]=useState(null);
-  const [error,setError]=useState(false);
-  useEffect(()=>{
-    const ctrl=new AbortController();setRights(null);setError(false);
-    fetch('/api/billing/me/station-entitlements',{
-      headers:{Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')},
-      cache:'no-store',signal:ctrl.signal
-    }).then(async response=>{
-      if(!response.ok)throw Error('entitlements unavailable');
-      return response.json();
-    }).then(result=>{
-      if(!ctrl.signal.aborted)setRights(Object.values(result.byStation||{})
-        .some(values=>Array.isArray(values)&&values.includes(entitlement)));
-    }).catch(()=>{if(!ctrl.signal.aborted)setError(true);});
-    return ()=>ctrl.abort();
-  },[entitlement]);
-  if(error)return <div role="alert" className={panel+' p-8 text-sm text-rose-300'}>Δεν μπόρεσαν να επιβεβαιωθούν τα δικαιώματά σου. Δοκίμασε εκ νέου.</div>;
-  if(rights===null)return <div role="status" className={panel+' p-8 text-sm text-zinc-300'}>Έλεγχος δικαιωμάτων Pro…</div>;
-  if(rights)return children;
+// The same live server entitlement state controls both navigation and content.
+// API routes remain responsible for authorization of actual tool operations.
+function BroadcasterToolGate({entitlement,rights,status,children}){
+  if(status==='error')return <div role="alert" className={panel+' p-8 text-sm text-rose-300'}>
+    Δεν μπόρεσαν να επιβεβαιωθούν τα δικαιώματά σου. Δοκίμασε ξανά.</div>;
+  if(status!=='ready')return <div role="status" className={panel+' p-8 text-sm text-zinc-300'}>
+    Έλεγχος δικαιωμάτων Pro…</div>;
+  if(rights.has(entitlement))return children;
   return <div className={panel+' mx-auto max-w-2xl p-8 text-center md:p-12'}>
     <LockKeyhole className="mx-auto mb-5 text-[#ccff00]" size={38}/>
     <h2 className="text-2xl font-black text-white">Αυτό είναι Pro Feature</h2>
@@ -1339,6 +1361,22 @@ export default function Backoffice(){
   const requestDelete=useCallback(station=>setDeleteTarget(station),[]);
   const closeDelete=useCallback(()=>setDeleteTarget(null),[]);
   const [navFilter,setNavFilter]=useState('');
+  const [addonAccess,setAddonAccess]=useState({status:'loading',rights:new Set(),path:''});
+  // Refresh whenever the Broadcaster changes pages or returns from checkout.
+  // Fail closed: a network error never unlocks the tools.
+  useEffect(()=>{
+    if(data?.user?.role!=='broadcaster')return;
+    const controller=new AbortController();
+    setAddonAccess({status:'loading',rights:new Set(),path:location.pathname});
+    fetchBroadcasterAddonRights(controller.signal)
+      .then(rights=>{if(!controller.signal.aborted)
+        setAddonAccess({status:'ready',rights,path:location.pathname});})
+      .catch(()=>{if(!controller.signal.aborted)
+        setAddonAccess({status:'error',rights:new Set(),path:location.pathname});});
+    return ()=>controller.abort();
+  },[data?.user?._id,data?.user?.role,location.pathname]);
+  const addonStatus=addonAccess.path===location.pathname?addonAccess.status:'loading';
+  const addonRights=addonStatus==='ready'?addonAccess.rights:new Set();
   const notify=useCallback((message,type='success')=>{
     setNotice({message,type});
   },[]);
@@ -1371,9 +1409,9 @@ export default function Backoffice(){
       {to:'/backoffice/boost',label:'Boost My Radio',icon:Sparkles},
       {to:'/backoffice/pro-features',label:'Pro Features & Premium',icon:ShieldCheck},
       {to:'/backoffice/billing',label:'Οι συνδρομές μου',icon:FileCheck2},
-      {to:'/backoffice/radar',label:'Audience Radar',icon:BarChart3},
-      {to:'/backoffice/audio',label:'WebDSP Audio Engine',icon:SlidersHorizontal},
-      {to:'/backoffice/ad-control',label:'iRadios Ad Control',icon:Activity}
+      {to:'/backoffice/radar',label:'Audience Radar',icon:BarChart3,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/radar']},
+      {to:'/backoffice/audio',label:'WebDSP Audio Engine',icon:SlidersHorizontal,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/audio']},
+      {to:'/backoffice/ad-control',label:'iRadios Ad Control',icon:Activity,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/ad-control']}
     ]}]:[]),
     ...(admin?[
       {section:'ΔΙΑΧΕΙΡΙΣΗ',items:[
@@ -1437,7 +1475,11 @@ export default function Backoffice(){
         if(!items.length)return null;
         return <div key={group.section}>
         <p className="mb-3 px-4 text-[9px] font-black tracking-[.24em] text-zinc-600">{group.section}</p>
-        <div className="space-y-1">{items.map(item=><NavItem key={item.to} {...item} close={()=>setSidebarOpen(false)}/>)}</div></div>;})}</nav>
+        <div className="space-y-1">{items.map(item=><NavItem key={item.to} {...item}
+          locked={Boolean(item.entitlement)&&addonStatus==='ready'&&!addonRights.has(item.entitlement)}
+          checking={Boolean(item.entitlement)&&addonStatus==='loading'}
+          unavailable={Boolean(item.entitlement)&&addonStatus==='error'}
+          close={()=>setSidebarOpen(false)}/>)}</div></div>;})}</nav>
       <div className="mt-7 space-y-2 border-t border-white/10 pt-5">
         <a href="/" className="flex items-center gap-3 rounded-xl px-4 py-3 text-[12px] font-bold text-zinc-400 hover:bg-white/5 hover:text-white"><ExternalLink size={17}/> Άνοιγμα iRadios App</a>
         <button onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[12px] font-bold text-zinc-400 hover:bg-rose-500/10 hover:text-rose-300"><LogOut size={17}/> Αποσύνδεση</button>
@@ -1475,9 +1517,9 @@ export default function Backoffice(){
           <Route path="/backoffice/pro-features" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="features" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/boost" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="boost" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/billing" element={data.user.role==='broadcaster'?<BroadcasterBillingDashboard stations={data.stations}/>:<Navigate to="/backoffice" replace/>}/>
-          <Route path="/backoffice/radar" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.analytics"><BroadcasterRadar accountId={data.user._id}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
-          <Route path="/backoffice/audio" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.webdsp"><BroadcasterDSP API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
-          <Route path="/backoffice/ad-control" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.ad_control"><BroadcasterAds API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/radar" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.analytics" rights={addonRights} status={addonStatus}><BroadcasterRadar accountId={data.user._id}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/audio" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.webdsp" rights={addonRights} status={addonStatus}><BroadcasterDSP API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/ad-control" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.ad_control" rights={addonRights} status={addonStatus}><BroadcasterAds API_URL="/api" currentUser={data.user}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/review" element={<Review data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
           <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
           {['analytics','users','ads','banners','slides','newsfeed','promoted','emails','billing','radioset','boost','adcontrol','push'].map(section=>
