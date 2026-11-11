@@ -76,12 +76,12 @@ const stationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   dspPreset: { type: String, default: 'OFF' },
   // EQ and stereo persist independently of the selected preset.
-  // No forced master limiter/hard clipper exists in the playback engine.
+  // Soft clipper is optional and disabled (level 0) for existing stations.
   dspSettings: {
     bass: { type: Number, default: 0, min: -12, max: 12 },
     mid: { type: Number, default: 0, min: -12, max: 12 },
     treble: { type: Number, default: 0, min: -12, max: 12 },
-    output: { type: Number, default: 0, min: -12, max: 3 },
+    output: { type: Number, default: 0, min: -7, max: 7 },
     stereoWidth: { type: Number, default: 100, min: 0, max: 150 }
   },
   // Additional compressor controls: presets define the starting curve,
@@ -93,6 +93,18 @@ const stationSchema = new mongoose.Schema({
     attack: { type: Number, default: .045, min: .003, max: .2 },
     release: { type: Number, default: .34, min: .08, max: 1.2 },
     makeup: { type: Number, default: 0, min: -6, max: 6 }
+  },
+  // Per-mode master processing: Headroom defaults ON for compatibility;
+  // Clipper strength defaults OFF (0) and only runs in the selected mode.
+  dspClipper: {
+    ENHANCER: {
+      headroomEnabled: { type: Boolean, default: true },
+      level: { type: Number, default: 0, min: 0, max: 8, validate: Number.isInteger }
+    },
+    FM_MODE: {
+      headroomEnabled: { type: Boolean, default: true },
+      level: { type: Number, default: 0, min: 0, max: 8, validate: Number.isInteger }
+    }
   },
   pendingEdits: { type: Object, default: null },
   slug: { type: String, unique: true, sparse: true },
