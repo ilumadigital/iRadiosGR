@@ -47,6 +47,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   const [stationId,setStationId]=useState('');
   const [search,setSearch]=useState('');
   const [loading,setLoading]=useState(true);
+  const [retryCount,setRetryCount]=useState(0);
   const [error,setError]=useState('');
   const [draft,setDraft]=useState(blank);
   const [saved,setSaved]=useState(blank);
@@ -76,7 +77,8 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
           headers:{Authorization:'Bearer '+token()},cache:'no-store'
         });
         const body=await res.json().catch(()=>({}));
-        if(!res.ok)throw Error(body.error||'Δεν φορτώθηκαν οι σταθμοί WebDSP.');
+        if(!res.ok)throw Error((body.error||body.message||'Δεν φορτώθηκαν οι σταθμοί WebDSP.')+
+          ' (HTTP '+res.status+')');
         if(!Array.isArray(body))throw Error('Μη έγκυρη απάντηση WebDSP.');
         if(cancelled)return;
         setStations(body);
@@ -89,7 +91,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     if(currentUser?.role==='admin'||currentUser?.role==='broadcaster')load();
     else {setError('Απαιτείται λογαριασμός διαχειριστή ή broadcaster.');setLoading(false);}
     return()=>{cancelled=true;};
-  },[API_URL,currentUser?._id,currentUser?.role]);
+  },[API_URL,currentUser?._id,currentUser?.role,retryCount]);
 
   // A station switch is an intentional boundary: never continue playing
   // another station or carry its unsaved settings into the new station.
@@ -238,7 +240,11 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
           <span>{item.name}</span>
           {item.isOffline&&<span className="text-[10px] text-amber-300">OFFLINE</span>}
         </button>)}
-        {!stations.length&&<p className="text-sm text-zinc-400">Δεν υπάρχουν σταθμοί με ενεργό δικαίωμα WebDSP.</p>}
+        {!stations.length&&!error&&<p className="text-sm text-zinc-400">
+          {currentUser?.role==='admin'?
+            'Δεν υπάρχουν καταχωρισμένοι σταθμοί.':
+            'Δεν υπάρχει ενεργή νέα συνδρομή ή δωρεάν παραχώρηση WebDSP για τους σταθμούς σου. Οι παλιές χειροκίνητες άδειες δεν ισχύουν.'}
+        </p>}
       </div>
     </section>
 
@@ -368,6 +374,10 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     </>}
 
     {notice&&<p role="status" className="rounded-xl border border-[#caff00]/20 bg-[#caff00]/5 p-3 text-sm text-[#caff00]">{notice}</p>}
-    {error&&<p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-sm text-rose-300">{error}</p>}
+    {error&&<div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-sm text-rose-300">
+      <span>{error}</span>
+      <button type="button" className="rounded-lg border border-rose-400/40 px-3 py-2 text-xs font-bold"
+        onClick={()=>setRetryCount(n=>n+1)}>Επανάληψη φόρτωσης</button>
+    </div>}
   </main>;
 }
