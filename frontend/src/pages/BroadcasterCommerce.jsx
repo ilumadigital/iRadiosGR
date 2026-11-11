@@ -1,4 +1,4 @@
-import React, {useEffect,useMemo,useState} from 'react';
+import React, {useEffect,useMemo,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {Activity,ArrowRight,BarChart3,Check,CheckCircle2,Clock3,Crown,
   Globe2,LockKeyhole,Radio,Rocket,ShieldCheck,SlidersHorizontal,Sparkles,
@@ -81,7 +81,9 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
   const [catalog,setCatalog]=useState(null);
   const [accountRights,setAccountRights]=useState([]);
   const [byStation,setByStation]=useState({});
-  const [selectedStation,setSelectedStation]=useState('');
+  const [selectedStation,setSelectedStation]=useState(()=>new URLSearchParams(window.location.search).get('station')||'');
+  const offerFocusRef=useRef(false);
+  const requestedOffer=new URLSearchParams(window.location.search).get('sku');
   const [period,setPeriod]=useState('month');
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
@@ -215,6 +217,17 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
    }catch(e){setPaymentNotice(e.message);}
    finally{setCancelBusy(false);}
   };
+  // The Preview CTA deep-links to the existing signed Nexi checkout UI.
+  // Preserve the station from the preview and scroll exactly once to its offer.
+  useEffect(()=>{
+    if(loading||view!=='features'||offerFocusRef.current)return;
+    if(!['ADD-DSP','B-PREM'].includes(requestedOffer))return;
+    const element=document.getElementById(requestedOffer==='ADD-DSP'?'webdsp-offer':'premium-offer');
+    if(element){
+      offerFocusRef.current=true;
+      element.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+  },[loading,view,requestedOffer]);
   const fullPremium=accountRights.includes('broadcaster.unlimited_stations');
   useEffect(()=>{
     if(!fullPremium)return;
@@ -295,7 +308,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
         </label>
       </section>
       {view==='features'?<>
-        <section className="relative overflow-hidden rounded-[32px] border-2 border-[#ccff00]/60 bg-[#171e12] p-7 shadow-[0_20px_80px_rgba(204,255,0,.06)] md:p-10">
+        <section id="premium-offer" className="relative overflow-hidden rounded-[32px] border-2 border-[#ccff00]/60 bg-[#171e12] p-7 shadow-[0_20px_80px_rgba(204,255,0,.06)] md:p-10">
           <div className="pointer-events-none absolute -right-12 -top-12 size-64 rounded-full bg-[#ccff00]/10 blur-[70px]"/>
           <div className="relative grid items-start gap-8 lg:grid-cols-[1.15fr_.85fr]">
             <div>
@@ -366,7 +379,9 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
           {MODULES.map(module=>{
             const Icon=module.icon,active=has(module.right);
             const included=fullPremium;
-            return <article key={module.sku} className="flex flex-col rounded-[28px] border border-white/10 bg-[#131718] p-6 transition hover:border-white/20">
+            return <article key={module.sku} id={module.sku==='ADD-DSP'?'webdsp-offer':undefined}
+              className={'flex scroll-mt-24 flex-col rounded-[28px] border bg-[#131718] p-6 transition hover:border-white/20 '+
+                (requestedOffer===module.sku?'border-[#ccff00]/60 shadow-[0_0_36px_rgba(204,255,0,.08)]':'border-white/10')}>
               <div className="flex items-start justify-between gap-4"><div className="flex size-12 items-center justify-center rounded-2xl bg-white/[.07] text-[#ccff00]"><Icon size={23}/></div>
                 <StateTag active={active} included={included}/></div>
               <h3 className="mt-5 text-2xl font-black tracking-tight">{module.name}</h3>
