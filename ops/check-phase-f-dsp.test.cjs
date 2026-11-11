@@ -5,7 +5,8 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 class Node{
  constructor(){this.connections=[];this.gain=param();this.frequency=param();this.Q=param();
    this.threshold=param();this.ratio=param();this.knee=param();
-   this.attack=param();this.release=param();this.fftSize=0;this.reduction=0;}
+   this.attack=param();this.release=param();this.fftSize=0;this.reduction=0;
+   this.curve=null;this.oversample='none';}
  connect(node,out=0,input=0){this.connections.push({node,out,input});return node;}
  getFloatTimeDomainData(buf){buf.fill(0);buf[0]=.5;}
 }
@@ -13,8 +14,9 @@ function param(){return {value:0,cancelScheduledValues(){},setTargetAtTime(v){th
 function context(){return {currentTime:0,sampleRate:48000,destination:new Node(),
  createGain:()=>new Node(),createBiquadFilter:()=>new Node(),
  createDynamicsCompressor:()=>new Node(),createChannelSplitter:()=>new Node(),
- createChannelMerger:()=>new Node(),createAnalyser:()=>new Node()};
- // A WaveShaper mock is intentionally missing: hard clipping must never return.
+ createChannelMerger:()=>new Node(),createAnalyser:()=>new Node(),
+ createWaveShaper:()=>new Node()};
+ // Optional soft clipping is isolated behind a true level-0 bypass.
 }
 const adjacent=(from,to)=>assert.ok(from.connections.some(c=>c.node===to),'signal path not connected');
 const engine=()=>import('../frontend/src/utils/dspEngine.js');
@@ -54,7 +56,10 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  adjacent(g.merge,g.output);
  adjacent(g.output,g.beforePeak);
  adjacent(g.beforePeak,g.headroom);
- adjacent(g.headroom,g.wet);adjacent(g.wet,g.mix);
+ adjacent(g.headroom,g.clipperDry);adjacent(g.clipperDry,g.clipperMix);
+ adjacent(g.headroom,g.clipper);adjacent(g.clipper,g.clipperWet);
+ adjacent(g.clipperWet,g.clipperMix);
+ adjacent(g.clipperMix,g.postPeak);adjacent(g.postPeak,g.wet);adjacent(g.wet,g.mix);
  adjacent(source,g.listenerRaw);adjacent(g.listenerRaw,g.listenerMix);
  adjacent(g.mix,g.listenerDefault);adjacent(g.listenerDefault,g.listenerMix);
  adjacent(g.mix,g.listenerBass);
@@ -72,9 +77,12 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  adjacent(g.afterPeak,ctx.destination);
  assert.equal(g.limiter,undefined);
  assert.equal(g.safety,undefined);
+ assert.equal(g.clipper.oversample,'4x');
  applyDSPGraph(g,'OFF',DSP_DEFAULTS);
  assert.equal(g.dry.gain.value,1);
  assert.equal(g.wet.gain.value,0);
+ assert.equal(g.clipperDry.gain.value,1);
+ assert.equal(g.clipperWet.gain.value,0);
  applyDSPGraph(g,'ENHANCER',{...DSP_DEFAULTS,bass:4,stereoWidth:125});
  assert.equal(g.dry.gain.value,0);
  assert.equal(g.wet.gain.value,1);
@@ -131,7 +139,7 @@ test('SONOS 110%, virtual Dolby stereo and VMax are distinct listener-only FX',a
 test('Listener presets are Premium-only, local to an account and bypass ads',()=>{
  const hook=read('frontend/src/hooks/useAudioDSP.js');
  assert.match(hook,/currentUser\?\.isPremium===true/);
- assert.match(hook,/applyDSPGraph\(graph,preset,settings,compressor\)/);
+ assert.match(hook,/applyDSPGraph\(graph,preset,settings,compressor,false,clipper\)/);
  assert.match(hook,/applyListenerMode\(graph,personalMode\)/);
  assert.match(hook,/if\(isPlayingAd\)/);
  const app=read('frontend/src/App.jsx');
@@ -150,12 +158,48 @@ test('Listener presets are Premium-only, local to an account and bypass ads',()=
   assert.ok(!ui.includes('Immersive3D'));
  }
 });
-test('No hard clip or forced limiter, native peak meter warns near 0 dBFS',async()=>{
+test('Optional soft clipper and live peaks preserve raw bypass and sample warning',async()=>{
  const {measurePeakDbfs,PEAK_WARNING_DBFS}=await engine();
  assert.ok(Math.abs(measurePeakDbfs(new Node(),new Float32Array(32))+6.0206)<.001);
  assert.equal(PEAK_WARNING_DBFS,-1);
  const source=read('frontend/src/utils/dspEngine.js');
- assert.doesNotMatch(source,/createWaveShaper\(|limiter\.threshold|safety\.curve/);
+ assert.match(source,/createWaveShaper\(/);
+ assert.doesNotMatch(source,/limiter\.threshold|safety\.curve/);
  const ui=read('frontend/src/pages/DSP.jsx');
- assert.doesNotMatch(ui,/Fixed master ceiling|−0\.5 dBFS/);
+ assert.match(ui,/Clipper level/);
+ assert.match(ui,/beforeWaveRef/);
+ assert.match(ui,/afterWaveRef/);
+ assert.match(ui,/min={-7} max={7}/);
+});
+
+test('Headroom switches, clipper curve and independent broadcaster modes',async()=>{
+ const {createDSPGraph,applyDSPGraph,calculateHeadroomDb,
+   DSP_DEFAULTS,createSoftClipCurve,normalizeDSPClipper}=await engine();
+ const graph=createDSPGraph(context(),new Node());
+ const config={ENHANCER:{headroomEnabled:false,level:4},
+   FM_MODE:{headroomEnabled:true,level:8}};
+ assert.deepEqual(normalizeDSPClipper(),{
+   ENHANCER:{headroomEnabled:true,level:0},
+   FM_MODE:{headroomEnabled:true,level:0}});
+ assert.equal(calculateHeadroomDb('ENHANCER',DSP_DEFAULTS,undefined,config),0);
+ assert.equal(calculateHeadroomDb('FM_MODE',DSP_DEFAULTS,undefined,config)<0,true);
+ applyDSPGraph(graph,'ENHANCER',DSP_DEFAULTS,undefined,false,config);
+ assert.equal(graph.headroomDb,0);
+ assert.equal(graph.clipperLevel,4);
+ assert.equal(graph.clipperDry.gain.value,0);
+ assert.equal(graph.clipperWet.gain.value,1);
+ assert.equal(graph.clipper.curve instanceof Float32Array,true);
+ assert.ok(graph.clipper.curve.length>=2048);
+ const curve=createSoftClipCurve(8);
+ assert.ok(Math.abs(curve[0])<1);
+ assert.ok(Math.abs(curve[curve.length-1])<1);
+ assert.equal(createSoftClipCurve(0),null);
+ applyDSPGraph(graph,'FM_MODE',DSP_DEFAULTS,undefined,false,config);
+ assert.equal(graph.clipperLevel,8);
+ assert.ok(graph.headroomDb<0);
+ applyDSPGraph(graph,'OFF',DSP_DEFAULTS,undefined,false,config);
+ assert.equal(graph.clipperLevel,0);
+ assert.equal(graph.clipperDry.gain.value,1);
+ assert.equal(graph.clipperWet.gain.value,0);
+ assert.equal(graph.dry.gain.value,1);
 });
