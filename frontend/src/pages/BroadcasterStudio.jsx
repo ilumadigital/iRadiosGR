@@ -71,7 +71,13 @@ const getDSPBackgroundCurve = (preset) => {
   const [copiedCode, setCopiedCode] = useState(false);
 
   const features = currentUser?.broadcasterProfile?.features || {};
-  const hasAnalytics = features.analytics || currentUser?.role === 'admin';
+  // Never trust a cached feature flag: the analytics API verifies active
+  // station-level entitlements on every request.
+  const [analyticsUnlocked, setAnalyticsUnlocked] = useState(false);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('all');
+  const [analyticsStationId, setAnalyticsStationId] = useState('');
+  const [analyticsError, setAnalyticsError] = useState('');
+  const hasAnalytics = analyticsUnlocked || currentUser?.role === 'admin';
   const hasDSP = features.dspEngine || currentUser?.role === 'admin';
   const isPremium = currentUser?.isPremium || currentUser?.broadcasterProfile?.tier === 'premium';
   const [widgetType, setWidgetType] = useState('player');
@@ -87,13 +93,9 @@ const getDSPBackgroundCurve = (preset) => {
     avgListenTime: "0m 0s",
     topOrigins: [],
     liveLocations: [],
-    adStats: { totalImpressions: 0, topAd: "-", clicks: 0 }
+    totalSessions: 0, totalPlays: 0, stations: [], period: 'all',
+    adStats: { totalPlays: 0, totalClicks: 0, topAd: "No Data" }
   });
-
-  // ΣΥΝΟΛΙΚΑ PLAYS ΥΠΟΛΟΓΙΣΜΟΣ
-  const totalNetworkPlays = useMemo(() => {
-    return stations.reduce((acc, st) => acc + (st.plays || 0), 0);
-  }, [stations]);
 
   // --- 💡 GREETING LOGIC ---
   const getVocativeName = (name) => {
@@ -197,24 +199,43 @@ const getDSPBackgroundCurve = (preset) => {
     setLoading(false);
   };
 
-  const fetchAnalytics = async () => {
-    if (!currentUser || !hasAnalytics) return;
+  const fetchAnalytics = async (signal) => {
+    if (!currentUser) return;
+    const params = new URLSearchParams({period: analyticsPeriod});
+    if (analyticsStationId) params.set('stationId', analyticsStationId);
     try {
-      const res = await fetch(`${API_URL}/broadcaster/${currentUser._id || currentUser.id}/analytics`);
+      const res = await fetch(`${API_URL}/broadcaster/${currentUser._id || currentUser.id}/analytics?${params}`, {signal});
+      if (signal?.aborted) return;
+      if (res.status === 403) {
+        setAnalyticsUnlocked(false);
+        setAnalyticsError('');
+        return;
+      }
+      if (!res.ok) throw new Error('Δεν ήταν δυνατή η ανάκτηση των Analytics.');
       const data = await res.json();
-      if (res.ok) setAnalytics(data);
-    } catch (err) { console.error("Error fetching analytics:", err); }
+      if (signal?.aborted) return;
+      setAnalytics(data);
+      setAnalyticsUnlocked(true);
+      setAnalyticsError('');
+    } catch (err) {
+      if (err?.name !== 'AbortError' && !signal?.aborted)
+        setAnalyticsError(err?.message || 'Προσωρινό σφάλμα Analytics.');
+    }
   };
 
   useEffect(() => {
     loadData();
     loadProducers();
-    if (hasAnalytics) {
-      fetchAnalytics();
-      const interval = setInterval(fetchAnalytics, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [currentUser, API_URL, hasAnalytics]);
+  }, [currentUser, API_URL]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const controller = new AbortController();
+    const refresh = () => fetchAnalytics(controller.signal);
+    refresh();
+    const interval = setInterval(refresh, 30000);
+    return () => { controller.abort(); clearInterval(interval); };
+  }, [currentUser?._id, API_URL, analyticsPeriod, analyticsStationId]);
 
   useEffect(() => {
     if (stations.length > 0 && streamHealth.status === 'idle') {
@@ -751,7 +772,27 @@ const getDSPBackgroundCurve = (preset) => {
 
       {/* 📊 REAL-TIME ANALYTICS */}
       <div className="mt-12">
-        <h3 className="text-sm font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-6"><BarChart3 size={16} /> Audience Radar</h3>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-sm font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><BarChart3 size={16} /> Audience Radar</h3>
+          {hasAnalytics && <div className="flex flex-wrap gap-2">
+            <select aria-label="Σταθμός Analytics" value={analyticsStationId}
+              onChange={event=>setAnalyticsStationId(event.target.value)}
+              className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-xs text-white">
+              <option value="">Όλοι οι διαθέσιμοι σταθμοί</option>
+              {(analytics.stations||[]).map(station=><option key={station.id} value={station.id}>{station.name}</option>)}
+            </select>
+            <select aria-label="Περίοδος Analytics" value={analyticsPeriod}
+              onChange={event=>setAnalyticsPeriod(event.target.value)}
+              className="rounded-xl border border-white/10 bg-zinc-900 px-3 py-2 text-xs text-white">
+              <option value="all">Συνολικά</option>
+              <option value="7d">Τελευταίες 7 ημέρες</option>
+              <option value="30d">Τελευταίες 30 ημέρες</option>
+              <option value="90d">Τελευταίες 90 ημέρες</option>
+            </select>
+          </div>}
+        </div>
+        {hasAnalytics && analyticsError && <p role="alert" className="mb-4 text-xs text-amber-400">{analyticsError} Εμφανίζονται οι τελευταίες διαθέσιμες μετρήσεις.</p>}
+        {hasAnalytics && <p className="mb-4 text-xs text-zinc-500">Οι ακροάσεις είναι εκτιμήσεις από το iRadios player, όχι μετρήσεις του stream host. Οι περίοδοι 7/30/90 ημερών περιέχουν μόνο δεδομένα που συλλέχθηκαν από την ενεργοποίηση της νέας καταγραφής (UTC).</p>}
         <div className={`relative w-full rounded-[50px] overflow-hidden border border-white/5 transition-all duration-500 ${!hasAnalytics ? 'min-h-[450px] flex items-center justify-center' : 'bg-zinc-900/20'}`}>
           {!hasAnalytics && (
             <div className="absolute inset-0 z-30 flex items-center justify-center p-6 md:p-12">
@@ -805,7 +846,7 @@ const getDSPBackgroundCurve = (preset) => {
                         <span className="text-xs font-bold text-zinc-300 truncate pr-2">{loc.city}</span>
                         <span className="text-xs font-black text-purple-400">{loc.percentage}%</span>
                       </div>
-                    )) : <div className="text-xs text-zinc-600 italic">Gathering geo-data...</div>}
+                    )) : <div className="text-xs text-zinc-600 italic">Δεν υπάρχουν διαθέσιμα ιστορικά γεωγραφικά δεδομένα.</div>}
                   </div>
                 </div>
 
@@ -819,14 +860,14 @@ const getDSPBackgroundCurve = (preset) => {
                  <div className="bg-black border border-white/5 p-8 rounded-[32px] relative overflow-hidden group hover:border-orange-500/30 transition-colors">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-pink-500"></div>
                     <div className="flex items-center justify-between mb-6">
-                      <span className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">Network Total Plays</span>
+                      <span className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">{analyticsPeriod==='all'?'Total Player Starts':'Session Starts (UTC period)'}</span>
                       <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center">
                         <Play size={14} className="text-orange-500 ml-0.5" />
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <h4 className="text-5xl font-black text-white tracking-tighter">{totalNetworkPlays.toLocaleString()}</h4>
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Total plays across all units</p>
+                      <h4 className="text-5xl font-black text-white tracking-tighter">{Number(analytics.totalPlays||0).toLocaleString('el-GR')}</h4>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Μόνο σταθμοί με ενεργό Analytics</p>
                     </div>
                  </div>
 
@@ -854,7 +895,7 @@ const getDSPBackgroundCurve = (preset) => {
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full pt-4 opacity-50">
                            <MapPin size={24} className="mb-2 text-zinc-600"/>
-                           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center">Αναμονή για<br/>ζωντανά δεδομένα</p>
+                           <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center">Δεν συλλέγονται<br/>live γεωγραφικά δεδομένα</p>
                         </div>
                       )}
                     </div>
@@ -906,6 +947,12 @@ const getDSPBackgroundCurve = (preset) => {
           </div>
         </div>
       </div>
+
+      {hasAnalytics && <div className="mt-4 grid gap-3 rounded-3xl border border-white/5 bg-zinc-900/30 p-6 text-xs text-zinc-300 sm:grid-cols-3">
+        <div><p className="mb-2 text-zinc-500">Audio Ad Plays (συνολικά)</p><strong className="text-xl text-white">{Number(analytics.adStats?.totalPlays||0).toLocaleString('el-GR')}</strong></div>
+        <div><p className="mb-2 text-zinc-500">Audio Ad Clicks (συνολικά)</p><strong className="text-xl text-white">{Number(analytics.adStats?.totalClicks||0).toLocaleString('el-GR')}</strong></div>
+        <div><p className="mb-2 text-zinc-500">Κορυφαίο audio ad</p><strong className="text-sm text-white">{analytics.adStats?.topAd==='No Data'?'Χωρίς δεδομένα':analytics.adStats?.topAd}</strong></div>
+      </div>}
 
       {/* 🎛️ DSP ENGINE PREVIEW (WITH LIVE CURVE BACKGROUND) */}
       <div className="mt-12">

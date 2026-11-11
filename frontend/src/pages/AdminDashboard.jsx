@@ -136,7 +136,7 @@ export default function AdminDashboard({API_URL='/api',globalSocket}){
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3 rounded-2xl border border-[#caff00]/20 bg-black/25 px-5 py-3">
             <span className="size-2.5 rounded-full bg-[#caff00] shadow-[0_0_12px_rgba(202,255,0,.6)]"/>
-            <div><p className="text-[10px] font-bold text-zinc-400">Ακροατές τώρα</p>
+            <div><p className="text-[10px] font-bold text-zinc-400">Ενεργές συνεδρίες player (εκτίμηση)</p>
               <p className="mt-1 text-2xl font-black tabular-nums text-white">{live===null?'—':fmt(live)}</p></div>
           </div>
           <button type="button" onClick={()=>{refresh();refreshLive();}} disabled={refreshing}
@@ -155,16 +155,16 @@ export default function AdminDashboard({API_URL='/api',globalSocket}){
     </div>:!stats?<Empty message="Τα στατιστικά δεν είναι προσωρινά διαθέσιμα. Χρησιμοποίησε την Ανανέωση για νέα προσπάθεια."/>:
     <>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Metric icon={Euro} label="Έσοδα δικτύου" value={euros(totals.revenue)} hint="Καταγεγραμμένα έσοδα"/>
+        <Metric icon={Euro} label="Καταγεγραμμένα έσοδα" value={euros(totals.revenue)} hint="Ολοκληρωμένες legacy συναλλαγές και επιβεβαιωμένες πληρωμές Gateway, χωρίς διπλομέτρηση."/>
         <Metric icon={Users} label="Χρήστες" value={fmt(totals.users)} hint="Συνολικοί λογαριασμοί"/>
-        <Metric icon={Radio} label="Ενεργοί σταθμοί" value={fmt(stats.stationStats?.activeStations)} hint="Σταθμοί του δικτύου"/>
-        <Metric icon={Crown} label="Premium χρήστες" value={fmt(totals.premiumUsers)} hint="Εγγεγραμμένοι Premium"/>
+        <Metric icon={Radio} label="Ενεργοί σταθμοί" value={fmt(stats.stationStats?.activeStations)} hint="Εγκεκριμένοι σταθμοί που δεν είναι offline"/>
+        <Metric icon={Crown} label="Legacy Premium flags" value={fmt(totals.premiumUsers)} hint="Καταχωρημένες σημαίες Premium, όχι επιβεβαίωση ενεργών χρεώσεων"/>
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <section className={panel}>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-base font-black text-white"><TrendingUp size={19} className="text-[#caff00]"/> Έσοδα ανά μήνα</h3>
-            <span className="text-[11px] text-zinc-500">Ιστορικό από το σύστημα</span>
+            <span className="text-[11px] text-zinc-500">Ημερομηνίες UTC · Legacy + επιβεβαιωμένα paid orders</span>
           </div>
           {revenue.length?<div className="h-64 w-full" role="img" aria-label="Ραβδόγραμμα εσόδων ανά μήνα">
             <ResponsiveContainer width="100%" height="100%">
@@ -211,7 +211,7 @@ export default function AdminDashboard({API_URL='/api',globalSocket}){
       </section>
       <div className="grid gap-4 lg:grid-cols-3">
         <RankList title="Κορυφαίοι σταθμοί" icon={Radio} items={stations}
-          label={s=>s.name||'Χωρίς όνομα'} value={s=>fmt(s.plays)+' plays'}
+          label={s=>s.name||'Χωρίς όνομα'} value={s=>fmt(s.plays)+' εκκινήσεις'}
           meta={()=>''} to="/backoffice/stations"/>
         <RankList title="Κορυφαία banners" icon={ImageIcon} items={banners}
           label={s=>s.title||'Χωρίς τίτλο'} value={s=>percent(s.ctr)}

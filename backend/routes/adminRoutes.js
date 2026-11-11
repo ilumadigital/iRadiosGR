@@ -21,6 +21,10 @@ router.put('/admin/transactions/:id/invoice', adminController.updateInvoiceStatu
 router.get('/admin/emails', adminController.getEmailHistory);
 router.post('/admin/emails/send', adminController.sendCustomEmail);
 
-router.get('/admin/dashboard-stats', adminController.getDashboardStats);
+// Protect analytics on all environments, not just staging's global guard.
+router.get('/admin/dashboard-stats',
+  require('../utils/authMiddleware').protect,
+  require('../utils/roleMiddleware').authorizeRoles('admin'),
+  adminController.getDashboardStats);
 
 module.exports = router;

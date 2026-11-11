@@ -6,6 +6,9 @@ const Transaction = require('../models/Transaction');
 const EmailHistory = require('../models/EmailHistory');
 const bcrypt = require('bcryptjs');
 const gatewayBilling = require('../services/ilumaGatewayClient');
+const BillingOrder = require('../models/BillingOrder');
+const BroadcasterBillingOrder = require('../models/BroadcasterBillingOrder');
+const {summarizePayments,adDashboardStats} = require('../services/dashboardMetrics');
 
 // 🟢 ΠΡΟΣΘΗΚΕΣ ΓΙΑ ΤΑ ΑΡΧΕΙΑ:
 const fs = require('fs').promises; // Χρησιμοποιούμε το promises API
@@ -427,132 +430,80 @@ exports.sendCustomEmail = async (req, res) => {
 };
 
 // 🟢 ΦΕΡΝΕΙ ΟΛΑ ΤΑ ΣΤΑΤΙΣΤΙΚΑ ΓΙΑ ΤΟ DASHBOARD
-exports.getDashboardStats = async (req, res) => {
-  try {
-    // 1. Κατανομή Χρηστών (Pie Chart) & Μετρήσεις Χρηστών
-    const users = await User.find({}, 'role isPremium broadcasterProfile');
-    
-    let roleCounts = { listener: 0, broadcaster: 0, producer: 0, agency: 0 };
-    let premiumUsers = 0;
-    
-    users.forEach(u => {
-      if (roleCounts[u.role] !== undefined) roleCounts[u.role]++;
-      if (u.isPremium || u.broadcasterProfile?.tier === 'premium') premiumUsers++;
-    });
-
-    const formattedRoles = [
-      { name: 'Ακροατές', value: roleCounts.listener },
-      { name: 'Broadcasters', value: roleCounts.broadcaster },
-      { name: 'Producers', value: roleCounts.producer },
-      { name: 'Agencies', value: roleCounts.agency }
-    ].filter(r => r.value > 0);
-
-    // 2. Έσοδα ανά Μήνα (Bar Chart) & Μετρήσεις Συναλλαγών
-    const transactions = await Transaction.find({ status: 'completed' });
-    
-    let totalRevenue = 0;
-    let pendingInvoices = 0;
-    const monthlyRev = {};
-
-    transactions.forEach(tx => {
-      totalRevenue += tx.amount;
-      if (!tx.invoiceSent) pendingInvoices++;
-      
-      const date = new Date(tx.createdAt);
-      const key = `${date.getMonth() + 1}/${date.getFullYear()}`;
-      monthlyRev[key] = (monthlyRev[key] || 0) + tx.amount;
-    });
-
-    const formattedRevenue = Object.keys(monthlyRev).map(key => ({
-      name: key,
-      amount: monthlyRev[key]
-    })).sort((a, b) => {
-      const [m1, y1] = a.name.split('/');
-      const [m2, y2] = b.name.split('/');
-      return new Date(y1, m1 - 1) - new Date(y2, m2 - 1);
-    });
-
-    // 3. Στατιστικά Διαφημίσεων (Ακριβής διαχωρισμός Audio vs Banners)
-    const adStatsAgg = await Ad.aggregate([{ $group: { _id: null, totalPlays: { $sum: "$plays" }, totalClicks: { $sum: "$clicks" } } }]);
-    const bannerStatsAgg = await BannerAd.aggregate([{ $group: { _id: null, totalImpressions: { $sum: "$impressions" }, totalClicks: { $sum: "$clicks" } } }]);
-
-    const audioPlays = adStatsAgg[0]?.totalPlays || 0;
-    const audioClicks = adStatsAgg[0]?.totalClicks || 0;
-    const bannerViews = bannerStatsAgg[0]?.totalImpressions || 0;
-    const bannerClicks = bannerStatsAgg[0]?.totalClicks || 0;
-
-    // 4. Στατιστικά Σταθμών
-    const stations = await Station.find({}, 'boostStatus isFeatured hasAddons');
-    const totalStations = stations.length;
-    const activeBoosts = stations.filter(s => s.boostStatus || s.isFeatured).length;
-    const stationsWithAddons = users.filter(u => 
-      u.role === 'broadcaster' && u.broadcasterProfile && 
-      (u.broadcasterProfile.features?.dspEngine || u.broadcasterProfile.features?.adControl)
-    ).length;
-
-    // =========================================================
-    // 🚀 NEW: LEADERBOARDS (Top 10 για το κάτω μέρος του UI)
-    // =========================================================
-    
-    // Top 10 Σταθμοί
-    const topStationsRaw = await Station.find({ status: 'approved' }).sort({ plays: -1 }).limit(10).select('name plays');
-    const topStations = topStationsRaw.map(s => ({
-      id: s._id,
-      name: s.name,
-      plays: s.plays || 0
+exports.getDashboardStats = async (req,res)=>{
+  try{
+    const [users,transactions,listenerOrders,broadcasterOrders,adAgg,bannerAgg,
+      approvedStations,topStationsRaw,topBannersRaw,topAdsRaw]=await Promise.all([
+      User.find({},'role isPremium broadcasterProfile'),
+      Transaction.find({status:'completed'}),
+      BillingOrder.find({status:'paid',environment:'staging'}),
+      BroadcasterBillingOrder.find({status:'paid',environment:'staging'}),
+      Ad.aggregate([{$group:{_id:null,totalPlays:{$sum:'$plays'},
+        totalClicks:{$sum:'$clicks'}}}]),
+      BannerAd.aggregate([{$group:{_id:null,totalImpressions:{$sum:'$impressions'},
+        totalClicks:{$sum:'$clicks'}}}]),
+      Station.find({status:'approved',isOffline:{$ne:true}})
+        .select('_id boostStatus isFeatured'),
+      Station.find({status:'approved'}).sort({plays:-1}).limit(10)
+        .select('_id name plays'),
+      BannerAd.find().sort({clicks:-1}).limit(10)
+        .select('_id title impressions clicks'),
+      Ad.find().sort({plays:-1}).limit(10)
+        .select('_id title client plays clicks')
+    ]);
+    const counts={user:0,broadcaster:0,producer:0,agency:0,admin:0};
+    let legacyPremiumFlags=0;
+    for(const user of users){
+      if(Object.hasOwn(counts,user.role))counts[user.role]++;
+      if(user.isPremium||user.broadcasterProfile?.tier==='premium')
+        legacyPremiumFlags++;
+    }
+    const payments=summarizePayments(transactions,listenerOrders,broadcasterOrders);
+    const adStats=adDashboardStats(adAgg[0]?.totalPlays,adAgg[0]?.totalClicks,
+      bannerAgg[0]?.totalImpressions,bannerAgg[0]?.totalClicks);
+    const topStations=topStationsRaw.map(station=>({
+      id:station._id,name:station.name,plays:station.plays||0
     }));
-
-    // Top 10 Banners
-    const topBannersRaw = await BannerAd.find().sort({ clicks: -1 }).limit(10).select('title company impressions clicks');
-    const topBanners = topBannersRaw.map(b => ({
-      id: b._id,
-      title: b.title,
-      company: b.company || 'Άγνωστο',
-      views: b.impressions || 0,
-      clicks: b.clicks || 0,
-      ctr: b.impressions ? ((b.clicks / b.impressions) * 100).toFixed(2) : 0
+    const topBanners=topBannersRaw.map(b=>({
+      id:b._id,title:b.title,company:'',
+      views:b.impressions||0,clicks:b.clicks||0,
+      ctr:b.impressions?100*(b.clicks||0)/b.impressions:0
     }));
-
-    // Top 10 Audio Ads
-    const topAdsRaw = await Ad.find().sort({ plays: -1 }).limit(10).select('title company plays clicks');
-    const topAds = topAdsRaw.map(ad => ({
-      id: ad._id,
-      title: ad.title,
-      company: ad.company || 'Άγνωστο',
-      plays: ad.plays || 0,
-      clicks: ad.clicks || 0,
-      ctr: ad.plays ? ((ad.clicks / ad.plays) * 100).toFixed(2) : 0
+    const topAds=topAdsRaw.map(ad=>({
+      id:ad._id,title:ad.title,company:ad.client||'',
+      plays:ad.plays||0,clicks:ad.clicks||0,
+      ctr:ad.plays?100*(ad.clicks||0)/ad.plays:0
     }));
-
-    // =========================================================
-    // ΕΠΙΣΤΡΟΦΗ ΔΕΔΟΜΕΝΩΝ 
-    // =========================================================
-    res.json({
-      revenueData: formattedRevenue.length ? formattedRevenue : [{ name: "Δεν υπάρχουν", amount: 0 }],
-      roleData: formattedRoles,
-      topStations,
-      topBanners,
-      topAds,
-      totals: {
-        revenue: totalRevenue,
-        users: users.length,
-        premiumUsers: premiumUsers,
-        plays: audioPlays,
-        clicks: audioClicks,
-        bannerViews: bannerViews,
-        bannerClicks: bannerClicks
+    return res.json({
+      revenueData:payments.revenueData,
+      revenueSource:'recorded-completed-transactions-and-paid-gateway-orders',
+      roleCounts:{listeners:counts.user,broadcasters:counts.broadcaster,
+        producers:counts.producer,agencies:counts.agency},
+      roleData:[
+        {name:'Ακροατές',value:counts.user},
+        {name:'Broadcasters',value:counts.broadcaster},
+        {name:'Producers',value:counts.producer},
+        {name:'Agencies',value:counts.agency}
+      ],
+      adStats,topStations,topBanners,topAds,
+      totals:{
+        revenue:payments.revenue,payments:payments.payments,
+        users:users.length,premiumUsers:legacyPremiumFlags,
+        plays:adStats.audio.plays,clicks:adStats.audio.clicks,
+        bannerViews:adStats.banner.views,bannerClicks:adStats.banner.clicks
       },
-      stationStats: {
-        activeStations: totalStations,
-        broadcasters: roleCounts.broadcaster,
-        producers: roleCounts.producer,
-        addons: stationsWithAddons,
-        boosts: activeBoosts,
-        pendingInvoices: pendingInvoices
+      stationStats:{
+        activeStations:approvedStations.length,
+        broadcasters:counts.broadcaster,producers:counts.producer,
+        // Legacy feature flags and paid station entitlements cannot be
+        // interpreted as one verified count; do not invent such a number.
+        addons:null,
+        boosts:approvedStations.filter(station=>station.boostStatus||station.isFeatured).length,
+        pendingInvoices:payments.pendingInvoices
       }
     });
-  } catch (error) {
-    console.error("Σφάλμα Dashboard:", error);
-    res.status(500).json({ error: 'Σφάλμα φόρτωσης στατιστικών' });
+  }catch(error){
+    console.error('Dashboard analytics failed',error);
+    return res.status(500).json({error:'Σφάλμα φόρτωσης στατιστικών'});
   }
 };

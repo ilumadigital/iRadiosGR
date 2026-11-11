@@ -22,14 +22,24 @@ const response=()=>({
   json(){return this;},
   end(){return this;}
 });
-const ok=response();
-heartbeat({body:{stationId:'0123456789abcdef01234567',
-  sessionId:'123e4567-e89b-12d3-a456-426614174000',playing:true}},ok);
-assert.equal(ok.statusCode,204);
-assert.equal(billed,0);
-const invalid=response();
-heartbeat({body:{stationId:'bad',sessionId:'abc',playing:true}},invalid);
-assert.equal(invalid.statusCode,400);
+// Phase D reports locally observed radio sessions, but passive heartbeats
+// must remain incapable of calling any paid recognition endpoint.
+const {createStageListenerTracker}=require('../backend/services/stageListeningMetrics');
+const tracker=createStageListenerTracker({
+  Station:{exists:async()=>({_id:'0123456789abcdef01234567'}),updateOne:async()=>{}},
+  StationAnalytics:{findOneAndUpdate:async()=>{}}
+});
+const request=body=>({body,app:{get:key=>key==='stageListenerTracker'?tracker:null}});
+async function checkHeartbeat(){
+  const ok=response();
+  await heartbeat(request({stationId:'0123456789abcdef01234567',
+    sessionId:'123e4567-e89b-12d3-a456-426614174000',playing:true}),ok);
+  assert.equal(ok.statusCode,204);
+  assert.equal(billed,0);
+  const invalid=response();
+  await heartbeat(request({stationId:'bad',sessionId:'abc',playing:true}),invalid);
+  assert.equal(invalid.statusCode,400);
+}
 const server=read('backend/server.js');
 assert.ok(server.includes("stageListenerHeartbeat').heartbeat"));
 assert.ok(!server.includes('stageAutoAcrcloud'));
@@ -52,4 +62,6 @@ assert.ok(!recognizer.includes('setInterval('));
 assert.ok(!recognizer.includes('setTimeout('));
 assert.ok(read('backend/utils/stageNativeScanner.js').includes('readCachedNativeMetadata'));
 assert.ok(!server.includes('smartAuto.start()'));
-console.log('Only explicit listener recognition can incur ACRCloud Identify calls; passive heartbeat and native metadata remain safe.');
+checkHeartbeat().then(()=>{
+  console.log('Only explicit listener recognition can incur ACRCloud Identify calls; passive heartbeat and native metadata remain safe.');
+}).catch(error=>{console.error(error);process.exitCode=1;});

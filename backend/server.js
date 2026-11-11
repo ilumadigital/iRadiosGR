@@ -84,7 +84,10 @@ app.get('/api/auth/turnstile-config',require('./utils/turnstile').publicConfig);
 // This is installed after JSON parsing and before any API router.
 if (process.env.APP_ENV === 'staging') {
   app.use('/api', require('./utils/stagePublicAccess').stagePublicAccess);
-  // The heartbeat remains compatible; it never invokes paid recognition.
+  // Safe anonymous playback telemetry, deliberately independent of the
+  // disabled unauthenticated Socket.IO gateway and paid recognition services.
+  app.set('stageListenerTracker',
+    require('./services/stageListeningMetrics').createStageListenerTracker({Station,StationAnalytics}));
   app.post('/api/listen/heartbeat', require('./utils/stageListenerHeartbeat').heartbeat);
   require('./utils/stageNativeScanner').start();
 }
