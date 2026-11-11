@@ -1,13 +1,12 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Link} from 'react-router-dom';
-import {AudioLines, ArrowUpRight, Radio, Sparkles, UserRound} from 'lucide-react';
+import {AudioLines, ArrowUpRight, Sparkles, UserRound} from 'lucide-react';
 import StationListenButton from './StationListenButton';
 import {activeStationShow,validShowImage} from '../utils/liveBroadcast';
 import {getAthensClock} from '../utils/schedule';
-import {parseMusicMetadata} from '../utils/musicMetadata';
 
-// Purely editorial: one approved station per page, selected in admin.
-// Now Playing is a server-side DB snapshot, never a request to the radio stream.
+// A distinct Admin-controlled Promoted placement. The public endpoint returns
+// no song metadata: guest listings may show only the scheduled programme.
 export default function PromotedStationCard({
   placement,value,stations=[],currentStation,isPlaying,onPlayStation,onPlayPause,
   onAvailabilityChange
@@ -27,7 +26,7 @@ export default function PromotedStationCard({
         const response=await fetch('/api/promoted-station?'+query.toString(),{signal:controller.signal});
         if(!response.ok)throw new Error('Promoted station unavailable');
         const data=await response.json();
-        if(live)setFeature(data?.stationId?data:null);
+        if(live)setFeature(data?.stationId?{...data,placement,value}:null);
       }catch{
         if(live)setFeature(null);
       }finally{inFlight=false;}
@@ -40,12 +39,13 @@ export default function PromotedStationCard({
     const timer=setInterval(()=>setClock(getAthensClock()),60000);
     return()=>clearInterval(timer);
   },[]);
-  const station=useMemo(()=>stations.find(s=>
-    String(s._id)===String(feature?.stationId) && (s.status==='approved'||!s.status) && s.isOffline !== true),[stations,feature?.stationId]);
+  const station=useMemo(()=>feature?.placement===placement&&feature?.value===value
+    ? stations.find(s=>String(s._id)===String(feature.stationId) &&
+        (s.status==='approved'||!s.status) && s.isOffline!==true)
+    : null,[stations,feature,placement,value]);
   const show=useMemo(()=>activeStationShow(station,clock),[station,clock]);
   useEffect(()=>{onAvailabilityChange?.(station?._id||null);},[station?._id,onAvailabilityChange]);
   if(!station)return null;
-  const song=parseMusicMetadata(feature?.nowPlaying?.title,station.name);
   const producerPhoto=show&&validShowImage(show.imageUrl)?show.imageUrl:null;
   const artwork=producerPhoto||station.cover||station.logo||'/iradios-wall.png';
   const href='/station/'+encodeURIComponent(station.slug||station._id);
@@ -73,7 +73,7 @@ export default function PromotedStationCard({
         </Link>
         <div className="mt-4 rounded-xl border border-white/10 bg-black/35 p-3 backdrop-blur-md">
           <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#ccff00]">
-            <AudioLines size={13}/> Παίζει τώρα {song&&feature?.nowPlaying?.foundWithAI?'· iRadios AI':''}
+            <AudioLines size={13}/> Στον αέρα
           </p>
           <div className="mt-2 flex min-w-0 items-center gap-3">
             {producerPhoto&&<img src={producerPhoto} alt={show?.host||'Παραγωγός στον αέρα'}
@@ -81,9 +81,9 @@ export default function PromotedStationCard({
               onError={e=>{e.currentTarget.style.display='none';}}/>}
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-sm font-bold leading-snug text-white sm:text-base">
-                {song?.title||show?.title||'Ζωντανό ραδιόφωνο'}
+                {show?.title||'Ζωντανό ραδιόφωνο'}
               </p>
-              <p className="mt-1 truncate text-xs text-zinc-300">{song?.artist||(!show?'Συντονίσου στον σταθμό':show.host||station.name)}</p>
+              <p className="mt-1 truncate text-xs text-zinc-300">{show?.host||'Συντονίσου στον σταθμό'}</p>
             </div>
           </div>
           {show&&(show.host||show.title)&&<p className="mt-2 flex items-center gap-1.5 truncate border-t border-white/10 pt-2 text-xs text-[#e5f2c9]">
