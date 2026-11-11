@@ -27,6 +27,11 @@ export default function Login({ API_URL, setCurrentUser }) {
   const [otpLoading, setOtpLoading] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
 
+  // Admin email 2FA is separate from legacy Agency account verification.
+  const [adminChallenge,setAdminChallenge]=useState('');
+  const [adminCode,setAdminCode]=useState('');
+  const [adminBusy,setAdminBusy]=useState(false);
+
   // --- FORGOT PASSWORD STATES ---
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -57,8 +62,16 @@ export default function Login({ API_URL, setCurrentUser }) {
       });
       
       const data = await res.json().catch(() => ({}));
-      
-      if (res.ok) {
+
+      if(res.ok&&data.requiresAdmin2fa){
+        // Password-only Admin login MUST NOT set a session JWT.
+        localStorage.removeItem('iluma_token');
+        setCurrentUser(null);
+        setAdminCode('');
+        setAdminChallenge(data.challenge);
+        setPassword('');
+        resetTurnstile();
+      } else if (res.ok) {
         localStorage.removeItem('iradios_pending_otp_email');
         localStorage.setItem('iluma_token', data.token);
         setCurrentUser(data.user);
@@ -122,6 +135,26 @@ export default function Login({ API_URL, setCurrentUser }) {
     setOtpLoading(false);
   };
 
+  const handleAdminVerify=async event=>{
+    event.preventDefault();
+    if(!/^[0-9]{6}$/.test(adminCode)||!adminChallenge||adminBusy)return;
+    setAdminBusy(true);setError('');
+    try{
+      const response=await fetch(`${BASE_URL}/auth/admin-2fa/verify`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({challenge:adminChallenge,code:adminCode})
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw Error(data.error||'Η επαλήθευση απέτυχε.');
+      if(!data.token||data.user?.role!=='admin')throw Error('Η ταυτότητα Admin δεν επιβεβαιώθηκε.');
+      localStorage.setItem('iluma_token',data.token);
+      setCurrentUser(data.user);
+      setAdminChallenge('');setAdminCode('');
+      navigate('/backoffice');
+    }catch(error){setError(error.message);}
+    finally{setAdminBusy(false);}
+  };
+
   // 🟢 ΛΕΙΤΟΥΡΓΙΑ: Αποστολή αιτήματος Forgot Password
   const handleForgotPassword = async (e) => {
     e.preventDefault();
@@ -167,6 +200,31 @@ export default function Login({ API_URL, setCurrentUser }) {
   return (
     <AuthShell>
       
+      {/* Mandatory email second factor for every Admin login. */}
+      {Boolean(adminChallenge)&&<div className="ir-auth-overlay fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 backdrop-blur-xl">
+        <div role="dialog" aria-modal="true" aria-label="Email 2FA Admin"
+          className="ir-auth-modal ir-auth-modal--narrow relative w-full max-w-md rounded-[28px] border border-[#ccff00]/30 bg-[#111] p-7 text-center shadow-2xl">
+          <button type="button" aria-label="Ακύρωση σύνδεσης Admin"
+            onClick={()=>{setAdminChallenge('');setAdminCode('');setError('');}}
+            className="absolute right-5 top-5 rounded-full bg-white/5 p-2 text-zinc-400"><X size={17}/></button>
+          <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-[#ccff00]/10 text-[#ccff00]"><Mail size={27}/></div>
+          <h2 className="text-2xl font-black text-white">Επιβεβαίωση Admin</h2>
+          <p className="mt-3 text-sm leading-6 text-zinc-400">Στάλθηκε κωδικός μίας χρήσης αποκλειστικά στο <strong>sales@iluma.gr</strong>. Ισχύει για 10 λεπτά.</p>
+          <form onSubmit={handleAdminVerify} className="mt-6 space-y-4">
+            <input required autoFocus type="text" inputMode="numeric" autoComplete="one-time-code"
+              maxLength={6} placeholder="000000" aria-label="Κωδικός email 2FA Admin"
+              value={adminCode} onChange={event=>setAdminCode(event.target.value.replace(/\D/g,''))}
+              className="w-full rounded-2xl border-2 border-white/15 bg-black px-4 py-4 text-center text-3xl font-black tracking-[.35em] text-[#ccff00] outline-none focus:border-[#ccff00]"/>
+            {error&&<p role="alert" className="rounded-xl bg-red-500/10 px-4 py-3 text-xs text-red-300">{error}</p>}
+            <button type="submit" disabled={adminBusy||adminCode.length!==6}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#ccff00] py-4 text-sm font-black text-black disabled:opacity-50">
+              {adminBusy?<Loader2 size={17} className="animate-spin"/>:<CheckCircle2 size={17}/>}
+              ΕΠΙΒΕΒΑΙΩΣΗ ΣΥΝΔΕΣΗΣ
+            </button>
+          </form>
+          <p className="mt-5 text-xs text-zinc-500">Για νέο κωδικό, επανάλαβε τη σύνδεση μετά από 1 λεπτό.</p>
+        </div>
+      </div>}
       {/* --- OTP MODAL --- */}
       {showOtpModal && (
         <div className="ir-auth-overlay fixed inset-0 bg-black/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4">
@@ -258,7 +316,7 @@ export default function Login({ API_URL, setCurrentUser }) {
       )}
 
       {/* --- STANDARD LOGIN FORM --- */}
-      {!showOtpModal && !showForgotModal && (
+      {!adminChallenge && !showOtpModal && !showForgotModal && (
         <div className="ir-auth-card ir-auth-card--login w-full max-w-md bg-zinc-900/50 backdrop-blur-xl border border-white/10 p-6 sm:p-7 rounded-[28px] shadow-2xl relative z-10 animate-fade-in">
           <AuthIntro icon={LogIn} eyebrow="WELCOME BACK" title="Καλώς ήρθες ξανά" description="Συνδέσου στο iRadiosGR, χωρίς περιττά βήματα." />
 
