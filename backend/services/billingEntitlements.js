@@ -5,7 +5,7 @@
 const BillingGrant=require('../models/BillingGrant');
 const BillingOrder=require('../models/BillingOrder');
 const {paidRights}=require('./broadcasterPurchaseRules');
-const {legacyRights,effectiveRights,projectUserEntitlements}=require('./billingEntitlementRules');
+const {effectiveRights,projectUserEntitlements}=require('./billingEntitlementRules');
 
 async function activeGrantsFor(user,now=new Date()){
  if(!user?._id)return [];
@@ -64,5 +64,5 @@ async function projectAccountUser(user){
  return projectUserEntitlements(user,await accountRights(user));
 }
 
-module.exports={legacyRights,effectiveRights,activeGrantsFor,activeBroadcasterOrders,accountRights,
+module.exports={effectiveRights,activeGrantsFor,activeBroadcasterOrders,accountRights,
   hasAccountRight,hasStationRight,projectAccountUser};
