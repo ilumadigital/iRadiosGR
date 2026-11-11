@@ -1,15 +1,15 @@
 'use strict';
 // Read-only status projection for Admin. All writes continue through the
 // existing idempotent, authenticated complimentary-grant endpoints; no status
-// calculation may create, cancel or infer a paid order.
+// calculation may create, cancel or infer a paid order. Historical flags are excluded.
 const {effectiveRights}=require('./billingEntitlementRules');
 const {ENTITLEMENTS,isActiveGrant}=require('./billingPolicy');
 const {paidRights,orderRights}=require('./broadcasterPurchaseRules');
 
 const ADDONS=Object.freeze([
-  Object.freeze({sku:'ADD-DSP',right:'broadcaster.webdsp',name:'WebDSP Audio Engine',flag:'dspEngine'}),
-  Object.freeze({sku:'ADD-AN',right:'broadcaster.analytics',name:'Analytics',flag:'analytics'}),
-  Object.freeze({sku:'ADD-ADS',right:'broadcaster.ad_control',name:'iRadios Ad Control',flag:'adControl'})
+  Object.freeze({sku:'ADD-DSP',right:'broadcaster.webdsp',name:'WebDSP Audio Engine'}),
+  Object.freeze({sku:'ADD-AN',right:'broadcaster.analytics',name:'Analytics'}),
+  Object.freeze({sku:'ADD-ADS',right:'broadcaster.ad_control',name:'iRadios Ad Control'})
 ]);
 const same=(a,b)=>String(a||'')===String(b||'');
 function describeStationAddons(user,station,grants=[],orders=[],now=new Date()){
@@ -40,10 +40,6 @@ function describeStationAddons(user,station,grants=[],orders=[],now=new Date()){
         expiresAt:grant.expiresAt||null,grantId:String(grant._id)
       });
     }
-    if(user.broadcasterProfile?.tier==='premium')
-      sources.push({type:'legacy_premium',label:'Υφιστάμενο Broadcaster Premium',expiresAt:null});
-    else if(user.broadcasterProfile?.features?.[item.flag]===true)
-      sources.push({type:'legacy_manual',label:'Προηγούμενο χειροκίνητο δικαίωμα',expiresAt:null});
     addons[item.sku]={
       sku:item.sku,right:item.right,name:item.name,
       enabled:rights.has(item.right),
