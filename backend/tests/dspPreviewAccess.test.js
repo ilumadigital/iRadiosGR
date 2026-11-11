@@ -72,7 +72,8 @@ test('web preview contains playback only and routes sales CTA through real billi
   assert.match(view,/sessionStorage\.setItem\(HEADLINE_KEY/);
   assert.match(view,/sku='?\+\(premium\?'B-PREM':'ADD-DSP'\)/);
   assert.doesNotMatch(view,/method:\s*'PUT'|\/stations\/.*\/dsp'/);
-  assert.match(backoffice,/previewStations\.length\?\[\{to:'\/backoffice\/audio-preview'/);
+  assert.match(backoffice,/data\.user\.role==='broadcaster'&&previewStations\.length>0/);
+  assert.match(backoffice,/<NavLink to="\/backoffice\/audio-preview"/);
   assert.match(backoffice,/previewStations\.length\?<BroadcasterWebDSPPreview/);
   assert.match(commerce,/new URLSearchParams\(window\.location\.search\)\.get\('station'\)/);
 });
