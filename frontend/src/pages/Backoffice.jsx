@@ -538,6 +538,10 @@ function StationEditor({data,reload,notify,requestDelete}){
       title={actionTitle} description={isAdmin?'Οι αλλαγές σου δημοσιεύονται αμέσως.':
         'Οι αλλαγές προφίλ υποβάλλονται για έγκριση από την ομάδα iRadios.'}
       aside={!isNew&&<div className="flex flex-wrap items-center gap-2">
+        {isAdmin&&<Link to={'/backoffice/admin/addons?stationId='+encodeURIComponent(station._id)}
+          className={buttonSecondary}>
+          <SlidersHorizontal size={16} className="text-[#caff00]"/> Addons σταθμού
+        </Link>}
         {isAdmin&&station.status==='approved'&&<Link
           to={'/backoffice/admin/promoted?station='+encodeURIComponent(station._id)}
           className={buttonSecondary}>
