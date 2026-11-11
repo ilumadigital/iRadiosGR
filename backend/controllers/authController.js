@@ -154,25 +154,30 @@ exports.registerBroadcaster = async (req, res) => {
     if (existingUser) return res.status(400).json({ error: "Ο χρήστης ή το email υπάρχει ήδη" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const otp = generateOTP();
-    const otpExpires = new Date(Date.now() + 15 * 60000); 
+    const verification=createEmailVerification();
 
     const newUser = new User({
       username, email, password: hashedPassword, 
       fname, lname, phone: phone || "", 
       role: 'broadcaster', businessType, vatNumber, companyName,
       broadcasterProfile: { tier: 'free', maxStations: 3, features: { adControl: false, dspEngine: false, betaAccess: false, analytics: false } }, 
-      isVerified: false, verificationOtp: otp, otpExpires
+      isVerified:false,...verification.fields,verificationEmailLastSentAt:null
     });
 
     await newUser.save();
 
-    const emailData = otpVerificationEmail(fname, otp);
-    await sendEmail({
-      to: email, subject: emailData.subject, html: emailData.html
+    // Token link only: never issue broadcaster OTP or unlock the Backoffice.
+    const emailData=verificationLinkEmail(fname,verification.token,{broadcaster:true});
+    let delivery;
+    try{delivery=await sendEmail({to:email,subject:emailData.subject,html:emailData.html});}
+    catch(error){console.warn('[AUTH] Broadcaster verification email deferred',error?.name);}
+    const session=jwt.sign({id:newUser._id,role:newUser.role},JWT_SECRET,{expiresIn:'30d'});
+    res.set('Cache-Control','no-store');
+    return res.status(201).json({
+      message:'Ο λογαριασμός δημιουργήθηκε. Επιβεβαίωσε το email σου πριν μπεις στο Backoffice.',
+      verificationEmailSent:!!delivery?.success,token:session,
+      user:await projectAccountUser(newUser)
     });
-
-    res.status(201).json({ message: "Ελέγξτε το email σας για το OTP!", requireOtp: true });
   } catch (err) { res.status(500).json({ error: "Σφάλμα κατά την εγγραφή" }); }
 };
 
@@ -222,8 +227,8 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Λάθος στοιχεία σύνδεσης' });
 
-    // Broadcaster/Agency retain OTP; unverified Free listeners can log in.
-    if (!user.isVerified && user.role !== 'user') {
+    // Unverified Broadcasters may authenticate to resend, but all Backoffice endpoints reject them until email verification.
+    if (!user.isVerified && !['user','broadcaster'].includes(user.role)) {
       const otp = generateOTP();
       user.verificationOtp = otp;
       user.otpExpires = new Date(Date.now() + 15 * 60000);
@@ -260,7 +265,7 @@ exports.verifyEmail = async (req,res)=>{
     return res.status(400).json({error:'Μη έγκυρος σύνδεσμος επιβεβαίωσης.'});
   try{
     const user=await User.findOneAndUpdate({
-      role:'user',isVerified:false,
+      role:{$in:['user','broadcaster']},isVerified:false,
       verificationTokenHash:hashEmailVerificationToken(token),
       verificationTokenExpires:{$gt:new Date()}
     },{$set:{isVerified:true},$unset:{
@@ -268,13 +273,13 @@ exports.verifyEmail = async (req,res)=>{
       verificationOtp:'',otpExpires:''
     }},{new:true});
     if(!user)return res.status(400).json({error:'Ο σύνδεσμος έχει λήξει ή χρησιμοποιήθηκε ήδη. Ζήτησε νέο link από τον λογαριασμό σου.'});
-    const welcome=verifiedListenerEmailForUser(user);
+    const welcome=user.role==='broadcaster'?welcomeEmail(user.fname,true):verifiedListenerEmailForUser(user);
     // Single-use verification token + atomic isVerified=false predicate ensure
     // this confirmation mail is triggered only by the successful first verify.
     sendEmail({to:user.email,subject:welcome.subject,html:welcome.html,text:welcome.text})
       .catch(e=>console.warn('[AUTH] Verified welcome email deferred',e?.name));
     res.set('Cache-Control','no-store');
-    return res.json({success:true,message:'Το email επιβεβαιώθηκε. Το playlist είναι διαθέσιμο.'});
+    return res.json({success:true,role:user.role,message:user.role==='broadcaster'?'Το email επιβεβαιώθηκε. Μπορείς να μπεις στο Broadcaster Backoffice.':'Το email επιβεβαιώθηκε. Το playlist είναι διαθέσιμο.'});
   }catch(error){
     console.error('[AUTH] Verify email failed:',error?.name);
     return res.status(503).json({error:'Η επιβεβαίωση δεν ολοκληρώθηκε. Δοκίμασε ξανά.'});
@@ -284,12 +289,12 @@ exports.verifyEmail = async (req,res)=>{
 // Resend invalidates every earlier link, atomically limits requests to one/minute,
 // and cannot be used to send mail to an address supplied by another user.
 exports.resendVerificationEmail = async (req,res)=>{
-  if(req.user?.role!=='user')return res.status(403).json({error:'Η λειτουργία αφορά λογαριασμούς ακροατών.'});
+  if(!['user','broadcaster'].includes(req.user?.role))return res.status(403).json({error:'Δεν επιτρέπεται η επαναποστολή για αυτόν τον λογαριασμό.'});
   if(req.user.isVerified)return res.json({alreadyVerified:true,message:'Το email έχει ήδη επιβεβαιωθεί.'});
   const now=new Date(),verification=createEmailVerification(now);
   try{
     const user=await User.findOneAndUpdate({
-      _id:req.user._id,role:'user',isVerified:false,
+      _id:req.user._id,role:{$in:['user','broadcaster']},isVerified:false,
       $or:[{verificationEmailLastSentAt:null},
         {verificationEmailLastSentAt:{$exists:false}},
         {verificationEmailLastSentAt:{$lte:new Date(now.getTime()-60000)}}]
@@ -300,7 +305,7 @@ exports.resendVerificationEmail = async (req,res)=>{
       res.set('Retry-After','60');
       return res.status(429).json({error:'Περίμενε ένα λεπτό πριν ζητήσεις νέο σύνδεσμο.'});
     }
-    const mail=verificationLinkEmail(user.fname,verification.token);
+    const mail=verificationLinkEmail(user.fname,verification.token,{broadcaster:user.role==='broadcaster'});
     const result=await sendEmail({to:user.email,subject:mail.subject,html:mail.html});
     if(!result?.success)return res.status(503).json({error:'Δεν στάλθηκε το email. Δοκίμασε ξανά αργότερα.'});
     res.set('Cache-Control','no-store');
@@ -350,7 +355,7 @@ exports.updateMe = async (req, res) => {
     if(!Object.keys(patch).length)
       return res.status(400).json({error:'Δεν δόθηκαν στοιχεία για ενημέρωση.'});
     // Reconfirm a changed listener email; never inherit the previous address's status.
-    const emailChanged=req.user.role==='user' && patch.email!==undefined &&
+    const emailChanged=['user','broadcaster'].includes(req.user.role) && patch.email!==undefined &&
       patch.email!==String(req.user.email).trim().toLowerCase();
     let verification;
     if(emailChanged){
@@ -368,7 +373,7 @@ exports.updateMe = async (req, res) => {
       ...(emailChanged?{$unset:{verificationOtp:'',otpExpires:''}}:{})},
       {new:true,runValidators:true});
     if(emailChanged&&updated){
-      const mail=verificationLinkEmail(updated.fname,verification.token);
+      const mail=verificationLinkEmail(updated.fname,verification.token,{broadcaster:updated.role==='broadcaster'});
       const sent=await sendEmail({to:updated.email,subject:mail.subject,html:mail.html});
       if(!sent?.success)console.warn('[PROFILE] Verification mail failed; resend remains available.');
     }
@@ -538,6 +543,7 @@ exports.acceptTerms = async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Απαιτείται σύνδεση.' });
 
     if (user.role === 'broadcaster') {
+      if(user.isVerified!==true)return res.status(403).json({code:'BROADCASTER_EMAIL_UNVERIFIED',error:'Επιβεβαίωσε πρώτα το email σου.'});
       // Avoid accepting a newer legal agreement using an old browser tab.
       if (req.body?.termsVersion !== CURRENT_BROADCASTER_TERMS_VERSION) {
         return res.status(409).json({

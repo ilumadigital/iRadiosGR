@@ -20,17 +20,17 @@ const otpVerificationEmail = (userName, otp) => {
   return { subject: `🔑 Ενεργοποίηση Λογαριασμού: Ο Κωδικός σας (OTP)`, html: baseTemplate(content, 'SECURE YOUR ACCOUNT') };
 };
 
-const verificationLinkEmail = (userName, token) => {
+const verificationLinkEmail = (userName, token, {broadcaster=false}={}) => {
   const link = FRONTEND_URL.replace(/\/+$/,'') + '/verify-email#token=' + encodeURIComponent(token);
   const content = `
     <h3>Επιβεβαίωσε το email σου, ${escapeHtml(userName)}!</h3>
-    <p>Ο Free λογαριασμός σου στο iRadios λειτουργεί ήδη. Για να δεις τα playlists των σταθμών, επιβεβαίωσε το email σου.</p>
+    <p>${broadcaster?'Ο λογαριασμός Broadcaster δημιουργήθηκε. Επιβεβαίωσε το email σου πριν μπεις στο Backoffice του iRadios.':'Ο Free λογαριασμός σου στο iRadios λειτουργεί ήδη. Για να δεις τα playlists των σταθμών, επιβεβαίωσε το email σου.'}</p>
     <div style="text-align:center;margin:30px 0;"><a href="${escapeHtml(link)}" class="btn">ΕΠΙΒΕΒΑΙΩΣΗ EMAIL</a></div>
     <p style="font-size:13px;color:#aaa;">Ο σύνδεσμος λήγει σε 24 ώρες και χρησιμοποιείται μόνο μία φορά. Νέο link ακυρώνει το παλιό.</p>
     <p style="font-size:12px;color:#888;overflow-wrap:anywhere;">${escapeHtml(link)}</p>
     <p style="font-size:12px;color:#888;">Αν δεν έκανες την εγγραφή, αγνόησε αυτό το email.</p>
   `;
-  return {subject:'Επιβεβαίωσε το email σου - iRadios',html:baseTemplate(content,'EMAIL VERIFICATION')};
+  return {subject:broadcaster?'Επιβεβαίωσε τον Broadcaster λογαριασμό σου - iRadios':'Επιβεβαίωσε το email σου - iRadios',html:baseTemplate(content,'EMAIL VERIFICATION')};
 };
 
 const welcomeEmail = (userName, isBroadcaster = false) => {
@@ -221,7 +221,7 @@ const adminTransactionAlertEmail = (companyName, amount, planName, userEmail, ro
 // 🟢 ΝΕΟ: Template για Έγκριση Σταθμού από τον Admin
 const stationApprovedEmail = (userName, stationName, stationSlug) => {
   const stationUrl = `${FRONTEND_URL}/station/${stationSlug}`;
-  const dashboardUrl = `${FRONTEND_URL}/broadcast`;
+  const dashboardUrl = `${FRONTEND_URL}/backoffice`;
   const pressKitUrl = `__IRADIOS_SITE_ORIGIN__/press-kit`;
   
   const content = `
@@ -278,7 +278,7 @@ const stationApprovedEmail = (userName, stationName, stationSlug) => {
 
 // 🟢 ΝΕΟ: Template για Απόρριψη Σταθμού (Rejected)
 const stationRejectedEmail = (userName, stationName) => {
-  const dashboardUrl = `${FRONTEND_URL}/broadcast`;
+  const dashboardUrl = `${FRONTEND_URL}/backoffice`;
   
   const content = `
     <div style="text-align: center; margin-bottom: 20px;">
@@ -324,7 +324,7 @@ const stationRejectedEmail = (userName, stationName) => {
 
 // 🟢 ΝΕΟ: Template για Ενεργοποίηση B2B Premium / Addons
 const broadcasterPremiumSuccessEmail = (userName, planName, amount) => {
-  const dashboardUrl = `${FRONTEND_URL}/broadcast`;
+  const dashboardUrl = `${FRONTEND_URL}/backoffice`;
   
   // Φιλτράρουμε το όνομα του πακέτου για να φαίνεται πιο "ανθρώπινο" αν χρειαστεί
   let displayPlanName = planName;

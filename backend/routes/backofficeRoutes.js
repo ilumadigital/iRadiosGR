@@ -25,6 +25,8 @@ const router=express.Router();
 router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'),
   (req,res,next)=>{
     res.setHeader('Cache-Control','private, no-store');
+    if(req.user.role==='broadcaster'&&req.user.isVerified!==true)
+      return res.status(403).json({code:'BROADCASTER_EMAIL_UNVERIFIED',error:'Επιβεβαίωσε το email σου πριν μπεις στο Backoffice.'});
     if(req.user.role==='broadcaster'&&!hasAcceptedCurrentBroadcasterTerms(req.user))
       return res.status(409).json({error:'Αποδέξου τους ισχύοντες όρους broadcaster για να συνεχίσεις.',code:'BROADCASTER_TERMS'});
     next();
