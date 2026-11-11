@@ -135,7 +135,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     apply(next,bypass);setDraft(next);setNotice('');
   };
   const setCompressorMode=mode=>{
-    const next={...draft,dspCompressor:mode==='manual'&&draft.dspCompressor.mode!=='manual'?
+    const next={...draft,dspCompressor:mode==='manual'&&draft.dspCompressor.mode==='preset'?
       {...compressorForPreset(draft.dspPreset),mode:'manual'}:
       {...draft.dspCompressor,mode}};
     apply(next,bypass);setDraft(next);setNotice('');
