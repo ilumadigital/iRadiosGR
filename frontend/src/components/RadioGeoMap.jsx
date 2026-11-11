@@ -288,6 +288,10 @@ export default function RadioGeoMap({
                   <button type="button" onClick={() => navigate('/station/' + (station.slug || station._id))}
                     className="min-w-0 flex-1 text-left">
                     <span className={'block truncate text-xs font-black ' + (playing ? 'text-[#ccff00]' : 'text-white')}>{station.name}</span>
+                     {['purchased','premium'].includes(station?.commercialBoost?.tier)&&
+                       <span className="mt-0.5 inline-flex rounded-full border border-[#ccff00]/30 px-2 py-0.5 text-[9px] font-bold text-[#ccff00]">
+                         {station.commercialBoost.tier==='purchased'?'BOOSTED':'PREMIUM BOOST'}
+                       </span>}
                     <span className="mt-1 block truncate text-[10px] text-zinc-400">
                       {station.transmissionType === 'Επίγειο' && station.frequency
                         ? formatFMFrequency(station.frequency) + ' · ' : ''}
