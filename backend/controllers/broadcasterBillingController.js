@@ -27,7 +27,8 @@ function requiresBroadcaster(req,res,next){
 }
 async function ownedApprovedStation(user,stationId){
  if(!ID.test(String(stationId||'')))return null;
- return Station.findOne({_id:stationId,broadcasterId:user._id,status:'approved'})
+ return Station.findOne({_id:stationId,broadcasterId:user._id,status:'approved',
+  deletionLockUntil:{$not:{$gt:new Date()}}})
   .select('_id name status').lean();
 }
 function display(row){return safeBroadcasterOrder(row);}
@@ -90,6 +91,10 @@ async function checkout(req,res){
    problem==='SUBSCRIPTION_CONSENT_REQUIRED'?'Απαιτείται ρητή αποδοχή επαναλαμβανόμενης μηνιαίας συνδρομής.':
    problem==='BOOST_CANNOT_RECUR'?'Το Boost είναι εφάπαξ αγορά με επιλεγμένη διάρκεια.':
    'Μη έγκυρο προϊόν ή σταθμός.'});
+ if(sku==='B-PREM'&&await Station.exists({
+  broadcasterId:req.user._id,deletionLockUntil:{$gt:new Date()}
+ }))return res.status(409).json({code:'STATION_DELETION_IN_PROGRESS',
+  error:'Υπάρχει διαγραφή σταθμού σε εξέλιξη. Δοκίμασε ξανά μετά την ολοκλήρωσή της.'});
  if(product.scopeType==='station'&&!await ownedApprovedStation(req.user,stationId))
   return res.status(403).json({code:'STATION_NOT_OWNED',error:'Ο εγκεκριμένος σταθμός πρέπει να σου ανήκει.'});
  const key=req.get('Idempotency-Key')||'';

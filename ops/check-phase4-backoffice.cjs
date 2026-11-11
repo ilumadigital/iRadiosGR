@@ -50,6 +50,17 @@ const Station={
   countDocuments:async q=>all.filter(s=>matches(s,q)).length,
   exists:async q=>all.some(s=>matches(s,q)),
   findById:async id=>all.find(s=>String(s._id)===String(id))||null,
+  // Phase A deletion holds a short-lived atomic lease before Gateway checks.
+  findOneAndUpdate:async(q,update)=>{
+    const station=all.find(s=>s._id===q._id&&s.name===q.name);
+    if(!station||station.deletionLockUntil>new Date())return null;
+    Object.assign(station,update.$set);return station;
+  },
+  updateOne:async(q,update)=>{
+    const station=all.find(s=>s._id===q._id&&s.deletionLockToken===q.deletionLockToken);
+    if(station&&update.$unset)for(const key of Object.keys(update.$unset))delete station[key];
+    return {modifiedCount:station?1:0};
+  },
   deleteOne:async q=>{
     const index=all.findIndex(s=>matches(s,q));
     if(index===-1)return {deletedCount:0};
@@ -75,6 +86,18 @@ const roles=(...roles)=>(req,res,next)=>roles.includes(req.user?.role)?next():
 const multer=()=>({single:()=>(_req,_res,next)=>next()});
 multer.memoryStorage=()=>({});
 Module._load=function(name,parent,isMain){
+  if(parent?.filename?.endsWith('/backend/services/stationDeletion.js')){
+    // Offline Backoffice smoke tests have no MongoDB or Gateway connection.
+    if(name==='../models/BroadcasterBillingOrder')return {
+      find:()=>({select:()=>({limit:()=>({lean:async()=>[]})})}),
+      exists:async()=>false
+    };
+    if(name==='../models/User')return User;
+    if(name==='./ilumaGatewayClient')return {
+      cancelBroadcasterRecurring:async()=>({state:'none'}),
+      broadcasterRecurringStatus:async()=>({state:'none'})
+    };
+  }
   if(parent?.filename?.endsWith('/backend/routes/backofficeRoutes.js')){
     if(name==='express')return {Router:()=>router};
     if(name==='mongoose')return {
@@ -100,7 +123,7 @@ Module._load=function(name,parent,isMain){
   return originalLoad.call(this,name,parent,isMain);
 };
 try{require('../backend/routes/backofficeRoutes');}
-finally{Module._load=originalLoad;}
+catch(error){Module._load=originalLoad;throw error;}
 const admin={_id:'cccccccccccccccccccccccc',role:'admin',email:'admin@example.test',fname:'Admin'};
 const owner={_id:ownerId,role:'broadcaster',email:'owner@example.test',
   fname:'Station Owner',isVerified:true,termsOk:true,broadcasterProfile:{maxStations:3}};
@@ -288,4 +311,5 @@ async function main(){
     'staging authorizes backoffice under JWT / roles');
   console.log('Phase 4 role isolation, owner edits, moderation, scheduling, input safety and player-free shell passed.');
 }
-main().catch(error=>{console.error(error);process.exitCode=1;});
+main().catch(error=>{console.error(error);process.exitCode=1;})
+  .finally(()=>{Module._load=originalLoad;});

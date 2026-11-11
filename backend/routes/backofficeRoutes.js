@@ -129,7 +129,9 @@ async function ownedStation(req,res,{writer=false}={}){
 function fail(res,error){
   if(error?.code===11000&&(error?.keyPattern?.slug||error?.keyValue?.slug))
     return res.status(409).json({error:'Το slug υπάρχει ήδη. Επίλεξε διαφορετικό.'});
-  if(error?.status)return res.status(error.status).json({error:error.message});
+  if(error?.status)return res.status(error.status).json({
+    error:error.message,...(error.code?{code:error.code}:{})
+  });
   console.error('[BACKOFFICE]',error?.name||'server');
   return res.status(500).json({error:'Η ενέργεια δεν ολοκληρώθηκε. Δοκίμασε ξανά.'});
 }
@@ -259,6 +261,9 @@ router.delete('/backoffice/stations/:id',authorizeRoles('admin'),async(req,res)=
       removedStationId:removed._id});
   }catch(error){return fail(res,error);}
 });
+// Share the existing three-state Admin workflow and owner notifications.
+router.patch('/backoffice/stations/:id/status',authorizeRoles('admin'),(req,res)=>
+  require('../controllers/stationController').updateStationStatus(req,res));
 router.post('/backoffice/stations/:id/review',authorizeRoles('admin'),async(req,res)=>{
   try{
     const station=await ownedStation(req,res);
