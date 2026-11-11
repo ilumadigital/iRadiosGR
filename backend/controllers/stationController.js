@@ -178,6 +178,7 @@ exports.deleteStation = async (req,res) => {
       removedStationId:removed._id});
   }catch(error){
     return res.status(error.status||500).json({
+      ...(error.code?{code:error.code}:{}),
       error:error.status?error.message:'Η διαγραφή του σταθμού απέτυχε.'
     });
   }
@@ -199,12 +200,16 @@ exports.updateStationStatus = async (req, res) => {
       return res.status(404).json({ error: 'Ο σταθμός δεν βρέθηκε.' });
     }
 
-    // 3. Ενημερώνουμε την κατάσταση στη βάση δεδομένων
-    const updatedStation = await Station.findByIdAndUpdate(
-      req.params.id, 
-      { status }, 
-      { new: true }
-    );
+    // Status changes do not change billing. Stale edits or a pending
+    // deletion lease must not silently override each other.
+    if(oldStation.status===status)
+      return res.json({message:'Η κατάσταση παραμένει '+status,station:oldStation});
+    const updatedStation=await Station.findOneAndUpdate({
+      _id:req.params.id,status:oldStation.status,
+      deletionLockUntil:{$not:{$gt:new Date()}}
+    },{$set:{status}},{new:true,runValidators:true});
+    if(!updatedStation)
+      return res.status(409).json({error:'Ο σταθμός άλλαξε ή διαγράφεται. Ανανέωσε και δοκίμασε ξανά.'});
 
     // 4. 🟢 MAIL LOGIC: Κάνουμε import τον Mailer και τα Templates
     const { sendEmail } = require('../utils/myMailer'); 
