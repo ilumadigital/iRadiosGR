@@ -333,6 +333,53 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     </section>
 
     {station&&<>
+      <section role="region" aria-label="Sticky Live Preview"
+        className="sticky top-[72px] z-30 rounded-2xl border border-[#caff00]/25 bg-[#111719]/95 px-3 py-3 shadow-2xl backdrop-blur-xl md:top-[86px] md:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-black text-[#caff00]">LIVE PRELISTEN</span>
+            <span className="max-w-[180px] truncate text-zinc-300 sm:max-w-xs">{station.name}</span>
+            <span className={'rounded-full px-2 py-1 '+(playing?'bg-[#caff00]/10 text-[#caff00]':'bg-white/5 text-zinc-400')}>
+              {playing?'● LIVE':'READY'}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-zinc-400">FINAL PEAK</span>
+            <span className={'font-bold tabular-nums '+(meter.final>=PEAK_WARNING_DBFS?'text-rose-300':'text-[#caff00]')}>
+              {playing?formatDb(meter.final):'—'}
+            </span>
+            {draft.dspPreset==='AUTO_MODE'&&playing&&<span className="hidden text-zinc-400 sm:inline">AUTO {autoGainDb>=0?'+':''}{autoGainDb.toFixed(1)} dB</span>}
+          </div>
+        </div>
+        <audio ref={audioRef} crossOrigin="anonymous" preload="none" playsInline
+          onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)}
+          onError={()=>{setPlaying(false);setError('Το stream δεν είναι διαθέσιμο για preview.');}}/>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button type="button" onClick={togglePreview} disabled={station.isOffline}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#c5d0d5] px-5 py-3 text-xs font-black text-black disabled:opacity-40">
+            {playing?<Pause size={16}/>:<Play size={16}/>} {playing?'PAUSE PREVIEW':'LISTEN LIVE'}
+          </button>
+          {draft.dspPreset!=='OFF'&&<button type="button" onClick={()=>{const next=!bypass;setBypass(next);apply(draft,next);}}
+            aria-pressed={bypass}
+            className={'inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-xs font-bold '+(bypass?'border-amber-400 text-amber-300':'border-white/20 text-zinc-300')}>
+            <PowerOff size={15}/> {bypass?'FX BYPASSED':'BYPASS FX'}
+          </button>}
+          <label className="ml-auto flex min-w-44 items-center gap-2 text-xs text-zinc-300">
+            <Volume2 size={18}/><span>MONITOR</span>
+            <input aria-label="Monitor level" type="range" min="0" max="100" step="1"
+              value={monitor} onChange={e=>setMonitor(Number(e.target.value))} className={inputStyle}/>
+            <span className="tabular-nums">{monitor}%</span>
+          </label>
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
+          <span>Άμεση προακρόαση των αλλαγών · αποθηκεύονται μόνο με Save.</span>
+          <button type="button" disabled={!dirty||saving} onClick={save}
+            className="rounded-lg bg-[#caff00] px-3 py-2 font-black text-black disabled:cursor-not-allowed disabled:opacity-40">
+            {saving?'SAVING…':'SAVE SETTINGS'}
+          </button>
+        </div>
+      </section>
       <section className={shell+' p-5 md:p-7'}>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div><span className="text-[11px] font-bold tracking-widest text-zinc-500">00 / AUDIO MODES</span>
@@ -356,6 +403,48 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
           <p className="mt-2">EQ, Stereo Expander και Compressor έχουν απενεργοποιηθεί.
           Ακούς το αρχικό stream χωρίς ψηφιακή επεξεργασία.</p>
         </div>}
+      {draft.dspPreset==='AUTO_MODE'&&
+        <section className={shell+' p-5 md:p-7'}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">01 / SMART DSP</span>
+              <h2 className="mt-1 text-2xl font-bold">Auto Mode</h2>
+              <p className="mt-2 max-w-2xl text-sm text-zinc-400">
+                Ένας έλεγχος για την προτεραιότητα του ήχου. Το DSP ρυθμίζει μόνο του EQ,
+                compression, gain και peak protection σε πραγματικό χρόνο.
+              </p>
+            </div>
+            <span className="rounded-full border border-[#caff00]/30 bg-[#caff00]/10 px-3 py-2 text-xs font-black text-[#caff00]">AUTO · ACTIVE</span>
+          </div>
+          <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-white/10 bg-black/20 p-5 md:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-left"><p className="text-sm font-black">Περισσότερη ένταση</p>
+                <p className="mt-1 text-xs text-zinc-500">Αριστερά</p></div>
+              <span className="text-center text-xs font-bold text-[#caff00]">
+                {draft.dspAutoBalance< -15?'VOLUME':draft.dspAutoBalance>15?'STEREO':'BALANCED'}
+              </span>
+              <div className="text-right"><p className="text-sm font-black">Περισσότερο Stereo</p>
+                <p className="mt-1 text-xs text-zinc-500">Δεξιά</p></div>
+            </div>
+            <input type="range" aria-label="Auto Mode ένταση ή stereo"
+              className={inputStyle+' mt-7'} min="-100" max="100" step="1"
+              value={draft.dspAutoBalance}
+              onChange={e=>updateAutoBalance(Number(e.target.value))}/>
+            <div className="mt-3 flex justify-between text-[10px] text-zinc-500">
+              <span>VOLUME</span><span>ΙΣΟΡΡΟΠΗΜΕΝΟ</span><span>STEREO</span>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-300">
+              <span>Stereo: <strong className="text-white">{autoStereoWidth(draft.dspAutoBalance).toFixed(0)}%</strong></span>
+              <span>Live Auto Gain: <strong className="text-white tabular-nums">{playing?(autoGainDb>=0?'+':'')+autoGainDb.toFixed(1)+' dB':'στο Live Prelisten'}</strong></span>
+              <span>Final Peak Ceiling: <strong className="text-[#caff00]">−0.5 dBFS</strong></span>
+            </div>
+          </div>
+          <p className="mt-4 text-xs text-zinc-500">
+            Χρησιμοποιεί πραγματικές μετρήσεις στάθμης με όριο στην ενίσχυση, ήπια
+            συμπίεση και ταχύτερη μείωση gain από την αύξηση. Δεν διορθώνει
+            ήδη παραμορφωμένο ή αποκομμένο αρχικό stream.
+          </p>
+        </section>}
       {draft.dspPreset==='FM_MODE'&&<>
       <section className={shell+' p-5 md:p-7'}>
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -527,26 +616,6 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
             <p className="mt-2 max-w-2xl text-sm text-zinc-400">Άκου το πραγματικό live stream του επιλεγμένου σταθμού. Κάθε αλλαγή εφαρμόζεται αμέσως μόνο στην ακρόασή σου μέχρι να πατήσεις Save.</p></div>
           <span className="rounded-full border border-white/10 px-4 py-2 text-[11px] text-zinc-300">{playing?'LIVE PREVIEW':'READY TO PREVIEW'}</span>
         </div>
-        <audio ref={audioRef} crossOrigin="anonymous" preload="none" playsInline
-          onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)}
-          onError={()=>{setPlaying(false);setError('Το stream δεν είναι διαθέσιμο για preview.');}}/>
-        <div className="mt-7 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={togglePreview} disabled={station.isOffline}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#c5d0d5] px-5 py-3 text-xs font-black text-black disabled:opacity-40">
-            {playing?<Pause size={16}/>:<Play size={16}/>} {playing?'PAUSE PREVIEW':'LISTEN LIVE'}
-          </button>
-          {draft.dspPreset!=='OFF'&&<button type="button" onClick={()=>{const next=!bypass;setBypass(next);apply(draft,next);}}
-            aria-pressed={bypass}
-            className={'inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-xs font-bold '+(bypass?'border-amber-400 text-amber-300':'border-white/20 text-zinc-300')}>
-            <PowerOff size={15}/> {bypass?'FX BYPASSED':'BYPASS FX'}
-          </button>}
-          <label className="ml-auto flex min-w-48 items-center gap-3 text-xs text-zinc-300">
-            <Volume2 size={18}/><span>MONITOR</span>
-            <input aria-label="Monitor level" type="range" min="0" max="100" step="1"
-              value={monitor} onChange={e=>setMonitor(Number(e.target.value))} className={inputStyle}/>
-            <span className="tabular-nums">{monitor}%</span>
-          </label>
-        </div>
         <div className="mt-8 grid gap-5 lg:grid-cols-2">
           <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-5">
             <div className="mb-5 flex items-center gap-2 text-sm font-bold"><Activity size={18}/> Live peak monitoring</div>
@@ -569,7 +638,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
       </section>
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-[#111517] p-4">
-        {draft.dspPreset!=='OFF'&&<button type="button" onClick={()=>{const next={...draft,dspSettings:{...DSP_DEFAULTS}};setDraft(next);apply(next,bypass);}}
+        {['ENHANCER','FM_MODE'].includes(draft.dspPreset)&&<button type="button" onClick={()=>{const next={...draft,dspSettings:{...DSP_DEFAULTS}};setDraft(next);apply(next,bypass);}}
           className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-3 text-xs font-bold text-zinc-300">
           <RotateCcw size={16}/> RESET EQ / WIDTH</button>}
         <button type="button" disabled={!dirty||saving} onClick={save}
