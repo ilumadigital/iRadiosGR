@@ -4,7 +4,7 @@ import StationCatalogCard from './StationCatalogCard';
 import CatalogFilterPopover from './CatalogFilterPopover';
 import EditorialPlacement from './EditorialPlacement';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
-import {catalogStationInfo,compareCatalogPopularity,compareCatalogCompleteness} from '../utils/catalogLive';
+import {catalogStationInfo,compareCatalogPopularity,compareCatalogCompleteness,applyPostBoostLift} from '../utils/catalogLive';
 import {
   Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
   X, Headphones, Grid2X2, MapPinned
@@ -91,6 +91,7 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
       const q=normalize(query.trim());
       result=result.filter(s=>[s.name,s.genre,s.secondaryGenre,s.region,s.city,s.slogan].some(t=>normalize(t).includes(q)));
     }
+    if(tab!=='for-you')result=applyPostBoostLift(result,'global');
     return result;
   },[eligible,tab,genre,region,query,favIds,recentIds,prefGenres,catalogNowPlaying,catalogClock]);
   const displayed=showAll?filtered.slice(0,48):filtered.slice(0,12);

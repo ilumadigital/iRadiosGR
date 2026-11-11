@@ -8,7 +8,7 @@ import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 import {stationMatchesRegion} from '../utils/stationRegions';
-import {compareCatalogPopularity,compareCatalogStations} from '../utils/catalogLive';
+import {sortCatalogStations} from '../utils/catalogLive';
  
 
 export default function Region({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
@@ -91,9 +91,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     if (selectedGenre !== 'all') result = result.filter(s => s.genre === selectedGenre);
     if (selectedTransmission !== 'all') result = result.filter(s => (s.transmissionType || 'Web Radio') === selectedTransmission);
 
-    return result.sort((a,b)=>sortBy==='popularity'
-      ? compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock,'region',regionName)
-      : compareCatalogStations(a,b,catalogNowPlaying,catalogClock,sortBy,'region',regionName));
+    return sortCatalogStations(result,catalogNowPlaying,catalogClock,sortBy,'region',regionName);
   }, [baseStations, selectedGenre, selectedTransmission, sortBy, catalogNowPlaying, catalogClock, regionName]);
 
   const formatGenre = (text) => text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";

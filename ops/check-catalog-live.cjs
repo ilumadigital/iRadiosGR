@@ -23,11 +23,11 @@ assert.match(card,/catalogStationInfo/);
 for(const name of ['Region','Genre']){
  const page=read('frontend/src/pages/'+name+'.jsx');
  assert.match(page,/useCatalogNowPlaying\(currentUser\)/);
- assert.match(page,/compareCatalogPopularity/);
+ assert.match(page,/sortCatalogStations/);
  assert.match(page,/flex w-full min-w-0 flex-col gap-3/);
  assert.match(page,/nowPlaying=\{catalogNowPlaying\[String\(station\._id\)\]\}/);
 }
 const map=read('frontend/src/components/RadioGeoMap.jsx');
 assert.match(map,/nowPlayingById/);
-assert.match(map,/compareCatalogPopularity/);
+assert.match(map,/sortCatalogStations/);
 console.log('Catalog live, full-width lists, promoted all-mode contracts passed.');

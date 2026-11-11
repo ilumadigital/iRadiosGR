@@ -88,12 +88,12 @@ async function main(){
   const rootMap=read('frontend/src/components/MapMode.jsx');
   assert.match(rootMap,/useCatalogNowPlaying\(currentUser\)/);
   assert.match(rootMap,/nowPlayingById=\{catalogNowPlaying\}/);
-  assert.match(map,/compareCatalogStations/);
+  assert.match(map,/sortCatalogStations/);
   assert.match(map,/<option value="completeness">Πληρότητα<\/option>/);
   assert.match(map,/effectiveSortBy=showFilters\?sortBy:\(sortMode\|\|sortBy\)/);
   for(const page of ['Region','Genre']){
     const src=read('frontend/src/pages/'+page+'.jsx');
-    assert.match(src,/compareCatalogStations/);
+    assert.match(src,/sortCatalogStations/);
     assert.match(src,/catalogNowPlaying/);
     assert.match(src,/value:'popularity',label:'Δημοτικότητα'/);
     assert.match(src,/value:'completeness',label:'Πληρότητα'/);

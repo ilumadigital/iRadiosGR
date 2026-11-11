@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Globe2, MapPin, Play, RadioTower, SortDesc, X } from 'lucide-react';
 import { formatFMFrequency } from '../utils/stationFrequency';
-import {catalogStationInfo,compareCatalogPopularity,compareCatalogStations} from '../utils/catalogLive';
+import {catalogStationInfo,sortCatalogStations} from '../utils/catalogLive';
 import { locationMapCenter, stationMapLocation } from '../utils/mapLocations';
 import './RadioGeoMap.css';
 
@@ -22,9 +22,7 @@ function loadMapLibre() {
 }
 
 function sortRadioStations(stations, sortBy, nowPlayingById, catalogClock, rankingScope, rankingValue) {
-  return [...(stations || [])].sort((a,b)=>sortBy==='popularity'
-    ? compareCatalogPopularity(a,b,nowPlayingById,catalogClock,rankingScope,rankingValue)
-    : compareCatalogStations(a,b,nowPlayingById,catalogClock,sortBy,rankingScope,rankingValue));
+  return sortCatalogStations(stations,nowPlayingById,catalogClock,sortBy,rankingScope,rankingValue);
 }
 
 export default function RadioGeoMap({

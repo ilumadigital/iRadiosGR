@@ -7,7 +7,7 @@ import EditorialPlacement from '../components/EditorialPlacement';
 import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
-import {compareCatalogPopularity,compareCatalogStations} from '../utils/catalogLive';
+import {sortCatalogStations} from '../utils/catalogLive';
 
 
 export default function Genre({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
@@ -98,9 +98,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
       result = result.filter(s => (s.transmissionType || 'Web Radio') === selectedTransmission);
     }
 
-    return result.sort((a,b)=>sortBy==='popularity'
-      ? compareCatalogPopularity(a,b,catalogNowPlaying,catalogClock,'genre',genreName)
-      : compareCatalogStations(a,b,catalogNowPlaying,catalogClock,sortBy,'genre',genreName));
+    return sortCatalogStations(result,catalogNowPlaying,catalogClock,sortBy,'genre',genreName);
   }, [baseStations, selectedRegion, selectedTransmission, sortBy, catalogNowPlaying, catalogClock, genreName]);
 
   const displayStations=useMemo(()=>viewMode!=='map' && promotedStationId

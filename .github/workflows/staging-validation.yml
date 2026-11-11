@@ -51,6 +51,10 @@ jobs:
         run: node --test backend/tests/emailVerification.test.js
       - name: Verify phase-1 subscription catalog, complimentary grants and paid Boost priority
         run: node --test backend/tests/billingPhase1.test.js backend/tests/billingGrantRequest.test.js
+      - name: Verify expired purchased and Premium Boost retains only organic ranking reward
+        run: node --test backend/tests/postBoostRanking.test.js
+      - name: Verify exact 1-4 slot post-Boost ranking across public catalog screens
+        run: node ops/check-post-boost-ranking.cjs
       - name: Verify scoped effective entitlements and compatibility with manual Premium
         run: node --test backend/tests/billingPhase2.test.js
       - name: Verify Broadcaster catalog scope, Boost durations and paid priority
