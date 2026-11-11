@@ -209,7 +209,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
       </div>
 
       <EditorialPlacement placement="region" value={regionName} viewMode={viewMode} onPromotedStationChange={setPromotedStationId}
-        currentUser={currentUser} stations={stations} fallbackStation={baseStations[0]}
+        currentUser={currentUser} stations={stations}
         currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
