@@ -5,6 +5,7 @@ const User = require('../models/User');
 const {hasAccountRight,hasStationRight}=require('../services/billingEntitlements');
 const {validateDSPUpdate}=require('../services/dspConfig');
 const {projectPublicStations}=require('../services/stationBillingProjection');
+const {eligibleDSPPreviewStations}=require('../services/dspPreviewPolicy');
 const jwt = require('jsonwebtoken');
 
 const {deleteStationRecord}=require('../services/stationDeletion');
@@ -91,11 +92,15 @@ exports.getDSPPreviewStations=async(req,res)=>{
     res.setHeader('Cache-Control','private, no-store');
     const stations=await Station.find({
       broadcasterId:req.user._id,status:'approved'
-    }).select('_id name logo stream isOffline dspPreset dspSettings dspCompressor dspClipper dspAutoBalance')
+    }).select('_id name logo stream isOffline dspPreset dspSettings dspCompressor dspClipper dspAutoBalance status broadcasterId')
       .sort({name:1}).lean();
-    const eligible=await Promise.all(stations.map(async station=>
-      await hasStationRight(req.user,station,'broadcaster.webdsp')?null:station));
-    return res.json(eligible.filter(Boolean));
+    const eligible=await eligibleDSPPreviewStations(req.user,stations,hasStationRight);
+    return res.json(eligible.map(station=>({
+      _id:station._id,name:station.name,logo:station.logo,stream:station.stream,
+      isOffline:station.isOffline,dspPreset:station.dspPreset,
+      dspSettings:station.dspSettings,dspCompressor:station.dspCompressor,
+      dspClipper:station.dspClipper,dspAutoBalance:station.dspAutoBalance
+    })));
   }catch(error){
     console.error('[DSP] Preview station list failed',error.message);
     return res.status(500).json({error:'Δεν φορτώθηκε η προεπισκόπηση WebDSP.'});
