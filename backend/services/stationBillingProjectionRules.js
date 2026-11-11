@@ -1,7 +1,7 @@
 'use strict';
 const {effectiveRights}=require('./billingEntitlementRules');
 const {paidRights,boostForStation,isBoost}=require('./broadcasterPurchaseRules');
-const {DSP_COMPRESSOR_DEFAULTS}=require('./dspConfig');
+const {DSP_COMPRESSOR_DEFAULTS,DSP_CLIPPER_DEFAULTS}=require('./dspConfig');
 
 // Admin DSP configurations are always stored, but public output is processed
 // ONLY while a matching, active *new* WebDSP entitlement exists. Neither a
@@ -12,6 +12,8 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
    data.dspPreset='OFF';
    data.dspSettings={bass:0,mid:0,treble:0,output:0,stereoWidth:100};
    data.dspCompressor={...DSP_COMPRESSOR_DEFAULTS,mode:'off'};
+   data.dspClipper={ENHANCER:{...DSP_CLIPPER_DEFAULTS.ENHANCER},
+     FM_MODE:{...DSP_CLIPPER_DEFAULTS.FM_MODE}};
    data.disableNetworkAds=false;
    return data;
  };
@@ -73,6 +75,8 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
    // Never leak or apply paid tone/width processing once access expires.
    data.dspSettings={bass:0,mid:0,treble:0,output:0,stereoWidth:100};
    data.dspCompressor={...DSP_COMPRESSOR_DEFAULTS,mode:'off'};
+   data.dspClipper={ENHANCER:{...DSP_CLIPPER_DEFAULTS.ENHANCER},
+     FM_MODE:{...DSP_CLIPPER_DEFAULTS.FM_MODE}};
  }
  if(!rights.has('broadcaster.ad_control'))data.disableNetworkAds=false;
  return data;

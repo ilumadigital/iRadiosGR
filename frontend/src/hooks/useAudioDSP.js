@@ -60,7 +60,7 @@ export default function useAudioDSP(
   useEffect(()=>{
     const graph=graphRef.current;
     if(!graph||!isDspReady)return;
-    let preset='OFF',settings=DSP_DEFAULTS,compressor=DSP_COMPRESSOR_DEFAULTS;
+    let preset='OFF',settings=DSP_DEFAULTS,compressor=DSP_COMPRESSOR_DEFAULTS,clipper;
     let personalMode='DEFAULT';
     if(isPlayingAd){
       // Never apply personal DSP to advertisements, regardless of Premium.
@@ -69,13 +69,14 @@ export default function useAudioDSP(
       preset=currentStation.dspPreset||'OFF';
       settings=currentStation.dspSettings||DSP_DEFAULTS;
       compressor=currentStation.dspCompressor||DSP_COMPRESSOR_DEFAULTS;
+      clipper=currentStation.dspClipper;
       // Premium listener presets only touch this local WebAudio instance.
       // They neither write to Mongo nor alter what other listeners hear.
       if(currentUser?.isPremium===true){
         personalMode=normalizeListenerMode(userOverrides[String(currentStation._id)]);
       }
     }
-    applyDSPGraph(graph,preset,settings,compressor);
+    applyDSPGraph(graph,preset,settings,compressor,false,clipper);
     applyListenerMode(graph,personalMode);
   },[currentStation,isPlayingAd,currentAdInfo,currentUser,userOverrides,isDspReady]);
 

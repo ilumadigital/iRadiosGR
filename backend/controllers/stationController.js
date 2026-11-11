@@ -45,7 +45,7 @@ exports.getApprovedStations = async (req, res) => {
     // Public stage may expose station metadata, never broadcaster personal
     // information or private pending edits imported from production.
     if (process.env.APP_ENV === 'staging') {
-      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok email explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset dspSettings dspCompressor disableNetworkAds broadcasterId');
+      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok email explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset dspSettings dspCompressor dspClipper disableNetworkAds broadcasterId');
     }
     const stations=await query;
     const effective=await projectPublicStations(stations);
@@ -128,7 +128,7 @@ exports.createBroadcasterStation = async (req,res)=>{
     const categoryError=validateStationCategories(stationData,{required:true});
     if(categoryError)return res.status(400).json({error:categoryError});
     for(const key of ['_id','broadcasterId','isFeatured','boostStatus','boostExpiresAt',
-      'position','rankings','dspPreset','dspSettings','dspCompressor','disableNetworkAds','pendingEdits','status'])
+      'position','rankings','dspPreset','dspSettings','dspCompressor','dspClipper','disableNetworkAds','pendingEdits','status'])
       delete stationData[key];
     stationData.broadcasterId=user._id;
     stationData.status='pending';
