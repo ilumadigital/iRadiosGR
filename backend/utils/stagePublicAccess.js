@@ -223,6 +223,10 @@ function stagePublicAccess(req, res, next) {
   // still checks that an owner has an active new station WebDSP entitlement.
   if(req.method==='GET'&&path==='/api/stations/dsp-access')
     return protect(req,res,()=>authorizeRoles('admin','broadcaster')(req,res,next));
+  // Invitation acceptance alone is not enough: the preview route also checks
+  // approved station ownership and active billing rights before returning streams.
+  if(req.method==='GET'&&path==='/api/stations/dsp-preview-access')
+    return protect(req,res,()=>authorizeRoles('broadcaster')(req,res,next));
 
   // Phase 4 Backoffice: signed-in operational roles only. Each backoffice
   // route additionally enforces station ownership and action-specific roles.

@@ -599,7 +599,8 @@ function MainApp() {
   // Admin's independent DSP audition must not be mixed with the global
   // listener player's audio when entering the full-page editor.
   useEffect(()=>{
-    if(location.pathname!=='/dsp'&&location.pathname!=='/backoffice/admin/audio')return;
+    if(location.pathname!=='/dsp'&&location.pathname!=='/backoffice/admin/audio'&&
+       location.pathname!=='/backoffice/audio-preview')return;
     intendedPlayState.current=false;
     if(audioRef.current&&!audioRef.current.paused)audioRef.current.pause();
     setIsPlaying(false);

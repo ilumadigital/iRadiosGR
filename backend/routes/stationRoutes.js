@@ -52,6 +52,7 @@ router.post('/recognize-proxy',protect,
 router.get('/stations', stationController.getApprovedStations);
 router.get('/stations/all', stationController.getAllStations);
 router.get('/stations/dsp-access',protect,authorizeRoles('admin','broadcaster'),stationController.getDSPStations);
+router.get('/stations/dsp-preview-access',protect,authorizeRoles('broadcaster'),stationController.getDSPPreviewStations);
 
 // 🚀 DISCOVERY MODE ROUTE (Πάντα πριν από routes με :id)
 router.get('/stations/discovery', stationController.getDiscoveryStations);
