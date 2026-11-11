@@ -17,10 +17,10 @@ async function main(){
    postBoost:{positions:4,placement:'global'}};
  stations[9].commercialBoost=ended;
  assert.deepEqual(sortCatalogStations(stations).map(s=>s._id),
-   ['1','2','3','4','5','6','10','7','8','9','11','12'],
+   ['1','2','3','4','5','10','6','7','8','9','11','12'],
    'Expired Boost rises exactly four ACTUAL slots, despite gaps in manual ranks');
  assert.equal(stations[9].position,1000,'public order must not rewrite manual editorial positions');
- assert.equal(sortCatalogStations(stations)[6]._id,'10','ranking must be deterministic on repeat');
+ assert.equal(sortCatalogStations(stations)[5]._id,'10','ranking must be deterministic on repeat');
  const first={...stations[0],commercialBoost:ended};
  assert.equal(sortCatalogStations([first,stations[1]])[0]._id,'1',
    'a station at the first organic slot cannot rise past the start');
