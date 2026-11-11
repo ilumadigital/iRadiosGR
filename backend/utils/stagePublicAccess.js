@@ -187,12 +187,14 @@ function stagePublicAccess(req, res, next) {
   if((req.method==='GET'||req.method==='POST')&&
    path==='/api/billing/broadcaster/premium-boost')return protect(req,res,next);
 
-  // Premium station writes are authorized again by the route AND resource owner.
-  if ((req.method==='PUT' &&
-    (/^\/api\/stations\/[a-f0-9]{24}\/dsp$/i.test(path) ||
-     /^\/api\/broadcaster\/stations\/[a-f0-9]{24}\/network-ads$/i.test(path))) ||
-    (req.method==='POST' && path==='/api/broadcaster/stations'))
-      return protect(req,res,next);
+  // Signed operator gate before the WebDSP controller's per-station billing
+  // entitlement and ownership check. Other Broadcaster writes remain separate.
+  if(req.method==='PUT' && /^\/api\/stations\/[a-f0-9]{24}\/dsp$/i.test(path))
+    return protect(req,res,()=>authorizeRoles('admin','broadcaster')(req,res,next));
+  if((req.method==='PUT'&&
+      /^\/api\/broadcaster\/stations\/[a-f0-9]{24}\/network-ads$/i.test(path))||
+     (req.method==='POST'&&path==='/api/broadcaster/stations'))
+    return protect(req,res,next);
 
   // Self-service listener actions are scoped by req.user in protected handlers.
   // Without this allowlist the default admin-only staging policy hides Profile
@@ -216,14 +218,10 @@ function stagePublicAccess(req, res, next) {
     return protect(req,res,next);
   // All other sensitive email, payment and push APIs remain admin-only on staging.
 
-  // WebDSP routes were previously rejected by staging's default admin-only
-  // middleware before the controller could check a broadcaster's station
-  // entitlement. Allow authenticated operators here; the DSP controller
-  // enforces station ownership and a *new* paid/granted WebDSP right for writes.
-  const dspList=req.method==='GET'&&path==='/api/stations/dsp-access';
-  const dspSave=req.method==='PUT'&&
-    /^\/api\/stations\/[0-9a-f]{24}\/dsp$/i.test(path);
-  if(dspList||dspSave)
+  // The station list was rejected by staging's default admin-only policy.
+  // Explicitly admit authenticated Admin/Broadcaster; the DSP controller
+  // still checks that an owner has an active new station WebDSP entitlement.
+  if(req.method==='GET'&&path==='/api/stations/dsp-access')
     return protect(req,res,()=>authorizeRoles('admin','broadcaster')(req,res,next));
 
   // Phase 4 Backoffice: signed-in operational roles only. Each backoffice
