@@ -1,7 +1,18 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const {diagnose,titleFromText,codecFromHeaders}=require('../services/streamDiagnostics');
+// Pure diagnostics tests must not initialize MongoDB models or open sockets.
+const Module=require('node:module');
+const original=Module._load;
+Module._load=function(request,parent,isMain){
+ if(request==='../models/Station'&&parent?.filename?.endsWith('/stageStreamProxy.js'))
+  return {};
+ return original.call(this,request,parent,isMain);
+};
+let diagnostics;
+try{diagnostics=require('../services/streamDiagnostics');}
+finally{Module._load=original;}
+const {diagnose,titleFromText,codecFromHeaders}=diagnostics;
 const fake=(url)=>{
  if(url.endsWith('/live'))return {status:200,headers:{
   'content-type':'audio/mpeg','icy-br':'128','icy-name':'Station One','icy-metaint':'5'

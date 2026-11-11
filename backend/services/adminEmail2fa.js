@@ -2,7 +2,6 @@
 // Every Admin password login requires a NEW six-digit email challenge.
 // The only recipient is hard-coded here, never taken from the account or request.
 const crypto=require('node:crypto');
-const jwt=require('jsonwebtoken');
 const RECIPIENT='sales@iluma.gr';
 const CODE_TTL_MS=10*60*1000;
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
@@ -42,7 +41,7 @@ async function issueChallenge(User,user,{deliver}={}){
  }
  return {challenge,expiresInSeconds:CODE_TTL_MS/1000,recipient:RECIPIENT};
 }
-async function verifyChallenge(User,{challenge,code}={}){
+async function verifyChallenge(User,{challenge,code}={},signForTest=null){
  if(typeof challenge!=='string'||!/^[a-f0-9]{64}$/.test(challenge)||
   typeof code!=='string'||!/^[0-9]{6}$/.test(code))
   throw new Admin2FAError(400,'ADMIN_2FA_INVALID','Μη έγκυρος κωδικός επαλήθευσης.');
@@ -69,8 +68,9 @@ async function verifyChallenge(User,{challenge,code}={}){
   clear,{new:true});
  if(!consumed)throw new Admin2FAError(401,'ADMIN_2FA_REJECTED','Ο κωδικός είναι λάθος ή χρησιμοποιήθηκε ήδη.');
  const secret=process.env.JWT_SECRET;
- const token=jwt.sign({id:consumed._id,role:'admin',admin2fa:true},
-  secret,{expiresIn:'12h'});
+ const payload={id:consumed._id,role:'admin',admin2fa:true};
+ const token=signForTest?signForTest(payload):
+  require('jsonwebtoken').sign(payload,secret,{expiresIn:'12h'});
  return {token,user:consumed};
 }
 module.exports={RECIPIENT,issueChallenge,verifyChallenge,Admin2FAError};

@@ -1,5 +1,5 @@
 'use strict';
-const {test,before,after}=require('node:test');
+const {test,after}=require('node:test');
 const assert=require('node:assert/strict');
 const secret=process.env.JWT_SECRET;
 process.env.JWT_SECRET='z'.repeat(48);
@@ -50,8 +50,9 @@ test('Wrong codes consume attempts, correct one yields one-use admin2fa token',a
  const {challenge}=await issueChallenge(f.User,f.record,{deliver:f.deliver});
  await assert.rejects(()=>verifyChallenge(f.User,{challenge,code:'999999'===f.emails[0].code?'111111':'999999'}),{status:401});
  assert.equal(f.record.adminOtpAttempts,1);
- const granted=await verifyChallenge(f.User,{challenge,code:f.emails[0].code});
- assert.equal(require('jsonwebtoken').verify(granted.token,process.env.JWT_SECRET).admin2fa,true);
+ const granted=await verifyChallenge(f.User,{challenge,code:f.emails[0].code},
+  claims=>JSON.stringify(claims));
+ assert.equal(JSON.parse(granted.token).admin2fa,true);
  await assert.rejects(()=>verifyChallenge(f.User,{challenge,code:f.emails[0].code}),{status:401});
 });
 test('Expired, exhausted, failed delivery, non-admin and bad input fail closed',async()=>{
