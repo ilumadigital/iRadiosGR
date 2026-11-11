@@ -172,11 +172,20 @@ export default function AdminUsers({ API_URL, currentUser }) {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm("Σίγουρα θέλετε να διαγράψετε αυτόν τον χρήστη;")) return;
+    if (!window.confirm('Οριστική διαγραφή λογαριασμού; Θα ακυρωθούν πρώτα ΟΛΕΣ οι ενεργές συνδρομές και οι επόμενες χρεώσεις του στο ILUMA Gateway (Premium, Broadcaster και add-ons).')) return;
     try {
       const res = await fetch(`${API_URL}/admin/users/${userId}`, { method: 'DELETE' });
-      if (res.ok) setUsers(users.filter(u => u._id !== userId));
-    } catch (err) { console.error(err); }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || 'Η διαγραφή ακυρώθηκε. Δεν έχει επιβεβαιωθεί η διακοπή των χρεώσεων στο Gateway.');
+        return;
+      }
+      setUsers(prev => prev.filter(u => u._id !== userId));
+      alert(data.message || 'Ο χρήστης διαγράφηκε και η αυτόματη χρέωση σταμάτησε.');
+    } catch (err) {
+      console.error(err);
+      alert('Σφάλμα σύνδεσης. Η διαγραφή δεν επιβεβαιώθηκε.');
+    }
   };
 
   // 🟢 DELETE AGENCY CAMPAIGN
