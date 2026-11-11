@@ -70,11 +70,16 @@ test('Compressor has preset, manual and off modes without affecting stereo / EQ'
  }
 });
 
-test('Per-mode Headroom ON/OFF and integer Clipper 0–8 save independently',()=>{
+test('Headroom is permanently ON while Booster 0–8 saves per mode',()=>{
  const configured={ENHANCER:{headroomEnabled:false,level:5},
    FM_MODE:{headroomEnabled:true,level:8}};
- assert.deepEqual(validateDSPUpdate({dspClipper:configured}),
-   {value:{dspClipper:configured}});
+ const saved=validateDSPUpdate({dspClipper:configured});
+ assert.deepEqual(saved,{value:{dspClipper:{
+   ENHANCER:{headroomEnabled:true,level:5},
+   FM_MODE:{headroomEnabled:true,level:8}
+ }}});
+ // Prior saved Headroom OFF clients cannot disable peak protection.
+ assert.equal(saved.value.dspClipper.ENHANCER.headroomEnabled,true);
  assert.deepEqual(DSP_CLIPPER_DEFAULTS,{
    ENHANCER:{headroomEnabled:true,level:0},
    FM_MODE:{headroomEnabled:true,level:0}
