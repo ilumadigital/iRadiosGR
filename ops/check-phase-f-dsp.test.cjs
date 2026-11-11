@@ -138,8 +138,11 @@ test('Listener presets are Premium-only, local to an account and bypass ads',()=
  assert.match(app,/iluma_listener_dsp_v2:/);
  assert.doesNotMatch(app,/iluma_user_dsp_overrides/);
  const widget=read('frontend/src/components/PremiumSoundModes.jsx');
- for(const name of ['Premium','SONOS','Dolby Style','VMax','OFF'])
-  assert.ok(widget.includes(name),'missing personal preset '+name);
+ assert.ok(widget.includes('Object.entries(LISTENER_MODES)'));
+ assert.ok(widget.includes('Premium · Προσωπικός ήχος'));
+ const engineSource=read('frontend/src/utils/dspEngine.js');
+ for(const name of ['SONOS','DOLBY_STYLE','VMAX','OFF','DEFAULT'])
+  assert.ok(engineSource.includes(name),'missing personal preset '+name);
  for(const p of ['frontend/src/pages/StationProfile.jsx','frontend/src/components/Footer.jsx']){
   const ui=read(p);
   assert.ok(ui.includes('PremiumSoundModes'));
