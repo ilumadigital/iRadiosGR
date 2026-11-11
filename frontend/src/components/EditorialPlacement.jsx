@@ -9,22 +9,24 @@ export default function EditorialPlacement({
   onPlayStation,onPlayPause,viewMode='grid',onPromotedStationChange
 }){
   const [hasPromoted,setHasPromoted]=useState(false);
-  useEffect(()=>setHasPromoted(false),[placement,value]);
+  const [hasEditorial,setHasEditorial]=useState(false);
+  useEffect(()=>{setHasPromoted(false);setHasEditorial(false);},[placement,value]);
   const updatePromoted=useCallback(id=>{
     setHasPromoted(Boolean(id));
     onPromotedStationChange?.(id);
   },[onPromotedStationChange]);
-  // Identical promoted unit in grid, list and map, with the same 70/30 desktop split.
-  const showPromoted=true;
+  // Editorial slides are independent from paid promotions and rankings.
+  // Reserve the 70/30 split only when both CMS placements are actually present.
   return (
-    <div className={`ir-catalog-feature-row mb-8 grid min-w-0 items-stretch gap-4 ${showPromoted&&hasPromoted?'xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]':''}`}>
+    <div className={`ir-catalog-feature-row mb-8 grid min-w-0 items-stretch gap-4 empty:hidden ${hasEditorial&&hasPromoted?'xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]':''}`}>
       <HomeHeroSlider placement={placement} value={value} fallbackStation={fallbackStation}
         currentUser={currentUser} stations={stations} currentStation={currentStation}
-        isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>
-      {showPromoted&&<PromotedStationCard placement={placement} value={value}
+        isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}
+        onAvailabilityChange={setHasEditorial}/>
+      <PromotedStationCard placement={placement} value={value}
         stations={stations} currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={onPlayStation} onPlayPause={onPlayPause}
-        onAvailabilityChange={updatePromoted}/>}
+        onAvailabilityChange={updatePromoted}/>
     </div>
   );
 }
