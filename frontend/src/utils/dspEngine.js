@@ -290,14 +290,24 @@ export function createDSPGraph(ctx,source){
 
 // All controls update the same graph instantly, preserving the user's manual
 // Compressor settings while changing the EQ, width or preset.
-export function applyDSPGraph(graph,preset,settings,compressorSettings,bypass=false,clipperSettings){
+export function applyDSPGraph(graph,preset,settings,compressorSettings,bypass=false,clipperSettings,autoBalance=0){
 
   if(!graph)return;
   const ctx=graph.ctx;
   const key=normalizeBroadcasterMode(preset);
-  const p=DSP_MODES[key],s=normalizeDSPSettings(settings);
-  const c=normalizeDSPCompressor(compressorSettings),resolved=resolvedCompressor(key,c);
-  const useDynamics=key==='FM_MODE'&&c.mode!=='off';
+  const p=DSP_MODES[key],automatic=key==='AUTO_MODE';
+  const s=automatic?{...DSP_DEFAULTS,bass:.6,treble:.5}:normalizeDSPSettings(settings);
+  const c=normalizeDSPCompressor(compressorSettings);
+  const resolved=automatic?
+    {threshold:p.threshold,ratio:p.ratio,knee:p.knee,attack:p.attack,release:p.release,makeup:0}:
+    resolvedCompressor(key,c);
+  const useDynamics=automatic||(key==='FM_MODE'&&c.mode!=='off');
+  const nextBalance=normalizeAutoBalance(autoBalance);
+  if(graph.preset!==key||graph.autoBalance!==nextBalance||bypass){
+    graph.autoGainDb=0;graph.autoPeakDb=-120;
+    setAudioParam(graph.autoGain.gain,1,ctx);
+  }
+  graph.autoBalance=nextBalance;
   graph.preset=key;graph.setting=s;graph.compressorSettings=c;
   graph.clipperSettings=normalizeDSPClipper(clipperSettings);
   const isDry=bypass||key==='OFF';
@@ -318,7 +328,7 @@ export function applyDSPGraph(graph,preset,settings,compressorSettings,bypass=fa
   setAudioParam(graph.mid.gain,s.mid,ctx);
   setAudioParam(graph.treble.gain,s.treble,ctx);
   setAudioParam(graph.output.gain,dbToGain(s.output),ctx);
-  const width=s.stereoWidth/100;
+  const width=(automatic?autoStereoWidth(graph.autoBalance):s.stereoWidth)/100;
   setAudioParam(graph.ll.gain,(1+width)/2,ctx);
   setAudioParam(graph.rr.gain,(1+width)/2,ctx);
   setAudioParam(graph.rl.gain,(1-width)/2,ctx);
@@ -330,12 +340,16 @@ export function applyDSPGraph(graph,preset,settings,compressorSettings,bypass=fa
   const ceilingOn=!isDry;
   setAudioParam(graph.peakCeilingDry.gain,ceilingOn?0:1,ctx);
   setAudioParam(graph.peakCeilingWet.gain,ceilingOn?1:0,ctx);
-  const level=isDry?0:graph.clipperSettings[key].level;
+  const level=isDry||automatic?0:(graph.clipperSettings[key]?.level||0);
   if(level>0&&graph.clipperLevel!==level)graph.clipper.curve=createSoftClipCurve(level);
   graph.clipperLevel=level;
   setAudioParam(graph.clipperDrive.gain,dbToGain(level),ctx);
   setAudioParam(graph.clipperDry.gain,level>0?0:1,ctx);
   setAudioParam(graph.clipperWet.gain,level>0?1:0,ctx);
+  if(!automatic||isDry){
+    graph.autoGainDb=0;graph.autoPeakDb=-120;
+    setAudioParam(graph.autoGain.gain,1,ctx);
+  }
 }
 
 
@@ -346,16 +360,26 @@ export function applyDSPGraph(graph,preset,settings,compressorSettings,bypass=fa
 const LISTENER_CURVES=Object.freeze({
   SONOS:{bass:.8,mid:-.7,treble:.5,width:110,threshold:0,ratio:1,knee:0,attack:.04,release:.3,makeup:0,trim:-3.2},
   DOLBY_STYLE:{bass:.6,mid:1.1,treble:.5,width:116,threshold:0,ratio:1,knee:0,attack:.04,release:.3,makeup:0,trim:-4.0},
-  VMAX:{bass:.3,mid:0,treble:.4,width:103,threshold:-17,ratio:2.4,knee:16,attack:.026,release:.34,makeup:2.4,trim:-4.8}
+  VMAX:{bass:.3,mid:0,treble:.4,width:103,threshold:-17,ratio:2.4,knee:16,attack:.026,release:.34,makeup:0,trim:0}
 });
 export function applyListenerMode(graph,choice='DEFAULT'){
   if(!graph)return;
   const mode=normalizeListenerMode(choice),ctx=graph.ctx;
+  if(graph.listenerMode!==mode){
+    graph.listenerGainDb=0;graph.listenerPeakDb=-120;
+    setAudioParam(graph.listenerAutoGain.gain,1,ctx);
+  }
   graph.listenerMode=mode;
   const raw=mode==='OFF',direct=mode==='DEFAULT';
   setAudioParam(graph.listenerRaw.gain,raw?1:0,ctx);
   setAudioParam(graph.listenerDefault.gain,direct?1:0,ctx);
   setAudioParam(graph.listenerWet.gain,raw||direct?0:1,ctx);
+  setAudioParam(graph.listenerVmaxDry.gain,mode==='VMAX'?0:1,ctx);
+  setAudioParam(graph.listenerVmaxWet.gain,mode==='VMAX'?1:0,ctx);
+  if(mode!=='VMAX'){
+    graph.listenerGainDb=0;graph.listenerPeakDb=-120;
+    setAudioParam(graph.listenerAutoGain.gain,1,ctx);
+  }
   const config=LISTENER_CURVES[mode]||LISTENER_CURVES.SONOS;
   setAudioParam(graph.listenerBass.gain,config.bass,ctx);
   setAudioParam(graph.listenerMid.gain,config.mid,ctx);
@@ -377,14 +401,40 @@ export function applyListenerMode(graph,choice='DEFAULT'){
   const peaks=Math.max(0,config.bass)+Math.max(0,config.mid)+
     Math.max(0,config.treble)+Math.max(0,20*Math.log10(w))+
     Math.max(0,config.makeup);
-  // The station now has no fixed reserve to spend. Personal modes must not
-  // assume 3 dB of unused space, regardless of the station's ceiling switch.
-  const usableStationReserve=0;
-  const net=mode==='VMAX'?
-    Math.min(2,usableStationReserve-.9):
-    Math.min(-.8,config.trim+peaks);
+  // VMax uses post-EQ stream measurements, not a static -4 dB trim.
+  // An independent -0.2 dBFS waveshaper is after adaptive gain.
+  const net=mode==='VMAX'?peaks:Math.min(-.8,config.trim+peaks);
   graph.listenerHeadroomDb=net-peaks;
   setAudioParam(graph.listenerHeadroom.gain,dbToGain(graph.listenerHeadroomDb),ctx);
+}
+
+// Called only while audio is playing by the shared player/prelisten loops.
+// The pre-gain peak is held briefly so boost does not chase its own output.
+export function updateAdaptiveDSP(graph){
+  if(!graph)return;
+  const ctx=graph.ctx;
+  const update=(probe,key,peakKey,param,target,maxBoost)=>{
+    if(!graph[key+'Samples']||graph[key+'Samples'].length!==probe.fftSize)
+      graph[key+'Samples']=new Float32Array(probe.fftSize);
+    const instantaneous=measurePeakDbfs(probe,graph[key+'Samples']);
+    if(instantaneous< -52)return; // silence gate: no runaway boosting
+    graph[peakKey]=Math.max(instantaneous,
+      Number.isFinite(graph[peakKey])?graph[peakKey]-.18:instantaneous);
+    const desired=calculateAdaptiveGainDb(graph[peakKey],target,maxBoost);
+    if(desired===null)return;
+    graph[key]=desired;
+    const now=ctx.currentTime;
+    param.cancelScheduledValues(now);
+    param.setTargetAtTime(dbToGain(desired),now,desired<gainToDb(param.value)? .06:1.15);
+  };
+  if(graph.preset==='AUTO_MODE'&&graph.wet.gain.value>.5){
+    const loudnessFocus=-Math.min(0,graph.autoBalance)/100;
+    update(graph.autoProbe,'autoGainDb','autoPeakDb',graph.autoGain.gain,
+      -1.6+loudnessFocus*.5,12+loudnessFocus*2);
+  }
+  if(graph.listenerMode==='VMAX'&&graph.listenerWet.gain.value>.5)
+    update(graph.listenerProbe,'listenerGainDb','listenerPeakDb',
+      graph.listenerAutoGain.gain,-.9,14);
 }
 
 export function measurePeakDbfs(analyser,buffer){
