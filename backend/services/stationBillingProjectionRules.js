@@ -10,6 +10,7 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
  const data=typeof station.toObject==='function'?station.toObject():{...station};
  const zeroPaidFx=()=>{
    data.dspPreset='OFF';
+   data.dspAutoBalance=0;
    data.dspSettings={bass:0,mid:0,treble:0,output:0,stereoWidth:100};
    data.dspCompressor={...DSP_COMPRESSOR_DEFAULTS,mode:'off'};
    data.dspClipper={ENHANCER:{...DSP_CLIPPER_DEFAULTS.ENHANCER},
@@ -72,6 +73,7 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
  // regardless of when an Admin authored the stored configuration.
  if(!rights.has('broadcaster.webdsp')){
    data.dspPreset='OFF';
+   data.dspAutoBalance=0;
    // Never leak or apply paid tone/width processing once access expires.
    data.dspSettings={bass:0,mid:0,treble:0,output:0,stereoWidth:100};
    data.dspCompressor={...DSP_COMPRESSOR_DEFAULTS,mode:'off'};
