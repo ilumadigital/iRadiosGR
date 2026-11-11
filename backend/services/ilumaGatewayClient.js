@@ -128,6 +128,19 @@ async function cancelRecurring(user){
   throw Error('Invalid cancellation response');
  return data;
 }
+// Used ONLY by the protected admin-delete controller. Cancels every Listener
+// and Broadcaster MIT mandate before the account is removed from MongoDB.
+async function cancelAllOnAccountDeletion(user){
+ if(!user?._id)throw Error('Account required');
+ const data=await signedRequest('POST','/api/v1/accounts/cancel-all',{
+  customer_id:'iradios-stage-'+String(user._id)
+ });
+ if(!data||data.state!=='cancelled'||data.billing_blocked!==true||
+    !['listener_cancelled','broadcaster_cancelled','subscriptions_cancelled'].every(
+     key=>Number.isSafeInteger(data[key])&&data[key]>=0))
+  throw Error('Invalid account deletion billing confirmation');
+ return data;
+}
 async function paymentHistory(user){
  if(!user?._id)throw Error('Authenticated user required');
  const data=await signedRequest('POST','/api/v1/billing/history',{
@@ -192,6 +205,6 @@ async function cancelBroadcasterRecurring(user,sku,stationId=null){
 }
 
 module.exports={configured,checkout,paymentStatus,paymentByRequestKey,winbackStatus,signedRequest,
- savedCardStatus,revokeSavedCard,recurringStatus,cancelRecurring,paymentHistory,
+ savedCardStatus,revokeSavedCard,recurringStatus,cancelRecurring,cancelAllOnAccountDeletion,paymentHistory,
  broadcasterCheckout,broadcasterPaymentStatus,broadcasterPaymentByRequestKey,
  broadcasterRecurringStatus,cancelBroadcasterRecurring};
