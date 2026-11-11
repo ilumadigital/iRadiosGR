@@ -2,16 +2,18 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Activity,AlertTriangle,CheckCircle2,Headphones,Pause,Play,RotateCcw,
   Save,Search,SlidersHorizontal,Volume2,PowerOff} from 'lucide-react';
 import {DSP_DEFAULTS,DSP_MODES,normalizeBroadcasterMode,DSP_COMPRESSOR_DEFAULTS,PEAK_WARNING_DBFS,
-  normalizeDSPSettings,normalizeDSPCompressor,normalizeDSPClipper,compressorForPreset,calculateHeadroomDb,
+  normalizeDSPSettings,normalizeDSPCompressor,normalizeDSPClipper,normalizeAutoBalance,autoStereoWidth,
+  updateAdaptiveDSP,compressorForPreset,calculateHeadroomDb,
   createDSPGraph,applyDSPGraph,measurePeakDbfs} from '../utils/dspEngine';
 
 const blank=()=>({dspPreset:'OFF',dspSettings:{...DSP_DEFAULTS},
-  dspCompressor:{...DSP_COMPRESSOR_DEFAULTS},dspClipper:normalizeDSPClipper()});
+  dspCompressor:{...DSP_COMPRESSOR_DEFAULTS},dspClipper:normalizeDSPClipper(),dspAutoBalance:0});
 const fromStation=station=>({
   dspPreset:normalizeBroadcasterMode(station?.dspPreset),
   dspSettings:normalizeDSPSettings(station?.dspSettings),
   dspCompressor:normalizeDSPCompressor(station?.dspCompressor),
-  dspClipper:normalizeDSPClipper(station?.dspClipper)
+  dspClipper:normalizeDSPClipper(station?.dspClipper),
+  dspAutoBalance:normalizeAutoBalance(station?.dspAutoBalance)
 });
 const formatDb=value=>(value>0?'+':'')+value.toFixed(1)+' dB';
 const meterWidth=value=>Math.max(0,Math.min(100,((value+60)/60)*100));
@@ -90,6 +92,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   const [monitor,setMonitor]=useState(100);
   const [meter,setMeter]=useState({before:-120,after:-120,final:-120});
   const [gainReduction,setGainReduction]=useState(0);
+  const [autoGainDb,setAutoGainDb]=useState(0);
   const audioRef=useRef(null);
   const graphRef=useRef(null);
   const ctxRef=useRef(null);
@@ -139,7 +142,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   useEffect(()=>{
     const config=fromStation(station);
     setSaved(config);setDraft(config);setBypass(false);setNotice('');
-    setMeter({before:-120,after:-120,final:-120});setGainReduction(0);
+    setMeter({before:-120,after:-120,final:-120});setGainReduction(0);setAutoGainDb(0);
     const audio=audioRef.current;
     if(audio){audio.pause();audio.removeAttribute('src');audio.load();}
     setPlaying(false);
@@ -155,7 +158,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   const apply=useCallback((config,bypassed)=>{
     if(!graphRef.current)return;
     applyDSPGraph(graphRef.current,config.dspPreset,config.dspSettings,
-      config.dspCompressor,bypassed,config.dspClipper);
+      config.dspCompressor,bypassed,config.dspClipper,config.dspAutoBalance);
   },[]);
   useEffect(()=>{apply(draft,bypass);},[draft,bypass,apply]);
 
@@ -177,6 +180,11 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     const prior=draft.dspCompressor.mode==='manual'?draft.dspCompressor:
       {...compressorForPreset(draft.dspPreset),mode:'manual'};
     const next={...draft,dspCompressor:{...prior,[key]:value}};
+    apply(next,bypass);setDraft(next);setNotice('');
+  };
+
+  const updateAutoBalance=value=>{
+    const next={...draft,dspAutoBalance:normalizeAutoBalance(value)};
     apply(next,bypass);setDraft(next);setNotice('');
   };
 
@@ -249,11 +257,13 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
         lastDraw=now;
       }
       if(now-lastMeter>=90){
+        if(!bypass&&draft.dspPreset==='AUTO_MODE')updateAdaptiveDSP(graph);
         setMeter({before:measurePeakDbfs(graph.beforePeak,pre),
           after:measurePeakDbfs(graph.postPeak,post),
           final:measurePeakDbfs(graph.afterPeak,final)});
-        setGainReduction((!bypass&&draft.dspPreset==='FM_MODE')?
+        setGainReduction((!bypass&&['FM_MODE','AUTO_MODE'].includes(draft.dspPreset))?
           Math.max(0,-Number(graph.compressor.reduction||0)):0);
+        setAutoGainDb(!bypass&&draft.dspPreset==='AUTO_MODE'?graph.autoGainDb:0);
         lastMeter=now;
       }
       animation=requestAnimationFrame(tick);
@@ -288,7 +298,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
       <div className="flex items-center gap-4">
         <div className="rounded-2xl border border-[#caff00]/20 bg-[#caff00]/10 p-3"><SlidersHorizontal className="text-[#caff00]"/></div>
         <div><h1 className="text-3xl font-black">WebDSP Audio Engine</h1>
-          <p className="mt-1 text-sm text-zinc-400">OFF, Enhancer και FM Mode · EQ, Stereo, Compressor, Booster και σταθερό Headroom −0.5 dBFS.</p>
+          <p className="mt-1 text-sm text-zinc-400">OFF, Enhancer, FM Mode και Auto Mode · Smart DSP με live monitoring και προστασία peak.</p>
         </div>
       </div>
       <div className="rounded-full border border-white/10 px-4 py-2 text-[11px] uppercase tracking-widest text-zinc-300">
@@ -327,11 +337,11 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div><span className="text-[11px] font-bold tracking-widest text-zinc-500">00 / AUDIO MODES</span>
             <h2 className="mt-1 text-2xl font-bold">Audio Mode</h2>
-            <p className="mt-1 text-sm text-zinc-400">OFF: raw stream · Enhancer: EQ + Stereo · FM Mode: EQ + Stereo + Compressor.</p>
+            <p className="mt-1 text-sm text-zinc-400">OFF: raw stream · Enhancer: EQ + Stereo · FM Mode: manual · Auto Mode: ένας έλεγχος, όλα τα υπόλοιπα αυτόματα.</p>
           </div>
           <div className="rounded-full border border-white/10 px-4 py-2 text-xs text-zinc-300">{draft.dspPreset}</div>
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {Object.entries(DSP_MODES).map(([key,value])=><button key={key} type="button"
             onClick={()=>selectPreset(key)} aria-pressed={draft.dspPreset===key}
             className={'min-h-20 rounded-xl border p-3 text-left text-xs font-bold transition-colors '+
@@ -394,7 +404,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
       </section>
 
       </>}
-      {draft.dspPreset!=='OFF'&&(
+      {['ENHANCER','FM_MODE'].includes(draft.dspPreset)&&(
       <div className="grid gap-5 xl:grid-cols-[1.43fr_1fr]">
         <section className={shell+' p-5 md:p-7'}>
           <div className="mb-8 flex items-start justify-between gap-3">
@@ -445,7 +455,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
 
       )}
 
-      {draft.dspPreset!=='OFF'&&<section className={shell+' p-5 md:p-7'}>
+      {['ENHANCER','FM_MODE'].includes(draft.dspPreset)&&<section className={shell+' p-5 md:p-7'}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <span className="text-[11px] font-black uppercase tracking-widest text-zinc-500">04 / MASTER PROCESSING</span>
@@ -506,7 +516,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
         </div>
         <p className="mt-3 text-xs text-zinc-500">
           Οι κυματομορφές προέρχονται από πραγματικά audio samples του Live Prelisten, όχι προσομοίωση.
-          Πάτησε LISTEN LIVE παρακάτω για να τις δεις. Οι αλλαγές εφαρμόζονται αμέσως, και αποθηκεύονται μόνο με Save.
+          Άνοιξε το sticky Live Preview πάνω από τα modes για να τις δεις. Οι αλλαγές εφαρμόζονται αμέσως και αποθηκεύονται μόνο με Save.
         </p>
       </section>}
 
