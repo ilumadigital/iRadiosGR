@@ -60,7 +60,12 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  adjacent(g.headroom,g.clipperDrive);adjacent(g.clipperDrive,g.clipper);
  adjacent(g.clipper,g.clipperWet);
  adjacent(g.clipperWet,g.clipperMix);
- adjacent(g.clipperMix,g.postPeak);adjacent(g.postPeak,g.wet);adjacent(g.wet,g.mix);
+ adjacent(g.clipperMix,g.peakCeilingDry);
+ adjacent(g.peakCeilingDry,g.peakCeilingMix);
+ adjacent(g.clipperMix,g.peakCeiling);
+ adjacent(g.peakCeiling,g.peakCeilingWet);
+ adjacent(g.peakCeilingWet,g.peakCeilingMix);
+ adjacent(g.peakCeilingMix,g.postPeak);adjacent(g.postPeak,g.wet);adjacent(g.wet,g.mix);
  adjacent(source,g.listenerRaw);adjacent(g.listenerRaw,g.listenerMix);
  adjacent(g.mix,g.listenerDefault);adjacent(g.listenerDefault,g.listenerMix);
  adjacent(g.mix,g.listenerBass);
@@ -79,6 +84,7 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  assert.equal(g.limiter,undefined);
  assert.equal(g.safety,undefined);
  assert.equal(g.clipper.oversample,'4x');
+ assert.equal(g.peakCeiling.oversample,'4x');
  applyDSPGraph(g,'OFF',DSP_DEFAULTS);
  assert.equal(g.dry.gain.value,1);
  assert.equal(g.wet.gain.value,0);
@@ -135,7 +141,8 @@ test('SONOS 110%, virtual Dolby stereo and VMax are distinct listener-only FX',a
  applyDSPGraph(g,'OFF',DSP_DEFAULTS);
  applyListenerMode(g,'VMAX');
  assert.ok(g.listenerHeadroomDb<-4,'do not boost potentially clipped raw streams');
- assert.ok(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,bass:12,stereoWidth:150})< -15);
+ assert.equal(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,bass:12,stereoWidth:150}),-.6,
+  'boosted EQ must not cause huge static headroom attenuation');
 });
 test('Listener presets are Premium-only, local to an account and bypass ads',()=>{
  const hook=read('frontend/src/hooks/useAudioDSP.js');
@@ -186,6 +193,8 @@ test('Headroom switches, clipper curve and independent broadcaster modes',async(
  assert.equal(calculateHeadroomDb('FM_MODE',DSP_DEFAULTS,undefined,config)<0,true);
  applyDSPGraph(graph,'ENHANCER',DSP_DEFAULTS,undefined,false,config);
  assert.equal(graph.headroomDb,0);
+ assert.equal(graph.peakCeilingDry.gain.value,1);
+ assert.equal(graph.peakCeilingWet.gain.value,0);
  assert.equal(graph.clipperLevel,4);
  assert.ok(graph.clipperDrive.gain.value>1);
  assert.equal(graph.clipperDry.gain.value,0);
@@ -198,11 +207,40 @@ test('Headroom switches, clipper curve and independent broadcaster modes',async(
  assert.equal(createSoftClipCurve(0),null);
  applyDSPGraph(graph,'FM_MODE',DSP_DEFAULTS,undefined,false,config);
  assert.equal(graph.clipperLevel,8);
- assert.ok(graph.headroomDb<0);
+ assert.equal(graph.headroomDb,-.6);
+ assert.equal(graph.headroom.gain.value,1,'peak ceiling must not reduce the whole stream');
+ assert.equal(graph.peakCeilingDry.gain.value,0);
+ assert.equal(graph.peakCeilingWet.gain.value,1);
  applyDSPGraph(graph,'OFF',DSP_DEFAULTS,undefined,false,config);
  assert.equal(graph.clipperLevel,0);
  assert.equal(graph.clipperDry.gain.value,1);
  assert.equal(graph.clipperWet.gain.value,0);
  assert.equal(graph.clipperDrive.gain.value,1);
+ assert.equal(graph.peakCeilingDry.gain.value,1);
+ assert.equal(graph.peakCeilingWet.gain.value,0);
  assert.equal(graph.dry.gain.value,1);
+});
+
+test('Headroom ON guards peaks at -0.6 dBFS without lowering normal loudness',async()=>{
+ const {createPeakCeilingCurve,HEADROOM_CEILING_DBFS,createDSPGraph,applyDSPGraph,
+   calculateHeadroomDb,DSP_DEFAULTS}=await engine();
+ assert.equal(HEADROOM_CEILING_DBFS,-.6);
+ const curve=createPeakCeilingCurve(),ceiling=10**(-.6/20);
+ assert.equal(curve.length,8192);
+ const sampleAt=x=>curve[Math.round((x+1)/2*(curve.length-1))];
+ assert.ok(Math.abs(sampleAt(.4)-.4)<.001,'quiet audio must have unity transfer');
+ assert.ok(Math.abs(sampleAt(-.4)+.4)<.001);
+ assert.ok(sampleAt(1)<=ceiling+.00001,'highest input sample must stay below ceiling');
+ assert.ok(sampleAt(1)>.9,'0 dBFS should remain loud near the ceiling');
+ assert.ok(Math.abs(sampleAt(1)+sampleAt(-1))<1e-6);
+ assert.equal(calculateHeadroomDb('OFF',DSP_DEFAULTS),0);
+ assert.equal(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,output:7}),-.6);
+ const g=createDSPGraph(context(),new Node());
+ applyDSPGraph(g,'ENHANCER',{...DSP_DEFAULTS,bass:12,output:7});
+ assert.equal(g.headroom.gain.value,1,'positive EQ must never trigger static attenuation');
+ assert.equal(g.peakCeilingWet.gain.value,1);
+ assert.equal(g.peakCeilingDry.gain.value,0);
+ applyDSPGraph(g,'ENHANCER',DSP_DEFAULTS,undefined,true);
+ assert.equal(g.dry.gain.value,1,'manual bypass stays raw');
+ assert.equal(g.peakCeilingWet.gain.value,0);
 });
