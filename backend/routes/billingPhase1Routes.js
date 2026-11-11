@@ -16,6 +16,7 @@ const {authorizeRoles}=require('../utils/roleMiddleware');
 const {validateComplimentaryScope,resolveComplimentaryEntitlements,isActiveGrant}=require('../services/billingPolicy');
 const {effectiveRights,legacyRights,activeGrantsFor,activeBroadcasterOrders,accountRights}=require('../services/billingEntitlements');
 const {paidRights}=require('../services/broadcasterPurchaseRules');
+const {describeStationAddons}=require('../services/adminAddonOverview');
 const router=express.Router();
 const admin=[protect,authorizeRoles('admin')];
 const safe=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
@@ -96,6 +97,46 @@ router.get('/admin/billing/subjects',...admin,safe(async(req,res)=>{
  const users=await User.find({$or:[{email:rx},{username:rx},{fname:rx},{lname:rx}]})
   .select('_id username fname lname email role').limit(25).lean();
  res.json({users});
+}));
+
+// Admin read-only inventory: reuse precisely the entitlement resolver used by
+// broadcasters. Paid orders and complimentary grants remain separate sources.
+router.get('/admin/billing/addons/overview',...admin,safe(async(req,res)=>{
+ const accountId=String(req.query.accountId||'');
+ if(!idOk(accountId))return res.status(400).json({error:'Μη έγκυρο ID broadcaster.'});
+ const user=await User.findById(accountId)
+   .select('_id username fname lname email role broadcasterProfile');
+ if(!user)return res.status(404).json({error:'Ο λογαριασμός δεν βρέθηκε.'});
+ if(user.role!=='broadcaster')
+   return res.status(422).json({error:'Τα Addons ανά σταθμό αφορούν λογαριασμούς Broadcaster.'});
+ const now=new Date();
+ const [stations,grants,orders]=await Promise.all([
+  Station.find({broadcasterId:accountId}).select('_id name status').sort({name:1}).lean(),
+  activeGrantsFor(user,now),
+  activeBroadcasterOrders(user,now)
+ ]);
+ res.json({
+  account:{_id:user._id,username:user.username,email:user.email,
+   fname:user.fname,lname:user.lname,role:user.role},
+  stations:stations.map(station=>describeStationAddons(user,station,grants,orders,now)),
+  environment:process.env.APP_ENV||'unknown'
+ });
+}));
+
+router.get('/admin/billing/addons/resolve-station',...admin,safe(async(req,res)=>{
+ const stationId=String(req.query.stationId||'');
+ if(!idOk(stationId))return res.status(400).json({error:'Μη έγκυρο ID σταθμού.'});
+ const station=await Station.findById(stationId).select('_id name broadcasterId').lean();
+ if(!station)return res.status(404).json({error:'Ο σταθμός δεν βρέθηκε.'});
+ if(!station.broadcasterId)return res.status(422).json({
+  error:'Ο σταθμός δεν έχει ανατεθεί σε Broadcaster. Κάνε πρώτα ανάθεση.'
+ });
+ const owner=await User.findOne({_id:station.broadcasterId,role:'broadcaster'})
+   .select('_id').lean();
+ if(!owner)return res.status(422).json({
+  error:'Ο σταθμός δεν ανήκει σε ενεργό λογαριασμό Broadcaster.'
+ });
+ return res.json({accountId:String(owner._id),stationId:String(station._id),stationName:station.name});
 }));
 
 router.get('/admin/billing/resources/:accountId',...admin,safe(async(req,res)=>{
