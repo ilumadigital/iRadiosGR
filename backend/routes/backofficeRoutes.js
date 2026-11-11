@@ -135,6 +135,34 @@ function fail(res,error){
   console.error('[BACKOFFICE]',error?.name||'server');
   return res.status(500).json({error:'Η ενέργεια δεν ολοκληρώθηκε. Δοκίμασε ξανά.'});
 }
+// Explicit operator test, available even before a new station is saved.
+// Never persists custom URLs, auto-plays audio, or lets anonymous users scan hosts.
+const diagnosticsRate=new Map();
+router.post('/backoffice/stream-diagnostics',authorizeRoles('admin','broadcaster'),async(req,res)=>{
+  res.setHeader('Cache-Control','no-store');
+  const key=String(req.user._id);
+  const now=Date.now();
+  let state=diagnosticsRate.get(key);
+  if(!state||now-state.since>60000)state={since:now,count:0};
+  state.count++;diagnosticsRate.set(key,state);
+  if(diagnosticsRate.size>4096)diagnosticsRate.clear();
+  if(state.count>8){
+    res.setHeader('Retry-After','60');
+    return res.status(429).json({error:'Πολλοί διαδοχικοί έλεγχοι stream. Δοκίμασε ξανά σε λίγο.'});
+  }
+  try{
+    const body=req.body||{};
+    if(Object.keys(body).some(key=>!['stream','metadata'].includes(key)))
+      return res.status(400).json({error:'Μη έγκυρο αίτημα diagnostics.'});
+    const result=await require('../services/streamDiagnostics').diagnose(body);
+    return res.json(result);
+  }catch(error){
+    if(error.status)return res.status(error.status).json({error:error.message});
+    console.warn('[STREAM DIAGNOSTICS]',error?.code||error?.name);
+    return res.status(503).json({error:'Δεν ήταν δυνατός ο ασφαλής έλεγχος stream.'});
+  }
+});
+
 router.get('/backoffice/review-queue',authorizeRoles('admin'),async(req,res)=>{
   try{
     const page=value=>Math.max(1,Math.min(100000,Math.trunc(Number(value)||1)));

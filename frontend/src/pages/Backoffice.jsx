@@ -448,6 +448,8 @@ function StationEditor({data,reload,notify,requestDelete}){
   const isAdmin=data.user.role==='admin';
   const [form,setForm]=useState(BLANK),[busy,setBusy]=useState(false),[uploading,setUploading]=useState(''),[dirty,setDirty]=useState(false);
   const [slugTouched,setSlugTouched]=useState(false);
+  const [diagnostics,setDiagnostics]=useState(null);
+  const [diagnosing,setDiagnosing]=useState(false);
   useEffect(()=>{
     if(isNew||listedStation)return;
     let active=true;
@@ -464,6 +466,7 @@ function StationEditor({data,reload,notify,requestDelete}){
     setDirty(false);
   },[id,isNew,station?._id]); // Refresh by changing station id. Explicit reset after save.
   const update=(field,value)=>{
+    if(field==='stream'||field==='metadata')setDiagnostics(null);
     setForm(prev=>{
       const next={...prev,[field]:value};
       if(field==='name'&&isNew&&!slugTouched)next.slug=suggestStationSlug(value);
@@ -489,7 +492,7 @@ function StationEditor({data,reload,notify,requestDelete}){
     }
     setBusy(true);
     try{
-      const payload=isNew?Object.fromEntries(['name','slug','slogan','description','genre','secondaryGenre','stream',
+      const payload=isNew?Object.fromEntries(['name','slug','slogan','description','genre','secondaryGenre','stream','metadata',
         'transmissionType','country','region','prefecture','city'].map(k=>[k,form[k]])):
         Object.fromEntries(Object.entries(form).filter(([key])=>key!=='slug'||form.slug!==station.slug));
       const result=await api(isNew?'/stations':'/stations/'+station._id,
@@ -498,6 +501,17 @@ function StationEditor({data,reload,notify,requestDelete}){
       if(result.station)setRemoteStation(result.station);
       if(isNew)navigate('/backoffice/stations/'+result.station._id+'/edit');
     }catch(error){notify(error.message,'error');}finally{setBusy(false);}
+  }
+  async function testStream(){
+    if(diagnosing||!form.stream)return;
+    setDiagnosing(true);setDiagnostics(null);
+    try{
+      const data=await api('/stream-diagnostics',{
+        method:'POST',body:JSON.stringify({stream:form.stream,metadata:form.metadata||''})
+      });
+      setDiagnostics(data);
+    }catch(error){notify(error.message,'error');}
+    finally{setDiagnosing(false);}
   }
   async function upload(kind,file){
     if(!file||!station)return;
@@ -585,7 +599,40 @@ function StationEditor({data,reload,notify,requestDelete}){
             <div><h3 className="text-lg font-black text-white">Ήχος & Streaming</h3><p className="text-xs text-zinc-500">Stream και προαιρετικό metadata URL</p></div></div>
           <div className="grid gap-5">
             <Field label="Stream URL *" help="Επιτρέπονται δημόσιες διευθύνσεις HTTP/HTTPS."><input required className={inputClass} type="url" maxLength={1200} placeholder="https://radio.example/live" value={form.stream} onChange={e=>update('stream',e.target.value)}/></Field>
-            {!isNew&&<Field label="Metadata URL (προαιρετικό)"><input className={inputClass} type="url" maxLength={1200} placeholder="https://..." value={form.metadata} onChange={e=>update('metadata',e.target.value)}/></Field>}
+            <Field label="Metadata URL (προαιρετικό)"><input className={inputClass} type="url" maxLength={1200} placeholder="https://..." value={form.metadata} onChange={e=>update('metadata',e.target.value)}/></Field>
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" disabled={diagnosing||!form.stream} onClick={testStream} className={buttonSecondary}>
+                {diagnosing?<RefreshCw size={15} className="animate-spin"/>:<Activity size={15}/>}
+                Ping Stream & Metadata
+              </button>
+              <p className="text-[11px] text-zinc-500">Server-side HTTP/SSL έλεγχος · δεν αποθηκεύει αλλαγές ούτε ξεκινά playback.</p>
+            </div>
+            {diagnostics&&<div role="status" className="space-y-3 rounded-2xl border border-white/10 bg-black/30 p-4 text-xs text-zinc-300">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-black text-white">Stream: {diagnostics.stream.reachable?'HTTP επιτυχές':'Μη διαθέσιμο'}</span>
+                <span>HTTP {diagnostics.stream.httpStatus??'—'}</span>
+                <span>{diagnostics.stream.responseMs??'—'} ms</span>
+                <span>Codec: {diagnostics.stream.codec||'Άγνωστο'}</span>
+                <span>Bitrate: {diagnostics.stream.bitrateKbps?diagnostics.stream.bitrateKbps+' kbps':'Άγνωστο'}</span>
+                <span className={diagnostics.stream.likelyPlayable?'text-[#caff00]':'text-amber-300'}>
+                  {diagnostics.stream.likelyPlayable?'Πιθανό audio stream':'Η αναπαραγωγή δεν επιβεβαιώθηκε'}
+                </span>
+              </div>
+              {diagnostics.stream.error&&<p className="text-rose-300">{diagnostics.stream.error.message}</p>}
+              <p>ICY / Stream title: <strong className="text-white">{diagnostics.stream.metadataTitle||'Δεν παρέχεται'}</strong></p>
+              <p>Server: {diagnostics.stream.metadataHeaders.name||'—'} · Genre: {diagnostics.stream.metadataHeaders.genre||'—'} · Channels: {diagnostics.stream.channels||'—'}</p>
+              <p>Custom metadata: {diagnostics.customMetadata.configured
+                ?'HTTP '+(diagnostics.customMetadata.httpStatus??'—')+' · '+(diagnostics.customMetadata.responseMs??'—')+' ms'
+                :'Δεν έχει οριστεί'}</p>
+              {diagnostics.customMetadata.configured&&<p>Custom title: <strong className="text-white">{diagnostics.customMetadata.title||'Δεν βρέθηκε'}</strong></p>}
+              {diagnostics.customMetadata.error&&<p className="text-rose-300">{diagnostics.customMetadata.error.message}</p>}
+              <p className="border-t border-white/10 pt-3 font-bold text-[#caff00]">
+                Effective metadata ({diagnostics.effectiveMetadata.source}): {diagnostics.effectiveMetadata.title||'Δεν βρέθηκε'}
+              </p>
+              {diagnostics.customMetadata.preview&&<details><summary className="cursor-pointer text-zinc-400">Custom response preview</summary>
+                <pre className="mt-2 whitespace-pre-wrap break-all text-[10px] text-zinc-400">{diagnostics.customMetadata.preview}</pre>
+              </details>}
+            </div>}
           </div>
         </section>
         {!isNew&&<details className={panel+' p-5 md:p-7'}>

@@ -113,6 +113,13 @@ function stagePublicAccess(req, res, next) {
       return res.status(400).json({error:'Συμπλήρωσε έγκυρο email και 6ψήφιο κωδικό.'});
     return next();
   }
+  if(req.method==='POST'&&path==='/api/auth/admin-2fa/verify'){
+    if(!loginRateLimit(req,res))return;
+    if(typeof req.body?.challenge!=='string'||!/^[a-f0-9]{64}$/.test(req.body.challenge)||
+       typeof req.body?.code!=='string'||!/^[0-9]{6}$/.test(req.body.code))
+      return res.status(400).json({error:'Συμπλήρωσε έγκυρο κωδικό 6 ψηφίων.'});
+    return next();
+  }
   if (req.method === 'POST' && (path === '/api/broadcaster-invitations/claim' ||
       path === '/api/broadcaster-invitations/activate-broadcaster')) return protect(req, res, next);
 

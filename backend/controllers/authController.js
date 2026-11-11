@@ -9,6 +9,7 @@ const { otpVerificationEmail, verificationLinkEmail, welcomeEmail, verifiedListe
 const {canNotify}=require('../utils/notificationPreferences');
 const {tokenFor}=require('../utils/notificationUnsubscribe');
 const {siteOrigin}=require('../utils/emailDesign');
+const {issueChallenge,verifyChallenge}=require('../services/adminEmail2fa');
 const { createEmailVerification, hashEmailVerificationToken } = require('../utils/emailVerification'); // 🟢 ΝΕΟ: Import το νέο template
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -189,6 +190,7 @@ exports.verifyOtp = async (req, res) => {
 
     if (!user) return res.status(404).json({ error: "Ο χρήστης δεν βρέθηκε." });
     // Broadcaster verification is email-link-only, even for old pending accounts.
+    if(user.role==='admin')return res.status(403).json({code:'ADMIN_2FA_REQUIRED',error:'Το Admin απαιτεί email 2FA σε κάθε σύνδεση.'});
     if(user.role==='broadcaster')return res.status(403).json({code:'BROADCASTER_EMAIL_LINK_REQUIRED',error:'Επιβεβαίωσε το email από τον μοναδικό σύνδεσμο. Συνδέσου για να ζητήσεις νέο link.'});
     if (user.isVerified) return res.status(400).json({ error: "Ο λογαριασμός είναι ήδη ενεργός." });
     if (user.verificationOtp !== otp) return res.status(400).json({ error: "Λάθος κωδικός OTP." });
@@ -229,6 +231,14 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Λάθος στοιχεία σύνδεσης' });
 
+    // Admin must NEVER receive a session JWT after password-only login.
+    // The challenge is always delivered to the fixed security mailbox.
+    if(user.role==='admin'){
+      const result=await issueChallenge(User,user);
+      res.set('Cache-Control','no-store');
+      return res.json({requiresAdmin2fa:true,challenge:result.challenge,
+        recipient:result.recipient,expiresInSeconds:result.expiresInSeconds});
+    }
     // Unverified Broadcasters may authenticate to resend, but all Backoffice endpoints reject them until email verification.
     if (!user.isVerified && !['user','broadcaster'].includes(user.role)) {
       const otp = generateOTP();
@@ -257,7 +267,28 @@ exports.login = async (req, res) => {
         termsAcceptedVersion: user.termsAcceptedVersion
       }))
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    if(err?.status)return res.status(err.status).json({code:err.code,error:err.message});
+    console.error('[AUTH] Login failed',err?.code||err?.name);
+    return res.status(503).json({error:'Η σύνδεση δεν ολοκληρώθηκε. Δοκίμασε ξανά.'});
+  }
+};
+
+exports.verifyAdmin2fa=async(req,res)=>{
+  try{
+    const {token,user}=await verifyChallenge(User,{
+      challenge:req.body?.challenge,code:req.body?.code
+    });
+    res.set('Cache-Control','no-store');
+    return res.json({token,user:await projectAccountUser(withBroadcasterTermsStatus({
+      _id:user._id,username:user.username,email:user.email,isVerified:user.isVerified,
+      fname:user.fname,lname:user.lname,role:user.role
+    }))});
+  }catch(error){
+    if(error.status)return res.status(error.status).json({code:error.code,error:error.message});
+    console.error('[ADMIN 2FA] Verify unavailable:',error?.code||error?.name);
+    return res.status(503).json({error:'Η επιβεβαίωση Admin δεν ολοκληρώθηκε.'});
+  }
 };
 
 // One-time token redemption, with no JWT or user details in public responses.
