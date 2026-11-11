@@ -67,8 +67,9 @@ function Badge({children,tone='neutral'}){const tones={
 function StationStatus({station}){
   if(station.pendingEdits&&Object.keys(station.pendingEdits).length)
     return <Badge tone="amber">Αναμονή αλλαγών</Badge>;
-  return station.status==='approved'?<Badge tone="lime"><CheckCircle2 size={12}/> Ενεργός</Badge>:
-    <Badge tone="amber"><Clock3 size={12}/> Προς έγκριση</Badge>;
+  if(station.status==='approved')return <Badge tone="lime"><CheckCircle2 size={12}/> Ενεργός</Badge>;
+  if(station.status==='rejected')return <Badge tone="rose"><X size={12}/> Απορρίφθηκε</Badge>;
+  return <Badge tone="amber"><Clock3 size={12}/> Προς έγκριση</Badge>;
 }
 function SectionTitle({eyebrow,title,description,aside}){
   return <div className="mb-7 flex flex-wrap items-end justify-between gap-5">
@@ -204,7 +205,9 @@ function DeleteStationDialog({station,onClose,onDeleted,notify}){
       </div>
       <p id="delete-station-description" className="text-sm leading-6 text-zinc-300">
         Ο σταθμός θα αφαιρεθεί από το δίκτυο iRadiosGR. Η ενέργεια δεν αναιρείται αυτόματα.
-        Τα αρχεία media και τα ιστορικά στοιχεία δεν διαγράφονται αυτόματα για λόγους ασφάλειας.
+        Οι ενεργές ανανεώσεις του σταθμού ακυρώνονται πρώτα στο Gateway. Αν είναι
+        ο τελευταίος σταθμός του broadcaster, ακυρώνεται και το Broadcaster Premium.
+        Τα media και τα ιστορικά στοιχεία διατηρούνται για λόγους ασφάλειας.
       </p>
       <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4">
         <p className="break-words text-base font-black text-white">{station.name}</p>
@@ -228,7 +231,7 @@ function DeleteStationDialog({station,onClose,onDeleted,notify}){
     </div>
   </div>;
 }
-function StationCard({station,role,onDelete}){
+function StationCard({station,role,onDelete,onStatusChange}){
   const to=role==='producer'?'/backoffice/schedules?station='+encodeURIComponent(station._id):'/backoffice/stations/'+station._id+'/edit';
   return <div className={panel+' group flex flex-col gap-4 p-4 transition hover:border-[#caff00]/30 md:flex-row md:items-center md:p-5'}>
     <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#070808]">
@@ -242,7 +245,15 @@ function StationCard({station,role,onDelete}){
         <span className="flex items-center gap-1"><Headphones size={13}/> {shortNumber(station.plays)} ακροάσεις</span>
         <span className="flex items-center gap-1"><Globe2 size={13}/> {station.transmissionType||'Web Radio'}</span>
       </div></div>
-    <div className="flex shrink-0 flex-wrap gap-2">
+    <div className="flex shrink-0 flex-wrap items-center gap-2">
+      {role==='admin'&&onStatusChange&&
+        <select aria-label={'Κατάσταση σταθμού '+station.name}
+          value={station.status||'pending'} onChange={event=>onStatusChange(station,event.target.value)}
+          className="max-w-40 rounded-xl border border-white/15 bg-[#121619] px-2 py-3 text-xs text-zinc-100 focus:border-[#caff00]">
+          <option value="approved">Ενεργός</option>
+          <option value="pending">Προς έγκριση</option>
+          <option value="rejected">Απορρίφθηκε</option>
+        </select>}
       <Link to={to} className={buttonSecondary}>
         {role==='producer'?'Πρόγραμμα':'Επεξεργασία'}<ArrowRight size={15}/></Link>
       {role==='admin'&&station.status==='approved'&&
@@ -381,7 +392,18 @@ function Dashboard({data}){
     </div>
   </div>;
 }
-function Stations({data,requestDelete}){
+function Stations({data,requestDelete,reload,notify}){
+  const [changing,setChanging]=useState(null);
+  const changeStatus=async(station,next)=>{
+    if(changing||station.status===next)return;
+    setChanging(station._id);
+    try{
+      const result=await api('/stations/'+station._id+'/status',{
+        method:'PATCH',body:JSON.stringify({status:next})
+      });
+      notify(result.message||'Η κατάσταση ενημερώθηκε.');await reload();
+    }catch(error){notify(error.message,'error');}finally{setChanging(null);}
+  };
   const [search,setSearch]=useState('');
   const [status,setStatus]=useState('all');
   const filtered=useMemo(()=>data.stations.filter(s=>{
@@ -403,7 +425,7 @@ function Stations({data,requestDelete}){
         <input className={inputClass+' pl-11'} placeholder="Αναζήτηση σταθμού ή κατηγορίας…" value={search} onChange={e=>setSearch(e.target.value)}/></div>
       <select className={inputClass+' max-w-52'} value={status} onChange={e=>setStatus(e.target.value)}>
         <option value="all">Όλες οι καταστάσεις</option><option value="approved">Ενεργοί</option>
-        <option value="pending">Προς έγκριση</option><option value="pendingEdits">Αλλαγές σε αναμονή</option>
+        <option value="pending">Προς έγκριση</option><option value="rejected">Απορρίφθηκαν</option><option value="pendingEdits">Αλλαγές σε αναμονή</option>
       </select>
     </div>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -411,7 +433,8 @@ function Stations({data,requestDelete}){
       {(search||status!=='all')&&<button type="button" className="text-xs font-bold text-[#caff00] hover:underline"
         onClick={()=>{setSearch('');setStatus('all');}}>Καθαρισμός φίλτρων</button>}
     </div>
-    <div className="space-y-3">{filtered.length?filtered.map(s=><StationCard key={s._id} station={s} role={data.user.role} onDelete={requestDelete}/>):
+    <div className="space-y-3">{filtered.length?filtered.map(s=><StationCard key={s._id} station={s} role={data.user.role} onDelete={requestDelete}
+      onStatusChange={changing?null:changeStatus}/>):
       <div className={panel+' p-12 text-center text-zinc-500'}>Δεν βρέθηκαν σταθμοί με αυτά τα κριτήρια.</div>}</div>
   </div>;
 }
@@ -1508,7 +1531,7 @@ export default function Backoffice(){
         <Suspense fallback={<div role="status" className={panel+' p-10 text-center text-[#caff00]'}>Φόρτωση εργαλείου…</div>}>
         <Routes>
           <Route path="/backoffice" element={<Dashboard data={data}/>}/>
-          <Route path="/backoffice/stations" element={<Stations data={data} requestDelete={requestDelete}/>}/>
+          <Route path="/backoffice/stations" element={<Stations data={data} requestDelete={requestDelete} reload={reload} notify={notify}/>}/>
           <Route path="/backoffice/stations/new" element={<StationEditor data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
           <Route path="/backoffice/stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
           <Route path="/backoffice/schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
