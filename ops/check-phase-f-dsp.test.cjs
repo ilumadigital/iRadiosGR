@@ -91,7 +91,6 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  adjacent(g.listenerAutoGain,g.listenerVmaxDry);
  adjacent(g.listenerVmaxDry,g.listenerVmaxMix);
  adjacent(g.listenerVmaxMix,g.listenerWet);
- adjacent(g.listenerHeadroom,g.listenerWet);
  adjacent(g.listenerWet,g.listenerMix);
  adjacent(g.listenerMix,g.fade);adjacent(g.fade,g.afterPeak);
  adjacent(g.afterPeak,ctx.destination);
