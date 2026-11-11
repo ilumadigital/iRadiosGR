@@ -69,7 +69,9 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     [stations,stationId]);
   const filtered=useMemo(()=>stations.filter(item=>
     (item.name||'').toLocaleLowerCase().includes(search.toLocaleLowerCase())),[stations,search]);
-  const dirty=JSON.stringify(draft)!==JSON.stringify(saved);
+  const needsMigration=Boolean(station&&station.dspPreset&&
+    station.dspPreset!==normalizeBroadcasterMode(station.dspPreset));
+  const dirty=JSON.stringify(draft)!==JSON.stringify(saved)||needsMigration;
   const displayedCompressor=draft.dspCompressor.mode==='preset'?
     compressorForPreset(draft.dspPreset):draft.dspCompressor;
   const automaticHeadroom=bypass?0:
@@ -273,7 +275,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     {station&&<>
       <section className={shell+' p-5 md:p-7'}>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div><span className="text-[11px] font-bold tracking-widest text-zinc-500">00 / STUDIO PRESETS</span>
+          <div><span className="text-[11px] font-bold tracking-widest text-zinc-500">00 / AUDIO MODES</span>
             <h2 className="mt-1 text-2xl font-bold">Audio Mode</h2>
             <p className="mt-1 text-sm text-zinc-400">OFF: raw stream · Enhancer: EQ + Stereo · FM Mode: EQ + Stereo + Compressor.</p>
           </div>
@@ -288,6 +290,12 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
         </div>
       </section>
 
+      {draft.dspPreset==='OFF'&&
+        <div className="rounded-2xl border border-[#caff00]/20 bg-[#caff00]/5 p-5 text-sm text-zinc-200">
+          <strong className="text-[#caff00]">BYPASS / RAW STREAM</strong>
+          <p className="mt-2">EQ, Stereo Expander και Compressor έχουν απενεργοποιηθεί.
+          Ακούς το αρχικό stream χωρίς ψηφιακή επεξεργασία.</p>
+        </div>}
       {draft.dspPreset==='FM_MODE'&&<>
       <section className={shell+' p-5 md:p-7'}>
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -402,11 +410,11 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
             className="inline-flex items-center gap-2 rounded-xl bg-[#c5d0d5] px-5 py-3 text-xs font-black text-black disabled:opacity-40">
             {playing?<Pause size={16}/>:<Play size={16}/>} {playing?'PAUSE PREVIEW':'LISTEN LIVE'}
           </button>
-          <button type="button" onClick={()=>{const next=!bypass;setBypass(next);apply(draft,next);}}
+          {draft.dspPreset!=='OFF'&&<button type="button" onClick={()=>{const next=!bypass;setBypass(next);apply(draft,next);}}
             aria-pressed={bypass}
             className={'inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-xs font-bold '+(bypass?'border-amber-400 text-amber-300':'border-white/20 text-zinc-300')}>
             <PowerOff size={15}/> {bypass?'FX BYPASSED':'BYPASS FX'}
-          </button>
+          </button>}
           <label className="ml-auto flex min-w-48 items-center gap-3 text-xs text-zinc-300">
             <Volume2 size={18}/><span>MONITOR</span>
             <input aria-label="Monitor level" type="range" min="0" max="100" step="1"
@@ -436,13 +444,14 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
       </section>
 
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-[#111517] p-4">
-        <button type="button" onClick={()=>{const next={...draft,dspSettings:{...DSP_DEFAULTS}};setDraft(next);apply(next,bypass);}}
+        {draft.dspPreset!=='OFF'&&<button type="button" onClick={()=>{const next={...draft,dspSettings:{...DSP_DEFAULTS}};setDraft(next);apply(next,bypass);}}
           className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-3 text-xs font-bold text-zinc-300">
-          <RotateCcw size={16}/> RESET EQ / WIDTH</button>
+          <RotateCcw size={16}/> RESET EQ / WIDTH</button>}
         <button type="button" disabled={!dirty||saving} onClick={save}
           className="inline-flex items-center gap-2 rounded-xl bg-[#caff00] px-6 py-3 text-xs font-black text-black disabled:cursor-not-allowed disabled:opacity-40">
           <Save size={16}/> {saving?'SAVING…':'SAVE SETTINGS'}</button>
-        <span className="text-xs text-zinc-400">{dirty?'Μη αποθηκευμένες αλλαγές':'Οι αλλαγές έχουν αποθηκευτεί.'}</span>
+        <span className="text-xs text-zinc-400">{needsMigration?'Παλιό DSP preset: αποθήκευσέ το ως FM Mode.':
+          dirty?'Μη αποθηκευμένες αλλαγές':'Οι αλλαγές έχουν αποθηκευτεί.'}</span>
       </div>
     </>}
 
