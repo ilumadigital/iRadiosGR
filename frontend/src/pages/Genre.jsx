@@ -103,7 +103,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
       : compareCatalogStations(a,b,catalogNowPlaying,catalogClock,sortBy,'genre',genreName));
   }, [baseStations, selectedRegion, selectedTransmission, sortBy, catalogNowPlaying, catalogClock, genreName]);
 
-  const displayStations=useMemo(()=>viewMode==='grid' && promotedStationId
+  const displayStations=useMemo(()=>viewMode!=='map' && promotedStationId
     ? filteredAndSorted.filter(s=>String(s._id)!==String(promotedStationId))
     : filteredAndSorted,[filteredAndSorted,viewMode,promotedStationId]);
 
