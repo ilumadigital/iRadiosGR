@@ -3,6 +3,7 @@ const {validateStationCategories}=require('../utils/stationCategories');
 const {normalizeStationCity}=require('../utils/stationLocations');
 const User = require('../models/User');
 const {hasAccountRight,hasStationRight}=require('../services/billingEntitlements');
+const {validateDSPUpdate}=require('../services/dspConfig');
 const {projectPublicStations}=require('../services/stationBillingProjection');
 const jwt = require('jsonwebtoken');
 
@@ -58,6 +59,26 @@ exports.getAllStations = async (req, res) => {
     const stations = await Station.find().sort({ isOffline: 1, position: 1, createdAt: -1 });
     res.json(stations);
   } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+// A dedicated authenticated list prevents broadcasters from auditioning or
+// changing stations outside their effective station-scoped WebDSP rights.
+exports.getDSPStations=async(req,res)=>{
+  try{
+    if(!req.user)return res.status(401).json({error:'Χρειάζεται σύνδεση.'});
+    const admin=req.user.role==='admin';
+    if(!admin&&req.user.role!=='broadcaster')
+      return res.status(403).json({error:'Δεν έχεις πρόσβαση στο WebDSP.'});
+    const query=admin?{}:{broadcasterId:req.user._id};
+    const stations=await Station.find(query).sort({name:1});
+    const allowed=admin?stations:(await Promise.all(stations.map(async station=>
+      (await hasStationRight(req.user,station,'broadcaster.webdsp'))?station:null
+    ))).filter(Boolean);
+    return res.json(allowed);
+  }catch(error){
+    console.error('[DSP] Station list failed',error.message);
+    return res.status(500).json({error:'Δεν φορτώθηκαν οι σταθμοί WebDSP.'});
+  }
 };
 
 exports.getBroadcasterStations = async (req, res) => {
@@ -281,20 +302,21 @@ exports.toggleFeatured = async (req, res) => {
 exports.updateDSP=async(req,res)=>{
   try{
     const stationId=req.params.id;
+    if(!require('mongoose').isValidObjectId(stationId))
+      return res.status(400).json({error:'Μη έγκυρο ID σταθμού.'});
     const station=await Station.findById(stationId);
     if(!station)return res.status(404).json({error:'Ο σταθμός δεν βρέθηκε.'});
     if(!req.user)return res.status(401).json({error:'Χρειάζεται σύνδεση.'});
     if(!await hasStationRight(req.user,station,'broadcaster.webdsp'))
       return res.status(403).json({error:'Το WebDSP δεν είναι διαθέσιμο για αυτόν τον σταθμό.'});
-    const preset=req.body?.dspPreset;
-    if(!['OFF','SOFT','NORMALIZE','ULTRABAND','ULTRA','OMNIA','0DB_LEVELER'].includes(preset))
-      return res.status(400).json({error:'Μη έγκυρο DSP preset.'});
+    const parsed=validateDSPUpdate(req.body);
+    if(parsed.error)return res.status(400).json({error:parsed.error});
     const updated=await Station.findByIdAndUpdate(stationId,
-      {$set:{dspPreset:preset}},{new:true,runValidators:true});
+      {$set:parsed.value},{new:true,runValidators:true});
     return res.json(updated);
   }catch(error){
     console.error('[DSP] Update failed',error.message);
-    return res.status(500).json({error:'Δεν αποθηκεύτηκε το DSP preset.'});
+    return res.status(500).json({error:'Δεν αποθηκεύτηκαν οι ρυθμίσεις DSP.'});
   }
 };
 
