@@ -2,15 +2,16 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Activity,AlertTriangle,CheckCircle2,Headphones,Pause,Play,RotateCcw,
   Save,Search,SlidersHorizontal,Volume2,PowerOff} from 'lucide-react';
 import {DSP_DEFAULTS,DSP_MODES,normalizeBroadcasterMode,DSP_COMPRESSOR_DEFAULTS,PEAK_WARNING_DBFS,
-  normalizeDSPSettings,normalizeDSPCompressor,compressorForPreset,calculateHeadroomDb,
+  normalizeDSPSettings,normalizeDSPCompressor,normalizeDSPClipper,compressorForPreset,calculateHeadroomDb,
   createDSPGraph,applyDSPGraph,measurePeakDbfs} from '../utils/dspEngine';
 
 const blank=()=>({dspPreset:'OFF',dspSettings:{...DSP_DEFAULTS},
-  dspCompressor:{...DSP_COMPRESSOR_DEFAULTS}});
+  dspCompressor:{...DSP_COMPRESSOR_DEFAULTS},dspClipper:normalizeDSPClipper()});
 const fromStation=station=>({
   dspPreset:normalizeBroadcasterMode(station?.dspPreset),
   dspSettings:normalizeDSPSettings(station?.dspSettings),
-  dspCompressor:normalizeDSPCompressor(station?.dspCompressor)
+  dspCompressor:normalizeDSPCompressor(station?.dspCompressor),
+  dspClipper:normalizeDSPClipper(station?.dspClipper)
 });
 const formatDb=value=>(value>0?'+':'')+value.toFixed(1)+' dB';
 const meterWidth=value=>Math.max(0,Math.min(100,((value+60)/60)*100));
@@ -45,6 +46,34 @@ function PeakBar({label,db}){
     <div className="flex justify-between text-[10px] text-zinc-500"><span>−60 dBFS</span><span>−1 dBFS · WARNING</span><span>0 dBFS · CLIP</span></div>
   </div>;
 }
+function drawWaveform(canvas,samples,color){
+  if(!canvas||!samples)return;
+  const context=canvas.getContext('2d');
+  if(!context)return;
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  if(w<1||h<1)return;
+  const ratio=Math.min(2,window.devicePixelRatio||1),pixelW=Math.round(w*ratio),pixelH=Math.round(h*ratio);
+  if(canvas.width!==pixelW||canvas.height!==pixelH){
+    canvas.width=pixelW;canvas.height=pixelH;
+  }
+  context.setTransform(ratio,0,0,ratio,0,0);
+  context.clearRect(0,0,w,h);
+  context.strokeStyle='rgba(255,255,255,.12)';
+  context.lineWidth=1;
+  for(const y of [h*.15,h*.5,h*.85]){
+    context.beginPath();context.moveTo(0,y);context.lineTo(w,y);context.stroke();
+  }
+  context.strokeStyle=color;
+  context.lineWidth=1.5;
+  context.beginPath();
+  const half=h*.43,middle=h/2,columns=Math.max(1,Math.floor(w));
+  for(let x=0;x<columns;x++){
+    const index=Math.min(samples.length-1,Math.floor(x*samples.length/columns));
+    const y=middle-samples[index]*half;
+    if(x===0)context.moveTo(x,y);else context.lineTo(x,y);
+  }
+  context.stroke();
+}
 export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   const [stations,setStations]=useState([]);
   const [stationId,setStationId]=useState('');
@@ -59,11 +88,13 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   const [bypass,setBypass]=useState(false);
   const [playing,setPlaying]=useState(false);
   const [monitor,setMonitor]=useState(100);
-  const [meter,setMeter]=useState({before:-120,after:-120});
+  const [meter,setMeter]=useState({before:-120,after:-120,final:-120});
   const [gainReduction,setGainReduction]=useState(0);
   const audioRef=useRef(null);
   const graphRef=useRef(null);
   const ctxRef=useRef(null);
+  const beforeWaveRef=useRef(null);
+  const afterWaveRef=useRef(null);
 
   const station=useMemo(()=>stations.find(item=>String(item._id)===String(stationId)),
     [stations,stationId]);
@@ -74,8 +105,9 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   const dirty=JSON.stringify(draft)!==JSON.stringify(saved)||needsMigration;
   const displayedCompressor=draft.dspCompressor.mode==='preset'?
     compressorForPreset(draft.dspPreset):draft.dspCompressor;
+  const activeMaster=draft.dspPreset==='OFF'?null:draft.dspClipper[draft.dspPreset];
   const automaticHeadroom=bypass?0:
-    calculateHeadroomDb(draft.dspPreset,draft.dspSettings,draft.dspCompressor);
+    calculateHeadroomDb(draft.dspPreset,draft.dspSettings,draft.dspCompressor,draft.dspClipper);
   const token=()=>localStorage.getItem('iluma_token')||'';
 
   useEffect(()=>{
@@ -108,7 +140,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   useEffect(()=>{
     const config=fromStation(station);
     setSaved(config);setDraft(config);setBypass(false);setNotice('');
-    setMeter({before:-120,after:-120});setGainReduction(0);
+    setMeter({before:-120,after:-120,final:-120});setGainReduction(0);
     const audio=audioRef.current;
     if(audio){audio.pause();audio.removeAttribute('src');audio.load();}
     setPlaying(false);
@@ -124,7 +156,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
   const apply=useCallback((config,bypassed)=>{
     if(!graphRef.current)return;
     applyDSPGraph(graphRef.current,config.dspPreset,config.dspSettings,
-      config.dspCompressor,bypassed);
+      config.dspCompressor,bypassed,config.dspClipper);
   },[]);
   useEffect(()=>{apply(draft,bypass);},[draft,bypass,apply]);
 
@@ -146,6 +178,14 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     const prior=draft.dspCompressor.mode==='manual'?draft.dspCompressor:
       {...compressorForPreset(draft.dspPreset),mode:'manual'};
     const next={...draft,dspCompressor:{...prior,[key]:value}};
+    apply(next,bypass);setDraft(next);setNotice('');
+  };
+
+  const updateMaster=(key,value)=>{
+    if(draft.dspPreset==='OFF')return;
+    const mode=draft.dspPreset;
+    const next={...draft,dspClipper:{...draft.dspClipper,
+      [mode]:{...draft.dspClipper[mode],[key]:value}}};
     apply(next,bypass);setDraft(next);setNotice('');
   };
 
@@ -195,16 +235,27 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
     if(!playing||!graphRef.current)return;
     const graph=graphRef.current;
     const pre=new Float32Array(graph.beforePeak.fftSize);
-    const post=new Float32Array(graph.afterPeak.fftSize);
-    let animation=0,last=0,active=true;
+    const post=new Float32Array(graph.postPeak.fftSize);
+    const final=new Float32Array(graph.afterPeak.fftSize);
+    let animation=0,lastDraw=0,lastMeter=0,active=true;
     const tick=now=>{
       if(!active)return;
-      if(now-last>=90){
+      if(now-lastDraw>=33){
+        graph.beforePeak.getFloatTimeDomainData(pre);
+        graph.postPeak.getFloatTimeDomainData(post);
+        if(!bypass&&draft.dspPreset!=='OFF'){
+          drawWaveform(beforeWaveRef.current,pre,'#fb7185');
+          drawWaveform(afterWaveRef.current,post,'#caff00');
+        }
+        lastDraw=now;
+      }
+      if(now-lastMeter>=90){
         setMeter({before:measurePeakDbfs(graph.beforePeak,pre),
-          after:measurePeakDbfs(graph.afterPeak,post)});
-        setGainReduction((!bypass&&draft.dspPreset!=='OFF')?
+          after:measurePeakDbfs(graph.postPeak,post),
+          final:measurePeakDbfs(graph.afterPeak,final)});
+        setGainReduction((!bypass&&draft.dspPreset==='FM_MODE')?
           Math.max(0,-Number(graph.compressor.reduction||0)):0);
-        last=now;
+        lastMeter=now;
       }
       animation=requestAnimationFrame(tick);
     };
@@ -238,7 +289,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
       <div className="flex items-center gap-4">
         <div className="rounded-2xl border border-[#caff00]/20 bg-[#caff00]/10 p-3"><SlidersHorizontal className="text-[#caff00]"/></div>
         <div><h1 className="text-3xl font-black">WebDSP Audio Engine</h1>
-          <p className="mt-1 text-sm text-zinc-400">OFF, Enhancer και FM Mode · μουσικό EQ, stereo και compressor χωρίς hard clipping.</p>
+          <p className="mt-1 text-sm text-zinc-400">OFF, Enhancer και FM Mode · EQ, Stereo, Compressor και προαιρετικό Master Clipper.</p>
         </div>
       </div>
       <div className="rounded-full border border-white/10 px-4 py-2 text-[11px] uppercase tracking-widest text-zinc-300">
@@ -338,7 +389,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-4 text-xs text-zinc-400">
           <span>Live gain reduction: <strong className="text-white tabular-nums">{gainReduction.toFixed(1)} dB</strong></span>
-          <span>Auto headroom: <strong className="text-white tabular-nums">{automaticHeadroom.toFixed(1)} dB</strong></span>
+          <span>Headroom: <strong className="text-white tabular-nums">{automaticHeadroom.toFixed(1)} dB</strong></span>
           <span>Οι δυναμικές ρυθμίσεις αφορούν μόνο το FM Mode.</span>
         </div>
       </section>
@@ -359,7 +410,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
               sub={['1.3 kHz','Presence']} onChange={v=>updateSetting('mid',v)}/>
             <Fader label="Treble" value={draft.dspSettings.treble} min={-12} max={12}
               sub={['4.3 kHz','High shelf']} onChange={v=>updateSetting('treble',v)}/>
-            <Fader label="Output" value={draft.dspSettings.output} min={-12} max={3}
+            <Fader label="Output" value={draft.dspSettings.output} min={-7} max={7}
               sub={['MASTER','Trim']} onChange={v=>updateSetting('output',v)}/>
           </div>
         </section>
@@ -389,7 +440,7 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
               className={'rounded-xl border px-2 py-3 text-[11px] font-black '+(draft.dspSettings.stereoWidth===width?
                 'border-[#caff00] text-[#caff00] bg-[#caff00]/10':'border-white/10 text-zinc-300 bg-white/5')}>{label}</button>)}
           </div>
-          <p className="mt-5 text-xs leading-6 text-zinc-500">100% = αυθεντικό stereo • 0% = mono • πάνω από 100% = διεύρυνση. Το gain staging προσαρμόζεται αυτόματα στο συνολικό boost.</p>
+          <p className="mt-5 text-xs leading-6 text-zinc-500">100% = αυθεντικό stereo • 0% = mono • πάνω από 100% = διεύρυνση. Με Headroom ON, το gain staging προσαρμόζεται στο συνολικό boost.</p>
         </section>
       </div>
 
@@ -426,18 +477,18 @@ export default function DSP({API_URL='/api',currentUser,onUpdateDSP}){
           <div className="rounded-2xl border border-white/10 bg-[#0d1113] p-5">
             <div className="mb-5 flex items-center gap-2 text-sm font-bold"><Activity size={18}/> Live peak monitoring</div>
             <PeakBar label="FX OUTPUT / πριν το auto headroom" db={meter.before}/>
-            <div className="mt-6"><PeakBar label="FINAL OUTPUT / sample peak" db={meter.after}/></div>
-            <div className={'mt-5 flex items-center gap-2 text-xs '+(playing&&meter.after>=PEAK_WARNING_DBFS?'text-rose-300':'text-zinc-400')}>
-              {playing&&meter.after>=PEAK_WARNING_DBFS?<AlertTriangle size={16}/>:<CheckCircle2 size={16}/>}
-              {playing&&meter.after>=PEAK_WARNING_DBFS?
+            <div className="mt-6"><PeakBar label="FINAL OUTPUT / sample peak" db={meter.final}/></div>
+            <div className={'mt-5 flex items-center gap-2 text-xs '+(playing&&meter.final>=PEAK_WARNING_DBFS?'text-rose-300':'text-zinc-400')}>
+              {playing&&meter.final>=PEAK_WARNING_DBFS?<AlertTriangle size={16}/>:<CheckCircle2 size={16}/>}
+              {playing&&meter.final>=PEAK_WARNING_DBFS?
                 'PEAK WARNING: η τελική στάθμη πλησιάζει τα 0 dBFS. Έλεγξε το αρχικό stream και τις ρυθμίσεις.':
-                'Χωρίς forced limiter ή clipping · αυτόματο headroom από το EQ, Width, Compressor και Output.'}
+                'Προαιρετικό Headroom και Clipper · έλεγξε το τελικό sample peak.'}
             </div>
           </div>
           <div className="flex flex-col justify-center rounded-2xl border border-white/10 bg-[#0d1113] p-5">
             <Headphones className="mb-4 text-[#caff00]" size={28}/>
             <h3 className="text-lg font-bold">Ασφαλής προακρόαση</h3>
-            <p className="mt-2 text-sm leading-7 text-zinc-400">Ο ήχος προστατεύεται με προληπτική μείωση gain αντί για clipping. Ο μετρητής δείχνει πραγματικά sample peaks, όχι πιστοποιημένα true peaks. Το DSP δεν μπορεί να επιδιορθώσει ήδη παραμορφωμένο αρχικό stream.</p>
+            <p className="mt-2 text-sm leading-7 text-zinc-400">Με Headroom ON υπάρχει προληπτική μείωση gain. Με Clipper 1–8 εφαρμόζεται ελεγχόμενο soft clipping. Οι μετρητές δείχνουν sample peaks, όχι πιστοποιημένα true peaks. Καμία ρύθμιση δεν διορθώνει ήδη παραμορφωμένο stream.</p>
             <p className="mt-3 text-xs text-zinc-500">OFF και BYPASS FX περνούν το αρχικό stream ανεπεξέργαστο. Gain staging: {automaticHeadroom.toFixed(1)} dB για τις τρέχουσες ρυθμίσεις.</p>
           </div>
         </div>
