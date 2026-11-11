@@ -18,7 +18,7 @@ test('Admin receives independent full-page audio navigation, not a subscription 
  const dsp=read('frontend/src/pages/DSP.jsx');
  assert.match(dsp,/currentUser\?\.role==='admin'/);
  assert.match(dsp,/stations\/dsp-access/);
- assert.match(dsp,/\/stations\/'+station\._id+'\/dsp/);
+ assert.ok(dsp.includes("API_URL+'/stations/'+station._id+'/dsp'"));
 });
 test('No legacy broadcaster rights or historical user permission switch is authoritative',()=>{
  const rules=read('backend/services/billingEntitlementRules.js');
