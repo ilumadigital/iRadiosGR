@@ -209,7 +209,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
       </div>
 
       <EditorialPlacement placement="genre" value={genreName} viewMode={viewMode} onPromotedStationChange={setPromotedStationId}
-        currentUser={currentUser} stations={stations} fallbackStation={baseStations[0]}
+        currentUser={currentUser} stations={stations}
         currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
