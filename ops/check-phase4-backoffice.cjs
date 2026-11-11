@@ -123,7 +123,7 @@ Module._load=function(name,parent,isMain){
   return originalLoad.call(this,name,parent,isMain);
 };
 try{require('../backend/routes/backofficeRoutes');}
-finally{Module._load=originalLoad;}
+catch(error){Module._load=originalLoad;throw error;}
 const admin={_id:'cccccccccccccccccccccccc',role:'admin',email:'admin@example.test',fname:'Admin'};
 const owner={_id:ownerId,role:'broadcaster',email:'owner@example.test',
   fname:'Station Owner',isVerified:true,termsOk:true,broadcasterProfile:{maxStations:3}};
@@ -311,4 +311,5 @@ async function main(){
     'staging authorizes backoffice under JWT / roles');
   console.log('Phase 4 role isolation, owner edits, moderation, scheduling, input safety and player-free shell passed.');
 }
-main().catch(error=>{console.error(error);process.exitCode=1;});
+main().catch(error=>{console.error(error);process.exitCode=1;})
+  .finally(()=>{Module._load=originalLoad;});
