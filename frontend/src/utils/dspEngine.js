@@ -105,6 +105,8 @@ export function createDSPGraph(ctx,source){
   const input=ctx.createGain(),highpass=filter(ctx,'highpass',10);
   const lowpass=filter(ctx,'lowpass',22000);
   const compressor=ctx.createDynamicsCompressor();
+  const compressorDry=ctx.createGain(),compressorWet=ctx.createGain();
+  const compressorMix=ctx.createGain();
   const makeup=ctx.createGain();
   const bass=filter(ctx,'lowshelf',180);
   const mid=filter(ctx,'peaking',1300);mid.Q.value=.8;
@@ -136,9 +138,14 @@ export function createDSPGraph(ctx,source){
   source.connect(input);
   input.connect(highpass);
   highpass.connect(lowpass);
+  // Enhancer must be an actual compressor bypass, not just ratio=1.
+  lowpass.connect(compressorDry);
+  compressorDry.connect(compressorMix);
   lowpass.connect(compressor);
   compressor.connect(makeup);
-  makeup.connect(bass);
+  makeup.connect(compressorWet);
+  compressorWet.connect(compressorMix);
+  compressorMix.connect(bass);
   bass.connect(mid);
   mid.connect(treble);
   treble.connect(upmix);
@@ -171,6 +178,7 @@ export function createDSPGraph(ctx,source){
   afterPeak.connect(ctx.destination);
 
   const graph={ctx,source,dry,wet,mix,input,highpass,lowpass,compressor,
+    compressorDry,compressorWet,compressorMix,
     makeup,bass,mid,treble,upmix,split,ll,rl,lr,rr,merge,output,
     beforePeak,headroom,fade,afterPeak,setting:{...DSP_DEFAULTS},
     listenerRaw,listenerDefault,listenerWet,listenerMix,listenerBass,
@@ -202,6 +210,8 @@ export function applyDSPGraph(graph,preset,settings,compressorSettings,bypass=fa
   setAudioParam(graph.input.gain,p.input,ctx);
   setAudioParam(graph.highpass.frequency,p.hpf,ctx);
   setAudioParam(graph.lowpass.frequency,Math.min(p.lpf,ctx.sampleRate*.48),ctx);
+  setAudioParam(graph.compressorDry.gain,useDynamics?0:1,ctx);
+  setAudioParam(graph.compressorWet.gain,useDynamics?1:0,ctx);
   setAudioParam(graph.compressor.threshold,useDynamics?resolved.threshold:0,ctx);
   setAudioParam(graph.compressor.ratio,useDynamics?resolved.ratio:1,ctx);
   setAudioParam(graph.compressor.knee,useDynamics?p.knee:0,ctx);
