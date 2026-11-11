@@ -49,7 +49,11 @@ exports.save=async(req,res)=>{
     if(!await Station.exists({_id:payload.stationId,status:'approved'}))
       invalid('Ο σταθμός δεν είναι εγκεκριμένος.');
     const {placement,placementValue,...fields}=payload;
-    const doc=await Promotion.findOneAndUpdate({placement,placementValue},
+    const occupied=await Promotion.findOne({placement,placementValue})
+      .select('campaignId').lean();
+    if(occupied?.campaignId)
+      return res.status(409).json({error:'Η θέση ανήκει σε καμπάνια. Επεξεργάσου την από το Promoted Stations Admin.'});
+    const doc=await Promotion.findOneAndUpdate({placement,placementValue,campaignId:{$in:['',null]}},
       {$set:fields},{upsert:true,new:true,runValidators:true,setDefaultsOnInsert:true});
     res.json(doc);
   }catch(e){
