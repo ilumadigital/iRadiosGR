@@ -94,7 +94,7 @@ export default function AdminPromotedStations({stations=[]}){
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.12em] text-[#ccff00]"><Star size={15}/> Featured editorial</p>
         <h2 id="promoted-station-heading" className="mt-2 text-2xl font-black text-white">Promoted Stations</h2>
-        <p className="mt-2 max-w-3xl text-sm text-zinc-400">Ο ίδιος σταθμός σε πολλές σελίδες με μία καμπάνια. Η κάρτα, τα live metadata και το slide δίπλα της παραμένουν ακριβώς όπως πριν.</p>
+        <p className="mt-2 max-w-3xl text-sm text-zinc-400">Ο ίδιος σταθμός σε πολλές σελίδες με μία καμπάνια. Η κάρτα Promoted εμφανίζει το δημόσιο πρόγραμμα, χωρίς να εκθέτει στοιχεία τραγουδιών στους επισκέπτες. Το editorial slide ελέγχεται ξεχωριστά.</p>
       </div>
       <button type="button" onClick={reset} className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-xs font-bold text-zinc-200"><Plus size={15}/> Νέα καμπάνια</button>
     </div>
