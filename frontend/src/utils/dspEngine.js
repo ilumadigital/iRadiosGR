@@ -41,7 +41,7 @@ export const DSP_CLIPPER_DEFAULTS=Object.freeze({
   ENHANCER:Object.freeze({headroomEnabled:true,level:0}),
   FM_MODE:Object.freeze({headroomEnabled:true,level:0})
 });
-export const PEAK_WARNING_DBFS=-1;
+export const PEAK_WARNING_DBFS=-.5;
 export const HEADROOM_CEILING_DBFS=-0.6;
 export const dbToGain=db=>10**(db/20);
 const gainToDb=gain=>20*Math.log10(Math.max(1e-12,gain));
