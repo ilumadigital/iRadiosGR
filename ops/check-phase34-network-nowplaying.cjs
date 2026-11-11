@@ -74,7 +74,7 @@ async function run(){
     'a fresh reader on another process can hydrate the shared song');
 
   const response={setHeader(){},status(n){this.code=n;return this;},json(data){this.body=data;return this;}};
-  await smart.stageLiveAI({},response);
+  await smart.stageLiveAI({user:{role:'admin'}},response);
   assert.equal(response.body.tracks[0].title,published.raw,'home feed queries MongoDB');
 
   await track.recordStationTrack(station,published.raw,{source:'station'});
@@ -91,6 +91,11 @@ async function run(){
   await playlistHandler({params:{id:station._id},user:{role:'user',isVerified:true}},res);
   assert.equal(res.body.tracks.length,2,'playlist excludes songs older than 30 minutes');
   assert.equal(res.body.tracks[1].source,'acrcloud','playlist keeps the recognized track badge');
+  assert.equal(res.body.tracks[1].raw,undefined,'Free playlist never reveals saved AI raw song');
+  assert.equal(res.body.tracks[1].premiumOnly,true,'Free sees only Premium AI teaser');
+  const adminRes={setHeader(){},status(n){this.code=n;return this;},json(data){this.body=data;return this;}};
+  await playlistHandler({params:{id:station._id},user:{role:'admin'}},adminRes);
+  assert.equal(adminRes.body.tracks[1].raw,published.raw,'Admin playlist retains AI track metadata');
   assert.equal(res.headers['Cache-Control'],'private, no-store');
   const denied={setHeader(){},status(n){this.code=n;return this;},json(data){this.body=data;return this;}};
   await playlistHandler({params:{id:station._id},user:{role:'user',isVerified:false}},denied);
