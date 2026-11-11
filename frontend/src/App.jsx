@@ -638,21 +638,24 @@ function MainApp() {
 
   // Personal DSP is scoped per Premium account and browser. NEVER write these
   // choices into Station docs or share them between different login accounts.
-  const [userOverrides, setUserOverrides] = useState({});
   const premiumAccountId=currentUser?.isPremium===true?
     String(currentUser?._id||currentUser?.id||''):'';
+  const [overridesByAccount,setOverridesByAccount]=useState({accountId:'',values:{}});
+  const userOverrides=overridesByAccount.accountId===premiumAccountId?
+    overridesByAccount.values:{};
   useEffect(()=>{
-    if(!premiumAccountId){setUserOverrides({});return;}
+    if(!premiumAccountId){setOverridesByAccount({accountId:'',values:{}});return;}
     try{
       const saved=JSON.parse(localStorage.getItem('iluma_listener_dsp_v2:'+premiumAccountId)||'{}');
-      setUserOverrides(saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{});
-    }catch{setUserOverrides({});}
+      setOverridesByAccount({accountId:premiumAccountId,
+        values:saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{}});
+    }catch{setOverridesByAccount({accountId:premiumAccountId,values:{}});}
   },[premiumAccountId]);
   const changeUserDSP=(stationId,mode)=>{
     if(!premiumAccountId||!stationId)return;
     const choice=normalizeListenerMode(mode);
     const next={...userOverrides,[String(stationId)]:choice};
-    setUserOverrides(next);
+    setOverridesByAccount({accountId:premiumAccountId,values:next});
     try{localStorage.setItem('iluma_listener_dsp_v2:'+premiumAccountId,JSON.stringify(next));}catch{}
   };
 
