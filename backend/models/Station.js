@@ -98,6 +98,7 @@ const stationSchema = new mongoose.Schema({
   // "level" is the per-mode Booster (0–8); headroomEnabled is a deprecated
   // compatibility field ignored by the shared engine, which enforces -0.5 dBFS
   // peak Headroom in every active broadcaster DSP mode.
+  dspAutoBalance: { type: Number, default: 0, min: -100, max: 100, validate: Number.isInteger },
   dspClipper: {
     ENHANCER: {
       headroomEnabled: { type: Boolean, default: true },
