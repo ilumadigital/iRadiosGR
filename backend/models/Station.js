@@ -75,6 +75,15 @@ const stationSchema = new mongoose.Schema({
   isFeatured: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   dspPreset: { type: String, default: 'OFF' },
+  // Per-station post-preset tone and stereo controls. The master limiter is
+  // intentionally not configurable and is always placed at final output.
+  dspSettings: {
+    bass: { type: Number, default: 0, min: -12, max: 12 },
+    mid: { type: Number, default: 0, min: -12, max: 12 },
+    treble: { type: Number, default: 0, min: -12, max: 12 },
+    output: { type: Number, default: 0, min: -12, max: 3 },
+    stereoWidth: { type: Number, default: 100, min: 0, max: 150 }
+  },
   pendingEdits: { type: Object, default: null },
   slug: { type: String, unique: true, sparse: true },
   popularity: { type: Number, default: 0 },
