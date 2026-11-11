@@ -27,7 +27,16 @@ for i in $(seq 1 30); do
       echo 'Stage Turnstile runtime config unavailable; check the backend container and backend.env (keys hidden).' >&2
       exit 1
     fi
-    echo 'Stage backend, frontend and Turnstile configuration healthy on localhost.'
+    # An anonymous login with no challenge MUST reach Turnstile validation.
+    # HTTP 401 indicates a premature JWT guard (billing router regression).
+    if ! curl -sS --max-time 6 -H 'Content-Type: application/json' \
+      --data '{"identifier":"iradios-stage-smoke","password":"test-only","cfToken":""}' \
+      -w '\n%{http_code}' http://127.0.0.1:5511/api/auth/login |
+      python3 -c 'import json,sys; parts=sys.stdin.read().splitlines(); assert parts[-1]=="400"; assert json.loads("\n".join(parts[:-1])).get("code")=="turnstile_missing"'; then
+      echo 'STOP: anonymous login did not reach mandatory Turnstile validation; check global JWT middleware and billing routers.' >&2
+      exit 1
+    fi
+    echo 'Stage backend, frontend, login routing and Turnstile configuration healthy on localhost.'
     exit 0
   fi
   sleep 5

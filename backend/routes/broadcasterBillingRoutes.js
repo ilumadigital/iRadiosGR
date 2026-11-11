@@ -3,8 +3,10 @@ const express=require('express');
 const {protect}=require('../utils/authMiddleware');
 const controller=require('../controllers/broadcasterBillingController');
 const router=express.Router();
-// All endpoints (including reads) fail closed outside staging.
-router.use(protect,controller.requiresBroadcaster);
+// Scope authentication to Broadcaster billing only. This router is mounted at
+// /api, so a global router.use(protect) would reject /api/auth/login,
+// /api/auth/register and other unrelated public API routes before their handlers.
+router.use('/billing/broadcaster',protect,controller.requiresBroadcaster);
 router.post('/billing/broadcaster/checkout',controller.checkout);
 router.get('/billing/broadcaster/orders',controller.listOrders);
 router.get('/billing/broadcaster/orders/:id',controller.readOrder);
