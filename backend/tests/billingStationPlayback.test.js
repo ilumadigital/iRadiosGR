@@ -9,7 +9,9 @@ const owner={_id:'owner-1',role:'broadcaster',
  broadcasterProfile:{tier:'free',features:{dspEngine:false,adControl:false,analytics:false}}};
 const settings={bass:3,mid:2,treble:1,output:-1,stereoWidth:125};
 const defaults={bass:0,mid:0,treble:0,output:0,stereoWidth:100};
-const station={_id:stationId,broadcasterId:'owner-1',dspPreset:'OMNIA',dspSettings:settings,disableNetworkAds:true};
+const manualCompressor={mode:'manual',threshold:-21,ratio:2.6,attack:.04,release:.35,makeup:1.5};
+const station={_id:stationId,broadcasterId:'owner-1',dspPreset:'OMNIA',
+ dspSettings:settings,dspCompressor:manualCompressor,disableNetworkAds:true};
 const grant=(sku,options={})=>({
  accountId:'owner-1',sku,scopeType:sku==='B-PREM'?'account':'station',
  resourceId:sku==='B-PREM'?null:stationId,
@@ -30,6 +32,7 @@ test('Admin-authored DSP stays in DB but never applies publicly without new righ
  const output=render();
  assert.equal(output.dspPreset,'OFF');
  assert.deepEqual(output.dspSettings,defaults);
+ assert.equal(output.dspCompressor.mode,'off');
  assert.equal(output.disableNetworkAds,false);
  assert.equal(JSON.stringify(station),original);
 });
@@ -46,6 +49,7 @@ test('New active DSP station grant unlocks saved sound but not Ad Control',()=>{
  const data=render([grant('ADD-DSP')]);
  assert.equal(data.dspPreset,'OMNIA');
  assert.deepEqual(data.dspSettings,settings);
+ assert.deepEqual(data.dspCompressor,manualCompressor);
  assert.equal(data.disableNetworkAds,false);
 });
 test('New active Ad Control grants only opt-out, not DSP',()=>{
@@ -85,7 +89,9 @@ test('Expired paid DSP order leaves saved controls in Mongo, masked in playback'
   periodEndsAt:new Date('2026-11-14T00:00:00Z')
  })]);
  assert.equal(data.dspPreset,'OFF');
+ assert.equal(data.dspCompressor.mode,'off');
  assert.deepEqual(station.dspSettings,settings);
+ assert.deepEqual(station.dspCompressor,manualCompressor);
 });
 test('Active paid Premium grants DSP, ad control and boost only on selected station',()=>{
  const premium={...owner,broadcasterProfile:{tier:'free',

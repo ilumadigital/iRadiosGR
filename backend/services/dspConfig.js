@@ -1,19 +1,22 @@
 'use strict';
-
-// WebDSP settings are station-scoped. The master peak ceiling is fixed and
-// deliberately not writable by clients.
+// DSP is station-scoped. Headroom compensation is computed transparently by
+// the shared WebAudio engine, NOT persisted as a forced master limiter.
 const DSP_PRESETS=Object.freeze(['OFF','SOFT','NORMALIZE','ULTRABAND','ULTRA','OMNIA','0DB_LEVELER']);
 const DSP_DEFAULTS=Object.freeze({bass:0,mid:0,treble:0,output:0,stereoWidth:100});
 const DSP_RANGES=Object.freeze({
-  bass:[-12,12],mid:[-12,12],treble:[-12,12],
-  output:[-12,3],stereoWidth:[0,150]
+  bass:[-12,12],mid:[-12,12],treble:[-12,12],output:[-12,3],stereoWidth:[0,150]
 });
-const PEAK_CEILING_DBFS=-0.5;
+const DSP_COMPRESSOR_DEFAULTS=Object.freeze({
+  mode:'preset',threshold:-18,ratio:2.1,attack:.045,release:.34,makeup:0
+});
+const DSP_COMPRESSOR_RANGES=Object.freeze({
+  threshold:[-42,0],ratio:[1,8],attack:[.003,.2],release:[.08,1.2],makeup:[-6,6]
+});
 function validateDSPUpdate(body){
   if(!body||typeof body!=='object'||Array.isArray(body))
     return {error:'Μη έγκυρο DSP payload.'};
   const keys=Object.keys(body);
-  if(!keys.length||keys.some(key=>!['dspPreset','dspSettings'].includes(key)))
+  if(!keys.length||keys.some(key=>!['dspPreset','dspSettings','dspCompressor'].includes(key)))
     return {error:'Μη έγκυρα πεδία DSP.'};
   const value={};
   if(Object.hasOwn(body,'dspPreset')){
@@ -36,6 +39,23 @@ function validateDSPUpdate(body){
     }
     value.dspSettings=normalized;
   }
+  if(Object.hasOwn(body,'dspCompressor')){
+    const compressor=body.dspCompressor;
+    if(!compressor||typeof compressor!=='object'||Array.isArray(compressor)||
+       Object.keys(compressor).length!==Object.keys(DSP_COMPRESSOR_DEFAULTS).length||
+       Object.keys(compressor).some(key=>!Object.hasOwn(DSP_COMPRESSOR_DEFAULTS,key))||
+       !['preset','manual','off'].includes(compressor.mode))
+      return {error:'Μη έγκυρες ρυθμίσεις Compressor.'};
+    const normalized={mode:compressor.mode};
+    for(const [key,[min,max]] of Object.entries(DSP_COMPRESSOR_RANGES)){
+      const n=compressor[key];
+      if(typeof n!=='number'||!Number.isFinite(n)||n<min||n>max)
+        return {error:'Μη έγκυρη τιμή Compressor: '+key};
+      normalized[key]=n;
+    }
+    value.dspCompressor=normalized;
+  }
   return {value};
 }
-module.exports={DSP_PRESETS,DSP_DEFAULTS,DSP_RANGES,PEAK_CEILING_DBFS,validateDSPUpdate};
+module.exports={DSP_PRESETS,DSP_DEFAULTS,DSP_RANGES,DSP_COMPRESSOR_DEFAULTS,
+  DSP_COMPRESSOR_RANGES,validateDSPUpdate};

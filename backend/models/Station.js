@@ -75,14 +75,24 @@ const stationSchema = new mongoose.Schema({
   isFeatured: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
   dspPreset: { type: String, default: 'OFF' },
-  // Per-station post-preset tone and stereo controls. The master limiter is
-  // intentionally not configurable and is always placed at final output.
+  // EQ and stereo persist independently of the selected preset.
+  // No forced master limiter/hard clipper exists in the playback engine.
   dspSettings: {
     bass: { type: Number, default: 0, min: -12, max: 12 },
     mid: { type: Number, default: 0, min: -12, max: 12 },
     treble: { type: Number, default: 0, min: -12, max: 12 },
     output: { type: Number, default: 0, min: -12, max: 3 },
     stereoWidth: { type: Number, default: 100, min: 0, max: 150 }
+  },
+  // Additional compressor controls: presets define the starting curve,
+  // manual overrides persist independently, and off leaves EQ/width active.
+  dspCompressor: {
+    mode: { type: String, enum: ['preset','manual','off'], default: 'preset' },
+    threshold: { type: Number, default: -18, min: -42, max: 0 },
+    ratio: { type: Number, default: 2.1, min: 1, max: 8 },
+    attack: { type: Number, default: .045, min: .003, max: .2 },
+    release: { type: Number, default: .34, min: .08, max: 1.2 },
+    makeup: { type: Number, default: 0, min: -6, max: 6 }
   },
   pendingEdits: { type: Object, default: null },
   slug: { type: String, unique: true, sparse: true },
