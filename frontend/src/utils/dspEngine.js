@@ -42,7 +42,7 @@ export const DSP_CLIPPER_DEFAULTS=Object.freeze({
   FM_MODE:Object.freeze({headroomEnabled:true,level:0})
 });
 export const PEAK_WARNING_DBFS=-1;
-export const HEADROOM_RESERVE_DB=3;
+export const HEADROOM_CEILING_DBFS=-0.6;
 export const dbToGain=db=>10**(db/20);
 const gainToDb=gain=>20*Math.log10(Math.max(1e-12,gain));
 
@@ -107,21 +107,27 @@ export function resolvedCompressor(preset,settings){
   return c;
 }
 
-// Conservative, deterministic automatic gain staging. This is a plain GainNode,
-// not a threshold-triggered limiter: the EQ shape, stereo image and compression
-// remain unchanged. Reserve space for boosts before samples reach the DAC.
-// No gain is ever added by the safety calculation.
-export function calculateHeadroomDb(preset,settings,compressor,clipperSettings){
+// Headroom now means a PEAK CEILING, not a fixed gain cut. Former conservative
+// EQ-based attenuation could remove >15 dB and make strong streams sound quiet.
+// With the ceiling enabled, samples below the soft knee pass at unity gain.
+// Near full scale a 4x oversampled waveshaper catches excess sample peaks.
+// This is not a certified true-peak limiter and can't fix a clipped source.
+export function calculateHeadroomDb(preset,_settings,_compressor,clipperSettings){
   const mode=normalizeBroadcasterMode(preset);
   if(mode==='OFF'||!normalizeDSPClipper(clipperSettings)[mode].headroomEnabled)return 0;
-  const p=DSP_MODES[mode],s=normalizeDSPSettings(settings);
-  const c=resolvedCompressor(preset,compressor);
-  const compressorMakeup=mode!=='FM_MODE'||c.mode==='off'?0:c.makeup;
-  const eqBoost=Math.max(0,s.bass)+Math.max(0,s.mid)+Math.max(0,s.treble);
-  const widthBoost=s.stereoWidth>100?20*Math.log10(s.stereoWidth/100):0;
-  const baseGain=gainToDb(p.input)+s.output+compressorMakeup;
-  const possibleBoost=Math.max(0,baseGain+eqBoost+widthBoost);
-  return -(HEADROOM_RESERVE_DB+possibleBoost);
+  return HEADROOM_CEILING_DBFS;
+}
+export function createPeakCeilingCurve(){
+  const ceiling=dbToGain(HEADROOM_CEILING_DBFS);
+  // Unity through ~-1.1 dBFS, with a smooth soft knee only at high peaks.
+  const knee=.88,travel=ceiling-knee,curve=new Float32Array(8192);
+  for(let i=0;i<curve.length;i++){
+    const x=2*i/(curve.length-1)-1,amplitude=Math.abs(x);
+    const shaped=amplitude<=knee?amplitude:
+      knee+travel*Math.tanh((amplitude-knee)/travel);
+    curve[i]=Math.sign(x)*Math.min(shaped,ceiling);
+  }
+  return curve;
 }
 const setAudioParam=(param,value,ctx)=>{
   const at=ctx.currentTime;
@@ -154,7 +160,11 @@ export function createDSPGraph(ctx,source){
   const clipper=ctx.createWaveShaper(),clipperDrive=ctx.createGain(),clipperDry=ctx.createGain();
   const clipperWet=ctx.createGain(),clipperMix=ctx.createGain();
   const postPeak=ctx.createAnalyser();
+  const peakCeiling=ctx.createWaveShaper(),peakCeilingDry=ctx.createGain();
+  const peakCeilingWet=ctx.createGain(),peakCeilingMix=ctx.createGain();
   clipper.oversample='4x';
+  peakCeiling.oversample='4x';
+  peakCeiling.curve=createPeakCeilingCurve();
   // Second, listener-only stage: Default passes Broadcaster audio unchanged;
   // OFF selects the original source before Broadcaster processing.
   const listenerRaw=ctx.createGain(),listenerDefault=ctx.createGain();
@@ -202,7 +212,12 @@ export function createDSPGraph(ctx,source){
   headroom.connect(clipperDrive);clipperDrive.connect(clipper);
   clipper.connect(clipperWet);
   clipperWet.connect(clipperMix);
-  clipperMix.connect(postPeak);postPeak.connect(wet);
+  // Keep the peak ceiling LAST in the station master chain, after the Clipper.
+  // An off switch truly bypasses this stage; it never applies forced reduction.
+  clipperMix.connect(peakCeilingDry);peakCeilingDry.connect(peakCeilingMix);
+  clipperMix.connect(peakCeiling);peakCeiling.connect(peakCeilingWet);
+  peakCeilingWet.connect(peakCeilingMix);
+  peakCeilingMix.connect(postPeak);postPeak.connect(wet);
   wet.connect(mix);
   source.connect(listenerRaw);listenerRaw.connect(listenerMix);
   mix.connect(listenerDefault);listenerDefault.connect(listenerMix);
@@ -226,7 +241,8 @@ export function createDSPGraph(ctx,source){
   const graph={ctx,source,dry,wet,mix,input,highpass,lowpass,compressor,
     compressorDry,compressorWet,compressorMix,
     makeup,bass,mid,treble,upmix,split,ll,rl,lr,rr,merge,output,
-    beforePeak,headroom,clipperDrive,clipper,clipperDry,clipperWet,clipperMix,postPeak,
+    beforePeak,headroom,clipperDrive,clipper,clipperDry,clipperWet,clipperMix,
+    peakCeiling,peakCeilingDry,peakCeilingWet,peakCeilingMix,postPeak,
     fade,afterPeak,setting:{...DSP_DEFAULTS},
     listenerRaw,listenerDefault,listenerWet,listenerMix,listenerBass,
     listenerMid,listenerTreble,listenerComp,listenerMakeup,listenerUpmix,listenerSplit,
@@ -236,6 +252,7 @@ export function createDSPGraph(ctx,source){
     listenerMode:'DEFAULT'};
   dry.gain.value=1;wet.gain.value=0;headroom.gain.value=1;
   clipperDry.gain.value=1;clipperWet.gain.value=0;clipperDrive.gain.value=1;
+  peakCeilingDry.gain.value=1;peakCeilingWet.gain.value=0;
   listenerRaw.gain.value=0;listenerDefault.gain.value=1;
   listenerWet.gain.value=0;listenerHeadroom.gain.value=1;
   applyDSPGraph(graph,'OFF',DSP_DEFAULTS);
@@ -278,8 +295,12 @@ export function applyDSPGraph(graph,preset,settings,compressorSettings,bypass=fa
   setAudioParam(graph.rr.gain,(1+width)/2,ctx);
   setAudioParam(graph.rl.gain,(1-width)/2,ctx);
   setAudioParam(graph.lr.gain,(1-width)/2,ctx);
+  // headroomDb is the ceiling displayed to the broadcaster, not attenuation.
   graph.headroomDb=isDry?0:calculateHeadroomDb(key,s,c,graph.clipperSettings);
-  setAudioParam(graph.headroom.gain,dbToGain(graph.headroomDb),ctx);
+  setAudioParam(graph.headroom.gain,1,ctx);
+  const ceilingOn=!isDry&&graph.clipperSettings[key].headroomEnabled;
+  setAudioParam(graph.peakCeilingDry.gain,ceilingOn?0:1,ctx);
+  setAudioParam(graph.peakCeilingWet.gain,ceilingOn?1:0,ctx);
   const level=isDry?0:graph.clipperSettings[key].level;
   if(level>0&&graph.clipperLevel!==level)graph.clipper.curve=createSoftClipCurve(level);
   graph.clipperLevel=level;
@@ -327,11 +348,9 @@ export function applyListenerMode(graph,choice='DEFAULT'){
   const peaks=Math.max(0,config.bass)+Math.max(0,config.mid)+
     Math.max(0,config.treble)+Math.max(0,20*Math.log10(w))+
     Math.max(0,config.makeup);
-  // FM / Enhancer already reserve 3 dB of headroom, which VMax may use
-  // to improve loudness without touching the broadcaster's station settings.
-  // For a raw/OFF station, never boost a potentially full-scale source.
-  const usableStationReserve=graph.preset==='OFF'||
-    !graph.clipperSettings[graph.preset].headroomEnabled?0:HEADROOM_RESERVE_DB;
+  // The station now has no fixed reserve to spend. Personal modes must not
+  // assume 3 dB of unused space, regardless of the station's ceiling switch.
+  const usableStationReserve=0;
   const net=mode==='VMAX'?
     Math.min(2,usableStationReserve-.9):
     Math.min(-.8,config.trim+peaks);
