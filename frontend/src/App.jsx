@@ -2063,19 +2063,8 @@ function StandaloneBroadcasterInvitation(){
   return <BroadcasterInvitation API_URL="/api" currentUser={currentUser} setCurrentUser={setCurrentUser}/>;
 }
 
-// Authentication is separate from MainApp: no audio playback, listener
-// navigation, socket subscriptions, ad engine or mini-player on login/register.
-function StandaloneAuthPage({type}){
-  const [currentUser,setCurrentUser]=useState(null);
-  return type==='login'
-    ? <Login API_URL="/api" setCurrentUser={setCurrentUser}/>
-    : <Register API_URL="/api" setCurrentUser={setCurrentUser}/>;
-}
-
 function AppContent(){
   const location=useLocation();
-  if(location.pathname==='/login')return <StandaloneAuthPage type="login"/>;
-  if(location.pathname==='/register')return <StandaloneAuthPage type="register"/>;
   // No MainApp, audio hooks, socket, player, menus or advertisements in Broadcaster onboarding.
   if(location.pathname==='/broadcast')return <GoBroadcast/>;
   if(location.pathname==='/broadcast/register')return <BroadcasterRegister/>;

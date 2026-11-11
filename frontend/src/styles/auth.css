@@ -129,81 +129,178 @@
 }
 
 
-/* Auth routes are full-bleed pages, never offset for the listener menu/player.
-   Only the login composition is constrained to a 90dvh desktop viewport. */
-.ir-auth-page--login,
-.ir-auth-page--register {
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding-inline: clamp(14px, 2.6vw, 38px);
-}
-.ir-auth-page--login .ir-auth-shell {
-  width: min(100%, 1040px);
-}
-.ir-auth-page--login .ir-auth-card {
-  max-width: 440px;
-  padding: clamp(20px, 2.8vh, 34px) clamp(22px, 2.5vw, 34px);
-}
-.ir-auth-page--login .ir-auth-intro { margin-bottom: clamp(12px, 2vh, 22px); }
-.ir-auth-page--login .ir-auth-intro__icon {
-  width: 42px; height: 42px; border-radius: 14px; margin-bottom: 10px;
-}
-.ir-auth-page--login .ir-auth-intro h2 { font-size: clamp(1.5rem, 2.7vw, 2rem); }
-.ir-auth-page--login .ir-auth-card .ir-auth-turnstile { margin-block: 10px; }
-.ir-auth-page--register .ir-auth-shell {
-  grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
-  width: min(100%, 1140px);
-}
-.ir-auth-page--register .ir-auth-card { width: 100%; max-width: 580px; }
-.ir-auth-page--register .ir-auth-intro { margin-bottom: 19px; }
-.ir-auth-page--register .ir-auth-intro__icon {
-  width: 43px; height: 43px; margin-bottom: 11px;
-}
-.ir-auth-page--register .ir-auth-card .ir-auth-turnstile { margin-block: 12px 7px; }
-.ir-auth-page--register .ir-auth-card form .grid > * { min-width: 0; }
 
-/* At ordinary desktop heights the entire login fits in a 90vh column.
-   Short desktop screens remain scrollable instead of clipping Turnstile or CTA. */
-@media (min-width: 901px) and (min-height: 660px) {
-  .ir-auth-page--login {
-    min-height: 100vh;
-    min-height: 100dvh;
-    padding-block: 5vh;
-    padding-block: 5dvh;
-    overflow: visible;
-  }
-  .ir-auth-page--login .ir-auth-shell {
-    height: 90vh;
-    height: 90dvh;
-    min-height: 0;
-    max-height: 780px;
-  }
-  .ir-auth-page--login .ir-auth-story { padding: clamp(22px, 3vh, 38px); }
-  .ir-auth-page--login .ir-auth-story__body { margin-block: 16px; }
-  .ir-auth-page--login .ir-auth-wave { height: 54px; margin-top: 16px; }
+/*
+ * Listener Login/Register are children of #main-scroll-area, with the
+ * original sidebar, 70px TopBar and fixed desktop/mobile player still mounted.
+ * Sizing must account for that chrome, NOT consume 90dvh on top of it.
+ * When available height is too small, the native scroll area safely exposes
+ * every control, including Turnstile and the login submit button.
+ */
+#main-scroll-area .ir-auth-page--login,
+#main-scroll-area .ir-auth-page--register {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  padding-inline: clamp(12px, 2.4vw, 30px);
 }
-/* Compact phones and short viewports always retain vertical scrolling. */
-@media (max-width: 900px), (max-height: 659px) {
-  .ir-auth-page--login,.ir-auth-page--register {
-    min-height: 100vh;
-    min-height: 100dvh;
-    height: auto;
-    overflow: visible;
-    padding-block: clamp(20px, 4vh, 36px);
+#main-scroll-area .ir-auth-page--login {
+  min-height: max(0px, calc(100dvh - 70px - 96px - 20px));
+  padding-block: 10px;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-shell {
+  width: min(100%, 950px);
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  gap: clamp(16px, 2.6vw, 32px);
+  align-items: stretch;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-story {
+  min-height: 0;
+  padding: clamp(18px, 2vw, 30px);
+  border-radius: 27px;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-story__body { margin-block: 13px; }
+#main-scroll-area .ir-auth-page--login .ir-auth-story__body h1 {
+  margin: 12px 0;
+  font-size: clamp(1.9rem, 2.9vw, 3rem);
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-wave {
+  height: 44px;
+  margin-top: 16px;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-card {
+  max-width: 430px;
+  padding: clamp(18px, 2.25vh, 26px) clamp(20px, 2.2vw, 28px);
+  border-radius: 27px;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-intro { margin-bottom: 12px; }
+#main-scroll-area .ir-auth-page--login .ir-auth-intro__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  margin-bottom: 8px;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-intro h2 {
+  font-size: clamp(1.42rem, 2.4vw, 1.92rem);
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-intro p {
+  font-size: .78rem;
+  line-height: 1.4;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-card form > * + * {
+  margin-top: 9px;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-card input:not([type="checkbox"]) {
+  height: 48px;
+  border-radius: 12px;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-card .ir-auth-turnstile {
+  margin-block: 7px;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-card button[type="submit"] {
+  height: 48px;
+  min-height: 48px;
+  margin-top: 8px;
+  border-radius: 12px;
+}
+#main-scroll-area .ir-auth-page--login .ir-auth-card > p:last-child {
+  margin-top: 11px;
+}
+#main-scroll-area .ir-auth-page--register {
+  min-height: max(0px, calc(100dvh - 70px - 96px));
+  padding-block: clamp(16px, 3vh, 32px);
+}
+#main-scroll-area .ir-auth-page--register .ir-auth-shell {
+  width: min(100%, 1080px);
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+  gap: clamp(16px, 2.8vw, 32px);
+  align-items: center;
+}
+#main-scroll-area .ir-auth-page--register .ir-auth-card {
+  width: 100%;
+  max-width: 580px;
+  padding: clamp(20px, 2.7vw, 30px);
+}
+#main-scroll-area .ir-auth-page--register .ir-auth-intro { margin-bottom: 18px; }
+#main-scroll-area .ir-auth-page--register .ir-auth-intro__icon {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 10px;
+}
+#main-scroll-area .ir-auth-page--register .ir-auth-card .ir-auth-turnstile {
+  margin-block: 10px 6px;
+}
+#main-scroll-area .ir-auth-page--register .ir-auth-card form .grid > * { min-width: 0; }
+
+/* The promo image isn't useful when laptop height is tight: prioritize form. */
+@media (min-width: 901px) and (max-height: 690px) {
+  #main-scroll-area .ir-auth-page--login .ir-auth-story { display: none; }
+  #main-scroll-area .ir-auth-page--login .ir-auth-shell {
+    display: block;
+    width: min(100%, 430px);
   }
-  .ir-auth-page--login .ir-auth-shell,
-  .ir-auth-page--register .ir-auth-shell {
-    width: min(100%, 560px);
+  #main-scroll-area .ir-auth-page--login .ir-auth-card { max-width: 100%; }
+  #main-scroll-area .ir-auth-page--login .ir-auth-intro__icon { display: none; }
+}
+
+/* Mobile player is up to 152px high including the bottom navigation dock.
+   Reserve scroll clearance for both while keeping the player visible. */
+@media (max-width: 900px) {
+  #main-scroll-area .ir-auth-page--login {
+    min-height: max(0px, calc(100dvh - 70px - 152px));
+    padding: 10px 12px 16px;
+  }
+  #main-scroll-area .ir-auth-page--register {
+    min-height: max(0px, calc(100dvh - 70px - 152px));
+    padding: 16px 12px 24px;
+  }
+  #main-scroll-area .ir-auth-page--login .ir-auth-shell,
+  #main-scroll-area .ir-auth-page--register .ir-auth-shell {
+    display: block;
+    width: min(100%, 540px);
     min-height: 0;
     height: auto;
-    max-height: none;
+  }
+  #main-scroll-area .ir-auth-page--login .ir-auth-story,
+  #main-scroll-area .ir-auth-page--register .ir-auth-story { display: none; }
+  /* The standard top navigation already carries the logo on mobile. */
+  #main-scroll-area .ir-auth-page--login .ir-auth-mobile-brand { display: none; }
+  #main-scroll-area .ir-auth-page--register .ir-auth-mobile-brand {
+    margin-bottom: 13px;
+  }
+  #main-scroll-area .ir-auth-page--login .ir-auth-intro__icon { display: none; }
+  #main-scroll-area .ir-auth-page--login .ir-auth-card {
+    max-width: 100%;
+    padding: 18px clamp(16px, 4vw, 24px);
+  }
+  #main-scroll-area .ir-auth-page--login .ir-auth-intro {
+    margin-bottom: 10px;
+  }
+  #main-scroll-area .ir-auth-page--login .ir-auth-card .ir-auth-turnstile {
+    margin-block: 6px;
+  }
+}
+/* On truly short screens, scrolling is safer than clipping security widgets. */
+@media (max-width: 900px) and (max-height: 660px) {
+  #main-scroll-area .ir-auth-page--login {
+    min-height: 0;
+    padding-block: 8px 24px;
+  }
+  #main-scroll-area .ir-auth-page--login .ir-auth-intro p {
+    display: none;
+  }
+  #main-scroll-area .ir-auth-page--login .ir-auth-intro h2 {
+    margin-block: 5px;
   }
 }
 @media (max-width: 480px) {
-  .ir-auth-page--register .ir-auth-card form .grid {
+  #main-scroll-area .ir-auth-page--register .ir-auth-card form .grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
-  .ir-auth-page--register .ir-auth-intro { margin-bottom: 17px; }
-  .ir-auth-page--login .ir-auth-card { padding: 24px 20px; }
 }

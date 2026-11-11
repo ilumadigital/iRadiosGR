@@ -56,16 +56,31 @@ console.log('Authentication glass layout + retry contracts passed');
 
 const app=read('frontend/src/App.jsx');
 const shell=read('frontend/src/components/AuthShell.jsx');
-assert.match(app,/if\(location\.pathname==='\/login'\)return <StandaloneAuthPage type="login"\/>/,
-  'Login must be routed outside MainApp and audio player');
-assert.match(app,/if\(location\.pathname==='\/register'\)return <StandaloneAuthPage type="register"\/>/,
-  'Listener Register must be routed outside MainApp and player');
-assert.ok(app.indexOf("if(location.pathname==='/login')") < app.indexOf("return location.pathname==='/backoffice'"),
-  'Authentication route is evaluated before the listener app is created');
-assert.match(shell,/ir-auth-page--/, 'Authentication shell exposes scoped layout classes');
-assert.match(css,/\.ir-auth-page--login \.ir-auth-shell[\s\S]*?height: 90dvh;/,
-  'Desktop login shell uses 90dvh');
-assert.match(css,/\.ir-auth-page--register \.ir-auth-card/,
-  'Registration has its own responsive sizing and does not inherit login 90vh');
+assert.doesNotMatch(app,/StandaloneAuthPage|if\(location\.pathname==='\/login'\)return/,
+  'Listener login and register must not bypass MainApp or unmount playback');
+assert.match(app,/<Route path="\/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser}/,
+  'Listener Login stays inside MainApp to preserve menu, player and auth state');
+assert.match(app,/<Route path="\/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser}/,
+  'Listener Register stays inside MainApp to preserve menu, player and auth state');
+assert.ok(app.includes('<Sidebar isMobileMenuOpen=')&&
+  app.includes('<TopBar setIsMobileMenuOpen=')&&
+  app.includes('<MobileNav currentUser=')&&
+  app.includes('<MobileMiniPlayer')&&app.includes('<Footer '),
+  'All listener navigation and both player layouts remain active');
+assert.match(shell,/ir-auth-page--/, 'Scoped login/register layout classes remain present');
+assert.match(css,/#main-scroll-area \.ir-auth-page--login \{/,
+  'Login sizing is explicitly scoped to the scrollable listener area');
+assert.match(css,/100dvh - 70px - 96px - 20px/,
+  'Desktop login reserves height for topbar and fixed player');
+assert.match(css,/100dvh - 70px - 152px/,
+  'Mobile login reserves height for topbar, mini-player and bottom dock');
+assert.match(css,/\.ir-auth-page--login \.ir-auth-card button\[type="submit"\]/,
+  'Login button receives a compact viewport-safe height');
+assert.doesNotMatch(css,/height:\s*90dvh/,
+  'No standalone full-screen height may force the login below the player');
+assert.match(css,/@media \(max-width: 900px\) and \(max-height: 660px\)/,
+  'Short phones can scroll without clipping the login button or Turnstile');
+assert.match(css,/#main-scroll-area \.ir-auth-page--register \.ir-auth-card/,
+  'Register retains responsive form sizing but no strict viewport-height cap');
 assert.match(read('frontend/src/pages/Login.jsx'),/ir-auth-card--login/, 'Login has compact layout marker');
-assert.match(read('frontend/src/pages/Register.jsx'),/ir-auth-card--register/, 'Register has its own compact card');
+assert.match(read('frontend/src/pages/Register.jsx'),/ir-auth-card--register/, 'Register has separate compact card');
