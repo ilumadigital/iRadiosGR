@@ -21,16 +21,23 @@ for key in SMTP_HOST SMTP_PORT; do
     exit 1
   fi
 done
-# Admin 2FA requires real SMTP BEFORE deployment. The stage general
-# mailer continues to use Mailpit independently of these credentials.
+# Admin 2FA needs real SMTP before deployment; generic staging mail uses Mailpit.
 for key in ADMIN_2FA_SMTP_HOST ADMIN_2FA_SMTP_PORT ADMIN_2FA_SMTP_USER ADMIN_2FA_SMTP_PASS ADMIN_2FA_SMTP_FROM; do
   if [[ "$(count_key "$key")" != "1" ]] ||
-     ! grep -Eq "^\${key}=[^[:space:]]+$" "$ENV_FILE"; then
-    echo "STOP: configure $key exactly once for real Admin 2FA before deploy." >&2
+     ! grep -Eq "^$key=[^[:space:]]+$" "$ENV_FILE"; then
+    echo "STOP: configure $key for Admin email 2FA before deploying." >&2
     exit 1
   fi
 done
-if grep -Eiq '^ADMIN_2FA_SMTP_HOST=(mailpit|localhost|127\.[0-9.]+|::1)
+if grep -Eiq '^ADMIN_2FA_SMTP_HOST=(mailpit|localhost|127[.][0-9.]+|::1)$' "$ENV_FILE"; then
+  echo 'STOP: Admin 2FA cannot use Mailpit or loopback.' >&2
+  exit 1
+fi
+if ! grep -Eq '^ADMIN_2FA_SMTP_PORT=[0-9]{2,5}$' "$ENV_FILE"; then
+  echo 'STOP: invalid Admin 2FA SMTP port.' >&2
+  exit 1
+fi
+# The other stage mail continues via Mailpit, never this dedicated SMTP.
 if grep -Eq '^STAGE_ENABLE_SONOVAULT=' "$ENV_FILE"; then
   if [[ "$(count_key STAGE_ENABLE_SONOVAULT)" != "1" ]] || ! grep -Eq '^STAGE_ENABLE_SONOVAULT=[01]$' "$ENV_FILE"; then
     echo 'STOP: STAGE_ENABLE_SONOVAULT must be declared once as 0 or 1.' >&2
