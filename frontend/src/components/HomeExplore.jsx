@@ -85,13 +85,13 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
       }
       return compareCatalogPopularity(a,b);
     });
-    if(tab!=='for-you')result=applyPostBoostLift(result,'global');
     if(genre)result=result.filter(s=>s.genre===genre||s.secondaryGenre===genre);
     if(region)result=result.filter(s=>s.region===region);
     if(query.trim()){
       const q=normalize(query.trim());
       result=result.filter(s=>[s.name,s.genre,s.secondaryGenre,s.region,s.city,s.slogan].some(t=>normalize(t).includes(q)));
     }
+    if(tab!=='for-you')result=applyPostBoostLift(result,'global');
     return result;
   },[eligible,tab,genre,region,query,favIds,recentIds,prefGenres,catalogNowPlaying,catalogClock]);
   const displayed=showAll?filtered.slice(0,48):filtered.slice(0,12);
