@@ -87,9 +87,19 @@ exports.saveCampaign=async(req,res)=>{
     if(provided && !/^[a-f0-9-]{36}$/.test(provided))invalid('Μη έγκυρη καμπάνια.');
     const campaignId=provided||crypto.randomUUID();
     const keys=placements.map(p=>({placement:p.placement,placementValue:p.placementValue}));
-    // Reuse the same campaign ID for every selected placement, never duplicate the creative.
+    // An exclusive slot must never be silently stolen from a different campaign.
+    // Reusing a matching legacy station's ungrouped slot remains supported.
+    const occupied=await Promotion.find({$or:keys})
+      .select('campaignId stationId placement placementValue').lean();
+    if(occupied.some(p=>p.campaignId
+      ? p.campaignId!==campaignId : String(p.stationId)!==stationId))
+      return res.status(409).json({error:'Μία θέση ανήκει ήδη σε άλλη καμπάνια. Αφαίρεσέ την πρώτα από την προηγούμενη καμπάνια.'});
+    // The guard also prevents a concurrent editor from hijacking an existing
+    // campaign between validation and the individual write.
     for(const key of keys){
-      await Promotion.findOneAndUpdate(key,{$set:{stationId,enabled:req.body.enabled,campaignId}},
+      await Promotion.findOneAndUpdate({...key,$or:[
+        {campaignId},{campaignId:{$in:['',null]},stationId}
+      ]},{$set:{stationId,enabled:req.body.enabled,campaignId}},
         {upsert:true,new:true,runValidators:true,setDefaultsOnInsert:true});
     }
     await Promotion.deleteMany({campaignId,$nor:keys});
