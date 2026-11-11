@@ -81,6 +81,27 @@ exports.getDSPStations=async(req,res)=>{
   }
 };
 
+// The sales preview is deliberately isolated from public station projection:
+// it can audition Admin-authored DSP even when the public listener must bypass it.
+// Never expose drafts, other broadcasters' stations, unapproved streams, or paid stations.
+exports.getDSPPreviewStations=async(req,res)=>{
+  try{
+    if(!req.user||req.user.role!=='broadcaster')
+      return res.status(403).json({error:'Απαιτείται λογαριασμός Broadcaster.'});
+    res.setHeader('Cache-Control','private, no-store');
+    const stations=await Station.find({
+      broadcasterId:req.user._id,status:'approved'
+    }).select('_id name logo stream isOffline dspPreset dspSettings dspCompressor dspClipper dspAutoBalance')
+      .sort({name:1}).lean();
+    const eligible=await Promise.all(stations.map(async station=>
+      await hasStationRight(req.user,station,'broadcaster.webdsp')?null:station));
+    return res.json(eligible.filter(Boolean));
+  }catch(error){
+    console.error('[DSP] Preview station list failed',error.message);
+    return res.status(500).json({error:'Δεν φορτώθηκε η προεπισκόπηση WebDSP.'});
+  }
+};
+
 exports.getBroadcasterStations = async (req, res) => {
   try {
     const stations = await Station.find({ broadcasterId: req.params.userId });
