@@ -7,7 +7,13 @@
 const DSP_PRESETS=Object.freeze(['OFF','ENHANCER','FM_MODE']);
 const DSP_DEFAULTS=Object.freeze({bass:0,mid:0,treble:0,output:0,stereoWidth:100});
 const DSP_RANGES=Object.freeze({
-  bass:[-12,12],mid:[-12,12],treble:[-12,12],output:[-12,3],stereoWidth:[0,150]
+  bass:[-12,12],mid:[-12,12],treble:[-12,12],output:[-7,7],stereoWidth:[0,150]
+});
+// Levels are integer steps 0 (transparent) through 8 (strong soft clipping).
+// Headroom is independently configurable per broadcaster mode.
+const DSP_CLIPPER_DEFAULTS=Object.freeze({
+  ENHANCER:Object.freeze({headroomEnabled:true,level:0}),
+  FM_MODE:Object.freeze({headroomEnabled:true,level:0})
 });
 const DSP_COMPRESSOR_DEFAULTS=Object.freeze({
   mode:'preset',threshold:-18,ratio:2.1,attack:.045,release:.34,makeup:0
@@ -19,7 +25,7 @@ function validateDSPUpdate(body){
   if(!body||typeof body!=='object'||Array.isArray(body))
     return {error:'Μη έγκυρο DSP payload.'};
   const keys=Object.keys(body);
-  if(!keys.length||keys.some(key=>!['dspPreset','dspSettings','dspCompressor'].includes(key)))
+  if(!keys.length||keys.some(key=>!['dspPreset','dspSettings','dspCompressor','dspClipper'].includes(key)))
     return {error:'Μη έγκυρα πεδία DSP.'};
   const value={};
   if(Object.hasOwn(body,'dspPreset')){
@@ -58,7 +64,26 @@ function validateDSPUpdate(body){
     }
     value.dspCompressor=normalized;
   }
+  if(Object.hasOwn(body,'dspClipper')){
+    const modes=body.dspClipper;
+    if(!modes||typeof modes!=='object'||Array.isArray(modes)||
+      Object.keys(modes).length!==2||
+      Object.keys(modes).some(mode=>!Object.hasOwn(DSP_CLIPPER_DEFAULTS,mode)))
+      return {error:'Μη έγκυρες ρυθμίσεις Clipper.'};
+    const normalized={};
+    for(const mode of Object.keys(DSP_CLIPPER_DEFAULTS)){
+      const item=modes[mode];
+      if(!item||typeof item!=='object'||Array.isArray(item)||
+        Object.keys(item).length!==2||
+        !Object.hasOwn(item,'headroomEnabled')||!Object.hasOwn(item,'level')||
+        typeof item.headroomEnabled!=='boolean'||
+        !Number.isInteger(item.level)||item.level<0||item.level>8)
+        return {error:'Μη έγκυρη ρύθμιση Clipper: '+mode};
+      normalized[mode]={headroomEnabled:item.headroomEnabled,level:item.level};
+    }
+    value.dspClipper=normalized;
+  }
   return {value};
 }
 module.exports={DSP_PRESETS,DSP_DEFAULTS,DSP_RANGES,DSP_COMPRESSOR_DEFAULTS,
-  DSP_COMPRESSOR_RANGES,validateDSPUpdate};
+  DSP_COMPRESSOR_RANGES,DSP_CLIPPER_DEFAULTS,validateDSPUpdate};
