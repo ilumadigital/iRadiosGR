@@ -57,7 +57,8 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  adjacent(g.output,g.beforePeak);
  adjacent(g.beforePeak,g.headroom);
  adjacent(g.headroom,g.clipperDry);adjacent(g.clipperDry,g.clipperMix);
- adjacent(g.headroom,g.clipper);adjacent(g.clipper,g.clipperWet);
+ adjacent(g.headroom,g.clipperDrive);adjacent(g.clipperDrive,g.clipper);
+ adjacent(g.clipper,g.clipperWet);
  adjacent(g.clipperWet,g.clipperMix);
  adjacent(g.clipperMix,g.postPeak);adjacent(g.postPeak,g.wet);adjacent(g.wet,g.mix);
  adjacent(source,g.listenerRaw);adjacent(g.listenerRaw,g.listenerMix);
@@ -186,6 +187,7 @@ test('Headroom switches, clipper curve and independent broadcaster modes',async(
  applyDSPGraph(graph,'ENHANCER',DSP_DEFAULTS,undefined,false,config);
  assert.equal(graph.headroomDb,0);
  assert.equal(graph.clipperLevel,4);
+ assert.ok(graph.clipperDrive.gain.value>1);
  assert.equal(graph.clipperDry.gain.value,0);
  assert.equal(graph.clipperWet.gain.value,1);
  assert.equal(graph.clipper.curve instanceof Float32Array,true);
@@ -201,5 +203,6 @@ test('Headroom switches, clipper curve and independent broadcaster modes',async(
  assert.equal(graph.clipperLevel,0);
  assert.equal(graph.clipperDry.gain.value,1);
  assert.equal(graph.clipperWet.gain.value,0);
+ assert.equal(graph.clipperDrive.gain.value,1);
  assert.equal(graph.dry.gain.value,1);
 });
