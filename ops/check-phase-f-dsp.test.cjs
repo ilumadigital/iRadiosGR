@@ -280,3 +280,46 @@ test('Legacy Headroom OFF is ignored even with Booster 0, across every active mo
  assert.equal(g.dry.gain.value,1,'OFF stays completely raw');
  assert.equal(g.peakCeilingWet.gain.value,0);
 });
+
+test('Auto Mode uses a single balance and adapts quiet/loud input without old manual EQ',async()=>{
+ const {createDSPGraph,applyDSPGraph,updateAdaptiveDSP,autoStereoWidth,calculateAdaptiveGainDb,DSP_DEFAULTS}=await engine();
+ const g=createDSPGraph(context(),new Node());
+ assert.equal(autoStereoWidth(-100),100);
+ assert.equal(autoStereoWidth(0),112.5);
+ assert.equal(autoStereoWidth(100),125);
+ assert.equal(calculateAdaptiveGainDb(-70),null,'do not amplify silence');
+ assert.ok(calculateAdaptiveGainDb(-25)>10);
+ assert.ok(calculateAdaptiveGainDb(-.1)<0);
+ applyDSPGraph(g,'AUTO_MODE',{...DSP_DEFAULTS,bass:12,output:7},{mode:'off'},false,undefined,-100);
+ assert.equal(g.compressorWet.gain.value,1);
+ assert.equal(g.bass.gain.value,.6,'Auto must not inherit manual EQ');
+ assert.equal(g.output.gain.value,1);
+ assert.equal(g.ll.gain.value,1);
+ assert.equal(g.clipperLevel,0,'Auto does not inherit manual Booster');
+ assert.equal(g.peakCeilingWet.gain.value,1);
+ updateAdaptiveDSP(g);
+ assert.ok(Number.isFinite(g.autoGainDb));
+ applyDSPGraph(g,'AUTO_MODE',DSP_DEFAULTS,undefined,false,undefined,100);
+ assert.equal(g.ll.gain.value,1.125);
+ applyDSPGraph(g,'OFF',DSP_DEFAULTS);
+ assert.equal(g.dry.gain.value,1);
+ assert.equal(g.autoGain.gain.value,1);
+});
+
+test('Premium VMax adapts independently at the -0.2 dBFS personal ceiling',async()=>{
+ const {createDSPGraph,applyDSPGraph,applyListenerMode,updateAdaptiveDSP,
+   createPeakCeilingCurve,VMAX_CEILING_DBFS,DSP_DEFAULTS}=await engine();
+ assert.equal(VMAX_CEILING_DBFS,-.2);
+ const curve=createPeakCeilingCurve(-.2);
+ assert.ok(curve[8191] <= 10**(-.2/20)+.00001);
+ const g=createDSPGraph(context(),new Node());
+ applyDSPGraph(g,'ENHANCER',DSP_DEFAULTS);
+ applyListenerMode(g,'VMAX');
+ assert.equal(g.listenerVmaxWet.gain.value,1);
+ updateAdaptiveDSP(g);
+ assert.ok(Number.isFinite(g.listenerGainDb));
+ applyListenerMode(g,'SONOS');
+ assert.equal(g.listenerVmaxWet.gain.value,0);
+ applyListenerMode(g,'OFF');
+ assert.equal(g.listenerRaw.gain.value,1);
+});
