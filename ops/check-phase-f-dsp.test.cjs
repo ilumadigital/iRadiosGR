@@ -20,7 +20,7 @@ function context(){return {currentTime:0,sampleRate:48000,destination:new Node()
 }
 const adjacent=(from,to)=>assert.ok(from.connections.some(c=>c.node===to),'signal path not connected');
 const engine=()=>import('../frontend/src/utils/dspEngine.js');
-test('Broadcaster editor exposes only three modes with compressor ABOVE EQ and no controls in OFF',()=>{
+test('Broadcaster editor supports Auto Mode, sticky prelisten and OFF bypass',()=>{
  const ui=read('frontend/src/pages/DSP.jsx');
  const back=read('backend/services/dspConfig.js');
  assert.match(back,/'OFF','ENHANCER','FM_MODE'/);
@@ -32,6 +32,10 @@ test('Broadcaster editor exposes only three modes with compressor ABOVE EQ and n
  assert.ok(ui.includes('Live sound preview'));
  assert.ok(ui.includes('BYPASS / RAW STREAM'));
  assert.ok(ui.includes('SAVE SETTINGS'));
+ assert.match(ui,/Sticky Live Preview/);
+ assert.match(ui,/Auto Mode ένταση ή stereo/);
+ assert.ok(ui.indexOf('Sticky Live Preview')<ui.indexOf('00 \/ AUDIO MODES'));
+ assert.match(back,/AUTO_MODE/);
  assert.ok(!ui.includes('DSP_PRESETS'));
  const routes=read('backend/routes/stationRoutes.js');
  assert.match(routes,/stations\/dsp-access/);
@@ -54,6 +58,8 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  adjacent(g.bass,g.mid);adjacent(g.mid,g.treble);
  adjacent(g.treble,g.upmix);adjacent(g.upmix,g.split);
  adjacent(g.merge,g.output);
+ adjacent(g.output,g.autoProbe);adjacent(g.autoProbe,g.autoGain);
+ adjacent(g.autoGain,g.beforePeak);
  adjacent(g.output,g.beforePeak);
  adjacent(g.beforePeak,g.headroom);
  adjacent(g.headroom,g.clipperDry);adjacent(g.clipperDry,g.clipperMix);
@@ -77,6 +83,14 @@ test('WebAudio has fully separated raw, Broadcaster and Premium listener signal 
  adjacent(g.listenerUpmix,g.listenerSplit);
  assert.equal(g.listenerUpmix.channelCount,2);
  adjacent(g.listenerMerge,g.listenerHeadroom);
+ adjacent(g.listenerHeadroom,g.listenerProbe);
+ adjacent(g.listenerProbe,g.listenerAutoGain);
+ adjacent(g.listenerAutoGain,g.listenerVmaxCeiling);
+ adjacent(g.listenerVmaxCeiling,g.listenerVmaxWet);
+ adjacent(g.listenerVmaxWet,g.listenerVmaxMix);
+ adjacent(g.listenerAutoGain,g.listenerVmaxDry);
+ adjacent(g.listenerVmaxDry,g.listenerVmaxMix);
+ adjacent(g.listenerVmaxMix,g.listenerWet);
  adjacent(g.listenerHeadroom,g.listenerWet);
  adjacent(g.listenerWet,g.listenerMix);
  adjacent(g.listenerMix,g.fade);adjacent(g.fade,g.afterPeak);
@@ -118,7 +132,7 @@ test('SONOS 110%, virtual Dolby stereo and VMax are distinct listener-only FX',a
  const {createDSPGraph,applyDSPGraph,applyListenerMode,normalizeListenerMode,
   normalizeBroadcasterMode,calculateHeadroomDb,DSP_DEFAULTS,DSP_MODES,LISTENER_MODES}=await engine();
  const g=createDSPGraph(context(),new Node());
- assert.deepEqual(Object.keys(DSP_MODES),['OFF','ENHANCER','FM_MODE']);
+ assert.deepEqual(Object.keys(DSP_MODES),['OFF','ENHANCER','FM_MODE','AUTO_MODE']);
  assert.deepEqual(Object.keys(LISTENER_MODES),['DEFAULT','SONOS','DOLBY_STYLE','VMAX','OFF']);
  assert.equal(normalizeBroadcasterMode('ULTRA'),'FM_MODE');
  assert.equal(normalizeListenerMode('HomeTheater'),'DEFAULT');
@@ -133,14 +147,14 @@ test('SONOS 110%, virtual Dolby stereo and VMax are distinct listener-only FX',a
  assert.equal(g.listenerComp.ratio.value,1);
  applyListenerMode(g,'VMAX');
  assert.ok(g.listenerComp.ratio.value>1);
- assert.ok(g.listenerHeadroom.gain.value<1);
- assert.ok(g.listenerHeadroomDb<0);
- const vmaxNetDb=g.listenerHeadroomDb+
-  .3+.4+20*Math.log10(1.03)+2.4;
- assert.ok(vmaxNetDb<=2.1,'VMAX consumes at most a safe part of station reserve');
+ assert.equal(g.listenerHeadroom.gain.value,1,'VMax has no permanent attenuation');
+ assert.equal(g.listenerHeadroomDb,0);
+ assert.equal(g.listenerVmaxDry.gain.value,0);
+ assert.equal(g.listenerVmaxWet.gain.value,1);
+ assert.equal(g.listenerVmaxCeiling.oversample,'4x');
  applyDSPGraph(g,'OFF',DSP_DEFAULTS);
  applyListenerMode(g,'VMAX');
- assert.ok(g.listenerHeadroomDb<-4,'do not boost potentially clipped raw streams');
+ assert.equal(g.listenerHeadroomDb,0,'adaptive VMax uses its own peak ceiling');
  assert.equal(calculateHeadroomDb('FM_MODE',{...DSP_DEFAULTS,bass:12,stereoWidth:150}),-.5,
   'boosted EQ must not cause huge static headroom attenuation');
 });
