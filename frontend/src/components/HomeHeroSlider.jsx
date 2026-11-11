@@ -10,7 +10,7 @@ import {visibleEditorialSlides,homeFeaturedFallback} from '../utils/editorialPre
 export default function HomeHeroSlider({
   currentUser, currentStation, stations=[], isPlaying, onPlayPause,
   onPlayStation, onOpenDiscovery, onFeaturedStationChange,
-  placement='home', value='', fallbackStation=null, onAvailabilityChange
+  placement='home', value='', fallbackStation=null, onAvailabilityChange, excludeStationId=null
 }) {
   const navigate=useNavigate();
   const [slides,setSlides]=useState([]);
@@ -38,8 +38,8 @@ export default function HomeHeroSlider({
   // Only an explicitly featured station may fill the unconfigured Home hero.
   // Catalog pages never fall back to the current, first or random station.
   const stationFallback=useMemo(()=>homeFeaturedFallback(stations,placement),[stations,placement]);
-  const visible=useMemo(()=>visibleEditorialSlides(slides,currentUser,stations),
-    [slides,currentUser,stations]);
+  const visible=useMemo(()=>visibleEditorialSlides(slides,currentUser,stations,excludeStationId),
+    [slides,currentUser,stations,excludeStationId]);
   useEffect(()=>{onAvailabilityChange?.(visible.length>0);},
     [visible.length,onAvailabilityChange]);
   const activeIndex=visible.length?index%visible.length:0;
