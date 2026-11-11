@@ -7,7 +7,11 @@ router.get('/network', async (req, res) => {
     const users = await User.countDocuments();
     const premiumUsers = await User.countDocuments({ isPremium: true });
 
-    const currentLiveListeners = global.totalLiveListeners || 0;
+    // In public staging Socket.IO is disabled: only fresh playback
+    // heartbeats count as active sessions, never a hardcoded zero.
+    const tracker = req.app.get('stageListenerTracker');
+    const currentLiveListeners = tracker ? tracker.liveCount() :
+      (global.totalLiveListeners || 0);
 
     res.json({
       totals: {
