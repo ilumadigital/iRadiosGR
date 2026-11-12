@@ -344,13 +344,19 @@ function SquarePlayer({station,rds,audio,light}){
     </footer>
   </main>;
 }
+// Mini embeds use a subtle station-logo color field, not a full-bleed
+// song/producer photo. The actual artwork remains in the compact tile.
+function MiniBackground({station}){
+  const brandRgb=useStationAmbient(station?.logo);
+  return <div className="ir-embed__mini-background"
+    style={{'--ir-mini-rgb':brandRgb}} aria-hidden="true"/>;
+}
+
 function MiniPlayer({station,rds,audio,light}){
   const song=rds.song;
-  return <main className="ir-embed flex flex-col justify-between" data-theme={light?'light':'dark'}>
+  return <main className="ir-embed ir-embed--mini flex flex-col justify-between" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
-    <ArtworkBackground station={station} src={rds.artwork}
-      showSrc={rds.broadcast?.show?(rds.broadcast.imageUrl||station.logo):null} showSecondary={rds.showProducer}/>
-    <div className="ir-embed__shade"/>
+    <MiniBackground station={station}/>
     <div className="relative z-10 flex min-h-0 items-start gap-3 p-4">
       <ArtworkStack station={station} rds={rds}
         className="size-[74px] shrink-0 rounded-2xl border border-white/20 bg-black/50"
@@ -378,13 +384,17 @@ function MiniPlayer({station,rds,audio,light}){
 
 function Program({station,current,shows,clock,light,mini,rds,audio}){
   const active=current||{title:'Ζωντανό ραδιόφωνο',host:station.slogan||station.name};
-  if(mini)return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
+  if(mini)return <main className="ir-embed ir-embed--mini flex flex-col" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
-    <ArtworkBackground station={station} src={active.imageUrl}/>
-    <div className="ir-embed__shade ir-embed__shade--program"/>
-    <header className="relative z-10 flex shrink-0 items-center justify-between gap-2 px-4 pt-3">
-      <span className="ir-embed__eyebrow">● ΠΡΟΓΡΑΜΜΑ / LIVE</span>
-      <StationIdentity station={station} compact/>
+    <MiniBackground station={station}/>
+    <header className="relative z-10 flex shrink-0 items-center gap-3 px-4 pt-3">
+      <ArtworkVisual station={station} src={active.imageUrl}
+        className="size-[62px] shrink-0 rounded-xl border border-white/20 bg-black/50 object-cover"
+        alt={active.title}/>
+      <div className="min-w-0 flex-1">
+        <span className="ir-embed__eyebrow">● ΠΡΟΓΡΑΜΜΑ / LIVE</span>
+        <p className="mt-1 truncate text-xs font-black text-white">{station.name}</p>
+      </div>
     </header>
     <section className="relative z-10 flex min-h-0 flex-1 flex-col justify-end gap-2 px-4 py-2">
       <h1 className="line-clamp-2 text-xl font-black leading-tight">{active.title}</h1>

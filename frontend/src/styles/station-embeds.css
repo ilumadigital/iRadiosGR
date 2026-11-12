@@ -226,3 +226,25 @@
 @media(prefers-reduced-motion:reduce){
   .ir-embed__hero-wave-canvas{transition:none}
 }
+
+
+/* Mini Player / Mini Program: artwork is a compact identity tile only.
+   Their background is a clean station-logo-derived color field; never a photo.
+   The overlay is pointer-events:none so all music and DSP controls stay live. */
+.ir-embed.ir-embed--mini{
+  background:#101418;
+}
+.ir-embed__mini-background{
+  --ir-mini-rgb:134 165 56;
+  position:absolute;
+  inset:0;
+  z-index:-2;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at 17% 5%,rgb(var(--ir-mini-rgb) / .30),transparent 57%),
+    radial-gradient(ellipse at 85% 94%,rgb(var(--ir-mini-rgb) / .12),transparent 63%),
+    linear-gradient(140deg,#191e21 0%,#13171a 52%,#0d1014 100%);
+}
+.ir-embed--mini .ir-embed__controls{
+  background:linear-gradient(180deg,#11161bc9,#0b0e12f2);
+}
