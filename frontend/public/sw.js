@@ -64,7 +64,7 @@ self.addEventListener('push', function(event) {
     
     const options = {
       body: data.body,
-      icon: '/iradios-app-logo.png', // Διόρθωσα το όνομα στο σωστό λογότυπό σου
+      icon: '/icons/icon-192.png', // Same source artwork as the browser/PWA favicon
       badge: '/favicon.png', 
       vibrate: [200, 100, 200], 
       data: {
