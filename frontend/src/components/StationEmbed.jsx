@@ -1,9 +1,8 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useParams,useSearchParams} from 'react-router-dom';
 import {Helmet} from 'react-helmet-async';
-import {ArrowUpRight,CalendarDays,Loader2,Mic2,Music2,Pause,Play,Radio,Volume2,VolumeX} from 'lucide-react';
+import {ArrowUpRight,CalendarDays,Loader2,Pause,Play,Volume2,VolumeX} from 'lucide-react';
 import {SiSpotify,SiApplemusic} from 'react-icons/si';
-import RdsCrossfade from './RdsCrossfade';
 import {spotifySongLink,appleMusicSongLink} from '../utils/musicMetadata';
 import {useStationWidgetRds,useStationWidgetMediaSession} from '../hooks/useStationWidgetRds';
 import useAudioDSP from '../hooks/useAudioDSP';
@@ -180,13 +179,6 @@ function VolumeSlider({audio,light=false}){
       className="h-1 w-24 max-w-full accent-[#caff00]"/>
   </div>;
 }
-function StationArtwork({station,alt,className}){
-  return <img src={station.logo||'/iradios-logo.png'} alt={alt||station.name}
-    className={className} onError={e=>{if(!e.currentTarget.src.endsWith('/iradios-logo.png'))
-      e.currentTarget.src='/iradios-logo.png';}}/>;
-}
-
-
 function useCoverArtwork(station,song){
   const stationId=String(station?._id||'');
   const track=song?.raw||'';
@@ -200,7 +192,7 @@ function useCoverArtwork(station,song){
     (async()=>{
       try{
         const response=await fetch('/api/cover-art?term='+encodeURIComponent(track),{
-          signal:controller.signal,cache:'force-cache'
+          signal:controller.signal,cache:'no-store'
         });
         if(!response.ok)throw new Error('Cover unavailable');
         const data=await response.json();
@@ -247,7 +239,7 @@ function StationIdentity({station,compact=false}){
   </div>;
 }
 
-function MusicSearchLinks({station,song,compact=false}){
+function MusicSearchLinks({station,song}){
   if(!song)return null;
   const spotify=spotifySongLink(song.raw,station.name);
   const apple=appleMusicSongLink(song.raw,station.name);
@@ -264,42 +256,6 @@ function MusicSearchLinks({station,song,compact=false}){
     </a>
   </div>;
 }
-function RdsDetails({station,rds,light=false,compact=false}){
-  const {song,broadcast,showProducer}=rds;
-  const muted=light?'text-zinc-500':'text-zinc-400';
-  const producer=broadcast?.recognizedShow&&broadcast?.imageUrl?
-    <div className="flex min-w-0 items-start gap-2">
-      <Mic2 size={16} className="mt-0.5 shrink-0 text-[#a5cf00]"/>
-      <div className="min-w-0">
-        <p className={classNames('text-[10px] font-black uppercase tracking-widest',muted)}>
-          ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ
-        </p>
-        <p className={classNames('truncate font-black',compact?'text-xs':'text-sm')}>
-          {broadcast.title||station.name}
-        </p>
-        {broadcast.artist&&<p className={classNames('truncate text-[11px]',muted)}>{broadcast.artist}</p>}
-      </div>
-    </div>:null;
-  return <div className="min-w-0">
-    <RdsCrossfade secondary={producer} showSecondary={Boolean(producer&&showProducer)}>
-      <div className="flex min-w-0 items-start gap-2">
-        <Music2 size={16} className="mt-0.5 shrink-0 text-[#a5cf00]"/>
-        <div className="min-w-0">
-          <p className={classNames('text-[10px] font-black uppercase tracking-widest',muted)}>
-            ΤΩΡΑ ΠΑΙΖΕΙ
-          </p>
-          <p className={classNames('truncate font-black',compact?'text-xs':'text-sm')}
-            title={song?.raw||''}>{song? song.title : 'Ζωντανό ραδιόφωνο'}</p>
-          <p className={classNames('truncate text-[11px]',muted)}>
-            {song?.artist||station.name}
-          </p>
-          <div className="mt-2"><MusicSearchLinks station={station} song={song} compact={compact}/></div>
-        </div>
-      </div>
-    </RdsCrossfade>
-  </div>;
-}
-
 function SquarePlayer({station,rds,audio,light}){
   const song=rds.song;
   return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
