@@ -2,6 +2,7 @@ import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
 import {useNavigate} from 'react-router-dom';
 import '../styles/ad-campaign-console.css';
+import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
 import { Megaphone, PlusCircle, Trash2, Edit, X, Clock, Search, SlidersHorizontal, Check, Loader2, Image as ImageIcon, Link as LinkIcon, Music } from 'lucide-react';
 
 // 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
@@ -558,12 +559,13 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
               <div className="min-w-0">
                 <h4 className="font-bold text-white text-base sm:text-lg flex items-center gap-2 truncate">
                   {ad.title || 'Ανώνυμη Καμπάνια'}
-                   <span className="ad-console-label" data-state={ad.status}>{ad.status==='active'?'LIVE':ad.status==='pending'?'Για έγκριση':ad.status==='expired'?'Έληξε':'Ανενεργό'}</span>
+                   <span className="ad-console-label" data-state={ad.status}>{ad.status==='active'?'Ενεργή εγγραφή':ad.status==='pending'?'Για έγκριση':ad.status==='expired'?'Έληξε':'Ανενεργό'}</span>
                    {stage&&!ad.isStageCreative&&<span className="ad-console-label ad-console-demo">Εισαγμένο · Μη δημοσιευμένο</span>}
                   {/* 🟢 Ένδειξη Pending */}
                   {ad.status === 'pending' && <span className="text-[9px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest ml-2 animate-pulse">PENDING</span>}
                   {ad.status === 'expired' && <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest ml-2">ΛΗΓΜΕΝΟ</span>}
                 </h4>
+                <div className="mt-2"><CampaignDeliveryStatus campaign={ad} kind="audio" stage={stage}/></div>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span className="text-[10px] text-[#ccff00] font-black uppercase tracking-wider">{ad.client || 'Unknown'}</span>
                   <span className="w-1 h-1 bg-zinc-700 rounded-full hidden sm:block"></span>
