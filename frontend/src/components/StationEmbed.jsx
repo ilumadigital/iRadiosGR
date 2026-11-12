@@ -5,6 +5,8 @@ import {ArrowUpRight,CalendarDays,Loader2,Pause,Play,Volume2,VolumeX} from 'luci
 import {SiSpotify,SiApplemusic} from 'react-icons/si';
 import RdsCrossfade from './RdsCrossfade';
 import WidgetEmbedPanels from './WidgetEmbedPanels';
+import HeroAudioWaves from './HeroAudioWaves';
+import {useStationAmbient} from '../hooks/useStationAmbient';
 import {spotifySongLink,appleMusicSongLink} from '../utils/musicMetadata';
 import {useStationWidgetRds,useStationWidgetMediaSession} from '../hooks/useStationWidgetRds';
 import useAudioDSP from '../hooks/useAudioDSP';
@@ -78,7 +80,7 @@ function useLiveAudio(station){
   // This is the entitlement-masked public station state, not a legacy account flag.
   const hasDSP=Boolean(station?.dspPreset&&station.dspPreset!=='OFF');
   const processing=hasDSP&&!bypass&&!deviceRaw;
-  const {resumeDSP}=useAudioDSP(dspRef,station,null,false,deviceRaw,null,{});
+  const {resumeDSP,analyserRef}=useAudioDSP(dspRef,station,null,false,deviceRaw,null,{});
 
   const stop=useCallback(()=>{
     requestId.current+=1;
@@ -136,7 +138,7 @@ function useLiveAudio(station){
     if(dspRef.current)dspRef.current.volume=volume;
     if(rawRef.current)rawRef.current.volume=volume;
   },[volume]);
-  return {dspRef,rawRef,playing,buffering,error,volume,setVolume,hasDSP,processing,
+  return {dspRef,rawRef,analyserRef,playing,buffering,error,volume,setVolume,hasDSP,processing,
     bypass,toggle,switchProcessing};
 }
 function ProfileLink({station,compact=false,light=false}){
@@ -259,15 +261,15 @@ function RdsHeadline({station,rds,hero=false,mini=false}){
   const song=rds.song;
   const fallback=rds.display;
   const show=Boolean(rds.broadcast?.show&&song);
-  const titleClass=hero?'ir-embed__hero-title line-clamp-3':
+  const titleClass=hero?'ir-embed__hero-title':
     mini?'line-clamp-2 text-[16px] font-black leading-tight':'ir-embed__song-title';
-  const artistClass=hero?'mt-3 truncate text-xl font-semibold text-white/80 sm:text-[27px]':
+  const artistClass=hero?'ir-embed__hero-artist':
     mini?'mt-1 truncate text-[11px] text-white/75':'ir-embed__artist mt-2';
   const pane=(title,artist,kind)=> <div className="min-w-0">
     {!mini&&<p className="ir-embed__eyebrow mb-3">
       {kind==='song'?'NOW PLAYING / TRACK':kind==='show'?'● ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ':'● LIVE RADIO'}
     </p>}
-    <h1 className={titleClass} title={title}>{title}</h1>
+    <h1 className={classNames(titleClass,hero&&title.length>38&&'is-long',hero&&title.length>72&&'is-very-long')} title={title}>{title}</h1>
     <p className={artistClass}>{artist}</p>
   </div>;
   return <RdsCrossfade
@@ -440,41 +442,47 @@ function Program({station,current,shows,clock,light,mini,rds,audio}){
 function Hero({station,current,shows,clock,rds,audio}){
   const song=rds.song;
   const live=current||rds.activeShow;
-  return <main className="ir-embed ir-embed__hero-stage flex min-h-[480px] flex-col justify-center overflow-y-auto px-5 py-5 sm:px-8 lg:px-[5%]">
+  const brandRgb=useStationAmbient(station.logo);
+  return <main className="ir-embed ir-embed__hero-stage"
+    style={{'--ir-hero-rgb':brandRgb}}>
     <AudioElements audio={audio}/>
-    <div className="ir-embed__hero-wave"/>
-    <div className="relative z-10 mx-auto grid w-full max-w-[1550px] flex-1 content-center items-center gap-5 md:grid-cols-[1.16fr_1fr] md:gap-[5%]">
-      <section className="order-2 flex min-w-0 flex-col justify-center md:order-1">
+    <HeroAudioWaves audio={audio} brandRgb={brandRgb}/>
+    <div className="ir-embed__hero-layout">
+      <section className="ir-embed__hero-copy">
         <RdsHeadline station={station} rds={rds} hero/>
-        <div className="mt-4 flex flex-wrap items-center gap-3 sm:mt-6">
+        <div className="ir-embed__hero-identity">
           <StationIdentity station={station}/>
           {audio.processing&&<span className="ir-embed__chip border-lime-300/40 text-lime-300">HD+</span>}
         </div>
-        {live&&<div className="mt-4 flex items-center gap-2.5 text-xs text-white/75">
+        {live&&<div className="ir-embed__hero-program">
           <ArtworkVisual station={station} src={live.imageUrl}
-            className="size-10 rounded-xl object-cover"/>
+            className="size-10 shrink-0 rounded-xl object-cover"/>
           <div className="min-w-0">
             <p className="ir-embed__eyebrow text-[9px]">● ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ</p>
-            <p className="truncate font-bold">{live.title}{live.host?' · '+live.host:''}</p>
+            <p className="ir-embed__hero-program-text font-bold">
+              {live.title}{live.host?' · '+live.host:''}
+            </p>
           </div>
         </div>}
-        {song&&<div className="mt-4 sm:mt-6"><MusicSearchLinks station={station} song={song}/></div>}
-        <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-white/25 pt-4 sm:mt-6 sm:pt-6">
+        {song&&<div className="ir-embed__hero-services">
+          <MusicSearchLinks station={station} song={song}/>
+        </div>}
+        <div className="ir-embed__hero-playback">
           <PlaybackButton audio={audio} large/>
-          <span className="text-[11px] font-black uppercase tracking-wider text-white/85">ON AIR / LIVE</span>
+          <span className="ir-embed__hero-onair">ON AIR / LIVE</span>
           <VolumeSlider audio={audio}/>
         </div>
-        <div className="mt-4"><WidgetEmbedPanels station={station} shows={shows} current={current} clock={clock} playlist/></div>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+        <div className="ir-embed__hero-actions">
+          <WidgetEmbedPanels station={station} shows={shows} current={current} clock={clock} playlist/>
           <HdControls audio={audio}/>
           <ProfileLink station={station} compact/>
         </div>
-        {audio.error&&<p className="mt-2 text-xs text-amber-300" role="status">{audio.error}</p>}
+        {audio.error&&<p className="text-xs text-amber-300" role="status">{audio.error}</p>}
       </section>
-      <section className="order-1 relative mx-auto aspect-square w-[min(62vw,35dvh)] min-w-0 overflow-hidden rounded-3xl border border-white/15 bg-[#0e1115] shadow-[0_35px_100px_#0009] md:order-2 md:w-full md:max-w-[660px]">
+      <section className="ir-embed__hero-art" aria-label="Εξώφυλλο τραγουδιού ή εικόνα εκπομπής">
         <ArtworkStack station={station} rds={rds}
           className="ir-embed__artwork-panel size-full" alt={rds.display.title}/>
-        <div className="ir-embed__glass absolute right-3 top-3 max-w-[85%] truncate rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-widest">
+        <div className="ir-embed__glass ir-embed__hero-art-badge">
           {station.name} / NOW ON AIR
         </div>
       </section>
