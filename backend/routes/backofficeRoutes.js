@@ -8,6 +8,7 @@ const crypto=require('node:crypto');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const Station=require('../models/Station');
+const {projectPublicStations}=require('../services/stationBillingProjection');
 const {deleteStationRecord}=require('../services/stationDeletion');
 const {validateStationCategories}=require('../utils/stationCategories');
 const {validateStationLocation}=require('../utils/stationLocations');
@@ -219,9 +220,20 @@ router.get('/backoffice/overview',async(req,res)=>{
 router.get('/backoffice/admin/station-ranking',authorizeRoles('admin'),async(req,res)=>{
   try{
     const items=await Station.find({status:'approved'})
-      .select('_id name genre secondaryGenre region city frequency logo status position rankings boostStatus boostExpiresAt')
+      .select('_id name genre secondaryGenre region city frequency logo status position rankings boostStatus boostExpiresAt broadcasterId')
       .sort({position:1,_id:1}).lean();
-    return res.json(items);
+    const projected=await projectPublicStations(items);
+    // Never include the broadcaster owner, payment identifiers or paid DSP
+    // settings in the Admin ranking response. The same verified entitlement
+    // projection powers the public station catalog and the Admin dashboard.
+    return res.json(projected.map(station=>({
+      _id:station._id,name:station.name,genre:station.genre,
+      secondaryGenre:station.secondaryGenre,region:station.region,
+      city:station.city,frequency:station.frequency,logo:station.logo,
+      status:station.status,position:station.position,rankings:station.rankings,
+      boostStatus:station.boostStatus,boostExpiresAt:station.boostExpiresAt,
+      commercialBoost:station.commercialBoost
+    })));
   }catch(error){return fail(res,error);}
 });
 // Only an authenticated Admin or the approved station's verified Broadcaster
