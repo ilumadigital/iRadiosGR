@@ -5,9 +5,9 @@ import {Link} from 'react-router-dom';
 
 const WIDGETS=[
   {id:'player-square',name:'Player Square',info:'Premium player με εναλλαγή τραγουδιού / εκπομπής ανά 20″. Spotify/Apple Music μόνο με ενεργή συνδρομή σταθμού.',icon:Square,shape:'square'},
-  {id:'player-mini',name:'Player Mini',info:'Compact player με εξώφυλλο τραγουδιού και στοιχεία Now Playing.',icon:Volume2,shape:'mini'},
+  {id:'player-mini',name:'Player Mini',info:'Compact player με το εξώφυλλο σε μικρό πλαίσιο και χρωματικό φόντο σταθμού.',icon:Volume2,shape:'mini'},
   {id:'program-square',name:'Program Square',info:'Τρέχουσα live εκπομπή και κουμπί για πλήρες πρόγραμμα με επιλογή ημέρας.',icon:LayoutGrid,shape:'square'},
-  {id:'program-mini',name:'Program Mini',info:'Compact πρόγραμμα με artwork παραγωγού και live stream controls.',icon:Text,shape:'mini'},
+  {id:'program-mini',name:'Program Mini',info:'Compact πρόγραμμα με φωτογραφία παραγωγού σε μικρό πλαίσιο, χρωματικό φόντο και live controls.',icon:Text,shape:'mini'},
   {id:'hero',name:'HERO 100vh',info:'Fullscreen Now Playing και εκπομπή ανά 20″, με πλήρες Πρόγραμμα και Playlist σε αναδυόμενες λίστες.',icon:Monitor,shape:'hero'}
 ];
 function embedSnippet(url,shape){
@@ -22,15 +22,13 @@ export default function StationWidgetConfigurator({stations=[]}){
   const approved=useMemo(()=>stations.filter(s=>s.status==='approved'),[stations]);
   const [stationId,setStationId]=useState('');
   const [kind,setKind]=useState('player-square');
-  const [theme,setTheme]=useState('dark');
   const [mobile,setMobile]=useState(false);
   const [copied,setCopied]=useState(false);
   const station=approved.find(s=>s._id===stationId)||approved[0];
   const widget=WIDGETS.find(item=>item.id===kind)||WIDGETS[0];
   const origin=typeof window==='undefined'?'':window.location.origin;
   const previewUrl=station?
-    origin+'/widget-embed/'+widget.id+'/'+encodeURIComponent(station.slug||station._id)+
-    ((theme==='light'&&widget.id!=='hero')?'?theme=light':''):'';
+    origin+'/widget-embed/'+widget.id+'/'+encodeURIComponent(station.slug||station._id):'';
   const code=previewUrl?embedSnippet(previewUrl,widget.shape):'';
   const square=widget.shape==='square',hero=widget.shape==='hero';
   const previewWidth=mobile?390:hero?1060:square?480:650;
@@ -90,16 +88,6 @@ export default function StationWidgetConfigurator({stations=[]}){
             </button>)}
           </div>
         </div>
-        {!hero&&<div>
-          <h2 className="mb-3 text-[11px] font-black uppercase tracking-widest text-zinc-400">Εμφάνιση</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {[{id:'dark',name:'Dark'},{id:'light',name:'Light'}].map(value=><button type="button" key={value.id}
-              onClick={()=>{setTheme(value.id);setCopied(false);}}
-              aria-pressed={theme===value.id}
-              className={'rounded-xl border px-4 py-2.5 text-xs font-black '+(theme===value.id?
-                'border-violet-400 bg-violet-500/20 text-violet-200':'border-white/10 text-zinc-400 hover:bg-white/5')}>{value.name}</button>)}
-          </div>
-        </div>}
         <div className="rounded-2xl border border-violet-400/20 bg-violet-500/[.06] p-4">
           <p className="text-xs font-bold text-violet-200">Υποχρεωτικό backlink</p>
           <p className="mt-1 text-[11px] leading-5 text-zinc-400">Κάθε widget περιλαμβάνει ορατό σύνδεσμο προς το δημόσιο station profile του {station.name} στο iRadios.</p>
@@ -127,7 +115,7 @@ export default function StationWidgetConfigurator({stations=[]}){
               allow="autoplay; encrypted-media" loading="eager"
               style={{width:'100%',maxWidth:previewWidth,height:previewHeight,border:0,borderRadius:hero?22:20,display:'block',background:'#101315'}}/>
           </div>
-          <p className="mt-3 text-[11px] leading-5 text-zinc-500">Τα εξώφυλλα τραγουδιών και οι φωτογραφίες εκπομπών εμφανίζονται όταν υπάρχουν, αλλιώς χρησιμοποιείται το logo σταθμού. Ο ήχος ξεκινά μόνο με Play. Στο HERO το iframe έχει ύψος 100dvh.</p>
+          <p className="mt-3 text-[11px] leading-5 text-zinc-500">Τα Mini χρησιμοποιούν χρωματικό φόντο και μικρή φωτογραφία τραγουδιού ή παραγωγού (με fallback στο station logo). Τα Square και HERO διατηρούν το artwork background. Όλα τα widgets είναι Dark. Ο ήχος ξεκινά μόνο με Play. Το HERO έχει ύψος 100dvh.</p>
         </div>
         <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#111519] p-4 md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
