@@ -1,4 +1,4 @@
-import {stationMatchesRegion} from './stationRegions';
+import {stationMatchesRegion} from './stationRegions.js';
 
 // Curated primary-category affinities. Never cross-promote editorial music into
 // news, sports, religious or traditional categories.
@@ -53,8 +53,12 @@ export function eligibleSponsoredStation(station,{scope,value,regionFilter='',ca
     return true;
   }
   if(scope==='home'){
-    if(categoryFilter&&!relatedToCategory(station,categoryFilter))return false;
-    if(targeted&&regionFilter&&!stationMatchesRegion(station,regionFilter))return false;
+    // Category Boost is NOT a global homepage placement: it needs its own
+    // category and its own region filters. Global Boost may be shown in All.
+    if(targeted&&(!categoryFilter||!regionFilter||
+      !actualCategories(station).includes(categoryFilter)||
+      !stationMatchesRegion(station,regionFilter)))return false;
+    if(global&&categoryFilter&&!relatedToCategory(station,categoryFilter))return false;
     return true;
   }
   return false;
