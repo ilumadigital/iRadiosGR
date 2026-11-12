@@ -2,6 +2,7 @@ import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
 import {useNavigate} from 'react-router-dom';
 import '../styles/ad-campaign-console.css';
+import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
 import { Plus, Edit2, Trash2, Megaphone, LayoutPanelTop, Rows3, LayoutGrid, ExternalLink, Activity, X, Check, Loader2 } from 'lucide-react';
 
 // 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
@@ -386,6 +387,7 @@ export default function AdminBanners() {
                     ))}
                     {/* 🟢 STATUS BADGES */}
                     {stage&&!banner.isStageCreative&&<span className="ad-console-label ad-console-demo">Εισαγμένο · Δεν προβάλλεται</span>}
+                    <div className="mt-2"><CampaignDeliveryStatus campaign={banner} kind="banner" stage={stage}/></div>
                      {isPending && <span className="bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg animate-pulse">PENDING</span>}
                     {banner.status === 'expired' && <span className="bg-red-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg">ΛΗΓΜΕΝΟ</span>}
                     {banner.status === 'rejected' && <span className="bg-red-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg">ΑΠΟΡΡΙΦΘΗΚΕ</span>}
