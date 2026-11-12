@@ -106,6 +106,16 @@ Module._load=function(name,parent,isMain){
     };
     if(name==='multer')return multer;
     if(name==='../models/Station')return Station;
+    // The Admin ranking projection is a read-only dependency, mocked here
+    // so role isolation tests cannot open a real MongoDB billing connection.
+    if(name==='../models/PromotedStation')return {
+      find:()=>({select:()=>({lean:async()=>[]})})
+    };
+    if(name==='../services/stationBillingProjection')return {
+      projectPublicStations:async items=>items.map(item=>({
+        ...item,commercialBoost:{tier:'organic',placement:null}
+      }))
+    };
     // XML synchronizer is validated separately and must not boot cron/network during role-contract tests.
     if(name==='../services/stationScheduleFeed')return {loadFeed:async()=>{},publicPreview:()=>({}),syncOne:async()=>({}),startCron:()=>{}};
     if(name==='../models/User')return User;
@@ -166,6 +176,12 @@ async function main(){
   assert.equal(producerRead.body.stations[0].pendingEdits,undefined);
   const adminRead=await call('GET','/backoffice/overview',admin);
   assert.equal(adminRead.body.stations.length,2);
+  const adminRank=await call('GET','/backoffice/admin/station-ranking',admin);
+  assert.equal(adminRank.code,200,'Admin must read projected ranking');
+  assert.equal(adminRank.body.length,2);
+  assert.equal(adminRank.body[0].commercialBoost?.tier,'organic');
+  assert.equal(adminRank.body[0].broadcasterId,undefined,
+    'Admin ranking never leaks broadcaster owner identifiers');
   assert.equal(adminRead.body.counts.users,12);
   assert.equal(adminRead.headers['Cache-Control'],'private, no-store');
 
