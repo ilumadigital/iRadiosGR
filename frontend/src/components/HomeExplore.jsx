@@ -4,7 +4,8 @@ import StationCatalogCard from './StationCatalogCard';
 import CatalogFilterPopover from './CatalogFilterPopover';
 import EditorialPlacement from './EditorialPlacement';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
-import {catalogStationInfo,compareCatalogPopularity,compareCatalogCompleteness,applyPostBoostLift} from '../utils/catalogLive';
+import {selectForYouStations} from '../utils/forYouRecommendations';
+import {compareCatalogPopularity,applyPostBoostLift} from '../utils/catalogLive';
 import {
   Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
   X, Headphones, Grid2X2, MapPinned
@@ -20,7 +21,7 @@ const tabs=[
   {id:'all',label:'Όλοι',Icon:Grid2X2}
 ];
 
-export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery, catalogNowPlaying={}, catalogClock}) {
+export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery, catalogNowPlaying={}, catalogClock, listeningProfile={}, onCategorySelected}) {
   const location=useLocation();
   const [tab,setTab]=useState('for-you');
   const [query,setQuery]=useState('');
@@ -61,39 +62,27 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
 
   const favIds=useMemo(()=>new Set(favoriteStations.map(x=>String(x._id))),[favoriteStations]);
   const recentIds=useMemo(()=>new Set(recentStations.map(x=>String(x._id))),[recentStations]);
-  const prefGenres=useMemo(()=>new Set([...favoriteStations,...recentStations].map(x=>x.genre).filter(Boolean)),[favoriteStations,recentStations]);
   const eligible=useMemo(()=>stations.filter(s=>s._id && (s.status==='approved'||!s.status)),[stations]);
   const filtered=useMemo(()=>{
     let result=eligible;
     if(tab==='favorites')result=result.filter(s=>favIds.has(String(s._id)));
     if(tab==='recent')result=result.filter(s=>recentIds.has(String(s._id)));
-    // Strict metadata/programme tiers across discovery tabs; personal preference
-    // only reorders stations WITHIN the same quality tier.
-    const personalized=station=>
-      Number(prefGenres.has(station.genre))*20+
-      Number(favIds.has(String(station._id)))*15+
-      Number(station.isFeatured)*7+Number(station.plays||0)/10000;
-    result=[...result].sort((a,b)=>{
-      const offline=Number(a.isOffline===true)-Number(b.isOffline===true);
-      if(offline)return offline;
-      if(tab==='for-you'){
-        const aTier=catalogStationInfo(a,catalogNowPlaying[String(a._id)],catalogClock).tier;
-        const bTier=catalogStationInfo(b,catalogNowPlaying[String(b._id)],catalogClock).tier;
-        if(aTier!==bTier)return compareCatalogCompleteness(a,b,catalogNowPlaying,catalogClock);
-        const preference=personalized(b)-personalized(a);
-        if(preference)return preference;
-      }
-      return compareCatalogPopularity(a,b);
-    });
+    // Explicit search/genre/region always narrow the catalogue first.
     if(genre)result=result.filter(s=>s.genre===genre||s.secondaryGenre===genre);
     if(region)result=result.filter(s=>s.region===region);
     if(query.trim()){
       const q=normalize(query.trim());
       result=result.filter(s=>[s.name,s.genre,s.secondaryGenre,s.region,s.city,s.slogan].some(t=>normalize(t).includes(q)));
     }
-    if(tab!=='for-you')result=applyPostBoostLift(result,'global');
-    return result;
-  },[eligible,tab,genre,region,query,favIds,recentIds,prefGenres,catalogNowPlaying,catalogClock]);
+    // Only this tab uses personal tastes. Every other tab preserves its own
+    // popularity/boost order and the existing visual grid.
+    if(tab==='for-you')return selectForYouStations(result,{
+      listeningProfile,favoriteStations,recentStations
+    });
+    return applyPostBoostLift([...result].sort(compareCatalogPopularity),'global');
+  },[eligible,tab,genre,region,query,favIds,recentIds,listeningProfile,favoriteStations,recentStations]);
+  const hasTaste=Boolean(Object.keys(listeningProfile.stations||{}).length||
+    Object.keys(listeningProfile.categories||{}).length||favoriteStations.length||recentStations.length);
   const displayed=showAll?filtered.slice(0,48):filtered.slice(0,12);
   const clear=()=>{setGenre('');setRegion('');setQuery('');setShowAll(false);};
   return (
@@ -128,7 +117,7 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
       {/* Compact discovery filters: category tiles now navigate directly to /genre/:genreName above the deck. */}
       <div className="flex flex-wrap items-center gap-2" aria-label="Φίλτρα σταθμών">
         <CatalogFilterPopover label="Κατηγορία" value={genre||'all'}
-          onChange={next=>{setGenre(next==='all'?'':next);setShowAll(false);}}
+          onChange={next=>{setGenre(next==='all'?'':next);setShowAll(false);if(next!=='all')onCategorySelected?.(next);}}
           options={PRIMARY_CATEGORY_GROUPS.flatMap(group=>group.items)}
           allLabel="Όλες οι κατηγορίες"/>
         <CatalogFilterPopover label="Περιοχή" value={region||'all'}
@@ -169,7 +158,7 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
         currentStation={currentStation} isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}/>}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-zinc-400">{filtered.length} διαθέσιμοι σταθμοί {tab==='for-you'&&currentUser?'· προτάσεις από τις ακροάσεις σου':''}</span>
+        <span className="text-xs font-semibold text-zinc-400">{filtered.length} διαθέσιμοι σταθμοί {tab==='for-you'&&hasTaste?'· προτάσεις από τις ακροάσεις σου':''}</span>
         {(genre||region||query)&&<button onClick={clear} type="button" className="flex items-center gap-1 text-xs font-semibold text-[#ccff00]"><X size={14}/> Καθαρισμός φίλτρων</button>}
       </div>
       {!!displayed.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
