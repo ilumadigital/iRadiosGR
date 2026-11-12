@@ -742,6 +742,13 @@ function MainApp() {
   });
 
   const lastPlayedTimeAds = useRef({});
+  const activeAdRef = useRef(null);
+  const adWatchdogRef = useRef(null);
+  const clearAdWatchdog = () => {
+    if (adWatchdogRef.current) clearTimeout(adWatchdogRef.current);
+    adWatchdogRef.current = null;
+  };
+  useEffect(() => () => clearTimeout(adWatchdogRef.current), []);
 
   // Fetch artwork only for a verified track, and bind the response to the
   // exact station/song so a previous cover cannot leak into the iOS lock screen.
@@ -1089,7 +1096,11 @@ function MainApp() {
     const finalStreamUrl = getSmartStreamUrl(rawStreamUrl);
 
     setCurrentStation(station);
+    clearAdWatchdog();
+    activeAdRef.current = null;
     setIsPlayingAd(false);
+    setCurrentAdInfo(null);
+    setAdTimeRemaining(0);
     setNowPlaying('');
     setNowPlayingInfo({source:'none',foundWithAI:false});
     setSpotifyMatch(null);
@@ -1174,29 +1185,47 @@ function MainApp() {
     }
   };
 
+  // The same audio element handles ads and radio. Every rejected/invalid MP3
+  // MUST return to the pending station; never trap listeners in an ad break.
   const playNextAdOrStation = () => {
     if (!audioRef.current) return;
+    clearAdWatchdog();
+    activeAdRef.current = null;
     if (adQueue.current.length > 0) {
       const nextAd = adQueue.current.shift();
-      audioRef.current.src = nextAd.audioUrl;
-      audioRef.current.volume = parseFloat(volume);
-      
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-         playPromise.catch((e) => {
-            console.warn("Ad background playback prevented:", e);
-            playNextAdOrStation(); 
-         });
-      }
-      setCurrentAdInfo(nextAd); 
-      setIsPlayingAd(true); setIsPlaying(true);
+      if (!nextAd?.audioUrl) return playNextAdOrStation();
+      const token = Symbol('ad-play');
+      activeAdRef.current = { token, id: nextAd._id, started: false };
+      setCurrentAdInfo(nextAd);
+      setIsPlayingAd(true);
+      setIsPlaying(true);
+      setAdTimeRemaining(0);
       intendedPlayState.current = true;
-      fetch(`${API_URL}/ads/${nextAd._id}/impression`, { method: 'POST' }).catch(()=>{});
-    } else {
-      if (pendingStation.current) {
-        handleActualStationPlay(pendingStation.current);
-        pendingStation.current = null;
+      const audio = audioRef.current;
+      audio.src = nextAd.audioUrl;
+      audio.volume = parseFloat(volume);
+      audio.load();
+      adWatchdogRef.current = setTimeout(() => {
+        if (activeAdRef.current?.token === token) playNextAdOrStation();
+      }, 12000);
+      const attempt = audio.play();
+      if (attempt && typeof attempt.catch === 'function') {
+        attempt.catch(error => {
+          console.warn('[ADS] Audio playback failed, restoring radio', error);
+          if (activeAdRef.current?.token === token) playNextAdOrStation();
+        });
       }
+      return;
+    }
+    setIsPlayingAd(false);
+    setCurrentAdInfo(null);
+    setAdTimeRemaining(0);
+    if (pendingStation.current) {
+      const station = pendingStation.current;
+      pendingStation.current = null;
+      handleActualStationPlay(station);
+    } else if (currentStation) {
+      handleActualStationPlay(currentStation);
     }
   };
 
@@ -1853,16 +1882,34 @@ function MainApp() {
         webkit-playsinline="true" 
 
         onLoadStart={() => setIsBuffering(true)}
-        onWaiting={() => setIsBuffering(true)}
-        onPlaying={() => setIsBuffering(false)}
+        onWaiting={() => {
+          setIsBuffering(true);
+          if (activeAdRef.current) {
+            clearAdWatchdog();
+            const token = activeAdRef.current.token;
+            adWatchdogRef.current = setTimeout(() => {
+              if (activeAdRef.current?.token === token) playNextAdOrStation();
+            }, 12000);
+          }
+        }}
+        onPlaying={() => {
+          setIsBuffering(false);
+          const ad = activeAdRef.current;
+          if (ad && !ad.started) {
+            ad.started = true;
+            fetch(`${API_URL}/ads/${ad.id}/impression`, { method: 'POST' }).catch(() => {});
+          }
+          clearAdWatchdog();
+        }}
         
         onEnded={() => { 
-          isPlayingAd ? playNextAdOrStation() : handleActualStationPlay(currentStation) 
+          activeAdRef.current ? playNextAdOrStation() : handleActualStationPlay(currentStation) 
         }} 
 
         onTimeUpdate={(e) => {
           if (isPlayingAd) {
-            setAdTimeRemaining(Math.ceil(e.target.duration - e.target.currentTime));
+            setAdTimeRemaining(Number.isFinite(e.target.duration)
+              ? Math.max(0, Math.ceil(e.target.duration - e.target.currentTime)) : 0);
           } else if (isPlaying && !isRecognizing && !recognitionLock.current && Date.now() - lastMetaFetch.current > 10000) {
             lastMetaFetch.current = Date.now(); 
             fetchMetadata();
@@ -1873,8 +1920,12 @@ function MainApp() {
           console.warn("⚠️ Το stream του ραδιοφώνου διακόπηκε από τον server του σταθμού:", e);
           // A failed HTTP/stream request must not leave the UI spinning indefinitely.
           setIsBuffering(false);
-          setIsPlaying(false);
-          if (!isPlayingAd) showAlert("Ο σταθμός δεν ανταποκρίνεται αυτή τη στιγμή. Δοκίμασε έναν άλλο σταθμό.");
+          if (activeAdRef.current) {
+            playNextAdOrStation();
+          } else {
+            setIsPlaying(false);
+            showAlert("Ο σταθμός δεν ανταποκρίνεται αυτή τη στιγμή. Δοκίμασε έναν άλλο σταθμό.");
+          }
         }}
       />
 
