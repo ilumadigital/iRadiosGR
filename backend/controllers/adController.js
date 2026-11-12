@@ -71,6 +71,22 @@ exports.createAdminAd=async(req,res)=>{
   }
 };
 
+// Explicit Admin action: copy legacy data into isolated, pending staging inventory.
+exports.cloneStageAd=async(req,res)=>{
+  if(!isStage())return res.status(404).json({error:'Unavailable'});
+  try{
+    const original=await Ad.findById(req.params.id).lean();
+    if(!original||original.isStageCreative)return res.status(404).json({error:'No import to copy'});
+    const patch=fields(original,['title','client','audioUrl','logoUrl','linkUrl','frequency',
+      'dspPreset','targetLocations']);
+    const clone=await Ad.create({...patch,title:`${original.title} · STAGING`,
+      frequency:correctFrequency(patch.frequency||'entry'),
+      status:'pending',duration:'month',expiresAt:null,isStageCreative:true,
+      isGlobal:true,agencyId:null});
+    res.status(201).json(clone);
+  }catch(error){res.status(400).json({error:'Δεν δημιουργήθηκε δοκιμαστικό αντίγραφο.'});}
+};
+
 exports.updateAd=async(req,res)=>{
   try{
     const patch=fields(req.body,writable);
