@@ -111,3 +111,27 @@ test('Unowned and Admin-owned stations have stored sound but cannot apply unbill
   assert.equal(projected.disableNetworkAds,false);
  }
 });
+
+
+test('Premium or any live station subscription addon unlocks widget searches',()=>{
+  assert.equal(render().widgetMusicLinksEnabled,false);
+  for(const sku of ['B-PREM','ADD-DSP','ADD-AN','ADD-ADS']){
+    assert.equal(render([grant(sku)]).widgetMusicLinksEnabled,true,sku+' grant');
+    assert.equal(render([],[paidOrder(sku)]).widgetMusicLinksEnabled,true,sku+' purchase');
+  }
+});
+test('expired and revoked widget add-ons cannot leave music buttons enabled',()=>{
+  assert.equal(render([grant('ADD-AN',{revokedAt:now})]).widgetMusicLinksEnabled,false);
+  assert.equal(render([grant('ADD-AN',{expiresAt:new Date('2026-11-14')})]).widgetMusicLinksEnabled,false);
+  assert.equal(render([grant('ADD-DSP',{resourceId:otherId})]).widgetMusicLinksEnabled,false);
+  assert.equal(render([],[paidOrder('ADD-ADS',otherId)]).widgetMusicLinksEnabled,false);
+  assert.equal(render([],[paidOrder('B-PREM',{status:'cancelled'})]).widgetMusicLinksEnabled,false);
+  assert.equal(render([],[paidOrder('B-PREM',stationId,{periodEndsAt:new Date('2026-11-14')})]).widgetMusicLinksEnabled,false);
+  assert.equal(render([],[paidOrder('BOOST-G-DAY')]).widgetMusicLinksEnabled,false);
+  assert.equal(render([],[],{...owner,broadcasterProfile:{tier:'premium'}}).widgetMusicLinksEnabled,false);
+});
+test('A station Analytics addon unlocks song search but not WebDSP',()=>{
+  const result=render([grant('ADD-AN')]);
+  assert.equal(result.widgetMusicLinksEnabled,true);
+  assert.equal(result.dspPreset,'OFF');
+});
