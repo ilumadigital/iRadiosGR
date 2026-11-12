@@ -105,6 +105,22 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
     return () => { live = false; };
   }, []);
 
+  // New paid purchases may become active while the Admin remains on this page.
+  // Refresh the read-only status without ever discarding unsaved manual edits.
+  const dirtyRef=useRef(dirty);
+  dirtyRef.current=dirty;
+  useEffect(()=>{
+    const timer=setInterval(()=>{
+      if(dirtyRef.current)return;
+      adminFetch('/api/backoffice/admin/station-ranking')
+        .then(response=>response.ok?response.json():null)
+        .then(data=>{
+          if(!dirtyRef.current&&Array.isArray(data))setRankSource(data);
+        }).catch(()=>{/* Preserve last known status on a network error. */});
+    },60000);
+    return()=>clearInterval(timer);
+  },[]);
+
   // Props refresh and scope changes rebuild the local order from the saved scope.
   useEffect(() => {
     setLocalStations(initialOrder(approved, scope, scopeValue));
@@ -407,6 +423,12 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
                         Χειροκίνητο Boost ληγμένο / χωρίς λήξη
                       </span>}
                     </div>
+                    {state.purchased && <p className="mt-1 text-[10px] text-zinc-400">
+                      Λήξη πληρωμένου Boost: {exactTime(station.commercialBoost.endsAt)}
+                    </p>}
+                    {state.manual && <p className="mt-1 text-[10px] text-sky-200/75">
+                      Λήξη χειροκίνητου Boost: {exactTime(station.boostExpiresAt)}
+                    </p>}
                   </div>
                 </div>
 
