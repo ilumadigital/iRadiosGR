@@ -26,6 +26,11 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
   const location=useLocation();
   const [tab,setTab]=useState('for-you');
   const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1024:window.innerWidth);
+  const [sponsorClock,setSponsorClock]=useState(()=>Date.now());
+  useEffect(()=>{
+    const timer=setInterval(()=>setSponsorClock(Date.now()),30000);
+    return()=>clearInterval(timer);
+  },[]);
   useEffect(()=>{
     const resize=()=>setViewportWidth(window.innerWidth);
     window.addEventListener('resize',resize,{passive:true});
@@ -97,9 +102,10 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
   const sponsoredEntries=useMemo(()=>showSponsors?buildSponsoredCatalog({
     organic:displayed,allStations:eligible,scope:'home',value:genre||region||'all',
     categoryFilter:genre,regionFilter:region,
-    columns:viewportWidth>=1280&&viewportWidth<1536?4:sponsoredGridColumns(viewportWidth)
+    columns:viewportWidth>=1280&&viewportWidth<1536?4:sponsoredGridColumns(viewportWidth),
+    now:sponsorClock
   }):displayed.map(station=>({station,sponsored:false})),
-  [showSponsors,displayed,eligible,genre,region,viewportWidth]);
+  [showSponsors,displayed,eligible,genre,region,viewportWidth,sponsorClock]);
   const clear=()=>{setGenre('');setRegion('');setQuery('');setShowAll(false);};
   return (
     <section id="station-explorer" className="ir-discovery-shell scroll-mt-24 space-y-5 rounded-[28px] border border-white/10 bg-gradient-to-b from-[#141a20]/95 to-[#0b1014]/95 p-4 sm:p-6">
