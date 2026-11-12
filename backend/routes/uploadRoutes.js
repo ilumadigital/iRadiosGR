@@ -44,6 +44,8 @@ async function requireAdUploadEntitlement(req,res,next){
   try{
     // Production has its existing workflow until the billing rollout.
     if(process.env.APP_ENV!=='staging'||req.user.role==='admin')return next();
+    // Agency creative drafts are sandbox-only and still require Admin approval.
+    if(req.user.role==='agency')return next();
     if(req.user.role!=='broadcaster')
       return res.status(403).json({error:'Δεν επιτρέπεται upload σε αυτόν τον ρόλο.'});
     const stationId=req.get('X-iRadios-Station');
@@ -57,6 +59,11 @@ async function requireAdUploadEntitlement(req,res,next){
     console.error('[AD UPLOAD] Authorization error',error.message);
     return res.status(500).json({error:'Ο έλεγχος πρόσβασης απέτυχε.'});
   }
+}
+function stageVisualUploader(req,res,next){
+  if(process.env.APP_ENV==='staging' && !['admin','agency'].includes(req.user?.role))
+    return res.status(403).json({error:'Μόνο Admin ή Agency μπορεί να ανεβάσει διαφήμιση.'});
+  next();
 }
 function mediaSignatureMatches(file){
   const header=Buffer.alloc(12);
@@ -146,7 +153,7 @@ router.post('/upload-ad',protect,requireAdUploadEntitlement,
   });
 
 // Endpoint για Banners / Εικόνες
-router.post('/upload-banner', protect, uploadBanner.single('imageFile'), (req, res) => {
+router.post('/upload-banner', protect, stageVisualUploader, uploadBanner.single('imageFile'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Δεν βρέθηκε αρχείο εικόνας.' });
     const username = req.user.username;
@@ -162,7 +169,7 @@ router.post('/upload-banner', protect, uploadBanner.single('imageFile'), (req, r
 });
 
 // 🟢 ΝΕΟ: Endpoint για Λογότυπα Διαφημίσεων
-router.post('/upload-logo', protect, uploadLogo.single('logoFile'), (req, res) => {
+router.post('/upload-logo', protect, stageVisualUploader, uploadLogo.single('logoFile'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Δεν βρέθηκε αρχείο λογοτύπου.' });
     const username = req.user.username;
