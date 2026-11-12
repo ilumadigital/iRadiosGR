@@ -10,7 +10,8 @@ function effectiveStationBoost(billingBoost,station,now=new Date()){
     expiry>current;
   const manualEndsAt=manualActive?new Date(expiry).toISOString():null;
   const paid=billingBoost||{tier:'organic',placement:null,endsAt:null,priority:0};
-  const manual={manualActive,manualEndsAt};
+  const manual={manualActive,manualEndsAt,
+    premiumIncluded:paid.tier==='premium'||paid.premiumIncluded===true};
   if(paid.tier==='purchased')return {...paid,...manual};
   if(manualActive)return {...paid,...manual,tier:'manual',
     placement:'global',endsAt:manualEndsAt,priority:0};
