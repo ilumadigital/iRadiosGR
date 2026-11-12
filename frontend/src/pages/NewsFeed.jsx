@@ -48,7 +48,7 @@ export function Article({item,view,now,source,backTo}){
 }
 function AdUnit({banner,wide=false,view='grid',slotKey=''}) {
   return <DynamicAdCreative banner={banner} placement="news_feed"
-    variant={wide?'strip':view==='list'?'list':'card'} slotKey={slotKey}/>;
+    variant={wide?'strip':view==='list'?'list':'news'} slotKey={slotKey}/>;
 }
 export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoMatch,currentStation,isPlaying,onPlayStation,onPlayPause}){
   const location=useLocation();
