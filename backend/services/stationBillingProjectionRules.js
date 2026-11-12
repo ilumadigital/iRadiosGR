@@ -9,6 +9,7 @@ const {DSP_COMPRESSOR_DEFAULTS,DSP_CLIPPER_DEFAULTS}=require('./dspConfig');
 function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidHistory=[]){
  const data=typeof station.toObject==='function'?station.toObject():{...station};
  const zeroPaidFx=()=>{
+   data.widgetMusicLinksEnabled=false;
    data.dspPreset='OFF';
    data.dspAutoBalance=0;
    data.dspSettings={bass:0,mid:0,treble:0,output:0,stereoWidth:100};
@@ -69,6 +70,10 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
      placement:postPlacements.has('global')?'global':'targeted'
    };
  }
+ // Widget song searches are broadcaster-side paid features; only active
+ // Premium or a scoped subscription addon unlocks them, not historical flags.
+ data.widgetMusicLinksEnabled=['broadcaster.unlimited_stations','broadcaster.webdsp',
+  'broadcaster.analytics','broadcaster.ad_control'].some(right=>rights.has(right));
  // Unsubscribed stations must never process custom DSP in public playback,
  // regardless of when an Admin authored the stored configuration.
  if(!rights.has('broadcaster.webdsp')){
