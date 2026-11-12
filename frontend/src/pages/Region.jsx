@@ -118,7 +118,9 @@ export default function Region({ stations, currentStation, setCurrentStation, is
 
   const sponsoredEntries=useMemo(()=>buildSponsoredCatalog({
     organic:displayStations,
-    allStations:stations.filter(station=>String(station._id)!==String(promotedStationId)),
+    // Promoted is a separate editorial placement, not a disqualification
+    // from an independently purchased Sponsored impression.
+    allStations:stations,
     scope:'region',value:regionName,mode:viewMode,
     columns:sponsoredGridColumns(viewportWidth),now:sponsorClock,
     categoryFilter:selectedGenre,transmissionFilter:selectedTransmission
