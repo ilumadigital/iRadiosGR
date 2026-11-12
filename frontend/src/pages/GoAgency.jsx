@@ -242,9 +242,9 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
               <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <ShieldCheck size={28} className="text-emerald-400" />
               </div>
-              <h3 className="text-xl font-black text-white mb-3 tracking-tight">AdBlock Immunity</h3>
+              <h3 className="text-xl font-black text-white mb-3 tracking-tight">Διαφημιστική προβολή μέσα στον player</h3>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                Τα ηχητικά μας σποτ (Audio Pre-rolls) γίνονται inject απευθείας στο audio stream. Αδύνατον να παρακαμφθούν από AdBlockers, εγγυώμενα <strong className="text-white">100% Listenability</strong>.
+                Τα Audio Spots αναπαράγονται από τον iRadios player πριν ή κατά την ακρόαση, ανάλογα με τη συχνότητα της καμπάνιας. Η προβολή εξαρτάται από τη συσκευή, τον browser και τη διαθεσιμότητα του αρχείου.
               </p>
             </div>
 
@@ -390,7 +390,7 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
                 )}
             </div>
             <div className="space-y-3 mb-10 flex-1">
-                {['Unskippable Audio Format', 'Companion Display Ad Link', '100% Listenability', 'Direct Conversion Action'].map((f, i) => (
+                {['Player Audio Pre-roll & Mid-roll', 'Companion Display Ad Link', 'Μετρήσιμη αναπαραγωγή', 'Direct Conversion Action'].map((f, i) => (
                 <div key={i} className="flex items-center gap-2 text-[11px] font-bold text-zinc-300">
                     <Check size={14} className="text-orange-500" /> {f}
                 </div>

@@ -11,7 +11,7 @@ const adSchema = new mongoose.Schema({
     required: true, 
     enum: [
       // Zapping (Event-based)
-      'entry', 'every_5_stations', 'every_10_stations', 'every_15_stations', 'every_20_stations', 'every_30_stations', 
+      'entry', 'every_2_stations', 'every_4_stations', 'every_5_stations', 'every_10_stations', 'every_15_stations', 'every_20_stations', 'every_30_stations', 
       // Time-based
       'every_1_hour', 'every_2_hours', 'every_6_hours', 'once_a_day', 'twice_a_day', 'four_times_a_day', 'once_a_week'
     ] 
@@ -37,7 +37,9 @@ const adSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   broadcasterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Station', default: null },
-  isGlobal: { type: Boolean, default: true }
+  isGlobal: { type: Boolean, default: true },
+  // Isolated staging inventory only; imported production campaigns remain hidden.
+  isStageCreative: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('Ad', adSchema);

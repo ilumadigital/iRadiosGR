@@ -1,5 +1,6 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
+import '../styles/ad-campaign-console.css';
 import { Plus, Edit2, Trash2, Megaphone, LayoutPanelTop, Rows3, LayoutGrid, ExternalLink, Activity, X, Check, Loader2 } from 'lucide-react';
 
 // 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
@@ -90,7 +91,11 @@ export default function AdminBanners() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter,setFilter]=useState('all');
+  const [statusFilter,setStatusFilter]=useState('all');
+  const [searchTerm,setSearchTerm]=useState('');
+  const [loadError,setLoadError]=useState('');
+  const stage=typeof window!=='undefined'&&window.location.hostname==='stage.iradios.gr';
 
   // 🟢 FILE UPLOAD STATES
   const [bannerFile, setBannerFile] = useState(null);
@@ -110,13 +115,14 @@ export default function AdminBanners() {
 
   const fetchBanners = async () => {
     try {
-      setLoading(true);
+      setLoading(true);setLoadError('');
       const res = await fetch('/api/banners/admin');
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       setBanners(data);
     } catch (err) {
       console.error("Σφάλμα φόρτωσης banners:", err);
+      setLoadError('Αποτυχία φόρτωσης. Έλεγξε σύνδεση και δικαιώματα.');
     } finally {
       setLoading(false);
     }
@@ -283,8 +289,19 @@ export default function AdminBanners() {
     }
   };
 
-  const filteredBanners = banners.filter(b => 
-    filter === 'all' ? true : b.placement.includes(filter)
+  const cloneStageBanner=async banner=>{
+    if(!window.confirm('Δημιουργία δοκιμαστικού αντιγράφου χωρίς αλλαγή της παραγωγικής καμπάνιας;'))return;
+    try{
+      const res=await fetch(`/api/banners/admin/${banner._id}/clone-stage`,{method:'POST'});
+      if(!res.ok)throw Error((await res.json().catch(()=>({}))).error||'Αποτυχία.');
+      await fetchBanners();
+    }catch(error){alert(error.message);}
+  };
+  const filteredBanners=banners.filter(b=>
+    (filter==='all'||b.placement?.includes(filter))&&
+    (statusFilter==='all'||b.status===statusFilter)&&
+    [b.title,b.description].some(v=>String(v||'').toLocaleLowerCase('el-GR')
+      .includes(searchTerm.toLocaleLowerCase('el-GR')))
   );
 
   const placementOptions = [
@@ -292,12 +309,13 @@ export default function AdminBanners() {
     { id: 'home', label: 'Home Feed', icon: <Rows3 size={14} />, color: 'bg-emerald-500' },
     { id: 'radio_feed', label: 'Radio Grid', icon: <LayoutGrid size={14} />, color: 'bg-purple-500' },
     { id: 'news_feed', label: 'Newsfeed', icon: <Rows3 size={14} />, color: 'bg-orange-600' },
+    { id: 'station_profile', label: 'Προφίλ Σταθμού', icon: <LayoutPanelTop size={14} />, color: 'bg-cyan-700' },
   ];
 
   return (
-    <div className="admin-legacy-page space-y-6 text-white">
+    <div className="admin-legacy-page ad-console space-y-6 text-white">
       
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+      <div className="ad-console-hero flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-black italic tracking-tighter text-white flex items-center gap-3">
             <Megaphone className="text-[#ccff00]" size={32} /> Διαφημιστικά banners
@@ -311,6 +329,22 @@ export default function AdminBanners() {
         </button>
       </div>
 
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="ad-console-stat"><p className="text-xs text-zinc-400">Σύνολο καμπανιών</p><p className="mt-2 text-3xl font-black">{banners.length}</p></div>
+        <div className="ad-console-stat"><p className="text-xs text-[#ccff00]">Ενεργές</p><p className="mt-2 text-3xl font-black">{banners.filter(b=>b.status==='active').length}</p></div>
+        <div className="ad-console-stat col-span-2 md:col-span-1"><p className="text-xs text-amber-300">Για έγκριση</p><p className="mt-2 text-3xl font-black">{banners.filter(b=>b.status==='pending').length}</p></div>
+      </div>
+      <div className="ad-console-toolbar">
+        <input type="search" aria-label="Αναζήτηση banner" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}
+          placeholder="Αναζήτηση καμπάνιας…" className="ad-console-filter min-w-[220px] flex-1"/>
+        <select aria-label="Κατάσταση" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)} className="ad-console-filter">
+          <option value="all">Όλες οι καταστάσεις</option><option value="active">Ενεργές</option>
+          <option value="pending">Προς έγκριση</option><option value="expired">Ληγμένες</option>
+          <option value="rejected">Απορριφθείσες</option>
+        </select>
+        <button type="button" onClick={fetchBanners} className="ad-console-filter">Ανανέωση</button>
+        {stage&&<span className="ad-console-label ad-console-demo">STAGING · Μόνο δοκιμαστικές καμπάνιες</span>}
+      </div>
       <div className="flex flex-wrap items-center gap-2 mb-8 bg-zinc-900/50 p-2 rounded-2xl w-fit border border-white/5">
         <button onClick={() => setFilter('all')} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${filter === 'all' ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'}`}>Όλες</button>
         {placementOptions.map(opt => (
@@ -325,6 +359,7 @@ export default function AdminBanners() {
       </div>
 
       <p className="mb-4 text-xs font-semibold text-zinc-400">{filteredBanners.length} από {banners.length} banners</p>
+      {loadError&&<p role="alert" className="rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-sm text-rose-200">{loadError}</p>}
       {loading ? (
         <div className="flex justify-center items-center h-40"><span className="text-[#ccff00] font-bold animate-pulse">Φόρτωση...</span></div>
       ) : (
@@ -334,10 +369,10 @@ export default function AdminBanners() {
           </div>}
           {filteredBanners.map(banner => {
             const isPending = banner.status === 'pending';
-            const isActive = banner.status === 'active' || banner.isActive === true; 
+            const isActive = banner.status === 'active' && (!stage || banner.isStageCreative); 
             
             return (
-              <div key={banner._id} className={`bg-zinc-900 rounded-3xl overflow-hidden border transition-all ${isActive ? 'border-white/10 hover:border-[#ccff00]/50' : isPending ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]' : 'border-red-500/30 opacity-60'}`}>
+              <div key={banner._id} className={`ad-console-card bg-zinc-900 rounded-3xl overflow-hidden border transition-all ${isActive ? 'border-white/10 hover:border-[#ccff00]/50' : isPending ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]' : 'border-red-500/30 opacity-60'}`}>
                 
                 <div className="h-40 bg-zinc-800 relative overflow-hidden group">
                   <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -348,7 +383,8 @@ export default function AdminBanners() {
                       </span>
                     ))}
                     {/* 🟢 STATUS BADGES */}
-                    {isPending && <span className="bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg animate-pulse">PENDING</span>}
+                    {stage&&!banner.isStageCreative&&<span className="ad-console-label ad-console-demo">Εισαγμένο · Δεν προβάλλεται</span>}
+                     {isPending && <span className="bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg animate-pulse">PENDING</span>}
                     {banner.status === 'expired' && <span className="bg-red-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg">ΛΗΓΜΕΝΟ</span>}
                     {banner.status === 'rejected' && <span className="bg-red-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg">ΑΠΟΡΡΙΦΘΗΚΕ</span>}
                   </div>
@@ -386,11 +422,13 @@ export default function AdminBanners() {
                     </a>
                     
                     <div className="flex gap-2">
-                      {isPending && (
+                      {isPending && (!stage||banner.isStageCreative) && (
                         <button onClick={() => handleApprove(banner._id)} className="p-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-black rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse" title="Έγκριση & Έναρξη">
                           <Check size={16} strokeWidth={3} />
                         </button>
                       )}
+                      {stage&&!banner.isStageCreative&&
+                        <button type="button" onClick={()=>cloneStageBanner(banner)} className="ad-console-filter !text-purple-200">Αντίγραφο</button>}
                       <button onClick={() => handleOpenModal(banner)} className="p-2 bg-white/5 text-zinc-300 hover:text-[#ccff00] rounded-xl transition-all"><Edit2 size={16} /></button>
                       <button onClick={() => handleDelete(banner._id)} className="p-2 bg-white/5 text-zinc-300 hover:text-red-500 rounded-xl transition-all"><Trash2 size={16} /></button>
                     </div>
@@ -404,7 +442,7 @@ export default function AdminBanners() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-zinc-950 border border-white/10 p-6 md:p-8 rounded-[32px] w-full max-w-xl shadow-2xl relative animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
+          <div className="ad-console-modal bg-zinc-950 border border-white/10 p-6 md:p-8 rounded-[32px] w-full max-w-xl shadow-2xl relative animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar">
             <button onClick={handleCloseModal} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full">
               <X size={20} />
             </button>

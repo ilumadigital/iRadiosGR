@@ -246,6 +246,8 @@ exports.approveBannerAd = async (req, res) => {
   try {
     const banner = await BannerAd.findById(req.params.id);
     if (!banner) return res.status(404).json({ error: 'Η διαφήμιση δεν βρέθηκε.' });
+    if (process.env.APP_ENV === 'staging' && banner.isStageCreative !== true)
+      return res.status(409).json({error:'Η παλιά παραγωγική καμπάνια δεν ενεργοποιείται στο staging. Δημιούργησε δοκιμαστικό αντίγραφο.'});
 
     const expiresAt = calculateExpiryDate(banner.duration || 'month');
 
@@ -265,6 +267,8 @@ exports.approveAudioAd = async (req, res) => {
   try {
     const ad = await Ad.findById(req.params.id);
     if (!ad) return res.status(404).json({ error: 'Το spot δεν βρέθηκε.' });
+    if (process.env.APP_ENV === 'staging' && ad.isStageCreative !== true)
+      return res.status(409).json({error:'Το παλιό spot παραγωγής δεν ενεργοποιείται στο staging. Δημιούργησε δοκιμαστικό αντίγραφο.'});
 
     const expiresAt = calculateExpiryDate(ad.duration || 'month');
 

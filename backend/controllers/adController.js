@@ -2,6 +2,14 @@ const Ad = require('../models/Ad');
 const User = require('../models/User');
 const Station=require('../models/Station');
 const {hasStationRight}=require('../services/billingEntitlements');
+const mongoose=require('mongoose');
+const {isStage,activeCampaignQuery,live,publicAd,fields,permitMetric} =
+  require('../services/adDeliveryRules');
+const writable=['title','client','audioUrl','logoUrl','linkUrl','frequency',
+  'dspPreset','targetLocations','status','duration','expiresAt'];
+const correctFrequency=value=>({
+  first_station:'entry',every_2:'every_2_stations',every_4:'every_4_stations'
+}[value]||value);
 
 const fs = require('fs').promises;
 const path = require('path');
@@ -25,24 +33,15 @@ const deleteMediaFile = async (fileUrl) => {
     }
 };
 
-exports.getPublicAds = async (req, res) => {
-  // Never deliver imported production campaigns on a public test domain.
-  if (process.env.APP_ENV === 'staging') return res.json([]);
-  try {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private'); 
-    
-    // 🟢 ΣΗΜΑΝΤΙΚΟ: Φέρνουμε ΜΟΝΟ τα Active ads που ΔΕΝ έχουν λήξει!
-    const ads = await Ad.find({
-      status: 'active',
-      $or: [
-        { expiresAt: { $gt: new Date() } }, 
-        { expiresAt: null },
-        { expiresAt: { $exists: false } }
-      ]
-    }).sort({ createdAt: 1 });
-    
-    res.json(ads);
-  } catch (err) { res.status(500).json({ error: 'Σφάλμα λήψης.' }); }
+exports.getPublicAds=async(req,res)=>{
+  try{
+    res.set('Cache-Control','no-store, private');
+    const ads=await Ad.find(activeCampaignQuery()).sort({createdAt:1}).lean();
+    res.json(ads.map(publicAd));
+  }catch(error){
+    console.error('[ADS] Public delivery failed',error.message);
+    res.status(500).json({error:'Σφάλμα λήψης.'});
+  }
 };
 
 exports.getAdminAds = async (req, res) => {
@@ -60,19 +59,49 @@ exports.getAdminLocalAds = async (req, res) => {
   } catch (err) { res.status(500).json({ error: 'Σφάλμα λήψης.' }); }
 };
 
-exports.createAdminAd = async (req, res) => {
-  try {
-    const newAd = new Ad({ ...req.body, isGlobal: true });
-    await newAd.save();
+exports.createAdminAd=async(req,res)=>{
+  try{
+    const patch=fields(req.body,writable);
+    patch.frequency=correctFrequency(patch.frequency||'entry');
+    const newAd=await Ad.create({...patch,isGlobal:true,agencyId:null,
+      isStageCreative:isStage(),
+      ...(isStage()&&!patch.expiresAt?{expiresAt:new Date(Date.now()+30*86400000)}:{})});
     res.status(201).json(newAd);
-  } catch (err) { res.status(500).json({ error: 'Σφάλμα προσθήκης.' }); }
+  }catch(error){
+    console.error('[ADS] Create failed',error.message);
+    res.status(400).json({error:'Δεν δημιουργήθηκε το spot. Έλεγξε τη συχνότητα και το αρχείο.'});
+  }
 };
 
-exports.updateAd = async (req, res) => {
-  try {
-    const updatedAd = await Ad.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(updatedAd);
-  } catch (err) { res.status(500).json({ error: 'Σφάλμα ενημέρωσης.' }); }
+// Explicit Admin action: copy legacy data into isolated, pending staging inventory.
+exports.cloneStageAd=async(req,res)=>{
+  if(!isStage())return res.status(404).json({error:'Unavailable'});
+  try{
+    const original=await Ad.findById(req.params.id).lean();
+    if(!original||original.isStageCreative)return res.status(404).json({error:'No import to copy'});
+    const patch=fields(original,['title','client','audioUrl','logoUrl','linkUrl','frequency',
+      'dspPreset','targetLocations']);
+    const clone=await Ad.create({...patch,title:`${original.title} · STAGING`,
+      frequency:correctFrequency(patch.frequency||'entry'),
+      status:'pending',duration:'month',expiresAt:null,isStageCreative:true,
+      isGlobal:true,agencyId:null});
+    res.status(201).json(clone);
+  }catch(error){res.status(400).json({error:'Δεν δημιουργήθηκε δοκιμαστικό αντίγραφο.'});}
+};
+
+exports.updateAd=async(req,res)=>{
+  try{
+    const patch=fields(req.body,writable);
+    if(patch.frequency!==undefined)patch.frequency=correctFrequency(patch.frequency);
+    // The server-owned staging marker is immutable; imported data stays hidden.
+    const updated=await Ad.findByIdAndUpdate(req.params.id,{$set:patch},
+      {new:true,runValidators:true});
+    if(!updated)return res.status(404).json({error:'Δεν βρέθηκε το spot.'});
+    res.json(updated);
+  }catch(error){
+    console.error('[ADS] Update failed',error.message);
+    res.status(400).json({error:'Η ενημέρωση απέτυχε. Έλεγξε τις τιμές.'});
+  }
 };
 
 // 🟢 ΑΝΑΒΑΘΜΙΣΜΕΝΟ DELETE (Διαγράφει και τα αρχεία)
@@ -124,7 +153,7 @@ exports.createBroadcasterAd=async(req,res)=>{
   // Legacy frontend calls the entry frequency "first_station".
   if(patch.frequency==='first_station')patch.frequency='entry';
   const created=await Ad.create({...patch,agencyId:null,broadcasterId:user._id,
-    stationId:station._id,isGlobal:false,status:'active'});
+    stationId:station._id,isGlobal:false,status:'active',isStageCreative:isStage()});
   return res.status(201).json(created);
  }catch(e){
   console.error('[AD CONTROL] Create failed',e.message);
@@ -169,16 +198,24 @@ exports.deleteBroadcasterAd=async(req,res)=>{
  }
 };
 
-exports.logImpression = async (req, res) => {
-  try {
-    await Ad.findByIdAndUpdate(req.params.id, { $inc: { impressions: 1, plays: 1 } });
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: "Σφάλμα καταγραφής play" }); }
+exports.logImpression=async(req,res)=>{
+  try{
+    if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
+    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative');
+    if(!live(ad))return res.status(404).json({error:'Not found'});
+    if(!permitMetric(req,'audio-play',req.params.id))return res.json({success:true,deduplicated:true});
+    await Ad.updateOne({_id:ad._id,...activeCampaignQuery()},{$inc:{impressions:1,plays:1}});
+    res.json({success:true});
+  }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής play'});}
 };
 
-exports.logClick = async (req, res) => {
-  try {
-    await Ad.findByIdAndUpdate(req.params.id, { $inc: { clicks: 1 } });
-    res.json({ success: true });
-  } catch (err) { res.status(500).json({ error: "Σφάλμα καταγραφής click" }); }
+exports.logClick=async(req,res)=>{
+  try{
+    if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
+    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative');
+    if(!live(ad))return res.status(404).json({error:'Not found'});
+    if(!permitMetric(req,'audio-click',req.params.id))return res.json({success:true,deduplicated:true});
+    await Ad.updateOne({_id:ad._id,...activeCampaignQuery()},{$inc:{clicks:1}});
+    res.json({success:true});
+  }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής click'});}
 };

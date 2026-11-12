@@ -11,6 +11,7 @@ import {normalizeListenerMode} from './utils/dspEngine';
 import useStations from './hooks/useStations';
 import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
+import {geoAllowsAd} from './utils/adPlacements';
 import useMediaSession from './hooks/useMediaSession';
 import {getAthensClock} from './utils/schedule';
 import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
@@ -742,6 +743,13 @@ function MainApp() {
   });
 
   const lastPlayedTimeAds = useRef({});
+  const activeAdRef = useRef(null);
+  const adWatchdogRef = useRef(null);
+  const clearAdWatchdog = () => {
+    if (adWatchdogRef.current) clearTimeout(adWatchdogRef.current);
+    adWatchdogRef.current = null;
+  };
+  useEffect(() => () => clearTimeout(adWatchdogRef.current), []);
 
   // Fetch artwork only for a verified track, and bind the response to the
   // exact station/song so a previous cover cannot leak into the iOS lock screen.
@@ -1089,7 +1097,11 @@ function MainApp() {
     const finalStreamUrl = getSmartStreamUrl(rawStreamUrl);
 
     setCurrentStation(station);
+    clearAdWatchdog();
+    activeAdRef.current = null;
     setIsPlayingAd(false);
+    setCurrentAdInfo(null);
+    setAdTimeRemaining(0);
     setNowPlaying('');
     setNowPlayingInfo({source:'none',foundWithAI:false});
     setSpotifyMatch(null);
@@ -1151,6 +1163,8 @@ function MainApp() {
     const zappingAdsToPlay = ads.filter(ad => {
       let frequencyMatch = false;
       if (ad.frequency === 'entry' && clicks === 1) frequencyMatch = true;
+      if (ad.frequency === 'every_2_stations' && clicks % 2 === 0) frequencyMatch = true;
+      if (ad.frequency === 'every_4_stations' && clicks % 4 === 0) frequencyMatch = true;
       if (ad.frequency === 'every_5_stations' && clicks % 5 === 0) frequencyMatch = true;
       if (ad.frequency === 'every_10_stations' && clicks % 10 === 0) frequencyMatch = true;
       if (ad.frequency === 'every_15_stations' && clicks % 15 === 0) frequencyMatch = true;
@@ -1159,8 +1173,7 @@ function MainApp() {
       
       if (!frequencyMatch) return false;
 
-      const targetArea = (ad.targetLocations && ad.targetLocations.length > 0) ? ad.targetLocations[0] : 'All';
-      if (!checkGeoMatch(targetArea, userLocation)) return false;
+      if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
 
       return ad.isGlobal !== false ? !station.disableNetworkAds : ad.stationId === station._id;
     });
@@ -1174,29 +1187,47 @@ function MainApp() {
     }
   };
 
+  // The same audio element handles ads and radio. Every rejected/invalid MP3
+  // MUST return to the pending station; never trap listeners in an ad break.
   const playNextAdOrStation = () => {
     if (!audioRef.current) return;
+    clearAdWatchdog();
+    activeAdRef.current = null;
     if (adQueue.current.length > 0) {
       const nextAd = adQueue.current.shift();
-      audioRef.current.src = nextAd.audioUrl;
-      audioRef.current.volume = parseFloat(volume);
-      
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-         playPromise.catch((e) => {
-            console.warn("Ad background playback prevented:", e);
-            playNextAdOrStation(); 
-         });
-      }
-      setCurrentAdInfo(nextAd); 
-      setIsPlayingAd(true); setIsPlaying(true);
+      if (!nextAd?.audioUrl) return playNextAdOrStation();
+      const token = Symbol('ad-play');
+      activeAdRef.current = { token, id: nextAd._id, started: false };
+      setCurrentAdInfo(nextAd);
+      setIsPlayingAd(true);
+      setIsPlaying(true);
+      setAdTimeRemaining(0);
       intendedPlayState.current = true;
-      fetch(`${API_URL}/ads/${nextAd._id}/impression`, { method: 'POST' }).catch(()=>{});
-    } else {
-      if (pendingStation.current) {
-        handleActualStationPlay(pendingStation.current);
-        pendingStation.current = null;
+      const audio = audioRef.current;
+      audio.src = nextAd.audioUrl;
+      audio.volume = parseFloat(volume);
+      audio.load();
+      adWatchdogRef.current = setTimeout(() => {
+        if (activeAdRef.current?.token === token) playNextAdOrStation();
+      }, 12000);
+      const attempt = audio.play();
+      if (attempt && typeof attempt.catch === 'function') {
+        attempt.catch(error => {
+          console.warn('[ADS] Audio playback failed, restoring radio', error);
+          if (activeAdRef.current?.token === token) playNextAdOrStation();
+        });
       }
+      return;
+    }
+    setIsPlayingAd(false);
+    setCurrentAdInfo(null);
+    setAdTimeRemaining(0);
+    if (pendingStation.current) {
+      const station = pendingStation.current;
+      pendingStation.current = null;
+      handleActualStationPlay(station);
+    } else if (currentStation) {
+      handleActualStationPlay(currentStation);
     }
   };
 
@@ -1223,8 +1254,7 @@ function MainApp() {
         
         if (!isTimeBased) return false;
 
-        const targetArea = (ad.targetLocations && ad.targetLocations.length > 0) ? ad.targetLocations[0] : 'All';
-        if (!checkGeoMatch(targetArea, userLocation)) return false;
+        if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
 
         return ad.isGlobal !== false ? !currentStation.disableNetworkAds : ad.stationId === currentStation._id;
       });
@@ -1853,16 +1883,34 @@ function MainApp() {
         webkit-playsinline="true" 
 
         onLoadStart={() => setIsBuffering(true)}
-        onWaiting={() => setIsBuffering(true)}
-        onPlaying={() => setIsBuffering(false)}
+        onWaiting={() => {
+          setIsBuffering(true);
+          if (activeAdRef.current) {
+            clearAdWatchdog();
+            const token = activeAdRef.current.token;
+            adWatchdogRef.current = setTimeout(() => {
+              if (activeAdRef.current?.token === token) playNextAdOrStation();
+            }, 12000);
+          }
+        }}
+        onPlaying={() => {
+          setIsBuffering(false);
+          const ad = activeAdRef.current;
+          if (ad && !ad.started) {
+            ad.started = true;
+            fetch(`${API_URL}/ads/${ad.id}/impression`, { method: 'POST' }).catch(() => {});
+          }
+          clearAdWatchdog();
+        }}
         
         onEnded={() => { 
-          isPlayingAd ? playNextAdOrStation() : handleActualStationPlay(currentStation) 
+          activeAdRef.current ? playNextAdOrStation() : handleActualStationPlay(currentStation) 
         }} 
 
         onTimeUpdate={(e) => {
           if (isPlayingAd) {
-            setAdTimeRemaining(Math.ceil(e.target.duration - e.target.currentTime));
+            setAdTimeRemaining(Number.isFinite(e.target.duration)
+              ? Math.max(0, Math.ceil(e.target.duration - e.target.currentTime)) : 0);
           } else if (isPlaying && !isRecognizing && !recognitionLock.current && Date.now() - lastMetaFetch.current > 10000) {
             lastMetaFetch.current = Date.now(); 
             fetchMetadata();
@@ -1873,8 +1921,12 @@ function MainApp() {
           console.warn("⚠️ Το stream του ραδιοφώνου διακόπηκε από τον server του σταθμού:", e);
           // A failed HTTP/stream request must not leave the UI spinning indefinitely.
           setIsBuffering(false);
-          setIsPlaying(false);
-          if (!isPlayingAd) showAlert("Ο σταθμός δεν ανταποκρίνεται αυτή τη στιγμή. Δοκίμασε έναν άλλο σταθμό.");
+          if (activeAdRef.current) {
+            playNextAdOrStation();
+          } else {
+            setIsPlaying(false);
+            showAlert("Ο σταθμός δεν ανταποκρίνεται αυτή τη στιγμή. Δοκίμασε έναν άλλο σταθμό.");
+          }
         }}
       />
 
@@ -1935,7 +1987,7 @@ function MainApp() {
 
             <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} userLocation={userLocation} checkGeoMatch={checkGeoMatch} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />

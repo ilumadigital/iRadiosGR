@@ -1,5 +1,20 @@
 // controllers/bannerController.js
-const BannerAd = require('../models/BannerAd'); 
+const BannerAd = require('../models/BannerAd');
+const mongoose=require('mongoose');
+const {isStage,activeCampaignQuery,live,fields,permitMetric} =
+  require('../services/adDeliveryRules');
+const writable=['title','description','imageUrl','squareImageUrl','targetUrl',
+  'placement','targetLocations','status','duration','expiresAt'];
+const placements=new Set(['hero','home','radio_feed','news_feed','station_profile']);
+function validPatch(patch){
+  if(patch.placement!==undefined&&(!Array.isArray(patch.placement)||
+     !patch.placement.length||patch.placement.some(p=>!placements.has(p))))return false;
+  if(patch.targetUrl!==undefined){
+    try{if(!['http:','https:'].includes(new URL(patch.targetUrl).protocol))return false;}
+    catch{return false;}
+  }
+  return true;
+} 
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -8,8 +23,10 @@ const deleteMediaFile = async (fileUrl) => {
     if (!fileUrl || !fileUrl.includes('/media/')) return;
     
     try {
-        const relativePath = fileUrl.split('/media/')[1]; 
-        const fullPath = path.join(process.cwd(), 'uploads', relativePath);
+        const relativePath=String(fileUrl.split('/media/')[1]||'').split(/[?#]/)[0];
+        const root=path.resolve(process.cwd(),'uploads');
+        const fullPath=path.resolve(root,relativePath);
+        if(!relativePath||!fullPath.startsWith(root+path.sep))throw Error('Unsafe media path');
         
         await fs.unlink(fullPath);
         console.log(`✅ Η εικόνα διαγράφηκε: ${relativePath}`);
@@ -19,17 +36,14 @@ const deleteMediaFile = async (fileUrl) => {
 };
 
 // Φέρνει όλα τα ενεργά banners (Για το Public Frontend)
-exports.getActiveBanners = async (req, res) => {
-  // Do not serve advertisers' production creative to anonymous stage visitors.
-  if (process.env.APP_ENV === 'staging') return res.json([]);
-  try {
-    const banners = await BannerAd.find({
-      $or: [{ status: 'active' }, { isActive: true }],
-      $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }]
-    });
-    res.json(banners);
-  } catch (err) {
-    res.status(500).json({ error: 'Σφάλμα ανάκτησης Banners.' });
+exports.getActiveBanners=async(req,res)=>{
+  try{
+    res.set('Cache-Control','no-store, private');
+    const banners=await BannerAd.find(activeCampaignQuery()).sort({createdAt:-1}).lean();
+    res.json(banners.filter(b=>Array.isArray(b.placement)&&b.placement.length));
+  }catch(error){
+    console.error('[BANNERS] Public delivery failed',error.message);
+    res.status(500).json({error:'Σφάλμα ανάκτησης Banners.'});
   }
 };
 
@@ -44,26 +58,46 @@ exports.getAllBanners = async (req, res) => {
 };
 
 // Δημιουργία νέου banner
-exports.createBanner = async (req, res) => {
-  try {
-    const newBanner = new BannerAd(req.body);
-    await newBanner.save();
-    res.status(201).json(newBanner);
-  } catch (err) {
-    res.status(500).json({ error: 'Αποτυχία δημιουργίας Banner.' });
+exports.createBanner=async(req,res)=>{
+  try{
+    const patch=fields(req.body,writable);
+    if(!validPatch(patch))return res.status(400).json({error:'Μη έγκυρη τοποθέτηση ή σύνδεσμος.'});
+    const created=await BannerAd.create({...patch,agencyId:null,
+      isActive:patch.status!=='expired'&&patch.status!=='rejected',
+      isStageCreative:isStage(),
+      ...(isStage()&&!patch.expiresAt?{expiresAt:new Date(Date.now()+30*86400000)}:{})});
+    res.status(201).json(created);
+  }catch(error){
+    console.error('[BANNERS] Create failed',error.message);
+    res.status(400).json({error:'Αποτυχία δημιουργίας Banner.'});
   }
 };
 
 // Ενημέρωση υπάρχοντος banner
-exports.updateBanner = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updatedBanner = await BannerAd.findByIdAndUpdate(id, req.body, { new: true });
-    if (!updatedBanner) return res.status(404).json({ error: 'Δεν βρέθηκε η διαφήμιση.' });
-    res.json(updatedBanner);
-  } catch (err) {
-    res.status(500).json({ error: 'Αποτυχία ενημέρωσης Banner.' });
-  }
+exports.cloneStageBanner=async(req,res)=>{
+  if(!isStage())return res.status(404).json({error:'Unavailable'});
+  try{
+    const original=await BannerAd.findById(req.params.id).lean();
+    if(!original||original.isStageCreative)return res.status(404).json({error:'No import to copy'});
+    const patch=fields(original,['title','description','imageUrl','squareImageUrl',
+      'targetUrl','placement','targetLocations']);
+    const clone=await BannerAd.create({...patch,title:`${original.title} · STAGING`,
+      status:'pending',duration:'month',expiresAt:null,isStageCreative:true,
+      isActive:false,agencyId:null});
+    res.status(201).json(clone);
+  }catch(error){res.status(400).json({error:'Δεν δημιουργήθηκε δοκιμαστικό banner.'});}
+};
+
+exports.updateBanner=async(req,res)=>{
+  try{
+    const patch=fields(req.body,writable);
+    if(!validPatch(patch))return res.status(400).json({error:'Μη έγκυρη τοποθέτηση ή σύνδεσμος.'});
+    if(patch.status!==undefined)patch.isActive=patch.status==='active';
+    const updated=await BannerAd.findByIdAndUpdate(req.params.id,{$set:patch},
+      {new:true,runValidators:true});
+    if(!updated)return res.status(404).json({error:'Δεν βρέθηκε η διαφήμιση.'});
+    res.json(updated);
+  }catch(error){res.status(400).json({error:'Αποτυχία ενημέρωσης Banner.'});}
 };
 
 // 🟢 ΑΝΑΒΑΘΜΙΣΜΕΝΟ DELETE (Διαγράφει και τις Εικόνες)
@@ -95,22 +129,24 @@ exports.deleteBanner = async (req, res) => {
 // 🟢 TRACKING METRICS
 // ==========================================
 
-exports.registerClick = async (req, res) => {
-  try {
-    const { id } = req.params;
-    await BannerAd.findByIdAndUpdate(id, { $inc: { clicks: 1 } });
-    res.status(200).json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Σφάλμα καταγραφής κλικ.' });
-  }
+exports.registerClick=async(req,res)=>{
+  try{
+    if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
+    const banner=await BannerAd.findById(req.params.id).select('status expiresAt isStageCreative');
+    if(!live(banner))return res.status(404).json({error:'Not found'});
+    if(!permitMetric(req,'banner-click',req.params.id))return res.json({success:true,deduplicated:true});
+    await BannerAd.updateOne({_id:banner._id,...activeCampaignQuery()},{$inc:{clicks:1}});
+    res.json({success:true});
+  }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής κλικ.'});}
 };
 
-exports.registerImpression = async (req, res) => {
-  try {
-    const { id } = req.params;
-    await BannerAd.findByIdAndUpdate(id, { $inc: { impressions: 1 } });
-    res.json({ success: true });
-  } catch (err) { 
-    res.status(500).json({ error: "Σφάλμα καταγραφής view" }); 
-  }
+exports.registerImpression=async(req,res)=>{
+  try{
+    if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
+    const banner=await BannerAd.findById(req.params.id).select('status expiresAt isStageCreative');
+    if(!live(banner))return res.status(404).json({error:'Not found'});
+    if(!permitMetric(req,'banner-view',req.params.id,10000))return res.json({success:true,deduplicated:true});
+    await BannerAd.updateOne({_id:banner._id,...activeCampaignQuery()},{$inc:{impressions:1}});
+    res.json({success:true});
+  }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής view'});}
 };

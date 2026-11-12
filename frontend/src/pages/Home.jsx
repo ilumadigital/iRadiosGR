@@ -10,6 +10,8 @@ import CircularVU from '../components/CircularVU';
 import confetti from 'canvas-confetti';
 import PlayingNow from './PlayingNow';
 import HomeHeroSlider from '../components/HomeHeroSlider';
+import AdPlacementLink from '../components/AdPlacementLink';
+import {geoAllowsAd} from '../utils/adPlacements';
 import HomeExplore from '../components/HomeExplore';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
 import HomeRadioShortlist from '../components/HomeRadioShortlist';
@@ -134,24 +136,16 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           if (!res.ok) throw new Error('Network response was not ok');
           return res.json();
         })
-        .then(data => {
-          const strictlyActiveBanners = data.filter(banner => banner.status === 'active');
-          
-          if (checkGeoMatch && userLocation) {
-            const geoFilteredBanners = strictlyActiveBanners.filter(banner => {
-              const targetArea = (banner.targetLocations && banner.targetLocations.length > 0) ? banner.targetLocations[0] : 'All';
-              return checkGeoMatch(targetArea, userLocation);
-            });
-            setActiveBanners(geoFilteredBanners);
-          } else {
-            setActiveBanners(strictlyActiveBanners);
-          }
-        })
+        .then(data => setActiveBanners((Array.isArray(data)?data:[]).filter(banner =>
+          banner.status === 'active' &&
+          (!banner.expiresAt || new Date(banner.expiresAt) > new Date()) &&
+          geoAllowsAd(banner.targetLocations,userLocation,checkGeoMatch))))
         .catch(err => console.error("Error fetching banners:", err));
     }
   }, [isFreeOrGuest, userLocation, checkGeoMatch]); 
 
-  const homeBanners = activeBanners.filter(b => b.placement.includes('home'));
+  const homeBanners = activeBanners.filter(b => b.placement?.includes('home'));
+  const heroBanners = activeBanners.filter(b => b.placement?.includes('hero'));
 
   const handleBannerView = async (bannerId) => {
     try {
@@ -526,52 +520,15 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
     );
   };
 
-  const TrackableAd = ({ banner, children, className }) => {
-    const adRef = React.useRef(null);
-    const tracked = React.useRef(false);
-
-    React.useEffect(() => {
-      const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && !tracked.current) {
-          tracked.current = true;
-          handleBannerView(banner._id);
-        }
-      }, { threshold: 0.5 });
-
-      if (adRef.current) observer.observe(adRef.current);
-      return () => observer.disconnect();
-    }, [banner._id]);
-
-    let campaign = "general_ir";
-    if (banner.placement && banner.placement.includes('hero')) campaign = "hero_section_ir";
-    else if (banner.placement && banner.placement.includes('home')) campaign = "homefeed_ir";
-    
-    const baseParams = `ref=iradiosapp&utm_medium=ilumadigitalagencyiradios&utm_source=iradios&utm_campaign=${campaign}&utm_content=${campaign}`;
-    const finalUrl = `${banner.targetUrl}${banner.targetUrl.includes('?') ? '&' : '?'}${baseParams}`;
-
-    return (
-      <a 
-        ref={adRef} 
-        href={finalUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${className} block cursor-pointer`} 
-        onClick={(e) => {
-          e.stopPropagation();
-          fetch(`/api/banners/${banner._id}/click`, { method: 'POST' }).catch(err => console.error("Click error", err));
-        }}
-      >
-        {children}
-      </a>
-    );
-  };
+  // Stable shared renderer: one impression per actually visible slot.
+  const TrackableAd = AdPlacementLink;
 
   const HomeAdBanner = ({ banner }) => {
     if (!banner) return null;
     return (
       <TrackableAd 
         banner={banner}
-        onClick={() => handleBannerClick(banner)} 
+        placement="home"
         className="w-full my-12 bg-emerald-900/10 border border-emerald-500/20 hover:border-emerald-500/50 rounded-[32px] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 cursor-pointer group transition-all"
       >
         <div className="w-full md:w-1/3 h-32 md:h-40 rounded-2xl overflow-hidden shrink-0 bg-black">
@@ -585,9 +542,9 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           <p className="text-sm text-zinc-400">{banner.description}</p>
         </div>
         <div className="shrink-0">
-          <button className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
+          <span className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
             ΔΕΙΤΕ ΠΕΡΙΣΣΟΤΕΡΑ <ExternalLink size={16} />
-          </button>
+          </span>
         </div>
       </TrackableAd>
     );
@@ -655,6 +612,22 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         />
         </div>
       </div>
+
+      {/* Premium members never see platform campaigns. Hero is a dedicated
+          sponsored placement below the editorial slider, not a CMS slide. */}
+      {isFreeOrGuest && heroBanners.slice(0,1).map(banner => (
+        <AdPlacementLink key={banner._id} banner={banner} placement="hero"
+          className="group relative block min-h-[200px] overflow-hidden rounded-[26px] border border-purple-400/25 bg-[#10121d] sm:min-h-[260px]">
+          <img src={banner.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-75 transition-transform duration-700 group-hover:scale-105"/>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/65 to-black/10"/>
+          <div className="relative flex min-h-[200px] flex-col justify-end gap-2 p-6 sm:min-h-[260px] sm:p-9">
+            <span className="w-fit rounded-full border border-purple-300/40 bg-purple-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-purple-100">Sponsored · Hero</span>
+            <h2 className="max-w-2xl text-2xl font-black text-white sm:text-3xl">{banner.title}</h2>
+            <p className="max-w-xl text-sm text-zinc-200">{banner.description}</p>
+            <span className="mt-2 w-fit rounded-full bg-[#ccff00] px-5 py-2 text-xs font-black text-black">Δες περισσότερα ↗</span>
+          </div>
+        </AdPlacementLink>
+      ))}
 
       {/* Keep live stations full width; place the two station lists together below. */}
       <div className="ir-home-quick-grid flex min-w-0 flex-col gap-5">

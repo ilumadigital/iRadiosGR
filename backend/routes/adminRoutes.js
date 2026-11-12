@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const {protect}=require('../utils/authMiddleware');
+const {authorizeRoles}=require('../utils/roleMiddleware');
+const admin=[protect,authorizeRoles('admin')];
 
 router.put('/admin/users/:id/password', adminController.updateUserPassword);
 router.put('/admin/users/:id/full-update', adminController.fullUpdateUser);
@@ -10,8 +13,8 @@ router.delete('/admin/users/:id', adminController.deleteUser);
 router.get('/admin/fix-slugs', adminController.fixSlugs);
 
 // 🟢 ΕΓΚΡΙΣΗ ΔΙΑΦΗΜΙΣΕΩΝ (AD NETWORK)
-router.put('/admin/banners/:id/approve', adminController.approveBannerAd);
-router.put('/admin/ads/:id/approve', adminController.approveAudioAd);
+router.put('/admin/banners/:id/approve', ...admin, adminController.approveBannerAd);
+router.put('/admin/ads/:id/approve', ...admin, adminController.approveAudioAd);
 
 // 🟢 B2B PAYMENTS & INVOICES ROUTES
 router.get('/admin/transactions', adminController.getAllTransactions);

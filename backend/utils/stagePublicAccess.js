@@ -73,6 +73,8 @@ function stagePublicAccess(req, res, next) {
   // The middleware is mounted at /api, and Express req.path excludes the mount prefix.
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
+  // Only campaign metrics are public writes; stage creative/status checks happen in controllers.
+  if (req.method === 'POST' && /^\/api\/(?:ads|banners)\/[a-f0-9]{24}\/(?:impression|click)$/i.test(path)) return next();
   // A preview capability is checked by its own HMAC verifier, never issued here.
   if (req.method === 'POST' && path === '/api/widget-previews/verify') return next();
   // Approved station widgets read native-only RDS; the controller excludes
@@ -249,6 +251,11 @@ function stagePublicAccess(req, res, next) {
        (path==='/api/broadcaster/ads'||path==='/api/uploads/upload-ad'))||
       ((req.method==='PUT'||req.method==='DELETE')&&
        /^\/api\/broadcaster\/ads\/[a-f0-9]{24}$/i.test(path)))
+    return protect(req,res,next);
+
+  // Agency sandbox actions are authenticated; handlers verify role and ownership.
+  if (path.startsWith('/api/agency/') ||
+      (req.method==='POST' && ['/api/uploads/upload-banner','/api/uploads/upload-logo'].includes(path)))
     return protect(req,res,next);
 
   // Listener-only song metadata, station playlist history and ACRCloud recognition.

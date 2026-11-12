@@ -8,7 +8,7 @@ const bannerAdSchema = new mongoose.Schema({
   targetUrl: { type: String, required: true },
   placement: {
     type: [String],
-    enum: ['hero', 'home', 'radio_feed', 'news_feed'],
+    enum: ['hero', 'home', 'radio_feed', 'news_feed', 'station_profile'],
     required: true,
     default: 'home'
   },
@@ -27,7 +27,8 @@ const bannerAdSchema = new mongoose.Schema({
 
   isActive: { type: Boolean, default: true }, // Legacy
   impressions: { type: Number, default: 0 },
-  clicks: { type: Number, default: 0 }
+  clicks: { type: Number, default: 0 },
+  isStageCreative: { type: Boolean, default: false }
 }, { timestamps: true });
 
 module.exports = mongoose.model('BannerAd', bannerAdSchema);

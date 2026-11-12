@@ -1,0 +1,79 @@
+/* Ad Network workspace: dark, clear, responsive, without overriding global backoffice controls. */
+.ad-console {
+  --ad-panel: #10171a;
+  --ad-border: rgba(190,225,215,.12);
+  color: #f4f8f6;
+  max-width: 1440px;
+  margin-inline: auto;
+}
+.ad-console > .ad-console-hero {
+  position: relative;
+  padding: clamp(20px,3vw,32px);
+  border: 1px solid rgba(204,255,0,.17);
+  border-radius: 28px;
+  background: radial-gradient(ellipse at top right,rgba(204,255,0,.11),transparent 45%),linear-gradient(125deg,#152020,#0b1014 70%);
+  box-shadow: 0 16px 45px rgba(0,0,0,.16);
+}
+.ad-console-hero h1,.ad-console-hero h2 {letter-spacing:-.04em;font-style:normal;text-transform:none}
+.ad-console .ad-console-stat {
+  min-height:105px;
+  border-radius:22px;
+  padding:22px;
+  border:1px solid var(--ad-border);
+  background:linear-gradient(150deg,rgba(28,44,43,.78),rgba(13,18,22,.88));
+}
+.ad-console .ad-console-stat > div:last-child {font-variant-numeric:tabular-nums}
+.ad-console .ad-console-toolbar {
+  display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  border:1px solid var(--ad-border);border-radius:22px;
+  padding:14px;background:rgba(13,19,23,.86);
+}
+.ad-console .ad-console-card {
+  border:1px solid var(--ad-border);
+  border-radius:24px;background:linear-gradient(138deg,rgba(28,40,44,.95),rgba(12,17,21,.95));
+  box-shadow:0 10px 30px rgba(0,0,0,.09);transition:border-color .2s,transform .2s;
+  overflow:hidden;
+}
+.ad-console .ad-console-card:hover {border-color:rgba(204,255,0,.36);transform:translateY(-1px)}
+.ad-console .ad-console-card [data-ad-status="active"] {color:#cefa70}
+.ad-console .ad-console-card [data-ad-status="pending"] {color:#ffd58c}
+.ad-console .ad-console-card [data-ad-status="expired"],.ad-console .ad-console-card [data-ad-status="rejected"] {color:#f6a8a8}
+.ad-console .ad-console-field,.ad-console input[type="text"],.ad-console input[type="search"],.ad-console select {
+  min-height:42px;
+}
+.ad-console select,.ad-console input,.ad-console textarea {
+  accent-color:#ccff00;
+}
+.ad-console select:focus-visible,.ad-console input:focus-visible,.ad-console textarea:focus-visible,
+.ad-console button:focus-visible,.ad-console a:focus-visible {
+  outline:2px solid #ccff00;outline-offset:2px;
+}
+.ad-console .ad-console-filter {
+  min-height:42px;border:1px solid rgba(255,255,255,.13);
+  background:#111a1e;color:#f2f5f4;border-radius:13px;padding:0 13px;font-size:12px;
+}
+.ad-console .ad-console-modal {
+  background:#0d1518;border:1px solid rgba(204,255,0,.15);
+  box-shadow:0 36px 100px rgba(0,0,0,.7);border-radius:30px;
+}
+.ad-console .ad-console-preview {
+  padding:12px;border:1px solid rgba(255,255,255,.09);
+  background:rgba(0,0,0,.25);border-radius:14px;
+}
+.ad-console .ad-console-preview audio {width:100%;height:34px}
+.ad-console .ad-console-label {
+  display:inline-flex;align-items:center;gap:5px;padding:5px 10px;
+  border:1px solid rgba(255,255,255,.12);border-radius:99px;
+  font-size:10px;font-weight:800;letter-spacing:.03em;white-space:nowrap;
+  background:rgba(255,255,255,.04);
+}
+.ad-console .ad-console-label[data-state="active"] {color:#ccff00;border-color:rgba(204,255,0,.25)}
+.ad-console .ad-console-label[data-state="pending"] {color:#ffcf84;border-color:rgba(255,207,132,.24)}
+.ad-console .ad-console-label[data-state="expired"],.ad-console .ad-console-label[data-state="rejected"] {color:#ff979d}
+.ad-console .ad-console-demo {color:#c4acff;border-color:rgba(196,172,255,.35)}
+.ad-console .ad-console-muted {color:#96a4a4}
+@media (max-width:600px) {
+  .ad-console .ad-console-stat {padding:16px;min-height:92px}
+  .ad-console .ad-console-toolbar > input {width:100%;max-width:none}
+  .ad-console .ad-console-modal {border-radius:20px}
+}
