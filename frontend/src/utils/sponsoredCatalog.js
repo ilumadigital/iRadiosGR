@@ -16,6 +16,27 @@ export const RELATED_CATEGORIES=Object.freeze({
   'Αθλητικά':[],
   'Θρησκευτικά':[]
 });
+// Secondary labels can also be browsed through /genre/:genreName. Use a
+// conservative affinity map: broad station identity, never cross a news,
+// sports, religion, traditional or unrelated music boundary.
+export const RELATED_SECONDARY=Object.freeze({
+  'Διεθνή Mainstream':['Pop','Dance Pop','R&B','Hip Hop','Soul','Funk'],
+  'Dance':['House','Afro House','Deep House','Tech House','Organic House',
+    'Melodic House','Progressive House','Indie Dance','EDM','Dance Pop','Disco'],
+  'Ηλεκτρονική':['House','Afro House','Deep House','Tech House','Organic House',
+    'Melodic House','Progressive House','Indie Dance','Electronica','Techno',
+    'Trance','EDM','Ambient','Chillout','Downtempo'],
+  'Ροκ':['Indie Rock','Alternative Rock','Classic Rock','Hard Rock','Blues'],
+  'Εναλλακτικά':['Indie Pop','Indie Rock','Alternative Rock','Indie Dance','Reggae'],
+  'Ελληνικά Επιτυχίες':['Ελληνική Pop','Ελληνικό Ροκ','Έντεχνο'],
+  'Ελληνικά Λαϊκά':['Ρεμπέτικα'],
+  'Έντεχνα':['Έντεχνο','Ελληνικό Ροκ'],
+  'Παραδοσιακά':['Δημοτικά','Κρητικά','Νησιώτικα','Ποντιακά',
+    'Ηπειρώτικα','Θρακιώτικα','Μακεδονίτικα','Κυπριακά','Σμυρναίικα'],
+  'Ειδησεογραφικά':['Πολιτική','Οικονομία','Τοπικές Ειδήσεις','Podcasts'],
+  'Αθλητικά':['Αθλητικές Μεταδόσεις'],
+  'Θρησκευτικά':['Βυζαντινά','Εκκλησιαστικά']
+});
 const id=station=>String(station?._id||'');
 const isAvailable=station=>id(station)&&
   (station.status==='approved'||!station.status)&&station.isOffline!==true;
@@ -23,7 +44,8 @@ const actualCategories=station=>[station?.genre,station?.secondaryGenre].filter(
 export function relatedToCategory(station,category){
   if(!category)return true;
   if(actualCategories(station).includes(category))return true;
-  return (RELATED_CATEGORIES[station?.genre]||[]).includes(category);
+  return (RELATED_CATEGORIES[station?.genre]||[]).includes(category)||
+    (RELATED_SECONDARY[station?.genre]||[]).includes(category);
 }
 export function eligibleSponsoredStation(station,{scope,value,regionFilter='',categoryFilter='',transmissionFilter=''},now=Date.now()){
   if(!isAvailable(station))return false;
