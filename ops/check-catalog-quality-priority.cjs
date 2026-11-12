@@ -102,7 +102,11 @@ async function main(){
       page+' must show popularity before completeness');
   }
   assert.match(read('frontend/src/pages/Home.jsx'),/rankedStations=useMemo/);
-  assert.match(read('frontend/src/components/HomeExplore.jsx'),/catalogStationInfo/);
+  // The explicit For You tab now ranks personal genre affinity first.
+  // Metadata completeness is still available via the separate catalog sorter
+  // and station-card presentation, not an override of individual taste.
+  assert.match(read('frontend/src/components/HomeExplore.jsx'),/selectForYouStations/);
+  assert.match(read('frontend/src/components/StationCatalogCard.jsx'),/catalogStationInfo/);
   assert.match(read('frontend/src/components/HomeExplore.jsx'),/nowPlaying=\{catalogNowPlaying\[String\(s\._id\)\]\}/);
   console.log('Catalog ordering: popularity by position and independent completeness by live metadata, across map/region/genre/grid/list.');
 }
