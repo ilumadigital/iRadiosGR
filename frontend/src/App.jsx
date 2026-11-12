@@ -12,6 +12,7 @@ import useStations from './hooks/useStations';
 import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
 import {geoAllowsAd} from './utils/adPlacements';
+import {selectStationBreak,dueOnClock,canServeAudioAd} from './utils/audioAdRules';
 import useMediaSession from './hooks/useMediaSession';
 import {getAthensClock} from './utils/schedule';
 import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
@@ -1162,28 +1163,11 @@ function MainApp() {
     stationSwitches.current += 1;
     const clicks = stationSwitches.current;
     
-    // Φιλτράρουμε MONO τα ZAPPING ADS
-    const zappingAdsToPlay = ads.filter(ad => {
-      let frequencyMatch = false;
-      if (ad.frequency === 'entry' && clicks === 1) frequencyMatch = true;
-      if (ad.frequency === 'every_2_stations' && clicks % 2 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_4_stations' && clicks % 4 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_5_stations' && clicks % 5 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_10_stations' && clicks % 10 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_15_stations' && clicks % 15 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_20_stations' && clicks % 20 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_30_stations' && clicks % 30 === 0) frequencyMatch = true;
-      
-      if (!frequencyMatch) return false;
-
-      if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
-
-      return ad.isGlobal !== false ? !station.disableNetworkAds : String(ad.stationId?._id||ad.stationId) === String(station._id);
-    });
+    const zappingAdsToPlay = selectStationBreak(ads,clicks,station,userLocation,checkGeoMatch);
 
     if (zappingAdsToPlay.length > 0) {
       pendingStation.current = station; 
-      adQueue.current = zappingAdsToPlay.slice(0, 2); // Bound every ad break
+      adQueue.current = zappingAdsToPlay; // Bounded by selectStationBreak
       playNextAdOrStation();
     } else {
       handleActualStationPlay(station);
@@ -1249,41 +1233,16 @@ function MainApp() {
       if (minutes !== 15 && minutes !== 45) return;
 
       // 1. Βρίσκουμε όλα τα Time-Based Ads που ταιριάζουν Γεωγραφικά
-      const timeBasedAds = ads.filter(ad => {
-        const isTimeBased = [
-          'every_1_hour', 'every_2_hours', 'every_6_hours', 
-          'once_a_day', 'twice_a_day', 'four_times_a_day', 'once_a_week'
-        ].includes(ad.frequency);
-        
-        if (!isTimeBased) return false;
-
-        if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
-
-        return ad.isGlobal !== false ? !currentStation.disableNetworkAds : String(ad.stationId?._id||ad.stationId) === String(currentStation._id);
-      });
+      const timeBasedAds = ads.filter(ad =>
+        canServeAudioAd(ad,currentStation,userLocation,checkGeoMatch) &&
+        dueOnClock(ad.frequency, lastPlayedTimeAds.current[ad._id]||0, now.getTime())
+      );
 
       if (timeBasedAds.length === 0) return;
 
-      // 2. Φιλτράρουμε ποια πρέπει ΠΡΑΓΜΑΤΙΚΑ να παίξουν τώρα (βάσει frequency rules)
+      // Due time was checked by the pure rules above, once per campaign.
       const currentTime = now.getTime();
-      const adsEligibleToPlay = timeBasedAds.filter(ad => {
-        const lastPlayed = lastPlayedTimeAds.current[ad._id] || 0;
-        const timeSinceLastPlay = currentTime - lastPlayed;
-        const hoursSinceLastPlay = timeSinceLastPlay / (1000 * 60 * 60);
-
-        switch (ad.frequency) {
-          case 'every_1_hour': return hoursSinceLastPlay >= 1;
-          case 'every_2_hours': return hoursSinceLastPlay >= 2;
-          case 'every_6_hours': return hoursSinceLastPlay >= 6;
-          case 'once_a_day': return hoursSinceLastPlay >= 24;
-          case 'twice_a_day': return hoursSinceLastPlay >= 12;
-          case 'four_times_a_day': return hoursSinceLastPlay >= 6;
-          case 'once_a_week': return hoursSinceLastPlay >= (24 * 7);
-          default: return false;
-        }
-      });
-
-      if (adsEligibleToPlay.length === 0) return;
+      const adsEligibleToPlay = timeBasedAds;
 
       // 3. Shuffle (για να μην παίζουν πάντα τα ίδια με την ίδια σειρά)
       const shuffledAds = [...adsEligibleToPlay].sort(() => 0.5 - Math.random());
