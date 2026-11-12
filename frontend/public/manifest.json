@@ -4,14 +4,16 @@
   "description": "Powered by: ILUMA Digital Agency",
   "icons": [
     {
-      "src": "/favicon.png",
+      "src": "/icons/icon-192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
-      "src": "/favicon.png",
+      "src": "/icons/icon-512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
     }
   ],
   "start_url": "/",
@@ -29,7 +31,8 @@
       "type": "application/json",
       "icons": [
         {
-          "src": "/favicon.png",
+          "src": "/icons/icon-192.png",
+          "type": "image/png",
           "sizes": "192x192"
         }
       ]
