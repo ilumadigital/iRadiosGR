@@ -2,14 +2,19 @@ import React, {useEffect, useRef} from 'react';
 
 // Stable component identity: re-rendering a list must never count another view.
 // One impression is emitted when >=50% of each creative slot becomes visible.
-export default function AdPlacementLink({banner,placement,children,className=''}) {
+// Re-rendering parent cards must not fabricate additional impression events.
+const seenInPageSession=new Set();
+export default function AdPlacementLink({banner,placement,children,className='',slotKey}) {
   const node=useRef(null),viewed=useRef(false);
   useEffect(()=>{
     viewed.current=false;
     if(!banner?._id||!node.current)return;
     const track=()=>{
-      if(viewed.current)return;
+      const slot=[window.location.pathname,placement||banner.placement?.[0],banner._id,slotKey||'primary'].join(':');
+      if(viewed.current||seenInPageSession.has(slot))return;
       viewed.current=true;
+      if(seenInPageSession.size>5000)seenInPageSession.clear();
+      seenInPageSession.add(slot);
       fetch(`/api/banners/${banner._id}/impression`,{method:'POST'}).catch(()=>{});
     };
     if(typeof IntersectionObserver==='undefined'){track();return;}
