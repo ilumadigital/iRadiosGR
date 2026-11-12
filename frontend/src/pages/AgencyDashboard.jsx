@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import '../styles/ad-campaign-console.css';
 import { useNavigate } from 'react-router-dom';
 import { 
   Megaphone, Plus, LayoutPanelTop, Rows3, LayoutGrid, Activity, X, Eye, ShieldCheck, 
@@ -95,7 +96,10 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
   const { showAlert } = useAlert();
   const BASE_URL = (API_URL && !API_URL.includes('localhost')) ? API_URL : '/api';
 
-  const [activeTab, setActiveTab] = useState('banners'); 
+  const [activeTab,setActiveTab]=useState('banners');
+  const [statusFilter,setStatusFilter]=useState('all');
+  const [searchTerm,setSearchTerm]=useState('');
+  const isStaging=typeof window!=='undefined'&&window.location.hostname==='stage.iradios.gr'; 
   const [campaigns, setCampaigns] = useState({ banners: [], audio: [] });
   const [loading, setLoading] = useState(true);
   
@@ -123,20 +127,24 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
   });
   
   const [audioForm, setAudioForm] = useState({ 
-    title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'every_4', dspPreset: 'OFF', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
+    title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'entry', dspPreset: 'OFF', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
   });
 
   // Final VAT-inclusive monthly price catalog. Each campaign is billed separately.
   // Gateway campaign checkout is not enabled during Listener-only Sandbox UAT.
   const displayPrices = {
     radio_feed: { month: 29.00 },
+    home: { month: 29.00 },
+    station_profile: { month: 29.00 },
     news_feed: { month: 149.00 },
     hero: { month: 289.00 },
     audio: { month: 79.00 }
   };
 
   const placementOptions = [
-    { id: 'hero', label: 'Hero Banner', desc: 'Στην κορυφή της αρχικής.', icon: <LayoutPanelTop size={24} />, type: 'banner' },
+    { id: 'hero', label: 'Hero Banner', desc: 'Μεγάλο banner στην αρχική.', icon: <LayoutPanelTop size={24} />, type: 'banner' },
+    { id: 'home', label: 'Home Feed', desc: 'Στην αρχική σελίδα.', icon: <LayoutGrid size={24} />, type: 'banner' },
+    { id: 'station_profile', label: 'Station Profile', desc: 'Μέσα στη σελίδα σταθμού.', icon: <LayoutPanelTop size={24} />, type: 'banner' },
     { id: 'news_feed', label: 'News Grid', desc: 'Στην ενότητα ειδήσεων.', icon: <Rows3 size={24} />, type: 'banner' },
     { id: 'radio_feed', label: 'Radio Grid', desc: 'Στο grid αναζήτησης.', icon: <LayoutGrid size={24} />, type: 'banner' },
     { id: 'audio', label: 'Audio Spot', desc: 'Pre-roll ή Mid-roll ήχος.', icon: <Mic2 size={24} />, type: 'audio' },
@@ -146,8 +154,9 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
     if (!currentUser) return;
     setLoading(true);
     try {
-      const resBanners = await fetch(`${BASE_URL}/agency/${currentUser._id}/banners`);
-      const resAudio = await fetch(`${BASE_URL}/agency/${currentUser._id}/audio-ads`);
+      const headers={Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`};
+      const resBanners=await fetch(`${BASE_URL}/agency/${currentUser._id}/banners`,{headers});
+      const resAudio=await fetch(`${BASE_URL}/agency/${currentUser._id}/audio-ads`,{headers});
       
       const parsedBanners = resBanners.ok ? await resBanners.json() : [];
       const parsedAudio = resAudio.ok ? await resAudio.json() : [];
@@ -214,26 +223,57 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
     return result.url;
   };
 
-  // No campaign checkout until the separately approved Agency billing phase.
-  const handleProceedToPayment=(event)=>{
+  // Stage-only: draft creative and submit for Admin approval; no financial action.
+  const handleProceedToPayment=async event=>{
     event.preventDefault();
-    showAlert('Συνδρομές Agency', 'Οι αγορές καμπανιών μέσω Nexi θα ενεργοποιηθούν σε επόμενο billing phase.', 'info');
+    if(!isStaging){showAlert('Agency','Οι αγορές μέσω Nexi δεν έχουν ενεργοποιηθεί.','info');return;}
+    setUploading(true);
+    try{
+      const jwt=localStorage.getItem('iluma_token');
+      if(!jwt)throw Error('Χρειάζεται επανασύνδεση.');
+      let endpoint,payload;
+      if(selectedType==='audio'){
+        if(!audioFile)throw Error('Επίλεξε αρχείο MP3 ή WAV.');
+        const audioUrl=await uploadFile(audioFile,'upload-ad','audioFile');
+        const logoUrl=logoFile?await uploadFile(logoFile,'upload-logo','logoFile'):'/favicon.png';
+        endpoint='audio-ads';payload={...audioForm,audioUrl,logoUrl,frequency:audioForm.frequency||'entry'};
+      }else{
+        if(!bannerFile)throw Error('Επίλεξε οριζόντιο banner.');
+        const imageUrl=await uploadFile(bannerFile,'upload-banner','imageFile');
+        const squareImageUrl=squareBannerFile?await uploadFile(squareBannerFile,'upload-banner','imageFile'):'';
+        endpoint='banners';payload={...bannerForm,imageUrl,squareImageUrl,placement:[selectedType]};
+      }
+      const response=await fetch(`${BASE_URL}/agency/${endpoint}`,{
+        method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${jwt}`},
+        body:JSON.stringify(payload)
+      });
+      if(!response.ok)throw Error((await response.json().catch(()=>({}))).error||'Αποτυχία αποθήκευσης.');
+      setShowCreationModal(false);setCreationStep(1);setSelectedType(null);
+      setAudioFile(null);setLogoFile(null);setBannerFile(null);setSquareBannerFile(null);
+      await loadDashboardData();
+      showAlert('Αποθηκεύτηκε','Το δοκιμαστικό draft περιμένει έγκριση. Καμία χρέωση.','success');
+    }catch(error){showAlert('Σφάλμα καμπάνιας',error.message,'error');}
+    finally{setUploading(false);}
   };
 
   const totalImpressions = [...campaigns.banners, ...campaigns.audio].reduce((acc, curr) => acc + (curr.impressions || curr.plays || 0), 0);
   const totalClicks = [...campaigns.banners, ...campaigns.audio].reduce((acc, curr) => acc + (curr.clicks || 0), 0);
-  const avgCTR = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : 0;
+  const avgCTR=totalImpressions>0?((totalClicks/totalImpressions)*100).toFixed(2):0;
+  const visibleCampaigns=(activeTab==='banners'?campaigns.banners:campaigns.audio).filter(c=>
+    (statusFilter==='all'||c.status===statusFilter)&&
+    String(c.title||'').toLocaleLowerCase('el-GR').includes(searchTerm.toLocaleLowerCase('el-GR'))
+  );
 
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 lg:p-12 font-sans pb-32 animate-fade-in relative overflow-hidden">
+    <div className="ad-console min-h-screen bg-black text-white p-6 lg:p-12 font-sans pb-32 animate-fade-in relative overflow-hidden">
       
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-500/10 blur-[150px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#ccff00]/5 blur-[120px] rounded-full pointer-events-none"></div>
 
       <div className="max-w-7xl mx-auto relative z-10">
         
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-12">
+        <div className="ad-console-hero flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-12">
           <div>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 text-[9px] font-black tracking-[0.2em] uppercase mb-4">
               <Building2 size={12} className="text-purple-400" /> Agency Ad Network
@@ -304,6 +344,15 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
           </div>
         </div>
 
+        <div className="ad-console-toolbar mb-5">
+          <input type="search" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}
+            placeholder="Αναζήτηση καμπάνιας…" aria-label="Αναζήτηση" className="ad-console-filter min-w-[180px] flex-1"/>
+          <select value={statusFilter} aria-label="Κατάσταση" onChange={e=>setStatusFilter(e.target.value)} className="ad-console-filter">
+            <option value="all">Όλες</option><option value="active">LIVE</option><option value="pending">Σε έλεγχο</option>
+            <option value="expired">Ληγμένες</option><option value="rejected">Απορριφθείσες</option>
+          </select>
+          {isStaging&&<span className="ad-console-label ad-console-demo">Sandbox · Χωρίς χρεώσεις</span>}
+        </div>
         <div className="flex items-center gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl w-fit border border-white/5">
           <button 
             onClick={() => setActiveTab('banners')} 
@@ -323,8 +372,8 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
           <div className="flex justify-center p-20"><Loader2 className="animate-spin text-[#ccff00]" size={40} /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(activeTab === 'banners' ? campaigns.banners : campaigns.audio).map(campaign => (
-              <div key={campaign._id} className="bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-[32px] p-6 relative overflow-hidden group hover:border-white/10 transition-colors">
+            {visibleCampaigns.map(campaign => (
+              <div key={campaign._id} className="ad-console-card bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-[32px] p-6 relative overflow-hidden group hover:border-white/10 transition-colors">
                 
                 <div className="absolute top-6 right-6">
                   {campaign.status === 'active' && <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-emerald-500/20">LIVE</span>}
@@ -376,7 +425,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
               </div>
             ))}
             
-            {(activeTab === 'banners' ? campaigns.banners : campaigns.audio).length === 0 && (
+            {visibleCampaigns.length===0 && (
               <div className="col-span-full py-20 text-center border-2 border-dashed border-white/5 rounded-[40px]">
                 <Target size={48} className="mx-auto text-zinc-700 mb-4" />
                 <h3 className="text-xl font-black text-zinc-400 mb-2">Δεν βρέθηκαν καμπάνιες</h3>
@@ -389,7 +438,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
 
       {showCreationModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/95 backdrop-blur-2xl animate-in fade-in duration-300">
-          <div className="bg-zinc-950 border border-white/10 rounded-[40px] w-full max-w-3xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="ad-console-modal bg-zinc-950 border border-white/10 rounded-[40px] w-full max-w-3xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
             
             <div className="p-6 md:p-8 border-b border-white/5 flex justify-between items-center bg-black/50 shrink-0">
               <div>
@@ -635,8 +684,8 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
 
                   <div className="flex gap-4 pt-4">
                     <button type="button" onClick={() => setCreationStep(1)} className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-colors">Πισω</button>
-                    <button type="submit" disabled title="Η αγορά καμπανιών δεν έχει ακόμη ενεργοποιηθεί" className="flex-1 py-4 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase text-xs tracking-[0.2em] rounded-xl transition-all active:scale-95 shadow-[0_10px_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2 disabled:opacity-50">
-                      ΑΓΟΡΑ ΣΥΝΤΟΜΑ ΜΕ NEXI
+                    <button type="submit" disabled={!isStaging||uploading} title={isStaging?'Δωρεάν δοκιμή':'Οι αγορές δεν έχουν ενεργοποιηθεί'} className="flex-1 py-4 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase text-xs tracking-[0.2em] rounded-xl transition-all active:scale-95 shadow-[0_10px_20px_rgba(168,85,247,0.3)] flex items-center justify-center gap-2 disabled:opacity-50">
+                      {uploading?'Μεταφόρτωση…':isStaging?'Αποθήκευση για έγκριση · Δωρεάν δοκιμή':'Αγορά σύντομα με Nexi'}
                     </button>
                   </div>
                 </form>
