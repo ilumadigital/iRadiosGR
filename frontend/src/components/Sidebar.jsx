@@ -136,7 +136,7 @@ export default function Sidebar({
               className="flex min-w-0 shrink-0 items-center justify-center overflow-hidden rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ccff00]"
               title="iRadiosGR" aria-label="iRadiosGR">
               <img src="/iradios-app-logo.png" alt="iRadiosGR" className={`h-11 w-[158px] object-contain object-left ${isCollapsed ? 'lg:hidden' : ''}`}/>
-              {isCollapsed && <img src="/iradios-logo.png" alt="" aria-hidden="true" className="hidden h-10 w-10 object-contain lg:block"/>}
+              {isCollapsed && <img src="/favicon.png" alt="" aria-hidden="true" className="hidden h-10 w-10 object-contain lg:block"/>}
             </Link>
 
             <button 

@@ -66,8 +66,8 @@ assert.ok(sidebar.includes('to="/?explore=playlist"'));
 assert.ok(sidebar.includes('to="/?explore=recent"'));
 assert.ok(sidebar.includes('label="Για Σένα"') && sidebar.includes('label="Playlist"'));
 assert.ok(sidebar.includes('src="/iradios-app-logo.png"'), 'expanded sidebar uses official app logo');
-assert.ok(sidebar.includes('src="/iradios-logo.png"'), 'collapsed sidebar uses iRadios mark');
-for(const logo of ['iradios-app-logo.png', 'iradios-logo.png'])
+assert.ok(sidebar.includes('src="/favicon.png"'), 'collapsed sidebar uses favicon');
+for(const logo of ['iradios-app-logo.png', 'favicon.png']
   assert.ok(fs.existsSync(path.resolve(__dirname, '../frontend/public', logo)), 'Docker source must include '+logo);
 const frontendDockerfile=read('frontend/Dockerfile');
 assert.ok(frontendDockerfile.includes('COPY . .') && frontendDockerfile.includes('COPY --from=builder /app/dist /usr/share/nginx/html'),
