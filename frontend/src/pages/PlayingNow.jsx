@@ -102,7 +102,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-xl font-black text-white sm:text-2xl">
-            <AudioLines className="text-[#ccff00]" size={23}/> Τώρα παίζουν
+            <AudioLines className="text-[#ccff00]" size={23}/> Στον αέρα τώρα
             {isLoading && <Loader2 size={16} className="animate-spin text-[#ccff00]"/>}
           </h2>
         </div>

@@ -102,8 +102,11 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
     [stations,catalogNowPlaying,catalogClock]);
   const [heroStationId,setHeroStationId] = useState(null);
   useEffect(()=>{
-    if(new URLSearchParams(location.search).get('explore')==='playlist'){
+    const target = new URLSearchParams(location.search).get('explore');
+    if (target === 'playlist') {
       document.getElementById('home-playlist')?.scrollIntoView({behavior:'smooth',block:'start'});
+    } else if (target === 'live') {
+      document.getElementById('home-live-now')?.scrollIntoView({behavior:'smooth',block:'start'});
     }
   },[location.search]);
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -650,7 +653,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
       {/* Guest: NowPlaying takes 50%, with Recent + Top sharing the other
           half. Members: three equally sized NowPlaying / Recent / Favorites. */}
       <div className={`ir-home-quick-grid grid min-w-0 items-start gap-5 ${currentUser ? 'xl:grid-cols-3' : 'xl:grid-cols-2'}`}>
-        <div className="min-w-0">
+        <div id="home-live-now" className="min-w-0 scroll-mt-24">
           {currentUser ? (
             <PlayingNow stations={stations} API_URL={API_URL} currentUser={currentUser}/>
           ) : (

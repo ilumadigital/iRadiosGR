@@ -64,7 +64,9 @@ assert.ok(sidebar.includes('ir-sidebar-categories') && sidebar.includes('toggleS
   'sidebar preserves direct category navigation');
 assert.ok(sidebar.includes('to="/?explore=playlist"'));
 assert.ok(sidebar.includes('to="/?explore=recent"'));
-assert.ok(sidebar.includes('to="/?explore=top"'));
+assert.ok(sidebar.includes('label="Για Σένα"') && sidebar.includes('label="Playlist"'));
+assert.ok(sidebar.includes('CITY_SHORTCUTS.filter') && sidebar.includes('max-h-[min(30dvh,250px)]'));
+assert.ok(sidebar.includes('to="/?explore=live"') && home.includes('id="home-live-now"'), 'Live link goes to the on-air home section');
 assert.ok(!sidebar.includes('{regions.map('),'sidebar must not repeat all regions');
 assert.ok(!sidebar.includes('{genres.map('),'sidebar must not repeat all genres');
 assert.ok(sidebar.includes('to="/admin/home-slides"'),'Admin feature kept');
