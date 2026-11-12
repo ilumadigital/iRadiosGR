@@ -64,14 +64,7 @@ export default function Footer({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const lastTrackedAdId = useRef(null);
-  useEffect(() => {
-    if (isPlayingAd && currentAdInfo?._id && lastTrackedAdId.current !== currentAdInfo._id) {
-      lastTrackedAdId.current = currentAdInfo._id; 
-      fetch(`/api/ads/${currentAdInfo._id}/impression`, { method: 'POST' }).catch(() => {});
-    }
-    if (!isPlayingAd) lastTrackedAdId.current = null;
-  }, [isPlayingAd, currentAdInfo?._id]);
+  // Audio plays are tracked only when the shared HTML audio element actually starts.
 
   const isCurrentlyFavorite = useMemo(() => {
     return currentStation ? isFavorite(currentStation._id) : false;
