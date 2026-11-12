@@ -1,5 +1,6 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
+import '../styles/ad-campaign-console.css';
 import { Megaphone, PlusCircle, Trash2, Edit, X, Clock, Search, SlidersHorizontal, Check, Loader2, Image as ImageIcon, Link as LinkIcon, Music } from 'lucide-react';
 
 // 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
@@ -86,7 +87,7 @@ const LOCATION_DATA = {
 };
 
 const INITIAL_AD_STATE = { 
-  title: '', client: '', audioUrl: '', frequency: 'first_station', logoUrl: '', linkUrl: '', dspPreset: 'OFF', status: 'active',
+  title: '', client: '', audioUrl: '', frequency: 'entry', logoUrl: '', linkUrl: '', dspPreset: 'OFF', status: 'active',
   targetCountry: 'All', targetRegion: 'All', targetLocations: ['All'] 
 };
 
@@ -95,6 +96,8 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
   const [loading, setLoading] = useState(false);
   const [loadError,setLoadError]=useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter,setStatusFilter]=useState('all');
+  const stage=typeof window!=='undefined'&&window.location.hostname==='stage.iradios.gr';
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [newAd, setNewAd] = useState(INITIAL_AD_STATE);
@@ -275,9 +278,18 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
     }
   };
 
-  const filteredAds = ads.filter(ad => 
-    (ad.title && ad.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (ad.client && ad.client.toLowerCase().includes(searchTerm.toLowerCase()))
+  const handleCloneStage=async ad=>{
+    if(!window.confirm('Δημιουργία δοκιμαστικού αντιγράφου για έγκριση, χωρίς αλλαγή της αρχικής καμπάνιας;'))return;
+    try{
+      const r=await fetch(`${API_URL}/admin/ads/${ad._id}/clone-stage`,{method:'POST',headers:getAuthHeaders()});
+      if(!r.ok)throw Error((await r.json().catch(()=>({}))).error||'Αποτυχία αντιγραφής.');
+      await loadAds();
+    }catch(error){alert(error.message);}
+  };
+  const filteredAds=ads.filter(ad=>
+    (statusFilter==='all'||ad.status===statusFilter)&&
+    [ad.title,ad.client].some(v=>String(v||'').toLocaleLowerCase('el-GR')
+      .includes(searchTerm.toLocaleLowerCase('el-GR')))
   );
 
   // 🟢 renderForm με το isEditing flag
@@ -472,8 +484,8 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
   );
 
   return (
-    <div className="admin-legacy-page space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+    <div className="admin-legacy-page ad-console space-y-6">
+      <div className="ad-console-hero flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <Megaphone className="text-[#ccff00]" size={28} />
@@ -487,20 +499,32 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
-        <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px]">
+        <div className="ad-console-stat">
           <div className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-2">Σύνολο σποτ</div>
           <div className="text-4xl font-black text-white">{ads.length}</div>
         </div>
-        <div className="bg-[#ccff00]/5 border border-[#ccff00]/10 p-8 rounded-[32px]">
+        <div className="ad-console-stat">
           <div className="text-[#ccff00] text-[10px] font-black uppercase tracking-widest mb-2">Pre-roll · στην είσοδο</div>
-          <div className="text-4xl font-black text-[#ccff00]">{ads.filter(a => a.frequency === 'first_station').length}</div>
+          <div className="text-4xl font-black text-[#ccff00]">{ads.filter(a => ['entry','first_station'].includes(a.frequency)).length}</div>
         </div>
-        <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px]">
+        <div className="ad-console-stat">
           <div className="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-2">Mid-roll · κατά την ακρόαση</div>
-          <div className="text-4xl font-black text-white">{ads.filter(a => a.frequency !== 'first_station').length}</div>
+          <div className="text-4xl font-black text-white">{ads.filter(a => !['entry','first_station'].includes(a.frequency)).length}</div>
         </div>
       </div>
 
+      <div className="ad-console-toolbar mb-4">
+        <span className="text-xs font-black text-zinc-300">Κατάσταση</span>
+        <select aria-label="Φίλτρο κατάστασης" className="ad-console-filter" value={statusFilter}
+          onChange={event=>setStatusFilter(event.target.value)}>
+          <option value="all">Όλες ({ads.length})</option>
+          <option value="active">Ενεργές ({ads.filter(a=>a.status==='active').length})</option>
+          <option value="pending">Για έγκριση ({ads.filter(a=>a.status==='pending').length})</option>
+          <option value="expired">Ληγμένες ({ads.filter(a=>a.status==='expired').length})</option>
+          <option value="rejected">Απορριφθείσες</option>
+        </select>
+        {stage&&<span className="ad-console-label ad-console-demo">STAGING · Τα εισαγμένα spots δεν παίζουν μέχρι να αντιγραφούν</span>}
+      </div>
       <div className="relative w-full max-w-lg mb-6">
         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" />
         <input type="text" placeholder="Αναζήτηση..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-zinc-900/50 border border-white/10 h-12 rounded-2xl pl-12 pr-10 text-sm focus:border-[#ccff00]/50 outline-none text-white transition-all placeholder:text-zinc-600" />
@@ -522,7 +546,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
         Δεν βρέθηκαν σποτ. Μπορείς να δημιουργήσεις νέο ή να καθαρίσεις την αναζήτηση.</div>}
       <div className="space-y-4">
         {filteredAds.map(ad => (
-          <div key={ad._id} className={`border p-4 sm:p-5 rounded-[24px] flex flex-col sm:flex-row sm:items-center justify-between gap-4 group transition-all ${ad.status === 'pending' ? 'bg-zinc-900 border-orange-500/30' : 'bg-zinc-900/30 border-white/5 hover:bg-zinc-900/60'}`}>
+          <div key={ad._id} className={`ad-console-card border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group transition-all ${ad.status === 'pending' ? 'bg-zinc-900 border-orange-500/30' : 'bg-zinc-900/30 border-white/5 hover:bg-zinc-900/60'}`}>
             <div className="flex items-center gap-5">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-zinc-800 shadow-xl shrink-0 flex items-center justify-center border border-white/5">
                 {ad.logoUrl ? <img src={ad.logoUrl} alt={ad.client} className="w-full h-full object-cover bg-white" /> : <span className="text-xl font-black text-zinc-500 uppercase">{ad.client ? ad.client.charAt(0) : 'A'}</span>}
@@ -530,6 +554,8 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
               <div className="min-w-0">
                 <h4 className="font-bold text-white text-base sm:text-lg flex items-center gap-2 truncate">
                   {ad.title || 'Ανώνυμη Καμπάνια'}
+                   <span className="ad-console-label" data-state={ad.status}>{ad.status==='active'?'LIVE':ad.status==='pending'?'Για έγκριση':ad.status==='expired'?'Έληξε':'Ανενεργό'}</span>
+                   {stage&&!ad.isStageCreative&&<span className="ad-console-label ad-console-demo">Εισαγμένο · Μη δημοσιευμένο</span>}
                   {/* 🟢 Ένδειξη Pending */}
                   {ad.status === 'pending' && <span className="text-[9px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest ml-2 animate-pulse">PENDING</span>}
                   {ad.status === 'expired' && <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest ml-2">ΛΗΓΜΕΝΟ</span>}
@@ -545,17 +571,28 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
                   {ad.targetLocations && ad.targetLocations[0] !== 'All' && (
                     <><span className="w-1 h-1 bg-zinc-700 rounded-full hidden sm:block"></span><span className="flex items-center gap-1 text-[10px] text-purple-400 font-black uppercase tracking-wider truncate">📍 {ad.targetLocations[0]}</span></>
                   )}
+                  {ad.audioUrl&&<div className="ad-console-preview mt-3">
+                    <span className="mb-2 block text-[10px] font-black uppercase text-zinc-400">Preview · χωρίς καταμέτρηση</span>
+                    <audio controls preload="none" src={ad.audioUrl} aria-label={`Preview ${ad.title}`}/>
+                  </div>}
+                  <p className="mt-2 text-[11px] text-zinc-500">
+                    Plays: {ad.plays||0} · Clicks: {ad.clicks||0} · {ad.expiresAt?`Λήξη ${new Date(ad.expiresAt).toLocaleDateString('el-GR')}`:'Χωρίς λήξη'}
+                  </p>
                 </div>
               </div>
             </div>
             
             {/* 🟢 ACTION BUTTONS */}
             <div className="flex items-center gap-3">
-              {ad.status === 'pending' && (
+              {ad.status === 'pending' && (!stage||ad.isStageCreative) && (
                 <button onClick={() => handleApprove(ad._id)} className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:text-black transition-all animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.2)]" title="Έγκριση">
                   <Check size={16} strokeWidth={3} />
                 </button>
               )}
+              {stage&&!ad.isStageCreative&&
+                <button type="button" onClick={()=>handleCloneStage(ad)} className="ad-console-filter !text-purple-200" title="Δημιουργία δοκιμαστικού αντιγράφου">
+                  Αντίγραφο
+                </button>}
               <button onClick={() => {
                 setEditingAd({
                   ...ad,
