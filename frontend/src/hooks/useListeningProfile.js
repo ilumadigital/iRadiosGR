@@ -62,7 +62,7 @@ const localWrite=(key,snapshot)=>{
 function getDeviceId(){
   try{
     let id=localStorage.getItem('iluma_device_id');
-    if(!id||!/^[a-z\d_-]{1,64}$/i.test(id)){
+    if(!id||!/^dev_[a-z\d_-]{2,60}$/i.test(id)){
       id='dev_'+(typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2));
       localStorage.setItem('iluma_device_id',id);
     }
