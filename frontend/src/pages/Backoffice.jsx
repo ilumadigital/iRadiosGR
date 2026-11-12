@@ -134,15 +134,14 @@ function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false
   </NavLink>;
 }
 function Logo(){
-  return <div className="flex min-w-0 items-center gap-2.5">
-    <img src="/iradios-logo.png" alt="" className="size-10 shrink-0 rounded-xl object-contain"/>
-    <div className="min-w-0">
-      <div className="flex items-center gap-1">
-        <img src="/noicon-iradios-app-logo.png" alt="iRadios" className="h-[29px] w-[100px] object-contain object-left"/>
-        <span className="text-[21px] font-black tracking-[-.065em] text-[#caff00]">GR</span>
-      </div>
-      <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-[.18em] text-zinc-400">Station Console <span className="text-[#caff00]">v6</span></p>
-    </div>
+  // Match the expanded listener-app navbar: use the complete branded
+  // asset, not separate icon/wordmark/GR pieces.
+  return <div className="flex min-w-0 flex-col items-start gap-0.5">
+    <img src="/iradios-app-logo.png" alt="iRadios GR"
+      className="h-11 w-[174px] max-w-full object-contain object-left"/>
+    <p className="pl-0.5 text-[9px] font-extrabold uppercase tracking-[.18em] text-zinc-400">
+      Station Console <span className="text-[#caff00]">v6</span>
+    </p>
   </div>;
 }
 async function api(url,options={}){
