@@ -7,6 +7,7 @@ import RdsCrossfade from './RdsCrossfade';
 import WidgetEmbedPanels from './WidgetEmbedPanels';
 import HeroAudioWaves from './HeroAudioWaves';
 import {useStationAmbient} from '../hooks/useStationAmbient';
+import {widgetShowImageProxy} from '../utils/widgetShowArtwork';
 import {spotifySongLink,appleMusicSongLink} from '../utils/musicMetadata';
 import {useStationWidgetRds,useStationWidgetMediaSession} from '../hooks/useStationWidgetRds';
 import useAudioDSP from '../hooks/useAudioDSP';
@@ -234,31 +235,38 @@ function useCoverArtwork(station,song){
   },[stationId,track,key]);
   return cover.key===key?cover.url:null;
 }
-function ArtworkVisual({station,src,className='',alt=''}){
+function ArtworkVisual({station,src,className='',alt='',showArtwork=false}){
   const logo=station?.logo||'/iradios-logo.png';
-  const [failed,setFailed]=useState(null);
-  const photo=Boolean(src&&src!==logo&&failed!==src);
-  return <img src={photo?src:logo} alt={alt}
+  const [failure,setFailure]=useState({src:null,stage:'direct'});
+  const stage=failure.src===src?failure.stage:'direct';
+  const proxy=showArtwork?widgetShowImageProxy(station,src):null;
+  const photo=Boolean(src&&src!==logo&&stage!=='logo');
+  const source=photo?(stage==='proxy'&&proxy?proxy:src):logo;
+  return <img src={source} alt={alt}
     className={classNames(className,!photo&&'is-logo')}
     onError={event=>{
-      if(photo){setFailed(src);return;}
+      if(photo){
+        // Try same-origin, approved-show proxy before giving up on a DJ photo.
+        setFailure({src,stage:stage==='direct'&&proxy?'proxy':'logo'});
+        return;
+      }
       if(!event.currentTarget.src.endsWith('/iradios-logo.png'))
         event.currentTarget.src='/iradios-logo.png';
     }}/>;
 }
-function ArtworkBackground({station,src,showSrc,showSecondary=false}){
+function ArtworkBackground({station,src,showSrc,showSecondary=false,showArtwork=false}){
   return <div className="ir-embed__art" aria-hidden="true">
-    <ArtworkVisual station={station} src={src}/>
-    {showSrc&&<ArtworkVisual station={station} src={showSrc}
+    <ArtworkVisual station={station} src={src} showArtwork={showArtwork}/>
+    {showSrc&&<ArtworkVisual station={station} src={showSrc} showArtwork
       className={classNames('ir-embed__overlay',showSecondary&&'is-active')}/>}
   </div>;
 }
 function ArtworkStack({station,rds,className='',alt=''}){
-  const showSrc=rds.broadcast?.show?(rds.broadcast.imageUrl||station.logo||'/iradios-logo.png'):null;
+  const showSrc=rds.broadcast?.show?(rds.broadcast.imageUrl||rds.broadcast.show.imageUrl||station.logo||'/iradios-logo.png'):null;
   return <div className={classNames('relative overflow-hidden',className)}>
     <ArtworkVisual station={station} src={rds.artwork}
       className="absolute inset-0 size-full object-cover" alt={alt}/>
-    {showSrc&&<ArtworkVisual station={station} src={showSrc}
+    {showSrc&&<ArtworkVisual station={station} src={showSrc} showArtwork
       className={classNames('ir-embed__overlay absolute inset-0 size-full object-cover',
         rds.showProducer&&'is-active')} alt={alt}/>}
   </div>;
@@ -330,7 +338,7 @@ function SquarePlayer({station,rds,audio,light}){
   return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
     <ArtworkBackground station={station} src={rds.artwork}
-      showSrc={rds.broadcast?.show?(rds.broadcast.imageUrl||station.logo):null} showSecondary={rds.showProducer}/>
+      showSrc={rds.broadcast?.show?(rds.broadcast.imageUrl||rds.broadcast.show.imageUrl||station.logo):null} showSecondary={rds.showProducer}/>
     <div className="ir-embed__shade"/>
     <header className="relative z-10 flex shrink-0 items-start justify-between gap-2 px-5 pt-5">
       <StationIdentity station={station} compact/>
@@ -394,7 +402,7 @@ function Program({station,current,shows,clock,light,mini,rds,audio}){
     <AudioElements audio={audio}/>
     <MiniBackground station={station}/>
     <header className="relative z-10 flex shrink-0 items-center gap-3 px-4 pt-3">
-      <ArtworkVisual station={station} src={active.imageUrl}
+      <ArtworkVisual station={station} src={active.imageUrl} showArtwork
         className="size-[62px] shrink-0 rounded-xl border border-white/20 bg-black/50 object-cover"
         alt={active.title}/>
       <div className="min-w-0 flex-1">
@@ -422,7 +430,7 @@ function Program({station,current,shows,clock,light,mini,rds,audio}){
   </main>;
   return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
-    <ArtworkBackground station={station} src={active.imageUrl}/>
+    <ArtworkBackground station={station} src={active.imageUrl} showArtwork/>
     <div className="ir-embed__shade ir-embed__shade--program"/>
     <header className="relative z-10 flex shrink-0 items-start justify-between gap-2 px-5 pt-5">
       <div className="min-w-0">
@@ -471,7 +479,7 @@ function Hero({station,current,shows,clock,rds,audio}){
           {audio.processing&&<span className="ir-embed__chip border-lime-300/40 text-lime-300">HD+</span>}
         </div>
         {live&&<div className="ir-embed__hero-program">
-          <ArtworkVisual station={station} src={live.imageUrl}
+          <ArtworkVisual station={station} src={live.imageUrl} showArtwork
             className="size-10 shrink-0 rounded-xl object-cover"/>
           <div className="min-w-0">
             <p className="ir-embed__eyebrow text-[9px]">● ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ</p>
