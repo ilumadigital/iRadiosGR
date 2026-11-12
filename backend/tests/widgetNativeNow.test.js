@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 // persistence-facing imports so real native expiry and AI filtering logic runs.
 const Module=require('node:module');
 const originalLoad=Module._load;
-let publicWidgetNativeSnapshot;
+let publicWidgetNativeSnapshot,publicWidgetPlaylistSnapshot;
 try{
   Module._load=function(request,parent,isMain){
     if(parent?.filename?.endsWith('/stageNativeNow.js')&&
@@ -20,7 +20,7 @@ try{
       };
     return originalLoad.apply(this,arguments);
   };
-  ({publicWidgetNativeSnapshot}=require('../services/widgetNativeNow'));
+  ({publicWidgetNativeSnapshot,publicWidgetPlaylistSnapshot}=require('../services/widgetNativeNow'));
 }finally{Module._load=originalLoad;}
 const now=Date.parse('2026-11-12T11:00:00Z');
 const doc={
@@ -48,4 +48,17 @@ test('unconfirmed and expired station tracks do not leak stale songs',()=>{
 test('AI-only snapshot never exposes AI metadata',()=>{
   assert.deepEqual(publicWidgetNativeSnapshot({currentAI:doc.currentAI},now),
     {title:'',source:'none',foundWithAI:false});
+});
+
+test('public widget Playlist includes only fresh native tracks, never Premium AI',()=>{
+  const playlist={tracks:[
+    {source:'station',artist:'Native Artist',title:'Native Song',playedAt:new Date(now-10000)},
+    {source:'acrcloud',artist:'PRIVATE ARTIST',title:'PRIVATE SONG',playedAt:new Date(now-10000)},
+    {source:'station',artist:'Old Artist',title:'Old Track',playedAt:new Date(now-31*60000)}
+  ],currentAI:doc.currentAI};
+  const result=publicWidgetPlaylistSnapshot(playlist,now);
+  assert.equal(result.tracks.length,1);
+  assert.equal(result.tracks[0].raw,'Native Artist - Native Song');
+  assert.equal(JSON.stringify(result).includes('PRIVATE'),false);
+  assert.deepEqual(publicWidgetPlaylistSnapshot(null,now),{tracks:[]});
 });
