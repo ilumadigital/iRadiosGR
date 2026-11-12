@@ -125,7 +125,7 @@ test('expired and revoked widget add-ons cannot leave music buttons enabled',()=
   assert.equal(render([grant('ADD-AN',{expiresAt:new Date('2026-11-14')})]).widgetMusicLinksEnabled,false);
   assert.equal(render([grant('ADD-DSP',{resourceId:otherId})]).widgetMusicLinksEnabled,false);
   assert.equal(render([],[paidOrder('ADD-ADS',otherId)]).widgetMusicLinksEnabled,false);
-  assert.equal(render([],[paidOrder('B-PREM',{status:'cancelled'})]).widgetMusicLinksEnabled,false);
+  assert.equal(render([],[paidOrder('B-PREM',stationId,{status:'cancelled'})]).widgetMusicLinksEnabled,false);
   assert.equal(render([],[paidOrder('B-PREM',stationId,{periodEndsAt:new Date('2026-11-14')})]).widgetMusicLinksEnabled,false);
   assert.equal(render([],[paidOrder('BOOST-G-DAY')]).widgetMusicLinksEnabled,false);
   assert.equal(render([],[],{...owner,broadcasterProfile:{tier:'premium'}}).widgetMusicLinksEnabled,false);
