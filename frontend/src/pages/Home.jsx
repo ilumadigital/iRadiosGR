@@ -457,8 +457,13 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
   const eligibleTopStations = rankedStations.filter(s => s._id && (s.status === 'approved' || !s.status));
   // "Top σταθμοί" follows the explicit station position, not metadata completeness.
   const topStations=eligibleTopStations.slice(0,7);
-  const homeDisplayStation = stations.find(s=>String(s._id)===String(heroStationId)) ||
-    currentStation || recentlyPlayed[0] || topStations[0] || stations[0];
+  // The Premium playlist must follow the personalized hero, never a random
+  // station or playback history from another local browser account.
+  const premiumHome=Boolean(currentUser&&(currentUser.isPremium===true||
+    currentUser.isPremium==='true'||currentUser?.broadcasterProfile?.tier==='premium'));
+  const homeDisplayStation = (heroStationId
+    ?stations.find(s=>String(s._id)===String(heroStationId)):null) ||
+    (premiumHome?null:currentStation || recentlyPlayed[0] || topStations[0] || stations[0]);
   const topRegions = ['Αττική', 'Αθήνα', 'Θεσσαλονίκη', 'WebRadios']; 
   const genres = [...new Set(stations.map(s => s.genre))].filter(Boolean).sort();
 
@@ -631,6 +636,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           currentUser={currentUser}
           currentStation={currentStation}
           stations={stations}
+          listeningProfile={listeningProfile}
           isPlaying={isPlaying}
           onPlayPause={onPlayPause}
           onPlayStation={setCurrentStation}

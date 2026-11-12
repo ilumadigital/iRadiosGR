@@ -8,7 +8,7 @@ import { getAthensClock } from '../utils/schedule';
 import {visibleEditorialSlides,homeFeaturedFallback} from '../utils/editorialPresentation';
 
 export default function HomeHeroSlider({
-  currentUser, currentStation, stations=[], isPlaying, onPlayPause,
+  currentUser, currentStation, stations=[], listeningProfile={}, isPlaying, onPlayPause,
   onPlayStation, onOpenDiscovery, onFeaturedStationChange,
   placement='home', value='', onAvailabilityChange, excludeStationId=null
 }) {
@@ -18,6 +18,31 @@ export default function HomeHeroSlider({
   const [index,setIndex]=useState(0);
   const [hover,setHover]=useState(false);
   const [athensClock,setAthensClock]=useState(()=>getAthensClock());
+  const premiumAccountId=placement==='home'&&
+    (currentUser?.isPremium===true||currentUser?.isPremium==='true'||
+      currentUser?.broadcasterProfile?.tier==='premium')
+    ?String(currentUser?._id||currentUser?.id||''):'';
+  const [premiumLast,setPremiumLast]=useState({accountId:'',stationId:'',at:0});
+  useEffect(()=>{
+    if(!premiumAccountId){setPremiumLast({accountId:'',stationId:'',at:0});return;}
+    let stationId='',at=0;
+    try{
+      stationId=localStorage.getItem('iradios_premium_last_'+premiumAccountId)||'';
+      at=Number(localStorage.getItem('iradios_premium_last_at_'+premiumAccountId))||0;
+    }catch{}
+    setPremiumLast({accountId:premiumAccountId,stationId,at});
+  },[premiumAccountId]);
+  useEffect(()=>{
+    const id=String(currentStation?._id||'');
+    if(!premiumAccountId||!isPlaying||!id||!stations.some(s=>
+      String(s._id)===id&&(s.status==='approved'||!s.status)&&s.isOffline!==true))return;
+    const at=Date.now();
+    setPremiumLast({accountId:premiumAccountId,stationId:id,at});
+    try{
+      localStorage.setItem('iradios_premium_last_'+premiumAccountId,id);
+      localStorage.setItem('iradios_premium_last_at_'+premiumAccountId,String(at));
+    }catch{}
+  },[premiumAccountId,currentStation?._id,isPlaying,stations]);
   useEffect(()=>{
     const refreshClock=()=>setAthensClock(getAthensClock());
     const timer=setInterval(refreshClock,30000);
@@ -40,11 +65,34 @@ export default function HomeHeroSlider({
   },[placement,value]);
   // Only an explicitly featured station may fill the unconfigured Home hero.
   // Catalog pages never fall back to the current, first or random station.
-  const stationFallback=useMemo(()=>homeFeaturedFallback(stations,placement),[stations,placement]);
+  const stationFallback=useMemo(()=>{
+    if(!premiumAccountId)return homeFeaturedFallback(stations,placement);
+    const available=stations.filter(s=>s?._id&&
+      (s.status==='approved'||!s.status)&&s.isOffline!==true);
+    const byId=new Map(available.map(s=>[String(s._id),s]));
+    const active=isPlaying?byId.get(String(currentStation?._id||'')):null;
+    if(active)return active;
+    // The listening profile is already account-scoped, synchronized across
+    // devices by useListeningProfile. Compare the local immediate play event
+    // to its latest verified station timestamp (not another user's history).
+    const lastLocal=premiumLast.accountId===premiumAccountId?premiumLast:null;
+    const fromProfile=Object.entries(listeningProfile?.stations||{})
+      .filter(([id,stat])=>byId.has(id)&&Number(stat?.lastPlayedAt)>0)
+      .sort((a,b)=>Number(b[1].lastPlayedAt)-Number(a[1].lastPlayedAt))[0];
+    const profileAt=Number(fromProfile?.[1]?.lastPlayedAt)||0;
+    const localAt=Number(lastLocal?.at)||0;
+    const chosen=localAt>=profileAt?lastLocal?.stationId:fromProfile?.[0];
+    return byId.get(String(chosen||''))||
+      byId.get(String(fromProfile?.[0]||''))||null;
+  },[stations,placement,premiumAccountId,premiumLast,listeningProfile,currentStation?._id,isPlaying]);
   // Never flash a previous category's CMS slides while a new placement loads.
-  const visible=useMemo(()=>loadedScope===placement+':'+value
-    ? visibleEditorialSlides(slides,currentUser,stations,excludeStationId):[],
-    [loadedScope,placement,value,slides,currentUser,stations,excludeStationId]);
+  const visible=useMemo(()=>{
+    if(loadedScope!==placement+':'+value)return [];
+    const eligible=visibleEditorialSlides(slides,currentUser,stations,excludeStationId);
+    // Premium home: personal listening is the default. Only explicitly
+    // Premium-targeted Admin slides may replace it.
+    return premiumAccountId?eligible.filter(slide=>slide.audience==='premium'):eligible;
+  },[loadedScope,placement,value,slides,currentUser,stations,excludeStationId,premiumAccountId]);
   useEffect(()=>{onAvailabilityChange?.(visible.length>0);},
     [visible.length,onAvailabilityChange]);
   const activeIndex=visible.length?index%visible.length:0;
@@ -75,9 +123,11 @@ export default function HomeHeroSlider({
     }
   };
   const image=slide?.imageUrl || stationFallback?.cover || stationFallback?.logo || '/iradios-wall.png';
-  const title=slide?.title || (isStationHero?featuredStation?.name:stationFallback?.name) || 'Ανακάλυψε τον ήχο σου';
+  const title=slide?.title || (isStationHero?featuredStation?.name:stationFallback?.name) ||
+    (premiumAccountId?'Καλώς ήρθες στο iRadios Premium':'Ανακάλυψε τον ήχο σου');
   const description=slide?.subtitle || (isStationHero?featuredStation?.slogan:stationFallback?.slogan) ||
-    'Χιλιάδες σταθμοί. Μία εμπειρία που προσαρμόζεται στις επιλογές σου.';
+    (premiumAccountId?'Ο αγαπημένος σου σταθμός θα εμφανιστεί εδώ μόλις ξεκινήσεις ακρόαση.':
+      'Χιλιάδες σταθμοί. Μία εμπειρία που προσαρμόζεται στις επιλογές σου.');
   const stationAction=isStationHero&&featuredStation;
   // Home cards are text-only for on-air programs: never render a producer photo.
   // Match the actual Greek-local schedule, preferring the host over the show title.
@@ -89,7 +139,8 @@ export default function HomeHeroSlider({
     String(currentStation._id)===String(featuredStation?._id));
   const heroEyebrow=slide?.eyebrow || (featuredStationIsPlaying
     ? 'Ακούς LIVE στο iRadios GR'
-    : featuredStation?'Επιλεγμένος σταθμός':'Ανακάλυψε σταθμούς');
+    : featuredStation?(premiumAccountId?'Τελευταίος σταθμός':'Επιλεγμένος σταθμός')
+      :premiumAccountId?'Η μουσική σου · Premium':'Ανακάλυψε σταθμούς');
   const linkAction=slide?.targetType==='genre'||slide?.targetType==='external'||
     ((!slide||slide.targetType==='none')&&Boolean(onOpenDiscovery));
   if(placement!=='home'&&!slide)return null;

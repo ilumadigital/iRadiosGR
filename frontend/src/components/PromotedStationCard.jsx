@@ -1,9 +1,10 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Link} from 'react-router-dom';
-import {AudioLines, ArrowUpRight, Sparkles, UserRound} from 'lucide-react';
+import {AudioLines, ArrowUpRight, Sparkles} from 'lucide-react';
 import StationListenButton from './StationListenButton';
 import {activeStationShow,validShowImage} from '../utils/liveBroadcast';
 import {getAthensClock} from '../utils/schedule';
+import {useStationAmbient} from '../hooks/useStationAmbient';
 
 // A distinct Admin-controlled Promoted placement. The public endpoint returns
 // no song metadata: guest listings may show only the scheduled programme.
@@ -45,58 +46,71 @@ export default function PromotedStationCard({
     : null,[stations,feature,placement,value]);
   const show=useMemo(()=>activeStationShow(station,clock),[station,clock]);
   useEffect(()=>{onAvailabilityChange?.(station?._id||null);},[station?._id,onAvailabilityChange]);
+  // Brand from the station logo (with neutral fallback), never cover artwork.
+  const brandRgb=useStationAmbient(station?.logo);
   if(!station)return null;
   const producerPhoto=show&&validShowImage(show.imageUrl)?show.imageUrl:null;
-  const artwork=producerPhoto||station.cover||station.logo||'/iradios-wall.png';
   const href='/station/'+encodeURIComponent(station.slug||station._id);
   return (
     <aside aria-label={'Promoted Station: '+station.name}
-      className="ir-promoted-station group relative isolate flex h-full min-h-[240px] min-w-0 flex-col justify-between overflow-hidden rounded-[24px] border border-[#ccff00]/25 bg-[#101619] p-4 shadow-[0_15px_50px_rgba(0,0,0,.25)] sm:rounded-[28px] sm:p-6 xl:min-h-0">
-      <img src={artwork} alt="" loading="lazy" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-40 transition-transform duration-700 group-hover:scale-105"
-        onError={e=>{if(e.currentTarget.dataset.fallback!=='1'){e.currentTarget.dataset.fallback='1';e.currentTarget.src='/iradios-wall.png';}}}/>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#080e12]/65 via-[#080e12]/60 to-[#080e12]/95"/>
+      style={{backgroundImage:`radial-gradient(ellipse at 85% 15%, rgb(${brandRgb} / .52), transparent 62%), linear-gradient(130deg, rgb(${brandRgb} / .22), #0d1417 74%)`}}
+      className="ir-promoted-station group relative isolate flex h-full min-h-[260px] min-w-0 flex-col justify-between overflow-hidden rounded-[26px] border border-[#ccff00]/30 p-5 text-white shadow-[0_22px_65px_rgba(0,0,0,.3)] transition-colors hover:border-[#ccff00]/60 sm:rounded-[30px] sm:p-6">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-24 size-64 rounded-full opacity-30 blur-[65px]"
+        style={{background:`rgb(${brandRgb})`}}/>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[.055]"
+        style={{backgroundImage:'linear-gradient(90deg, white 1px, transparent 1px), linear-gradient(0deg, white 1px, transparent 1px)',backgroundSize:'30px 30px'}}/>
+      <div aria-hidden="true" className="pointer-events-none absolute bottom-0 left-0 right-0 h-0.5"
+        style={{background:`linear-gradient(90deg, transparent, rgb(${brandRgb}), #ccff00, transparent)`}}/>
+
       <div className="relative z-10 flex items-start justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#ccff00]/30 bg-black/50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[.1em] text-[#ccff00] backdrop-blur-md">
-          <Sparkles size={13}/> Promoted Station
+        <span className="inline-flex items-center gap-2 rounded-full border border-[#ccff00]/40 bg-black/50 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[.12em] text-[#ccff00] backdrop-blur">
+          <Sparkles size={14}/> Promoted Station
         </span>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#ccff00]/15 px-2 py-1.5 text-[10px] font-bold text-[#ccff00]">
-          <span className="size-1.5 rounded-full bg-[#ccff00]"/> LIVE
+        <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#ccff00]/20 bg-black/35 px-2.5 py-1.5 text-[10px] font-bold text-[#d9ff7e]">
+          <span className="size-1.5 animate-pulse rounded-full bg-[#ccff00] shadow-[0_0_12px_#ccff00]"/> LIVE
         </span>
       </div>
-      <div className="relative z-10 mt-4 min-w-0">
-        <Link to={href} className="flex min-w-0 items-center gap-3 hover:text-[#ccff00]">
-          <img src={station.logo} alt="" className="size-14 shrink-0 rounded-xl border border-white/20 bg-white p-1.5 object-contain sm:size-16"/>
-          <div className="min-w-0">
-            <h3 className="line-clamp-2 text-lg font-black leading-tight text-white sm:text-xl">{station.name}</h3>
-            <p className="mt-1 line-clamp-1 text-[11px] text-zinc-300">{station.slogan||station.genre||'Ζωντανό ραδιόφωνο'}</p>
-          </div>
-        </Link>
-        <div className="mt-4 rounded-xl border border-white/10 bg-black/35 p-3 backdrop-blur-md">
-          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#ccff00]">
-            <AudioLines size={13}/> Στον αέρα
-          </p>
-          <div className="mt-2 flex min-w-0 items-center gap-3">
-            {producerPhoto&&<img src={producerPhoto} alt={show?.host||'Παραγωγός στον αέρα'}
-              className="size-[68px] shrink-0 rounded-xl border border-[#ccff00]/30 object-cover shadow-lg"
-              onError={e=>{e.currentTarget.style.display='none';}}/>}
-            <div className="min-w-0 flex-1">
-              <p className="line-clamp-2 text-sm font-bold leading-snug text-white sm:text-base">
-                {show?.title||'Ζωντανό ραδιόφωνο'}
-              </p>
-              <p className="mt-1 truncate text-xs text-zinc-300">{show?.host||'Συντονίσου στον σταθμό'}</p>
-            </div>
-          </div>
-          {show&&(show.host||show.title)&&<p className="mt-2 flex items-center gap-1.5 truncate border-t border-white/10 pt-2 text-xs text-[#e5f2c9]">
-            <UserRound size={13} className="shrink-0"/>{show.host||show.title} · Στον αέρα
-          </p>}
-        </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <StationListenButton station={station} currentStation={currentStation} isPlaying={isPlaying}
-            onPlayStation={onPlayStation} onPlayPause={onPlayPause} className="min-h-10 px-4"/>
-          <Link to={href} aria-label={'Προφίλ '+station.name} className="inline-flex size-10 items-center justify-center rounded-xl border border-white/20 bg-black/35 text-white hover:border-[#ccff00]/60 hover:text-[#ccff00]">
-            <ArrowUpRight size={17}/>
+
+      <div className="relative z-10 mt-5 flex min-w-0 items-center gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[.16em] text-[#e0f3a5]">{station.genre||'iRadiosGR'}</p>
+          <Link to={href} className="block min-w-0 hover:text-[#ccff00]">
+            <h3 className="line-clamp-2 break-words text-xl font-black leading-tight tracking-tight sm:text-2xl">{station.name}</h3>
           </Link>
+          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-200">{station.slogan||'Ο ήχος σου, ζωντανά.'}</p>
         </div>
+        <Link to={href} aria-label={'Προφίλ '+station.name}
+          className="flex size-[76px] shrink-0 items-center justify-center rounded-[20px] border border-white/30 bg-white p-2 shadow-[0_12px_40px_rgba(0,0,0,.35)] sm:size-[92px]">
+          <img src={station.logo||'/iradios-logo.png'} alt={'Λογότυπο '+station.name}
+            className="h-full w-full object-contain"/>
+        </Link>
+      </div>
+
+      <div className="relative z-10 mt-5 rounded-[18px] border border-white/15 bg-[#080d11]/60 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,.06)] backdrop-blur-xl">
+        <p className="mb-2.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[.12em] text-[#ccff00]">
+          <AudioLines size={14}/> Στον αέρα τώρα
+        </p>
+        <div className="flex min-w-0 items-center gap-3">
+          {producerPhoto&&<img src={producerPhoto} alt={show?.host||'Παραγωγός στον αέρα'}
+            className="size-12 shrink-0 rounded-xl border border-[#ccff00]/20 object-cover"
+            onError={e=>{e.currentTarget.style.display='none';}}/>}
+          <div className="min-w-0 flex-1">
+            <p className="line-clamp-2 text-sm font-black leading-tight sm:text-base">{show?.title||'Ζωντανό ραδιόφωνο'}</p>
+            <p className="mt-1 truncate text-[11px] text-zinc-300">{show?.host||'Συντονίσου στον σταθμό'}</p>
+          </div>
+          <span aria-hidden="true" className="flex shrink-0 items-center gap-[3px]">
+            {[10,18,13,22,12].map((height,index)=><span key={index} className="w-[3px] rounded-full bg-[#ccff00]/75" style={{height}}/>)}
+          </span>
+        </div>
+      </div>
+
+      <div className="relative z-10 mt-4 flex flex-wrap items-center justify-between gap-2">
+        <StationListenButton station={station} currentStation={currentStation} isPlaying={isPlaying}
+          onPlayStation={onPlayStation} onPlayPause={onPlayPause} className="min-h-11 rounded-full px-5"/>
+        <Link to={href} aria-label={'Πληροφορίες '+station.name}
+          className="inline-flex size-11 items-center justify-center rounded-full border border-white/25 bg-black/35 text-white transition-colors hover:border-[#ccff00]/70 hover:text-[#ccff00]">
+          <ArrowUpRight size={19}/>
+        </Link>
       </div>
     </aside>
   );

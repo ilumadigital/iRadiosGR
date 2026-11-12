@@ -9,6 +9,7 @@ import StationCatalogCard from '../components/StationCatalogCard';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 import {stationMatchesRegion} from '../utils/stationRegions';
 import {sortCatalogStations} from '../utils/catalogLive';
+import {buildSponsoredCatalog,sponsoredGridColumns,withoutPaidBoostRank,restoreSortedStations} from '../utils/sponsoredCatalog';
  
 
 export default function Region({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
@@ -17,6 +18,17 @@ export default function Region({ stations, currentStation, setCurrentStation, is
 
   const [sortBy, setSortBy] = useState('popularity');
   const [viewMode, setViewMode] = useState('grid');
+  const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1024:window.innerWidth);
+  const [sponsorClock,setSponsorClock]=useState(()=>Date.now());
+  useEffect(()=>{
+    const timer=setInterval(()=>setSponsorClock(Date.now()),30000);
+    return()=>clearInterval(timer);
+  },[]);
+  useEffect(()=>{
+    const resize=()=>setViewportWidth(window.innerWidth);
+    window.addEventListener('resize',resize,{passive:true});
+    return()=>window.removeEventListener('resize',resize);
+  },[]);
   const [promotedStationId,setPromotedStationId] = useState(null);
   const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying(currentUser);
   useEffect(()=>setPromotedStationId(null),[regionName]);
@@ -91,7 +103,8 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     if (selectedGenre !== 'all') result = result.filter(s => s.genre === selectedGenre);
     if (selectedTransmission !== 'all') result = result.filter(s => (s.transmissionType || 'Web Radio') === selectedTransmission);
 
-    return sortCatalogStations(result,catalogNowPlaying,catalogClock,sortBy,'region',regionName);
+    return restoreSortedStations(sortCatalogStations(result.map(withoutPaidBoostRank),
+      catalogNowPlaying,catalogClock,sortBy,'region',regionName),result);
   }, [baseStations, selectedGenre, selectedTransmission, sortBy, catalogNowPlaying, catalogClock, regionName]);
 
   const formatGenre = (text) => text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
@@ -102,6 +115,15 @@ export default function Region({ stations, currentStation, setCurrentStation, is
   const displayStations=useMemo(()=>viewMode!=='map' && promotedStationId
     ? filteredAndSorted.filter(s=>String(s._id)!==String(promotedStationId))
     : filteredAndSorted,[filteredAndSorted,viewMode,promotedStationId]);
+
+  const sponsoredEntries=useMemo(()=>buildSponsoredCatalog({
+    organic:displayStations,
+    allStations:stations.filter(station=>String(station._id)!==String(promotedStationId)),
+    scope:'region',value:regionName,mode:viewMode,
+    columns:sponsoredGridColumns(viewportWidth),now:sponsorClock,
+    categoryFilter:selectedGenre,transmissionFilter:selectedTransmission
+  }),[displayStations,stations,promotedStationId,regionName,viewMode,viewportWidth,sponsorClock,
+    selectedGenre,selectedTransmission]);
 
   const handleBannerView = async (bannerId) => {
     try { await fetch(`/api/banners/${bannerId}/impression`, { method: 'POST' }); } catch (e) {}
@@ -211,9 +233,9 @@ export default function Region({ stations, currentStation, setCurrentStation, is
         currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
-      {viewMode !== 'map' && filteredAndSorted.length > 0 && (
+      {viewMode !== 'map' && sponsoredEntries.length > 0 && (
         <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex w-full min-w-0 flex-col gap-3"}>
-          {displayStations.map((station, index) => {
+          {sponsoredEntries.map(({station,sponsored}, index) => {
             const isCurrent = currentStation && (currentStation._id === station._id);
             const isCurrentlyPlaying = isCurrent && isPlaying;
             
@@ -274,6 +296,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
                 {/* Shared premium station card; profile navigation is separate from live playback. */}
                 <StationCatalogCard station={station} currentStation={currentStation} isPlaying={isPlaying}
                   onPlayStation={setCurrentStation} onPlayPause={onPlayPause} mode={viewMode}
+                  sponsored={sponsored}
                   nowPlaying={catalogNowPlaying[String(station._id)]} clock={catalogClock} currentUser={currentUser} />
               </React.Fragment>
             );
@@ -300,7 +323,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
         />
       )}
 
-      {filteredAndSorted.length === 0 && (
+      {sponsoredEntries.length === 0 && (
         <div className="text-zinc-500 font-bold italic py-20 text-center w-full bg-zinc-900/20 rounded-[32px] border border-white/5 mt-4">Δεν βρέθηκαν σταθμοί με αυτά τα κριτήρια.</div>
       )}
 
