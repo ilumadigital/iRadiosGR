@@ -49,3 +49,32 @@
 .ir-embed__hero-stage img.is-logo{object-fit:contain;padding:12%;background:radial-gradient(circle at center,#272a32,#0c0f15)}
 .ir-embed img.ir-embed__overlay.is-logo{object-fit:contain;padding:12%}
 @media(prefers-reduced-motion:reduce){.ir-embed img.ir-embed__overlay{transition:none}}
+
+
+/* Search destinations are visible whenever a valid song and a current
+   broadcaster subscription entitlement are both present. */
+.ir-embed__service-link.is-spotify{color:#1ed760;border-color:#1ed76070}
+.ir-embed__service-link.is-apple{color:#fff;border-color:#fa496e80;background:#c72244b8}
+.ir-embed__service-link svg{width:15px;height:15px}
+.ir-embed__service-link:hover{filter:brightness(1.16)}
+.ir-embed__panel-buttons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ir-embed__panel-buttons.is-compact .ir-embed__chip{min-height:27px;font-size:10px;padding:6px 9px}
+.ir-embed__panel-buttons .ir-embed__chip{font-size:11px;min-height:32px;border-color:#caff0080;background:#090c10c9;box-shadow:0 4px 20px #0007}
+.ir-widget-drawer{position:fixed;inset:0;z-index:150;display:flex;flex-direction:column;overflow:hidden;color:#fff;background:linear-gradient(130deg,#191d20ed,#0a0d12f9);border:1px solid #ffffff32;backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px)}
+.ir-widget-drawer__header{display:flex;flex:none;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid #ffffff22}
+.ir-widget-drawer__close{display:inline-flex;align-items:center;justify-content:center;border-radius:99px;background:#ffffff14;border:1px solid #ffffff30;color:#fff;min-width:34px;min-height:34px;cursor:pointer}
+.ir-widget-drawer__close:hover,.ir-widget-drawer__close:focus-visible{color:#caff00;border-color:#caff00}
+.ir-widget-drawer__days{flex:none;padding:12px 18px;border-bottom:1px solid #ffffff16}
+.ir-widget-drawer__days select{width:100%;max-width:360px;background:#0c1116;border:1px solid #caff0080;border-radius:12px;color:#fff;padding:10px 14px;font-weight:800;font-size:13px}
+.ir-widget-drawer__days select option{color:#fff;background:#0c1116}
+.ir-widget-drawer__list{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:12px 18px 22px}
+.ir-widget-drawer__row{display:flex;align-items:center;gap:12px;padding:13px 12px;margin-bottom:8px;border-radius:16px;border:1px solid #ffffff1f;background:#ffffff0a}
+.ir-widget-drawer__row.is-live{border-color:#caff00aa;background:#caff0019}
+.ir-widget-drawer__list::-webkit-scrollbar{width:6px}
+.ir-widget-drawer__list::-webkit-scrollbar-thumb{background:#caff0070;border-radius:20px}
+@container (max-width:360px){
+  .ir-widget-drawer__header{padding:12px}
+  .ir-widget-drawer__list{padding:8px}
+  .ir-widget-drawer__row{padding:9px}
+  .ir-embed__panel-buttons .ir-embed__chip{font-size:10px}
+}
