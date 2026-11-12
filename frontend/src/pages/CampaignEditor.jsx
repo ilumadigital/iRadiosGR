@@ -3,6 +3,7 @@ import {Link, useNavigate, useParams} from 'react-router-dom';
 import {ArrowLeft, Check, Image as ImageIcon, Music2, RefreshCw, ShieldAlert} from 'lucide-react';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import DynamicAdCreative from '../components/DynamicAdCreative';
+import {deriveCreativeAccent} from '../utils/creativePalette';
 import '../styles/ad-campaign-console.css';
 
 const box = 'rounded-2xl border border-white/10 bg-[#14161c] p-5 sm:p-6';
@@ -67,6 +68,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const [loading,setLoading]=useState(Boolean(id));
   const [error,setError]=useState('');
   const [preview,setPreview]=useState('strip');
+  const [autoColor,setAutoColor]=useState(true);
   const [imported,setImported]=useState(false);
   const change=(name,value)=>setForm(old=>({...old,[name]:value}));
   const route=getEndpoint(scope,kind,currentUser,id);
@@ -105,6 +107,14 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
     setPreviewImage(object);
     return ()=>URL.revokeObjectURL(object);
   },[files.imageFile]);
+  useEffect(()=>{
+    if(!autoColor||!files.imageFile)return;
+    let live=true;
+    deriveCreativeAccent(files.imageFile).then(value=>{
+      if(live&&value)setForm(old=>({...old,brandColor:value}));
+    }).catch(()=>{});
+    return ()=>{live=false;};
+  },[files.imageFile,autoColor]);
   previewBanner.imageUrl=previewImage||form.imageUrl||'/iradios-app-logo.png';
   const editable=scope!=='agency'||!id||['pending','rejected'].includes(form.status);
   const upload=async(file,endpoint,field)=>{
@@ -178,8 +188,9 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
             <input required={banner} type="url" placeholder="https://" className={input} value={banner?form.targetUrl:form.linkUrl} onChange={e=>change(banner?'targetUrl':'linkUrl',e.target.value)}/></Field>
           {banner&&<div className="grid gap-4 sm:grid-cols-2">
             <Field label="Κείμενο κουμπιού"><input className={input} maxLength={45} value={form.ctaLabel} onChange={e=>change('ctaLabel',e.target.value)}/></Field>
-            <Field label="Χρώμα brand"><div className="mt-2 flex items-center gap-3"><input aria-label="Χρώμα" type="color" value={form.brandColor} onChange={e=>change('brandColor',e.target.value)} className="h-11 w-16 cursor-pointer rounded-lg"/><input className={input+' !mt-0'} pattern="#[0-9a-fA-F]{6}" value={form.brandColor} onChange={e=>change('brandColor',e.target.value)}/></div></Field>
+            <Field label="Χρώμα brand"><div className="mt-2 flex items-center gap-3"><input aria-label="Χρώμα" type="color" value={form.brandColor} onChange={e=>{setAutoColor(false);change('brandColor',e.target.value);}} className="h-11 w-16 cursor-pointer rounded-lg"/><input className={input+' !mt-0'} pattern="#[0-9a-fA-F]{6}" value={form.brandColor} onChange={e=>change('brandColor',e.target.value)}/></div></Field>
           </div>}
+          {banner&&<button type="button" className="text-left text-xs font-bold text-purple-300 hover:text-white" onClick={()=>setAutoColor(true)}>Αυτόματο χρώμα από την ανεβασμένη cover εικόνα {autoColor?'✓':''}</button>}
         </section>
         <section className={box+' space-y-4'}>
           <h2 className="text-base font-black text-white">02 · Creative assets</h2>
