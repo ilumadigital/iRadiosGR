@@ -265,6 +265,18 @@ function RdsHeadline({station,rds,hero=false,mini=false}){
       song?'song':fallback.kind)}
   </RdsCrossfade>;
 }
+function RdsTicker({station,rds}){
+  const song=rds.song;
+  const show=Boolean(song&&rds.broadcast?.recognizedShow&&rds.broadcast?.imageUrl);
+  const format=(title,artist)=><span className="block min-w-0 truncate">
+    {title}{artist?' · '+artist:''}
+  </span>;
+  return <RdsCrossfade secondary={show?format(
+    rds.broadcast.title||station.name,rds.broadcast.artist||station.name):null}
+    showSecondary={Boolean(show&&rds.showProducer)}>
+    {format(song?.title||rds.display.title,song?.artist||rds.display.artist)}
+  </RdsCrossfade>;
+}
 function StationIdentity({station,compact=false}){
   return <div className="flex min-w-0 items-center gap-2.5">
     <ArtworkVisual station={station} className="ir-embed__station-img"/>
@@ -378,7 +390,10 @@ function Program({station,current,upcoming,light,mini,rds,audio}){
     <section className="relative z-10 flex min-h-0 flex-1 flex-col justify-end gap-2 px-4 py-2">
       <h1 className="line-clamp-2 text-xl font-black leading-tight">{active.title}</h1>
       <p className="truncate text-xs font-semibold text-white/80">{active.host||station.name}</p>
-      {upcoming[0]&&<ShowLine station={station} show={upcoming[0]}/>}
+      {rds.song&&<div className="min-w-0 text-[11px] font-semibold text-white/80">
+        <RdsTicker station={station} rds={rds}/>
+      </div>}
+      {upcoming[0]&&<ShowLine station={station} show={upcoming[0]}/>
     </section>
     <footer className="ir-embed__controls relative z-10 shrink-0 px-4 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -425,9 +440,9 @@ function Program({station,current,upcoming,light,mini,rds,audio}){
       </div>
       {audio.error&&<p className="mt-1 text-[10px] text-amber-300" role="status">{audio.error}</p>}
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-[10px] font-semibold text-white/70">
-          {rds.display.title+' · '+rds.display.artist}
-        </span>
+        <div className="min-w-0 flex-1 text-[10px] font-semibold text-white/70">
+          <RdsTicker station={station} rds={rds}/>
+        </div>
         <ProfileLink station={station} compact/>
       </div>
     </footer>
