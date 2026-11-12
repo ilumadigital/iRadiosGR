@@ -13,6 +13,7 @@ router.get('/admin/ads', ...admin, adController.getAdminAds);
 router.get('/admin/local-ads', ...admin, adController.getAdminLocalAds);
 router.post('/admin/ads', ...admin, adController.createAdminAd);
 router.put('/admin/ads/:id', ...admin, adController.updateAd);
+router.post('/admin/ads/:id/clone-stage', ...admin, adController.cloneStageAd);
 router.delete('/admin/ads/:id', ...admin, adController.deleteAd);
 
 router.get('/broadcaster/:userId/ads',protect,(req,res,next)=>{
