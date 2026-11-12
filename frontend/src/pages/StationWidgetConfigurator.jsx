@@ -1,6 +1,6 @@
 import React,{useMemo,useState} from 'react';
 import {Helmet} from 'react-helmet-async';
-import {ArrowLeft,ArrowUpRight,Check,Code2,Copy,ExternalLink,LayoutGrid,Monitor,Radio,Smartphone,Square,Text,Volume2} from 'lucide-react';
+import {ArrowLeft,ArrowUpRight,Check,Code2,Copy,ExternalLink,LayoutGrid,Monitor,Radio,Smartphone,Square,Text,Volume2,Loader2} from 'lucide-react';
 import {Link} from 'react-router-dom';
 
 const WIDGETS=[
@@ -10,29 +10,86 @@ const WIDGETS=[
   {id:'program-mini',name:'Program Mini',info:'Compact πρόγραμμα με φωτογραφία παραγωγού σε μικρό πλαίσιο, χρωματικό φόντο και live controls.',icon:Text,shape:'mini'},
   {id:'hero',name:'HERO 100vh',info:'Fullscreen Now Playing και εκπομπή ανά 20″, με πλήρες Πρόγραμμα και Playlist σε αναδυόμενες λίστες.',icon:Monitor,shape:'hero'}
 ];
-function embedSnippet(url,shape){
-  const attrs=shape==='hero'
-    ?'width:100%;height:100vh;height:100dvh;display:block;border:0;'
-    :shape==='square'
-      ?'width:100%;max-width:480px;aspect-ratio:1/1;display:block;border:0;border-radius:24px;overflow:hidden;'
-      :'width:100%;max-width:650px;height:285px;display:block;border:0;border-radius:18px;overflow:hidden;';
-  return '<iframe\n  src="'+url+'"\n  title="iRadios Station Widget"\n  loading="lazy"\n  allow="autoplay; encrypted-media"\n  style="'+attrs+'"\n></iframe>';
+const DEFAULT_SIZES={
+  'player-square':{width:480,height:480,minHeight:260},
+  'player-mini':{width:650,height:285,minHeight:180},
+  'program-square':{width:480,height:480,minHeight:260},
+  'program-mini':{width:650,height:285,minHeight:180},
+  hero:{width:1060,height:720,minHeight:320}
+};
+function embedSnippet(url,shape,{widthAuto=true,heightAuto=true,width=480,height=480}={}){
+  const widthCss=widthAuto
+    ?shape==='hero'?'width:100%;':shape==='square'?
+      'width:100%;max-width:480px;':'width:100%;max-width:650px;'
+    :'width:'+width+'px;max-width:100%;';
+  const heightCss=heightAuto?
+    shape==='hero'?'height:100vh;height:100dvh;':
+      shape==='square'?'height:auto;aspect-ratio:1/1;':'height:285px;':
+    'height:'+height+'px;';
+  const radius=shape==='hero'?'0':shape==='square'?'24px':'18px';
+  return '<iframe\n  src="'+url+'"\n  title="iRadios Station Widget"\n'+
+    '  loading="lazy"\n  allow="autoplay; encrypted-media"\n'+
+    '  style="'+widthCss+heightCss+
+    'display:block;border:0;border-radius:'+radius+';overflow:hidden;"\n></iframe>';
 }
 export default function StationWidgetConfigurator({stations=[]}){
   const approved=useMemo(()=>stations.filter(s=>s.status==='approved'),[stations]);
   const [stationId,setStationId]=useState('');
   const [kind,setKind]=useState('player-square');
   const [mobile,setMobile]=useState(false);
+  const [widthAuto,setWidthAuto]=useState(true);
+  const [heightAuto,setHeightAuto]=useState(true);
+  const [width,setWidth]=useState(480);
+  const [height,setHeight]=useState(480);
+  const [autoplay,setAutoplay]=useState(false);
+  const [opening,setOpening]=useState(false);
+  const [previewError,setPreviewError]=useState('');
   const [copied,setCopied]=useState(false);
   const station=approved.find(s=>s._id===stationId)||approved[0];
   const widget=WIDGETS.find(item=>item.id===kind)||WIDGETS[0];
   const origin=typeof window==='undefined'?'':window.location.origin;
   const previewUrl=station?
-    origin+'/widget-embed/'+widget.id+'/'+encodeURIComponent(station.slug||station._id):'';
-  const code=previewUrl?embedSnippet(previewUrl,widget.shape):'';
+    origin+'/widget-embed/'+widget.id+'/'+encodeURIComponent(station.slug||station._id)+
+    (autoplay?'?autoplay=1':''):'';
+  const code=previewUrl?embedSnippet(previewUrl,widget.shape,{
+    widthAuto,heightAuto,width,height
+  }):'';
   const square=widget.shape==='square',hero=widget.shape==='hero';
-  const previewWidth=mobile?390:hero?1060:square?480:650;
-  const previewHeight=mobile?(hero?720:square?390:285):hero?600:square?480:285;
+  const sizes=DEFAULT_SIZES[widget.id];
+  const maxWidth=mobile?390:hero?1060:square?480:650;
+  const previewWidth=widthAuto?maxWidth:Math.min(width,mobile?390:1800);
+  const previewHeight=heightAuto?(mobile?(hero?720:square?390:285):
+    hero?600:square?480:285):height;
+  async function openTemporaryPreview(){
+    if(!station||opening)return;
+    setPreviewError('');
+    // Open synchronously from the click so Safari/Chrome popup blockers do
+    // not turn the authenticated async token request into a blocked popup.
+    const tab=window.open('about:blank','_blank');
+    if(!tab){setPreviewError('Επέτρεψε τα αναδυόμενα παράθυρα για το preview.');return;}
+    try{tab.opener=null;}catch{}
+    setOpening(true);
+    try{
+      const token=localStorage.getItem('iluma_token');
+      if(!token)throw new Error('Απαιτείται σύνδεση στο Station Console.');
+      const response=await fetch('/api/backoffice/widget-previews',{
+        method:'POST',cache:'no-store',
+        headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({stationId:String(station._id),variant:widget.id})
+      });
+      const data=await response.json();
+      if(!response.ok||typeof data?.token!=='string')
+        throw new Error(data?.error||'Δεν ήταν δυνατή η δημιουργία preview.');
+      const path='/widget-embed/'+encodeURIComponent(widget.id)+'/'+
+        encodeURIComponent(station._id)+(autoplay?'?autoplay=1':'');
+      // A fragment is not included in HTTP requests or referrers; the new tab
+      // consumes it immediately, keeps it in sessionStorage and removes the URL hash.
+      if(!tab.closed)tab.location.replace(origin+path+'#preview='+encodeURIComponent(data.token));
+    }catch(error){
+      if(!tab.closed)tab.close();
+      setPreviewError(error.message||'Το προσωρινό preview δεν άνοιξε.');
+    }finally{setOpening(false);}
+  }
   async function copyCode(){
     if(!code)return;
     try{
@@ -74,7 +131,13 @@ export default function StationWidgetConfigurator({stations=[]}){
         <div>
           <h2 className="mb-3 text-[11px] font-black uppercase tracking-widest text-zinc-400">Επιλογή Widget</h2>
           <div className="space-y-2">
-            {WIDGETS.map(item=><button type="button" key={item.id} onClick={()=>{setKind(item.id);setCopied(false);}}
+            {WIDGETS.map(item=><button type="button" key={item.id} onClick={()=>{
+              setKind(item.id);
+              setWidth(DEFAULT_SIZES[item.id].width);
+              setHeight(DEFAULT_SIZES[item.id].height);
+              setWidthAuto(true);setHeightAuto(true);
+              setCopied(false);setPreviewError('');
+            }}
               aria-pressed={kind===item.id}
               className={'flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition '+(kind===item.id?
                 'border-violet-400/70 bg-violet-500/15 shadow-[0_8px_32px_rgba(139,92,246,.1)]':
@@ -86,6 +149,67 @@ export default function StationWidgetConfigurator({stations=[]}){
               </span>
               {kind===item.id&&<Check size={18} className="mt-2 shrink-0 text-violet-300"/>}
             </button>)}
+          </div>
+        </div>
+        <div className="space-y-4 rounded-2xl border border-violet-400/15 bg-[#090b10] p-4">
+          <h2 className="text-[11px] font-black uppercase tracking-widest text-violet-300">
+            Διαστάσεις & Αναπαραγωγή
+          </h2>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="widget-width" className="text-xs font-bold text-zinc-200">Width</label>
+              <label className="flex items-center gap-2 text-xs font-bold text-zinc-300">
+                <input type="checkbox" checked={widthAuto}
+                  onChange={event=>{setWidthAuto(event.target.checked);setCopied(false);}}
+                  className="accent-violet-500"/> Auto
+              </label>
+            </div>
+            <div className="flex items-center gap-3">
+              <input type="range" id="widget-width" min="260" max="1800" step="10"
+                disabled={widthAuto} value={width}
+                onChange={event=>{setWidth(Number(event.target.value));setCopied(false);}}
+                className="min-w-0 flex-1 accent-violet-500 disabled:opacity-30"/>
+              <output htmlFor="widget-width" className="w-16 text-right text-xs font-black text-white">
+                {widthAuto?'Auto':width+' px'}
+              </output>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="widget-height" className="text-xs font-bold text-zinc-200">Height</label>
+              <label className="flex items-center gap-2 text-xs font-bold text-zinc-300">
+                <input type="checkbox" checked={heightAuto}
+                  onChange={event=>{setHeightAuto(event.target.checked);setCopied(false);}}
+                  className="accent-violet-500"/> Auto
+              </label>
+            </div>
+            <div className="flex items-center gap-3">
+              <input type="range" id="widget-height" min={sizes.minHeight} max="1500" step="10"
+                disabled={heightAuto} value={height}
+                onChange={event=>{setHeight(Number(event.target.value));setCopied(false);}}
+                className="min-w-0 flex-1 accent-violet-500 disabled:opacity-30"/>
+              <output htmlFor="widget-height" className="w-16 text-right text-xs font-black text-white">
+                {heightAuto?'Auto':height+' px'}
+              </output>
+            </div>
+            <p className="text-[10px] text-zinc-500">
+              {hero?'Auto: πλήρες ύψος οθόνης (100dvh).':
+                square?'Auto: τετράγωνο με αναλογία 1:1.':'Auto: ύψος 285px.'}
+            </p>
+          </div>
+          <div className="border-t border-white/10 pt-3">
+            <label className="flex items-start justify-between gap-3">
+              <span>
+                <span className="block text-xs font-black text-white">Autoplay</span>
+                <span className="mt-1 block text-[11px] leading-5 text-zinc-400">
+                  Προσπάθεια αυτόματης εκκίνησης με τη φόρτωση. Αν ο browser μπλοκάρει
+                  τον ήχο, χρειάζεται πάτημα Play.
+                </span>
+              </span>
+              <input type="checkbox" checked={autoplay}
+                onChange={event=>{setAutoplay(event.target.checked);setCopied(false);}}
+                className="mt-1 size-4 shrink-0 accent-violet-500"/>
+            </label>
           </div>
         </div>
         <div className="rounded-2xl border border-violet-400/20 bg-violet-500/[.06] p-4">
@@ -105,9 +229,11 @@ export default function StationWidgetConfigurator({stations=[]}){
                 className={'rounded-xl border p-2.5 '+(!mobile?'border-violet-400 bg-violet-500/20 text-violet-200':'border-white/10 text-zinc-400')}><Monitor size={17}/></button>
               <button type="button" onClick={()=>setMobile(true)} aria-label="Mobile Preview" aria-pressed={mobile}
                 className={'rounded-xl border p-2.5 '+(mobile?'border-violet-400 bg-violet-500/20 text-violet-200':'border-white/10 text-zinc-400')}><Smartphone size={17}/></button>
-              <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2.5 text-[11px] font-black text-violet-200 transition hover:bg-violet-500/20">
-                <ExternalLink size={15}/> Νέο tab
-              </a>
+              <button type="button" onClick={openTemporaryPreview} disabled={opening}
+                className="inline-flex items-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2.5 text-[11px] font-black text-violet-200 transition hover:bg-violet-500/20 disabled:opacity-50">
+                {opening?<Loader2 size={15} className="animate-spin"/>:<ExternalLink size={15}/>}
+                Νέο tab · 3 λεπτά
+              </button>
             </div>
           </div>
           <div className="flex w-full justify-center overflow-x-auto rounded-2xl border border-white/5 bg-[#07090c] px-2 py-6 md:px-5">
@@ -115,14 +241,21 @@ export default function StationWidgetConfigurator({stations=[]}){
               allow="autoplay; encrypted-media" loading="eager"
               style={{width:'100%',maxWidth:previewWidth,height:previewHeight,border:0,borderRadius:hero?22:20,display:'block',background:'#101315'}}/>
           </div>
-          <p className="mt-3 text-[11px] leading-5 text-zinc-500">Τα Mini χρησιμοποιούν χρωματικό φόντο και μικρή φωτογραφία τραγουδιού ή παραγωγού (με fallback στο station logo). Τα Square και HERO διατηρούν το artwork background. Όλα τα widgets είναι Dark. Ο ήχος ξεκινά μόνο με Play. Το HERO έχει ύψος 100dvh.</p>
+          {previewError&&<p role="alert" className="mt-3 text-xs font-semibold text-amber-300">{previewError}</p>}
+          <p className="mt-3 text-[11px] leading-5 text-zinc-500">
+            Το Νέο tab απαιτεί προσωρινή εξουσιοδότηση και κλείνει μετά από 3 λεπτά.
+            Το iframe παραμένει δημόσιο χωρίς token. Το autoplay με ήχο εξαρτάται από
+            την πολιτική του browser. Τα Mini έχουν χρωματικό φόντο, ενώ τα Square/HERO artwork.
+          </p>
         </div>
         <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#111519] p-4 md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div><h2 className="text-lg font-black text-white">Κώδικας ενσωμάτωσης</h2>
               <p className="mt-1 text-[11px] text-zinc-500">Έτοιμο responsive HTML iframe για αντιγραφή.</p></div>
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-violet-300 hover:text-violet-100">Προβολή <ArrowUpRight size={14}/></a>
+            <button type="button" onClick={openTemporaryPreview} disabled={opening}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-violet-300 hover:text-violet-100 disabled:opacity-50">
+              Προβολή 3′ <ArrowUpRight size={14}/>
+            </button>
           </div>
           <textarea id="iradios-widget-code" readOnly rows={7} value={code}
             aria-label="HTML κώδικας widget" className="w-full resize-none rounded-2xl border border-white/10 bg-[#06080c] p-4 font-mono text-[11px] leading-6 text-zinc-300 outline-none focus:border-violet-400"/>

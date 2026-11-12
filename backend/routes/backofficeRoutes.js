@@ -16,6 +16,7 @@ const {hasAccountRight}=require('../services/billingEntitlements');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {hasAcceptedCurrentBroadcasterTerms}=require('../utils/broadcasterTerms');
+const {validRequest,mintWidgetPreviewToken,PREVIEW_TTL_MS}=require('../services/widgetPreviewTokens');
 const {normalize:normalizeWeeklySchedule}=require('../utils/scheduleNormalization');
 const {loadFeed,previewFeed,publicPreview,syncOne,startCron}=require('../services/stationScheduleFeed');
 // Routes are mounted once on API startup, so registration occurs once per worker.
@@ -223,6 +224,26 @@ router.get('/backoffice/admin/station-ranking',authorizeRoles('admin'),async(req
     return res.json(items);
   }catch(error){return fail(res,error);}
 });
+// Only an authenticated Admin or the approved station's verified Broadcaster
+// may create a short-lived top-level preview. The iframe itself stays public.
+router.post('/backoffice/widget-previews',authorizeRoles('admin','broadcaster'),async(req,res)=>{
+  res.setHeader('Cache-Control','private, no-store');
+  res.setHeader('Referrer-Policy','no-referrer');
+  const {stationId,variant}=req.body||{};
+  if(!validRequest(stationId,variant))
+    return res.status(400).json({error:'Μη έγκυρο widget ή σταθμός.'});
+  try{
+    const scope={_id:stationId,status:'approved'};
+    if(req.user.role!=='admin')scope.broadcasterId=req.user._id;
+    const station=await Station.findOne(scope).select('_id').lean();
+    if(!station)return res.status(403).json({error:'Δεν έχεις πρόσβαση στο preview αυτού του σταθμού.'});
+    const token=mintWidgetPreviewToken({stationId:String(station._id),variant});
+    return res.status(201).json({token,expiresInSeconds:PREVIEW_TTL_MS/1000});
+  }catch{
+    return res.status(503).json({error:'Το προσωρινό preview δεν είναι διαθέσιμο.'});
+  }
+});
+
 router.get('/backoffice/stations/:id',async(req,res)=>{
   try{
     const station=await ownedStation(req,res);

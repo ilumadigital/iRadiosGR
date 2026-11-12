@@ -107,14 +107,20 @@ function useLiveAudio(station){
       await audio.play();
       if(id!==requestId.current){audio.pause();return;}
       setPlaying(true);setBuffering(false);
-    }catch{
+    }catch(reason){
       if(id===requestId.current){
         setPlaying(false);setBuffering(false);
-        setError(useDsp?'Δεν ακούς ήχο; Δοκίμασε το No Sound? Click Here.':'Το stream δεν είναι διαθέσιμο.');
+        // Browser audible-autoplay policies cannot be bypassed by an iframe
+        // flag. Leave the ordinary Play control available for user activation.
+        setError(reason?.name==='NotAllowedError'?
+          'Ο browser μπλόκαρε το autoplay με ήχο. Πάτησε Play για ακρόαση.':
+          useDsp?'Δεν ακούς ήχο; Δοκίμασε το No Sound? Click Here.':
+            'Το stream δεν είναι διαθέσιμο.');
       }
     }
   },[station?.stream,station?.streamUrl,hasDSP,deviceRaw,bypass,resumeDSP,volume]);
   const toggle=()=>playing?stop():start();
+  const autoStart=useCallback(()=>start(),[start]);
   const switchProcessing=()=>{
     const next=!bypass;
     setBypass(next);
@@ -139,7 +145,7 @@ function useLiveAudio(station){
     if(rawRef.current)rawRef.current.volume=volume;
   },[volume]);
   return {dspRef,rawRef,analyserRef,playing,buffering,error,volume,setVolume,hasDSP,processing,
-    bypass,toggle,switchProcessing};
+    bypass,toggle,switchProcessing,autoStart};
 }
 function ProfileLink({station,compact=false,light=false}){
   return <a href={'/station/'+encodeURIComponent(station.slug||station._id)}
@@ -505,10 +511,19 @@ export default function StationEmbed(){
   const [params]=useSearchParams();
   const type=EMBED_TYPES.has(variant)?variant:'';
   const light=params.get('theme')==='light'&&type!=='hero';
+  const autoplay=params.get('autoplay')==='1';
   const {station,status}=useStation(stationId);
   const rds=useStationWidgetRds(station);
   const program=useProgram(station);
   const audio=useLiveAudio(station);
+  const autoplayAttempted=useRef('');
+  useEffect(()=>{
+    if(!autoplay||!station?._id)return;
+    const key=String(station._id);
+    if(autoplayAttempted.current===key)return;
+    autoplayAttempted.current=key;
+    void audio.autoStart();
+  },[autoplay,station?._id,audio.autoStart]);
   const artwork=useCoverArtwork(station,rds.song);
   const visualRds={...rds,artwork};
   useStationWidgetMediaSession({station,rds,audio,artwork});
