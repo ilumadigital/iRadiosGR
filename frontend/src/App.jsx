@@ -1163,6 +1163,8 @@ function MainApp() {
     const zappingAdsToPlay = ads.filter(ad => {
       let frequencyMatch = false;
       if (ad.frequency === 'entry' && clicks === 1) frequencyMatch = true;
+      if (ad.frequency === 'every_2_stations' && clicks % 2 === 0) frequencyMatch = true;
+      if (ad.frequency === 'every_4_stations' && clicks % 4 === 0) frequencyMatch = true;
       if (ad.frequency === 'every_5_stations' && clicks % 5 === 0) frequencyMatch = true;
       if (ad.frequency === 'every_10_stations' && clicks % 10 === 0) frequencyMatch = true;
       if (ad.frequency === 'every_15_stations' && clicks % 15 === 0) frequencyMatch = true;
