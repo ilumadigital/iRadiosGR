@@ -43,7 +43,7 @@ import WinbackTicker from './components/WinbackTicker';
 import ScrollToTop from './components/ScrollToTop';
 import WidgetPlayer from './components/WidgetPlayer';
 import WidgetNow from './components/WidgetNow';
-import StationEmbed from './components/StationEmbed';
+import WidgetEmbedAccess from './components/WidgetEmbedAccess';
 
 // --- PAGES ---
 import Home from './pages/Home';
@@ -2111,7 +2111,7 @@ function AppContent(){
   // No MainApp, audio hooks, socket, player, menus or advertisements in Broadcaster onboarding.
   // Public widgets never mount the listener app or its global audio player.
   if(location.pathname.startsWith('/widget-embed/'))return <Routes>
-    <Route path="/widget-embed/:variant/:stationId" element={<StationEmbed/>}/>
+    <Route path="/widget-embed/:variant/:stationId" element={<WidgetEmbedAccess/>}/>
   </Routes>;
   if(location.pathname==='/broadcast')return <GoBroadcast/>;
   if(location.pathname==='/broadcast/register')return <BroadcasterRegister/>;
