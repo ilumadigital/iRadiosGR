@@ -3,7 +3,7 @@ import {getAthensClock} from '../utils/schedule';
 import {parseMusicMetadata} from '../utils/musicMetadata';
 import {cleanMetadata} from '../utils/cleanMetadata';
 import {resolveLiveShowArtwork,validShowImage} from '../utils/liveBroadcast';
-import {showProducerNow,RDS_INTERVAL_MS} from '../utils/rdsPresentation';
+import {RDS_INTERVAL_MS} from '../utils/rdsPresentation';
 import {widgetSnapshot,widgetOnAirPresentation} from '../utils/widgetRdsPresentation';
 import {mediaFields} from './useMediaSession';
 
@@ -94,7 +94,7 @@ export function useStationWidgetRds(station){
     });
     // A scheduled show is a real on-air source even when the station emits
     // no usable Artist - Title metadata; never invent a song.
-    if(!song&&resolved.show&&!resolved.recognizedShow){
+    if(resolved.show&&!resolved.recognizedShow){
       const show=resolved.show;
       return {...resolved,recognizedShow:true,
         imageUrl:validShowImage(show.imageUrl)?show.imageUrl:null,
@@ -103,10 +103,9 @@ export function useStationWidgetRds(station){
     }
     return resolved;
   },[station,song?.raw,current?.source,current?.broadcastHint,clock.day,clock.minute]);
-  const showProducer=showProducerNow({
-    currentUser:{role:'public-widget'},stationName:station?.name,
-    nowPlaying:song?.raw||'',liveBroadcast:broadcast,at:slot*RDS_INTERVAL_MS
-  });
+  // Fixed 20-second alternation independent of whether a DJ photo exists.
+  // With no real song, show the current scheduled program continuously.
+  const showProducer=Boolean(broadcast?.show&&(!song||slot%2===1));
   const display=widgetOnAirPresentation({song,broadcast,showProducer,station});
   return {song,broadcast,showProducer,display,source:current?.source||'none',
     foundWithAI:Boolean(current?.foundWithAI),activeShow:broadcast.show};
