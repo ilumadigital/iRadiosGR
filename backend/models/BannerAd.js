@@ -8,7 +8,7 @@ const bannerAdSchema = new mongoose.Schema({
   targetUrl: { type: String, required: true },
   placement: {
     type: [String],
-    enum: ['hero', 'home', 'radio_feed', 'news_feed'],
+    enum: ['hero', 'home', 'radio_feed', 'news_feed', 'station_profile'],
     required: true,
     default: 'home'
   },
