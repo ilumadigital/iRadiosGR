@@ -49,6 +49,19 @@ for(const invalid of [
   assert.equal(response.reached,false,'widget prefix never bypasses private endpoints: '+invalid);
   assert.equal(response.res.code,401);
 }
+const publicProducerPhoto=call('GET','/catalog/widget-show-image/0123456789abcdef01234567');
+assert.equal(publicProducerPhoto.reached,true,'public approved producer photo route reaches strict source validator');
+for(const path of [
+  '/catalog/widget-show-image/not-a-station',
+  '/catalog/widget-show-image/0123456789abcdef01234567/private',
+  '/catalog/widget-show-image/0123456789abcdef01234567/download'
+]){
+  const result=call('GET',path);
+  assert.equal(result.reached,false,'unapproved public producer-photo subroute '+path);
+  assert.equal(result.res.code,401);
+}
+const imageWrite=call('POST','/catalog/widget-show-image/0123456789abcdef01234567');
+assert.equal(imageWrite.res.code,401,'producer image route is GET-only');
 const nativePlaylist=call('GET','/catalog/widget-native/0123456789abcdef01234567/playlist');
 assert.equal(nativePlaylist.reached,true,'Public widget may see native-only playlist');
 const wrongPlaylist=call('GET','/catalog/widget-native/invalid/playlist');

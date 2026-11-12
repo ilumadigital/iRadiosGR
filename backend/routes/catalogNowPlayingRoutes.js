@@ -6,4 +6,6 @@ router.get('/catalog/widget-native/:stationId',
   require('../controllers/catalogNowPlayingController').publicWidgetNowPlaying);
 router.get('/catalog/widget-native/:stationId/playlist',
   require('../controllers/catalogNowPlayingController').publicWidgetPlaylist);
+router.get('/catalog/widget-show-image/:stationId',
+  require('../controllers/widgetShowImageController').publicWidgetShowImage);
 module.exports=router;

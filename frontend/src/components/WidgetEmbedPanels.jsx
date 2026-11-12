@@ -2,17 +2,30 @@ import React,{useEffect,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {CalendarDays,ListMusic,Loader2,RefreshCw,X} from 'lucide-react';
 import {getAthensClock} from '../utils/schedule';
+import {widgetShowImageProxy} from '../utils/widgetShowArtwork';
 
 const DAYS=['Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
 const fallback='/iradios-logo.png';
 const readToken=()=>{
   try{return window.localStorage.getItem('iluma_token')||'';}catch{return '';}
 };
+function ProgramPhoto({station,image}){
+  const [state,setState]=useState({image:null,stage:'direct'});
+  const proxy=widgetShowImageProxy(station,image);
+  const stage=state.image===image?state.stage:'direct';
+  const src=stage==='logo'||!image?station.logo||fallback:
+    stage==='proxy'&&proxy?proxy:image;
+  return <img src={src} alt="" referrerPolicy="no-referrer"
+    className="size-12 shrink-0 rounded-xl object-cover"
+    onError={event=>{
+      if(stage==='direct'&&proxy)setState({image,stage:'proxy'});
+      else if(stage!=='logo'&&image)setState({image,stage:'logo'});
+      else{event.currentTarget.onerror=null;event.currentTarget.src=fallback;}
+    }}/>;
+}
 function ProgramRow({station,show,live}){
-  const image=show.imageUrl||station.logo||fallback;
   return <div className={'ir-widget-drawer__row'+(live?' is-live':'')}>
-    <img src={image} alt="" className="size-12 shrink-0 rounded-xl object-cover"
-      onError={event=>{event.currentTarget.onerror=null;event.currentTarget.src=station.logo||fallback;}}/>
+    <ProgramPhoto station={station} image={show.imageUrl}/>
     <div className="min-w-0 flex-1">
       <p className="text-[10px] font-black uppercase tracking-wider text-[#caff00]">
         {live?'● ΤΩΡΑ LIVE':show.startTime+' – '+(show.endTime==='24:00'?'00:00':show.endTime)}

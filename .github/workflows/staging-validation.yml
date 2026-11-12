@@ -23,6 +23,8 @@ jobs:
         run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
       - name: Verify mini widget artwork tiles, color backgrounds and dark-only configurator
         run: node ops/check-widget-mini-background.cjs
+      - name: Verify station producer photos in external embeds, approved-only image proxy and payload safety
+        run: node ops/check-widget-producer-artwork.cjs && node --test backend/tests/widgetShowImage.test.js
       - name: Verify configurable iframe dimensions, autoplay and secure 3-minute previews
         run: node ops/check-widget-preview-configurator.cjs && node --test backend/tests/widgetPreviewTokens.test.js
       - name: Ensure deprecated Live Chat is completely retired
