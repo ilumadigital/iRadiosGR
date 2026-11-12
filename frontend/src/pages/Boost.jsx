@@ -408,6 +408,11 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
                       {[station.genre, station.region || station.city].filter(Boolean).join(' · ')}
                     </p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {station.promotedPlacements?.length>0 && <span
+                        title={station.promotedPlacements.map(p=>p.placement+' · '+(p.value||'Newsfeed')).join(' / ')}
+                        className="inline-flex items-center rounded-full border border-amber-300/35 bg-amber-300/10 px-2 py-1 text-[10px] font-bold text-amber-200">
+                        Promoted · {station.promotedPlacements.length} θέσεις
+                      </span>}
                       {state.purchased && <span className="inline-flex items-center gap-1 rounded-full border border-[#ccff00]/40 bg-[#ccff00]/10 px-2 py-1 text-[10px] font-bold text-[#d9ff70]"
                         title={'Πληρωμένο μέσω Billing · Λήξη: '+exactTime(station.commercialBoost.endsAt)}>
                         <Zap size={11}/> Paid {station.commercialBoost.placement==='global'?'Global':'Category'} · {paidTime}
