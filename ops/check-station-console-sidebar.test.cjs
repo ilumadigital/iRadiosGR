@@ -7,14 +7,16 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const source=fs.readFileSync(path.join(root,'frontend/src/pages/Backoffice.jsx'),'utf8');
 
-test('Station Console v6 uses original iRadios PNG assets and a small identity card',()=>{
-  assert.match(source,/src="\/iradios-logo\.png"/);
-  assert.match(source,/src="\/noicon-iradios-app-logo\.png"/);
+test('Station Console v6 uses the exact expanded App navbar logo and identity card',()=>{
+  const sidebar=fs.readFileSync(path.join(root,'frontend/src/components/Sidebar.jsx'),'utf8');
+  const logo='<img src="/iradios-app-logo.png"';
+  assert.ok(sidebar.includes(logo),'the expanded App navbar uses iradios-app-logo.png');
+  assert.ok(source.includes(logo),'Backoffice shares the same expanded App asset');
+  assert.doesNotMatch(source,/src="\/noicon-iradios-app-logo\.png"/);
   assert.match(source,/Station Console <span className="text-\[#caff00\]">v6<\/span>/);
   assert.match(source,/iRadiosGR Station Console v6 \| Backoffice/);
   assert.match(source,/Private workspace/);
-  for(const asset of ['iradios-logo.png','noicon-iradios-app-logo.png'])
-    assert.ok(fs.existsSync(path.join(root,'frontend/public',asset)),asset+' must exist in public assets');
+  assert.ok(fs.existsSync(path.join(root,'frontend/public/iradios-app-logo.png')));
 });
 
 test('WebDSP Preview is a prominent eligible-only feature directly above navigation',()=>{
