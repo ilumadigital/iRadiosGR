@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import AdPlacementLink from '../components/AdPlacementLink';
+import DynamicAdCreative from '../components/DynamicAdCreative';
 import {geoAllowsAd} from '../utils/adPlacements';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Play, Pause, ArrowLeft, Radio, LayoutGrid, List, MapPin, Zap, Megaphone, ExternalLink, SignalHigh } from 'lucide-react';
@@ -129,24 +129,8 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
   };
 
   // Stable wrapper prevents impressions on unrelated station/player renders.
-  const TrackableAdWrapper = AdPlacementLink;
-
-  const SquareAdCard = ({ banner }) => (
-    <TrackableAdWrapper placement="radio_feed" banner={banner} className="group flex flex-col relative cursor-pointer h-full">
-      <div className="relative aspect-square w-full rounded-2xl md:rounded-3xl overflow-hidden bg-zinc-900 shadow-lg border border-purple-500/30 transition-all duration-500 group-hover:-translate-y-1 group-hover:border-purple-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.3)]">
-        <img src={banner.squareImageUrl || banner.imageUrl} alt={banner.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-        <div className="absolute top-2 right-2 bg-purple-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded flex items-center gap-1 shadow-md">
-          <Megaphone size={8} /> AD
-        </div>
-      </div>
-      <div className="mt-2 px-1">
-        <h3 className="font-bold text-[14px] md:text-[18px] text-purple-400 truncate flex items-center gap-1">
-          {banner.title} <ExternalLink size={12} />
-        </h3>
-        <p className="text-[9px] md:text-[12px] text-zinc-500 font-black tracking-widest truncate uppercase">Sponsored</p>
-      </div>
-    </TrackableAdWrapper>
+  const SquareAdCard = ({banner,variant='card',slotKey=''}) => (
+    <DynamicAdCreative banner={banner} placement="radio_feed" variant={variant} slotKey={slotKey}/>
   );
 
   return (
@@ -204,54 +188,15 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
             const currentBanner = showAd ? radioFeedBanners[Math.floor(index / 5) % radioFeedBanners.length] : null;
 
             // 🔥 ΤΑ HERO BANNERS (Κάθε 12)
-            const showFullBanner = viewMode === 'grid' && isFreeOrGuest && index > 0 && index % 12 === 0 && homeBanners.length > 0;
-            const currentFullBanner = showFullBanner ? homeBanners[Math.floor(index / 12) % homeBanners.length] : null;
 
             return (
               <React.Fragment key={station._id}>
                 
-                {/* 🔥 FULL WIDTH BANNER INJECTION */}
-                {showFullBanner && currentFullBanner && (
-                  <div className="col-span-full py-4 md:py-8">
-                    <TrackableAdWrapper placement="radio_feed" banner={currentFullBanner} className="relative w-full h-[200px] md:h-[350px] rounded-[32px] md:rounded-[40px] overflow-hidden group border border-purple-500/20 hover:border-purple-500 shadow-[0_20px_40px_rgba(0,0,0,0.5)] hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] transition-all duration-500 block">
-                      <img src={currentFullBanner.imageUrl} alt={currentFullBanner.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
-                      
-                      <div className="absolute top-4 right-4 md:top-6 md:right-6 bg-purple-500 text-white text-[10px] md:text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg z-10">
-                        <Megaphone size={14} /> Sponsored
-                      </div>
-
-                      <div className="absolute bottom-6 left-6 right-6 md:bottom-10 md:left-10 md:right-10 z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-                        <div className="max-w-2xl">
-                          <h3 className="text-2xl md:text-4xl font-black text-white mb-2 leading-tight group-hover:text-purple-300 transition-colors">{currentFullBanner.title}</h3>
-                          <p className="text-zinc-300 text-xs md:text-base line-clamp-2 md:line-clamp-3">{currentFullBanner.description}</p>
-                        </div>
-                        <span className="inline-flex items-center justify-center gap-2 bg-[#ccff00] text-black px-6 py-3.5 md:px-8 md:py-4 rounded-2xl text-xs font-black uppercase tracking-widest group-hover:bg-white transition-colors shrink-0 shadow-xl">
-                          Μαθε Περισσοτερα <ExternalLink size={16} />
-                        </span>
-                      </div>
-                    </TrackableAdWrapper>
-                  </div>
-                )}
-
                 {/* 🟢 SQUARE BANNER INJECTION */}
-                {showAd && currentBanner && (
-                   viewMode === 'grid' ? <SquareAdCard banner={currentBanner} /> : (
-                    <TrackableAdWrapper placement="radio_feed" 
-                      banner={currentBanner} 
-                      className="flex items-center gap-4 p-3 bg-purple-900/10 border border-purple-500/20 rounded-2xl cursor-pointer hover:bg-purple-900/20 transition-all"
-                    >
-                      <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-black">
-                        <img src={currentBanner.squareImageUrl || currentBanner.imageUrl} className="w-full h-full object-cover" alt="" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-bold text-purple-400 text-sm">{currentBanner.title}</h3>
-                        <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-black">Sponsored Content</p>
-                      </div>
-                      <ExternalLink size={16} className="text-purple-500 mr-2" />
-                    </TrackableAdWrapper>
-                  )
-                )}
+                {showAd && currentBanner &&
+                  <SquareAdCard banner={currentBanner} variant={viewMode==='grid'?'card':'list'}
+                    slotKey={`catalog-${index}`} />
+                }
 
                 {/* Shared premium station card; profile navigation is separate from live playback. */}
                 <StationCatalogCard station={station} currentStation={currentStation} isPlaying={isPlaying}
