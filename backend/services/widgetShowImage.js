@@ -22,13 +22,18 @@ function approvedShowImage(schedule,requested){
 }
 function imageContentType(buffer){
   if(!Buffer.isBuffer(buffer)||buffer.length<16||buffer.length>=LIMIT_BYTES)return null;
-  if(buffer[0]===0xff&&buffer[1]===0xd8&&buffer[2]===0xff)return 'image/jpeg';
-  if(buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))
+  if(buffer[0]===0xff&&buffer[1]===0xd8&&buffer[2]===0xff&&
+    buffer[buffer.length-2]===0xff&&buffer[buffer.length-1]===0xd9)
+    return 'image/jpeg';
+  if(buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))&&
+    buffer.toString('ascii',buffer.length-8,buffer.length-4)==='IEND')
     return 'image/png';
-  if(buffer.toString('ascii',0,4)==='RIFF'&&buffer.toString('ascii',8,12)==='WEBP')
+  if(buffer.toString('ascii',0,4)==='RIFF'&&buffer.toString('ascii',8,12)==='WEBP'&&
+    buffer.readUInt32LE(4)+8===buffer.length)
     return 'image/webp';
   const head=buffer.toString('ascii',0,6);
-  if(head==='GIF87a'||head==='GIF89a')return 'image/gif';
+  if((head==='GIF87a'||head==='GIF89a')&&buffer[buffer.length-1]===0x3b)
+    return 'image/gif';
   return null; // HTML, SVG (scriptable), unsupported types and oversized data.
 }
 module.exports={LIMIT_BYTES,approvedShowImage,imageContentType};
