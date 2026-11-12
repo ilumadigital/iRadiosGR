@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import StationCatalogCard from './StationCatalogCard';
+import DynamicAdCreative from './DynamicAdCreative';
 import CatalogFilterPopover from './CatalogFilterPopover';
 import EditorialPlacement from './EditorialPlacement';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
@@ -22,7 +23,7 @@ const tabs=[
   {id:'all',label:'Όλοι',Icon:Grid2X2}
 ];
 
-export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery, catalogNowPlaying={}, catalogClock, listeningProfile={}, onCategorySelected}) {
+export default function HomeExplore({stations=[], currentUser, bannerAds=[], recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery, catalogNowPlaying={}, catalogClock, listeningProfile={}, onCategorySelected}) {
   const location=useLocation();
   const [tab,setTab]=useState('for-you');
   const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1024:window.innerWidth);
@@ -191,9 +192,14 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
         {(genre||region||query)&&<button onClick={clear} type="button" className="flex items-center gap-1 text-xs font-semibold text-[#ccff00]"><X size={14}/> Καθαρισμός φίλτρων</button>}
       </div>
       {!!sponsoredEntries.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-        {sponsoredEntries.map(({station:s,sponsored})=><StationCatalogCard key={s._id} station={s} sponsored={sponsored} currentStation={currentStation}
-          isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}
-          nowPlaying={catalogNowPlaying[String(s._id)]} clock={catalogClock}/>)}
+        {sponsoredEntries.map(({station:s,sponsored},index)=><React.Fragment key={s._id}>
+          {index>0 && index%5===0 && bannerAds.length>0 &&
+            <DynamicAdCreative banner={bannerAds[(Math.floor(index/5)-1)%bannerAds.length]} variant="card"
+              placement="radio_feed" slotKey={`home-explore-${index}`}/>}
+          <StationCatalogCard station={s} sponsored={sponsored} currentStation={currentStation}
+            isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}
+            nowPlaying={catalogNowPlaying[String(s._id)]} clock={catalogClock}/>
+        </React.Fragment>)}
       </div>:<div className="rounded-2xl border border-dashed border-white/15 p-8 text-center">
         <Radio size={30} className="mx-auto text-zinc-500"/>
         <p className="mt-3 text-sm text-zinc-300">{tab==='favorites'?'Δεν έχεις προσθέσει αγαπημένους σταθμούς.':'Δεν βρέθηκαν σταθμοί με αυτά τα φίλτρα.'}</p>
