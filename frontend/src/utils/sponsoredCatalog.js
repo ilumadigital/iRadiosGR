@@ -47,12 +47,13 @@ export function relatedToCategory(station,category){
   return (RELATED_CATEGORIES[station?.genre]||[]).includes(category)||
     (RELATED_SECONDARY[station?.genre]||[]).includes(category);
 }
-export function eligibleSponsoredStation(station,{scope,value,regionFilter='',categoryFilter='',transmissionFilter=''},now=Date.now()){
+export function eligibleSponsoredStation(station,{scope,value,regionFilter='',categoryFilter='',transmissionFilter='',relevantCategories=[]},now=Date.now()){
   if(!isAvailable(station))return false;
   const boost=station.commercialBoost;
-  // Paid, server-verified entitlements only; legacy boostStatus or old orders
-  // never authorize a sponsored placement.
-  if(boost?.tier!=='purchased'||!Number.isFinite(Date.parse(boost.endsAt))||
+  // Purchased Boosts come from verified orders; explicitly time-limited Admin
+  // manual Boosts are projected server-side with tier='manual'. Never trust
+  // a naked legacy boostStatus flag or expired/unpaid billing records.
+  if(!['purchased','manual'].includes(boost?.tier)||!Number.isFinite(Date.parse(boost.endsAt))||
      Date.parse(boost.endsAt)<=now)return false;
   const global=boost.placement==='global';
   const targeted=boost.placement==='targeted';
@@ -75,6 +76,8 @@ export function eligibleSponsoredStation(station,{scope,value,regionFilter='',ca
     return true;
   }
   if(scope==='home'){
+    if(relevantCategories.length&&!relevantCategories.some(category=>relatedToCategory(station,category)))
+      return false;
     // Category Boost is NOT a global homepage placement: it needs its own
     // category and its own region filters. Global Boost may be shown in All.
     if(targeted&&(!categoryFilter||!regionFilter||
@@ -114,15 +117,18 @@ function stableHash(value){
 // result. Chosen stations leave the organic grid to prevent double display;
 // unchosen stations keep their regular organic place.
 export function buildSponsoredCatalog({organic=[],allStations=[],scope,value='',mode='grid',
-  columns=2,regionFilter='',categoryFilter='',transmissionFilter='',now=Date.now()}){
+  columns=2,regionFilter='',categoryFilter='',transmissionFilter='',
+  relevantCategories=[],now=Date.now()}){
   const base=[...organic];
   const every=mode==='list'?3:Math.max(2,columns)*3;
   const candidates=allStations.filter(station=>eligibleSponsoredStation(station,{
-    scope,value,regionFilter,categoryFilter,transmissionFilter
+    scope,value,regionFilter,categoryFilter,transmissionFilter,relevantCategories
   },now)).sort((a,b)=>id(a).localeCompare(id(b)));
   if(!candidates.length)return base.map(station=>({station,sponsored:false}));
   const slots=Math.max(1,Math.ceil(base.length/every));
-  const offset=stableHash(scope+':'+value+':'+Math.floor(now/3600000))%candidates.length;
+  // Strict round-robin rather than a fresh hash each hour: every eligible
+  // sponsor eventually rotates into the visible slots, even on short 24h buys.
+  const offset=(stableHash(scope+':'+value)+Math.floor(now/300000))%candidates.length;
   const rotation=[...candidates.slice(offset),...candidates.slice(0,offset)];
   const selected=rotation.slice(0,slots);
   const chosen=new Set(selected.map(id));
