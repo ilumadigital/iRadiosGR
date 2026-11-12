@@ -317,7 +317,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
         />
       )}
 
-      {filteredAndSorted.length === 0 && (
+      {sponsoredEntries.length === 0 && (
         <div className="text-zinc-500 font-bold italic py-20 text-center w-full bg-zinc-900/20 rounded-[32px] border border-white/5 mt-4">Δεν βρέθηκαν σταθμοί με αυτά τα κριτήρια.</div>
       )}
 
