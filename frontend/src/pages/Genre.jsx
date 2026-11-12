@@ -8,6 +8,7 @@ import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 import {sortCatalogStations} from '../utils/catalogLive';
+import {buildSponsoredCatalog,sponsoredGridColumns} from '../utils/sponsoredCatalog';
 
 
 export default function Genre({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
@@ -16,6 +17,12 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
 
   const [sortBy, setSortBy] = useState('popularity');
   const [viewMode, setViewMode] = useState('grid');
+  const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1024:window.innerWidth);
+  useEffect(()=>{
+    const resize=()=>setViewportWidth(window.innerWidth);
+    window.addEventListener('resize',resize,{passive:true});
+    return()=>window.removeEventListener('resize',resize);
+  },[]);
   const [promotedStationId,setPromotedStationId] = useState(null);
   const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying(currentUser);
   useEffect(()=>setPromotedStationId(null),[genreName]);
@@ -104,6 +111,16 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
   const displayStations=useMemo(()=>viewMode!=='map' && promotedStationId
     ? filteredAndSorted.filter(s=>String(s._id)!==String(promotedStationId))
     : filteredAndSorted,[filteredAndSorted,viewMode,promotedStationId]);
+
+  const sponsoredEntries=useMemo(()=>buildSponsoredCatalog({
+    organic:displayStations,
+    allStations:stations.filter(station=>String(station._id)!==String(promotedStationId)),
+    scope:'genre',value:genreName,mode:viewMode,
+    columns:sponsoredGridColumns(viewportWidth),
+    regionFilter: selectedRegion,
+    transmissionFilter:selectedTransmission
+  }),[displayStations,stations,promotedStationId,genreName,viewMode,viewportWidth,
+    selectedRegion,selectedTransmission]);
 
   const handleBannerView = async (bannerId) => {
     try {
@@ -211,9 +228,9 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
         currentStation={currentStation} isPlaying={isPlaying}
         onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
 
-      {filteredAndSorted.length > 0 ? (
+      {sponsoredEntries.length > 0 ? (
         <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex w-full min-w-0 flex-col gap-3"}>
-          {displayStations.map((station, index) => {
+          {sponsoredEntries.map(({station,sponsored}, index) => {
             const isCurrent = currentStation && (currentStation._id === station._id);
             const isCurrentlyPlaying = isCurrent && isPlaying;
 
@@ -274,6 +291,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
                 {/* Shared premium station card; profile navigation is separate from live playback. */}
                 <StationCatalogCard station={station} currentStation={currentStation} isPlaying={isPlaying}
                   onPlayStation={setCurrentStation} onPlayPause={onPlayPause} mode={viewMode}
+                  sponsored={sponsored}
                   nowPlaying={catalogNowPlaying[String(station._id)]} clock={catalogClock} currentUser={currentUser} />
               </React.Fragment>
             );
