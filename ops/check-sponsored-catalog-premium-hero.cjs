@@ -47,6 +47,20 @@ async function main(){
     tier:'organic',placement:'global',endsAt:null}},catalog,now),false);
   assert.equal(eligibleSponsoredStation({...global,commercialBoost:undefined,
     boostStatus:true},catalog,now),false,'Legacy booleans cannot buy placements');
+  const manual={...global,_id:'manual',commercialBoost:{
+    tier:'manual',placement:'global',endsAt:'2026-11-13T22:00:00Z'
+  }};
+  assert.equal(eligibleSponsoredStation(manual,catalog,now),true,
+    'Time-limited Admin Boost is a separate valid sponsored source');
+  assert.equal(eligibleSponsoredStation({...manual,commercialBoost:{
+    ...manual.commercialBoost,endsAt:'2026-11-11T22:00:00Z'
+  }},catalog,now),false,'Expired manual Boost cannot appear');
+  assert.equal(eligibleSponsoredStation(global,{
+    scope:'home',value:'for-you',relevantCategories:['Dance']
+  },now),true,'For You can show relevant Global Boost');
+  assert.equal(eligibleSponsoredStation(global,{
+    scope:'home',value:'for-you',relevantCategories:['Παραδοσιακά']
+  },now),false,'For You must never inject unrelated sponsored music');
   assert.deepEqual([639,640,1023,1024,1280,1536].map(sponsoredGridColumns),
     [2,3,3,4,5,6]);
   const organic=Array.from({length:18},(_,i)=>({_id:'s'+i,name:'S'+i,genre:'Dance',
@@ -65,6 +79,20 @@ async function main(){
   assert.equal(inBase.filter(e=>e.station._id==='global').length,1,
     'Paid station appears once, not at top AND in an injected slot');
   assert.equal(inBase[2].sponsored,true,'List inserts every third row');
+  const sponsorOptions={organic:organic.slice(0,3),
+    allStations:[global,targeted,manual,boosted('fourth','global')],
+    ...catalog,mode:'list'};
+  const rotated=new Set();
+  for(let i=0;i<4;i++){
+    const current=buildSponsoredCatalog({...sponsorOptions,now:now+i*300000});
+    rotated.add(current.find(entry=>entry.sponsored)?.station._id);
+  }
+  assert.equal(rotated.size,4,
+    'Round robin must give every active booster a slot within four intervals');
+  const promoted=buildSponsoredCatalog({organic:organic.slice(0,9),
+    allStations:[global],...catalog,columns:2,now});
+  assert.equal(promoted.filter(item=>item.sponsored&&item.station._id==='global').length,1,
+    'A station separately displayed as Promoted must retain its purchased slot');
   const backendProjection=read('backend/services/stationBillingProjection.js');
   assert.match(backendProjection,/\.select\('accountId resourceId sku scopeType status environment periodStartsAt periodEndsAt'\)/,
     'Public station projection must hydrate order scopeType for paid Boosts');
@@ -74,15 +102,35 @@ async function main(){
     home.includes('currentStation?._id')&&
     home.includes('listeningProfile?.stations'),
     'Premium uses personal current/last station across synced account devices');
-  const promoted=read('frontend/src/components/PromotedStationCard.jsx');
-  assert.ok(promoted.includes('useStationAmbient(station?.logo)'));
-  assert.ok(!promoted.includes('station.cover')&&!promoted.includes('src={artwork}'),
+  const promotedCard=read('frontend/src/components/PromotedStationCard.jsx');
+  assert.ok(promotedCard.includes('useStationAmbient(station?.logo)'));
+  assert.ok(!promotedCard.includes('station.cover')&&!promotedCard.includes('src={artwork}'),
     'Promoted station does not use cover images as backgrounds');
   for(const page of ['Genre','Region']){
     const source=read('frontend/src/pages/'+page+'.jsx');
     assert.ok(source.includes('buildSponsoredCatalog')&&source.includes('sponsored={sponsored}'),
       page+' must inject and label scoped paid placements');
+    assert.ok(source.includes('allStations:stations,'),
+      page+' must not exclude Promoted stations from paid Sponsored inventory');
   }
-  console.log('Sponsored catalog, category affinity, no duplicate, Premium hero and branded promoted card checks passed.');
+  const admin=read('frontend/src/pages/Boost.jsx');
+  const adminApi=read('backend/routes/backofficeRoutes.js');
+  const publicApi=read('backend/controllers/stationController.js');
+  const source=read('backend/services/stationBillingProjectionRules.js');
+  assert.ok(admin.includes('commercialBoost')&&admin.includes('Paid ')&&
+    admin.includes('Admin Manual')&&admin.includes('premiumIncluded'),
+    'Admin clearly labels the purchased/manual/Premium sources');
+  assert.ok(adminApi.includes('projectPublicStations(items)')&&
+    adminApi.includes('commercialBoost:station.commercialBoost'),
+    'Admin ranking must use same effective entitlement calculation as public feed');
+  assert.ok(publicApi.includes('broadcasterId boostStatus boostExpiresAt'),
+    'Public API must project Admin manual expiration safely');
+  assert.ok(source.includes('effectiveStationBoost('),
+    'Manual projection must not be taken from unverified client values');
+  const homeExplore=read('frontend/src/components/HomeExplore.jsx');
+  assert.ok(homeExplore.includes('buildListeningInterests')&&
+    homeExplore.includes('relevantCategories:tab'),
+    'For You sponsored candidates must match real listener preferences');
+  console.log('Admin/manual/paid Boost, Promoted coexistence, fair rotation, relevant For You and expiry checks passed.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
