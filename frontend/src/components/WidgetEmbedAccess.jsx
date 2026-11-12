@@ -16,7 +16,7 @@ export default function WidgetEmbedAccess(){
   const [access,setAccess]=useState(embedded?'allowed':'checking');
   useEffect(()=>{
     if(embedded)return undefined;
-    let alive=true,controller=null;
+    let alive=true,controller=null,deadlineTimer=null;
     const storageKey='iradios.widget.preview:'+variant+':'+stationId;
     const received=new URLSearchParams(window.location.hash.slice(1)).get('preview');
     if(received){
@@ -50,8 +50,12 @@ export default function WidgetEmbedAccess(){
         if(!alive||controller.signal.aborted)return;
         if(!response.ok)return revoke();
         const result=await response.json();
-        if(result?.valid===true)setAccess('allowed');
-        else revoke();
+        if(result?.valid===true&&Number.isFinite(result?.expiresInMs)&&
+          result.expiresInMs>0){
+          if(deadlineTimer)window.clearTimeout(deadlineTimer);
+          deadlineTimer=window.setTimeout(revoke,result.expiresInMs);
+          setAccess('allowed');
+        }else revoke();
       }catch{
         if(alive&&!controller?.signal.aborted)revoke();
       }
@@ -66,6 +70,7 @@ export default function WidgetEmbedAccess(){
     return()=>{
       alive=false;controller?.abort();
       window.clearInterval(timer);
+      if(deadlineTimer)window.clearTimeout(deadlineTimer);
       window.removeEventListener('pageshow',visible);
       document.removeEventListener('visibilitychange',visible);
     };
