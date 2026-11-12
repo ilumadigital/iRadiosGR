@@ -63,6 +63,9 @@ async function main(){
   assert.equal(inBase.filter(e=>e.station._id==='global').length,1,
     'Paid station appears once, not at top AND in an injected slot');
   assert.equal(inBase[2].sponsored,true,'List inserts every third row');
+  const backendProjection=read('backend/services/stationBillingProjection.js');
+  assert.match(backendProjection,/\.select\('accountId resourceId sku scopeType status environment periodStartsAt periodEndsAt'\)/,
+    'Public station projection must hydrate order scopeType for paid Boosts');
   const home=read('frontend/src/components/HomeHeroSlider.jsx');
   assert.ok(home.includes("slide.audience==='premium'")&&
     home.includes('iradios_premium_last_')&&
