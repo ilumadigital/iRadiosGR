@@ -89,6 +89,7 @@ import AcceptInvite from './pages/AcceptInvite';
 import BroadcasterInvitation from './pages/BroadcasterInvitation';
 import GoAgency from './pages/GoAgency';
 import AgencyDashboard from './pages/AgencyDashboard';
+import CampaignEditor from './pages/CampaignEditor';
 import TermsListeners from './pages/TermsListeners';
 import TermsBroadcasters from './pages/TermsBroadcasters';
 import TermsAgency from './pages/TermsAgency';
@@ -2048,6 +2049,16 @@ function MainApp() {
             <Route path="/broadcaster-invite" element={<BroadcasterInvitation API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
             <Route path="/go-ads" element={<GoAgency API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
 
+            {['audio','banners'].map(type=>[
+              <Route key={type+'-new'} path={'/agency/campaigns/'+type+'/new'}
+                element={currentUser?.role==='agency'||currentUser?.role==='admin'
+                  ?<RequireTerms currentUser={currentUser}><CampaignEditor scope="agency" kind={type} currentUser={currentUser}/></RequireTerms>
+                  :<Navigate to="/go-ads" replace/>}/>,
+              <Route key={type+'-edit'} path={'/agency/campaigns/'+type+'/:id/edit'}
+                element={currentUser?.role==='agency'||currentUser?.role==='admin'
+                  ?<RequireTerms currentUser={currentUser}><CampaignEditor scope="agency" kind={type} currentUser={currentUser}/></RequireTerms>
+                  :<Navigate to="/go-ads" replace/>}/>
+            ])}
             <Route path="/agency/dashboard" element={
               <RequireTerms currentUser={currentUser}>
                 {currentUser && (currentUser.role === 'agency' || currentUser.role === 'admin') ? (
