@@ -1,3 +1,5 @@
+import AdPlacementLink from '../components/AdPlacementLink';
+import {geoAllowsAd} from '../utils/adPlacements';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Helmet} from 'react-helmet-async';
 import {Link,useLocation,useSearchParams} from 'react-router-dom';
@@ -45,20 +47,7 @@ export function Article({item,view,now,source,backTo}){
   </Link>;
 }
 function AdLink({banner,children,className}){
-  const ref=React.useRef(null),tracked=React.useRef(false);
-  useEffect(()=>{
-    const node=ref.current;if(!node||typeof IntersectionObserver==='undefined')return;
-    const observer=new IntersectionObserver(entries=>{
-      if(entries[0]?.isIntersecting&&!tracked.current){
-        tracked.current=true;fetch('/api/banners/'+banner._id+'/impression',{method:'POST'}).catch(()=>{});
-      }
-    },{threshold:0.5});
-    observer.observe(node);return()=>observer.disconnect();
-  },[banner._id]);
-  const utm='ref=iradiosapp&utm_medium=ilumadigitalagencyiradios&utm_source=iradios&utm_campaign=radiofeed_ir&utm_content=radiofeed_ir';
-  return <a ref={ref} href={banner.targetUrl+(banner.targetUrl.includes('?')?'&':'?')+utm}
-    target="_blank" rel="noopener noreferrer" className={className}
-    onClick={()=>fetch('/api/banners/'+banner._id+'/click',{method:'POST'}).catch(()=>{})}>{children}</a>;
+  return <AdPlacementLink banner={banner} placement="news_feed" className={className}>{children}</AdPlacementLink>;
 }
 function AdUnit({banner,wide=false,view='grid'}){
   if(wide)return <AdLink banner={banner} className="group relative block h-[200px] w-full overflow-hidden rounded-[32px] border border-purple-500/20 shadow-[0_20px_40px_rgba(0,0,0,.5)] transition-all duration-500 hover:border-purple-500 md:h-[350px]">
@@ -128,9 +117,9 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
     const controller=new AbortController();
     fetch('/api/banners/active',{signal:controller.signal}).then(r=>r.ok?r.json():[])
       .then(data=>{if(!controller.signal.aborted)setBanners((Array.isArray(data)?data:[]).filter(b=>
-        b.status==='active'&&Array.isArray(b.placement)&&b.placement.includes('news_feed')&&(!b.expiresAt||new Date(b.expiresAt)>new Date())&&
-        (!Array.isArray(b.targetLocations)||!b.targetLocations.length||
-          b.targetLocations.some(area=>area==='All'||(userLocation&&checkGeoMatch?.(area,userLocation))))));}).catch(()=>{});
+        b.status==='active'&&Array.isArray(b.placement)&&b.placement.includes('news_feed')&&
+        (!b.expiresAt||new Date(b.expiresAt)>new Date())&&
+        geoAllowsAd(b.targetLocations,userLocation,checkGeoMatch)))));}).catch(()=>{});
     return()=>controller.abort();
   },[premium,userLocation,checkGeoMatch]);
   const ordered=useMemo(()=>[...items].sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)),[items]);
