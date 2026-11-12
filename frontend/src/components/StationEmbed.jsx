@@ -361,50 +361,90 @@ function MiniPlayer({station,rds,audio,light}){
   </main>;
 }
 
-function ShowLine({show,live=false,light=false}){
-  return <div className={classNames('flex min-w-0 items-center gap-3 rounded-xl p-3',
-    live?'border border-[#caff00]/25 bg-[#caff00]/[.07]':
-      light?'bg-zinc-100':'bg-white/[.04]')}>
-    <img src={show?.imageUrl||'/iradios-logo.png'} alt=""
-      className="size-12 shrink-0 rounded-lg object-cover"/>
+
+function ShowLine({show,live=false,station}){
+  return <div className={classNames('ir-embed__program-card flex min-w-0 items-center gap-2.5 rounded-xl p-2',live&&'is-live')}>
+    <ArtworkVisual station={station} src={show?.imageUrl}
+      className="size-11 shrink-0 rounded-lg object-cover"/>
     <div className="min-w-0 flex-1">
-      <div className={classNames('text-[10px] font-black tracking-wider',
-        live?'text-[#a3ca00]':light?'text-zinc-500':'text-zinc-400')}>
+      <p className={classNames('truncate text-[9px] font-black uppercase tracking-wider',
+        live?'text-[#caff00]':'text-white/65')}>
         {live?'● ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ':(show?.startTime||'—')+' – '+(show?.endTime||'—')}
-      </div>
-      <p className="mt-1 truncate text-sm font-black">{show?.title||'Ζωντανό πρόγραμμα'}</p>
-      {show?.host&&<p className={classNames('mt-0.5 truncate text-[11px]',light?'text-zinc-500':'text-zinc-400')}>{show.host}</p>}
+      </p>
+      <p className="ir-embed__program-title mt-1 text-[12px]">{show?.title||'Ζωντανό πρόγραμμα'}</p>
+      {show?.host&&<p className="mt-0.5 truncate text-[10px] text-white/65">{show.host}</p>}
     </div>
   </div>;
 }
-function Program({station,current,upcoming,light,mini,rds}){
-  return <main className={classNames('flex h-[100dvh] min-h-[155px] w-full flex-col overflow-hidden p-5',
-    light?'bg-[#f8f8fa] text-zinc-900':'bg-[#111519] text-white')}>
-    <div className="flex items-center justify-between gap-2">
+function Program({station,current,upcoming,light,mini,rds,audio}){
+  const active=current||{title:'Ζωντανό ραδιόφωνο',host:station.slogan||station.name};
+  if(mini)return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
+    <AudioElements audio={audio}/>
+    <ArtworkBackground station={station} src={active.imageUrl}/>
+    <div className="ir-embed__shade ir-embed__shade--program"/>
+    <header className="relative z-10 flex shrink-0 items-center justify-between gap-2 px-4 pt-3">
+      <span className="ir-embed__eyebrow">● ΠΡΟΓΡΑΜΜΑ / LIVE</span>
+      <StationIdentity station={station} compact/>
+    </header>
+    <section className="relative z-10 flex min-h-0 flex-1 flex-col justify-end gap-2 px-4 py-2">
+      <h1 className="line-clamp-2 text-xl font-black leading-tight">{active.title}</h1>
+      <p className="truncate text-xs font-semibold text-white/80">{active.host||station.name}</p>
+      {upcoming[0]&&<ShowLine station={station} show={upcoming[0]}/>}
+    </section>
+    <footer className="ir-embed__controls relative z-10 shrink-0 px-4 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <PlaybackButton audio={audio}/>
+        <VolumeSlider audio={audio}/>
+        <HdControls audio={audio} compact/>
+      </div>
+      {audio.error&&<p role="status" className="mt-1 text-[10px] text-amber-300">{audio.error}</p>}
+      <div className="mt-1 flex justify-end"><ProfileLink station={station} compact/></div>
+    </footer>
+  </main>;
+  return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
+    <AudioElements audio={audio}/>
+    <ArtworkBackground station={station} src={active.imageUrl}/>
+    <div className="ir-embed__shade ir-embed__shade--program"/>
+    <header className="relative z-10 flex shrink-0 items-start justify-between gap-2 px-5 pt-5">
       <div className="min-w-0">
-        <p className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[.17em] text-[#a3c900]">
+        <p className="ir-embed__eyebrow flex items-center gap-1.5">
           <CalendarDays size={14}/> ΠΡΟΓΡΑΜΜΑ ΣΤΑΘΜΟΥ
         </p>
-        <h1 className={classNames('mt-1 truncate font-black',mini?'text-lg':'text-2xl')}>{station.name}</h1>
+        <p className="mt-1 truncate text-sm font-black">{station.name}</p>
       </div>
-      <img src={station.logo||'/iradios-logo.png'} alt="" className="size-12 rounded-xl object-contain"/>
-    </div>
-    <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto">
-      <ShowLine show={current||{title:'Ζωντανό ραδιόφωνο',host:station.slogan}} live light={light}/>
-      {!mini&&upcoming.map((show,i)=><ShowLine show={show} key={[show.day,show.startTime,i].join('-')} light={light}/>)}
-      {mini&&upcoming[0]&&<p className={classNames('truncate text-[11px]',light?'text-zinc-500':'text-zinc-400')}>
-        Επόμενο: {upcoming[0].startTime} · {upcoming[0].title}
-      </p>}
-      {!current&&!upcoming.length&&<p className={classNames('text-xs',light?'text-zinc-500':'text-zinc-400')}>
-        Το πρόγραμμα θα εμφανιστεί μόλις το ανανεώσει ο σταθμός.
-      </p>}
-    </div>
-    <div className="mt-2"><RdsDetails station={station} rds={rds} light={light} compact/></div>
-    <div className={classNames('mt-3 flex justify-center border-t pt-3',light?'border-zinc-200':'border-white/10')}>
-      <ProfileLink station={station} compact={mini} light={light}/>
-    </div>
+      <ArtworkVisual station={station} className="ir-embed__station-img"/>
+    </header>
+    <section className="relative z-10 flex min-h-0 flex-1 flex-col justify-end gap-2 px-5 pb-3">
+      <p className="ir-embed__eyebrow">● ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ</p>
+      <h1 className="line-clamp-2 text-[clamp(21px,6cqw,31px)] font-black leading-tight tracking-tight">
+        {active.title}
+      </h1>
+      <p className="truncate text-sm font-semibold text-white/80">{active.host||station.name}</p>
+      <div className="mt-2 grid min-h-0 gap-2">
+        {upcoming.slice(0,2).map((show,i)=><ShowLine key={[show.day,show.startTime,i].join('-')}
+          show={show} station={station}/>)}
+        {!current&&!upcoming.length&&<p className="text-xs text-white/70">
+          Το πρόγραμμα θα εμφανιστεί όταν ενημερωθεί από τον σταθμό.
+        </p>}
+      </div>
+    </section>
+    <footer className="ir-embed__controls relative z-10 shrink-0 px-5 pb-3 pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <PlaybackButton audio={audio}/>
+        <VolumeSlider audio={audio}/>
+        <HdControls audio={audio} compact/>
+      </div>
+      {audio.error&&<p className="mt-1 text-[10px] text-amber-300" role="status">{audio.error}</p>}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-[10px] font-semibold text-white/70">
+          {rds.song?rds.song.title+' · '+rds.song.artist:'● LIVE RADIO'}
+        </span>
+        <ProfileLink station={station} compact/>
+      </div>
+    </footer>
   </main>;
 }
+
 function Hero({station,current,rds,audio}){
   const image=station.logo||'/iradios-logo.png';
   return <main className="relative flex h-[100dvh] min-h-[480px] w-full flex-col justify-center overflow-y-auto overflow-x-hidden bg-[#101315] px-6 py-8 font-sans text-white sm:px-10 lg:px-[8%]">
