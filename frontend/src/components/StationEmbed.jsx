@@ -458,7 +458,8 @@ function Program({station,current,upcoming,shows,clock,light,mini,rds,audio}){
 
 function Hero({station,current,shows,clock,rds,audio}){
   const song=rds.song;
-  return <main className="ir-embed ir-embed__hero-stage flex min-h-[480px] flex-col justify-center px-5 py-5 sm:px-8 lg:px-[5%]">
+  const live=current||rds.activeShow;
+  return <main className="ir-embed ir-embed__hero-stage flex min-h-[480px] flex-col justify-center overflow-y-auto px-5 py-5 sm:px-8 lg:px-[5%]">
     <AudioElements audio={audio}/>
     <div className="ir-embed__hero-wave"/>
     <div className="relative z-10 mx-auto grid w-full max-w-[1550px] flex-1 content-center items-center gap-5 md:grid-cols-[1.16fr_1fr] md:gap-[5%]">
@@ -468,12 +469,12 @@ function Hero({station,current,shows,clock,rds,audio}){
           <StationIdentity station={station}/>
           {audio.processing&&<span className="ir-embed__chip border-lime-300/40 text-lime-300">HD+</span>}
         </div>
-        {current&&<div className="mt-4 hidden items-center gap-2.5 text-xs text-white/75 md:flex">
-          <ArtworkVisual station={station} src={current.imageUrl}
+        {live&&<div className="mt-4 flex items-center gap-2.5 text-xs text-white/75">
+          <ArtworkVisual station={station} src={live.imageUrl}
             className="size-10 rounded-xl object-cover"/>
           <div className="min-w-0">
             <p className="ir-embed__eyebrow text-[9px]">● ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ</p>
-            <p className="truncate font-bold">{current.title}{current.host?' · '+current.host:''}</p>
+            <p className="truncate font-bold">{live.title}{live.host?' · '+live.host:''}</p>
           </div>
         </div>}
         {song&&<div className="mt-4 sm:mt-6"><MusicSearchLinks station={station} song={song}/></div>}
@@ -491,7 +492,7 @@ function Hero({station,current,shows,clock,rds,audio}){
       </section>
       <section className="order-1 relative mx-auto aspect-square w-[min(62vw,35dvh)] min-w-0 overflow-hidden rounded-3xl border border-white/15 bg-[#0e1115] shadow-[0_35px_100px_#0009] md:order-2 md:w-full md:max-w-[660px]">
         <ArtworkStack station={station} rds={rds}
-          className="size-full" alt={rds.display.title}/>
+          className="ir-embed__artwork-panel size-full" alt={rds.display.title}/>
         <div className="ir-embed__glass absolute right-3 top-3 max-w-[85%] truncate rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-widest">
           {station.name} / NOW ON AIR
         </div>
