@@ -385,11 +385,19 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                   <h3 className="text-xl font-black text-white truncate" title={campaign.title}>{campaign.title}</h3>
                   <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
                     {activeTab === 'banners' ? <LayoutGrid size={12} /> : <Mic2 size={12} />}
-                    {activeTab === 'banners' ? (campaign.placement?.join(', ') || 'Banner') : 'Audio Pre-Roll'}
+                    {activeTab === 'banners' ? (campaign.placement?.join(', ') || 'Banner') : 'Audio Spot'}
                   </p>
                 </div>
 
-                <div className="bg-black/50 rounded-2xl p-4 mb-4 border border-white/5">
+                <div className="ad-console-preview mb-4">
+                   {activeTab==='banners'&&campaign.imageUrl&&
+                     <img src={campaign.squareImageUrl||campaign.imageUrl} alt={campaign.title}
+                       loading="lazy" className="mb-3 h-32 w-full rounded-xl object-cover"/>}
+                   {activeTab==='audio'&&campaign.audioUrl&&
+                     <audio controls preload="none" src={campaign.audioUrl} aria-label={`Preview ${campaign.title}`}/>}
+                   <span className="mt-2 block text-[10px] font-bold text-zinc-400">Preview · Χωρίς καταμέτρηση</span>
+                 </div>
+                 <div className="bg-black/50 rounded-2xl p-4 mb-4 border border-white/5">
                   <div className="grid grid-cols-3 gap-2">
                     <div className="text-center">
                       <div className="text-[8px] text-zinc-500 uppercase font-black tracking-wider mb-1">
@@ -549,7 +557,18 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                           </div>
                         </div>
                         
-                        {/* Εδώ βάλαμε το URL και το DSP δίπλα-δίπλα, βγάζοντας τη Συχνότητα */}
+                        <div>
+                           <label className="mb-1 block text-[10px] font-black uppercase text-zinc-400">Συχνότητα προβολής spot</label>
+                           <select value={audioForm.frequency} onChange={e=>setAudioForm({...audioForm,frequency:e.target.value})}
+                             className="ad-console-filter w-full">
+                             <option value="entry">Στην πρώτη ακρόαση</option>
+                             <option value="every_5_stations">Κάθε 5 αλλαγές σταθμού</option>
+                             <option value="every_10_stations">Κάθε 10 αλλαγές σταθμού</option>
+                             <option value="every_1_hour">Κάθε 1 ώρα (:15 / :45)</option>
+                             <option value="every_2_hours">Κάθε 2 ώρες (:15 / :45)</option>
+                           </select>
+                         </div>
+                         {/* Εδώ βάλαμε το URL και το DSP δίπλα-δίπλα, βγάζοντας τη Συχνότητα */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                           <div>
                             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest pl-1 mb-1 flex items-center gap-1"><LinkIcon size={12}/> URL Προορισμού (Link Companion Ad)</label>
@@ -675,7 +694,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                             {dur === 'day' ? '1 Ημερα' : dur === 'month' ? '1 Μηνας' : dur === 'quarter' ? '3 Μηνες' : dur === 'half' ? '6 Μηνες' : '1 Ετος'}
                           </div>
                           <div className="text-lg md:text-base lg:text-lg font-black">
-                            {displayPrices[selectedType][dur]}€
+                            {isStaging?'ΔΩΡΕΑΝ ΔΟΚΙΜΗ':`${displayPrices[selectedType][dur]}€`}
                           </div>
                         </div>
                       ))}
