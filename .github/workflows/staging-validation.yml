@@ -21,6 +21,8 @@ jobs:
       - name: Build the frontend before the static UI contract checks
         # Mirrors the Docker/Vite compilation and exposes the root error promptly.
         run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
+      - name: Verify mini widget artwork tiles, color backgrounds and dark-only configurator
+        run: node ops/check-widget-mini-background.cjs
       - name: Ensure deprecated Live Chat is completely retired
         run: node ops/check-no-legacy-chat.cjs
       - name: Ensure executable scripts retain Git executable permissions
