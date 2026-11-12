@@ -9,6 +9,7 @@ import io from 'socket.io-client';
 import useAudioDSP from './hooks/useAudioDSP';
 import {normalizeListenerMode} from './utils/dspEngine';
 import useStations from './hooks/useStations';
+import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
 import useMediaSession from './hooks/useMediaSession';
 import {getAthensClock} from './utils/schedule';
@@ -732,6 +733,12 @@ function MainApp() {
     adTimeRemaining, setAdTimeRemaining, adWarning, setAdWarning,
     adQueue, adSchedules, stationSwitches, pendingStation, loadGlobalAds
   } = useAdEngine(API_URL);
+
+  // Personal recommendations use real audible radio time (never audio ads),
+  // keeping guests local and syncing authenticated listeners per device.
+  const {listeningProfile,recordCategorySelection}=useListeningProfile({
+    API_URL,currentUser,currentStation,isPlaying,isBuffering,isPlayingAd,audioRef
+  });
 
   const lastPlayedTimeAds = useRef({});
 
@@ -1898,6 +1905,8 @@ function MainApp() {
                     analyser={analyserRef.current} 
                     onOpenDiscovery={() => setShowDiscovery(true)}
                     onOpenSmartSearch={() => setOpenSmartSearchRequest(request => request + 1)}
+                    listeningProfile={listeningProfile}
+                    onCategorySelected={recordCategorySelection}
                   />
                 </SmartHomeRoute>
               } 
