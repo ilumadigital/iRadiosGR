@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const center = require('../controllers/listenerCenterController');
+const listeningProfile = require('../controllers/listeningProfileController');
 const User = require('../models/User'); // Ίσως χρειαστεί για το reminder route
 const { protect } = require('../utils/authMiddleware');
 
@@ -28,6 +29,9 @@ router.put('/users/me/accept-terms', protect, authController.acceptTerms);
 
 // Users Profiles
 router.put('/users/me', protect, authController.updateMe);
+router.get('/users/me/listening-profile', protect, listeningProfile.getProfile);
+router.put('/users/me/listening-profile', protect, listeningProfile.putProfile);
+router.delete('/users/me/listening-profile', protect, listeningProfile.clearProfile);
 router.get('/users/me/notification-preferences', protect, authController.getNotificationPreferences);
 router.patch('/users/me/notification-preferences', protect, authController.updateNotificationPreferences);
 router.get('/users/me/follows', protect, center.listFollows);
