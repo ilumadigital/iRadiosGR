@@ -8,6 +8,7 @@ const crypto=require('node:crypto');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const Station=require('../models/Station');
+const PromotedStation=require('../models/PromotedStation');
 const {projectPublicStations}=require('../services/stationBillingProjection');
 const {deleteStationRecord}=require('../services/stationDeletion');
 const {validateStationCategories}=require('../utils/stationCategories');
@@ -219,9 +220,19 @@ router.get('/backoffice/overview',async(req,res)=>{
 // 1000-record dashboard preview. Keep this endpoint admin-only and read-only.
 router.get('/backoffice/admin/station-ranking',authorizeRoles('admin'),async(req,res)=>{
   try{
-    const items=await Station.find({status:'approved'})
-      .select('_id name genre secondaryGenre region city frequency logo status position rankings boostStatus boostExpiresAt broadcasterId')
-      .sort({position:1,_id:1}).lean();
+    const [items,promotions]=await Promise.all([
+      Station.find({status:'approved'})
+        .select('_id name genre secondaryGenre region city frequency logo status position rankings boostStatus boostExpiresAt broadcasterId')
+        .sort({position:1,_id:1}).lean(),
+      PromotedStation.find({enabled:true})
+        .select('stationId placement placementValue').lean()
+    ]);
+    const promotedByStation=new Map();
+    for(const promo of promotions){
+      const id=String(promo.stationId);
+      if(!promotedByStation.has(id))promotedByStation.set(id,[]);
+      promotedByStation.get(id).push({placement:promo.placement,value:promo.placementValue});
+    }
     const projected=await projectPublicStations(items);
     // Never include the broadcaster owner, payment identifiers or paid DSP
     // settings in the Admin ranking response. The same verified entitlement
@@ -232,7 +243,8 @@ router.get('/backoffice/admin/station-ranking',authorizeRoles('admin'),async(req
       city:station.city,frequency:station.frequency,logo:station.logo,
       status:station.status,position:station.position,rankings:station.rankings,
       boostStatus:station.boostStatus,boostExpiresAt:station.boostExpiresAt,
-      commercialBoost:station.commercialBoost
+      commercialBoost:station.commercialBoost,
+      promotedPlacements:promotedByStation.get(String(station._id))||[]
     })));
   }catch(error){return fail(res,error);}
 });
