@@ -164,7 +164,7 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
     </div>:
     <section aria-label="Ροή ειδήσεων" className={view==='grid'?'grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 md:gap-5':'flex min-w-0 flex-col gap-4'}>
       {filtered.map((item,index)=><React.Fragment key={item.id||item.url}>
-        {banners.length>0&&index>0&&index%12===0&&view==='grid'&&<div className="col-span-full py-4 md:py-8"><AdUnit wide slotKey={"news-wide-"+index} banner={banners[Math.floor(index/12)%banners.length]}/></div>}
+        {banners.length>0&&index>0&&index%12===0&&view==='grid'&&<div className="col-span-full py-4 md:py-8"><AdUnit wide banner={banners[Math.floor(index/12)%banners.length]} slotKey={"news-wide-"+index}/></div>}
         {banners.length>0&&index>0&&index%5===0&&<AdUnit banner={banners[Math.floor(index/5)%banners.length]} slotKey={"news-card-"+index} view={view}/>}
         <Article item={item} view={view} now={now} source={source} backTo={location.pathname+location.search}/>
       </React.Fragment>)}
