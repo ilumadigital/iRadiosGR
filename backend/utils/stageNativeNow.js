@@ -90,5 +90,5 @@ function snapshotSong(doc,now=Date.now()){
   return music?{...music,...(hint?{broadcastHint:hint}:{})}:
     hint?{title:'',source:'none',foundWithAI:false,broadcastHint:hint}:null;
 }
-module.exports={VALID_FOR,SHOW_VALID_FOR,nativeSongFromSnapshot,rememberNativeSong,
+module.exports={VALID_FOR,SHOW_VALID_FOR,nativeSongFromSnapshot,validNativeShow,rememberNativeSong,
   rememberNativeShow,clearNativeShow,broadcastHint,clearInvalidNativeSong,snapshotSong};

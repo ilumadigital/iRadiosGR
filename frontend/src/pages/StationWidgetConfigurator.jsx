@@ -15,7 +15,7 @@ function embedSnippet(url,shape){
     ?'width:100%;height:100vh;height:100dvh;display:block;border:0;'
     :shape==='square'
       ?'width:100%;max-width:480px;aspect-ratio:1/1;display:block;border:0;border-radius:24px;overflow:hidden;'
-      :'width:100%;max-width:650px;height:220px;display:block;border:0;border-radius:18px;overflow:hidden;';
+      :'width:100%;max-width:650px;height:285px;display:block;border:0;border-radius:18px;overflow:hidden;';
   return '<iframe\n  src="'+url+'"\n  title="iRadios Station Widget"\n  loading="lazy"\n  allow="autoplay; encrypted-media"\n  style="'+attrs+'"\n></iframe>';
 }
 export default function StationWidgetConfigurator({stations=[]}){
@@ -34,7 +34,7 @@ export default function StationWidgetConfigurator({stations=[]}){
   const code=previewUrl?embedSnippet(previewUrl,widget.shape):'';
   const square=widget.shape==='square',hero=widget.shape==='hero';
   const previewWidth=mobile?390:hero?1060:square?480:650;
-  const previewHeight=mobile?(hero?720:square?390:220):hero?600:square?480:220;
+  const previewHeight=mobile?(hero?720:square?390:285):hero?600:square?480:285;
   async function copyCode(){
     if(!code)return;
     try{

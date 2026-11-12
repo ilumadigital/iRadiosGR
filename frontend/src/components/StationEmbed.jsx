@@ -1,13 +1,15 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useParams,useSearchParams} from 'react-router-dom';
 import {Helmet} from 'react-helmet-async';
-import {ArrowUpRight,CalendarDays,Headphones,Loader2,Mic2,Music2,Pause,Play,Radio,Volume2,VolumeX} from 'lucide-react';
+import {ArrowUpRight,CalendarDays,Loader2,Mic2,Music2,Pause,Play,Radio,Volume2,VolumeX} from 'lucide-react';
+import {SiSpotify,SiApplemusic} from 'react-icons/si';
+import RdsCrossfade from './RdsCrossfade';
+import {spotifySongLink,appleMusicSongLink} from '../utils/musicMetadata';
+import {useStationWidgetRds,useStationWidgetMediaSession} from '../hooks/useStationWidgetRds';
 import useAudioDSP from '../hooks/useAudioDSP';
 import {getAthensClock,minutes,scheduleDayBase,toCanonical} from '../utils/schedule';
-import {cleanMetadata} from '../utils/cleanMetadata';
 
 const EMBED_TYPES=new Set(['player-square','player-mini','program-square','program-mini','hero']);
-const DAYS=['Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
 const classNames=(...parts)=>parts.filter(Boolean).join(' ');
 
 function useStation(stationId){
@@ -34,26 +36,6 @@ function useStation(stationId){
     return()=>{mounted=false;clearInterval(interval);};
   },[stationId]);
   return {station,status};
-}
-function useMusic(station){
-  const [track,setTrack]=useState('');
-  useEffect(()=>{
-    if(!station?.stream){setTrack('');return;}
-    let mounted=true;
-    const update=async()=>{
-      try{
-        const res=await fetch('/api/metadata?stream='+encodeURIComponent(station.stream));
-        if(!res.ok)throw Error('Metadata unavailable');
-        const data=await res.json();
-        const raw=String(data?.title||'').replace(/-$/,'').trim();
-        if(mounted)setTrack(raw?(cleanMetadata(raw)||raw):'');
-      }catch{if(mounted)setTrack('');}
-    };
-    update();
-    const interval=setInterval(update,30000);
-    return()=>{mounted=false;clearInterval(interval);};
-  },[station?.stream]);
-  return track;
 }
 function useProgram(station){
   const [clock,setClock]=useState(()=>getAthensClock());
@@ -198,12 +180,65 @@ function VolumeSlider({audio,light=false}){
   </div>;
 }
 function StationArtwork({station,alt,className}){
-  return <img src={station.cover||station.logo||'/iradios-logo.png'} alt={alt||station.name}
+  return <img src={station.logo||'/iradios-logo.png'} alt={alt||station.name}
     className={className} onError={e=>{if(!e.currentTarget.src.endsWith('/iradios-logo.png'))
       e.currentTarget.src='/iradios-logo.png';}}/>;
 }
 
-function SquarePlayer({station,track,audio,light}){
+function MusicSearchLinks({station,song,compact=false}){
+  if(!song)return null;
+  const spotify=spotifySongLink(song.raw,station.name);
+  const apple=appleMusicSongLink(song.raw,station.name);
+  if(!spotify||!apple)return null;
+  const shared='inline-flex items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1.5 font-bold transition hover:border-[#caff00]/40 hover:text-[#caff00]';
+  return <div className={classNames('flex flex-wrap items-center gap-1.5',compact?'text-[10px]':'text-[11px]')}
+    aria-label="Αναζήτησε το τρέχον τραγούδι">
+    <a href={spotify} target="_blank" rel="noopener noreferrer" className={shared}
+      aria-label={'Βρες '+song.raw+' στο Spotify'} title="Αναζήτηση στο Spotify">
+      <SiSpotify aria-hidden="true"/><span>Spotify</span>
+    </a>
+    <a href={apple} target="_blank" rel="noopener noreferrer" className={shared}
+      aria-label={'Βρες '+song.raw+' στο Apple Music'} title="Αναζήτηση στο Apple Music">
+      <SiApplemusic aria-hidden="true"/><span>Apple Music</span>
+    </a>
+  </div>;
+}
+function RdsDetails({station,rds,light=false,compact=false}){
+  const {song,broadcast,showProducer}=rds;
+  const muted=light?'text-zinc-500':'text-zinc-400';
+  const producer=broadcast?.recognizedShow&&broadcast?.imageUrl?
+    <div className="flex min-w-0 items-start gap-2">
+      <Mic2 size={16} className="mt-0.5 shrink-0 text-[#a5cf00]"/>
+      <div className="min-w-0">
+        <p className={classNames('text-[10px] font-black uppercase tracking-widest',muted)}>
+          ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ
+        </p>
+        <p className={classNames('truncate font-black',compact?'text-xs':'text-sm')}>
+          {broadcast.title||station.name}
+        </p>
+        {broadcast.artist&&<p className={classNames('truncate text-[11px]',muted)}>{broadcast.artist}</p>}
+      </div>
+    </div>:null;
+  return <div className="min-w-0">
+    <RdsCrossfade secondary={producer} showSecondary={Boolean(producer&&showProducer)}>
+      <div className="flex min-w-0 items-start gap-2">
+        <Music2 size={16} className="mt-0.5 shrink-0 text-[#a5cf00]"/>
+        <div className="min-w-0">
+          <p className={classNames('text-[10px] font-black uppercase tracking-widest',muted)}>
+            ΤΩΡΑ ΠΑΙΖΕΙ
+          </p>
+          <p className={classNames('truncate font-black',compact?'text-xs':'text-sm')}
+            title={song?.raw||''}>{song? song.title : 'Ζωντανό ραδιόφωνο'}</p>
+          <p className={classNames('truncate text-[11px]',muted)}>
+            {song?.artist||station.name}
+          </p>
+          <div className="mt-2"><MusicSearchLinks station={station} song={song} compact={compact}/></div>
+        </div>
+      </div>
+    </RdsCrossfade>
+  </div>;
+}
+function SquarePlayer({station,rds,audio,light}){
   return <main className={classNames('flex h-[100dvh] min-h-[320px] w-full flex-col overflow-hidden p-5',
     light?'bg-[#f4f4f7] text-[#171827]':'bg-[#101315] text-white')}>
     <AudioElements audio={audio}/>
@@ -220,17 +255,18 @@ function SquarePlayer({station,track,audio,light}){
       <PlaybackButton audio={audio}/>
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-xl font-black">{station.name}</h1>
-        <p className={classNames('mt-1 truncate text-xs',light?'text-zinc-500':'text-zinc-400')}>{track||station.slogan||'Ζωντανά στον αέρα'}</p>
+        <p className={classNames('mt-1 truncate text-xs',light?'text-zinc-500':'text-zinc-400')}>{station.slogan||'Ζωντανά στον αέρα'}</p>
       </div>
       <VolumeSlider audio={audio} light={light}/>
     </div>
+    <div className="mt-3"><RdsDetails station={station} rds={rds} light={light} compact/></div>
     {audio.error&&<p role="status" className="mt-2 text-[11px] text-amber-400">{audio.error}</p>}
     <div className={classNames('mt-4 flex justify-center border-t pt-3',light?'border-zinc-200':'border-white/10')}>
       <ProfileLink station={station} light={light}/>
     </div>
   </main>;
 }
-function MiniPlayer({station,track,audio,light}){
+function MiniPlayer({station,rds,audio,light}){
   return <main className={classNames('flex h-[100dvh] min-h-[170px] w-full flex-col justify-between gap-3 overflow-hidden p-4',
     light?'bg-[#f4f4f7] text-[#171827]':'bg-[#111519] text-white')}>
     <AudioElements audio={audio}/>
@@ -239,10 +275,11 @@ function MiniPlayer({station,track,audio,light}){
       <div className="min-w-0 flex-1">
         <span className="text-[10px] font-black text-[#91b900]">● LIVE</span>
         <h1 className="truncate text-base font-black">{station.name}</h1>
-        <p className={classNames('truncate text-[11px]',light?'text-zinc-500':'text-zinc-400')}>{track||'Ζωντανά στον αέρα'}</p>
+        <p className={classNames('truncate text-[11px]',light?'text-zinc-500':'text-zinc-400')}>{station.slogan||'Ζωντανά στον αέρα'}</p>
       </div>
       <PlaybackButton audio={audio}/>
     </div>
+    <RdsDetails station={station} rds={rds} light={light} compact/>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <HdControls audio={audio} compact light={light}/>
       <VolumeSlider audio={audio} light={light}/>
@@ -269,7 +306,7 @@ function ShowLine({show,live=false,light=false}){
     </div>
   </div>;
 }
-function Program({station,current,upcoming,light,mini}){
+function Program({station,current,upcoming,light,mini,rds}){
   return <main className={classNames('flex h-[100dvh] min-h-[155px] w-full flex-col overflow-hidden p-5',
     light?'bg-[#f8f8fa] text-zinc-900':'bg-[#111519] text-white')}>
     <div className="flex items-center justify-between gap-2">
@@ -291,13 +328,14 @@ function Program({station,current,upcoming,light,mini}){
         Το πρόγραμμα θα εμφανιστεί μόλις το ανανεώσει ο σταθμός.
       </p>}
     </div>
+    <div className="mt-2"><RdsDetails station={station} rds={rds} light={light} compact/></div>
     <div className={classNames('mt-3 flex justify-center border-t pt-3',light?'border-zinc-200':'border-white/10')}>
       <ProfileLink station={station} compact={mini} light={light}/>
     </div>
   </main>;
 }
-function Hero({station,current,track,audio}){
-  const image=current?.imageUrl||station.cover||station.logo||'/iradios-logo.png';
+function Hero({station,current,rds,audio}){
+  const image=station.logo||'/iradios-logo.png';
   return <main className="relative flex h-[100dvh] min-h-[480px] w-full flex-col justify-center overflow-y-auto overflow-x-hidden bg-[#101315] px-6 py-8 font-sans text-white sm:px-10 lg:px-[8%]">
     <AudioElements audio={audio}/>
     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_40%_52%,rgba(160,194,60,.08),transparent_60%)]"/>
@@ -328,7 +366,7 @@ function Hero({station,current,track,audio}){
             <p className="truncate text-xs font-bold">{current?.title||station.name}</p>
           </div>
         </div>
-        <p className="mt-3 min-h-4 text-[11px] text-zinc-500">{track||'Δεν γνωρίζουμε ποιο τραγούδι παίζει αυτή τη στιγμή.'}</p>
+        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.035] p-4"><RdsDetails station={station} rds={rds}/></div>
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <PlaybackButton audio={audio} large/>
           <div className="min-w-0">
@@ -356,9 +394,10 @@ export default function StationEmbed(){
   const type=EMBED_TYPES.has(variant)?variant:'';
   const light=params.get('theme')==='light'&&type!=='hero';
   const {station,status}=useStation(stationId);
-  const track=useMusic(station);
+  const rds=useStationWidgetRds(station);
   const program=useProgram(station);
   const audio=useLiveAudio(station);
+  useStationWidgetMediaSession({station,rds,audio,enabled:!type.startsWith('program')});
   if(!type)return <div className="flex h-screen items-center justify-center bg-zinc-950 text-zinc-400">Άγνωστος τύπος widget.</div>;
   if(!station)return <div role="status" className="flex h-[100dvh] items-center justify-center bg-[#101315] p-6 text-center text-sm text-zinc-400">
     {status==='loading'?<Loader2 size={26} className="animate-spin text-[#caff00]"/>:
@@ -366,10 +405,10 @@ export default function StationEmbed(){
   </div>;
   return <>
     <Helmet><title>{station.name} · iRadios Station Widget</title><meta name="robots" content="noindex,nofollow"/></Helmet>
-    {type==='player-square'&&<SquarePlayer station={station} track={track} audio={audio} light={light}/>}
-    {type==='player-mini'&&<MiniPlayer station={station} track={track} audio={audio} light={light}/>}
-    {type==='program-square'&&<Program station={station} {...program} light={light} mini={false}/>}
-    {type==='program-mini'&&<Program station={station} {...program} light={light} mini/>}
-    {type==='hero'&&<Hero station={station} {...program} track={track} audio={audio}/>}
+    {type==='player-square'&&<SquarePlayer station={station} rds={rds} audio={audio} light={light}/>}
+    {type==='player-mini'&&<MiniPlayer station={station} rds={rds} audio={audio} light={light}/>}
+    {type==='program-square'&&<Program station={station} {...program} rds={rds} light={light} mini={false}/>}
+    {type==='program-mini'&&<Program station={station} {...program} rds={rds} light={light} mini/>}
+    {type==='hero'&&<Hero station={station} {...program} rds={rds} audio={audio}/>}
   </>;
 }

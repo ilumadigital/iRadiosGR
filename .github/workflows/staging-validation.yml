@@ -43,6 +43,8 @@ jobs:
         run: node --test frontend/src/utils/forYouRecommendations.test.js backend/tests/listeningProfile.test.js
       - name: Verify Phase D listener heartbeat idempotency and real Analytics projections
         run: node --test backend/tests/stageListeningMetrics.test.js backend/tests/analyticsMetrics.test.js
+      - name: Verify public widget native RDS never leaks Premium AI recognitions
+        run: node --test backend/tests/widgetNativeNow.test.js
       - name: Verify Phase C guest and Premium AI response projections
         run: node --test backend/tests/nowPlayingVisibility.test.js
       - name: Verify Phase B single-use Admin email 2FA and safe stream diagnostics
