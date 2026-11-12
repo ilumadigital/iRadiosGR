@@ -4,7 +4,8 @@ const mongoose=require('mongoose');
 const {isStage,activeCampaignQuery,live,fields,permitMetric} =
   require('../services/adDeliveryRules');
 const writable=['title','description','imageUrl','squareImageUrl','targetUrl',
-  'placement','targetLocations','status','duration','expiresAt'];
+  'placement','targetLocations','targetCountry','targetRegion',
+  'logoUrl','ctaLabel','brandColor','focalX','focalY','status','duration','expiresAt'];
 const placements=new Set(['hero','home','radio_feed','news_feed','station_profile']);
 function validPatch(patch){
   if(patch.placement!==undefined&&(!Array.isArray(patch.placement)||
@@ -80,7 +81,8 @@ exports.cloneStageBanner=async(req,res)=>{
     const original=await BannerAd.findById(req.params.id).lean();
     if(!original||original.isStageCreative)return res.status(404).json({error:'No import to copy'});
     const patch=fields(original,['title','description','imageUrl','squareImageUrl',
-      'targetUrl','placement','targetLocations']);
+      'targetUrl','placement','targetLocations','targetCountry','targetRegion',
+      'logoUrl','ctaLabel','brandColor','focalX','focalY']);
     const clone=await BannerAd.create({...patch,title:`${original.title} · STAGING`,
       status:'pending',duration:'month',expiresAt:null,isStageCreative:true,
       isActive:false,agencyId:null});
