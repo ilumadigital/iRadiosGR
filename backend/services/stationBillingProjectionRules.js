@@ -1,6 +1,7 @@
 'use strict';
 const {effectiveRights}=require('./billingEntitlementRules');
 const {paidRights,boostForStation,isBoost}=require('./broadcasterPurchaseRules');
+const {effectiveStationBoost}=require('./stationBoostRules');
 const {DSP_COMPRESSOR_DEFAULTS,DSP_CLIPPER_DEFAULTS}=require('./dspConfig');
 
 // Admin DSP configurations are always stored, but public output is processed
@@ -9,6 +10,7 @@ const {DSP_COMPRESSOR_DEFAULTS,DSP_CLIPPER_DEFAULTS}=require('./dspConfig');
 function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidHistory=[]){
  const data=typeof station.toObject==='function'?station.toObject():{...station};
  const zeroPaidFx=()=>{
+   data.commercialBoost=effectiveStationBoost(null,station,now);
    data.widgetMusicLinksEnabled=false;
    data.dspPreset='OFF';
    data.dspAutoBalance=0;
@@ -28,8 +30,8 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
  for(const right of paidRights(paid,station._id,now))rights.add(right);
  const selected=(owner.broadcasterProfile?.premiumBoostStationIds||[])
    .some(id=>String(id)===String(station._id));
- data.commercialBoost=boostForStation(paid,station._id,now,
-   rights.has('broadcaster.premium_boost')&&selected);
+ data.commercialBoost=effectiveStationBoost(boostForStation(paid,station._id,now,
+   rights.has('broadcaster.premium_boost')&&selected),station,now);
  // Retain a small, deterministic ORGANIC position lift after a verified
  // purchased or Premium Boost ends. This never extends a paid entitlement,
  // changes editorial positions, or grants a Promoted placement.

@@ -31,6 +31,19 @@ const initialOrder = (stations, scope, value) => [
     a.name.localeCompare(b.name, 'el')),
   ...stations.filter(s => !matchesScope(s, scope, value))
 ];
+const boostSource= (station,now=Date.now()) => {
+  const boost=station?.commercialBoost||{};
+  const manualEndsAt=Date.parse(station?.boostExpiresAt);
+  const manual=station?.boostStatus===true&&Number.isFinite(manualEndsAt)&&manualEndsAt>now;
+  const purchased=boost.tier==='purchased'&&Number.isFinite(Date.parse(boost.endsAt))&&
+    Date.parse(boost.endsAt)>now;
+  const premium=boost.tier==='premium'||boost.premiumIncluded===true;
+  return {manual,purchased,premium,active:manual||purchased||premium,
+    manualExpired:station?.boostStatus===true&&!manual};
+};
+const exactTime=date=>date?new Intl.DateTimeFormat('el-GR',{
+  dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Athens'
+}).format(new Date(date)):'—';
 const remaining = date => {
   if (!date) return null;
   const diff = new Date(date).getTime() - Date.now();
@@ -49,6 +62,11 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [onlyBoosted, setOnlyBoosted] = useState(false);
+  const [clock,setClock]=useState(()=>Date.now());
+  useEffect(()=>{
+    const timer=setInterval(()=>setClock(Date.now()),30000);
+    return()=>clearInterval(timer);
+  },[]);
   const [shown, setShown] = useState(60);
   const [positionInputs, setPositionInputs] = useState({});
   const [boostChanged, setBoostChanged] = useState(() => new Set());
@@ -87,6 +105,22 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
     return () => { live = false; };
   }, []);
 
+  // New paid purchases may become active while the Admin remains on this page.
+  // Refresh the read-only status without ever discarding unsaved manual edits.
+  const dirtyRef=useRef(dirty);
+  dirtyRef.current=dirty;
+  useEffect(()=>{
+    const timer=setInterval(()=>{
+      if(dirtyRef.current)return;
+      adminFetch('/api/backoffice/admin/station-ranking')
+        .then(response=>response.ok?response.json():null)
+        .then(data=>{
+          if(!dirtyRef.current&&Array.isArray(data))setRankSource(data);
+        }).catch(()=>{/* Preserve last known status on a network error. */});
+    },60000);
+    return()=>clearInterval(timer);
+  },[]);
+
   // Props refresh and scope changes rebuild the local order from the saved scope.
   useEffect(() => {
     setLocalStations(initialOrder(approved, scope, scopeValue));
@@ -105,11 +139,10 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
   const matches = scopedStations.filter(s =>
     (!searchKey || [s.name, s.genre, s.secondaryGenre, s.region, s.city, s.frequency]
       .some(value => String(value || '').toLocaleLowerCase('el').includes(searchKey))) &&
-    (!onlyBoosted || s.boostStatus === true));
+    (!onlyBoosted || boostSource(s,clock).active));
   const visible = matches.slice(0, shown);
   useEffect(() => { setShown(60); }, [scope, scopeValue, search, onlyBoosted]);
-  const boostedCount = scopedStations.filter(s => s.boostStatus &&
-    (!s.boostExpiresAt || new Date(s.boostExpiresAt).getTime() > Date.now())).length;
+  const boostedCount = scopedStations.filter(s=>boostSource(s,clock).active).length;
   const scopeLabel = scope === 'global' ? 'Όλο το δίκτυο' :
     scope === 'genre' ? `Κατηγορία · ${scopeValue}` : `Περιοχή · ${scopeValue}`;
 
@@ -141,7 +174,7 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
     setNotice(null);
   };
   const toggleBoost = station => {
-    const enabled = !station.boostStatus;
+    const enabled = !boostSource(station).manual;
     const future = new Date(station.boostExpiresAt).getTime() > Date.now();
     updateStation(station._id, {
       boostStatus: enabled,
@@ -250,8 +283,9 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
             </div>
             <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl">Σειρά & Boost σταθμών</h1>
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              Καθόρισε ποιος σταθμός εμφανίζεται πρώτος. Πληκτρολόγησε θέση,
-              μετακίνησε με τα βελάκια ή σύρε από τη λαβή. Κάθε κατηγορία και περιοχή έχει ανεξάρτητη σειρά.
+              Καθόρισε τη σειρά και δες ξεχωριστά τα πληρωμένα Global / Category,
+              Premium και χειροκίνητα Admin Boosts, με την πραγματική διάρκεια.
+              Οι χειροκίνητοι διακόπτες δεν αλλάζουν τις αγορές.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -339,8 +373,10 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
         <div className="space-y-2.5">
           {visible.map(station => {
             const index = scopePositions.get(stationId(station)) ?? -1;
-            const boosted = Boolean(station.boostStatus);
-            const time = boosted ? remaining(station.boostExpiresAt) : null;
+            const state=boostSource(station,clock);
+            const manualEnabled=Boolean(station.boostStatus);
+            const manualTime=state.manual?remaining(station.boostExpiresAt):null;
+            const paidTime=state.purchased?remaining(station.commercialBoost.endsAt):null;
             const id = stationId(station);
             return (
               <article key={id} onDragOver={event => event.preventDefault()}
@@ -371,20 +407,47 @@ export default function Boost({ API_URL = '/api', stations = [], refreshStations
                     <p className="mt-0.5 truncate text-xs text-zinc-400">
                       {[station.genre, station.region || station.city].filter(Boolean).join(' · ')}
                     </p>
-                    {boosted && <span className={`mt-1 inline-flex items-center gap-1 text-[11px] font-semibold ${time === 'Έληξε' ? 'text-rose-400' : 'text-[#ccff00]'}`}>
-                      <Zap size={11} /> {time || 'Boost ενεργό'}
-                    </span>}
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {station.promotedPlacements?.length>0 && <span
+                        title={station.promotedPlacements.map(p=>p.placement+' · '+(p.value||'Newsfeed')).join(' / ')}
+                        className="inline-flex items-center rounded-full border border-amber-300/35 bg-amber-300/10 px-2 py-1 text-[10px] font-bold text-amber-200">
+                        Promoted · {station.promotedPlacements.length} θέσεις
+                      </span>}
+                      {state.purchased && <span className="inline-flex items-center gap-1 rounded-full border border-[#ccff00]/40 bg-[#ccff00]/10 px-2 py-1 text-[10px] font-bold text-[#d9ff70]"
+                        title={'Πληρωμένο μέσω Billing · Λήξη: '+exactTime(station.commercialBoost.endsAt)}>
+                        <Zap size={11}/> Paid {station.commercialBoost.placement==='global'?'Global':'Category'} · {paidTime}
+                      </span>}
+                      {state.premium && <span className="inline-flex items-center rounded-full border border-violet-400/30 bg-violet-400/10 px-2 py-1 text-[10px] font-bold text-violet-200">
+                        Premium Boost
+                      </span>}
+                      {state.manual && <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-1 text-[10px] font-bold text-sky-200"
+                        title={'Χειροκίνητο Admin Boost · Λήξη: '+exactTime(station.boostExpiresAt)}>
+                        <Zap size={11}/> Admin Manual · {manualTime}
+                      </span>}
+                      {state.manualExpired && <span className="inline-flex items-center rounded-full border border-rose-400/25 bg-rose-400/10 px-2 py-1 text-[10px] font-bold text-rose-300">
+                        Χειροκίνητο Boost ληγμένο / χωρίς λήξη
+                      </span>}
+                    </div>
+                    {state.purchased && <p className="mt-1 text-[10px] text-zinc-400">
+                      Λήξη πληρωμένου Boost: {exactTime(station.commercialBoost.endsAt)}
+                    </p>}
+                    {state.manual && <p className="mt-1 text-[10px] text-sky-200/75">
+                      Λήξη χειροκίνητου Boost: {exactTime(station.boostExpiresAt)}
+                    </p>}
                   </div>
                 </div>
 
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3 sm:justify-end sm:border-0 sm:pt-0">
                   <div className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-2.5 py-2">
-                    <button type="button" role="switch" aria-checked={boosted}
-                      aria-label={`Boost για ${station.name}`} onClick={() => toggleBoost(station)}
-                      className={`relative h-6 w-11 shrink-0 rounded-full transition ${boosted ? 'bg-[#ccff00]' : 'bg-zinc-700'}`}>
-                      <span className={`absolute left-1 top-1 size-4 rounded-full bg-black transition-transform ${boosted ? 'translate-x-5' : 'translate-x-0'}`} />
+                    <span className="text-[10px] font-semibold text-zinc-400">Manual</span>
+                    <button type="button" role="switch" aria-checked={state.manual}
+                      aria-label={`Χειροκίνητο Admin Boost για ${station.name}`}
+                      title="Αλλάζει μόνο το χειροκίνητο Boost, ποτέ πληρωμένη αγορά"
+                      onClick={() => toggleBoost(station)}
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition ${state.manual ? 'bg-[#ccff00]' : 'bg-zinc-700'}`}>
+                      <span className={`absolute left-1 top-1 size-4 rounded-full bg-black transition-transform ${state.manual ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
-                    <select aria-label={`Διάρκεια Boost για ${station.name}`} value=""
+                    <select aria-label={`Διάρκεια χειροκίνητου Boost για ${station.name}`} value=""
                       onChange={event => setDuration(id, event.target.value)}
                       className="max-w-[130px] bg-transparent py-1 text-xs text-zinc-300 outline-none">
                       <option value="">Διάρκεια Boost</option>

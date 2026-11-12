@@ -46,7 +46,7 @@ exports.getApprovedStations = async (req, res) => {
     // Public stage may expose station metadata, never broadcaster personal
     // information or private pending edits imported from production.
     if (process.env.APP_ENV === 'staging') {
-      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok email explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset dspSettings dspCompressor dspClipper dspAutoBalance disableNetworkAds broadcasterId');
+      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok email explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset dspSettings dspCompressor dspClipper dspAutoBalance disableNetworkAds broadcasterId boostStatus boostExpiresAt');
     }
     const stations=await query;
     const effective=await projectPublicStations(stations);
