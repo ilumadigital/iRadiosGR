@@ -25,6 +25,12 @@ export function widgetSnapshot(publicData,accountData){
     ...(hint?{broadcastHint:hint}:{})};
 }
 
+// Every verified track/show pair alternates track for 20s, show for 20s.
+// Absence of a producer photo does not suppress the scheduled show.
+export function widgetShowProducerNow(song,show,at=Date.now(),intervalMs=20000){
+  return Boolean(show&&(!song||Math.floor(at/intervalMs)%2===1));
+}
+
 export function widgetOnAirPresentation({song,broadcast,showProducer,station}={}){
   const show=Boolean(broadcast?.recognizedShow&&(showProducer||!song));
   if(show)return {title:broadcast.title||station?.name||'Στον αέρα',
