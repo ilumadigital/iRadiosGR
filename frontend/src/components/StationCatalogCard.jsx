@@ -8,13 +8,13 @@ import {catalogStationInfo} from '../utils/catalogLive';
 // Keep playback and station profile as two separate accessible actions.
 export default function StationCatalogCard({
   station,currentStation,isPlaying,onPlayStation,onPlayPause,mode='grid',
-  nowPlaying,clock,currentUser
+  nowPlaying,clock,currentUser,sponsored=false
 }){
   const navigate=useNavigate();
   const active=stationIsPlaying(station,currentStation,isPlaying);
   const offline=station?.isOffline === true;
-  // Paid and included boosts influence catalog order, not editorial slots.
-  const boostLabel=station?.commercialBoost?.tier==='purchased'?'BOOSTED':
+  // A paid placement is labelled only when actually inserted into this feed.
+  const boostLabel=sponsored?'SPONSORED':
     station?.commercialBoost?.tier==='premium'?'PREMIUM BOOST':null;
   const profile=()=>navigate('/station/'+(station.slug||station._id));
   const meta=formatStationTransmission(station);
@@ -23,8 +23,8 @@ export default function StationCatalogCard({
     isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}
     className={mode==='grid'?'w-full':'w-full sm:w-auto'}/>;
   if(mode==='list')return (
-    <article className={'ir-catalog-row flex w-full min-w-0 flex-col gap-3 rounded-2xl border p-3 transition-colors sm:p-4 lg:flex-row lg:items-center lg:gap-5 '+
-      (active?'border-[#ccff00]/45 bg-[#ccff00]/[.055]':'border-white/10 bg-[#141a20] hover:border-[#ccff00]/30')}>
+    <article aria-label={sponsored?'SPONSORED · '+station.name:undefined} className={'ir-catalog-row flex w-full min-w-0 flex-col gap-3 rounded-2xl border p-3 transition-colors sm:p-4 lg:flex-row lg:items-center lg:gap-5 '+
+      (sponsored?'border-[#ccff00]/55 bg-[#ccff00]/[.075] shadow-[inset_0_1px_0_rgba(204,255,0,.15)]':active?'border-[#ccff00]/45 bg-[#ccff00]/[.055]':'border-white/10 bg-[#141a20] hover:border-[#ccff00]/30')}>
       <button type="button" onClick={profile}
         className="grid w-full min-w-0 flex-1 grid-cols-1 items-center gap-3 text-left min-[540px]:grid-cols-2 lg:grid-cols-[minmax(190px,1.35fr)_minmax(115px,.7fr)_minmax(180px,1.25fr)_minmax(140px,1fr)] lg:gap-5"
         aria-label={'Προφίλ '+station.name}>
@@ -75,8 +75,8 @@ export default function StationCatalogCard({
     </article>
   );
   return (
-    <article className={'ir-catalog-card group min-w-0 rounded-[22px] border p-2.5 transition-all hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(0,0,0,.35)] sm:p-3 '+
-      (active?'border-[#ccff00]/50 bg-[#ccff00]/[.065]':'border-white/10 bg-[#141a20] hover:border-[#ccff00]/45')}>
+    <article aria-label={sponsored?'SPONSORED · '+station.name:undefined} className={'ir-catalog-card group min-w-0 rounded-[22px] border p-2.5 transition-all hover:-translate-y-1 hover:shadow-[0_15px_40px_rgba(0,0,0,.35)] sm:p-3 '+
+      (sponsored?'border-[#ccff00]/65 bg-[#ccff00]/[.08] shadow-[inset_0_1px_0_rgba(204,255,0,.13)]':active?'border-[#ccff00]/50 bg-[#ccff00]/[.065]':'border-white/10 bg-[#141a20] hover:border-[#ccff00]/45')}>
       <button type="button" onClick={profile} className="block w-full text-left" aria-label={'Προφίλ '+station.name}>
         <div className="relative aspect-square overflow-hidden rounded-[17px] border border-white/10 bg-white">
           <img src={station.logo||'/iradios-logo.png'} alt="" loading="lazy"
