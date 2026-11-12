@@ -122,6 +122,16 @@ function useLiveAudio(station){
     setBypass(false);stop();setError('');
     return()=>{requestId.current+=1;dspRef.current?.pause();rawRef.current?.pause();};
   },[station?._id,stop]);
+  const previousDspRight=useRef(hasDSP);
+  useEffect(()=>{
+    if(previousDspRight.current&&!hasDSP&&playing){
+      // Revoking WebDSP while listening must immediately switch away from the
+      // processed path. The server masks the preset on the next public refresh.
+      setBypass(true);
+      void start(true);
+    }
+    previousDspRight.current=hasDSP;
+  },[hasDSP,playing,start]);
   useEffect(()=>{
     if(dspRef.current)dspRef.current.volume=volume;
     if(rawRef.current)rawRef.current.volume=volume;
