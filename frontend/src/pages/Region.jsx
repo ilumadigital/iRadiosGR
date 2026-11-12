@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import DynamicAdCreative from '../components/DynamicAdCreative';
+import '../styles/listener-v6-ads.css';
 import {geoAllowsAd} from '../utils/adPlacements';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, LayoutGrid, List, Map as MapIcon, Globe, Megaphone, ExternalLink } from 'lucide-react';
