@@ -10,7 +10,7 @@ import {minutes,scheduleDayBase,toCanonical,normalize,nextDay} from '../utils/sc
 import {
   Activity,ArrowDownRight,ArrowLeft,ArrowRight,BadgeCheck,BarChart3,
   Bell,Building2,CalendarDays,Check,CheckCircle2,ChevronDown,ChevronRight,
-  CircleAlert,Clock3,CloudUpload,Copy,ExternalLink,FileCheck2,
+  CircleAlert,Clock3,CloudUpload,Code2,Copy,ExternalLink,FileCheck2,
   Globe2,Headphones,Home,Image,LayoutDashboard,LogOut,Menu,Mic2,
   Music2,Plus,Radio,RefreshCw,Save,Search,Settings2,Shield,ShieldCheck,
   SlidersHorizontal,Sparkles,Trash2,Users,X,LockKeyhole
@@ -36,6 +36,7 @@ const BroadcasterBillingDashboard=lazy(()=>import('./BroadcasterBillingDashboard
 const BroadcasterRadar=lazy(()=>import('./BroadcasterRadar'));
 const BroadcasterDSP=lazy(()=>import('./DSP'));
 const BroadcasterWebDSPPreview=lazy(()=>import('./BroadcasterWebDSPPreview'));
+const StationWidgetConfigurator=lazy(()=>import('./StationWidgetConfigurator'));
 const BroadcasterAds=lazy(()=>import('./AdControl'));
 const NewPush=lazy(()=>import('./NewPush'));
 const DAY_NAMES=['','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
@@ -1636,6 +1637,26 @@ export default function Backoffice(){
           </div>
         </NavLink>}
 
+      {data.user.role==='broadcaster'&&data.stations.some(s=>s.status==='approved')&&
+         <NavLink to="/backoffice/widgets" onClick={()=>setSidebarOpen(false)}
+           className={({isActive})=>'group relative mb-3 block shrink-0 overflow-hidden rounded-[22px] border px-4 py-3.5 transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400 '+
+             (isActive?'border-violet-400 bg-[#35234a] shadow-[0_8px_32px_rgba(167,139,250,.14)]':
+             'border-violet-400/35 bg-gradient-to-br from-[#332048] via-[#221a30] to-[#17151f] shadow-[0_12px_28px_rgba(167,139,250,.07)] hover:border-violet-400/70 hover:from-[#452b61]')}>
+           <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-12 size-32 rounded-full bg-violet-400/10 blur-2xl"/>
+           <div className="relative flex items-center justify-between gap-2">
+             <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.13em] text-violet-300">
+               <Code2 size={16}/> Widgets Configurator
+             </span>
+             <span className="rounded-full bg-violet-400 px-2 py-0.5 text-[9px] font-black text-[#180c28]">NEW</span>
+           </div>
+           <p className="relative mt-2 truncate text-[13px] font-black text-white">
+             Τα widgets του σταθμού σου.
+           </p>
+           <div className="relative mt-2 flex items-center justify-between text-[10px] font-extrabold text-violet-200">
+             <span>ΦΤΙΑΞΕ ΤΟ WIDGET ΣΟΥ</span><ArrowRight size={16} className="transition-transform group-hover:translate-x-1"/>
+           </div>
+         </NavLink>}
+
       {admin&&<label className="relative mb-2 block shrink-0">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"/>
         <input aria-label="Αναζήτηση στο μενού" placeholder="Αναζήτηση εργαλείου…"
@@ -1714,6 +1735,8 @@ export default function Backoffice(){
           <Route path="/backoffice/boost" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="boost" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/billing" element={data.user.role==='broadcaster'?<BroadcasterBillingDashboard stations={data.stations}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/radar" element={data.user.role==='broadcaster'?<BroadcasterToolGate entitlement="broadcaster.analytics" rights={addonRights} status={addonStatus}><BroadcasterRadar accountId={data.user._id}/></BroadcasterToolGate>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/widgets" element={data.user.role==='broadcaster'?
+            <StationWidgetConfigurator stations={data.stations}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/audio-preview" element={data.user.role==='broadcaster'?
             previewStatus==='loading'?<div role="status" className={panel+' p-8 text-[#caff00]'}>Ελέγχουμε τους εγκεκριμένους σταθμούς σου…</div>:
             previewStations.length?<BroadcasterWebDSPPreview API_URL="/api" stations={previewStations}/>:
