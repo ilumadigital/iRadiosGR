@@ -5,7 +5,7 @@ const {isStage,activeCampaignQuery,live,fields,permitMetric} =
   require('../services/adDeliveryRules');
 const writable=['title','description','imageUrl','squareImageUrl','targetUrl',
   'placement','targetLocations','status','duration','expiresAt'];
-const placements=new Set(['hero','home','radio_feed','news_feed']);
+const placements=new Set(['hero','home','radio_feed','news_feed','station_profile']);
 function validPatch(patch){
   if(patch.placement!==undefined&&(!Array.isArray(patch.placement)||
      !patch.placement.length||patch.placement.some(p=>!placements.has(p))))return false;
