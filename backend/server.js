@@ -160,6 +160,7 @@ app.use('/api',require('./routes/broadcasterBillingRoutes'));
 
 app.use('/api', producerRoutes);
 app.use('/api', require('./routes/backofficeRoutes'));
+app.use('/api', require('./routes/widgetPreviewRoutes'));
 app.use('/api', require('./routes/broadcasterInvitationRoutes'));
 app.use('/api', require('./routes/emailPreviewRoutes'));
 app.use('/api', authRoutes);
