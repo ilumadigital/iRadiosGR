@@ -74,6 +74,20 @@ exports.createBanner=async(req,res)=>{
 };
 
 // Ενημέρωση υπάρχοντος banner
+exports.cloneStageBanner=async(req,res)=>{
+  if(!isStage())return res.status(404).json({error:'Unavailable'});
+  try{
+    const original=await BannerAd.findById(req.params.id).lean();
+    if(!original||original.isStageCreative)return res.status(404).json({error:'No import to copy'});
+    const patch=fields(original,['title','description','imageUrl','squareImageUrl',
+      'targetUrl','placement','targetLocations']);
+    const clone=await BannerAd.create({...patch,title:`${original.title} · STAGING`,
+      status:'pending',duration:'month',expiresAt:null,isStageCreative:true,
+      isActive:false,agencyId:null});
+    res.status(201).json(clone);
+  }catch(error){res.status(400).json({error:'Δεν δημιουργήθηκε δοκιμαστικό banner.'});}
+};
+
 exports.updateBanner=async(req,res)=>{
   try{
     const patch=fields(req.body,writable);
