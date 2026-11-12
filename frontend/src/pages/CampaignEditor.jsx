@@ -1,6 +1,6 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Link, useNavigate, useParams} from 'react-router-dom';
-import {ArrowLeft, ArrowUpRight, Check, Image as ImageIcon, Music2, RefreshCw, ShieldAlert} from 'lucide-react';
+import {ArrowLeft, Check, Image as ImageIcon, Music2, RefreshCw, ShieldAlert} from 'lucide-react';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import DynamicAdCreative from '../components/DynamicAdCreative';
 import '../styles/ad-campaign-console.css';
@@ -230,7 +230,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
             {['hero','strip','card','list','news'].map(v=><button key={v} type="button" onClick={()=>setPreview(v)}
               className={'rounded-lg px-3 py-2 text-xs font-bold '+(preview===v?'bg-purple-600 text-white':'border border-white/10 text-zinc-300')}>{v}</button>)}
           </div><div className={preview==='card'?'max-w-[245px]':''}>
-            <DynamicAdCreative banner={{...previewBanner,targetUrl:form.targetUrl||'https://example.com'}} variant={preview} placement={form.placement?.[0]||'home'} slotKey="editor-preview" />
+            <DynamicAdCreative banner={{...previewBanner,targetUrl:form.targetUrl||'https://example.com'}} variant={preview} placement={form.placement?.[0]||'home'} slotKey="editor-preview" preview />
           </div><p className="text-[11px] text-zinc-500">Το preview δεν καταγράφει προβολές όταν το δημιουργικό δεν έχει αποθηκευμένο ID.</p></>:
             <div className="space-y-3"><div className="rounded-2xl bg-purple-950/30 p-5"><Music2 className="mb-3 text-purple-300"/><p className="font-black text-white">{form.title||'Τίτλος Audio Spot'}</p><p className="mt-1 text-xs text-zinc-400">{form.client||'Brand'}</p></div>
             {form.audioUrl?<audio src={form.audioUrl} controls preload="none" className="w-full"/>:<p className="text-xs text-zinc-500">Ανέβασε spot για προεπισκόπηση μετά την αποθήκευση.</p>}</div>}
