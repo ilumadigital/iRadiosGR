@@ -393,7 +393,7 @@ function Program({station,current,upcoming,light,mini,rds,audio}){
       {rds.song&&<div className="min-w-0 text-[11px] font-semibold text-white/80">
         <RdsTicker station={station} rds={rds}/>
       </div>}
-      {upcoming[0]&&<ShowLine station={station} show={upcoming[0]}/>
+      {upcoming[0]&&<ShowLine station={station} show={upcoming[0]}/>}
     </section>
     <footer className="ir-embed__controls relative z-10 shrink-0 px-4 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
