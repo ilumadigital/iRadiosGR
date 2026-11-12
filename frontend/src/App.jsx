@@ -1143,7 +1143,9 @@ function MainApp() {
 
   const handleStationSelectWithAds = (station) => {
     if(!station || station.isOffline === true || stationsRef.current.find(s=>String(s._id)===String(station._id))?.isOffline === true)return;
-    if (isPlayingAd || !audioRef.current) return;
+    if (!audioRef.current) return;
+    // During a spot retain the latest listener selection for the end of break.
+    if (isPlayingAd || activeAdRef.current) { pendingStation.current = station; return; }
     if (currentStation && currentStation._id === station._id && isPlaying) return;
     
     if (currentUser?.isPremium && activeRemoteDevice) {
@@ -1176,12 +1178,12 @@ function MainApp() {
 
       if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
 
-      return ad.isGlobal !== false ? !station.disableNetworkAds : ad.stationId === station._id;
+      return ad.isGlobal !== false ? !station.disableNetworkAds : String(ad.stationId?._id||ad.stationId) === String(station._id);
     });
 
     if (zappingAdsToPlay.length > 0) {
       pendingStation.current = station; 
-      adQueue.current = [...zappingAdsToPlay]; // Βάζουμε τα zapping ads στην ουρά
+      adQueue.current = zappingAdsToPlay.slice(0, 2); // Bound every ad break
       playNextAdOrStation();
     } else {
       handleActualStationPlay(station);
@@ -1257,7 +1259,7 @@ function MainApp() {
 
         if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
 
-        return ad.isGlobal !== false ? !currentStation.disableNetworkAds : ad.stationId === currentStation._id;
+        return ad.isGlobal !== false ? !currentStation.disableNetworkAds : String(ad.stationId?._id||ad.stationId) === String(currentStation._id);
       });
 
       if (timeBasedAds.length === 0) return;
@@ -1284,7 +1286,7 @@ function MainApp() {
       if (adsEligibleToPlay.length === 0) return;
 
       // 3. Shuffle (για να μην παίζουν πάντα τα ίδια με την ίδια σειρά)
-      const shuffledAds = adsEligibleToPlay.sort(() => 0.5 - Math.random());
+      const shuffledAds = [...adsEligibleToPlay].sort(() => 0.5 - Math.random());
       
       // 4. Επιλέγουμε MAX 2 σποτ (Ad Break)
       const selectedAds = shuffledAds.slice(0, 2);
