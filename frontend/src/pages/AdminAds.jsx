@@ -261,7 +261,9 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
 
   const getFrequencyLabel = (freq) => {
     switch(freq) {
-      case 'entry': return 'Στην Είσοδο (1ος Σταθμός)';
+      case 'entry':case 'first_station':return 'Στην Είσοδο (1ος Σταθμός)';
+      case 'every_2':case 'every_2_stations':return 'Κάθε 2 σταθμούς (παλαιό)';
+      case 'every_4':case 'every_4_stations':return 'Κάθε 4 σταθμούς (παλαιό)';
       case 'every_5_stations': return 'Κάθε 5 σταθμούς (Zapping)';
       case 'every_10_stations': return 'Κάθε 10 σταθμούς (Zapping)';
       case 'every_15_stations': return 'Κάθε 15 σταθμούς (Zapping)';
