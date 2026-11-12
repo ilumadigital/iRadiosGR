@@ -22,6 +22,9 @@ const userSchema = new mongoose.Schema({
   },
 
   favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Station' }],
+  // Bounded anonymous-style counts, scoped to this account and each device.
+  // Not selected during login/auth/me and removed with the User document.
+  listeningPreferences: { type: mongoose.Schema.Types.Mixed, default: {}, select: false },
   // Shows are scoped to a station; DJs are followed across stations by normalized host name.
   followedPrograms: [{
     kind: { type: String, enum: ['show','dj'], required: true },

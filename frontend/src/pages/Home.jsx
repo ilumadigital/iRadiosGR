@@ -94,7 +94,7 @@ const CITY_COORDINATES = {
 };
 
 // 🟢 ΠΡΟΣΘΗΚΗ: Δέχεται το `weather` από το App.jsx
-export default function Home({ stations, weather, currentStation, setCurrentStation, userLocation, checkGeoMatch, isPlaying, onPlayPause, currentUser, analyser, onOpenDiscovery, onOpenSmartSearch, API_URL }) {
+export default function Home({ stations, weather, currentStation, setCurrentStation, userLocation, checkGeoMatch, isPlaying, onPlayPause, currentUser, analyser, onOpenDiscovery, onOpenSmartSearch, API_URL, listeningProfile, onCategorySelected }) {
   const navigate = useNavigate();
   const location = useLocation();
   const {byId:catalogNowPlaying,clock:catalogClock}=useCatalogNowPlaying(currentUser);
@@ -692,6 +692,8 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         onPlayPause={onPlayPause}
         onPlayStation={setCurrentStation}
         onOpenDiscovery={onOpenDiscovery}
+        listeningProfile={listeningProfile}
+        onCategorySelected={onCategorySelected}
         catalogNowPlaying={catalogNowPlaying}
         catalogClock={catalogClock}
       />
