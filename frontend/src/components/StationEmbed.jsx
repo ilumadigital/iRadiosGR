@@ -374,21 +374,7 @@ function MiniPlayer({station,rds,audio,light}){
 }
 
 
-function ShowLine({show,live=false,station}){
-  return <div className={classNames('ir-embed__program-card flex min-w-0 items-center gap-2.5 rounded-xl p-2',live&&'is-live')}>
-    <ArtworkVisual station={station} src={show?.imageUrl}
-      className="size-11 shrink-0 rounded-lg object-cover"/>
-    <div className="min-w-0 flex-1">
-      <p className={classNames('truncate text-[9px] font-black uppercase tracking-wider',
-        live?'text-[#caff00]':'text-white/65')}>
-        {live?'● ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ':(show?.startTime||'—')+' – '+(show?.endTime||'—')}
-      </p>
-      <p className="ir-embed__program-title mt-1 text-[12px]">{show?.title||'Ζωντανό πρόγραμμα'}</p>
-      {show?.host&&<p className="mt-0.5 truncate text-[10px] text-white/65">{show.host}</p>}
-    </div>
-  </div>;
-}
-function Program({station,current,upcoming,shows,clock,light,mini,rds,audio}){
+function Program({station,current,shows,clock,light,mini,rds,audio}){
   const active=current||{title:'Ζωντανό ραδιόφωνο',host:station.slogan||station.name};
   if(mini)return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
@@ -445,12 +431,7 @@ function Program({station,current,upcoming,shows,clock,light,mini,rds,audio}){
         <HdControls audio={audio} compact/>
       </div>
       {audio.error&&<p className="mt-1 text-[10px] text-amber-300" role="status">{audio.error}</p>}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="min-w-0 flex-1 text-[10px] font-semibold text-white/70">
-          <RdsTicker station={station} rds={rds}/>
-        </div>
-        <ProfileLink station={station} compact/>
-      </div>
+      <div className="mt-2 flex justify-end"><ProfileLink station={station} compact/></div>
     </footer>
   </main>;
 }
