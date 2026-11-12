@@ -6,7 +6,7 @@ const mongoose=require('mongoose');
 const {isStage,activeCampaignQuery,live,publicAd,fields,permitMetric} =
   require('../services/adDeliveryRules');
 const writable=['title','client','audioUrl','logoUrl','linkUrl','frequency',
-  'dspPreset','targetLocations','status','duration','expiresAt'];
+  'dspPreset','targetLocations','targetCountry','targetRegion','status','duration','expiresAt'];
 const correctFrequency=value=>({
   first_station:'entry',every_2:'every_2_stations',every_4:'every_4_stations'
 }[value]||value);
@@ -80,7 +80,7 @@ exports.cloneStageAd=async(req,res)=>{
     const original=await Ad.findById(req.params.id).lean();
     if(!original||original.isStageCreative)return res.status(404).json({error:'No import to copy'});
     const patch=fields(original,['title','client','audioUrl','logoUrl','linkUrl','frequency',
-      'dspPreset','targetLocations']);
+      'dspPreset','targetLocations','targetCountry','targetRegion']);
     const clone=await Ad.create({...patch,title:`${original.title} · STAGING`,
       frequency:correctFrequency(patch.frequency||'entry'),
       status:'pending',duration:'month',expiresAt:null,isStageCreative:true,
