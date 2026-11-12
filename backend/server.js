@@ -271,15 +271,18 @@ const cleanupExpiredItems = async () => {
       console.log(`✅ [SYSTEM] Αφαιρέθηκαν ${boostResult.modifiedCount} ληγμένα Station Boosts.`);
     }
 
-    const bannerResult = await BannerAd.deleteMany(
-      { expiresAt: { $lt: now } }
+    // Preserve campaign history and analytics. Expiry is a status transition,
+    // never a destructive DELETE.
+    const bannerResult = await BannerAd.updateMany(
+      { expiresAt: { $lt: now }, status: { $ne: 'expired' } },
+      { $set: { status: 'expired', isActive: false } }
     );
-    const audioResult = await Ad.deleteMany(
-      { expiresAt: { $lt: now } }
+    const audioResult = await Ad.updateMany(
+      { expiresAt: { $lt: now }, status: { $ne: 'expired' } },
+      { $set: { status: 'expired' } }
     );
-    
-    if (bannerResult.deletedCount > 0 || audioResult.deletedCount > 0) {
-      console.log(`🗑️ [SYSTEM] ΔΙΑΓΡΑΦΤΗΚΑΝ ΟΡΙΣΤΙΚΑ ${bannerResult.deletedCount} Banners και ${audioResult.deletedCount} Audio Ads.`);
+    if (bannerResult.modifiedCount || audioResult.modifiedCount) {
+      console.log(`[ADS] Expired ${bannerResult.modifiedCount} banners and ${audioResult.modifiedCount} spots (history preserved).`);
     }
   } catch (error) {
     console.error('❌ [SYSTEM] Σφάλμα στον καθαρισμό:', error);
