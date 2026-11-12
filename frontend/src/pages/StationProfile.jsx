@@ -1,3 +1,5 @@
+import AdPlacementLink from '../components/AdPlacementLink';
+import {geoAllowsAd} from '../utils/adPlacements';
 import PremiumSoundModes from '../components/PremiumSoundModes';
 import {normalizeListenerMode} from '../utils/dspEngine';
 import React, { useEffect, useState, useMemo, useRef } from 'react';
@@ -32,7 +34,7 @@ export default function StationProfile({
   stations, currentStation, isPlaying, onPlayPause, setCurrentStation, 
   toggleFavorite, isFavorite, nowPlaying: globalNowPlaying, nowPlayingInfo: globalNowPlayingInfo, analyser,
   currentUser, userOverrides, onUserDSPChange, API_URL,
-  isRecognizing, handleRecognizeTrack, globalCoverArt, liveBroadcast, rdsShowProducer
+  isRecognizing, handleRecognizeTrack, globalCoverArt, liveBroadcast, rdsShowProducer, userLocation, checkGeoMatch
 }) {
   const { showAlert } = useAlert();
   const { id } = useParams();
@@ -118,7 +120,10 @@ export default function StationProfile({
     }
   }, [isFreeOrGuest]);
 
-  const homeBanners = activeBanners.filter(b => b.placement && b.placement.includes('home'));
+  const homeBanners = activeBanners.filter(b =>
+    b.status==='active'&&b.placement?.includes('station_profile')&&
+    (!b.expiresAt||new Date(b.expiresAt)>new Date())&&
+    geoAllowsAd(b.targetLocations,userLocation,checkGeoMatch));
 
   // Fetch live song information only for the authenticated listener's active station.
   useEffect(() => {
@@ -280,43 +285,14 @@ export default function StationProfile({
     }
   };
 
-  const TrackableAd = ({ banner, children, className }) => {
-    const adRef = useRef(null);
-    const tracked = useRef(false);
-    useEffect(() => {
-      const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && !tracked.current) {
-          tracked.current = true;
-          fetch(`/api/banners/${banner._id}/impression`, { method: 'POST' }).catch(()=>{});
-        }
-      }, { threshold: 0.5 });
-      if (adRef.current) observer.observe(adRef.current);
-      return () => observer.disconnect();
-    }, [banner._id]);
-
-    const campaign = "stationprofile_ad";
-    const baseParams = `ref=iradiosapp&utm_medium=ilumadigitalagencyiradios&utm_source=iradios&utm_campaign=${campaign}&utm_content=${campaign}`;
-    const finalUrl = `${banner.targetUrl}${banner.targetUrl.includes('?') ? '&' : '?'}${baseParams}`;
-
-    return (
-      <a 
-        ref={adRef} href={finalUrl} target="_blank" rel="noopener noreferrer" 
-        className={`${className} block cursor-pointer`} 
-        onClick={(e) => {
-          e.stopPropagation();
-          fetch(`/api/banners/${banner._id}/click`, { method: 'POST' }).catch(()=>{});
-        }}
-      >
-        {children}
-      </a>
-    );
-  };
+  const TrackableAd = AdPlacementLink;
 
   const StationAdBanner = ({ banner }) => {
     if (!banner) return null;
     return (
       <TrackableAd 
         banner={banner}
+        placement="station_profile"
         className="w-full my-8 bg-emerald-900/10 border border-emerald-500/20 hover:border-emerald-500/50 rounded-[32px] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 group transition-all"
       >
         <div className="w-full md:w-1/3 h-32 md:h-40 rounded-2xl overflow-hidden shrink-0 bg-black">
@@ -765,7 +741,7 @@ export default function StationProfile({
         {/* 🟢 AD BANNER */}
         {isFreeOrGuest && homeBanners.length > 0 && (
           <div className="mt-8">
-            <StationAdBanner banner={homeBanners[Math.floor(Math.random() * homeBanners.length)]} />
+            <StationAdBanner banner={homeBanners[0]} />
           </div>
         )}
 
