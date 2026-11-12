@@ -71,7 +71,9 @@ async function main(){
   const home=read('frontend/src/components/HomeHeroSlider.jsx');
   assert.ok(home.includes("slide.audience==='premium'")&&
     home.includes('iradios_premium_last_')&&
-    home.includes('currentStation?._id'),'Premium uses personal current/last station');
+    home.includes('currentStation?._id')&&
+    home.includes('listeningProfile?.stations'),
+    'Premium uses personal current/last station across synced account devices');
   const promoted=read('frontend/src/components/PromotedStationCard.jsx');
   assert.ok(promoted.includes('useStationAmbient(station?.logo)'));
   assert.ok(!promoted.includes('station.cover')&&!promoted.includes('src={artwork}'),
