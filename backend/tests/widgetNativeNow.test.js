@@ -1,7 +1,27 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {publicWidgetNativeSnapshot}=require('../services/widgetNativeNow');
+// This CI job intentionally has no backend node_modules. Stub only the
+// persistence-facing imports so real native expiry and AI filtering logic runs.
+const Module=require('node:module');
+const originalLoad=Module._load;
+let publicWidgetNativeSnapshot;
+try{
+  Module._load=function(request,parent,isMain){
+    if(parent?.filename?.endsWith('/stageNativeNow.js')&&
+      request==='../models/StationPlaylist')return {};
+    if(parent?.filename?.endsWith('/stageNativeNow.js')&&
+      request==='./recordStationTrack')return {
+        parseTrack(raw){
+          if(typeof raw!=='string')return null;
+          const match=raw.match(/^(.+?) - (.+)$/);
+          return match?{raw,artist:match[1],title:match[2]}:null;
+        }
+      };
+    return originalLoad.apply(this,arguments);
+  };
+  ({publicWidgetNativeSnapshot}=require('../services/widgetNativeNow'));
+}finally{Module._load=originalLoad;}
 const now=Date.parse('2026-11-12T11:00:00Z');
 const doc={
   nativeNow:{raw:'Native Artist - Native Track',
