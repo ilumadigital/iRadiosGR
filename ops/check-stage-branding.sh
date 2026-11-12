@@ -1,42 +1,48 @@
 #!/usr/bin/env bash
-# Read-only verification: PNG branding must be served as PNG, never as React
-# index.html (the SPA fallback often returns HTTP 200 for missing images).
+# Read-only verification of exact PNG assets used by the expanded/collapsed
+# iRadiosGR sidebar and the legacy station console branding.
+# A missing PNG may fall through to React's index.html with HTTP 200.
 set -euo pipefail
-test -f /srv/iradios/staging/app/frontend/public/noicon-iradios-app-logo.png || {
-  echo "Missing original sidebar PNG in frontend/public." >&2
-  exit 1
-}
+
+APP=/srv/iradios/staging/app
+PUBLIC="$APP/frontend/public"
+assets=(iradios-app-logo.png iradios-logo.png noicon-iradios-app-logo.png)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 check() {
-  local label="$1"
-  shift
+  local label="$1" expected="$2"
+  shift 2
   echo "Checking $label ..."
   local code
   code=$(curl --silent --show-error --location --max-time 20 \
     --output "$tmp/body" --dump-header "$tmp/headers" \
     --write-out '%{http_code}' "$@")
   if [[ "$code" != "200" ]]; then
-    echo "FAIL: HTTP $code" >&2; return 1
-  fi
-  if ! grep -iq '^content-type: image/png' "$tmp/headers"; then
-    echo "FAIL: missing image/png MIME type (likely SPA index.html fallback)" >&2
+    echo "FAIL: HTTP $code" >&2
     return 1
   fi
-  python3 - "$tmp/body" <<'PY'
-from pathlib import Path
-import sys
-p = Path(sys.argv[1])
-data = p.read_bytes()
-assert len(data) >= 40, "image is empty"
-assert data[:8] == b'\x89PNG\r\n\x1a\n', "not a real PNG"
-print(f"OK: valid PNG ({len(data)} bytes)")
-PY
+  if ! grep -iq '^content-type: image/png' "$tmp/headers"; then
+    echo "FAIL: not image/png (possibly React index.html fallback)" >&2
+    return 1
+  fi
+  if ! cmp -s "$expected" "$tmp/body"; then
+    echo "FAIL: served PNG differs from the expected Git staging asset" >&2
+    return 1
+  fi
+  echo "OK: matching PNG ($(wc -c < "$tmp/body") bytes)"
 }
-check "Docker frontend static asset" \
-  'http://127.0.0.1:5510/noicon-iradios-app-logo.png'
-check "Host Nginx HTTPS static asset" \
-  --noproxy '*' --resolve stage.iradios.gr:443:127.0.0.1 \
-  'https://stage.iradios.gr/noicon-iradios-app-logo.png'
-echo "Stage sidebar branding asset is restored and served correctly."
+
+for asset in "${assets[@]}"; do
+  expected="$PUBLIC/$asset"
+  if [[ ! -s "$expected" ]]; then
+    echo "FAIL: missing or empty $expected" >&2
+    exit 1
+  fi
+  check "Docker frontend /$asset" "$expected" \
+    "http://127.0.0.1:5510/$asset"
+  check "Host Nginx HTTPS /$asset" "$expected" \
+    --noproxy '*' --resolve stage.iradios.gr:443:127.0.0.1 \
+    "https://stage.iradios.gr/$asset"
+done
+echo "Stage expanded/collapsed sidebar branding matches frontend container and HTTPS."
