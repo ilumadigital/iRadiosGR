@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/ad-campaign-console.css';
+import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
 import { useNavigate } from 'react-router-dom';
 import { 
   Megaphone, Plus, LayoutPanelTop, Rows3, LayoutGrid, Activity, X, Eye, ShieldCheck, 
@@ -387,6 +388,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                   </p>
                 </div>
 
+                <div className="mb-3"><CampaignDeliveryStatus campaign={campaign} kind={activeTab==='banners'?'banner':'audio'} stage={isStaging}/></div>
                 <div className="ad-console-preview mb-4">
                    {activeTab==='banners'&&campaign.imageUrl&&
                      <img src={campaign.squareImageUrl||campaign.imageUrl} alt={campaign.title}
