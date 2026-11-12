@@ -8,7 +8,7 @@ import { getAthensClock } from '../utils/schedule';
 import {visibleEditorialSlides,homeFeaturedFallback} from '../utils/editorialPresentation';
 
 export default function HomeHeroSlider({
-  currentUser, currentStation, stations=[], isPlaying, onPlayPause,
+  currentUser, currentStation, stations=[], listeningProfile={}, isPlaying, onPlayPause,
   onPlayStation, onOpenDiscovery, onFeaturedStationChange,
   placement='home', value='', onAvailabilityChange, excludeStationId=null
 }) {
@@ -22,19 +22,26 @@ export default function HomeHeroSlider({
     (currentUser?.isPremium===true||currentUser?.isPremium==='true'||
       currentUser?.broadcasterProfile?.tier==='premium')
     ?String(currentUser?._id||currentUser?.id||''):'';
-  const [premiumLast,setPremiumLast]=useState({accountId:'',stationId:''});
+  const [premiumLast,setPremiumLast]=useState({accountId:'',stationId:'',at:0});
   useEffect(()=>{
-    if(!premiumAccountId){setPremiumLast({accountId:'',stationId:''});return;}
-    let stationId='';
-    try{stationId=localStorage.getItem('iradios_premium_last_'+premiumAccountId)||'';}catch{}
-    setPremiumLast({accountId:premiumAccountId,stationId});
+    if(!premiumAccountId){setPremiumLast({accountId:'',stationId:'',at:0});return;}
+    let stationId='',at=0;
+    try{
+      stationId=localStorage.getItem('iradios_premium_last_'+premiumAccountId)||'';
+      at=Number(localStorage.getItem('iradios_premium_last_at_'+premiumAccountId))||0;
+    }catch{}
+    setPremiumLast({accountId:premiumAccountId,stationId,at});
   },[premiumAccountId]);
   useEffect(()=>{
     const id=String(currentStation?._id||'');
     if(!premiumAccountId||!isPlaying||!id||!stations.some(s=>
       String(s._id)===id&&(s.status==='approved'||!s.status)&&s.isOffline!==true))return;
-    setPremiumLast({accountId:premiumAccountId,stationId:id});
-    try{localStorage.setItem('iradios_premium_last_'+premiumAccountId,id);}catch{}
+    const at=Date.now();
+    setPremiumLast({accountId:premiumAccountId,stationId:id,at});
+    try{
+      localStorage.setItem('iradios_premium_last_'+premiumAccountId,id);
+      localStorage.setItem('iradios_premium_last_at_'+premiumAccountId,String(at));
+    }catch{}
   },[premiumAccountId,currentStation?._id,isPlaying,stations]);
   useEffect(()=>{
     const refreshClock=()=>setAthensClock(getAthensClock());
@@ -60,12 +67,24 @@ export default function HomeHeroSlider({
   // Catalog pages never fall back to the current, first or random station.
   const stationFallback=useMemo(()=>{
     if(!premiumAccountId)return homeFeaturedFallback(stations,placement);
-    const activeId=isPlaying?String(currentStation?._id||''):'';
-    const lastId=premiumLast.accountId===premiumAccountId?premiumLast.stationId:'';
-    const stationId=activeId||lastId;
-    return stations.find(s=>String(s._id)===stationId&&
-      (s.status==='approved'||!s.status)&&s.isOffline!==true)||null;
-  },[stations,placement,premiumAccountId,premiumLast,currentStation?._id,isPlaying]);
+    const available=stations.filter(s=>s?._id&&
+      (s.status==='approved'||!s.status)&&s.isOffline!==true);
+    const byId=new Map(available.map(s=>[String(s._id),s]));
+    const active=isPlaying?byId.get(String(currentStation?._id||'')):null;
+    if(active)return active;
+    // The listening profile is already account-scoped, synchronized across
+    // devices by useListeningProfile. Compare the local immediate play event
+    // to its latest verified station timestamp (not another user's history).
+    const lastLocal=premiumLast.accountId===premiumAccountId?premiumLast:null;
+    const fromProfile=Object.entries(listeningProfile?.stations||{})
+      .filter(([id,stat])=>byId.has(id)&&Number(stat?.lastPlayedAt)>0)
+      .sort((a,b)=>Number(b[1].lastPlayedAt)-Number(a[1].lastPlayedAt))[0];
+    const profileAt=Number(fromProfile?.[1]?.lastPlayedAt)||0;
+    const localAt=Number(lastLocal?.at)||0;
+    const chosen=localAt>=profileAt?lastLocal?.stationId:fromProfile?.[0];
+    return byId.get(String(chosen||''))||
+      byId.get(String(fromProfile?.[0]||''))||null;
+  },[stations,placement,premiumAccountId,premiumLast,listeningProfile,currentStation?._id,isPlaying]);
   // Never flash a previous category's CMS slides while a new placement loads.
   const visible=useMemo(()=>{
     if(loadedScope!==placement+':'+value)return [];
