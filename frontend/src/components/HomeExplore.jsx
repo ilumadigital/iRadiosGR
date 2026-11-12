@@ -6,7 +6,7 @@ import EditorialPlacement from './EditorialPlacement';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
 import {selectForYouStations} from '../utils/forYouRecommendations';
 import {compareCatalogPopularity,applyPostBoostLift} from '../utils/catalogLive';
-import {buildSponsoredCatalog,sponsoredGridColumns} from '../utils/sponsoredCatalog';
+import {buildSponsoredCatalog,sponsoredGridColumns,withoutPaidBoostRank,restoreSortedStations} from '../utils/sponsoredCatalog';
 import {
   Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
   X, Headphones, Grid2X2, MapPinned
@@ -86,7 +86,8 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
     if(tab==='for-you')return selectForYouStations(result,{
       listeningProfile,favoriteStations,recentStations
     });
-    return applyPostBoostLift([...result].sort(compareCatalogPopularity),'global');
+    return restoreSortedStations(applyPostBoostLift(
+      result.map(withoutPaidBoostRank).sort(compareCatalogPopularity),'global'),result);
   },[eligible,tab,genre,region,query,favIds,recentIds,listeningProfile,favoriteStations,recentStations]);
   const hasTaste=Boolean(Object.keys(listeningProfile.stations||{}).length||
     Object.keys(listeningProfile.categories||{}).length||favoriteStations.length||recentStations.length);
