@@ -63,6 +63,19 @@ export function eligibleSponsoredStation(station,{scope,value,regionFilter='',ca
   }
   return false;
 }
+// Paid promotion is exclusively a clearly disclosed in-feed slot. When sorting
+// the *organic* baseline, ignore paid rank priority so unselected boosters
+// don't secretly occupy the first positions. The original station is restored
+// immediately after sorting and retains its verified backend entitlement.
+export function withoutPaidBoostRank(station){
+  return station?.commercialBoost?.tier==='purchased'
+    ?{...station,commercialBoost:{tier:'organic'}}
+    :station;
+}
+export function restoreSortedStations(ordered,originals){
+  const byId=new Map(originals.map(station=>[id(station),station]));
+  return ordered.map(station=>byId.get(id(station))||station);
+}
 export function sponsoredGridColumns(width){
   if(width>=1536)return 6;
   if(width>=1280)return 5;
