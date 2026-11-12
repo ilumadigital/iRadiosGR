@@ -98,7 +98,7 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
     Object.keys(listeningProfile.categories||{}).length||favoriteStations.length||recentStations.length);
   const displayed=showAll?filtered.slice(0,48):filtered.slice(0,12);
   // Search/favorites/recent are intentional personal lists, never ad inventories.
-  const showSponsors=!query.trim()&&!['favorites','recent'].includes(tab);
+  const showSponsors=!query.trim()&&!['favorites','recent','for-you'].includes(tab);
   const sponsoredEntries=useMemo(()=>showSponsors?buildSponsoredCatalog({
     organic:displayed,allStations:eligible,scope:'home',value:genre||region||'all',
     categoryFilter:genre,regionFilter:region,
