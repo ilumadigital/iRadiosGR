@@ -6,6 +6,7 @@ import EditorialPlacement from './EditorialPlacement';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
 import {selectForYouStations} from '../utils/forYouRecommendations';
 import {compareCatalogPopularity,applyPostBoostLift} from '../utils/catalogLive';
+import {buildSponsoredCatalog,sponsoredGridColumns} from '../utils/sponsoredCatalog';
 import {
   Search, SlidersHorizontal, Radio, Heart, History, Sparkles, ChevronRight,
   X, Headphones, Grid2X2, MapPinned
@@ -24,6 +25,12 @@ const tabs=[
 export default function HomeExplore({stations=[], currentUser, recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery, catalogNowPlaying={}, catalogClock, listeningProfile={}, onCategorySelected}) {
   const location=useLocation();
   const [tab,setTab]=useState('for-you');
+  const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1024:window.innerWidth);
+  useEffect(()=>{
+    const resize=()=>setViewportWidth(window.innerWidth);
+    window.addEventListener('resize',resize,{passive:true});
+    return()=>window.removeEventListener('resize',resize);
+  },[]);
   const [query,setQuery]=useState('');
   const [genre,setGenre]=useState('');
   const [region,setRegion]=useState('');
@@ -84,6 +91,14 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
   const hasTaste=Boolean(Object.keys(listeningProfile.stations||{}).length||
     Object.keys(listeningProfile.categories||{}).length||favoriteStations.length||recentStations.length);
   const displayed=showAll?filtered.slice(0,48):filtered.slice(0,12);
+  // Search/favorites/recent are intentional personal lists, never ad inventories.
+  const showSponsors=!query.trim()&&!['favorites','recent'].includes(tab);
+  const sponsoredEntries=useMemo(()=>showSponsors?buildSponsoredCatalog({
+    organic:displayed,allStations:eligible,scope:'home',value:genre||region||'all',
+    categoryFilter:genre,regionFilter:region,
+    columns:viewportWidth>=1280&&viewportWidth<1536?4:sponsoredGridColumns(viewportWidth)
+  }):displayed.map(station=>({station,sponsored:false})),
+  [showSponsors,displayed,eligible,genre,region,viewportWidth]);
   const clear=()=>{setGenre('');setRegion('');setQuery('');setShowAll(false);};
   return (
     <section id="station-explorer" className="ir-discovery-shell scroll-mt-24 space-y-5 rounded-[28px] border border-white/10 bg-gradient-to-b from-[#141a20]/95 to-[#0b1014]/95 p-4 sm:p-6">
@@ -161,8 +176,8 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
         <span className="text-xs font-semibold text-zinc-400">{filtered.length} διαθέσιμοι σταθμοί {tab==='for-you'&&hasTaste?'· προτάσεις από τις ακροάσεις σου':''}</span>
         {(genre||region||query)&&<button onClick={clear} type="button" className="flex items-center gap-1 text-xs font-semibold text-[#ccff00]"><X size={14}/> Καθαρισμός φίλτρων</button>}
       </div>
-      {!!displayed.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-        {displayed.map(s=><StationCatalogCard key={s._id} station={s} currentStation={currentStation}
+      {!!sponsoredEntries.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+        {sponsoredEntries.map(({station:s,sponsored})=><StationCatalogCard key={s._id} station={s} sponsored={sponsored} currentStation={currentStation}
           isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}
           nowPlaying={catalogNowPlaying[String(s._id)]} clock={catalogClock}/>)}
       </div>:<div className="rounded-2xl border border-dashed border-white/15 p-8 text-center">
