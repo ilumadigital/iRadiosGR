@@ -8,6 +8,7 @@ import {spotifySongLink,appleMusicSongLink} from '../utils/musicMetadata';
 import {useStationWidgetRds,useStationWidgetMediaSession} from '../hooks/useStationWidgetRds';
 import useAudioDSP from '../hooks/useAudioDSP';
 import {getAthensClock,minutes,scheduleDayBase,toCanonical} from '../utils/schedule';
+import '../styles/station-embeds.css';
 
 const EMBED_TYPES=new Set(['player-square','player-mini','program-square','program-mini','hero']);
 const classNames=(...parts)=>parts.filter(Boolean).join(' ');
@@ -185,14 +186,74 @@ function StationArtwork({station,alt,className}){
       e.currentTarget.src='/iradios-logo.png';}}/>;
 }
 
+
+function useCoverArtwork(station,song){
+  const stationId=String(station?._id||'');
+  const track=song?.raw||'';
+  const key=stationId+'|'+track;
+  const [cover,setCover]=useState({key:'',url:null});
+  useEffect(()=>{
+    setCover({key:'',url:null});
+    if(!stationId||!track)return;
+    const controller=new AbortController();
+    let active=true;
+    (async()=>{
+      try{
+        const response=await fetch('/api/cover-art?term='+encodeURIComponent(track),{
+          signal:controller.signal,cache:'force-cache'
+        });
+        if(!response.ok)throw new Error('Cover unavailable');
+        const data=await response.json();
+        let url=null;
+        if(typeof data?.artworkUrl==='string'){
+          try{
+            const found=new URL(data.artworkUrl);
+            if(found.protocol==='https:')url=found.href;
+          }catch{}
+        }
+        if(active)setCover({key,url});
+      }catch{
+        if(active&&!controller.signal.aborted)setCover({key,url:null});
+      }
+    })();
+    return()=>{active=false;controller.abort();};
+  },[stationId,track,key]);
+  return cover.key===key?cover.url:null;
+}
+function ArtworkVisual({station,src,className='',alt=''}){
+  const logo=station?.logo||'/iradios-logo.png';
+  const [failed,setFailed]=useState(null);
+  const photo=Boolean(src&&src!==logo&&failed!==src);
+  return <img src={photo?src:logo} alt={alt}
+    className={classNames(className,!photo&&'is-logo')}
+    onError={event=>{
+      if(photo){setFailed(src);return;}
+      if(!event.currentTarget.src.endsWith('/iradios-logo.png'))
+        event.currentTarget.src='/iradios-logo.png';
+    }}/>;
+}
+function ArtworkBackground({station,src}){
+  return <div className="ir-embed__art" aria-hidden="true">
+    <ArtworkVisual station={station} src={src}/>
+  </div>;
+}
+function StationIdentity({station,compact=false}){
+  return <div className="flex min-w-0 items-center gap-2.5">
+    <ArtworkVisual station={station} className="ir-embed__station-img"/>
+    <div className="min-w-0">
+      <p className={classNames('truncate font-black',compact?'text-[11px]':'text-[13px]')}>{station.name}</p>
+      <p className="truncate text-[9px] font-bold uppercase tracking-widest text-white/65">● LIVE RADIO</p>
+    </div>
+  </div>;
+}
+
 function MusicSearchLinks({station,song,compact=false}){
   if(!song)return null;
   const spotify=spotifySongLink(song.raw,station.name);
   const apple=appleMusicSongLink(song.raw,station.name);
   if(!spotify||!apple)return null;
   const shared='inline-flex items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1.5 font-bold transition hover:border-[#caff00]/40 hover:text-[#caff00]';
-  return <div className={classNames('flex flex-wrap items-center gap-1.5',compact?'text-[10px]':'text-[11px]')}
-    aria-label="Αναζήτησε το τρέχον τραγούδι">
+  return <div className="ir-embed__song-actions" aria-label="Αναζήτησε το τρέχον τραγούδι">
     <a href={spotify} target="_blank" rel="noopener noreferrer" className={shared}
       aria-label={'Βρες '+song.raw+' στο Spotify'} title="Αναζήτηση στο Spotify">
       <SiSpotify aria-hidden="true"/><span>Spotify</span>
@@ -238,58 +299,68 @@ function RdsDetails({station,rds,light=false,compact=false}){
     </RdsCrossfade>
   </div>;
 }
+
 function SquarePlayer({station,rds,audio,light}){
-  return <main className={classNames('flex h-[100dvh] min-h-[320px] w-full flex-col overflow-hidden p-5',
-    light?'bg-[#f4f4f7] text-[#171827]':'bg-[#101315] text-white')}>
+  const song=rds.song;
+  return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
-    <div className="flex items-center justify-between gap-2">
-      <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.18em] text-[#91ba00]">
-        <span className="size-2 animate-pulse rounded-full bg-[#caff00]"/> LIVE RADIO
-      </span>
-      <HdControls audio={audio} compact light={light}/>
-    </div>
-    <div className="my-4 min-h-0 flex-1 overflow-hidden rounded-[22px] border border-white/10 bg-black/10">
-      <StationArtwork station={station} className="h-full w-full object-contain"/>
-    </div>
-    <div className="flex items-center gap-3">
-      <PlaybackButton audio={audio}/>
-      <div className="min-w-0 flex-1">
-        <h1 className="truncate text-xl font-black">{station.name}</h1>
-        <p className={classNames('mt-1 truncate text-xs',light?'text-zinc-500':'text-zinc-400')}>{station.slogan||'Ζωντανά στον αέρα'}</p>
+    <ArtworkBackground station={station} src={rds.artwork}/>
+    <div className="ir-embed__shade"/>
+    <header className="relative z-10 flex shrink-0 items-start justify-between gap-2 px-5 pt-5">
+      <StationIdentity station={station} compact/>
+      <HdControls audio={audio} compact/>
+    </header>
+    <section className="relative z-10 flex min-h-0 flex-1 flex-col justify-end px-5 pb-4 pt-3">
+      <p className="ir-embed__eyebrow mb-3">NOW PLAYING / TRACK</p>
+      <h1 className="ir-embed__song-title" title={song?.title||''}>
+        {song?.title||'Ζωντανό ραδιόφωνο'}
+      </h1>
+      <p className="ir-embed__artist mt-2">{song?.artist||station.name}</p>
+      <div className="mt-4"><MusicSearchLinks station={station} song={song}/></div>
+    </section>
+    <footer className="ir-embed__controls relative z-10 shrink-0 px-5 pb-3 pt-3">
+      <div className="flex items-center justify-between gap-2">
+        <PlaybackButton audio={audio} large/>
+        <VolumeSlider audio={audio}/>
       </div>
-      <VolumeSlider audio={audio} light={light}/>
-    </div>
-    <div className="mt-3"><RdsDetails station={station} rds={rds} light={light} compact/></div>
-    {audio.error&&<p role="status" className="mt-2 text-[11px] text-amber-400">{audio.error}</p>}
-    <div className={classNames('mt-4 flex justify-center border-t pt-3',light?'border-zinc-200':'border-white/10')}>
-      <ProfileLink station={station} light={light}/>
-    </div>
+      {audio.error&&<p role="status" className="mt-2 text-[10px] text-amber-300">{audio.error}</p>}
+      <div className="mt-2 flex justify-end"><ProfileLink station={station} compact/></div>
+    </footer>
   </main>;
 }
 function MiniPlayer({station,rds,audio,light}){
-  return <main className={classNames('flex h-[100dvh] min-h-[170px] w-full flex-col justify-between gap-3 overflow-hidden p-4',
-    light?'bg-[#f4f4f7] text-[#171827]':'bg-[#111519] text-white')}>
+  const song=rds.song;
+  return <main className="ir-embed flex flex-col justify-between" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
-    <div className="flex min-w-0 items-center gap-3">
-      <img src={station.logo||'/iradios-logo.png'} alt="" className="size-14 shrink-0 rounded-xl object-contain"/>
+    <ArtworkBackground station={station} src={rds.artwork}/>
+    <div className="ir-embed__shade"/>
+    <div className="relative z-10 flex min-h-0 items-start gap-3 p-4">
+      <ArtworkVisual station={station} src={rds.artwork}
+        className="size-[74px] shrink-0 rounded-2xl border border-white/20 bg-black/50 object-cover"
+        alt={song?.title||station.name}/>
       <div className="min-w-0 flex-1">
-        <span className="text-[10px] font-black text-[#91b900]">● LIVE</span>
-        <h1 className="truncate text-base font-black">{station.name}</h1>
-        <p className={classNames('truncate text-[11px]',light?'text-zinc-500':'text-zinc-400')}>{station.slogan||'Ζωντανά στον αέρα'}</p>
+        <span className="ir-embed__eyebrow">● {station.name}</span>
+        <h1 className="mt-1 line-clamp-2 text-[16px] font-black leading-tight">
+          {song?.title||'Ζωντανό ραδιόφωνο'}
+        </h1>
+        <p className="mt-1 truncate text-[11px] text-white/75">{song?.artist||station.name}</p>
       </div>
       <PlaybackButton audio={audio}/>
     </div>
-    <RdsDetails station={station} rds={rds} light={light} compact/>
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <HdControls audio={audio} compact light={light}/>
-      <VolumeSlider audio={audio} light={light}/>
+    <div className="relative z-10 px-4 pb-2">
+      <MusicSearchLinks station={station} song={song} compact/>
     </div>
-    {audio.error&&<p role="status" className="text-[10px] text-amber-400">{audio.error}</p>}
-    <div className={classNames('flex justify-end border-t pt-2',light?'border-zinc-200':'border-white/10')}>
-      <ProfileLink station={station} compact light={light}/>
-    </div>
+    <footer className="ir-embed__controls relative z-10 flex flex-col gap-2 px-4 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <HdControls audio={audio} compact/>
+        <VolumeSlider audio={audio}/>
+      </div>
+      {audio.error&&<p role="status" className="text-[10px] text-amber-300">{audio.error}</p>}
+      <div className="flex justify-end"><ProfileLink station={station} compact/></div>
+    </footer>
   </main>;
 }
+
 function ShowLine({show,live=false,light=false}){
   return <div className={classNames('flex min-w-0 items-center gap-3 rounded-xl p-3',
     live?'border border-[#caff00]/25 bg-[#caff00]/[.07]':
