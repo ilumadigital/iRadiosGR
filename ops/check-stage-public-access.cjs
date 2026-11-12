@@ -41,6 +41,12 @@ for(const invalid of [
   assert.equal(response.reached,false,'widget prefix never bypasses private endpoints: '+invalid);
   assert.equal(response.res.code,401);
 }
+const nativePlaylist=call('GET','/catalog/widget-native/0123456789abcdef01234567/playlist');
+assert.equal(nativePlaylist.reached,true,'Public widget may see native-only playlist');
+const wrongPlaylist=call('GET','/catalog/widget-native/invalid/playlist');
+assert.equal(wrongPlaylist.res.code,401,'Malformed playlist requests are not public');
+const privatePlaylist=call('GET','/stations/0123456789abcdef01234567/playlist');
+assert.equal(privatePlaylist.res.code,401,'Listener playlist remains authenticated');
 const widgetWrite=call('POST','/catalog/widget-native/0123456789abcdef01234567');
 assert.equal(widgetWrite.reached,false,'public widget RDS must remain read-only');
 assert.equal(widgetWrite.res.code,401);
