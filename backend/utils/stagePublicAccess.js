@@ -73,6 +73,8 @@ function stagePublicAccess(req, res, next) {
   // The middleware is mounted at /api, and Express req.path excludes the mount prefix.
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
+  // A preview capability is checked by its own HMAC verifier, never issued here.
+  if (req.method === 'POST' && path === '/api/widget-previews/verify') return next();
   // Approved station widgets read native-only RDS; the controller excludes
   // private Premium AI and validates the 24-character station ID.
   if (req.method === 'GET' && /^\/api\/catalog\/widget-native\/[a-f0-9]{24}$/i.test(path)) return next();
