@@ -6,8 +6,9 @@ const Ad=require('../models/Ad');
 const {protect}=require('../utils/authMiddleware');
 const {isStage,fields}=require('../services/adDeliveryRules');
 const allowedPlacements=new Set(['hero','home','radio_feed','news_feed','station_profile']);
-const audioFields=['title','client','audioUrl','logoUrl','linkUrl','frequency','targetLocations','dspPreset'];
-const bannerFields=['title','description','imageUrl','squareImageUrl','targetUrl','placement','targetLocations'];
+const audioFields=['title','client','audioUrl','logoUrl','linkUrl','frequency','targetLocations','targetCountry','targetRegion','dspPreset'];
+const bannerFields=['title','description','imageUrl','squareImageUrl','targetUrl','placement','targetLocations','targetCountry','targetRegion',
+  'logoUrl','ctaLabel','brandColor','focalX','focalY'];
 const frequencies=new Set(['entry','every_5_stations','every_10_stations','every_15_stations',
   'every_20_stations','every_30_stations','every_1_hour','every_2_hours',
   'every_6_hours','once_a_day','twice_a_day','four_times_a_day','once_a_week']);
