@@ -10,6 +10,8 @@ router.post('/widget-previews/verify',(req,res)=>{
   const {token,stationId,variant}=req.body||{};
   if(!verifyWidgetPreviewToken({token,stationId,variant}))
     return res.status(403).json({error:'Η προεπισκόπηση έληξε ή δεν είναι έγκυρη.'});
-  return res.json({valid:true});
+  const decoded=JSON.parse(Buffer.from(token.split('.')[0],'base64url').toString('utf8'));
+  const expiresInMs=Math.max(0,Math.min(180000,decoded.exp-Date.now()));
+  return res.json({valid:true,expiresInMs});
 });
 module.exports=router;
