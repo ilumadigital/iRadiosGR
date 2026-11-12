@@ -30,6 +30,20 @@ for(const p of ['/stations','/stations/discovery','/proxy-stream','/health','/co
  const result=call('GET',p);
  assert.equal(result.reached,true,'allow public '+p);
 }
+const nativeWidget=call('GET','/catalog/widget-native/0123456789abcdef01234567');
+assert.equal(nativeWidget.reached,true,'approved public widget must read native-only RDS without login');
+for(const invalid of [
+  '/catalog/widget-native/not-an-id',
+  '/catalog/widget-native/0123456789abcdef01234567/private',
+  '/catalog/widget-native/0123456789abcdef01234567/playlist'
+]){
+  const response=call('GET',invalid);
+  assert.equal(response.reached,false,'widget prefix never bypasses private endpoints: '+invalid);
+  assert.equal(response.res.code,401);
+}
+const widgetWrite=call('POST','/catalog/widget-native/0123456789abcdef01234567');
+assert.equal(widgetWrite.reached,false,'public widget RDS must remain read-only');
+assert.equal(widgetWrite.res.code,401);
 for(const p of ['/admin/users','/stations/all','/auth/me','/metadata','/agency/test','/payments']) {
  const result=call('GET',p);
  assert.equal(result.reached,false,'block private '+p);
