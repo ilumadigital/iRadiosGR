@@ -63,6 +63,8 @@ jobs:
         run: node --test backend/tests/billingPhase1.test.js backend/tests/billingGrantRequest.test.js
       - name: Verify expired purchased and Premium Boost retains only organic ranking reward
         run: node --test backend/tests/postBoostRanking.test.js
+      - name: Verify paid Sponsored placements, genre/region affinity, and Premium homepage Hero
+        run: node ops/check-sponsored-catalog-premium-hero.cjs
       - name: Verify exact 1-4 slot post-Boost ranking across public catalog screens
         run: node ops/check-post-boost-ranking.cjs
       - name: Verify scoped effective entitlements and compatibility with manual Premium
