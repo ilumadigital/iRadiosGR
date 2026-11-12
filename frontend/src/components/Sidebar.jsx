@@ -121,7 +121,7 @@ export default function Sidebar({
     <>
       {isMobileMenuOpen&&<button type="button" aria-label="Κλείσιμο μενού" onClick={()=>setIsMobileMenuOpen(false)}
         className="fixed inset-0 z-[99] bg-black/70 backdrop-blur-[3px] lg:hidden" />}
-      <aside aria-label="Κύρια πλοήγηση" className={`ir-app-sidebar fixed inset-y-0 left-0 z-[100] lg:sticky lg:top-0 lg:h-dvh shrink-0 flex flex-col min-h-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+      <aside aria-label="Κύρια πλοήγηση" className={`ir-app-sidebar fixed inset-y-0 left-0 z-[100] lg:sticky lg:top-0 lg:h-[calc(100dvh-6rem)] shrink-0 flex flex-col min-h-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
         isMobileMenuOpen ? 'translate-x-0 visible' : '-translate-x-full invisible lg:visible lg:translate-x-0'
       } ${isCollapsed ? 'lg:w-[76px] w-[min(86vw,280px)]' : 'w-[min(86vw,280px)] lg:w-[252px]'}`}>
         
@@ -155,7 +155,7 @@ export default function Sidebar({
           </div>
           
           {/* 📜 SCROLLABLE AREA */}
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain custom-scrollbar flex flex-col justify-between gap-2 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-3">
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain custom-scrollbar flex flex-col justify-between gap-2 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-6">
             
             <nav className={`space-y-0.5 transition-all duration-300 ${isCollapsed ? 'lg:px-2 px-3' : 'px-3'}`}>
               
