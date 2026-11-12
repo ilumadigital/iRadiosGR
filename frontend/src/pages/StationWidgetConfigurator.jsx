@@ -4,11 +4,11 @@ import {ArrowLeft,ArrowUpRight,Check,Code2,Copy,ExternalLink,LayoutGrid,Monitor,
 import {Link} from 'react-router-dom';
 
 const WIDGETS=[
-  {id:'player-square',name:'Player Square',info:'Premium artwork-first player με live τίτλο, καλλιτέχνη, Spotify, Apple Music και HD+.',icon:Square,shape:'square'},
+  {id:'player-square',name:'Player Square',info:'Premium player με εναλλαγή τραγουδιού / εκπομπής ανά 20″. Spotify/Apple Music μόνο με ενεργή συνδρομή σταθμού.',icon:Square,shape:'square'},
   {id:'player-mini',name:'Player Mini',info:'Compact player με εξώφυλλο τραγουδιού και στοιχεία Now Playing.',icon:Volume2,shape:'mini'},
-  {id:'program-square',name:'Program Square',info:'Φωτογραφία παραγωγού, τρέχουσα εκπομπή και επόμενες ώρες χωρίς εσωτερικό scroll.',icon:LayoutGrid,shape:'square'},
+  {id:'program-square',name:'Program Square',info:'Τρέχουσα live εκπομπή και κουμπί για πλήρες πρόγραμμα με επιλογή ημέρας.',icon:LayoutGrid,shape:'square'},
   {id:'program-mini',name:'Program Mini',info:'Compact πρόγραμμα με artwork παραγωγού και live stream controls.',icon:Text,shape:'mini'},
-  {id:'hero',name:'HERO 100vh',info:'Fullscreen Now Playing, μεγάλη τυπογραφία και εξώφυλλο με live controls.',icon:Monitor,shape:'hero'}
+  {id:'hero',name:'HERO 100vh',info:'Fullscreen Now Playing και εκπομπή ανά 20″, με πλήρες Πρόγραμμα και Playlist σε αναδυόμενες λίστες.',icon:Monitor,shape:'hero'}
 ];
 function embedSnippet(url,shape){
   const attrs=shape==='hero'
