@@ -19,6 +19,11 @@ export default function Region({ stations, currentStation, setCurrentStation, is
   const [sortBy, setSortBy] = useState('popularity');
   const [viewMode, setViewMode] = useState('grid');
   const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1024:window.innerWidth);
+  const [sponsorClock,setSponsorClock]=useState(()=>Date.now());
+  useEffect(()=>{
+    const timer=setInterval(()=>setSponsorClock(Date.now()),30000);
+    return()=>clearInterval(timer);
+  },[]);
   useEffect(()=>{
     const resize=()=>setViewportWidth(window.innerWidth);
     window.addEventListener('resize',resize,{passive:true});
@@ -115,9 +120,9 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     organic:displayStations,
     allStations:stations.filter(station=>String(station._id)!==String(promotedStationId)),
     scope:'region',value:regionName,mode:viewMode,
-    columns:sponsoredGridColumns(viewportWidth),
+    columns:sponsoredGridColumns(viewportWidth),now:sponsorClock,
     categoryFilter:selectedGenre,transmissionFilter:selectedTransmission
-  }),[displayStations,stations,promotedStationId,regionName,viewMode,viewportWidth,
+  }),[displayStations,stations,promotedStationId,regionName,viewMode,viewportWidth,sponsorClock,
     selectedGenre,selectedTransmission]);
 
   const handleBannerView = async (bannerId) => {
