@@ -119,7 +119,7 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
       .then(data=>{if(!controller.signal.aborted)setBanners((Array.isArray(data)?data:[]).filter(b=>
         b.status==='active'&&Array.isArray(b.placement)&&b.placement.includes('news_feed')&&
         (!b.expiresAt||new Date(b.expiresAt)>new Date())&&
-        geoAllowsAd(b.targetLocations,userLocation,checkGeoMatch)))));}).catch(()=>{});
+        geoAllowsAd(b.targetLocations,userLocation,checkGeoMatch)));}).catch(()=>{});
     return()=>controller.abort();
   },[premium,userLocation,checkGeoMatch]);
   const ordered=useMemo(()=>[...items].sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)),[items]);
