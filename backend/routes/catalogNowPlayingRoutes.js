@@ -4,4 +4,6 @@ const {publicCatalogNowPlaying}=require('../controllers/catalogNowPlayingControl
 router.get('/catalog/now-playing',publicCatalogNowPlaying);
 router.get('/catalog/widget-native/:stationId',
   require('../controllers/catalogNowPlayingController').publicWidgetNowPlaying);
+router.get('/catalog/widget-native/:stationId/playlist',
+  require('../controllers/catalogNowPlayingController').publicWidgetPlaylist);
 module.exports=router;

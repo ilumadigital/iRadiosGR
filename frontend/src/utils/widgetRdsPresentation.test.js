@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {widgetSnapshot,widgetOnAirPresentation} from './widgetRdsPresentation.js';
+import {widgetSnapshot,widgetOnAirPresentation,widgetShowProducerNow} from './widgetRdsPresentation.js';
 
 const native={title:'Native Artist - Native Song',source:'station',
   broadcastHint:'Live DJ Show'};
@@ -39,4 +39,16 @@ test('RDS switches between verified track and producer and never invents a track
   const idle=widgetOnAirPresentation({station});
   assert.equal(idle.kind,'station');
   assert.equal(idle.title,station.slogan);
+});
+
+test('player RDS stays on each slide for exactly 20 seconds with scheduled DJ fallback',()=>{
+  const song={title:'My Song',artist:'My Artist'};
+  const show={title:'DJ Show'};
+  assert.equal(widgetShowProducerNow(song,show,0),false);
+  assert.equal(widgetShowProducerNow(song,show,19999),false);
+  assert.equal(widgetShowProducerNow(song,show,20000),true);
+  assert.equal(widgetShowProducerNow(song,show,39999),true);
+  assert.equal(widgetShowProducerNow(song,show,40000),false);
+  assert.equal(widgetShowProducerNow(song,null,20000),false);
+  assert.equal(widgetShowProducerNow(null,show,0),true);
 });
