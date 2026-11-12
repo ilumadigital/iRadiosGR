@@ -650,10 +650,9 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         </div>
       </div>
 
-      {/* Guest: NowPlaying takes 50%, with Recent + Top sharing the other
-          half. Members: three equally sized NowPlaying / Recent / Favorites. */}
-      <div className={`ir-home-quick-grid grid min-w-0 items-start gap-5 ${currentUser ? 'xl:grid-cols-3' : 'xl:grid-cols-2'}`}>
-        <div id="home-live-now" className="min-w-0 scroll-mt-24">
+      {/* Keep live stations full width; place the two station lists together below. */}
+      <div className="ir-home-quick-grid flex min-w-0 flex-col gap-5">
+        <div id="home-live-now" className="w-full min-w-0 scroll-mt-24">
           {currentUser ? (
             <PlayingNow stations={stations} API_URL={API_URL} currentUser={currentUser}/>
           ) : (
@@ -664,17 +663,14 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
             </section>
           )}
         </div>
-        {currentUser ? (
-          <>
-            <HomeRadioShortlist kind="recent" stations={recentlyPlayed} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+        <div className="grid min-w-0 items-start gap-5 sm:grid-cols-2">
+          <HomeRadioShortlist kind="recent" stations={recentlyPlayed} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+          {currentUser ? (
             <HomeRadioShortlist kind="favorites" stations={favoriteStations} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
-          </>
-        ) : (
-          <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-2">
-            <HomeRadioShortlist kind="recent" stations={recentlyPlayed} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause} onPlayStation={setCurrentStation}/>
+          ) : (
             <HomeTopStations topStations={topStations} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={setCurrentStation} onPlayPause={onPlayPause}/>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <HomeCategories stations={stations} currentUser={currentUser}/>

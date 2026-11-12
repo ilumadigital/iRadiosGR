@@ -16,7 +16,7 @@ const gradients = [
 
 export default function HomeCategories({ stations = [], currentUser, allLink = true }) {
   const shell = useRef(null);
-  const [columns, setColumns] = useState(1);
+  const [columns, setColumns] = useState(2);
   const [genreSlides, setGenreSlides] = useState([]);
 
   // Match the compact For You card grid against the real content width.
@@ -26,7 +26,7 @@ export default function HomeCategories({ stations = [], currentUser, allLink = t
     const update = () => {
       const width = element.getBoundingClientRect().width;
       const next = width >= 1320 ? 6 : width >= 1080 ? 5 : width >= 780 ? 4
-        : width >= 600 ? 3 : width >= 440 ? 2 : 1;
+        : width >= 600 ? 3 : 2;
       setColumns(previous => previous === next ? previous : next);
     };
     update();
@@ -99,7 +99,7 @@ export default function HomeCategories({ stations = [], currentUser, allLink = t
               return (
                 <Link key={category} to={'/genre/' + encodeURIComponent(category)}
                   aria-label={category + ' · ' + count + ' σταθμοί'}
-                  className={`group relative isolate flex w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[#ccff00]/65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ccff00] ${columns === 1 ? 'h-[128px]' : 'aspect-[1.85] min-h-[128px]'} ${gradients[(index + groupIndex * 5) % gradients.length]}`}>
+                  className={`group relative isolate flex w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[#ccff00]/65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ccff00] aspect-[1.85] min-h-[128px] ${gradients[(index + groupIndex * 5) % gradients.length]}`}>
                   {slide?.imageUrl && <>
                     <img src={slide.imageUrl} alt="" loading="lazy" aria-hidden="true"
                       className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-60"/>
