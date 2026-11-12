@@ -1,4 +1,4 @@
-import AdPlacementLink from '../components/AdPlacementLink';
+import DynamicAdCreative from '../components/DynamicAdCreative';
 import {geoAllowsAd} from '../utils/adPlacements';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Helmet} from 'react-helmet-async';
@@ -46,31 +46,9 @@ export function Article({item,view,now,source,backTo}){
     </div>
   </Link>;
 }
-function AdLink({banner,children,className}){
-  return <AdPlacementLink banner={banner} placement="news_feed" className={className}>{children}</AdPlacementLink>;
-}
-function AdUnit({banner,wide=false,view='grid'}){
-  if(wide)return <AdLink banner={banner} className="group relative block h-[200px] w-full overflow-hidden rounded-[32px] border border-purple-500/20 shadow-[0_20px_40px_rgba(0,0,0,.5)] transition-all duration-500 hover:border-purple-500 md:h-[350px]">
-    <img src={banner.imageUrl} alt={banner.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"/>
-    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"/>
-    <span className="absolute right-5 top-5 inline-flex items-center gap-2 rounded-full bg-purple-500 px-3 py-1.5 text-[10px] font-black uppercase text-white"><Megaphone size={14}/> Sponsored</span>
-    <div className="absolute bottom-6 left-6 right-6 flex flex-wrap items-end justify-between gap-4 md:bottom-10 md:left-10 md:right-10">
-      <div className="max-w-2xl"><h3 className="text-2xl font-black text-white md:text-4xl">{banner.title}</h3><p className="mt-2 line-clamp-2 text-sm text-zinc-200">{banner.description}</p></div>
-      <span className="inline-flex items-center gap-2 rounded-2xl bg-[#ccff00] px-6 py-3.5 text-xs font-black uppercase text-black">Μαθε Περισσοτερα <ExternalLink size={16}/></span>
-    </div>
-  </AdLink>;
-  if(view==='list')return <AdLink banner={banner} className="flex min-w-0 items-center gap-4 rounded-2xl border border-purple-500/20 bg-purple-900/10 p-3 hover:bg-purple-900/20">
-    <img src={banner.squareImageUrl||banner.imageUrl} alt="" className="size-20 shrink-0 rounded-xl object-cover"/>
-    <div className="min-w-0"><span className="text-[10px] font-black text-purple-400">Sponsored</span><h3 className="truncate font-bold text-white">{banner.title}</h3><p className="line-clamp-1 text-xs text-zinc-400">{banner.description}</p></div>
-  </AdLink>;
-  return <AdLink banner={banner} className="group flex h-full min-w-0 flex-col">
-    <div className="relative aspect-square overflow-hidden rounded-2xl border border-purple-500/30 bg-zinc-900 shadow-lg transition-all duration-500 group-hover:-translate-y-1 group-hover:border-purple-500 md:rounded-3xl">
-      <img src={banner.squareImageUrl||banner.imageUrl} alt={banner.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"/>
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"/>
-      <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded bg-purple-500 px-1.5 py-0.5 text-[8px] font-black uppercase text-white"><Megaphone size={8}/> AD</span>
-    </div>
-    <div className="mt-2 px-1"><h3 className="truncate text-sm font-bold text-purple-400 md:text-lg">{banner.title} <ExternalLink size={12} className="inline"/></h3><p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Sponsored</p></div>
-  </AdLink>;
+function AdUnit({banner,wide=false,view='grid',slotKey=''}) {
+  return <DynamicAdCreative banner={banner} placement="news_feed"
+    variant={wide?'strip':view==='list'?'list':'news'} slotKey={slotKey}/>;
 }
 export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoMatch,currentStation,isPlaying,onPlayStation,onPlayPause}){
   const location=useLocation();
@@ -186,8 +164,8 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
     </div>:
     <section aria-label="Ροή ειδήσεων" className={view==='grid'?'grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 md:gap-5':'flex min-w-0 flex-col gap-4'}>
       {filtered.map((item,index)=><React.Fragment key={item.id||item.url}>
-        {banners.length>0&&index>0&&index%12===0&&view==='grid'&&<div className="col-span-full py-4 md:py-8"><AdUnit wide banner={banners[Math.floor(index/12)%banners.length]}/></div>}
-        {banners.length>0&&index>0&&index%5===0&&<AdUnit banner={banners[Math.floor(index/5)%banners.length]} view={view}/>}
+        {banners.length>0&&index>0&&index%12===0&&view==='grid'&&<div className="col-span-full py-4 md:py-8"><AdUnit wide banner={banners[Math.floor(index/12)%banners.length]} slotKey={"news-wide-"+index}/></div>}
+        {banners.length>0&&index>0&&index%5===0&&<AdUnit banner={banners[Math.floor(index/5)%banners.length]} slotKey={"news-card-"+index} view={view}/>}
         <Article item={item} view={view} now={now} source={source} backTo={location.pathname+location.search}/>
       </React.Fragment>)}
     </section>}

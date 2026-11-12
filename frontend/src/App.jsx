@@ -12,6 +12,7 @@ import useStations from './hooks/useStations';
 import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
 import {geoAllowsAd} from './utils/adPlacements';
+import {selectStationBreak,dueOnClock,canServeAudioAd} from './utils/audioAdRules';
 import useMediaSession from './hooks/useMediaSession';
 import {getAthensClock} from './utils/schedule';
 import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
@@ -89,6 +90,7 @@ import AcceptInvite from './pages/AcceptInvite';
 import BroadcasterInvitation from './pages/BroadcasterInvitation';
 import GoAgency from './pages/GoAgency';
 import AgencyDashboard from './pages/AgencyDashboard';
+import CampaignEditor from './pages/CampaignEditor';
 import TermsListeners from './pages/TermsListeners';
 import TermsBroadcasters from './pages/TermsBroadcasters';
 import TermsAgency from './pages/TermsAgency';
@@ -1142,7 +1144,9 @@ function MainApp() {
 
   const handleStationSelectWithAds = (station) => {
     if(!station || station.isOffline === true || stationsRef.current.find(s=>String(s._id)===String(station._id))?.isOffline === true)return;
-    if (isPlayingAd || !audioRef.current) return;
+    if (!audioRef.current) return;
+    // During a spot retain the latest listener selection for the end of break.
+    if (isPlayingAd || activeAdRef.current) { pendingStation.current = station; return; }
     if (currentStation && currentStation._id === station._id && isPlaying) return;
     
     if (currentUser?.isPremium && activeRemoteDevice) {
@@ -1159,28 +1163,11 @@ function MainApp() {
     stationSwitches.current += 1;
     const clicks = stationSwitches.current;
     
-    // Φιλτράρουμε MONO τα ZAPPING ADS
-    const zappingAdsToPlay = ads.filter(ad => {
-      let frequencyMatch = false;
-      if (ad.frequency === 'entry' && clicks === 1) frequencyMatch = true;
-      if (ad.frequency === 'every_2_stations' && clicks % 2 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_4_stations' && clicks % 4 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_5_stations' && clicks % 5 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_10_stations' && clicks % 10 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_15_stations' && clicks % 15 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_20_stations' && clicks % 20 === 0) frequencyMatch = true;
-      if (ad.frequency === 'every_30_stations' && clicks % 30 === 0) frequencyMatch = true;
-      
-      if (!frequencyMatch) return false;
-
-      if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
-
-      return ad.isGlobal !== false ? !station.disableNetworkAds : ad.stationId === station._id;
-    });
+    const zappingAdsToPlay = selectStationBreak(ads,clicks,station,userLocation,checkGeoMatch);
 
     if (zappingAdsToPlay.length > 0) {
       pendingStation.current = station; 
-      adQueue.current = [...zappingAdsToPlay]; // Βάζουμε τα zapping ads στην ουρά
+      adQueue.current = zappingAdsToPlay; // Bounded by selectStationBreak
       playNextAdOrStation();
     } else {
       handleActualStationPlay(station);
@@ -1246,44 +1233,19 @@ function MainApp() {
       if (minutes !== 15 && minutes !== 45) return;
 
       // 1. Βρίσκουμε όλα τα Time-Based Ads που ταιριάζουν Γεωγραφικά
-      const timeBasedAds = ads.filter(ad => {
-        const isTimeBased = [
-          'every_1_hour', 'every_2_hours', 'every_6_hours', 
-          'once_a_day', 'twice_a_day', 'four_times_a_day', 'once_a_week'
-        ].includes(ad.frequency);
-        
-        if (!isTimeBased) return false;
-
-        if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
-
-        return ad.isGlobal !== false ? !currentStation.disableNetworkAds : ad.stationId === currentStation._id;
-      });
+      const timeBasedAds = ads.filter(ad =>
+        canServeAudioAd(ad,currentStation,userLocation,checkGeoMatch) &&
+        dueOnClock(ad.frequency, lastPlayedTimeAds.current[ad._id]||0, now.getTime())
+      );
 
       if (timeBasedAds.length === 0) return;
 
-      // 2. Φιλτράρουμε ποια πρέπει ΠΡΑΓΜΑΤΙΚΑ να παίξουν τώρα (βάσει frequency rules)
+      // Due time was checked by the pure rules above, once per campaign.
       const currentTime = now.getTime();
-      const adsEligibleToPlay = timeBasedAds.filter(ad => {
-        const lastPlayed = lastPlayedTimeAds.current[ad._id] || 0;
-        const timeSinceLastPlay = currentTime - lastPlayed;
-        const hoursSinceLastPlay = timeSinceLastPlay / (1000 * 60 * 60);
-
-        switch (ad.frequency) {
-          case 'every_1_hour': return hoursSinceLastPlay >= 1;
-          case 'every_2_hours': return hoursSinceLastPlay >= 2;
-          case 'every_6_hours': return hoursSinceLastPlay >= 6;
-          case 'once_a_day': return hoursSinceLastPlay >= 24;
-          case 'twice_a_day': return hoursSinceLastPlay >= 12;
-          case 'four_times_a_day': return hoursSinceLastPlay >= 6;
-          case 'once_a_week': return hoursSinceLastPlay >= (24 * 7);
-          default: return false;
-        }
-      });
-
-      if (adsEligibleToPlay.length === 0) return;
+      const adsEligibleToPlay = timeBasedAds;
 
       // 3. Shuffle (για να μην παίζουν πάντα τα ίδια με την ίδια σειρά)
-      const shuffledAds = adsEligibleToPlay.sort(() => 0.5 - Math.random());
+      const shuffledAds = [...adsEligibleToPlay].sort(() => 0.5 - Math.random());
       
       // 4. Επιλέγουμε MAX 2 σποτ (Ad Break)
       const selectedAds = shuffledAds.slice(0, 2);
@@ -2048,6 +2010,16 @@ function MainApp() {
             <Route path="/broadcaster-invite" element={<BroadcasterInvitation API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
             <Route path="/go-ads" element={<GoAgency API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
 
+            {['audio','banners'].map(type=>[
+              <Route key={type+'-new'} path={'/agency/campaigns/'+type+'/new'}
+                element={currentUser?.role==='agency'||currentUser?.role==='admin'
+                  ?<RequireTerms currentUser={currentUser}><CampaignEditor scope="agency" kind={type} currentUser={currentUser}/></RequireTerms>
+                  :<Navigate to="/go-ads" replace/>}/>,
+              <Route key={type+'-edit'} path={'/agency/campaigns/'+type+'/:id/edit'}
+                element={currentUser?.role==='agency'||currentUser?.role==='admin'
+                  ?<RequireTerms currentUser={currentUser}><CampaignEditor scope="agency" kind={type} currentUser={currentUser}/></RequireTerms>
+                  :<Navigate to="/go-ads" replace/>}/>
+            ])}
             <Route path="/agency/dashboard" element={
               <RequireTerms currentUser={currentUser}>
                 {currentUser && (currentUser.role === 'agency' || currentUser.role === 'admin') ? (

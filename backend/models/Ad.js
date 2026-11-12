@@ -17,6 +17,8 @@ const adSchema = new mongoose.Schema({
     ] 
   },
   dspPreset: { type: String, default: 'OFF' },
+  targetCountry: { type: String, default: 'All' },
+  targetRegion: { type: String, default: 'All' },
 
   // 🟢 ΝΕΟ: Στόχευση Περιοχής
   targetLocations: { 

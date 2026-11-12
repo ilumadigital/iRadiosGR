@@ -1,6 +1,8 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
+import {useNavigate} from 'react-router-dom';
 import '../styles/ad-campaign-console.css';
+import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
 import { Megaphone, PlusCircle, Trash2, Edit, X, Clock, Search, SlidersHorizontal, Check, Loader2, Image as ImageIcon, Link as LinkIcon, Music } from 'lucide-react';
 
 // 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
@@ -92,6 +94,7 @@ const INITIAL_AD_STATE = {
 };
 
 export default function AdminAds({ API_URL, refreshGlobalAds }) {
+  const navigate=useNavigate();
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError,setLoadError]=useState('');
@@ -495,7 +498,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
           </div>
           <p className="text-zinc-500 text-sm font-medium">Διαχειριστείτε τις Audio Pre-Roll & Mid-Roll καμπάνιες του δικτύου.</p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="bg-[#ccff00] text-black px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-all shadow-[0_10px_30px_rgba(204,255,0,0.2)]">
+        <button onClick={() => navigate("/backoffice/admin/ads/new")} className="bg-[#ccff00] text-black px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest hover:scale-105 transition-all shadow-[0_10px_30px_rgba(204,255,0,0.2)]">
           Νέο ηχητικό σποτ
         </button>
       </div>
@@ -556,12 +559,13 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
               <div className="min-w-0">
                 <h4 className="font-bold text-white text-base sm:text-lg flex items-center gap-2 truncate">
                   {ad.title || 'Ανώνυμη Καμπάνια'}
-                   <span className="ad-console-label" data-state={ad.status}>{ad.status==='active'?'LIVE':ad.status==='pending'?'Για έγκριση':ad.status==='expired'?'Έληξε':'Ανενεργό'}</span>
+                   <span className="ad-console-label" data-state={ad.status}>{ad.status==='active'?'Ενεργή εγγραφή':ad.status==='pending'?'Για έγκριση':ad.status==='expired'?'Έληξε':'Ανενεργό'}</span>
                    {stage&&!ad.isStageCreative&&<span className="ad-console-label ad-console-demo">Εισαγμένο · Μη δημοσιευμένο</span>}
                   {/* 🟢 Ένδειξη Pending */}
                   {ad.status === 'pending' && <span className="text-[9px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest ml-2 animate-pulse">PENDING</span>}
                   {ad.status === 'expired' && <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest ml-2">ΛΗΓΜΕΝΟ</span>}
                 </h4>
+                <div className="mt-2"><CampaignDeliveryStatus campaign={ad} kind="audio" stage={stage}/></div>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span className="text-[10px] text-[#ccff00] font-black uppercase tracking-wider">{ad.client || 'Unknown'}</span>
                   <span className="w-1 h-1 bg-zinc-700 rounded-full hidden sm:block"></span>
@@ -595,47 +599,14 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
                 <button type="button" onClick={()=>handleCloneStage(ad)} className="ad-console-filter !text-purple-200" title="Δημιουργία δοκιμαστικού αντιγράφου">
                   Αντίγραφο
                 </button>}
-              <button onClick={() => {
-                setEditingAd({
-                  ...ad,
-                  targetCountry: ad.targetCountry || 'All',
-                  targetRegion: ad.targetRegion || 'All',
-                  targetLocations: ad.targetLocations || ['All']
-                });
-              }} className="w-10 h-10 rounded-xl bg-white/5 text-zinc-300 flex items-center justify-center hover:bg-white/10 hover:text-white transition-all"><Edit size={16} /></button>
+              <button onClick={() => navigate("/backoffice/admin/ads/"+ad._id+"/edit")} className="w-10 h-10 rounded-xl bg-white/5 text-zinc-300 flex items-center justify-center hover:bg-white/10 hover:text-white transition-all"><Edit size={16} /></button>
               <button onClick={() => handleDelete(ad._id)} className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"><Trash2 size={16} /></button>
             </div>
           </div>
         ))}
       </div>
 
-      {showAddModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#0f0f0f] border border-white/5 rounded-[32px] w-full max-w-3xl shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="absolute top-0 left-0 bottom-0 w-1 bg-[#ccff00]"></div>
-            <button onClick={() => { setShowAddModal(false); setAudioFile(null); setLogoFile(null); setNewAd(INITIAL_AD_STATE); }} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full z-10"><X size={20} /></button>
-            <div className="p-8 md:p-10">
-              <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Νεο Σποτ</h3>
-              <p className="text-[#ccff00] text-xs font-black uppercase tracking-widest mb-6">Δημιουργια νεας καμπανιας</p>
-              {renderForm(newAd, setNewAd, handleAddAd, false)}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {editingAd && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#0f0f0f] border border-white/5 rounded-[32px] w-full max-w-3xl shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="absolute top-0 left-0 bottom-0 w-1 bg-[#ccff00]"></div>
-            <button onClick={() => { setEditingAd(null); setAudioFile(null); setLogoFile(null); }} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors bg-white/5 p-2 rounded-full z-10"><X size={20} /></button>
-            <div className="p-8 md:p-10">
-              <h3 className="text-2xl md:text-3xl font-black text-white italic tracking-tighter uppercase mb-2">Επεξεργασια Σποτ</h3>
-              <p className="text-[#ccff00] text-xs font-black uppercase tracking-widest mb-6">Οι αλλαγες θα περασουν απευθειας live</p>
-              {renderForm(editingAd, setEditingAd, handleUpdateAd, true)}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

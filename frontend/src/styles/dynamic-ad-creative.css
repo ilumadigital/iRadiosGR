@@ -1,0 +1,48 @@
+/* Dynamic Ad Creative v6 — native responsive compositions, not flattened image banners. */
+.ir-dynamic-ad{--ir-ad-purple:#a855f7;position:relative;display:flex;min-width:0;min-height:0;color:#fff;text-decoration:none;isolation:isolate;transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease}
+.ir-dynamic-ad:focus-visible{outline:3px solid #ccff00;outline-offset:3px}
+.ir-dynamic-ad:hover{transform:translateY(-3px)}
+.ir-dynamic-ad--card{flex-direction:column;gap:0;padding:10px;border:1px solid rgba(168,85,247,.35);border-radius:22px;background:#13131d;box-shadow:0 5px 24px rgba(0,0,0,.12)}
+.ir-dynamic-ad--card:hover{border-color:rgba(168,85,247,.72);box-shadow:0 14px 35px rgba(0,0,0,.3)}
+.ir-dynamic-ad-square{position:relative;display:block;width:100%;aspect-ratio:1/1;overflow:hidden;border-radius:17px;background:#1a1426}
+.ir-dynamic-ad-square img{width:100%;height:100%;object-fit:cover;transition:transform .32s ease}
+.ir-dynamic-ad--card:hover .ir-dynamic-ad-square img{transform:scale(1.035)}
+.ir-dynamic-ad-square-badge{position:absolute;top:9px;right:9px;background:rgba(22,14,36,.88);border:1px solid rgba(221,182,255,.45);border-radius:100px;padding:5px 8px;color:#f1d7ff;font-size:9px;font-weight:900;letter-spacing:.04em}
+.ir-dynamic-ad-card-title{display:block;margin:12px 2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:900}
+.ir-dynamic-ad-card-detail{display:block;margin:5px 2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#a3a3b3;font-size:11px}
+.ir-dynamic-ad-card-cta{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:auto;border-radius:12px;padding:10px 8px;color:#fff;font-size:11px;font-weight:900;box-shadow:inset 0 -2px 0 rgba(0,0,0,.11)}
+.ir-dynamic-ad--card .ir-dynamic-ad-card-detail{margin-bottom:12px}
+.ir-dynamic-ad--list{align-items:center;gap:14px;width:100%;min-height:94px;padding:12px 15px;border:1px solid rgba(168,85,247,.32);border-radius:16px;background:#13131d}
+.ir-dynamic-ad-list-image{display:block;flex:0 0 66px;width:66px;height:66px;border-radius:12px;overflow:hidden;background:#22172f}
+.ir-dynamic-ad-list-image img{width:100%;height:100%;object-fit:cover}
+.ir-dynamic-ad-list-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:4px}
+.ir-dynamic-ad-list-action{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;font-size:12px;font-weight:900}
+.ir-dynamic-ad-eyebrow{display:inline-flex;align-items:center;gap:5px;width:max-content;color:#e9c9ff;font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+.ir-dynamic-ad-logo{max-height:42px;max-width:145px;object-fit:contain;object-position:left center}
+.ir-dynamic-ad-title{display:block;font-size:clamp(16px,2.4vw,27px);font-weight:950;line-height:1.17;letter-spacing:-.025em}
+.ir-dynamic-ad--list .ir-dynamic-ad-title{font-size:15px}
+.ir-dynamic-ad-description{display:block;max-width:620px;color:#e2dce9;font-size:clamp(12px,1.5vw,15px);line-height:1.6}
+.ir-dynamic-ad--list .ir-dynamic-ad-description{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.ir-dynamic-ad--hero,.ir-dynamic-ad--strip,.ir-dynamic-ad--profile,.ir-dynamic-ad--news{overflow:hidden;border:1px solid rgba(168,85,247,.25);border-radius:26px;background:#25133d;box-shadow:0 8px 35px rgba(0,0,0,.16)}
+.ir-dynamic-ad--hero{min-height:228px}
+.ir-dynamic-ad--strip{min-height:160px}
+.ir-dynamic-ad--profile{min-height:180px}
+.ir-dynamic-ad--news{min-height:210px}
+.ir-dynamic-ad-cover,.ir-dynamic-ad-shade{position:absolute;inset:0;width:100%;height:100%}
+.ir-dynamic-ad-cover{z-index:-2;object-fit:cover;transition:transform .6s ease}
+.ir-dynamic-ad:hover .ir-dynamic-ad-cover{transform:scale(1.035)}
+.ir-dynamic-ad-shade{z-index:-1;background:linear-gradient(90deg,rgba(20,10,39,.97) 0%,rgba(26,13,48,.9) 33%,rgba(25,13,45,.47) 65%,rgba(20,10,39,.09) 100%)}
+.ir-dynamic-ad-content{display:flex;flex:1;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;max-width:75%;padding:24px clamp(20px,5vw,64px)}
+.ir-dynamic-ad-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:3px;border-radius:14px;padding:12px 17px;font-size:12px;font-weight:900;color:#fff}
+@media(min-width:768px){.ir-dynamic-ad--card{padding:12px}.ir-dynamic-ad--hero{min-height:270px}.ir-dynamic-ad--strip{min-height:185px}}
+@media(max-width:620px){.ir-dynamic-ad--list{gap:10px}.ir-dynamic-ad-list-image{flex-basis:54px;width:54px;height:54px}.ir-dynamic-ad-list-action{font-size:0}.ir-dynamic-ad-list-action svg{width:18px;height:18px}.ir-dynamic-ad-content{max-width:100%;padding:22px}.ir-dynamic-ad-shade{background:linear-gradient(90deg,rgba(20,10,39,.97),rgba(25,13,45,.78) 72%,rgba(20,10,39,.55))}.ir-dynamic-ad--hero{min-height:230px}.ir-dynamic-ad--strip{min-height:175px}.ir-dynamic-ad--card{padding:9px}.ir-dynamic-ad-card-title{font-size:13px}.ir-dynamic-ad-card-detail{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.ir-dynamic-ad,.ir-dynamic-ad-cover,.ir-dynamic-ad-square img{transition:none}.ir-dynamic-ad:hover{transform:none}}
+
+/* News creatives follow the article visual hierarchy: artwork above copy. */
+.ir-dynamic-ad--news{display:flex;flex-direction:column;min-height:320px;border-radius:22px;background:#131821;overflow:hidden}
+.ir-dynamic-ad--news .ir-dynamic-ad-cover{position:relative;inset:auto;z-index:auto;display:block;width:100%;height:170px;object-fit:cover;flex-shrink:0}
+.ir-dynamic-ad--news .ir-dynamic-ad-shade{display:none}
+.ir-dynamic-ad--news .ir-dynamic-ad-content{max-width:100%;width:100%;padding:18px;gap:10px;justify-content:flex-start}
+.ir-dynamic-ad--news .ir-dynamic-ad-title{font-size:17px}
+.ir-dynamic-ad--news .ir-dynamic-ad-description{font-size:12px}
+.ir-dynamic-ad--news .ir-dynamic-ad-action{margin-top:auto}
