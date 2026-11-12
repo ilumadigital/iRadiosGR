@@ -4,11 +4,11 @@ import {ArrowLeft,ArrowUpRight,Check,Code2,Copy,ExternalLink,LayoutGrid,Monitor,
 import {Link} from 'react-router-dom';
 
 const WIDGETS=[
-  {id:'player-square',name:'Player Square',info:'Τετράγωνος live player με artwork, ένταση, HD+ και station backlink.',icon:Square,shape:'square'},
-  {id:'player-mini',name:'Player Mini',info:'Μικρός οριζόντιος player για header, footer ή sidebar.',icon:Volume2,shape:'mini'},
-  {id:'program-square',name:'Program Square',info:'Τρέχουσα εκπομπή και το επόμενο πρόγραμμα του σταθμού.',icon:LayoutGrid,shape:'square'},
-  {id:'program-mini',name:'Program Mini',info:'Compact πρόγραμμα με τωρινή και επόμενη εκπομπή.',icon:Text,shape:'mini'},
-  {id:'hero',name:'HERO 100vh',info:'Fullscreen πρώτη ενότητα website, με player και εκπομπή όπως στο iRadios.',icon:Monitor,shape:'hero'}
+  {id:'player-square',name:'Player Square',info:'Premium artwork-first player με live τίτλο, καλλιτέχνη, Spotify, Apple Music και HD+.',icon:Square,shape:'square'},
+  {id:'player-mini',name:'Player Mini',info:'Compact player με εξώφυλλο τραγουδιού και στοιχεία Now Playing.',icon:Volume2,shape:'mini'},
+  {id:'program-square',name:'Program Square',info:'Φωτογραφία παραγωγού, τρέχουσα εκπομπή και επόμενες ώρες χωρίς εσωτερικό scroll.',icon:LayoutGrid,shape:'square'},
+  {id:'program-mini',name:'Program Mini',info:'Compact πρόγραμμα με artwork παραγωγού και live stream controls.',icon:Text,shape:'mini'},
+  {id:'hero',name:'HERO 100vh',info:'Fullscreen Now Playing, μεγάλη τυπογραφία και εξώφυλλο με live controls.',icon:Monitor,shape:'hero'}
 ];
 function embedSnippet(url,shape){
   const attrs=shape==='hero'
@@ -127,7 +127,7 @@ export default function StationWidgetConfigurator({stations=[]}){
               allow="autoplay; encrypted-media" loading="eager"
               style={{width:'100%',maxWidth:previewWidth,height:previewHeight,border:0,borderRadius:hero?22:20,display:'block',background:'#101315'}}/>
           </div>
-          <p className="mt-3 text-[11px] leading-5 text-zinc-500">Το preview λειτουργεί πραγματικά. Ο ήχος ξεκινά μόνο όταν πατηθεί Play. Στο HERO το iframe του website έχει ύψος 100vh / 100dvh.</p>
+          <p className="mt-3 text-[11px] leading-5 text-zinc-500">Τα εξώφυλλα τραγουδιών και οι φωτογραφίες εκπομπών εμφανίζονται όταν υπάρχουν, αλλιώς χρησιμοποιείται το logo σταθμού. Ο ήχος ξεκινά μόνο με Play. Στο HERO το iframe έχει ύψος 100dvh.</p>
         </div>
         <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#111519] p-4 md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
