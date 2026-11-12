@@ -120,7 +120,9 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
 
   const sponsoredEntries=useMemo(()=>buildSponsoredCatalog({
     organic:displayStations,
-    allStations:stations.filter(station=>String(station._id)!==String(promotedStationId)),
+    // Promoted is a separate editorial placement, not a disqualification
+    // from an independently purchased Sponsored impression.
+    allStations:stations,
     scope:'genre',value:genreName,mode:viewMode,
     columns:sponsoredGridColumns(viewportWidth),now:sponsorClock,
     regionFilter: selectedRegion,
