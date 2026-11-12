@@ -12,7 +12,7 @@ test('one render engine offers independent native placements with untracked prev
   assert.match(src,/const Wrapper = preview \? 'div' : AdPlacementLink/);
   assert.match(src,/banner\.squareImageUrl \|\| banner\.imageUrl/);
   assert.match(src,/banner\.ctaLabel/);
-  assert.match(src,/aria-label/); // from wrapper accessibility
+  assert.match(read('frontend/src/components/AdPlacementLink.jsx'),/aria-label/);
 });
 test('Home sections and all catalog surfaces inject independently keyed responsive banners',()=>{
   const home=read('frontend/src/pages/Home.jsx');
