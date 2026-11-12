@@ -636,6 +636,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           currentUser={currentUser}
           currentStation={currentStation}
           stations={stations}
+          listeningProfile={listeningProfile}
           isPlaying={isPlaying}
           onPlayPause={onPlayPause}
           onPlayStation={setCurrentStation}
