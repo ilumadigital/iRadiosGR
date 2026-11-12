@@ -11,6 +11,7 @@ import {normalizeListenerMode} from './utils/dspEngine';
 import useStations from './hooks/useStations';
 import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
+import {geoAllowsAd} from './utils/adPlacements';
 import useMediaSession from './hooks/useMediaSession';
 import {getAthensClock} from './utils/schedule';
 import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
@@ -1170,8 +1171,7 @@ function MainApp() {
       
       if (!frequencyMatch) return false;
 
-      const targetArea = (ad.targetLocations && ad.targetLocations.length > 0) ? ad.targetLocations[0] : 'All';
-      if (!checkGeoMatch(targetArea, userLocation)) return false;
+      if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
 
       return ad.isGlobal !== false ? !station.disableNetworkAds : ad.stationId === station._id;
     });
@@ -1252,8 +1252,7 @@ function MainApp() {
         
         if (!isTimeBased) return false;
 
-        const targetArea = (ad.targetLocations && ad.targetLocations.length > 0) ? ad.targetLocations[0] : 'All';
-        if (!checkGeoMatch(targetArea, userLocation)) return false;
+        if (!geoAllowsAd(ad.targetLocations, userLocation, checkGeoMatch)) return false;
 
         return ad.isGlobal !== false ? !currentStation.disableNetworkAds : ad.stationId === currentStation._id;
       });
@@ -1986,7 +1985,7 @@ function MainApp() {
 
             <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} userLocation={userLocation} checkGeoMatch={checkGeoMatch} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
