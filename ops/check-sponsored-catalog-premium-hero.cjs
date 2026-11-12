@@ -123,6 +123,9 @@ async function main(){
   assert.ok(adminApi.includes('projectPublicStations(items)')&&
     adminApi.includes('commercialBoost:station.commercialBoost'),
     'Admin ranking must use same effective entitlement calculation as public feed');
+  assert.ok(adminApi.includes('PromotedStation.find({enabled:true})')&&
+    adminApi.includes('promotedPlacements:')&&admin.includes('station.promotedPlacements'),
+    'Admin must display paid and Promoted placements independently for the same radio');
   assert.ok(publicApi.includes('broadcasterId boostStatus boostExpiresAt'),
     'Public API must project Admin manual expiration safely');
   assert.ok(source.includes('effectiveStationBoost('),
