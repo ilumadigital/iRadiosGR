@@ -4,6 +4,7 @@ import {Helmet} from 'react-helmet-async';
 import {ArrowUpRight,CalendarDays,Loader2,Pause,Play,Volume2,VolumeX} from 'lucide-react';
 import {SiSpotify,SiApplemusic} from 'react-icons/si';
 import RdsCrossfade from './RdsCrossfade';
+import WidgetEmbedPanels from './WidgetEmbedPanels';
 import {spotifySongLink,appleMusicSongLink} from '../utils/musicMetadata';
 import {useStationWidgetRds,useStationWidgetMediaSession} from '../hooks/useStationWidgetRds';
 import useAudioDSP from '../hooks/useAudioDSP';
@@ -33,8 +34,10 @@ function useStation(stationId){
       }
     };
     setStation(null);setStatus('loading');fetchStation();
-    const interval=setInterval(fetchStation,60000);
-    return()=>{mounted=false;clearInterval(interval);};
+    const interval=setInterval(fetchStation,20000);
+    const visible=()=>{if(!document.hidden)void fetchStation();};
+    document.addEventListener('visibilitychange',visible);
+    return()=>{mounted=false;clearInterval(interval);document.removeEventListener('visibilitychange',visible);};
   },[stationId]);
   return {station,status};
 }
@@ -60,7 +63,7 @@ function useProgram(station){
     if(from<=0)from+=10080;
     return {...s,minutesUntil:from};
   }).sort((a,b)=>a.minutesUntil-b.minutesUntil).slice(0,3);
-  return {current,upcoming,shows};
+  return {current,upcoming,shows,clock};
 }
 function useLiveAudio(station){
   const dspRef=useRef(null),rawRef=useRef(null),requestId=useRef(0);
@@ -233,7 +236,7 @@ function ArtworkBackground({station,src,showSrc,showSecondary=false}){
   </div>;
 }
 function ArtworkStack({station,rds,className='',alt=''}){
-  const showSrc=rds.broadcast?.imageUrl;
+  const showSrc=rds.broadcast?.show?(rds.broadcast.imageUrl||station.logo||'/iradios-logo.png'):null;
   return <div className={classNames('relative overflow-hidden',className)}>
     <ArtworkVisual station={station} src={rds.artwork}
       className="absolute inset-0 size-full object-cover" alt={alt}/>
@@ -245,7 +248,7 @@ function ArtworkStack({station,rds,className='',alt=''}){
 function RdsHeadline({station,rds,hero=false,mini=false}){
   const song=rds.song;
   const fallback=rds.display;
-  const show=rds.broadcast?.recognizedShow&&rds.broadcast?.imageUrl&&song;
+  const show=Boolean(rds.broadcast?.show&&song);
   const titleClass=hero?'ir-embed__hero-title line-clamp-3':
     mini?'line-clamp-2 text-[16px] font-black leading-tight':'ir-embed__song-title';
   const artistClass=hero?'mt-3 truncate text-xl font-semibold text-white/80 sm:text-[27px]':
@@ -267,7 +270,7 @@ function RdsHeadline({station,rds,hero=false,mini=false}){
 }
 function RdsTicker({station,rds}){
   const song=rds.song;
-  const show=Boolean(song&&rds.broadcast?.recognizedShow&&rds.broadcast?.imageUrl);
+  const show=Boolean(song&&rds.broadcast?.show);
   const format=(title,artist)=><span className="block min-w-0 truncate">
     {title}{artist?' · '+artist:''}
   </span>;
@@ -288,17 +291,17 @@ function StationIdentity({station,compact=false}){
 }
 
 function MusicSearchLinks({station,song}){
-  if(!song)return null;
+  if(!song||station?.widgetMusicLinksEnabled!==true)return null;
   const spotify=spotifySongLink(song.raw,station.name);
   const apple=appleMusicSongLink(song.raw,station.name);
   if(!spotify||!apple)return null;
-  const shared='inline-flex items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2.5 py-1.5 font-bold transition hover:border-[#caff00]/40 hover:text-[#caff00]';
+  const shared='ir-embed__service-link inline-flex items-center justify-center gap-1.5 rounded-full border border-white/15 bg-black/65 px-3 py-2 font-black shadow-lg transition hover:border-[#caff00]/60';
   return <div className="ir-embed__song-actions" aria-label="Αναζήτησε το τρέχον τραγούδι">
-    <a href={spotify} target="_blank" rel="noopener noreferrer" className={shared}
+    <a href={spotify} target="_blank" rel="noopener noreferrer" className={shared+' is-spotify'}
       aria-label={'Βρες '+song.raw+' στο Spotify'} title="Αναζήτηση στο Spotify">
       <SiSpotify aria-hidden="true"/><span>Spotify</span>
     </a>
-    <a href={apple} target="_blank" rel="noopener noreferrer" className={shared}
+    <a href={apple} target="_blank" rel="noopener noreferrer" className={shared+' is-apple'}
       aria-label={'Βρες '+song.raw+' στο Apple Music'} title="Αναζήτηση στο Apple Music">
       <SiApplemusic aria-hidden="true"/><span>Apple Music</span>
     </a>
@@ -309,7 +312,7 @@ function SquarePlayer({station,rds,audio,light}){
   return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
     <ArtworkBackground station={station} src={rds.artwork}
-      showSrc={rds.broadcast?.imageUrl} showSecondary={rds.showProducer}/>
+      showSrc={rds.broadcast?.show?(rds.broadcast.imageUrl||station.logo):null} showSecondary={rds.showProducer}/>
     <div className="ir-embed__shade"/>
     <header className="relative z-10 flex shrink-0 items-start justify-between gap-2 px-5 pt-5">
       <StationIdentity station={station} compact/>
@@ -317,9 +320,7 @@ function SquarePlayer({station,rds,audio,light}){
     </header>
     <section className="relative z-10 flex min-h-0 flex-1 flex-col justify-end px-5 pb-4 pt-3">
       <RdsHeadline station={station} rds={rds}/>
-      {song&&!rds.showProducer&&<div className="mt-4">
-        <MusicSearchLinks station={station} song={song}/>
-      </div>}
+       {song&&<div className="mt-4"><MusicSearchLinks station={station} song={song}/></div>}
     </section>
     <footer className="ir-embed__controls relative z-10 shrink-0 px-5 pb-3 pt-3">
       <div className="flex items-center justify-between gap-2">
@@ -336,7 +337,7 @@ function MiniPlayer({station,rds,audio,light}){
   return <main className="ir-embed flex flex-col justify-between" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
     <ArtworkBackground station={station} src={rds.artwork}
-      showSrc={rds.broadcast?.imageUrl} showSecondary={rds.showProducer}/>
+      showSrc={rds.broadcast?.show?(rds.broadcast.imageUrl||station.logo):null} showSecondary={rds.showProducer}/>
     <div className="ir-embed__shade"/>
     <div className="relative z-10 flex min-h-0 items-start gap-3 p-4">
       <ArtworkStack station={station} rds={rds}
@@ -349,7 +350,7 @@ function MiniPlayer({station,rds,audio,light}){
       <PlaybackButton audio={audio}/>
     </div>
     <div className="relative z-10 px-4 pb-2">
-      {song&&!rds.showProducer&&<MusicSearchLinks station={station} song={song}/>}
+      {song&&<MusicSearchLinks station={station} song={song}/>}
     </div>
     <footer className="ir-embed__controls relative z-10 flex flex-col gap-2 px-4 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -377,7 +378,7 @@ function ShowLine({show,live=false,station}){
     </div>
   </div>;
 }
-function Program({station,current,upcoming,light,mini,rds,audio}){
+function Program({station,current,upcoming,shows,clock,light,mini,rds,audio}){
   const active=current||{title:'Ζωντανό ραδιόφωνο',host:station.slogan||station.name};
   if(mini)return <main className="ir-embed flex flex-col" data-theme={light?'light':'dark'}>
     <AudioElements audio={audio}/>
@@ -393,7 +394,7 @@ function Program({station,current,upcoming,light,mini,rds,audio}){
       {rds.song&&<div className="min-w-0 text-[11px] font-semibold text-white/80">
         <RdsTicker station={station} rds={rds}/>
       </div>}
-      {upcoming[0]&&<ShowLine station={station} show={upcoming[0]}/>}
+      <WidgetEmbedPanels station={station} shows={shows} current={current} clock={clock} compact/>
     </section>
     <footer className="ir-embed__controls relative z-10 shrink-0 px-4 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -424,13 +425,8 @@ function Program({station,current,upcoming,light,mini,rds,audio}){
         {active.title}
       </h1>
       <p className="truncate text-sm font-semibold text-white/80">{active.host||station.name}</p>
-      <div className="mt-2 grid min-h-0 gap-2">
-        {upcoming.slice(0,2).map((show,i)=><ShowLine key={[show.day,show.startTime,i].join('-')}
-          show={show} station={station}/>)}
-        {!current&&!upcoming.length&&<p className="text-xs text-white/70">
-          Το πρόγραμμα θα εμφανιστεί όταν ενημερωθεί από τον σταθμό.
-        </p>}
-      </div>
+      <div className="mt-3"><WidgetEmbedPanels station={station} shows={shows} current={current} clock={clock}/></div>
+      {!current&&!shows.length&&<p className="text-xs text-white/60">Δεν έχει καταχωριστεί πρόγραμμα.</p>}
     </section>
     <footer className="ir-embed__controls relative z-10 shrink-0 px-5 pb-3 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -450,7 +446,7 @@ function Program({station,current,upcoming,light,mini,rds,audio}){
 }
 
 
-function Hero({station,current,rds,audio}){
+function Hero({station,current,shows,clock,rds,audio}){
   const song=rds.song;
   return <main className="ir-embed ir-embed__hero-stage flex min-h-[480px] flex-col justify-center px-5 py-5 sm:px-8 lg:px-[5%]">
     <AudioElements audio={audio}/>
@@ -470,14 +466,13 @@ function Hero({station,current,rds,audio}){
             <p className="truncate font-bold">{current.title}{current.host?' · '+current.host:''}</p>
           </div>
         </div>}
-        {song&&!rds.showProducer&&<div className="mt-4 sm:mt-6">
-          <MusicSearchLinks station={station} song={song}/>
-        </div>}
+        {song&&<div className="mt-4 sm:mt-6"><MusicSearchLinks station={station} song={song}/></div>}
         <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-white/25 pt-4 sm:mt-6 sm:pt-6">
           <PlaybackButton audio={audio} large/>
           <span className="text-[11px] font-black uppercase tracking-wider text-white/85">ON AIR / LIVE</span>
           <VolumeSlider audio={audio}/>
         </div>
+        <div className="mt-4"><WidgetEmbedPanels station={station} shows={shows} current={current} clock={clock} playlist/></div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <HdControls audio={audio}/>
           <ProfileLink station={station} compact/>
