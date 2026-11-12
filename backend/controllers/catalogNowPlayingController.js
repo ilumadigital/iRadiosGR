@@ -3,7 +3,7 @@
 const Station=require('../models/Station');
 const Playlist=require('../models/StationPlaylist');
 const {snapshotSong}=require('../utils/stageNativeNow');
-const {publicWidgetNativeSnapshot}=require('../services/widgetNativeNow');
+const {publicWidgetNativeSnapshot,publicWidgetPlaylistSnapshot}=require('../services/widgetNativeNow');
 const {parseTrack}=require('../utils/recordStationTrack');
 const {catalogViewer,catalogEntryForViewer}=require('../services/nowPlayingVisibility');
 let cached=null,cacheUntil=0,pending=null;
@@ -68,4 +68,18 @@ exports.publicWidgetNowPlaying=async(req,res)=>{
   }catch{
     return res.status(503).json({error:'Widget RDS unavailable'});
   }
+};
+
+// Public, approved-station, native-only history for embedded Playlist drawer.
+// Private AI history remains behind the existing protected listener route.
+exports.publicWidgetPlaylist=async(req,res)=>{
+  res.setHeader('Cache-Control','public, max-age=15');
+  const id=req.params.stationId;
+  if(!/^[a-f0-9]{24}$/i.test(id))return res.status(400).json({error:'Invalid station identifier'});
+  try{
+    const approved=await Station.findOne({_id:id,status:'approved'}).select('_id').lean();
+    if(!approved)return res.status(404).json({error:'Station not found'});
+    const snapshot=await Playlist.findOne({stationId:approved._id}).select('tracks').lean();
+    return res.json(publicWidgetPlaylistSnapshot(snapshot));
+  }catch{return res.status(503).json({error:'Widget playlist unavailable'});}
 };
