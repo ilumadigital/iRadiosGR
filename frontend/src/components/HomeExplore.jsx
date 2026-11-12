@@ -4,7 +4,7 @@ import StationCatalogCard from './StationCatalogCard';
 import CatalogFilterPopover from './CatalogFilterPopover';
 import EditorialPlacement from './EditorialPlacement';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
-import {selectForYouStations} from '../utils/forYouRecommendations';
+import {selectForYouStations,buildListeningInterests} from '../utils/forYouRecommendations';
 import {compareCatalogPopularity,applyPostBoostLift} from '../utils/catalogLive';
 import {buildSponsoredCatalog,sponsoredGridColumns,withoutPaidBoostRank,restoreSortedStations} from '../utils/sponsoredCatalog';
 import {
@@ -97,15 +97,22 @@ export default function HomeExplore({stations=[], currentUser, recentStations=[]
   const hasTaste=Boolean(Object.keys(listeningProfile.stations||{}).length||
     Object.keys(listeningProfile.categories||{}).length||favoriteStations.length||recentStations.length);
   const displayed=showAll?filtered.slice(0,48):filtered.slice(0,12);
-  // Search/favorites/recent are intentional personal lists, never ad inventories.
-  const showSponsors=!query.trim()&&!['favorites','recent','for-you'].includes(tab);
+  // The For You feed accepts sponsored radios only when their real music
+  // category is relevant to this account's listening tastes.
+  const tasteCategories=useMemo(()=>[...buildListeningInterests(eligible,{
+    listeningProfile,favoriteStations,recentStations
+  }).entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label])=>label),
+    [eligible,listeningProfile,favoriteStations,recentStations]);
+  const showSponsors=!query.trim()&&!['favorites','recent'].includes(tab)&&
+    (tab!=='for-you'||tasteCategories.length>0);
   const sponsoredEntries=useMemo(()=>showSponsors?buildSponsoredCatalog({
     organic:displayed,allStations:eligible,scope:'home',value:genre||region||'all',
     categoryFilter:genre,regionFilter:region,
+    relevantCategories:tab==='for-you'?tasteCategories:[],
     columns:viewportWidth>=1280&&viewportWidth<1536?4:sponsoredGridColumns(viewportWidth),
     now:sponsorClock
   }):displayed.map(station=>({station,sponsored:false})),
-  [showSponsors,displayed,eligible,genre,region,viewportWidth,sponsorClock]);
+  [showSponsors,displayed,eligible,genre,region,viewportWidth,sponsorClock,tab,tasteCategories]);
   const clear=()=>{setGenre('');setRegion('');setQuery('');setShowAll(false);};
   return (
     <section id="station-explorer" className="ir-discovery-shell scroll-mt-24 space-y-5 rounded-[28px] border border-white/10 bg-gradient-to-b from-[#141a20]/95 to-[#0b1014]/95 p-4 sm:p-6">
