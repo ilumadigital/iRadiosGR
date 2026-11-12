@@ -12,7 +12,7 @@ const safeLabel = value => String(value || 'Μάθε περισσότερα').tr
  * The same card geometry is shared by genre, region and home catalog grids.
  */
 export default function DynamicAdCreative({
-  banner, variant='card', placement='radio_feed', slotKey='', className=''
+  banner, variant='card', placement='radio_feed', slotKey='', className='', preview=false
 }) {
   if (!banner || !banner.imageUrl) return null;
   const accent = validColor(banner.brandColor) ? banner.brandColor : '#a855f7';
@@ -28,8 +28,10 @@ export default function DynamicAdCreative({
     {variant!=='card'&&<span className="ir-dynamic-ad-description">{description}</span>}
   </>;
   const props = {banner,placement,slotKey,className:`ir-dynamic-ad ir-dynamic-ad--${variant} ${className}`.trim()};
+  const Wrapper = preview ? 'div' : AdPlacementLink;
+  const wrapperProps = preview ? {className:props.className} : props;
   if (variant==='card') return (
-    <AdPlacementLink {...props} >
+    <Wrapper {...wrapperProps} >
       <span className="ir-dynamic-ad-square">
         <img src={image} loading="lazy" alt="" style={{objectPosition:position}}/>
         <span className="ir-dynamic-ad-square-badge">ΔΙΑΦΗΜΙΣΗ</span>
@@ -39,19 +41,19 @@ export default function DynamicAdCreative({
       <span className="ir-dynamic-ad-card-cta" style={{backgroundColor:accent}}>
         {safeLabel(banner.ctaLabel)} <ArrowUpRight size={14}/>
       </span>
-    </AdPlacementLink>
+    </Wrapper>
   );
   if (variant==='list') return (
-    <AdPlacementLink {...props} >
+    <Wrapper {...wrapperProps} >
       <span className="ir-dynamic-ad-list-image"><img src={image} alt="" loading="lazy" style={{objectPosition:position}}/></span>
       <span className="ir-dynamic-ad-list-copy">{text}</span>
       <span className="ir-dynamic-ad-list-action" style={{color:accent}}>
         {safeLabel(banner.ctaLabel)} <ArrowUpRight size={17}/>
       </span>
-    </AdPlacementLink>
+    </Wrapper>
   );
   return (
-    <AdPlacementLink {...props}>
+    <Wrapper {...wrapperProps}>
       <img className="ir-dynamic-ad-cover" src={image} loading="lazy" alt="" style={{objectPosition:position}}/>
       <span className="ir-dynamic-ad-shade"/>
       <span className="ir-dynamic-ad-content">
@@ -60,6 +62,6 @@ export default function DynamicAdCreative({
           {safeLabel(banner.ctaLabel)} <ArrowUpRight size={17}/>
         </span>
       </span>
-    </AdPlacementLink>
+    </Wrapper>
   );
 }
