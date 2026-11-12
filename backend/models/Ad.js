@@ -37,7 +37,9 @@ const adSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   broadcasterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Station', default: null },
-  isGlobal: { type: Boolean, default: true }
+  isGlobal: { type: Boolean, default: true },
+  // Isolated staging inventory only; imported production campaigns remain hidden.
+  isStageCreative: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('Ad', adSchema);
