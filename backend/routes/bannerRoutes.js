@@ -22,6 +22,7 @@ router.post('/:id/impression', bannerController.registerImpression);
 router.get('/admin', ...admin, bannerController.getAllBanners);
 router.post('/admin', ...admin, bannerController.createBanner);
 router.put('/admin/:id', ...admin, bannerController.updateBanner);
+router.post('/admin/:id/clone-stage', ...admin, bannerController.cloneStageBanner);
 router.delete('/admin/:id', ...admin, bannerController.deleteBanner);
 
 module.exports = router;
