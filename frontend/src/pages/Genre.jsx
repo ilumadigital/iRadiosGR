@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import AdPlacementLink from '../components/AdPlacementLink';
+import {geoAllowsAd} from '../utils/adPlacements';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Play, Pause, ArrowLeft, Radio, LayoutGrid, List, MapPin, Zap, Megaphone, ExternalLink, SignalHigh } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
@@ -55,22 +57,10 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
     if (isFreeOrGuest) {
       fetch(`/api/banners/active`)
         .then(res => res.ok ? res.json() : [])
-        .then(data => {
-          // 🚨 1. Κρατάμε ΑΥΣΤΗΡΑ μόνο τα active
-          const strictlyActiveBanners = data.filter(banner => banner.status === 'active');
-          
-          if (checkGeoMatch && userLocation) {
-            // 🚨 2. Φιλτράρουμε το strictlyActiveBanners (ΟΧΙ το data)
-            const geoFilteredBanners = strictlyActiveBanners.filter(banner => {
-              const targetArea = (banner.targetLocations && banner.targetLocations.length > 0) ? banner.targetLocations[0] : 'All';
-              return checkGeoMatch(targetArea, userLocation);
-            });
-            setActiveBanners(geoFilteredBanners);
-          } else {
-            // 🚨 3. Περνάμε το strictlyActiveBanners (ΟΧΙ το data)
-            setActiveBanners(strictlyActiveBanners);
-          }
-        })
+        .then(data => setActiveBanners((Array.isArray(data)?data:[]).filter(banner =>
+          banner.status==='active'&&
+          (!banner.expiresAt||new Date(banner.expiresAt)>new Date())&&
+          geoAllowsAd(banner.targetLocations,userLocation,checkGeoMatch))))
         .catch(err => console.error("Error fetching banners:", err));
     } else {
       setActiveBanners([]);
@@ -86,7 +76,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
   // 🔥 HERO BANNERS (Κάθε 12 σταθμούς - Full Width)
   const homeBanners = useMemo(() => {
     if (isPremiumUser) return []; 
-    return activeBanners.filter(b => b.placement && b.placement.includes('home'));
+    return activeBanners.filter(b => b.placement && b.placement.includes('radio_feed'));
   }, [activeBanners, isPremiumUser]);
 
   const baseStations = useMemo(() => stations.filter(s => s.genre === genreName || s.secondaryGenre === genreName), [stations, genreName]);
@@ -138,44 +128,11 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
     }
   };
 
-  const TrackableAdWrapper = ({ banner, children, className }) => {
-    const adRef = React.useRef(null);
-    const tracked = React.useRef(false);
-
-    React.useEffect(() => {
-      const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && !tracked.current) {
-          tracked.current = true;
-          handleBannerView(banner._id);
-        }
-      }, { threshold: 0.5 });
-
-      if (adRef.current) observer.observe(adRef.current);
-      return () => observer.disconnect();
-    }, [banner._id]);
-
-    const baseParams = "ref=iradiosapp&utm_medium=ilumadigitalagencyiradios&utm_source=iradios&utm_campaign=radiofeed_ir&utm_content=radiofeed_ir";
-    const finalUrl = `${banner.targetUrl}${banner.targetUrl.includes('?') ? '&' : '?'}${baseParams}`;
-
-    return (
-      <a 
-        ref={adRef} 
-        href={finalUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${className} block cursor-pointer`} 
-        onClick={(e) => {
-          e.stopPropagation(); 
-          fetch(`/api/banners/${banner._id}/click`, { method: 'POST' }).catch(err => console.error("Click error", err));
-        }}
-      >
-        {children}
-      </a>
-    );
-  };
+  // Stable wrapper prevents impressions on unrelated station/player renders.
+  const TrackableAdWrapper = AdPlacementLink;
 
   const SquareAdCard = ({ banner }) => (
-    <TrackableAdWrapper banner={banner} className="group flex flex-col relative cursor-pointer h-full">
+    <TrackableAdWrapper placement="radio_feed" banner={banner} className="group flex flex-col relative cursor-pointer h-full">
       <div className="relative aspect-square w-full rounded-2xl md:rounded-3xl overflow-hidden bg-zinc-900 shadow-lg border border-purple-500/30 transition-all duration-500 group-hover:-translate-y-1 group-hover:border-purple-500 group-hover:shadow-[0_0_20px_rgba(168,85,247,0.3)]">
         <img src={banner.squareImageUrl || banner.imageUrl} alt={banner.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
@@ -256,7 +213,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
                 {/* 🔥 FULL WIDTH BANNER INJECTION */}
                 {showFullBanner && currentFullBanner && (
                   <div className="col-span-full py-4 md:py-8">
-                    <TrackableAdWrapper banner={currentFullBanner} className="relative w-full h-[200px] md:h-[350px] rounded-[32px] md:rounded-[40px] overflow-hidden group border border-purple-500/20 hover:border-purple-500 shadow-[0_20px_40px_rgba(0,0,0,0.5)] hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] transition-all duration-500 block">
+                    <TrackableAdWrapper placement="radio_feed" banner={currentFullBanner} className="relative w-full h-[200px] md:h-[350px] rounded-[32px] md:rounded-[40px] overflow-hidden group border border-purple-500/20 hover:border-purple-500 shadow-[0_20px_40px_rgba(0,0,0,0.5)] hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] transition-all duration-500 block">
                       <img src={currentFullBanner.imageUrl} alt={currentFullBanner.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
                       
@@ -280,7 +237,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
                 {/* 🟢 SQUARE BANNER INJECTION */}
                 {showAd && currentBanner && (
                    viewMode === 'grid' ? <SquareAdCard banner={currentBanner} /> : (
-                    <TrackableAdWrapper 
+                    <TrackableAdWrapper placement="radio_feed" 
                       banner={currentBanner} 
                       className="flex items-center gap-4 p-3 bg-purple-900/10 border border-purple-500/20 rounded-2xl cursor-pointer hover:bg-purple-900/20 transition-all"
                     >
