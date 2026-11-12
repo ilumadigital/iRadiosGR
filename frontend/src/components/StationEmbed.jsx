@@ -243,6 +243,7 @@ function ArtworkVisual({station,src,className='',alt='',showArtwork=false}){
   const photo=Boolean(src&&src!==logo&&stage!=='logo');
   const source=photo?(stage==='proxy'&&proxy?proxy:src):logo;
   return <img src={source} alt={alt}
+    referrerPolicy={showArtwork?'no-referrer':undefined}
     className={classNames(className,!photo&&'is-logo')}
     onError={event=>{
       if(photo){
