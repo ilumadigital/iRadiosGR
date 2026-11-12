@@ -214,7 +214,7 @@ export default function Sidebar({
                    <SidebarItem isCollapsed={isCollapsed} to="/newsfeed" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Newspaper size={20} />} label="Ειδήσεις" />
                   <button
                     type="button"
-                    aria-expanded={categoriesOpen && !isCollapsed}
+                    aria-expanded={categoriesOpen}
                     aria-controls="ir-sidebar-categories"
                     title={isCollapsed ? 'Κατηγορίες' : undefined}
                     aria-label={isCollapsed ? 'Κατηγορίες' : undefined}
@@ -245,7 +245,7 @@ export default function Sidebar({
                   )}
 
                   {/* Popular city shortcuts, followed by available geographical regions. */}
-                  <button type="button" aria-expanded={regionsOpen && !isCollapsed}
+                  <button type="button" aria-expanded={regionsOpen}
                     aria-controls="ir-sidebar-regions"
                     aria-label={isCollapsed ? 'Περιοχές' : undefined}
                     title={isCollapsed ? 'Περιοχές' : undefined}
