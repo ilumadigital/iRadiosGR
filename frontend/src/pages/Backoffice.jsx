@@ -19,6 +19,7 @@ import {
 const AdminDashboard=lazy(()=>import('./AdminDashboard'));
 const AdminUsers=lazy(()=>import('./AdminUsers'));
 const AdminAds=lazy(()=>import('./AdminAds'));
+const CampaignEditor=lazy(()=>import('./CampaignEditor'));
 const AdminBanners=lazy(()=>import('./AdminBanners'));
 const AdminHomeSlides=lazy(()=>import('./AdminHomeSlides'));
 const AdminNewsFeed=lazy(()=>import('./AdminNewsFeed'));
@@ -1746,6 +1747,12 @@ export default function Backoffice(){
           <Route path="/backoffice/admin" element={<AdminWorkspace data={data}/>}/>
           {['analytics','users','ads','banners','slides','newsfeed','promoted','emails','billing','radioset','boost','adcontrol','push'].map(section=>
             <Route key={section} path={'/backoffice/admin/'+section} element={<Operations data={data} section={section} reload={reload}/>}/>)}
+          {['ads','banners'].map(type=>[
+            <Route key={type+'-new'} path={'/backoffice/admin/'+type+'/new'}
+              element={admin?<CampaignEditor scope="admin" kind={type==='ads'?'audio':'banners'} currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>,
+            <Route key={type+'-edit'} path={'/backoffice/admin/'+type+'/:id/edit'}
+              element={admin?<CampaignEditor scope="admin" kind={type==='ads'?'audio':'banners'} currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>
+          ])}
           <Route path="/backoffice/admin/addons" element={admin?
              <AdminAddons API_URL="/api"/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/admin/audio" element={admin?
