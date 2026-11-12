@@ -20,6 +20,8 @@ async function main(){
   const targeted=boosted('targeted','targeted');
   const catalog={scope:'genre',value:'Dance'};
   assert.equal(relatedToCategory(global,'Ηλεκτρονική'),true);
+  assert.equal(relatedToCategory(global,'House'),true,
+    'Dance global must cover related secondary House');
   assert.equal(relatedToCategory(global,'Ειδησεογραφικά'),false);
   assert.equal(relatedToCategory(global,'Παραδοσιακά'),false);
   assert.equal(eligibleSponsoredStation(global,{scope:'genre',value:'Ηλεκτρονική'},now),true);
