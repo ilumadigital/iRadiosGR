@@ -7,7 +7,9 @@ const {isStage,activeCampaignQuery,live,publicAd,fields,permitMetric} =
   require('../services/adDeliveryRules');
 const writable=['title','client','audioUrl','logoUrl','linkUrl','frequency',
   'dspPreset','targetLocations','status','duration','expiresAt'];
-const correctFrequency=value=>value==='first_station'?'entry':value;
+const correctFrequency=value=>({
+  first_station:'entry',every_2:'every_2_stations',every_4:'every_4_stations'
+}[value]||value);
 
 const fs = require('fs').promises;
 const path = require('path');
