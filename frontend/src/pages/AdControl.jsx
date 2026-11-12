@@ -203,7 +203,7 @@ export default function AdControl({ API_URL, currentUser }) {
       });
       
       if (res.ok) {
-        setNewAd({ title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'first_station', stationId: stations[0]?._id, dspPreset: 'OFF', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All'] });
+        setNewAd({ title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'entry', stationId: stations[0]?._id, dspPreset: 'OFF', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All'] });
         setAudioFile(null); 
         fetchData(); 
       }
@@ -495,10 +495,11 @@ export default function AdControl({ API_URL, currentUser }) {
                 <div>
                   <label className="text-[10px] text-zinc-500 font-black uppercase ml-1 mb-1 block">Συχνοτητα</label>
                   <select value={editingAd.frequency} onChange={e => setEditingAd({...editingAd, frequency: e.target.value})} className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-sm text-white focus:border-[#ccff00]/50 outline-none cursor-pointer">
-                    <option value="first_station">Στο Play (Pre-roll)</option>
-                    <option value="every_2">Κάθε 2 Αλλαγές</option>
-                    <option value="every_4">Κάθε 4 Αλλαγές</option>
-                    <option value="every_6">Κάθε 6 Αλλαγές</option>
+                    <option value="entry">Στο Play (Pre-roll)</option>
+                    <option value="every_5_stations">Κάθε 5 αλλαγές</option>
+                    <option value="every_10_stations">Κάθε 10 αλλαγές</option>
+                    <option value="every_15_stations">Κάθε 15 αλλαγές</option>
+                    <option value="every_1_hour">Κάθε 1 ώρα (:15 / :45)</option>
                   </select>
                 </div>
 
