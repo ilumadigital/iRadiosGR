@@ -4,7 +4,7 @@ import {parseMusicMetadata} from '../utils/musicMetadata';
 import {cleanMetadata} from '../utils/cleanMetadata';
 import {resolveLiveShowArtwork,validShowImage} from '../utils/liveBroadcast';
 import {RDS_INTERVAL_MS} from '../utils/rdsPresentation';
-import {widgetSnapshot,widgetOnAirPresentation} from '../utils/widgetRdsPresentation';
+import {widgetSnapshot,widgetOnAirPresentation,widgetShowProducerNow} from '../utils/widgetRdsPresentation';
 import {mediaFields} from './useMediaSession';
 
 // Native RDS is safe for any public iframe. An App-equivalent snapshot is read
@@ -105,7 +105,7 @@ export function useStationWidgetRds(station){
   },[station,song?.raw,current?.source,current?.broadcastHint,clock.day,clock.minute]);
   // Fixed 20-second alternation independent of whether a DJ photo exists.
   // With no real song, show the current scheduled program continuously.
-  const showProducer=Boolean(broadcast?.show&&(!song||slot%2===1));
+  const showProducer=widgetShowProducerNow(song,broadcast?.show,slot*RDS_INTERVAL_MS,RDS_INTERVAL_MS);
   const display=widgetOnAirPresentation({song,broadcast,showProducer,station});
   return {song,broadcast,showProducer,display,source:current?.source||'none',
     foundWithAI:Boolean(current?.foundWithAI),activeShow:broadcast.show};
