@@ -9,7 +9,7 @@ import StationCatalogCard from '../components/StationCatalogCard';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 import {stationMatchesRegion} from '../utils/stationRegions';
 import {sortCatalogStations} from '../utils/catalogLive';
-import {buildSponsoredCatalog,sponsoredGridColumns} from '../utils/sponsoredCatalog';
+import {buildSponsoredCatalog,sponsoredGridColumns,withoutPaidBoostRank,restoreSortedStations} from '../utils/sponsoredCatalog';
  
 
 export default function Region({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
@@ -98,7 +98,8 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     if (selectedGenre !== 'all') result = result.filter(s => s.genre === selectedGenre);
     if (selectedTransmission !== 'all') result = result.filter(s => (s.transmissionType || 'Web Radio') === selectedTransmission);
 
-    return sortCatalogStations(result,catalogNowPlaying,catalogClock,sortBy,'region',regionName);
+    return restoreSortedStations(sortCatalogStations(result.map(withoutPaidBoostRank),
+      catalogNowPlaying,catalogClock,sortBy,'region',regionName),result);
   }, [baseStations, selectedGenre, selectedTransmission, sortBy, catalogNowPlaying, catalogClock, regionName]);
 
   const formatGenre = (text) => text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : "";
