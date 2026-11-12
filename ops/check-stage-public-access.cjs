@@ -30,6 +30,14 @@ for(const p of ['/stations','/stations/discovery','/proxy-stream','/health','/co
  const result=call('GET',p);
  assert.equal(result.reached,true,'allow public '+p);
 }
+const verifyPreview=call('POST','/widget-previews/verify',{token:'invalid'});
+assert.equal(verifyPreview.reached,true,'public verifier must receive tokens for server-side validation');
+const previewGet=call('GET','/widget-previews/verify');
+assert.equal(previewGet.reached,false,'GET cannot bypass preview validation');
+assert.equal(previewGet.res.code,401);
+const issueWithoutJwt=call('POST','/backoffice/widget-previews',{stationId:'0123456789abcdef01234567',variant:'hero'});
+assert.equal(issueWithoutJwt.reached,false,'preview token issuance always requires an authorized session');
+assert.equal(issueWithoutJwt.res.code,401);
 const nativeWidget=call('GET','/catalog/widget-native/0123456789abcdef01234567');
 assert.equal(nativeWidget.reached,true,'approved public widget must read native-only RDS without login');
 for(const invalid of [
