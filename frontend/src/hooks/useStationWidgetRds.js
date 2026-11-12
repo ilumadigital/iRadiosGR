@@ -1,39 +1,68 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {getAthensClock} from '../utils/schedule';
 import {parseMusicMetadata} from '../utils/musicMetadata';
-import {resolveLiveShowArtwork} from '../utils/liveBroadcast';
+import {cleanMetadata} from '../utils/cleanMetadata';
+import {resolveLiveShowArtwork,validShowImage} from '../utils/liveBroadcast';
 import {showProducerNow,RDS_INTERVAL_MS} from '../utils/rdsPresentation';
+import {widgetSnapshot,widgetOnAirPresentation} from '../utils/widgetRdsPresentation';
 import {mediaFields} from './useMediaSession';
 
-// Widget data is server-verified *native* station metadata. AI recognition
-// must never be inferred from, or fetched via, the public widget endpoint.
+// Native RDS is safe for any public iframe. An App-equivalent snapshot is read
+// only with the current listener's JWT; the server applies the same Premium gate
+// as /api/metadata in App.jsx. A guest never gets somebody else's AI result.
+function currentToken(){
+  try{return window.localStorage.getItem('iluma_token')||'';}catch{return '';}
+}
 export function useStationWidgetRds(station){
-  const [snapshot,setSnapshot]=useState(null);
+  const id=String(station?._id||'');
+  const [snapshot,setSnapshot]=useState({id:'',data:null,receivedAt:0,token:''});
   const [slot,setSlot]=useState(()=>Math.floor(Date.now()/RDS_INTERVAL_MS));
   const [clock,setClock]=useState(()=>getAthensClock());
   useEffect(()=>{
-    if(!station?._id){setSnapshot(null);return;}
-    let active=true;
-    const controller=new AbortController();
+    if(!id){setSnapshot({id:'',data:null,receivedAt:0,token:''});return;}
+    let active=true,inFlight=false,controller;
+    setSnapshot({id:'',data:null,receivedAt:0,token:''});
     const update=async()=>{
+      if(!active||inFlight)return;
+      inFlight=true;
+      controller=new AbortController();
+      const token=currentToken();
+      const headers=token?{Authorization:'Bearer '+token}:{};
+      const read=async(url,options={})=>{
+        const response=await fetch(url,{signal:controller.signal,cache:'no-store',...options});
+        if(!response.ok)throw new Error('Metadata temporarily unavailable');
+        return response.json();
+      };
       try{
-        const response=await fetch('/api/catalog/widget-native/'+encodeURIComponent(station._id),{
-          signal:controller.signal,cache:'no-store'
-        });
-        if(!response.ok)throw new Error('Native metadata unavailable');
-        const data=await response.json();
-        if(active)setSnapshot(data?.source==='station'||data?.broadcastHint?data:null);
-      }catch{
-        if(active&&!controller.signal.aborted)setSnapshot(null);
-      }
+        const [publicResult,accountResult]=await Promise.allSettled([
+          read('/api/catalog/widget-native/'+encodeURIComponent(id)),
+          token?read('/api/metadata?stationId='+encodeURIComponent(id),{headers}):Promise.resolve(null)
+        ]);
+        if(!active||controller.signal.aborted)return;
+        const native=publicResult.status==='fulfilled'?publicResult.value:null;
+        const account=accountResult.status==='fulfilled'?accountResult.value:null;
+        if(native||account){
+          setSnapshot({id,data:widgetSnapshot(native,account),receivedAt:Date.now(),token});
+        }else{
+          // Do not keep a stale song when both metadata requests fail.
+          setSnapshot({id,data:null,receivedAt:0,token});
+        }
+      }finally{inFlight=false;}
     };
-    setSnapshot(null);update();
-    const timer=setInterval(update,20000);
-    const onVisible=()=>{if(!document.hidden){update();setClock(getAthensClock());}};
+    void update();
+    const timer=setInterval(()=>void update(),15000);
+    const onVisible=()=>{if(!document.hidden){setClock(getAthensClock());void update();}};
+    const onStorage=event=>{if(event.key==='iluma_token')void update();};
     document.addEventListener('visibilitychange',onVisible);
-    return()=>{active=false;controller.abort();clearInterval(timer);
-      document.removeEventListener('visibilitychange',onVisible);};
-  },[station?._id]);
+    window.addEventListener('pageshow',onVisible);
+    window.addEventListener('storage',onStorage);
+    return()=>{
+      active=false;controller?.abort();clearInterval(timer);
+      document.removeEventListener('visibilitychange',onVisible);
+      window.removeEventListener('pageshow',onVisible);
+      window.removeEventListener('storage',onStorage);
+    };
+  },[id]);
   useEffect(()=>{
     const tick=()=>{
       setSlot(Math.floor(Date.now()/RDS_INTERVAL_MS));
@@ -42,61 +71,96 @@ export function useStationWidgetRds(station){
     const timer=setInterval(tick,1000);
     window.addEventListener('pageshow',tick);
     document.addEventListener('visibilitychange',tick);
-    return()=>{clearInterval(timer);window.removeEventListener('pageshow',tick);
-      document.removeEventListener('visibilitychange',tick);};
+    return()=>{
+      clearInterval(timer);
+      window.removeEventListener('pageshow',tick);
+      document.removeEventListener('visibilitychange',tick);
+    };
   },[]);
-  const song=useMemo(()=>parseMusicMetadata(snapshot?.title||'',station?.name),[snapshot?.title,station?.name]);
-  const broadcast=useMemo(()=>resolveLiveShowArtwork({
-    station,nowPlaying:song?.raw||'',
-    nowPlayingInfo:{source:song?'station':'none',broadcastHint:snapshot?.broadcastHint||''},
-    clock
-  }),[station,song?.raw,snapshot?.broadcastHint,clock.day,clock.minute]);
+  // Credentials disappearing, a song expiring, or a server going offline must
+  // never leave old metadata displayed indefinitely.
+  const selected=snapshot.id===id&&snapshot.token===currentToken()&&
+    Date.now()-snapshot.receivedAt<45000?snapshot.data:null;
+  const current=selected?.source==='acrcloud'&&
+    Date.parse(selected.expiresAt||'')<=Date.now()?null:selected;
+  const song=useMemo(()=>parseMusicMetadata(
+    cleanMetadata(current?.title||''),station?.name
+  ),[current?.title,station?.name]);
+  const broadcast=useMemo(()=>{
+    const resolved=resolveLiveShowArtwork({
+      station,nowPlaying:song?.raw||'',
+      nowPlayingInfo:{source:song?current?.source||'station':'none',
+        broadcastHint:current?.broadcastHint||''},clock
+    });
+    // A scheduled show is a real on-air source even when the station emits
+    // no usable Artist - Title metadata; never invent a song.
+    if(!song&&resolved.show&&!resolved.recognizedShow){
+      const show=resolved.show;
+      return {...resolved,recognizedShow:true,
+        imageUrl:validShowImage(show.imageUrl)?show.imageUrl:null,
+        title:show.title||show.host||station?.name||'Στον αέρα',
+        artist:show.host||station?.name||''};
+    }
+    return resolved;
+  },[station,song?.raw,current?.source,current?.broadcastHint,clock.day,clock.minute]);
   const showProducer=showProducerNow({
     currentUser:{role:'public-widget'},stationName:station?.name,
     nowPlaying:song?.raw||'',liveBroadcast:broadcast,at:slot*RDS_INTERVAL_MS
   });
-  return {song,broadcast,showProducer};
+  const display=widgetOnAirPresentation({song,broadcast,showProducer,station});
+  return {song,broadcast,showProducer,display,source:current?.source||'none',
+    foundWithAI:Boolean(current?.foundWithAI),activeShow:broadcast.show};
 }
-function absoluteLogo(logo){
+function absoluteArtwork(value){
+  if(typeof value!=='string'||!value.trim())return null;
   try{
-    const url=new URL(logo||'/iradios-logo.png',window.location.origin);
-    if(url.protocol!=='https:'&&window.location.protocol==='https:')return null;
-    return ['https:','http:'].includes(url.protocol)?url.href:null;
+    const u=new URL(value,window.location.origin);
+    return ['http:','https:'].includes(u.protocol)&&
+      (window.location.protocol!=='https:'||u.protocol==='https:')?u.href:null;
   }catch{return null;}
 }
-export function useStationWidgetMediaSession({station,rds,audio,enabled=true}){
+function artworkMimeType(url){
+  if(/\.png(?:[?#]|$)/i.test(url))return 'image/png';
+  if(/\.webp(?:[?#]|$)/i.test(url))return 'image/webp';
+  if(/\.jpe?g(?:[?#]|$)/i.test(url))return 'image/jpeg';
+  return undefined;
+}
+export function useStationWidgetMediaSession({station,rds,audio,artwork,enabled=true}){
   const latest=useRef(null);
   latest.current={audio};
   const song=rds?.song;
   const broadcast=rds?.broadcast;
   const showProducer=rds?.showProducer;
+  const display=rds?.display;
   useEffect(()=>{
     if(!enabled||!station||!('mediaSession' in navigator)||typeof window.MediaMetadata!=='function')return;
-    // The same metadata presentation fields as iRadios, sourced from the
-    // public native-only widget API. A symbolic viewer only enables formatting:
-    // all entitlement filtering was performed on the server.
     const fields=mediaFields({
       currentStation:station,nowPlaying:song?.raw||'',currentUser:{role:'public-widget'},
-      nowPlayingInfo:{source:'station',foundWithAI:false},
-      isPlayingAd:false,globalCoverArt:null,
+      nowPlayingInfo:{source:rds?.source||'none',foundWithAI:rds?.foundWithAI===true},
+      isPlayingAd:false,globalCoverArt:artwork||null,
       liveBroadcast:broadcast,rdsShowProducer:showProducer
     });
-    const logo=absoluteLogo(station.logo);
-    const type=/\.png(?:[?#]|$)/i.test(logo||'')?'image/png':
-      /\.webp(?:[?#]|$)/i.test(logo||'')?'image/webp':
-      /\.jpe?g(?:[?#]|$)/i.test(logo||'')?'image/jpeg':undefined;
+    const logo=absoluteArtwork(station.logo||'/iradios-logo.png');
+    // Consistent with App: the active song's cover or DJ photo goes to the
+    // lockscreen; station branding remains the last, stable fallback.
+    const image=absoluteArtwork(fields.image)||logo;
+    const title=display?.kind==='station'||(display?.kind==='show'&&!broadcast?.imageUrl)
+      ?display.title:fields.title;
+    const artist=display?.kind==='station'||(display?.kind==='show'&&!broadcast?.imageUrl)
+      ?display.artist:fields.artist;
     try{
       navigator.mediaSession.metadata=new window.MediaMetadata({
-        title:fields.title,artist:fields.artist,album:fields.album,
-        // Station identity remains the logo even as songs or DJs rotate.
-        artwork:logo?[96,128,256,512].map(size=>({
-          src:logo,sizes:size+'x'+size,...(type?{type}:{})
+        title,artist,album:fields.album,
+        artwork:image?[96,128,256,512].map(size=>({
+          src:image,sizes:size+'x'+size,
+          ...(artworkMimeType(image)?{type:artworkMimeType(image)}:{})
         })):[]
       });
       navigator.mediaSession.playbackState=audio.playing?'playing':'paused';
-    }catch{ /* Some embedded browsers do not support lock-screen APIs. */ }
+    }catch{}
   },[enabled,station?._id,station?.name,station?.logo,song?.raw,broadcast?.title,
-    broadcast?.artist,broadcast?.imageUrl,showProducer,audio.playing]);
+    broadcast?.artist,broadcast?.imageUrl,display?.kind,display?.title,display?.artist,
+    rds?.source,rds?.foundWithAI,showProducer,artwork,audio.playing]);
   useEffect(()=>{
     if(!enabled||!('mediaSession' in navigator))return;
     const handlers={
