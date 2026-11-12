@@ -3,16 +3,17 @@ const router = express.Router();
 const adController = require('../controllers/adController');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
+const admin=[protect,authorizeRoles('admin')];
 
 router.get('/ads/public', adController.getPublicAds);
 router.post('/ads/:id/impression', adController.logImpression);
 router.post('/ads/:id/click', adController.logClick);
 
-router.get('/admin/ads', adController.getAdminAds);
-router.get('/admin/local-ads', adController.getAdminLocalAds);
-router.post('/admin/ads', adController.createAdminAd);
-router.put('/admin/ads/:id', adController.updateAd);
-router.delete('/admin/ads/:id', adController.deleteAd);
+router.get('/admin/ads', ...admin, adController.getAdminAds);
+router.get('/admin/local-ads', ...admin, adController.getAdminLocalAds);
+router.post('/admin/ads', ...admin, adController.createAdminAd);
+router.put('/admin/ads/:id', ...admin, adController.updateAd);
+router.delete('/admin/ads/:id', ...admin, adController.deleteAd);
 
 router.get('/broadcaster/:userId/ads',protect,(req,res,next)=>{
   if(req.user.role==='admin'||String(req.user._id)===req.params.userId)return next();
