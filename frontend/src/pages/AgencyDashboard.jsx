@@ -302,7 +302,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
               <RotateCw size={20} className={`${loading ? 'animate-spin text-[#ccff00]' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
             </button>
             <button 
-              onClick={() => navigate("/agency/campaigns/banners/new")}
+              onClick={() => navigate('/agency/campaigns/'+(activeTab==='audio'?'audio':'banners')+'/new')}
               className="bg-[#ccff00] text-black px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(204,255,0,0.2)] flex items-center gap-3 shrink-0"
             >
               <Plus size={18} /> Νεα Καμπανια
@@ -373,7 +373,8 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
               <div key={campaign._id} className="ad-console-card bg-zinc-900/40 backdrop-blur-sm border border-white/5 rounded-[32px] p-6 relative overflow-hidden group hover:border-white/10 transition-colors">
                 
                 <div className="absolute top-6 right-6">
-                  {campaign.status === 'active' && <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-emerald-500/20">LIVE</span>}
+                  {campaign.status === 'active' && (!isStaging||campaign.isStageCreative) && <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-emerald-500/20">LIVE</span>}
+                  {campaign.status === 'active' && isStaging && !campaign.isStageCreative && <span className="bg-purple-500/10 text-purple-200 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-purple-500/20">Εισαγμένη · δεν προβάλλεται</span>}
                   {campaign.status === 'pending' && <span className="bg-orange-500/10 text-orange-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-orange-500/20 animate-pulse">IN REVIEW</span>}
                   {campaign.status === 'expired' && <span className="bg-red-500/10 text-red-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-red-500/20">EXPIRED</span>}
                 </div>
