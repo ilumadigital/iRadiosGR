@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {CalendarDays,ListMusic,Loader2,RefreshCw,X} from 'lucide-react';
 import {getAthensClock} from '../utils/schedule';
 
@@ -88,7 +89,7 @@ export default function WidgetEmbedPanels({station,shows=[],current,clock,playli
         <ListMusic size={14}/> Playlist
       </button>}
     </div>
-    {panel&&<section role="dialog" aria-modal="true" aria-label={panel==='program'?'Πρόγραμμα σταθμού':'Playlist σταθμού'}
+    {panel&&createPortal(<section role="dialog" aria-modal="true" aria-label={panel==='program'?'Πρόγραμμα σταθμού':'Playlist σταθμού'}
       className="ir-widget-drawer" id="ir-widget-panel">
       <header className="ir-widget-drawer__header">
         <div className="min-w-0">
@@ -141,6 +142,6 @@ export default function WidgetEmbedPanels({station,shows=[],current,clock,playli
           </p>
         )}
       </div>
-    </section>}
+    </section>,document.body)}
   </>;
 }
