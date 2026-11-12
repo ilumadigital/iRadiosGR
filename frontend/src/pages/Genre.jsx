@@ -18,6 +18,11 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
   const [sortBy, setSortBy] = useState('popularity');
   const [viewMode, setViewMode] = useState('grid');
   const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1024:window.innerWidth);
+  const [sponsorClock,setSponsorClock]=useState(()=>Date.now());
+  useEffect(()=>{
+    const timer=setInterval(()=>setSponsorClock(Date.now()),30000);
+    return()=>clearInterval(timer);
+  },[]);
   useEffect(()=>{
     const resize=()=>setViewportWidth(window.innerWidth);
     window.addEventListener('resize',resize,{passive:true});
@@ -117,10 +122,10 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
     organic:displayStations,
     allStations:stations.filter(station=>String(station._id)!==String(promotedStationId)),
     scope:'genre',value:genreName,mode:viewMode,
-    columns:sponsoredGridColumns(viewportWidth),
+    columns:sponsoredGridColumns(viewportWidth),now:sponsorClock,
     regionFilter: selectedRegion,
     transmissionFilter:selectedTransmission
-  }),[displayStations,stations,promotedStationId,genreName,viewMode,viewportWidth,
+  }),[displayStations,stations,promotedStationId,genreName,viewMode,viewportWidth,sponsorClock,
     selectedRegion,selectedTransmission]);
 
   const handleBannerView = async (bannerId) => {
