@@ -61,7 +61,6 @@ export default function MobileMiniPlayer({
   const [showDevicesMenu, setShowDevicesMenu] = useState(false);
 
   const devicesMenuRef = useRef(null);
-  const lastTrackedAdId = useRef(null);
 
   useEffect(() => { setIsMaximized(false); }, [location.pathname]);
 
@@ -92,13 +91,7 @@ export default function MobileMiniPlayer({
     };
   },[isMaximized,showDevicesMenu]);
 
-  useEffect(() => {
-    if (isPlayingAd && currentAdInfo?._id && lastTrackedAdId.current !== currentAdInfo._id) {
-      lastTrackedAdId.current = currentAdInfo._id;
-      fetch(`/api/ads/${currentAdInfo._id}/impression`, { method: 'POST' }).catch(() => {});
-    }
-    if (!isPlayingAd) lastTrackedAdId.current = null;
-  }, [isPlayingAd, currentAdInfo?._id]);
+  // Playback metrics are emitted by the shared audio element only.
 
   useEffect(() => {
     const handleClickOutside = (event) => {
