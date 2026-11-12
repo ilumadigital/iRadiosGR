@@ -18,6 +18,24 @@ export default function HomeHeroSlider({
   const [index,setIndex]=useState(0);
   const [hover,setHover]=useState(false);
   const [athensClock,setAthensClock]=useState(()=>getAthensClock());
+  const premiumAccountId=placement==='home'&&
+    (currentUser?.isPremium===true||currentUser?.isPremium==='true'||
+      currentUser?.broadcasterProfile?.tier==='premium')
+    ?String(currentUser?._id||currentUser?.id||''):'';
+  const [premiumLast,setPremiumLast]=useState({accountId:'',stationId:''});
+  useEffect(()=>{
+    if(!premiumAccountId){setPremiumLast({accountId:'',stationId:''});return;}
+    let stationId='';
+    try{stationId=localStorage.getItem('iradios_premium_last_'+premiumAccountId)||'';}catch{}
+    setPremiumLast({accountId:premiumAccountId,stationId});
+  },[premiumAccountId]);
+  useEffect(()=>{
+    const id=String(currentStation?._id||'');
+    if(!premiumAccountId||!isPlaying||!id||!stations.some(s=>
+      String(s._id)===id&&(s.status==='approved'||!s.status)&&s.isOffline!==true))return;
+    setPremiumLast({accountId:premiumAccountId,stationId:id});
+    try{localStorage.setItem('iradios_premium_last_'+premiumAccountId,id);}catch{}
+  },[premiumAccountId,currentStation?._id,isPlaying,stations]);
   useEffect(()=>{
     const refreshClock=()=>setAthensClock(getAthensClock());
     const timer=setInterval(refreshClock,30000);
@@ -40,11 +58,22 @@ export default function HomeHeroSlider({
   },[placement,value]);
   // Only an explicitly featured station may fill the unconfigured Home hero.
   // Catalog pages never fall back to the current, first or random station.
-  const stationFallback=useMemo(()=>homeFeaturedFallback(stations,placement),[stations,placement]);
+  const stationFallback=useMemo(()=>{
+    if(!premiumAccountId)return homeFeaturedFallback(stations,placement);
+    const activeId=isPlaying?String(currentStation?._id||''):'';
+    const lastId=premiumLast.accountId===premiumAccountId?premiumLast.stationId:'';
+    const stationId=activeId||lastId;
+    return stations.find(s=>String(s._id)===stationId&&
+      (s.status==='approved'||!s.status)&&s.isOffline!==true)||null;
+  },[stations,placement,premiumAccountId,premiumLast,currentStation?._id,isPlaying]);
   // Never flash a previous category's CMS slides while a new placement loads.
-  const visible=useMemo(()=>loadedScope===placement+':'+value
-    ? visibleEditorialSlides(slides,currentUser,stations,excludeStationId):[],
-    [loadedScope,placement,value,slides,currentUser,stations,excludeStationId]);
+  const visible=useMemo(()=>{
+    if(loadedScope!==placement+':'+value)return [];
+    const eligible=visibleEditorialSlides(slides,currentUser,stations,excludeStationId);
+    // Premium home: personal listening is the default. Only explicitly
+    // Premium-targeted Admin slides may replace it.
+    return premiumAccountId?eligible.filter(slide=>slide.audience==='premium'):eligible;
+  },[loadedScope,placement,value,slides,currentUser,stations,excludeStationId,premiumAccountId]);
   useEffect(()=>{onAvailabilityChange?.(visible.length>0);},
     [visible.length,onAvailabilityChange]);
   const activeIndex=visible.length?index%visible.length:0;
@@ -75,9 +104,11 @@ export default function HomeHeroSlider({
     }
   };
   const image=slide?.imageUrl || stationFallback?.cover || stationFallback?.logo || '/iradios-wall.png';
-  const title=slide?.title || (isStationHero?featuredStation?.name:stationFallback?.name) || 'Ανακάλυψε τον ήχο σου';
+  const title=slide?.title || (isStationHero?featuredStation?.name:stationFallback?.name) ||
+    (premiumAccountId?'Καλώς ήρθες στο iRadios Premium':'Ανακάλυψε τον ήχο σου');
   const description=slide?.subtitle || (isStationHero?featuredStation?.slogan:stationFallback?.slogan) ||
-    'Χιλιάδες σταθμοί. Μία εμπειρία που προσαρμόζεται στις επιλογές σου.';
+    (premiumAccountId?'Ο αγαπημένος σου σταθμός θα εμφανιστεί εδώ μόλις ξεκινήσεις ακρόαση.':
+      'Χιλιάδες σταθμοί. Μία εμπειρία που προσαρμόζεται στις επιλογές σου.');
   const stationAction=isStationHero&&featuredStation;
   // Home cards are text-only for on-air programs: never render a producer photo.
   // Match the actual Greek-local schedule, preferring the host over the show title.
@@ -89,7 +120,8 @@ export default function HomeHeroSlider({
     String(currentStation._id)===String(featuredStation?._id));
   const heroEyebrow=slide?.eyebrow || (featuredStationIsPlaying
     ? 'Ακούς LIVE στο iRadios GR'
-    : featuredStation?'Επιλεγμένος σταθμός':'Ανακάλυψε σταθμούς');
+    : featuredStation?(premiumAccountId?'Τελευταίος σταθμός':'Επιλεγμένος σταθμός')
+      :premiumAccountId?'Η μουσική σου · Premium':'Ανακάλυψε σταθμούς');
   const linkAction=slide?.targetType==='genre'||slide?.targetType==='external'||
     ((!slide||slide.targetType==='none')&&Boolean(onOpenDiscovery));
   if(placement!=='home'&&!slide)return null;
