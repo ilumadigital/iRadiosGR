@@ -14,7 +14,7 @@ async function projectPublicStations(stations,now=new Date()){
  const [owners,history,paidOrders]=await Promise.all([
   User.find({_id:{$in:ids}}).select('_id role isPremium broadcasterProfile').lean(),
   BillingGrant.find({accountId:{$in:ids},
-    sku:{$in:['B-PREM','ADD-DSP','ADD-ADS']}}).lean(),
+    sku:{$in:['B-PREM','ADD-DSP','ADD-AN','ADD-ADS']}}).lean(),
   process.env.APP_ENV==='staging'
    ?BroadcasterBillingOrder.find({accountId:{$in:ids},environment:'staging',
       status:'paid'}).select('accountId resourceId sku status environment periodStartsAt periodEndsAt')
