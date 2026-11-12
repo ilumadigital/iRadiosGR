@@ -35,7 +35,7 @@ assert.equal(nativeWidget.reached,true,'approved public widget must read native-
 for(const invalid of [
   '/catalog/widget-native/not-an-id',
   '/catalog/widget-native/0123456789abcdef01234567/private',
-  '/catalog/widget-native/0123456789abcdef01234567/playlist'
+  '/catalog/widget-native/0123456789abcdef01234567/playlist/private'
 ]){
   const response=call('GET',invalid);
   assert.equal(response.reached,false,'widget prefix never bypasses private endpoints: '+invalid);
