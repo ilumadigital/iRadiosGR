@@ -47,6 +47,16 @@ function normalize(item) {
     duration:item?.duration||'month'
   };
 }
+function useFilePreview(file) {
+  const [url,setUrl]=useState('');
+  useEffect(()=>{
+    if(!file){setUrl('');return;}
+    const object=URL.createObjectURL(file);
+    setUrl(object);
+    return ()=>URL.revokeObjectURL(object);
+  },[file]);
+  return url;
+}
 function Field({label,children,help}){return <label className="block text-xs font-bold text-zinc-300">{label}{children}{help&&<span className="mt-1 block text-[11px] font-normal text-zinc-500">{help}</span>}</label>;}
 function getEndpoint(scope,kind,user,id) {
   const root=scope==='agency'?'/api/agency':kind==='audio'?'/api/admin/ads':'/api/banners/admin';
@@ -99,14 +109,12 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const selectCountry=value=>setForm(old=>({...old,targetCountry:value,targetRegion:'All',targetLocations:[value==='All'?'All':value]}));
   const selectRegion=value=>setForm(old=>({...old,targetRegion:value,targetLocations:[value==='All'?old.targetCountry:value]}));
   const selectPrefecture=value=>change('targetLocations',[value==='All'?form.targetRegion:value]);
-  const previewBanner={...form,imageUrl:form.imageUrl||'/iradios-app-logo.png'};
-  const [previewImage,setPreviewImage]=useState('');
-  useEffect(()=>{
-    if(!files.imageFile){setPreviewImage('');return;}
-    const object=URL.createObjectURL(files.imageFile);
-    setPreviewImage(object);
-    return ()=>URL.revokeObjectURL(object);
-  },[files.imageFile]);
+  const previewImage=useFilePreview(files.imageFile);
+  const previewSquare=useFilePreview(files.squareImageFile);
+  const previewLogo=useFilePreview(files.logoFile);
+  const previewAudio=useFilePreview(files.audioFile);
+  const previewBanner={...form,imageUrl:previewImage||form.imageUrl||'/iradios-app-logo.png',
+    squareImageUrl:previewSquare||form.squareImageUrl,logoUrl:previewLogo||form.logoUrl};
   useEffect(()=>{
     if(!autoColor||!files.imageFile)return;
     let live=true;
@@ -115,7 +123,6 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
     }).catch(()=>{});
     return ()=>{live=false;};
   },[files.imageFile,autoColor]);
-  previewBanner.imageUrl=previewImage||form.imageUrl||'/iradios-app-logo.png';
   const editable=scope!=='agency'||!id||['pending','rejected'].includes(form.status);
   const upload=async(file,endpoint,field)=>{
     const body=new FormData();body.append(field,file);
@@ -244,7 +251,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
             <DynamicAdCreative banner={{...previewBanner,targetUrl:form.targetUrl||'https://example.com'}} variant={preview} placement={form.placement?.[0]||'home'} slotKey="editor-preview" preview />
           </div><p className="text-[11px] text-zinc-500">Το preview δεν καταγράφει προβολές όταν το δημιουργικό δεν έχει αποθηκευμένο ID.</p></>:
             <div className="space-y-3"><div className="rounded-2xl bg-purple-950/30 p-5"><Music2 className="mb-3 text-purple-300"/><p className="font-black text-white">{form.title||'Τίτλος Audio Spot'}</p><p className="mt-1 text-xs text-zinc-400">{form.client||'Brand'}</p></div>
-            {form.audioUrl?<audio src={form.audioUrl} controls preload="none" className="w-full"/>:<p className="text-xs text-zinc-500">Ανέβασε spot για προεπισκόπηση μετά την αποθήκευση.</p>}</div>}
+            {(previewAudio||form.audioUrl)?<audio src={previewAudio||form.audioUrl} controls preload="none" className="w-full"/>:<p className="text-xs text-zinc-500">Ανέβασε spot για προεπισκόπηση μετά την αποθήκευση.</p>}</div>}
           <div className="flex gap-2 rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-zinc-400"><ImageIcon size={18}/> Οι εικόνες, τα κείμενα και το CTA αποτελούν responsive HTML — όχι flattened banner.</div>
         </section>
       </aside>
