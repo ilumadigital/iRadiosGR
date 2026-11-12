@@ -1,4 +1,4 @@
-import AdPlacementLink from '../components/AdPlacementLink';
+import DynamicAdCreative from '../components/DynamicAdCreative';
 import {geoAllowsAd} from '../utils/adPlacements';
 import PremiumSoundModes from '../components/PremiumSoundModes';
 import {normalizeListenerMode} from '../utils/dspEngine';
@@ -285,34 +285,8 @@ export default function StationProfile({
     }
   };
 
-  const TrackableAd = AdPlacementLink;
-
-  const StationAdBanner = ({ banner }) => {
-    if (!banner) return null;
-    return (
-      <TrackableAd 
-        banner={banner}
-        placement="station_profile"
-        className="w-full my-8 bg-emerald-900/10 border border-emerald-500/20 hover:border-emerald-500/50 rounded-[32px] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 group transition-all"
-      >
-        <div className="w-full md:w-1/3 h-32 md:h-40 rounded-2xl overflow-hidden shrink-0 bg-black">
-          <img src={banner.imageUrl} alt="Ad" className="w-full h-full object-contain bg-white group-hover:scale-105 transition-transform duration-700" />
-        </div>
-        <div className="flex-1 text-center md:text-left">
-          <div className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md mb-3 border border-emerald-500/30">
-            <ShieldCheck size={10} /> SPONSORED
-          </div>
-          <h3 className="text-xl md:text-2xl font-bold text-white mb-2">{banner.title}</h3>
-          <p className="text-sm text-zinc-400">{banner.description}</p>
-        </div>
-        <div className="shrink-0">
-          <button className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
-            ΔΕΙΤΕ ΠΕΡΙΣΣΟΤΕΡΑ <ExternalLink size={16} />
-          </button>
-        </div>
-      </TrackableAd>
-    );
-  };
+  const StationAdBanner = ({banner}) => banner ?
+    <DynamicAdCreative banner={banner} placement="station_profile" variant="profile" className="w-full my-8"/> : null;
 
   const SocialLink = ({ href, icon, label, type }) => {
     if (!href) return null;
