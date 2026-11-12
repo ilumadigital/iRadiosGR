@@ -72,7 +72,16 @@ for(const logo of ['iradios-app-logo.png', 'iradios-logo.png'])
 const frontendDockerfile=read('frontend/Dockerfile');
 assert.ok(frontendDockerfile.includes('COPY . .') && frontendDockerfile.includes('COPY --from=builder /app/dist /usr/share/nginx/html'),
   'Vite public logos must reach the nginx frontend container');
-assert.ok(sidebar.includes('CITY_SHORTCUTS.filter') && sidebar.includes('max-h-[min(30dvh,250px)]'));
+assert.ok(sidebar.includes('CITY_SHORTCUTS.filter'), 'Athens and Thessaloniki remain highlighted above regional links');
+for(const id of ['ir-sidebar-categories','ir-sidebar-regions']){
+  const match=sidebar.match(new RegExp('id="'+id+'" className=\\{\\`([^\\`]*)\\`\\}'));
+  assert.ok(match, 'accordion panel must exist: '+id);
+  assert.ok(!/max-h-|overflow-y-auto|overflow-y-scroll|custom-scrollbar/.test(match[1]),
+    'accordion must expand naturally with no nested scrollbar: '+id);
+}
+assert.ok(!sidebar.includes('Μεγάλες πόλεις'), 'popular cities are highlighted without heading');
+assert.ok(!sidebar.includes('label="Προτάσεις για σένα"'),
+  'recommendations remain in Home but no longer clutter sidebar');
 assert.ok(sidebar.includes('to="/?explore=live"') && home.includes('id="home-live-now"'), 'Live link goes to the on-air home section');
 assert.ok(!sidebar.includes('{regions.map('),'sidebar must not repeat all regions');
 assert.ok(!sidebar.includes('{genres.map('),'sidebar must not repeat all genres');

@@ -226,7 +226,7 @@ export default function Sidebar({
                     <ChevronDown size={16} aria-hidden="true" className={`ml-auto shrink-0 transition-transform duration-200 ${categoriesOpen ? 'rotate-180' : ''} ${isCollapsed ? 'lg:hidden' : ''}`}/>
                   </button>
                   {categoriesOpen && (
-                    <div id="ir-sidebar-categories" className={`mb-2 ml-6 max-h-[min(32dvh,260px)] space-y-2 overflow-y-auto overscroll-contain border-l border-white/10 pl-2 pr-1 custom-scrollbar ${isCollapsed ? 'lg:hidden' : ''}`}>
+                    <div id="ir-sidebar-categories" className={`mb-2 ml-6 space-y-2 border-l border-white/10 pl-2 pr-1 ${isCollapsed ? 'lg:hidden' : ''}`}>
                       {PRIMARY_CATEGORY_GROUPS.map(group => (
                         <div key={group.label}>
                           <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-zinc-500">{group.label}</p>
@@ -256,9 +256,8 @@ export default function Sidebar({
                     <ChevronDown size={16} aria-hidden="true" className={`ml-auto shrink-0 transition-transform duration-200 ${regionsOpen ? 'rotate-180' : ''} ${isCollapsed ? 'lg:hidden' : ''}`}/>
                   </button>
                   {regionsOpen && (
-                    <div id="ir-sidebar-regions" className={`mb-2 ml-6 max-h-[min(30dvh,250px)] space-y-1 overflow-y-auto overscroll-contain border-l border-white/10 pl-2 pr-1 custom-scrollbar ${isCollapsed ? 'lg:hidden' : ''}`}>
+                    <div id="ir-sidebar-regions" className={`mb-2 ml-6 space-y-1 border-l border-white/10 pl-2 pr-1 ${isCollapsed ? 'lg:hidden' : ''}`}>
                       <div className="rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/[0.05] p-1">
-                        <p className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-[#ccff00]">Μεγάλες πόλεις</p>
                         {CITY_SHORTCUTS.filter(name => regionLinks.includes(name)).map(name => (
                           <Link key={name} to={`/region/${encodeURIComponent(name)}`}
                             onClick={() => setIsMobileMenuOpen(false)}
@@ -282,7 +281,6 @@ export default function Sidebar({
                     </div>
                   )}
 
-                  <SidebarItem isCollapsed={isCollapsed} to="/?explore=for-you" currentPath={location.pathname+location.search} onClick={() => setIsMobileMenuOpen(false)} icon={<Sparkles size={20} />} label="Προτάσεις για σένα" />
                   <SidebarItem isCollapsed={isCollapsed} to="/map" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<MapPinned size={20} />} label="Δες στον Χάρτη" />
                 </>
               )}
