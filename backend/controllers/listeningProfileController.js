@@ -1,7 +1,8 @@
 'use strict';
 const User=require('../models/User');
+const {PRIMARY_CATEGORIES}=require('../utils/stationCategories');
 const ID=/^[0-9a-f]{24}$/i;
-const DEVICE=/^[a-z0-9_-]{1,64}$/i;
+const DEVICE=/^dev_[a-z0-9_-]{2,60}$/i;
 
 // The account stores *preferences*, never raw audio, IP addresses or streams.
 // Each device uploads a bounded cumulative snapshot: repeating the same PUT
@@ -25,7 +26,7 @@ function normalizeSnapshot(body,now=Date.now()){
     result.stations[id.toLowerCase()]={seconds,sessions,lastPlayedAt:Math.floor(lastPlayedAt)};
   }
   for(const [label,count] of categories){
-    if(!label||label.length>80||label.includes('.')||label.startsWith('$')||
+    if(!PRIMARY_CATEGORIES.includes(label)||
        !Number.isInteger(count)||count<0||count>20)return null;
     result.categories[label]=count;
   }
