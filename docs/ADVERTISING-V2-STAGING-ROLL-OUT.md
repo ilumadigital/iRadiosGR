@@ -54,3 +54,22 @@ Status: **DRAFT / NOT SAFE FOR DEPLOYMENT**. PR #124 is a development slice; no 
 5. Do not deploy paid v2 to production without explicit separate approval.
 
 No SSH commands, DB modifications, Gateway redeploys or paid Nexi transactions were executed while building these draft branches.
+
+## Atomic CPM settlement foundation (source only — not delivery enabled)
+
+A server-only claim/settlement service and unique `AdvertisingBillableEvent` ledger now exist. Incoming signed `payment.paid` events create new funding lots with both integer micros and canonical **nano-EUR** balances (10,000,000 nanos per euro cent). Existing legacy micros-only lots must undergo a reviewed backfill before they are eligible for debit; no automated financial migration has been performed.
+
+A qualified event permanently claims exactly one funding lot and its historical CPM. The ledger `_id` is unique. A conditional single-document MongoDB update decrements `remainingNanos` and appends the **immutable receipt inside the same funding lot**. It also refreshes `remainingMicros` as a compatibility projection. Replays, races and uncertain network responses recover using the original event ID and the lot's durable receipt; a pending central ledger status can be reconciled without issuing another debit. No MongoDB multi-document transaction is assumed.
+
+**Important limitations / hard-stop gates:**
+
+- The settlement engine has **NO public route** and is not wired to qualified delivery. The existing `ATOMIC_SETTLEMENT_IMPLEMENTED=false` source gate stays in place. Do not change this just because financial core code exists.
+- No independently verified visual viewability ticket, audio audible-proof protocol, frequency cap, anti-fraud scoring or pacing engine is connected yet. Neither a browser counter nor a media fetch authorizes a charge.
+- The embedded event receipt journal is **bounded at 6,000 events per funding lot** and deliberately fails closed at capacity. Implement and validate a durable partitioned wallet/ledger design before enabling high-volume public delivery; do not erase receipts to bypass the cap.
+- The new `GET /api/admin/advertising/campaigns/:id/reconciliation` is read-only, Admin-only and bounded. It checks the lot balance against its receipts and the global ledger; any mismatch is a blocker. The Admin v2 UI offers a read-only “Οικονομικό audit” action.
+- The `advertisingSettlementRecovery` routine is **manual/unwired**. It must not execute automatically against active finances until staging tests confirm consistency.
+- Automated source-CI simulations cover duplicate event IDs, 100 concurrent replays, competing debits, crash-after-debit and ledger-finalization failure. They are **not** real MongoDB concurrency tests.
+- A separate Mongo test harness exists at `backend/tests/advertisingCpmMongoDisposable.cjs`. It **refuses** any URI that does not explicitly name a dedicated `ad_cpm_disposable_*` database, and requires `APP_ENV=staging`. Only run with a dedicated test database/credential and after reviewing the DB target. It has NOT been run from this chat.
+- Refunds, adjustment journal, financial reversals, exact-once notification sends, budget-exhaustion email lifecycle and signed Nexi Sandbox E2E remain to be implemented and verified.
+
+**Non-negotiable:** No paid rollout, checkout switch, financial migrations, merging or SSH/Hostinger deployments based solely on CI success. Review the financial policy, immutable receipt capacity, verified qualification and true Mongo recovery first.
