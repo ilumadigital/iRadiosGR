@@ -103,6 +103,12 @@ for (const field of ['country','region','prefecture','city']) {
   assert.ok(backoffice.includes("value={form."+field+"}"), 'backoffice select for '+field);
   assert.ok(backoffice.includes("'"+field+"'"), 'backoffice payload includes '+field);
 }
+// Creating a station must send its first-step frequency, not require a second edit.
+assert.match(backoffice,
+  /const payload=isNew\?Object\.fromEntries\(\[[\s\S]*?'transmissionType','frequency','country'[\s\S]*?\]\.map/,
+  'new-station POST payload includes the entered broadcast frequency');
+assert.ok(read('backend/routes/backofficeRoutes.js').includes('transmissionType:30,frequency:30'),
+  'Backoffice API continues to accept persisted frequency');
 assert.ok(backoffice.includes("disabled={!form.prefecture}"), 'city dropdown disabled until prefecture is selected');
 assert.ok(backoffice.includes("stationCityOptions(form.country,form.region,form.prefecture)"), 'city choices are scoped to the selected prefecture');
 assert.ok(backoffice.includes("if(field==='country'){next.region='';next.prefecture='';next.city='';}"), 'country resets children');
