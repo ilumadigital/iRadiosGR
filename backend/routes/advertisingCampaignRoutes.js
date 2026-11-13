@@ -44,7 +44,7 @@ router.get('/advertising/pricing',async(req,res)=>{
   const row=await pricing();
   return res.json({...row?.toObject?.()||row,
    sandboxCheckoutReady:row.enabled===true&&row.taxMode==='budget_net_plus_vat'&&
-     process.env.AD_PAYMENTS_SANDBOX_ENABLED==='1'});
+     process.env.AD_PAYMENTS_SANDBOX_ENABLED==='1'&&gateway.configured()});
  }catch{return res.status(500).json({error:'Pricing unavailable'});}
 });
 router.put('/admin/advertising/pricing',async(req,res)=>{
