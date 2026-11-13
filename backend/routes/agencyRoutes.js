@@ -3,6 +3,10 @@ const express=require('express');
 const router=express.Router();
 const BannerAd=require('../models/BannerAd');
 const Ad=require('../models/Ad');
+const User=require('../models/User');
+const AgencyAdRevision=require('../models/AgencyAdRevision');
+const {validateAgencyGeo}=require('../services/agencyAdGeo');
+const {mailAdmins}=require('../services/agencyAdNotifications');
 const {localAudioFile}=require('../services/adAudioDelivery');
 const {protect}=require('../utils/authMiddleware');
 const {isStage,fields}=require('../services/adDeliveryRules');
@@ -60,12 +64,14 @@ router.post('/banners',stageOnly,async(req,res)=>{
   try{
     const patch=fields(req.body,bannerFields);
     if(patch.designConfig!==undefined)patch.designConfig=sanitizeAdDesign(patch.designConfig);
+    Object.assign(patch,validateAgencyGeo(patch));
     if(!Array.isArray(patch.placement)||!patch.placement.length||
       patch.placement.some(p=>!allowedPlacements.has(p))||
       !safeLink(patch.targetUrl))
       return res.status(400).json({error:'Επίλεξε έγκυρα placements και URL.'});
     const saved=await BannerAd.create({...patch,agencyId:req.user._id,
       duration:'month',status:'pending',isActive:false,isStageCreative:true});
+    await notifySubmission('banner',saved,patch,req.user);
     res.status(201).json(saved);
   }catch(error){
     console.error('[AGENCY] Banner draft failed',error.message);
@@ -75,40 +81,79 @@ router.post('/banners',stageOnly,async(req,res)=>{
 router.post('/audio-ads',stageOnly,async(req,res)=>{
   try{
     const patch=fields(req.body,audioFields);
+    Object.assign(patch,validateAgencyGeo(patch));
     if(!frequencies.has(patch.frequency||'entry'))
       return res.status(400).json({error:'Μη έγκυρη συχνότητα spot.'});
     const saved=await Ad.create({...patch,frequency:patch.frequency||'entry',
       agencyId:req.user._id,duration:'month',status:'pending',
       isGlobal:true,isStageCreative:true});
+    await notifySubmission('audio',saved,patch,req.user);
     res.status(201).json(saved);
   }catch(error){
     console.error('[AGENCY] Audio draft failed',error.message);
     res.status(400).json({error:'Δεν δημιουργήθηκε το δοκιμαστικό spot.'});
   }
 });
-// Agencies can revise pending/rejected test creatives; active ads cannot be silently edited.
-router.put('/banners/:id',stageOnly,async(req,res)=>{
-  try{
-    const patch=fields(req.body,bannerFields);
-    if(patch.placement&&(!Array.isArray(patch.placement)||
-      patch.placement.some(p=>!allowedPlacements.has(p))))return res.status(400).json({error:'Invalid placement'});
-    if(patch.targetUrl&&!safeLink(patch.targetUrl))return res.status(400).json({error:'Invalid URL'});
-    const updated=await BannerAd.findOneAndUpdate({_id:req.params.id,agencyId:req.user._id,
-      isStageCreative:true,status:{$in:['pending','rejected']}},{$set:{...patch,status:'pending',isActive:false}},
-      {new:true,runValidators:true});
-    if(!updated)return res.status(404).json({error:'Η καμπάνια δεν είναι επεξεργάσιμη.'});
-    res.json(updated);
-  }catch{return res.status(400).json({error:'Αποτυχία ενημέρωσης.'});}
-});
-router.put('/audio-ads/:id',stageOnly,async(req,res)=>{
-  try{
-    const patch=fields(req.body,audioFields);
-    if(patch.frequency&&!frequencies.has(patch.frequency))return res.status(400).json({error:'Invalid frequency'});
-    const updated=await Ad.findOneAndUpdate({_id:req.params.id,agencyId:req.user._id,
-      isStageCreative:true,status:{$in:['pending','rejected']}},{$set:{...patch,status:'pending'}},
-      {new:true,runValidators:true});
-    if(!updated)return res.status(404).json({error:'Το spot δεν είναι επεξεργάσιμο.'});
-    res.json(updated);
-  }catch{return res.status(400).json({error:'Αποτυχία ενημέρωσης.'});}
+// Every agency edit is submitted as a separate immutable revision. Active
+// creative fields remain unchanged until the admin explicitly approves it.
+async function notifySubmission(kind,creative,patch,user,revision=null) {
+  const agency=await User.findById(creative.agencyId).select('username email').lean();
+  const item=revision||{patch,before:{},agencyId:creative.agencyId};
+  try {
+    const ok=await mailAdmins({kind,creative,revision:item,agency});
+    if(revision)await AgencyAdRevision.updateOne({_id:revision._id},
+      {$set:{notificationState:ok?'sent':'failed'}});
+  }catch(error){
+    console.error('[AGENCY] Approval notification failed',error.message);
+    if(revision)await AgencyAdRevision.updateOne({_id:revision._id},
+      {$set:{notificationState:'failed'}}).catch(()=>{});
+  }
+}
+async function revise(req,res,kind) {
+  try {
+    const banner=kind==='banner';
+    const Model=banner?BannerAd:Ad;
+    const patch=fields(req.body,banner?bannerFields:audioFields);
+    if(!Object.keys(patch).length)return res.status(400).json({error:'Δεν υποβλήθηκαν αλλαγές.'});
+    if(banner) {
+      if(patch.designConfig!==undefined)patch.designConfig=sanitizeAdDesign(patch.designConfig);
+      if(patch.placement&&(!Array.isArray(patch.placement)||!patch.placement.length||
+        patch.placement.some(p=>!allowedPlacements.has(p))))
+        return res.status(400).json({error:'Invalid placement'});
+      if(patch.targetUrl&&!safeLink(patch.targetUrl))
+        return res.status(400).json({error:'Invalid URL'});
+    }else if(patch.frequency&&!frequencies.has(patch.frequency))
+      return res.status(400).json({error:'Invalid frequency'});
+    const creative=await Model.findOne({_id:req.params.id,agencyId:req.user._id,
+      isStageCreative:true});
+    if(!creative)return res.status(404).json({error:'Δεν βρέθηκε η καμπάνια.'});
+    if(!['active','pending','rejected','expired'].includes(creative.status))
+      return res.status(409).json({error:'Μη επεξεργάσιμη καμπάνια.'});
+    if(['targetCountry','targetRegion','targetLocations'].some(k=>Object.hasOwn(patch,k)))
+      Object.assign(patch,validateAgencyGeo(patch,creative));
+    const existing=await AgencyAdRevision.findOne({creativeType:kind,creativeId:creative._id,status:'pending'});
+    if(existing)return res.status(409).json({
+      error:'Υπάρχουν ήδη αλλαγές προς έγκριση. Περίμενε απόφαση Admin.',revisionId:existing._id
+    });
+    const before=Object.fromEntries(Object.keys(patch).map(k=>[k,creative.get(k)]));
+    const revision=await AgencyAdRevision.create({
+      agencyId:req.user._id,creativeId:creative._id,creativeType:kind,
+      patch,before,submittedBy:req.user._id
+    });
+    await notifySubmission(kind,creative,patch,req.user,revision);
+    return res.status(202).json({pendingApproval:true,revisionId:revision._id,
+      message:'Οι αλλαγές υποβλήθηκαν προς έγκριση.',creative});
+  }catch(error){
+    console.error('[AGENCY] Revision failed',error.message);
+    return res.status(400).json({error:error.message||'Αποτυχία υποβολής αλλαγών.'});
+  }
+}
+router.put('/banners/:id',stageOnly,(req,res)=>revise(req,res,'banner'));
+router.put('/audio-ads/:id',stageOnly,(req,res)=>revise(req,res,'audio'));
+router.get('/revisions/pending',stageOnly,async(req,res)=>{
+  try {
+    const filter=req.user.role==='admin'?{}:{agencyId:req.user._id};
+    res.json(await AgencyAdRevision.find({...filter,status:'pending'}).sort({createdAt:-1}).lean());
+  }catch{return res.status(500).json({error:'Δεν φορτώθηκαν οι αλλαγές.'});}
 });
 module.exports=router;
