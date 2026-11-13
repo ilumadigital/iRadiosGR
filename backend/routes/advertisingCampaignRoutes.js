@@ -18,6 +18,7 @@ const {ensureAdvertisingFinancialIndexes}=require('../services/advertisingFinanc
 const {fromLot,aggregateBalances}=require('../services/advertisingBalances');
 const {activeCreativeTiers,evaluateBudgetAffordability}=
  require('../services/advertisingBudgetAffordability');
+const {allowUnfundedReview}=require('../services/advertisingStageQa');
 const stage=(req,res,next)=>process.env.APP_ENV==='staging'?next():
  res.status(503).json({error:'Advertising v2 is staging only'});
 router.use(protect,stage);
@@ -223,7 +224,10 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
    return res.status(409).json({error:'Only pending campaigns may be reviewed.'});
   if(approval==='approved'){
    const funded=await FundingLot.exists({campaignId:campaign._id,remainingMicros:{$gt:0}});
-   if(!funded)return res.status(409).json({error:'Verified funding required before approval'});
+   // Optional staging QA: test Admin decisions/emails without Nexi funding.
+   // No lot is fabricated and paid delivery remains completely disabled.
+   if(!funded&&!allowUnfundedReview())
+    return res.status(409).json({error:'Verified funding required before approval'});
    const approvedCreative=await Promise.all([
     BannerAd.exists({campaignId:campaign._id,agencyId:campaign.agencyId,status:'active',
      isStageCreative:true,isActive:true}),
@@ -231,7 +235,7 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
      isStageCreative:true})
    ]);
    if(!approvedCreative.some(Boolean))
-    return res.status(409).json({error:'Approve at least one funded campaign creative first'});
+    return res.status(409).json({error:'Approve at least one Agency creative first'});
   }
   // The pending -> final transition is atomic: competing Admin decisions
   // cannot overwrite a previous decision or produce a second mail event.
@@ -252,7 +256,7 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
     campaign:updated
    });
   }catch(error){console.warn('[AD MAIL] Review message pending',error.message);}
-  // This is approval, NOT activation: qualified CPM settlement is hard-disabled.
+  // QA approval is not paid activation: qualified CPM settlement stays hard-disabled.
   return res.json(updated);
  }catch(error){return errorResponse(res,error,500);}
 });
