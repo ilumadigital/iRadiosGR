@@ -35,7 +35,7 @@ function quotedAmounts(budgetCents,pricing,kind){
  // BigInt rounding half-up keeps payable cents exact and deterministic.
  const tax=Number((BigInt(budgetCents)*BigInt(pricing.taxBps)+5000n)/10000n);
  const payment=budgetCents+tax;
- if(!integer(payment,100,125000000))throw Error('Payable amount exceeds Gateway cap');
+ if(!integer(payment,100,100000000))throw Error('Payable amount exceeds Gateway cap');
  return {budgetCents,taxCents:tax,paymentCents:payment};
 }
 const budgetMicros=budgetCents=>{
