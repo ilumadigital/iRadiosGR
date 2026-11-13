@@ -15,6 +15,7 @@ const {DEFAULTS,validatePricing,quotedAmounts}=require('../services/advertisingP
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const gateway=require('../services/ilumaGatewayClient');
 const {ensureAdvertisingFinancialIndexes}=require('../services/advertisingFinancialIndexes');
+const {fromLot,aggregateBalances}=require('../services/advertisingBalances');
 const stage=(req,res,next)=>process.env.APP_ENV==='staging'?next():
  res.status(503).json({error:'Advertising v2 is staging only'});
 router.use(protect,stage);
@@ -99,13 +100,17 @@ router.get('/advertising/campaigns',async(req,res)=>{
  try{
   const filter=isAdmin(req)?{}:{agencyId:req.user._id};
   const campaigns=await Campaign.find(filter).sort({createdAt:-1}).limit(150).lean();
-  const lots=await FundingLot.aggregate([{$match:{campaignId:{$in:campaigns.map(c=>c._id)}}},
-   {$group:{_id:'$campaignId',fundedMicros:{$sum:'$budgetMicros'},remainingMicros:{$sum:'$remainingMicros'}}}]);
-  const totals=new Map(lots.map(row=>[String(row._id),row]));
-  res.json(campaigns.map(c=>({...c,budget:{
-   fundedMicros:totals.get(String(c._id))?.fundedMicros||0,
-   remainingMicros:totals.get(String(c._id))?.remainingMicros||0
-  }})));
+  const lots=await FundingLot.find({campaignId:{$in:campaigns.map(c=>c._id)}})
+   .select('campaignId budgetNanos remainingNanos budgetMicros remainingMicros').lean();
+  const byCampaign=new Map();
+  for(const lot of lots){
+   const key=String(lot.campaignId);
+   if(!byCampaign.has(key))byCampaign.set(key,[]);
+   byCampaign.get(key).push(lot);
+  }
+  res.json(campaigns.map(c=>({...c,budget:
+   aggregateBalances(byCampaign.get(String(c._id))||[])
+  })));
  }catch(error){return errorResponse(res,error,500);}
 });
 router.patch('/advertising/campaigns/:id/enabled',async(req,res)=>{
@@ -266,12 +271,21 @@ router.get('/advertising/campaigns/:id/finance',async(req,res)=>{
    ...(isAdmin(req)?{}:{agencyId:req.user._id})});
   if(!campaign)return res.status(404).json({error:'Campaign not found'});
   const [lots,intents]=await Promise.all([
-   FundingLot.find({campaignId:campaign._id}).sort({paidAt:1}).lean(),
+   FundingLot.find({campaignId:campaign._id}).select('-settledEvents')
+    .sort({paidAt:1}).lean(),
    Intent.find({campaignId:campaign._id}).sort({createdAt:-1}).limit(30).lean()]);
-  const fundedMicros=lots.reduce((total,lot)=>total+lot.budgetMicros,0);
-  const remainingMicros=lots.reduce((total,lot)=>total+lot.remainingMicros,0);
-  return res.json({campaignId:campaign._id,fundedMicros,remainingMicros,
-   spentMicros:fundedMicros-remainingMicros,lots,intents});
+  const balances=aggregateBalances(lots);
+  // Keep the existing micros response compatible, without exposing the
+  // permanent financial receipt journal or stale micros-only counters.
+  const publicLots=lots.map(lot=>{
+   const row=fromLot(lot);
+   return {...lot,budgetNanos:row.fundedNanos,
+    remainingNanos:row.remainingNanos,
+    budgetMicros:Math.floor(row.fundedNanos/1000),
+    remainingMicros:Math.floor(row.remainingNanos/1000)};
+  });
+  return res.json({campaignId:campaign._id,...balances,
+   lots:publicLots,intents});
  }catch(error){return errorResponse(res,error,500);}
 });
 
