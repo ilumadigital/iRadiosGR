@@ -73,6 +73,10 @@ function stagePublicAccess(req, res, next) {
   // The middleware is mounted at /api, and Express req.path excludes the mount prefix.
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
+  // Media bytes are served only after the Ad controller verifies this exact
+  // active campaign and resolves a local /uploads/audio file. No directory access.
+  if ((req.method==='GET'||req.method==='HEAD') &&
+      /^\/api\/ads\/[a-f0-9]{24}\/media$/i.test(path))return next();
   // Only campaign metrics are public writes; stage creative/status checks happen in controllers.
   if (req.method === 'POST' && /^\/api\/(?:ads|banners)\/[a-f0-9]{24}\/(?:impression|click)$/i.test(path)) return next();
   // A preview capability is checked by its own HMAC verifier, never issued here.
