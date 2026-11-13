@@ -67,8 +67,12 @@ async function recover(){
   const lots=await FundingLot.find({source:'nexi_verified'})
    .select('campaignId').sort({paidAt:-1}).limit(250).lean();
   const ids=[...new Set(lots.map(lot=>String(lot.campaignId)))];
-  for(const id of ids){
-   try{await submitPaidCampaign(id);}
+  if(!ids.length)return;
+  const campaigns=await Campaign.find({_id:{$in:ids},workflowVersion:2,
+   createdByRole:'agency',isStageCampaign:true,deletedAt:null,
+   approvalStatus:{$in:['draft','pending']}}).select('_id').lean();
+  for(const campaign of campaigns){
+   try{await submitPaidCampaign(campaign._id);}
    catch(error){console.warn('[AD REVIEW] Paid submit retry:',String(error.message).slice(0,150));}
   }
  }finally{working=false;}
