@@ -6,10 +6,11 @@ const Ad=require('../models/Ad');
 const {localAudioFile}=require('../services/adAudioDelivery');
 const {protect}=require('../utils/authMiddleware');
 const {isStage,fields}=require('../services/adDeliveryRules');
+const {sanitizeAdDesign}=require('../services/adDesignRules');
 const allowedPlacements=new Set(['hero','home','radio_feed','news_feed','station_profile']);
 const audioFields=['title','client','audioUrl','logoUrl','linkUrl','frequency','targetLocations','targetCountry','targetRegion','dspPreset'];
 const bannerFields=['title','description','imageUrl','squareImageUrl','targetUrl','placement','targetLocations','targetCountry','targetRegion',
-  'logoUrl','ctaLabel','brandColor','focalX','focalY'];
+  'logoUrl','ctaLabel','brandColor','focalX','focalY','designConfig'];
 const frequencies=new Set(['entry','every_5_stations','every_10_stations','every_15_stations',
   'every_20_stations','every_30_stations','every_1_hour','every_2_hours',
   'every_6_hours','once_a_day','twice_a_day','four_times_a_day','once_a_week']);
@@ -58,6 +59,7 @@ router.get('/audio-ads/:id/preview-audio',stageOnly,async(req,res)=>{
 router.post('/banners',stageOnly,async(req,res)=>{
   try{
     const patch=fields(req.body,bannerFields);
+    if(patch.designConfig!==undefined)patch.designConfig=sanitizeAdDesign(patch.designConfig);
     if(!Array.isArray(patch.placement)||!patch.placement.length||
       patch.placement.some(p=>!allowedPlacements.has(p))||
       !safeLink(patch.targetUrl))
