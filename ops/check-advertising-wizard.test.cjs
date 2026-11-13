@@ -57,10 +57,10 @@ test('Admin free creation is separated from signed Nexi money and no fake credit
  assert.doesNotMatch(wizard,/Lot\.create\(/);
  assert.match(read('backend/models/AdvertisingFundingLot.js'),/admin_complimentary/);
  const eligibility=read('backend/services/advertisingDeliveryEligibility.js');
- assert.match(eligibility,/process\\.env\\.APP_ENV!=='staging'/);
+ assert.match(eligibility,/process\.env\.APP_ENV!=='staging'/);
  assert.match(eligibility,/createdByRole:'admin',approvalStatus:'approved'/);
  assert.match(eligibility,/role:'admin'/);
- assert.match(eligibility,/if\\(!ATOMIC_SETTLEMENT_IMPLEMENTED\\)/);
+ assert.match(eligibility,/if\(!ATOMIC_SETTLEMENT_IMPLEMENTED\)/);
  // Agency traffic must never get free impressions while paid settlement is disabled.
  assert.doesNotMatch(eligibility,/createdByRole:'agency'/);
  assert.match(read('frontend/src/pages/AgencyCampaignTopUp.jsx'),/kind:'topup'/);
