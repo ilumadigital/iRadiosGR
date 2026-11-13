@@ -291,4 +291,6 @@ router.get('/advertising/payments/:id',async(req,res)=>{
  }catch(error){return errorResponse(res,error,500);}
 });
 
+// Route registration initializes staging-only advertising mail retries.
+require('../services/advertisingCampaignMailScheduler').start();
 module.exports=router;
