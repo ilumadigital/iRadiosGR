@@ -25,6 +25,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
  const [showDeleted,setShowDeleted]=useState(false);
  const [deleteTarget,setDeleteTarget]=useState(null);
  const [deleteTitle,setDeleteTitle]=useState(''),[deleteReason,setDeleteReason]=useState('');
+ const [deleteError,setDeleteError]=useState('');
  const reload=useCallback(async()=>{
   setLoading(true);setNotice('');
   try{
@@ -80,7 +81,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
  };
  const archiveCampaign=async()=>{
   if(!deleteTarget||deleteTitle!==deleteTarget.title||deleteReason.trim().length<5)return;
-  setBusy(true);setNotice('');
+  setBusy(true);setNotice('');setDeleteError('');
   try{
    const response=await fetch('/api/admin/advertising/campaigns/'+deleteTarget._id,{
     method:'DELETE',headers:{'Content-Type':'application/json'},
@@ -95,7 +96,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
    if(reviewId===deleteTarget._id){setReviewId(null);setReviewCreatives(null);}
    setDeleteTarget(null);setDeleteTitle('');setDeleteReason('');
    setNotice('Η καμπάνια αφαιρέθηκε από τις ενεργές λίστες. Τα οικονομικά παραστατικά και το audit διατηρήθηκαν. Δεν εκδόθηκε επιστροφή χρημάτων.');
-  }catch(e){setNotice(e.message);}
+  }catch(e){setDeleteError(e.message);}
   finally{setBusy(false);}
  };
  const suspend=async(c)=>{
@@ -256,7 +257,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
       onClick={()=>auditCampaign(c._id)}>
       {auditBusyId===c._id?'Έλεγχος…':'Οικονομικό audit'}</button>
      {!c.deletedAt&&<button type="button" disabled={busy} onClick={()=>{
-      setDeleteTarget(c);setDeleteTitle('');setDeleteReason('');
+      setDeleteTarget(c);setDeleteTitle('');setDeleteReason('');setDeleteError('');
      }} className="rounded-xl border border-rose-400/40 bg-rose-400/[.07] px-4 py-2 text-sm font-black text-rose-200 hover:bg-rose-400/15 disabled:opacity-40">
       Διαγραφή καμπάνιας
      </button>}
@@ -302,6 +303,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
      <input autoFocus autoComplete="off" className={input+' w-full'} value={deleteTitle} onChange={e=>setDeleteTitle(e.target.value)} placeholder={deleteTarget.title}/></label>
     <label className="block text-xs font-bold text-zinc-300">Αιτιολογία διαγραφής (τουλάχιστον 5 χαρακτήρες)
      <textarea rows={3} maxLength={1000} className={input+' w-full'} value={deleteReason} onChange={e=>setDeleteReason(e.target.value)} placeholder="Γιατί διαγράφεται η καμπάνια;"/></label>
+    {deleteError&&<p role="alert" className="rounded-xl border border-rose-400/35 bg-rose-400/10 p-3 text-sm text-rose-200">{deleteError}</p>}
     <div className="flex flex-wrap justify-end gap-3">
      <button type="button" disabled={busy} onClick={()=>setDeleteTarget(null)} className="rounded-xl border border-white/15 px-5 py-3 text-sm font-bold text-zinc-300">Ακύρωση</button>
      <button type="button" disabled={busy||deleteTitle!==deleteTarget.title||deleteReason.trim().length<5} onClick={archiveCampaign}
