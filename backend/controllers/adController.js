@@ -1,4 +1,4 @@
-const {matchesAgencyGeo}=require('../services/agencyAdGeoMatch');
+const {matchesDeliveryGeo}=require('../services/agencyAdGeoMatch');
 const {filterFundedCreatives,isFundedCreative}=require('../services/advertisingDeliveryEligibility');
 const {excludeArchivedCampaignCreatives}=require('../services/advertisingArchiveVisibility');
 const Ad = require('../models/Ad');
@@ -41,7 +41,7 @@ exports.getPublicAds=async(req,res)=>{
   try {
     res.set('Cache-Control','no-store, private');
     const ads=(await Ad.find(activeCampaignQuery()).sort({createdAt:1}).lean())
-      .filter(ad=>matchesAgencyGeo(ad,req.geo));
+      .filter(ad=>matchesDeliveryGeo(ad,req));
     if(!isStage())return res.json((await filterFundedCreatives(ads)).map(publicAd));
     // Never offer listeners an unplayable spot (e.g. imported missing files).
     const approvedAds=await filterFundedCreatives(ads);
@@ -61,7 +61,7 @@ exports.streamPublicAudio=async(req,res)=>{
     return res.status(404).json({error:'Not found'});
   try {
     const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations campaignId agencyId');
-    if(!live(ad)||!matchesAgencyGeo(ad,req.geo)||!(await isFundedCreative(ad)))
+    if(!live(ad)||!matchesDeliveryGeo(ad,req)||!(await isFundedCreative(ad)))
       return res.status(404).json({error:'Not found'});
     await sendAdAudio(res,ad.audioUrl);
   }catch(error){
