@@ -83,7 +83,7 @@ export default function BoostStation({ API_URL, currentUser }) {
                                : 'bg-zinc-900/40 border-white/5 text-zinc-500 hover:border-white/20'
                            }`}
                        >
-                           <img src={station.logo} alt="" className="w-12 h-12 rounded-2xl object-cover shadow-2xl bg-white" />
+                           <img src={station.logo} alt="" className="w-12 h-12 rounded-2xl object-contain p-1 shadow-2xl bg-white" />
                            <div className="text-left">
                                <span className={`text-sm font-black uppercase tracking-tight block ${selectedStationId === station._id ? 'text-black' : 'text-white'}`}>{station.name}</span>
                                <span className={`text-[10px] font-bold uppercase opacity-60`}>{station.status}</span>
