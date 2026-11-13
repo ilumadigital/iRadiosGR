@@ -109,7 +109,9 @@ function observation(ticket,report,now=Date.now()){
      positionDelta>0)
    increment=Math.min(gap,positionDelta);
  }
- const continuousMs=active?(ticket.lastActive?ticket.continuousMs+increment:0):0;
+ const unbroken=active&&ticket.lastActive&&gap>0&&gap<=LIMITS.heartbeatGapMs&&
+  (ticket.kind==='visual'||nextPosition>=ticket.lastPositionMs);
+ const continuousMs=active?(unbroken?ticket.continuousMs+increment:0):0;
  const minimum=ticket.kind==='visual'?
   (ticket.tier==='hero'?LIMITS.heroMs:LIMITS.visualMs):
   audioRequiredMs(ticket.durationMs);
