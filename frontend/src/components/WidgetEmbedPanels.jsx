@@ -16,7 +16,7 @@ function ProgramPhoto({station,image}){
   const src=stage==='logo'||!image?station.logo||fallback:
     stage==='proxy'&&proxy?proxy:image;
   return <img src={src} alt="" referrerPolicy="no-referrer"
-    className="size-12 shrink-0 rounded-xl object-cover"
+    className={`size-12 shrink-0 rounded-xl ${(stage==='logo'||!image)?'bg-white object-contain p-1':'object-cover'}`}
     onError={event=>{
       if(stage==='direct'&&proxy)setState({image,stage:'proxy'});
       else if(stage!=='logo'&&image)setState({image,stage:'logo'});
