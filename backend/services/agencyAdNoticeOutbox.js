@@ -59,7 +59,7 @@ async function persistForRecipients(kind,source,recipients,agencyName=''){
 }
 async function adminRecipients(){
  return User.find({role:'admin',email:{$exists:true,$ne:''}})
-  .select('_id email').lean();
+  .select('_id email').sort({_id:1}).lean();
 }
 async function queueDraft(kind,creative){
  if(!stage())return {status:'disabled'};
