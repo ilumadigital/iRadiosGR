@@ -20,6 +20,10 @@ test('Campaign wizard stages are exactly ordered and Agency final submission is 
  assert.ok(ui.includes('estimatedImpressions'));
  assert.ok(ui.includes('quote.paymentCents'));
  assert.ok(ui.includes('Η επιστροφή στην εφαρμογή δεν σημαίνει εξόφληση.'));
+ assert.ok(ui.includes('window.setInterval(refresh,6000)'));
+ assert.ok(ui.includes("await request('/api/advertising/payments/'+intent._id)"));
+ assert.ok(ui.includes('Μόνο το υπογεγραμμένο webhook') || ui.includes('μόνο το υπογεγραμμένο webhook'));
+ assert.ok(!ui.includes('server-side sandbox payment flag'));
  assert.ok(read('frontend/src/pages/AgencyAdvertisingV2.jsx').includes('<AdvertisingCampaignWizard role="agency"/>'));
  assert.ok(read('frontend/src/pages/AdminAdvertisingV2.jsx').includes('<AdvertisingCampaignWizard role="admin"'));
 });
