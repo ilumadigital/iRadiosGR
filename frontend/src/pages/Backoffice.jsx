@@ -147,7 +147,7 @@ function Logo({agency=false}){
     <BrandLogo variant="full" title="iRadios GR"
       className="h-11 w-[174px] max-w-full object-contain object-left"/>
     <p className="pl-0.5 text-[9px] font-extrabold uppercase tracking-[.18em] text-zinc-400">
-      {agency?'Agency Ad Network':'Station Console'} <span className="text-[#caff00]">{agency?'GR':'v6'}</span>
+      {agency?<React.Fragment>Agency Ad Network <span className="text-purple-300">GR</span></React.Fragment>:<React.Fragment>Station Console <span className="text-[#caff00]">v6</span></React.Fragment>}
     </p>
   </div>;
 }
