@@ -41,7 +41,7 @@ const deleteMediaFile = async (fileUrl) => {
 exports.getActiveBanners=async(req,res)=>{
   try{
     res.set('Cache-Control','no-store, private');
-    const banners=await BannerAd.find(activeCampaignQuery()).sort({createdAt:-1}).lean();
+    const banners=await BannerAd.find(activeCampaignQuery()).select('-pendingRevision').sort({createdAt:-1}).lean();
     res.json(banners.filter(b=>Array.isArray(b.placement)&&b.placement.length));
   }catch(error){
     console.error('[BANNERS] Public delivery failed',error.message);

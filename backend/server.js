@@ -19,6 +19,8 @@ require('./utils/premiumBillingEmailScheduler').start();
 require('./utils/broadcasterCheckoutRecoveryScheduler').start();
 // Isolated broadcaster transactional outbox, staging -> Mailpit only.
 require('./utils/broadcasterBillingEmailScheduler').start();
+// Staging-only approval notifications via Mailpit, with durable retry queue.
+require('./utils/adApprovalEmailScheduler').start();
 
 // --- 2. IMPORT MODELS & CONTROLLERS ---
 const User = require('./models/User');

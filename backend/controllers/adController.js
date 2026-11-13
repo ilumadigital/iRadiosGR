@@ -37,7 +37,7 @@ const deleteMediaFile = async (fileUrl) => {
 exports.getPublicAds=async(req,res)=>{
   try {
     res.set('Cache-Control','no-store, private');
-    const ads=await Ad.find(activeCampaignQuery()).sort({createdAt:1}).lean();
+    const ads=await Ad.find(activeCampaignQuery()).select('-pendingRevision').sort({createdAt:1}).lean();
     if(!isStage())return res.json(ads.map(publicAd));
     // Never offer listeners an unplayable spot (e.g. imported missing files).
     const media=await Promise.all(ads.map(ad=>localAudioFile(ad.audioUrl)));
