@@ -25,7 +25,7 @@ test('short-lived signed scope cannot be changed, guessed or replayed from anoth
  const t=ticket(),token=sealTicket(t,secret);
  assert.equal(verifyTicket(token,t,visitor,secret,t0+1000),true);
  assert.equal(verifyTicket(token,t,'e'.repeat(64),secret,t0+1000),false);
- assert.equal(verifyTicket(token.replace(/.$/,'0'),t,visitor,secret,t0+1000),false);
+ assert.equal(verifyTicket(token.slice(0,-1)+(token.at(-1)==='0'?'1':'0'),t,visitor,secret,t0+1000),false);
  assert.equal(verifyTicket(token,t,visitor,secret,t0+LIMITS.ticketMs+1),false);
  assert.equal(clientFingerprint(secret,'1.2.3.4','ua'),clientFingerprint(secret,'1.2.3.4','ua'));
  assert.notEqual(clientFingerprint(secret,'1.2.3.4','ua'),clientFingerprint(secret,'1.2.3.5','ua'));
@@ -55,7 +55,7 @@ test('background tab, sub-threshold visibility and heartbeat gaps reset continui
  assert.equal(s.continuousMs,500);
  s=view(s,6,t0+5000).state;
  assert.equal(s.continuousMs,0);
- s=view(s,7,t0+5500,false).state;
+ s=view(s,7,t0+5500,0.8,false).state;
  assert.equal(s.continuousMs,0);
  s=view(s,8,t0+6000,0.75,false).state;
  assert.equal(s.continuousMs,0);
