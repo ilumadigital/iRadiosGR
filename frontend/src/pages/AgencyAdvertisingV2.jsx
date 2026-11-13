@@ -188,3 +188,7 @@ function LegacyAgencyAdvertisingV2(){
   </section>}
  </div>;
 }
+
+// New Agency campaign setup is ONLY the guided wizard. Legacy component is
+// retained in-source for forensic migration but is never mounted.
+export default function AgencyAdvertisingV2(){return <AdvertisingCampaignWizard role="agency"/>;}
