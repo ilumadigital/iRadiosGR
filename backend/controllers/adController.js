@@ -82,8 +82,10 @@ exports.previewAudio=async(req,res)=>{
 exports.getAdminAds = async (req, res) => {
   try {
     // Εδώ ο admin τα βλέπει όλα
-    const ads = await Ad.find({ isGlobal: true }).sort({ createdAt: -1 });
-    res.json(ads);
+    const ads = await Ad.find({ isGlobal: true }).sort({ createdAt: -1 }).lean();
+    if(!isStage())return res.json(ads);
+    const files=await Promise.all(ads.map(ad=>localAudioFile(ad.audioUrl)));
+    res.json(ads.map((ad,i)=>({...ad,mediaReady:Boolean(files[i])})));
   } catch (err) { res.status(500).json({ error: 'Σφάλμα λήψης.' }); }
 };
 
