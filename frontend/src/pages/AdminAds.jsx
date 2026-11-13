@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {useNavigate} from 'react-router-dom';
 import '../styles/ad-campaign-console.css';
 import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
+import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 import { Megaphone, PlusCircle, Trash2, Edit, X, Clock, Search, SlidersHorizontal, Check, Loader2, Image as ImageIcon, Link as LinkIcon, Music } from 'lucide-react';
 
 // 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
@@ -579,7 +580,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
                   )}
                   {ad.audioUrl&&<div className="ad-console-preview mt-3">
                     <span className="mb-2 block text-[10px] font-black uppercase text-zinc-400">Preview · χωρίς καταμέτρηση</span>
-                    <audio controls preload="none" src={ad.audioUrl} aria-label={`Preview ${ad.title}`}/>
+                    <ProtectedAudioPreview adId={ad._id} scope="admin" sourceUrl={ad.audioUrl}/>
                   </div>}
                   <p className="mt-2 text-[11px] text-zinc-500">
                     Plays: {ad.plays||0} · Clicks: {ad.clicks||0} · {ad.expiresAt?`Λήξη ${new Date(ad.expiresAt).toLocaleDateString('el-GR')}`:'Χωρίς λήξη'}
