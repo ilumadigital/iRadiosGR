@@ -128,3 +128,18 @@ test('shadow never changes the financial hard-disable, and endpoint stays Admin-
  const model=read('models/AdvertisingQualifiedEvent.js');
  assert.match(model,/billable:\{type:Boolean,default:false,immutable:true\}/);
 });
+
+test('financial shadow preview uses historical lot CPM but never writes or settles',()=>{
+ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
+ const finance=read('services/advertisingShadowSettlementPreview.js');
+ assert.match(finance,/Qualified\.findById\(id\)/);
+ assert.match(finance,/qualifiedEventDebitNanos\(lot\.ratesMicros\?\.\[event\.tier\]\)/);
+ assert.match(finance,/dryRun:true,charged:false/);
+ assert.doesNotMatch(finance,/\.create\(|\.updateOne\(|\.delete|\.save\(|settleQualifiedEvent/);
+ const shadow=read('routes/advertisingQualificationRoutes.js');
+ assert.match(shadow,/\/shadow\/events\/:id\/financial-preview/);
+ const engine=read('services/advertisingQualificationEngine.js');
+ assert.match(engine,/findOneAndUpdate\(\{\s*_id:original\._id,seq:original\.seq,status:'issued'/);
+ assert.match(engine,/fiveMinuteBucket\(now\)/);
+ assert.match(engine,/Qualified\.updateOne\(\{_id:ticket\._id\},\{\$setOnInsert:event\},\{upsert:true\}\)/);
+});
