@@ -141,7 +141,7 @@ export default function DesktopFullPlayer({
         <footer className="ir-desktop-player-footer flex min-h-[56px] shrink-0 flex-nowrap items-center justify-between gap-3 rounded-[clamp(12px,1.6vw,22px)] border border-white/10 bg-white/5 px-4 py-[clamp(0.35rem,0.85dvh,0.8rem)] backdrop-blur-xl">
           <div className="flex min-w-0 items-center gap-3">
             <div className="relative h-[clamp(36px,5.5dvh,54px)] w-[clamp(36px,5.5dvh,54px)] shrink-0 overflow-hidden rounded-xl bg-white">
-              <img src={baseImage} alt="" className="h-full w-full object-cover"/>
+              <img src={baseImage} alt="" className={`h-full w-full ${baseImage===station.logo?'bg-white object-contain p-1':'object-cover'}`}/>
             </div>
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#ccff00]">ΤΩΡΑ ΠΑΙΖΕΙ</p>
