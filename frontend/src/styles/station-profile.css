@@ -332,14 +332,14 @@
   .ir-mobile-station-logo-frame{
     display:grid;place-items:center;width:121px;height:121px;aspect-ratio:1;
     overflow:hidden;border-radius:20px;padding:0;
-    background:rgb(var(--ir-station-ambient) / .64);
+    background:#fff;
     border:2px solid rgb(var(--ir-station-ambient) / .95);
     box-shadow:0 0 0 6px rgba(255,255,255,.035),
       0 12px 42px rgb(var(--ir-station-ambient) / .32),
       0 22px 40px rgba(0,0,0,.46)
   }
   .ir-mobile-station-logo-frame img{
-    width:100%;height:100%;object-fit:contain;border-radius:inherit
+    width:100%;height:100%;object-fit:contain;padding:7%;border-radius:inherit
   }
   .ir-mobile-station-status{
     position:relative;z-index:2;display:flex;align-items:center;gap:5px;
@@ -632,6 +632,8 @@
   .ir-station-profile-hero .ir-station-track-title { font-size:clamp(21px,3.8dvh,31px) }
   .ir-station-stats span { font-size:clamp(11px,1.7dvh,13px) }
 }
+/* White behind the original station PNG only, never behind song or producer covers. */
+.ir-mobile-station-now-card>img.ir-station-logo-on-white{background:#fff;object-fit:contain;padding:5px}
 /* Prevent square flashes during RDS cover/producer/logo transitions. */
 .ir-station-profile-hero .ir-station-hero-art>img,
 .ir-station-profile-hero .ir-station-hero-art .ir-rds-image-overlay{
