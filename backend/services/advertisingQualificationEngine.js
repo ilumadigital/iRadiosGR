@@ -171,7 +171,14 @@ async function writeShadowAudit(ticket){
   creativeId:ticket.creativeId,kind:ticket.kind,tier:ticket.tier,
   placement:ticket.placement,qualifiedAt:ticket.qualifiedAt,
   observedMs:ticket.continuousMs,status:'shadow_qualified',billable:false};
- await Qualified.updateOne({_id:ticket._id},{$setOnInsert:event},{upsert:true});
+ try{
+  await Qualified.updateOne({_id:ticket._id},{$setOnInsert:event},{upsert:true});
+ }catch(error){
+  // The ticket may be replayed on two workers; the _id is authoritative.
+  if(error.code!==11000||!await Qualified.exists({_id:ticket._id,
+   campaignId:ticket.campaignId,creativeId:ticket.creativeId,
+   status:'shadow_qualified',billable:false}))throw error;
+ }
 }
 async function heartbeatShadow({req,capability,report}){
  await indexes();
