@@ -23,25 +23,25 @@ test('Mongo unique lock is acquired prior to any outgoing checkout',()=>{
  const model=read('models/AdvertisingPaymentIntent.js');
  const routes=read('routes/advertisingCampaignRoutes.js');
  const indexes=read('services/advertisingFinancialIndexes.js');
- assert.match(model,/activeLockKey:\\{type:String,unique:true,sparse:true\\}/);
- assert.match(routes,/activeLockKey:String\\(campaign\\._id\\)/);
+ assert.match(model,/activeLockKey:\{type:String,unique:true,sparse:true\}/);
+ assert.match(routes,/activeLockKey:String\(campaign\._id\)/);
  assert.ok(routes.indexOf('await ensureAdvertisingFinancialIndexes();')<
   routes.indexOf('await gateway.advertisingCheckout('));
- assert.match(indexes,/Intent\\.createIndexes\\(\\)/);
- assert.match(indexes,/FundingLot\\.createIndexes\\(\\)/);
+ assert.match(indexes,/Intent\.createIndexes\(\)/);
+ assert.match(indexes,/FundingLot\.createIndexes\(\)/);
 });
 test('verified paid/canceled events unlock checkout, unknown never does',()=>{
  const source=read('services/advertisingPaymentEvents.js');
- assert.match(source,/event\\.event_type!=='payment\\.paid'/);
- assert.equal((source.match(/\\$unset:\\{activeLockKey:''\\}/g)||[]).length,2);
+ assert.match(source,/event\.event_type!=='payment\.paid'/);
+ assert.equal((source.match(/\$unset:\{activeLockKey:''\}/g)||[]).length,2);
  const routes=read('routes/advertisingCampaignRoutes.js');
  assert.match(routes,/status:'unknown',lastError/);
 });
 test('legacy unaudited counters cannot count paid advertising v2 events',()=>{
  for(const name of ['controllers/adController.js','controllers/bannerController.js']){
   const source=read(name);
-  assert.match(source,/if\\(!live\\(\\w+\\)\\|\\|\\w+\\.campaignId\\)return res\\.status\\(404\\)/);
-  assert.match(source,/activeCampaignQuery\\(\\),campaignId:null/);
+  assert.match(source,/if\(!live\(\w+\)\|\|\w+\.campaignId\)return res\.status\(404\)/);
+  assert.match(source,/activeCampaignQuery\(\),campaignId:null/);
  }
  const eligibility=read('services/advertisingDeliveryEligibility.js');
  assert.match(eligibility,/const ATOMIC_SETTLEMENT_IMPLEMENTED=false/);
