@@ -605,11 +605,13 @@ function StationEditor({data,reload,notify,requestDelete}){
               </div>
             </Field>
             <Field label="Βασική κατηγορία *"><PrimaryCategorySelect className={inputClass} value={form.genre} onChange={value=>update('genre',value)}/></Field>
-            <Field label="Δευτερεύουσες κατηγορίες *" wide help="Διάλεξε από 1 έως 3 υποείδη, μόνο από τη βασική κατηγορία που επέλεξες.">
+            <div className="md:col-span-2 space-y-2">
+              <p className="text-[11px] font-bold text-zinc-300">Δευτερεύουσες κατηγορίες *</p>
               <SecondaryCategoriesSelect primary={form.genre} value={form.secondaryGenres}
                 onChange={value=>update('secondaryGenres',value)}
                 className="rounded-xl border border-white/10 bg-[#090b0d] p-4"/>
-            </Field>
+              <p className="text-[10px] leading-4 text-zinc-500">Διάλεξε από 1 έως 3 υποείδη, μόνο από τη βασική κατηγορία που επέλεξες.</p>
+            </div>
             <div className="md:col-span-2">
               <CommercialAdsDisclosure value={form.hasCommercialAds} onChange={value=>update('hasCommercialAds',value)}/>
             </div>
