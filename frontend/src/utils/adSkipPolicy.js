@@ -1,7 +1,8 @@
-/** A radio ad can be skipped only after 30 seconds of actual audible
- * playback. Pauses, stalls and seek jumps do not advance the clock.
+/** A radio ad break can be skipped after 15 seconds of actual audible
+ * playback, counted across consecutive spots in the same break. Pauses,
+ * stalls and seek jumps do not advance the clock.
  */
-export const AD_SKIP_SECONDS=30;
+export const AD_SKIP_SECONDS=15;
 export function newAdListenClock(){
   return {seconds:0,position:0,lastWallMs:0,playing:false};
 }
@@ -22,11 +23,14 @@ export function sampleAdListenClock(clock,{position,now,paused=false,seeking=fal
   }
   return {seconds,position,lastWallMs:now,playing:clock.playing};
 }
-export function canSkipAd(clock,duration){
-  return Boolean(clock&&Number.isFinite(duration)&&duration>AD_SKIP_SECONDS&&
+// Short standalone spots must play in full. In a multi-spot break the
+// accumulated audible-time clock can unlock skip even during a short spot.
+export function canSkipAd(clock,duration,multiSpotBreak=false){
+  return Boolean(clock&&Number.isFinite(duration)&&
+    (multiSpotBreak||duration>AD_SKIP_SECONDS)&&
     clock.seconds>=AD_SKIP_SECONDS);
 }
-export function secondsUntilAdSkip(clock,duration){
-  if(!Number.isFinite(duration)||duration<=AD_SKIP_SECONDS)return null;
+export function secondsUntilAdSkip(clock,duration,multiSpotBreak=false){
+  if(!Number.isFinite(duration)||(!multiSpotBreak&&duration<=AD_SKIP_SECONDS))return null;
   return Math.max(0,Math.ceil(AD_SKIP_SECONDS-(clock?.seconds||0)));
 }
