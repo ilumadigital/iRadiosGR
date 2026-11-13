@@ -118,12 +118,13 @@ async function handleVerifiedAdvertisingEvent(event,res){
  await Intent.updateOne({_id:intent._id},{$set:{status:'paid',paidAt},
   $unset:{activeLockKey:''},$addToSet:{eventIds:event.event_id}});
  await Quote.updateOne({_id:quote._id},{$set:{status:'paid'}});
- // Only request approval. Creative and campaign delivery remain disabled until
- // an admin approves a fully configured campaign.
- // Wizard v2: verified funds ALONE do not submit the campaign for approval.
- // The Agency reviews the full overview and explicitly submits AFTER payment.
- // Legacy v1 retains its original behavior for already-created campaigns.
- if(campaign.workflowVersion!==2){
+ // V2 initial purchase: as soon as the signed Nexi webhook creates its
+ // verified funding lot, queue creatives and campaign for Admin review.
+ // Never require a second Agency submit action or credit the browser return.
+ if(campaign.workflowVersion===2&&quote.kind==='initial'){
+  const {submitPaidCampaign}=require('./advertisingAutoSubmission');
+  await submitPaidCampaign(campaign._id);
+ }else if(campaign.workflowVersion!==2){
   await Campaign.updateOne({_id:campaign._id,approvalStatus:'draft'},
    {$set:{approvalStatus:'pending'}});
  }
