@@ -18,7 +18,7 @@ const {evaluateBudgetAffordability}=require('./advertisingBudgetAffordability');
 const {qualifiedEventDebitNanos}=require('./advertisingCpmMath');
 const {clientFingerprint,issueTicket,sealTicket,verifyTicket,observation}=
  require('./advertisingQualifiedDelivery');
-const {hourlyQuota,hourBucket,tenMinuteBucket,fairOrder}=require('./advertisingPacing');
+const {hourlyQuota,hourBucket,tenMinuteBucket,fiveMinuteBucket,fairOrder}=require('./advertisingPacing');
 const ID=/^[a-f0-9]{24}$/;
 let indexReady=null;
 function enabled(){
@@ -148,6 +148,11 @@ async function issueShadow({kind,placement,geo,req}){
   const quiet='quiet:'+id+':'+fingerprint+':'+tenMinuteBucket(now);
   if(!await reserve(quiet,1,now+3600000))continue;
   if(!await reserve(frequency,3,now+7200000))continue;
+  // Enforce both hour and five-minute limits; a full hourly budget must
+  // not be consumed in the first seconds of an hour.
+  const pace5='pace5:'+id+':'+item.tier+':'+fiveMinuteBucket(now);
+  const quota5=Math.max(1,Math.ceil(item.quota/12*1.25));
+  if(!await reserve(pace5,quota5,now+1200000))continue;
   if(!await reserve(item.bucket,item.quota,now+7200000))continue;
   const durationMs=kind==='audio'?await durationForAudio(item.creative):0;
   if(kind==='audio'&&!durationMs)continue;
