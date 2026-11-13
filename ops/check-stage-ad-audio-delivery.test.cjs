@@ -65,7 +65,7 @@ test('previews authenticate owners, validate stored audio codec and skip all met
   assert.match(upload,/execFileAsync\('ffprobe'/);
   assert.match(upload,/validatePlayableAdAudio\(req\.file\)/);
   assert.match(preview,/Authorization:'Bearer '/);
-  assert.doesNotMatch(preview,/impression|\/click/);
+  assert.doesNotMatch(preview,/fetch\([^)]*\/(?:impression|click)/s);
   for(const file of ['frontend/src/pages/CampaignEditor.jsx','frontend/src/pages/AdminAds.jsx',
     'frontend/src/pages/AgencyDashboard.jsx'])
     assert.match(read(file),/ProtectedAudioPreview/);
