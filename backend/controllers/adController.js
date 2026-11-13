@@ -256,3 +256,19 @@ exports.logClick=async(req,res)=>{
     res.json({success:true});
   }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής click'});}
 };
+
+const registerAdOutcome=field=>async(req,res)=>{
+  try {
+    if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
+    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative');
+    if(!live(ad))return res.status(404).json({error:'Not found'});
+    if(!permitMetric(req,'audio-'+field,req.params.id,3000))
+      return res.json({success:true,deduplicated:true});
+    await Ad.updateOne({_id:ad._id,...activeCampaignQuery()},{$inc:{[field]:1}});
+    return res.json({success:true});
+  }catch(error){
+    return res.status(500).json({error:'Σφάλμα στατιστικών Audio Ads'});
+  }
+};
+exports.logCompleted=registerAdOutcome('completions');
+exports.logSkipped=registerAdOutcome('skips');
