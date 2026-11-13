@@ -35,12 +35,17 @@ test('metrics cannot be double-counted by multiple UI surfaces',()=>{
   assert.equal(rules.permitMetric(req,'play','test-ad-id'),false);
   assert.equal(rules.permitMetric(req,'click','test-ad-id'),true);
 });
-test('all five placements are independent and geo uses any matched area',async()=>{
+test('all five placements remain independent and geo matches region/prefecture, never city targets',async()=>{
   const {geoAllowsAd,bannerMatchesPlacement,BANNER_PLACEMENTS}=
     await import('../frontend/src/utils/adPlacements.js');
   assert.equal(Object.keys(BANNER_PLACEMENTS).length,5);
-  assert.equal(geoAllowsAd(['Θεσσαλονίκη','Αθήνα'],'Αθήνα',(a,b)=>a===b),true);
-  assert.equal(geoAllowsAd(['Θεσσαλονίκη'],'Αθήνα',(a,b)=>a===b),false);
+  const athens={city:'Athens',region:'Attica',country:'GR'};
+  const loutraki={city:'Loutraki',region:'Peloponnese',country:'GR'};
+  assert.equal(geoAllowsAd(['Κορινθία','Αττική'],athens),true);
+  assert.equal(geoAllowsAd(['Κορινθία'],athens),false);
+  assert.equal(geoAllowsAd(['Πελοπόννησος'],loutraki),true);
+  assert.equal(geoAllowsAd(['Κορινθία'],loutraki),true);
+  assert.equal(geoAllowsAd(['Αργολίδα'],loutraki),false);
   assert.equal(geoAllowsAd(['All'],null,null),true);
   const b={status:'active',placement:['hero','home'],targetLocations:['All']};
   assert.equal(bannerMatchesPlacement(b,'hero',null,null),true);
