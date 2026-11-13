@@ -34,7 +34,13 @@ function sourceFromCreative(creative,kind){
 }
 async function persistForRecipients(kind,source,recipients,agencyName=''){
  await ensureIndexes();
- const valid=(recipients||[]).filter(u=>u?._id&&validEmail(u.email));
+ const seen=new Set();
+ const valid=(recipients||[]).filter(u=>{
+  if(!u?._id||!validEmail(u.email))return false;
+  const address=u.email.trim().toLowerCase();
+  if(seen.has(address))return false;
+  seen.add(address);return true;
+ });
  if(!valid.length)throw Error('No valid Agency notice recipients');
  for(const recipient of valid){
   const plan=makeNotice({kind,source,recipient,agencyName});
@@ -75,9 +81,14 @@ async function queueRevision(revision){
  const source=sourceFromRevision(revision);
  let count=0;
  if(!revision.submissionOutboxSeededAt){
-  const agency=await User.findById(revision.agencyId).select('username email').lean();
-  count+=await persistForRecipients('revision_submitted',source,
-   await adminRecipients(),agency?.username||agency?.email||'Agency');
+  // An already-final decision never needs a retroactive "please approve"
+  // notice, e.g. after a crash between Admin approval and outbox seeding.
+  // Recover the final Agency notice independently of Admin membership.
+  if(revision.status==='pending'){
+   const agency=await User.findById(revision.agencyId).select('username email').lean();
+   count+=await persistForRecipients('revision_submitted',source,
+    await adminRecipients(),agency?.username||agency?.email||'Agency');
+  }
   await Revision.updateOne({_id:revision._id,noticeVersion:1,
    submissionOutboxSeededAt:null},{$set:{submissionOutboxSeededAt:new Date()}});
  }
