@@ -21,7 +21,7 @@ check() {
     echo "FAIL: HTTP $code" >&2
     return 1
   fi
-  if ! grep -iq '^content-type: image/svg\+xml' "$tmp/headers"; then
+  if ! grep -iq '^content-type: image/svg+xml' "$tmp/headers"; then
     echo "FAIL: not image/svg+xml (possibly React index.html fallback)" >&2
     return 1
   fi
