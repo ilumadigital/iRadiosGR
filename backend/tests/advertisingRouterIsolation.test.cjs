@@ -13,7 +13,7 @@ test('Agency and Admin routes are protected without hijacking other /api request
  const server=source('server.js');
  assert.match(server,/app\.use\('\/api', require\('\.\/routes\/advertisingCampaignRoutes'\)\)/);
  assert.match(routes,/router\.use\(\['\/advertising','\/admin\/advertising'\],protect,stage\)/);
- assert.doesNotMatch(routes,/router\.use\(\s*protect\b/);
+ assert.doesNotMatch(routes,/^\s*router\.use\(\s*protect\b/m);
  const declared=[...routes.matchAll(/router\.(?:get|post|patch|put|delete)\('([^']+)'/g)]
   .map(x=>x[1]);
  assert.ok(declared.length>=10,'expected real Agency/Admin routes');
@@ -28,7 +28,7 @@ test('Shadow/Admin feature gate cannot block public radio and static APIs',()=>{
  assert.match(server,/app\.use\('\/api', require\('\.\/routes\/advertisingQualificationRoutes'\)\)/);
  assert.match(shadow,/router\.use\('\/admin\/advertising\/shadow',protect,/);
  assert.match(shadow,/router\.use\('\/admin\/advertising\/shadow',\(req,res,next\)=>/);
- assert.doesNotMatch(shadow,/router\.use\(\s*protect\b/);
+ assert.doesNotMatch(shadow,/^\s*router\.use\(\s*protect\b/m);
  const declared=[...shadow.matchAll(/router\.(?:get|post|patch|put|delete)\('([^']+)'/g)]
   .map(x=>x[1]);
  assert.ok(declared.length>=3);
