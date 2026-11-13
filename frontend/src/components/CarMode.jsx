@@ -1,5 +1,6 @@
 import React from 'react';
 import AdSkipControl from './AdSkipControl';
+import {stationMediaArtworkUrl} from '../utils/mediaArtwork';
 import { Play, Pause, SkipBack, SkipForward, X, Radio, AudioLines, ScanSearch, Loader2 } from 'lucide-react';
 
 export default function CarMode({ 
@@ -43,11 +44,15 @@ export default function CarMode({
       <div className="flex flex-col items-center text-center w-full max-w-md mt-4">
         <div className={`relative w-48 h-48 sm:w-64 sm:h-64 rounded-[40px] overflow-hidden shadow-2xl mb-8 border-2 ${isPlaying ? 'border-[#ccff00] shadow-[0_0_50px_rgba(204,255,0,0.3)]' : 'border-white/10'}`}>
           <img 
-            src={station.logo} 
-            alt={station.name} 
-            className="w-full h-full object-cover bg-zinc-900"
+            src={stationMediaArtworkUrl(station)}
+            onError={event=>{
+              if(event.currentTarget.getAttribute('src')!==station.logo)
+                event.currentTarget.src=station.logo;
+            }}
+            alt={station.name}
+            className="w-full h-full object-contain bg-white"
           />
-          <div className="absolute inset-0 bg-black/20"></div>
+
         </div>
         
         <h2 className="text-4xl sm:text-5xl font-black uppercase tracking-tighter italic truncate w-full mb-2">
