@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {issueTicket,sealTicket,verifyTicket,clientFingerprint,
  observation,audioRequiredMs,LIMITS}=require('../services/advertisingQualifiedDelivery');
-const {hourlyQuota,fairOrder,tenMinuteBucket}=require('../services/advertisingPacing');
+const {hourlyQuota,fairOrder,tenMinuteBucket,fiveMinuteBucket}=require('../services/advertisingPacing');
 const secret='shadow-qa-secret-with-at-least-thirty-two-characters';
 const A='a'.repeat(24),B='b'.repeat(24),visitor='c'.repeat(64);
 const t0=1763031000000;
@@ -111,6 +111,7 @@ test('shadow pacing obeys available event budget and keeps fair deterministic ro
  assert.equal(ranked[0].campaignId,B);
  assert.deepEqual(ranked,fairOrder(pool,visitor,t0));
  assert.notEqual(tenMinuteBucket(t0),tenMinuteBucket(t0+600000));
+ assert.notEqual(fiveMinuteBucket(t0),fiveMinuteBucket(t0+300000));
 });
 test('shadow never changes the financial hard-disable, and endpoint stays Admin-only',()=>{
  const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
