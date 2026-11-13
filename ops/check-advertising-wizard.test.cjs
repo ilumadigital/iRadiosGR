@@ -65,8 +65,13 @@ test('Admin free creation is separated from signed Nexi money and no fake credit
  assert.match(eligibility,/createdByRole:'admin',approvalStatus:'approved'/);
  assert.match(eligibility,/role:'admin'/);
  assert.match(eligibility,/if\(!ATOMIC_SETTLEMENT_IMPLEMENTED\)/);
- // Agency traffic must never get free impressions while paid settlement is disabled.
- assert.doesNotMatch(eligibility,/createdByRole:'agency'/);
+ // Agency placement QA is explicitly opt-in, requires verified funding,
+ // and MUST NOT enable paid CPM settlement or counterfeit receipts.
+ assert.match(eligibility,/paidPlacementPreviewEnabled\(\)/);
+ assert.match(eligibility,/createdByRole:'agency',approvalStatus:'approved'/);
+ assert.match(eligibility,/source:'nexi_verified'/);
+ assert.match(eligibility,/affordablePaidPreview\(/);
+ assert.match(eligibility,/ATOMIC_SETTLEMENT_IMPLEMENTED=false/);
  assert.match(read('frontend/src/pages/AgencyCampaignTopUp.jsx'),/kind:'topup'/);
 });
 
