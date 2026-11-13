@@ -6,6 +6,9 @@ const path = require('path');
 // Βεβαιώσου ότι το path του authMiddleware είναι το σωστό για το project σου
 const { protect } = require('../utils/authMiddleware'); 
 const crypto=require('node:crypto');
+const {execFile}=require('node:child_process');
+const {promisify}=require('node:util');
+const execFileAsync=promisify(execFile);
 const Station=require('../models/Station');
 const mongoose=require('mongoose');
 const {hasStationRight}=require('../services/billingEntitlements');
@@ -82,6 +85,25 @@ function mediaSignatureMatches(file){
   finally{if(fd!==undefined)fs.closeSync(fd);}
 }
 
+// Signature checks alone do not prove that browsers can decode the audio.
+async function validatePlayableAdAudio(file) {
+  const extension=path.extname(file.filename).toLowerCase();
+  const codecs={
+    '.mp3':new Set(['mp3']),
+    '.wav':new Set(['pcm_s16le','pcm_s24le','pcm_s32le','pcm_f32le','pcm_f64le']),
+    '.ogg':new Set(['vorbis','opus'])
+  };
+  const {stdout}=await execFileAsync('ffprobe',[
+    '-v','error','-select_streams','a:0','-show_entries',
+    'stream=codec_name,codec_type:format=duration','-of','json',file.path
+  ],{timeout:7000,maxBuffer:128*1024});
+  const info=JSON.parse(stdout);
+  const codec=info.streams?.[0]?.codec_name;
+  const duration=Number(info.format?.duration);
+  return Boolean(codecs[extension]?.has(codec) &&
+    Number.isFinite(duration) && duration>=0.5 && duration<=600);
+}
+
 // ==========================================
 // 2. STORAGE ΓΙΑ BANNERS (VISUALS)
 // ==========================================
@@ -141,15 +163,20 @@ const uploadLogo = multer({ storage: logoStorage, fileFilter: imageFilter });
 
 // Endpoint για Audio
 router.post('/upload-ad',protect,requireAdUploadEntitlement,
-  uploadAudio.single('audioFile'),(req,res)=>{
+  uploadAudio.single('audioFile'),async(req,res)=>{
     if(!req.file)return res.status(400).json({error:'Δεν βρέθηκε αρχείο.'});
-    if(!mediaSignatureMatches(req.file)){
+    try {
+      if(!mediaSignatureMatches(req.file) ||
+        (process.env.APP_ENV==='staging'&&!await validatePlayableAdAudio(req.file)))
+        throw new Error('Invalid or unsupported audio codec/duration');
+      const safeUserId=String(req.user._id);
+      return res.json({success:true,
+        url:`__IRADIOS_SITE_ORIGIN__/media/audio/${safeUserId}/${req.file.filename}`});
+    }catch(error){
       try{fs.unlinkSync(req.file.path);}catch{}
-      return res.status(415).json({error:'Το αρχείο δεν είναι έγκυρο MP3, WAV ή OGG.'});
+      console.warn('[ADS] Rejected audio upload:',error.message);
+      return res.status(415).json({error:'Το αρχείο δεν αναπαράγεται σωστά. Ανέβασε MP3 ή WAV με έγκυρο codec και διάρκεια έως 10 λεπτά.'});
     }
-    const safeUserId=String(req.user._id);
-    return res.json({success:true,
-      url:`__IRADIOS_SITE_ORIGIN__/media/audio/${safeUserId}/${req.file.filename}`});
   });
 
 // Endpoint για Banners / Εικόνες

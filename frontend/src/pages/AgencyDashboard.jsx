@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/ad-campaign-console.css';
 import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
+import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 import { useNavigate } from 'react-router-dom';
 import { 
   Megaphone, Plus, LayoutPanelTop, Rows3, LayoutGrid, Activity, X, Eye, ShieldCheck, 
@@ -394,7 +395,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                      <img src={campaign.squareImageUrl||campaign.imageUrl} alt={campaign.title}
                        loading="lazy" className="mb-3 h-32 w-full rounded-xl object-cover"/>}
                    {activeTab==='audio'&&campaign.audioUrl&&
-                     <audio controls preload="none" src={campaign.audioUrl} aria-label={`Preview ${campaign.title}`}/>}
+                     <ProtectedAudioPreview adId={campaign._id} scope="agency" sourceUrl={campaign.audioUrl}/>}
                    <span className="mt-2 block text-[10px] font-bold text-zinc-400">Preview · Χωρίς καταμέτρηση</span>
                  </div>
                  <div className="bg-black/50 rounded-2xl p-4 mb-4 border border-white/5">

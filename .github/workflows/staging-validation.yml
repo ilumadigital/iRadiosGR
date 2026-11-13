@@ -77,6 +77,8 @@ jobs:
         run: node --test backend/tests/broadcasterBillingEmailTemplates.test.js backend/tests/broadcasterBillingEmailScheduler.test.js
       - name: Verify staging Ad Network, placement contracts and safe legacy campaign handling
         run: node --test ops/check-ad-network-staging.test.cjs
+      - name: Verify staged audio streaming, private previews and randomized sparse ad slots
+        run: node --test frontend/src/utils/sparseAdSlots.test.js ops/check-stage-ad-audio-delivery.test.cjs
       - name: Verify Dynamic Ad Studio and playable pre-roll/mid-roll frequency rules
         run: node --test frontend/src/utils/audioAdRules.test.js ops/check-dynamic-ads-v6.test.cjs
       - name: Verify expiry gating of station DSP and network ads without deleting presets

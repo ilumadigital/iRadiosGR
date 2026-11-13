@@ -6,10 +6,12 @@ const {authorizeRoles}=require('../utils/roleMiddleware');
 const admin=[protect,authorizeRoles('admin')];
 
 router.get('/ads/public', adController.getPublicAds);
+router.get('/ads/:id/media',adController.streamPublicAudio);
 router.post('/ads/:id/impression', adController.logImpression);
 router.post('/ads/:id/click', adController.logClick);
 
 router.get('/admin/ads', ...admin, adController.getAdminAds);
+router.get('/admin/ads/:id/preview-audio',...admin,adController.previewAudio);
 router.get('/admin/local-ads', ...admin, adController.getAdminLocalAds);
 router.post('/admin/ads', ...admin, adController.createAdminAd);
 router.put('/admin/ads/:id', ...admin, adController.updateAd);

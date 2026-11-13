@@ -4,7 +4,7 @@ import React, {useEffect, useRef} from 'react';
 // One impression is emitted when >=50% of each creative slot becomes visible.
 // Re-rendering parent cards must not fabricate additional impression events.
 const seenInPageSession=new Set();
-export default function AdPlacementLink({banner,placement,children,className='',slotKey}) {
+export default function AdPlacementLink({banner,placement,children,className='',slotKey,style}) {
   const node=useRef(null),viewed=useRef(false);
   useEffect(()=>{
     viewed.current=false;
@@ -35,7 +35,7 @@ export default function AdPlacementLink({banner,placement,children,className='',
   });
   const href=banner.targetUrl+(banner.targetUrl.includes('?')?'&':'?')+query.toString();
   return <a ref={node} href={href} target="_blank" rel="noopener noreferrer"
-    className={className} aria-label={`Sponsored: ${banner.title}`}
+    className={className} style={style} aria-label={`Sponsored: ${banner.title}`}
     onClick={event=>{
       event.stopPropagation();
       fetch(`/api/banners/${banner._id}/click`,{method:'POST'}).catch(()=>{});
