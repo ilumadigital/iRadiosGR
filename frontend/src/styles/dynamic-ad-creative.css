@@ -46,3 +46,97 @@
 .ir-dynamic-ad--news .ir-dynamic-ad-title{font-size:17px}
 .ir-dynamic-ad--news .ir-dynamic-ad-description{font-size:12px}
 .ir-dynamic-ad--news .ir-dynamic-ad-action{margin-top:auto}
+
+/* Visual Ad Studio v6.1 — constrained only to sponsored wide creatives.
+   The radio catalog, grid station cards and regular Home sections are untouched. */
+.ir-dynamic-ad:is(.ir-dynamic-ad--hero,.ir-dynamic-ad--strip,.ir-dynamic-ad--profile){
+  height:var(--ir-ad-desktop-height);min-height:0;max-height:460px;
+}
+.ir-dynamic-ad:is(.ir-dynamic-ad--hero,.ir-dynamic-ad--strip,.ir-dynamic-ad--profile).ir-dynamic-ad--auto-height{
+  height:auto;min-height:var(--ir-ad-desktop-height);
+}
+.ir-dynamic-ad--hero{max-height:460px}
+.ir-dynamic-ad--strip{max-height:300px}
+.ir-dynamic-ad--profile{max-height:380px}
+.ir-dynamic-ad--news{max-height:360px}
+.ir-dynamic-ad--hero .ir-dynamic-ad-title,.ir-dynamic-ad--strip .ir-dynamic-ad-title,.ir-dynamic-ad--profile .ir-dynamic-ad-title{
+  font-size:calc(clamp(16px,2.4vw,27px)*var(--ir-ad-title-scale,1));
+}
+.ir-dynamic-ad--news .ir-dynamic-ad-title{font-size:calc(17px*var(--ir-ad-title-scale,1))}
+.ir-dynamic-ad--hero .ir-dynamic-ad-cover,.ir-dynamic-ad--strip .ir-dynamic-ad-cover,.ir-dynamic-ad--profile .ir-dynamic-ad-cover{
+  transform:scale(var(--ir-ad-zoom,1));
+}
+.ir-dynamic-ad:is(.ir-dynamic-ad--hero,.ir-dynamic-ad--strip,.ir-dynamic-ad--profile):hover .ir-dynamic-ad-cover{
+  transform:scale(calc(var(--ir-ad-zoom,1)*1.025));
+}
+.ir-dynamic-ad--layout-image-right .ir-dynamic-ad-cover{left:auto;right:0;width:var(--ir-ad-visual-width,55%)}
+.ir-dynamic-ad--layout-image-left .ir-dynamic-ad-cover{left:0;right:auto;width:var(--ir-ad-visual-width,55%)}
+.ir-dynamic-ad--layout-image-right .ir-dynamic-ad-content{max-width:65%}
+.ir-dynamic-ad--layout-image-left .ir-dynamic-ad-content{max-width:65%;margin-left:auto}
+.ir-dynamic-ad--layout-image-right .ir-dynamic-ad-shade{
+  background:linear-gradient(90deg,var(--ir-ad-shade-strong),var(--ir-ad-shade-strong) 29%,var(--ir-ad-shade-soft) 66%,transparent);
+}
+.ir-dynamic-ad--layout-image-left .ir-dynamic-ad-shade{
+  background:linear-gradient(270deg,var(--ir-ad-shade-strong),var(--ir-ad-shade-strong) 29%,var(--ir-ad-shade-soft) 66%,transparent);
+}
+.ir-dynamic-ad--layout-background .ir-dynamic-ad-shade{
+  background:linear-gradient(90deg,var(--ir-ad-shade-strong),var(--ir-ad-shade-strong) 29%,var(--ir-ad-shade-soft) 70%,transparent);
+}
+.ir-dynamic-ad--layout-center .ir-dynamic-ad-shade{
+  background:linear-gradient(90deg,var(--ir-ad-shade-soft),var(--ir-ad-shade-strong) 48%,var(--ir-ad-shade-soft));
+}
+.ir-dynamic-ad--layout-center .ir-dynamic-ad-content{margin-inline:auto;max-width:84%}
+.ir-dynamic-ad--align-right .ir-dynamic-ad-content{align-items:flex-end;text-align:right}
+.ir-dynamic-ad--align-center .ir-dynamic-ad-content{align-items:center;text-align:center}
+.ir-dynamic-ad--effect-soft .ir-dynamic-ad-cover{filter:saturate(.88) blur(1px)}
+.ir-dynamic-ad--effect-glow::after{
+  content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 75% 26%,var(--ir-ad-glow-layer),transparent 58%);
+}
+.ir-dynamic-ad--effect-vignette{box-shadow:inset 0 0 88px 17px rgba(0,0,0,.75)}
+.ir-dynamic-ad--effect-glass .ir-dynamic-ad-content{
+  margin:14px 18px;border:1px solid rgba(255,255,255,.13);border-radius:22px;
+  background:rgba(18,15,25,.4);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+}
+.ir-dynamic-ad-content{min-width:0;overflow:hidden}
+.ir-dynamic-ad-title{overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ir-dynamic-ad-description{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+@media(max-width:620px){
+ .ir-dynamic-ad:is(.ir-dynamic-ad--hero,.ir-dynamic-ad--strip,.ir-dynamic-ad--profile){
+   height:var(--ir-ad-mobile-height);min-height:0;
+ }
+ .ir-dynamic-ad:is(.ir-dynamic-ad--hero,.ir-dynamic-ad--strip,.ir-dynamic-ad--profile).ir-dynamic-ad--auto-height{
+   height:auto;min-height:var(--ir-ad-mobile-height);
+ }
+ .ir-dynamic-ad--hero{max-height:320px}
+ .ir-dynamic-ad--strip{max-height:260px}
+ .ir-dynamic-ad--profile{max-height:280px}
+ .ir-dynamic-ad--news{max-height:300px}
+ .ir-dynamic-ad--layout-image-right .ir-dynamic-ad-cover,.ir-dynamic-ad--layout-image-left .ir-dynamic-ad-cover{
+   left:0;right:0;width:100%;opacity:.78;
+ }
+ .ir-dynamic-ad--layout-image-right .ir-dynamic-ad-content,.ir-dynamic-ad--layout-image-left .ir-dynamic-ad-content{
+   margin:0;max-width:100%;
+ }
+ .ir-dynamic-ad--layout-image-left .ir-dynamic-ad-shade,.ir-dynamic-ad--layout-image-right .ir-dynamic-ad-shade{
+   background:linear-gradient(90deg,var(--ir-ad-shade-strong),var(--ir-ad-shade-strong) 45%,var(--ir-ad-shade-soft));
+ }
+ .ir-dynamic-ad-content{padding:14px 19px;gap:7px}
+ .ir-dynamic-ad-action{padding:9px 13px}
+ .ir-dynamic-ad--effect-glass .ir-dynamic-ad-content{margin:10px}
+}
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad:is(.ir-dynamic-ad--hero,.ir-dynamic-ad--strip,.ir-dynamic-ad--profile){
+ height:var(--ir-ad-mobile-height);min-height:0;max-height:320px;
+}
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad--auto-height{height:auto;min-height:var(--ir-ad-mobile-height)}
+.ir-dynamic-ad--simulate-mobile .ir-dynamic-ad-content{padding:14px 19px;gap:7px;max-width:100%;margin:0}
+.ir-dynamic-ad--simulate-mobile .ir-dynamic-ad-cover{left:0;right:0;width:100%;opacity:.8}
+.ir-dynamic-ad--simulate-mobile .ir-dynamic-ad-shade{background:linear-gradient(90deg,var(--ir-ad-shade-strong),var(--ir-ad-shade-strong) 45%,var(--ir-ad-shade-soft))}
+.ir-dynamic-ad--simulate-mobile .ir-dynamic-ad-action{padding:9px 13px}
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad--hero{max-height:320px}
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad--strip{max-height:260px}
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad--profile{max-height:280px}
+@media(prefers-reduced-motion:reduce){
+ .ir-dynamic-ad--effect-glow::after{background:none}
+ .ir-dynamic-ad--effect-glass .ir-dynamic-ad-content{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
