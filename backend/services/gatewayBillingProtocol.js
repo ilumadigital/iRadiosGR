@@ -97,6 +97,29 @@ function validatePaymentEvent(body,eventId,now=new Date()){
  return Number.isFinite(occurredAt)&&occurredAt>Date.UTC(2020,0,1)&&
    occurredAt<=now.getTime()+300000;
 }
+// An advertising checkout uses a variable, server-quoted EUR amount. Keep it
+// entirely separate from the strictly fixed 199/399-cent Listener validator.
+// Validation is also used for read-only idempotency recovery: GET is NEVER credit.
+function validateAdvertisingGatewayPayment(payment,{expectedAmountCents,
+ expectedPaymentId=null,expectedOrderId=null}={}){
+ if(!Number.isSafeInteger(expectedAmountCents)||expectedAmountCents<100||
+    expectedAmountCents>100000000)throw Error('advertising_bad_expected_amount');
+ if(!payment||typeof payment!=='object'||Array.isArray(payment))
+  throw Error('advertising_bad_payment');
+ if(!PAYMENT_ID.test(payment.payment_id||'')||!ORDER_ID.test(payment.order_id||''))
+  throw Error('advertising_bad_reference');
+ if(expectedPaymentId&&payment.payment_id!==expectedPaymentId)
+  throw Error('advertising_payment_mismatch');
+ if(expectedOrderId&&payment.order_id!==expectedOrderId)
+  throw Error('advertising_order_mismatch');
+ if(payment.amount_cents!==expectedAmountCents||payment.currency!=='EUR')
+  throw Error('advertising_price_mismatch');
+ if(!['pending','redirect','unknown','paid','failed','canceled'].includes(payment.status))
+  throw Error('advertising_bad_status');
+ const checkoutUrl=payment.status==='redirect'?hostedCheckoutUrl(payment.checkout_url):null;
+ if(payment.status==='redirect'&&!checkoutUrl)throw Error('advertising_bad_redirect');
+ return {...payment,checkout_url:checkoutUrl};
+}
 // A signed Gateway GET can confirm provider status, but only the authenticated
 // payment.paid WEBHOOK activates the local subscription.
 function localStatusFromGatewayLookup(providerStatus){
@@ -146,6 +169,6 @@ function safeOrderStatus(row,now=new Date()){
    autoRenew:false,environment:'staging'};
 }
 module.exports={canonicalSignature,headersForRequest,verifyWebhookHeaders,
-  hostedCheckoutUrl,validateGatewayPayment,localStatusFromGatewayLookup,nextMonthlyPeriod,safeOrderStatus,
+  hostedCheckoutUrl,validateGatewayPayment,validateAdvertisingGatewayPayment,localStatusFromGatewayLookup,nextMonthlyPeriod,safeOrderStatus,
   PAYMENT_ID,ORDER_ID,EVENT_ID,WEBHOOK_PATH,GATEWAY_CHECKOUT_PATH,validatePaymentEvent,
   configuredGraceDays,nextGracePeriod};
