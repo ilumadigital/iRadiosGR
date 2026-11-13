@@ -20,6 +20,7 @@ import {
 const AgencyBackofficeHome=lazy(()=>import('./AgencyBackofficeHome'));
 const AgencyDashboard=lazy(()=>import('./AgencyDashboard'));
 const AgencyAdvertisingV2=lazy(()=>import('./AgencyAdvertisingV2'));
+const TermsAgency=lazy(()=>import('./TermsAgency'));
 const AdminDashboard=lazy(()=>import('./AdminDashboard'));
 const AdminUsers=lazy(()=>import('./AdminUsers'));
 const AdminAds=lazy(()=>import('./AdminAds'));
@@ -1611,11 +1612,12 @@ export default function Backoffice(){
       href={error.status===403?'/':'/login'}
       label={error.status===403?'Επιστροφή στο iRadios':'Σύνδεση'}/>;
   }
-  if(agency&&data.user.hasAcceptedTerms!==true)return <AuthGate title="Όροι συνεργασίας Agency"
-    description="Για να χρησιμοποιήσεις το Agency Backoffice, αποδέξου τους όρους συνεργασίας."
-    href="/agency-terms" label="Αποδοχή όρων"/>;
+  if(agency&&data.user.hasAcceptedTerms!==true&&location.pathname!=='/backoffice/agency/terms')
+    return <AuthGate title="Όροι συνεργασίας Agency"
+      description="Για να χρησιμοποιήσεις το Agency Backoffice, αποδέξου τους όρους συνεργασίας."
+      href="/backoffice/agency/terms" label="Αποδοχή όρων"/>;
   // Agency accounts never mount Station Console tools via a manually typed URL.
-  if(agency && !['/backoffice','/backoffice/agency/campaigns','/backoffice/agency/creatives'].includes(location.pathname) &&
+  if(agency && !['/backoffice','/backoffice/agency/campaigns','/backoffice/agency/creatives','/backoffice/agency/terms'].includes(location.pathname) &&
     !/^\/backoffice\/agency\/creatives\/(?:audio|banners)\/(?:new|[a-f0-9]{24}\/edit)$/i.test(location.pathname))
     return <Navigate to="/backoffice" replace/>;
   return <div className="flex min-h-screen bg-[#090b0d] font-sans text-white">
@@ -1751,6 +1753,7 @@ export default function Backoffice(){
         <Suspense fallback={<div role="status" className={panel+' p-10 text-center text-[#caff00]'}>Φόρτωση εργαλείου…</div>}>
         <Routes>
           <Route path="/backoffice" element={agency?<AgencyBackofficeHome user={data.user}/>:<Dashboard data={data}/>}/>
+          <Route path="/backoffice/agency/terms" element={agency?<TermsAgency API_URL="/api" currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/agency/campaigns" element={agency?<AgencyAdvertisingV2/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/agency/creatives" element={agency?<AgencyDashboard API_URL="/api" currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>
           {['audio','banners'].map(type=>[
