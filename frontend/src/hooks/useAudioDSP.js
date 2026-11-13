@@ -20,6 +20,11 @@ export default function useAudioDSP(
       (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
     return ios||/Xbox|SMART-TV|Tizen|Web0S|WebOS|TV/.test(ua);
   })();
+  // Desktop detection is device-based, not viewport-based: a narrow laptop
+  // window must still receive VMax while phones and tablets stay untouched.
+  const desktopAdDevice=!unsupportedDevice&&typeof navigator!=='undefined'&&
+    !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi|Tablet/i
+      .test(navigator.userAgent||'');
 
   const initDSP=useCallback(()=>{
     if(unsupportedDevice||graphRef.current)return;
@@ -61,7 +66,8 @@ export default function useAudioDSP(
   useEffect(()=>{
     const graph=graphRef.current;
     if(!graph||!isDspReady)return;
-    const nextScope=(currentStation?._id||'none')+':'+Boolean(isPlayingAd);
+    const nextScope=(currentStation?._id||'none')+':'+(isPlayingAd
+      ?'ad:'+(currentAdInfo?._id||currentAdInfo?.id||'unknown'):'station');
     if(lastStationScopeRef.current!==nextScope){
       resetAdaptiveDSP(graph);
       lastStationScopeRef.current=nextScope;
@@ -69,8 +75,10 @@ export default function useAudioDSP(
     let preset='OFF',settings=DSP_DEFAULTS,compressor=DSP_COMPRESSOR_DEFAULTS,clipper,autoBalance=0;
     let personalMode='DEFAULT';
     if(isPlayingAd){
-      // Never apply personal DSP to advertisements, regardless of Premium.
-      preset=currentAdInfo?.dspPreset||'OFF';
+      // Audio spots have no advertiser-configurable DSP. Apply the existing
+      // local VMax listener stage on desktop only, including anonymous users.
+      preset='OFF';
+      personalMode=desktopAdDevice?'VMAX':'DEFAULT';
     }else if(currentStation){
       preset=currentStation.dspPreset||'OFF';
       settings=currentStation.dspSettings||DSP_DEFAULTS;
@@ -85,7 +93,7 @@ export default function useAudioDSP(
     }
     applyDSPGraph(graph,preset,settings,compressor,false,clipper,autoBalance);
     applyListenerMode(graph,personalMode);
-  },[currentStation,isPlayingAd,currentAdInfo,currentUser,userOverrides,isDspReady]);
+  },[currentStation,isPlayingAd,currentAdInfo,currentUser,userOverrides,isDspReady,desktopAdDevice]);
 
   // Adaptation is local to this player's AudioContext and never alters the
   // broadcaster's stored settings. Silence and paused streams are ignored.
@@ -93,7 +101,9 @@ export default function useAudioDSP(
     if(!isDspReady)return;
     const interval=setInterval(()=>{
       const audio=audioRef.current,graph=graphRef.current;
-      if(!audio||!graph||audio.paused||audio.ended||isPlayingAd)return;
+      if(!audio||!graph||audio.paused||audio.ended)return;
+      // VMax needs live peak measurements during desktop ad playback.
+      if(isPlayingAd&&graph.listenerMode!=='VMAX')return;
       updateAdaptiveDSP(graph);
     },120);
     return()=>clearInterval(interval);
