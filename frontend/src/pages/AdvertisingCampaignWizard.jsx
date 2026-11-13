@@ -3,6 +3,7 @@ import {Link,useSearchParams} from 'react-router-dom';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
+import AgencyCampaignTopUp from './AgencyCampaignTopUp';
 import {ArrowLeft,ArrowRight,AudioLines,BadgeCheck,BarChart3,Check,CheckCircle2,
  ChevronRight,CircleAlert,Clock3,CreditCard,FileCheck2,Image as ImageIcon,
  LayoutGrid,Loader2,MapPin,Mic2,Plus,RefreshCw,ShieldCheck,Trash2,
@@ -466,6 +467,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
     </div>:<div className="space-y-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[.05] p-5 text-center">
      <CheckCircle2 size={30} className="mx-auto text-emerald-300"/><h4 className="font-black">{current?.approvalStatus==='pending'?'Αναμονή έγκρισης':'Η διαδικασία ολοκληρώθηκε.'}</h4>
      <p className="text-xs text-zinc-400">{current?.approvalStatus==='pending'?'Ο Admin εξετάζει την πληρωμένη καμπάνια και τα δημιουργικά.':'Η κατάσταση της καμπάνιας ενημερώθηκε.'}</p></div>}
+    {!admin&&confirmed&&current?.approvalStatus!=='draft'&&<AgencyCampaignTopUp campaign={current} pricing={pricing} onRefresh={()=>loadDetails(campaignId)}/>}
     <div className="flex flex-wrap justify-center gap-3"><button className={secondary} onClick={()=>selectCampaign('')}><ArrowLeft size={16}/> Οι καμπάνιες μου</button>
      {!admin&&current?.approvalStatus==='draft'&&<button className={secondary} onClick={()=>setStep(4)}>Προηγούμενο βήμα</button>}</div>
    </section>}
