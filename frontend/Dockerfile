@@ -9,6 +9,10 @@ RUN npm run build
 
 FROM nginx:stable-alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
+# Source checkout runs with umask 027. Vite may preserve restrictive modes
+# on copied public assets, which makes nginx workers return HTTP 403.
+# Only the public, already-built static tree is made world-readable.
+RUN chmod -R a+rX /usr/share/nginx/html
 COPY nginx-docker.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
