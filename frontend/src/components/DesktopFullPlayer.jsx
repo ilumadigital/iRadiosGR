@@ -5,13 +5,14 @@ import StationPlaylistPanel from './StationPlaylistPanel';
 import MusicServiceLinks from './MusicServiceLinks';
 import FoundWithAI from './FoundWithAI';
 import FullscreenArtwork from './FullscreenArtwork';
+import AdSkipControl from './AdSkipControl';
 import OnAirShowCard from './OnAirShowCard';
 import {parseMusicMetadata} from '../utils/musicMetadata';
 
 // This visual layer never creates an <audio>. App.jsx remains the only stream player.
 export default function DesktopFullPlayer({
   station, currentUser, isPlaying, isBuffering, isPlayingAd, adWarning, currentAdInfo,
-  adTimeRemaining, nowPlaying, nowPlayingInfo, globalCoverArt, currentShow, liveBroadcast, rdsShowProducer, volume, setVolume,
+  adTimeRemaining, adSkipCountdown, onSkipAd, nowPlaying, nowPlayingInfo, globalCoverArt, currentShow, liveBroadcast, rdsShowProducer, volume, setVolume,
   togglePlayPause, handlePrevStation, handleNextStation, onClose, onFavorite, isFavorite,
   onRecognize, isRecognizing, onOpenStation
 }) {
@@ -95,6 +96,8 @@ export default function DesktopFullPlayer({
             {!isPlayingAd&&<OnAirShowCard show={currentShow} stationName={station.name}
               className="mt-[clamp(0.45rem,1.8dvh,1rem)]"/>}
             {isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-300">{currentAdInfo?.title||'Διαφημιστικό διάλειμμα'}{Number.isFinite(adTimeRemaining)?' · '+adTimeRemaining+'″':''}</p>}
+            <AdSkipControl isPlayingAd={isPlayingAd} secondsUntilSkip={adSkipCountdown} onSkip={onSkipAd}
+              className="mt-2 self-start"/>
             {!isPlayingAd&&!validTitle&&!showProducerArt&&nowPlayingInfo?.premiumOnly&&<a href="/premium"
               className="ir-desktop-player-show mt-2 inline-block text-xs font-black text-[#ccff00] hover:underline">✦ Premium μέλος ανακάλυψε τραγούδι με AI · Δες το με Premium</a>}
             {!isPlayingAd&&!validTitle&&!showProducerArt&&!nowPlayingInfo?.premiumOnly&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-400">{currentUser?'Δεν γνωρίζουμε ποιο τραγούδι παίζει αυτή τη στιγμή.':'Συνδέσου στο iRadios για NowPlaying'}</p>}
