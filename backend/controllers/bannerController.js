@@ -1,4 +1,4 @@
-const {matchesAgencyGeo}=require('../services/agencyAdGeoMatch');
+const {matchesDeliveryGeo}=require('../services/agencyAdGeoMatch');
 const {filterFundedCreatives,isFundedCreative}=require('../services/advertisingDeliveryEligibility');
 const {excludeArchivedCampaignCreatives}=require('../services/advertisingArchiveVisibility');
 // controllers/bannerController.js
@@ -47,7 +47,7 @@ exports.getActiveBanners=async(req,res)=>{
     const banners=await BannerAd.find(activeCampaignQuery()).sort({createdAt:-1}).lean();
     const eligible=await filterFundedCreatives(banners.filter(b=>
       Array.isArray(b.placement)&&b.placement.length&&b.isActive!==false&&
-      matchesAgencyGeo(b,req.geo)));
+      matchesDeliveryGeo(b,req)));
     // Server-authorized geo is authoritative for v2 stage placements. This
     // test marker is ONLY emitted in non-billable staging preview mode.
     const {paidPlacementPreviewEnabled}=require('../services/advertisingStagePaidPreview');
