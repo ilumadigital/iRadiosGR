@@ -165,3 +165,75 @@ APP_ENV=staging, a dedicated ad_qualification_disposable_* MongoDB database,
 AD_QUALIFICATION_DISPOSABLE_MONGODB_URI and the explicit approval phrase
 AD_QUALIFICATION_DISPOSABLE_APPROVAL=I_CONFIRMED_TEST_ONLY_DATABASE.
 This test is not part of CI and must never target a real staging or production DB.
+
+
+## 2026-11-13: Legacy viewability and crash-recoverable Agency approval
+
+This is a second SOURCE-ONLY development slice in Draft PR #124. It does
+not enable paid Advertising v2 or turn on shadow diagnostics.
+
+### Browser-side, NON-BILLABLE legacy impressions
+
+- AdPlacementLink now uses adViewability.js, backed by IntersectionObserver.
+  It waits for >=50% foreground visibility continuously >=1 second (Hero
+  >=2 seconds) before sending the pre-existing legacy /impression request.
+- Background tabs, lost intersection, unmounted elements and unsupported
+  browser observation APIs fail closed. Multiple renders and duplicate slots
+  remain deduplicated by the existing page-session Set.
+- This remains an unaudited LEGACY analytics counter. V2 creative delivery
+  and all CPM settlement services remain hard-disabled. The client can still
+  forge requests; this change does not turn legacy impressions into proof of
+  a paid human view.
+- Browser-like deterministic tests cover geometry, visibility transitions,
+  timers, re-entry, cleanup and missing IntersectionObserver.
+
+### Compensating shadow pacing quota reservations
+
+- Quota admission is still an atomic Mongo findOneAndUpdate per counter;
+  the new advertisingTicketReservation helper releases only this attempt's
+  won quotas if a later constraint or ticket creation fails.
+- Server checks that Audio files can be probed BEFORE quota admission.
+- Multi-document reservations are NOT a MongoDB transaction. A process crash
+  can temporarily strand conservative quota; it cannot issue a paid debit.
+- Source tests cover concurrent candidates, partial quota failures, rollback,
+  ticket-insert error and lack of financial integration.
+- This is shadow QA only. Real multi-process Mongo tests are mandatory.
+
+### Agency Admin approvals: pending until creative commit
+
+- A revision remains status=pending and processing=true while an Admin
+  approval is being applied, so the existing unique pending-revision index
+  blocks a second Agency submission for the same creative.
+- The approved patch and lastApprovedRevisionId marker are written in the
+  SAME atomic creative Mongo update, guarded by the original updatedAt.
+- Only after this marker is present does the revision become approved.
+  If the server crashes after that creative update, the same Admin approval
+  can safely resume; it observes the marker and never replays the patch.
+- If the creative changed concurrently or recovery cannot prove the marker,
+  the revision stays pending/processing and reports needs_manual_review.
+  It must NOT automatically roll back and expose a stale pending revision.
+- Admin CampaignEditor displays an explicit retry button for in-flight
+  approval, and disallows rejection during recovery.
+- Before accepting new Agency revisions, createIndexes verifies the unique
+  pending index; failure blocks submission rather than silently accepting
+  duplicate review requests.
+- Rejection still uses a single pending -> rejected conditional update and
+  never writes creative fields.
+
+### Remaining critical financial and operational blockers
+
+The existing email notifications for Agency creative revisions still use
+direct sends rather than a fully durable per-event/per-recipient outbox.
+A process crash immediately after finalization can leave an email unsent.
+Design and validate the notification outbox + Mailpit E2E before approval
+readiness is claimed; HTTP success is NOT proof of successful email delivery.
+
+Actual Mongo concurrency/index verification, browser E2E, trusted geo,
+audio anti-fraud validation, payment/top-up/refund tax approvals, signed Nexi
+Sandbox and financial settlement tests remain mandatory. No merge, staging
+SSH deploy, SQL migration, Gateway modification or production redeploy.
+
+New regressions:
+node --test frontend/src/utils/adViewability.test.js
+node --test backend/tests/advertisingTicketReservation.test.cjs
+node --test backend/tests/agencyRevisionApproval.test.cjs
