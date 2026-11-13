@@ -25,7 +25,8 @@ test('Agency uses player-free Backoffice shell for all operational pages',()=>{
  assert.match(v2,/AdvertisingCampaignWizard/);
  const wizard=read('frontend/src/pages/AdvertisingCampaignWizard.jsx');
  assert.match(wizard,/Συνέχεια στο Budget/);
- assert.match(wizard,/Αποστολή στον Admin για έγκριση/);
+ assert.doesNotMatch(wizard,/Αποστολή στον Admin για έγκριση/);
+ assert.match(wizard,/Μόνο το υπογεγραμμένο webhook της Nexi/);
  assert.match(wizard,/Nexi Sandbox Payment/);
  assert.match(editor,/\/backoffice\/agency\/creatives/);
  assert.doesNotMatch(editor,/'\/agency\/dashboard'/);
