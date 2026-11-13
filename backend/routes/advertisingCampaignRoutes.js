@@ -210,8 +210,10 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
     (approval==='rejected'&&!reason))
   return res.status(400).json({error:'Invalid review decision or missing reason'});
  try{
-  const campaign=await Campaign.findById(req.params.id);
+  const campaign=await Campaign.findOne({_id:req.params.id,isStageCampaign:true,deletedAt:null});
   if(!campaign)return res.status(404).json({error:'Campaign not found'});
+  if(campaign.approvalStatus!=='pending')
+   return res.status(409).json({error:'Only pending campaigns may be reviewed.'});
   if(approval==='approved'){
    const funded=await FundingLot.exists({campaignId:campaign._id,remainingMicros:{$gt:0}});
    if(!funded)return res.status(409).json({error:'Verified funding required before approval'});
@@ -224,23 +226,27 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
    if(!approvedCreative.some(Boolean))
     return res.status(409).json({error:'Approve at least one funded campaign creative first'});
   }
-  campaign.approvalStatus=approval;
-  campaign.approvedBy=approval==='approved'?req.user._id:null;
-  campaign.approvedAt=approval==='approved'?new Date():null;
-  campaign.rejectedReason=approval==='rejected'?reason:'';
-  await campaign.save();
-  if(approval==='approved'){
-   const now=new Date();
-   // No "activated" claim until atomically billable CPM delivery exists.
-   const active=false;
-   try{
-    await require('../services/advertisingCampaignMailScheduler').enqueue({
-     eventKey:'campaign-approved:'+String(campaign._id)+':'+campaign.approvedAt.toISOString(),
-     kind:active?'campaign_activated':'campaign_approved',campaign
-    });
-   }catch(error){console.warn('[AD MAIL] Activation message pending',error.message);}
-  }
-  res.json(campaign);
+  // The pending -> final transition is atomic: competing Admin decisions
+  // cannot overwrite a previous decision or produce a second mail event.
+  const reviewedAt=new Date();
+  const updated=await Campaign.findOneAndUpdate({
+   _id:campaign._id,approvalStatus:'pending',isStageCampaign:true,deletedAt:null
+  },{$set:{
+   approvalStatus:approval,
+   approvedBy:approval==='approved'?req.user._id:null,
+   approvedAt:approval==='approved'?reviewedAt:null,
+   rejectedReason:approval==='rejected'?reason:''
+  }},{new:true,runValidators:true});
+  if(!updated)return res.status(409).json({error:'Campaign has already been reviewed.'});
+  try{
+   await require('../services/advertisingCampaignMailScheduler').enqueue({
+    eventKey:'campaign-review:'+String(updated._id)+':'+reviewedAt.toISOString(),
+    kind:approval==='approved'?'campaign_approved':'campaign_rejected',
+    campaign:updated
+   });
+  }catch(error){console.warn('[AD MAIL] Review message pending',error.message);}
+  // This is approval, NOT activation: qualified CPM settlement is hard-disabled.
+  return res.json(updated);
  }catch(error){return errorResponse(res,error,500);}
 });
 router.put('/admin/advertising/campaigns/:id/suspend',async(req,res)=>{
