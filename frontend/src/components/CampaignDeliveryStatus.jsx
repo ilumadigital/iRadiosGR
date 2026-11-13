@@ -21,6 +21,10 @@ export function campaignDeliveryState(campaign,kind='banner',stage=false,now=Dat
   if(kind==='audio'&&!campaign.audioUrl)return {
     tone:'warn',title:'Λείπει ήχος',reason:'Δεν έχει οριστεί αρχείο MP3/WAV.'
   };
+  if(stage&&kind==='audio'&&campaign.mediaReady===false)return {
+    tone:'warn',title:'Δεν υπάρχει αρχείο ήχου',
+    reason:'Το αποθηκευμένο MP3/WAV δεν είναι διαθέσιμο στο staging. Ανέβασέ το ξανά.'
+  };
   return {tone:'ready',title:'Επιλέξιμη για προβολή',
     reason:'Η καμπάνια περνά τους κανόνες ενεργοποίησης. Η εμφάνιση εξαρτάται από placement, στόχευση, χρόνο και αναπαραγωγή.'};
 }
