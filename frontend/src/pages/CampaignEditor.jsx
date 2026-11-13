@@ -155,7 +155,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const previewSquare=useFilePreview(files.squareImageFile);
   const previewLogo=useFilePreview(files.logoFile);
   const previewAudio=useFilePreview(files.audioFile);
-  const previewBanner={...form,imageUrl:previewImage||form.imageUrl||'/iradios-app-logo.png',
+  const previewBanner={...form,imageUrl:previewImage||form.imageUrl||'/icon-tr.svg',
     squareImageUrl:previewSquare||form.squareImageUrl,logoUrl:previewLogo||form.logoUrl};
   useEffect(()=>{
     if(!autoColor||!files.imageFile)return;
