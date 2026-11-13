@@ -172,6 +172,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const confirmed=Number(detail?.finance?.fundedMicros||0)>=Number(current?.plannedBudgetCents||0)*10000&&
    Number(current?.plannedBudgetCents||0)>0;
  const inProgress=(detail?.intents||[]).find(i=>['creating','redirect','unknown'].includes(i.status));
+ const paymentPending=Boolean(inProgress);
  const editingLocked=current?.approvalStatus!=='draft'||confirmed||Boolean(inProgress);
  const totalBudget=Number(current?.plannedBudgetCents||0)/100;
  const estimate=useMemo(()=>estimatedImpressions({
@@ -215,7 +216,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  // refresh its original signed request-key lookup and local funding ledger.
  // Never create a second checkout, infer paid from the redirect, or submit early.
  useEffect(()=>{
-  if(admin||loading||!campaignId||!inProgress||confirmed)return undefined;
+  if(admin||loading||!campaignId||!paymentPending||confirmed)return undefined;
   let active=true,inFlight=false;
   const refresh=async()=>{
    if(inFlight||document.visibilityState==='hidden')return;
@@ -241,7 +242,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
   };
   const timer=window.setInterval(refresh,6000);
   return ()=>{active=false;window.clearInterval(timer);};
- },[admin,loading,campaignId,Boolean(inProgress),confirmed,base]);
+ },[admin,loading,campaignId,paymentPending,confirmed,base]);
  const selectCampaign=async id=>{
   setError('');setNotice('');setCreativeDraft(null);
   if(!id){setCampaignId('');setDetail(null);setDraft(initialCampaign());setStep(0);setQuote(null);
@@ -490,7 +491,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
       {quote&&<div className={card+' space-y-2 text-sm'}><p className="font-bold">Επίσημο quote · έκδοση {quote.priceVersion}</p><p className="text-zinc-400">Budget: {euro(quote.budgetCents/100)} · ΦΠΑ: {euro(quote.taxCents/100)}</p>
        <p className="text-xs text-zinc-500">Λήξη: {new Date(quote.expiresAt).toLocaleString('el-GR')}</p></div>}
       {inProgress&&<p className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-xs text-purple-100">Αναμονή επιβεβαίωσης από ILUMA Gateway. Η κατάσταση ελέγχεται αυτόματα κάθε 6 δευτερόλεπτα. Μην ξεκινήσεις δεύτερη πληρωμή· μόνο το υπογεγραμμένο webhook πιστώνει το budget.</p>}
-      <div className="flex flex-wrap gap-3">{!quote?<button className={primary} disabled={busy||!pricing?.enabled} onClick={makeQuote}>Δημιουργία quote</button>:
+      <div className="flex flex-wrap gap-3">{!quote?<button className={primary} disabled={busy||!pricing?.enabled||paymentPending} onClick={makeQuote}>Δημιουργία quote</button>:
        <button className={primary} onClick={checkout} disabled={busy||!pricing?.sandboxCheckoutReady||Boolean(inProgress)||new Date(quote.expiresAt)<=new Date()}>
         <CreditCard size={17}/> Ασφαλής πληρωμή Nexi</button>}
        {quote&&new Date(quote.expiresAt)<=new Date()&&!inProgress&&
