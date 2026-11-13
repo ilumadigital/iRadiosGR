@@ -32,7 +32,7 @@ export function startVisualViewabilityTracking(target,{
     visibility.removeEventListener('visibilitychange',onVisibility);
   }
   function sample(){
-    timer=null;
+    clear();
     if(stopped||qualified)return;
     if(target.isConnected===false||!foreground()||ratio<threshold){
       reset();return;
