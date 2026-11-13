@@ -325,3 +325,24 @@ All source CI simulations use in-memory fake leases and deterministic clocks.
 Real multi-process Mongo concurrency, Mailpit E2E, user inbox and failure
 injection have NOT been performed in this session. No SSH deployment, SQL
 migration, Nexi checkout, Gateway change or Git merge.
+
+
+### Guarded disposable MongoDB test harness (NOT executed)
+
+backend/tests/agencyAdNoticeMongoDisposable.cjs performs real MongoDB
+per-recipient index, 80 concurrent duplicate upserts, 70 competing claims,
+expired lease recovery and stale-worker fencing without sending ANY email.
+It requires all of:
+
+- APP_ENV=staging and NODE_ENV not equal to production
+- AD_AGENCY_NOTICE_DISPOSABLE_APPROVAL=I_CONFIRMED_TEST_ONLY_DATABASE
+- AD_AGENCY_NOTICE_DISPOSABLE_MONGODB_URI pointing to a NEW, isolated
+  ad_notice_disposable_<unique> database (never iradios_stage or Gateway DB)
+
+The harness only deletes its own random event keys; it never drops a
+collection/database or executes a financial mutation. Review the URI and
+credential scope before manual execution. This source test HAS NOT RUN.
+
+A separate manual Mailpit SMTP/inbox exercise is still required because
+this harness intentionally never calls sendEmail or the real SMTP transport.
+Even after both exercises, the email protocol remains at-least-once.
