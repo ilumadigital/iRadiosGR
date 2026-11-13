@@ -45,9 +45,8 @@ export default function CarMode({
           <img 
             src={station.logo} 
             alt={station.name} 
-            className="w-full h-full object-cover bg-zinc-900"
+            className="w-full h-full object-contain bg-white p-3 sm:p-4"
           />
-          <div className="absolute inset-0 bg-black/20"></div>
         </div>
         
         <h2 className="text-4xl sm:text-5xl font-black uppercase tracking-tighter italic truncate w-full mb-2">
