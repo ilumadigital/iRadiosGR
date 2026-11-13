@@ -90,7 +90,8 @@ async function handleVerifiedAdvertisingEvent(event,res){
     lot.gatewayPaymentId!==expected.gatewayPaymentId||
     lot.gatewayOrderId!==expected.gatewayOrderId||
     lot.budgetMicros!==expected.budgetMicros||
-    lot.budgetNanos!==budgetCentsToNanos(quote.budgetCents)||
+    (lot.budgetNanos!==undefined&&
+      lot.budgetNanos!==budgetCentsToNanos(quote.budgetCents))||
     lot.priceVersion!==expected.priceVersion)
   return res.status(409).json({error:'Advertising funding collision'});
  await Intent.updateOne({_id:intent._id},{$set:{status:'paid',paidAt},
