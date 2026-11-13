@@ -8,9 +8,9 @@ export const RELATED_CATEGORIES=Object.freeze({
   'Ηλεκτρονική':['Dance','Εναλλακτικά'],
   'Ροκ':['Εναλλακτικά'],
   'Εναλλακτικά':['Ροκ','Ηλεκτρονική','Διεθνή Mainstream'],
-  'Ελληνικά Επιτυχίες':['Έντεχνα'],
+  'Ελληνικά Επιτυχίες':['Έντεχνη'],
   'Ελληνικά Λαϊκά':['Ελληνικά Επιτυχίες'],
-  'Έντεχνα':['Ελληνικά Επιτυχίες'],
+  'Έντεχνη':['Ελληνικά Επιτυχίες'],
   'Παραδοσιακά':[],
   'Ειδησεογραφικά':[],
   'Αθλητικά':[],
@@ -28,9 +28,9 @@ export const RELATED_SECONDARY=Object.freeze({
     'Trance','EDM','Ambient','Chillout','Downtempo'],
   'Ροκ':['Indie Rock','Alternative Rock','Classic Rock','Hard Rock','Blues'],
   'Εναλλακτικά':['Indie Pop','Indie Rock','Alternative Rock','Indie Dance','Reggae'],
-  'Ελληνικά Επιτυχίες':['Ελληνική Pop','Ελληνικό Ροκ','Έντεχνο'],
+  'Ελληνικά Επιτυχίες':['Ελληνική Pop','Ελληνικό Ροκ','Ελληνική Μουσική'],
   'Ελληνικά Λαϊκά':['Ρεμπέτικα'],
-  'Έντεχνα':['Έντεχνο','Ελληνικό Ροκ'],
+  'Έντεχνη':['Ελληνική Μουσική','Ελληνικό Ροκ'],
   'Παραδοσιακά':['Δημοτικά','Κρητικά','Νησιώτικα','Ποντιακά',
     'Ηπειρώτικα','Θρακιώτικα','Μακεδονίτικα','Κυπριακά','Σμυρναίικα'],
   'Ειδησεογραφικά':['Πολιτική','Οικονομία','Τοπικές Ειδήσεις','Podcasts'],
@@ -40,7 +40,8 @@ export const RELATED_SECONDARY=Object.freeze({
 const id=station=>String(station?._id||'');
 const isAvailable=station=>id(station)&&
   (station.status==='approved'||!station.status)&&station.isOffline!==true;
-const actualCategories=station=>[station?.genre,station?.secondaryGenre].filter(Boolean);
+const actualCategories=station=>[station?.genre==='Έντεχνα'?'Έντεχνη':station?.genre,
+  station?.secondaryGenre,...(Array.isArray(station?.secondaryGenres)?station.secondaryGenres:[])].filter(Boolean);
 export function relatedToCategory(station,category){
   if(!category)return true;
   if(actualCategories(station).includes(category))return true;

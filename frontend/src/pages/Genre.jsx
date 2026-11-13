@@ -11,11 +11,13 @@ import CatalogFilterPopover from '../components/CatalogFilterPopover';
 import StationCatalogCard from '../components/StationCatalogCard';
 import useCatalogNowPlaying from '../hooks/useCatalogNowPlaying';
 import {sortCatalogStations} from '../utils/catalogLive';
+import {isPrimaryCategory,normalizePrimaryCategory} from '../utils/stationCategories';
 import {buildSponsoredCatalog,sponsoredGridColumns,withoutPaidBoostRank,restoreSortedStations} from '../utils/sponsoredCatalog';
 
 
-export default function Genre({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch }) {
-  const { genreName } = useParams();
+export default function Genre({ stations, currentStation, setCurrentStation, isPlaying, onPlayPause, analyser, currentUser, userLocation, checkGeoMatch, noCommercialAds=false }) {
+  const { genreName:routeGenreName } = useParams();
+  const genreName=noCommercialAds?'Χωρίς Διαφημίσεις':routeGenreName;
   const navigate = useNavigate();
 
   const [sortBy, setSortBy] = useState('popularity');
@@ -81,7 +83,14 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
     return activeBanners.filter(b => b.placement && b.placement.includes('radio_feed'));
   }, [activeBanners, isPremiumUser]);
 
-  const baseStations = useMemo(() => stations.filter(s => s.genre === genreName || s.secondaryGenre === genreName), [stations, genreName]);
+  // Ad-free radio refers to the broadcaster's own commercial breaks, not network ads.
+  // Existing stations have a null declaration and must never be classified as ad-free.
+  const baseStations = useMemo(() => stations.filter(s => noCommercialAds
+    ? s.hasCommercialAds===false
+    : isPrimaryCategory(genreName)
+      ? normalizePrimaryCategory(s.genre)===genreName
+      : s.secondaryGenre===genreName || (Array.isArray(s.secondaryGenres)&&s.secondaryGenres.includes(genreName))),
+    [stations,genreName,noCommercialAds]);
 
   const availableRegions = useMemo(() => {
     return [...new Set(baseStations.map(s => s.region))].filter(Boolean).sort();
@@ -114,12 +123,12 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
     organic:displayStations,
     // Promoted is a separate editorial placement, not a disqualification
     // from an independently purchased Sponsored impression.
-    allStations:stations,
-    scope:'genre',value:genreName,mode:viewMode,
+    allStations:noCommercialAds?baseStations:stations,
+    scope:noCommercialAds?'home':'genre',value:noCommercialAds?'':genreName,mode:viewMode,
     columns:sponsoredGridColumns(viewportWidth),now:sponsorClock,
     regionFilter: selectedRegion,
     transmissionFilter:selectedTransmission
-  }),[displayStations,stations,promotedStationId,genreName,viewMode,viewportWidth,sponsorClock,
+  }),[displayStations,stations,baseStations,noCommercialAds,promotedStationId,genreName,viewMode,viewportWidth,sponsorClock,
     selectedRegion,selectedTransmission]);
 
   const adPlacementMap=useMemo(
@@ -179,10 +188,11 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
         </div>
       </div>
 
-      <EditorialPlacement placement="genre" value={genreName} viewMode={viewMode} onPromotedStationChange={setPromotedStationId}
+      {noCommercialAds&&<p className="mb-5 text-sm text-zinc-400">Σταθμοί που έχουν δηλώσει ότι δεν μεταδίδουν κερδοσκοπικές διαφημίσεις στο πρόγραμμά τους.</p>}
+      {!noCommercialAds&&<EditorialPlacement placement="genre" value={genreName} viewMode={viewMode} onPromotedStationChange={setPromotedStationId}
         currentUser={currentUser} stations={stations}
         currentStation={currentStation} isPlaying={isPlaying}
-        onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />
+        onPlayStation={setCurrentStation} onPlayPause={onPlayPause} />}
 
       {sponsoredEntries.length > 0 ? (
         <div className={viewMode === 'grid' ? "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 md:gap-5" : "flex w-full min-w-0 flex-col gap-3"}>

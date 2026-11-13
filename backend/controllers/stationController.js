@@ -1,5 +1,5 @@
 const Station = require('../models/Station');
-const {validateStationCategories}=require('../utils/stationCategories');
+const {validateStationCategories,normalizeStationCategoryPayload}=require('../utils/stationCategories');
 const {normalizeStationCity}=require('../utils/stationLocations');
 const User = require('../models/User');
 const {hasAccountRight,hasStationRight}=require('../services/billingEntitlements');
@@ -36,6 +36,9 @@ function toPublicStation(station) {
   delete data.email;
   // Needed internally for billing eligibility, never published on public stage.
   if(process.env.APP_ENV==='staging')delete data.broadcasterId;
+  if(data.genre==='Έντεχνα')data.genre='Έντεχνη';
+  if(!Array.isArray(data.secondaryGenres)||!data.secondaryGenres.length)
+    data.secondaryGenres=data.secondaryGenre&&data.secondaryGenre!=='Έντεχνο'?[data.secondaryGenre]:[];
   return {...data,hasContactEmail};
 }
 
@@ -46,7 +49,7 @@ exports.getApprovedStations = async (req, res) => {
     // Public stage may expose station metadata, never broadcaster personal
     // information or private pending edits imported from production.
     if (process.env.APP_ENV === 'staging') {
-      query.select('name slogan description genre secondaryGenre country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok email explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset dspSettings dspCompressor dspClipper dspAutoBalance disableNetworkAds broadcasterId boostStatus boostExpiresAt');
+      query.select('name slogan description genre secondaryGenre secondaryGenres hasCommercialAds country region prefecture city isOffline transmissionType frequency plays logo cover stream metadata website facebook instagram twitter tiktok email explicit status slug popularity schedule scheduleDayBase position rankings isFeatured dspPreset dspSettings dspCompressor dspClipper dspAutoBalance disableNetworkAds broadcasterId boostStatus boostExpiresAt');
     }
     const stations=await query;
     const effective=await projectPublicStations(stations);
@@ -119,6 +122,7 @@ exports.createStation = async (req, res) => {
   try {
     const {data: stationData, error: locationError} = normalizeStationCity(req.body);
     if(locationError)return res.status(400).json({error:locationError});
+    Object.assign(stationData,normalizeStationCategoryPayload(stationData));
     const categoryError = validateStationCategories(stationData,{required:true});
     if(categoryError)return res.status(400).json({error:categoryError});
 
@@ -151,6 +155,7 @@ exports.createBroadcasterStation = async (req,res)=>{
 
     const {data:stationData,error:locationError}=normalizeStationCity(req.body||{});
     if(locationError)return res.status(400).json({error:locationError});
+    Object.assign(stationData,normalizeStationCategoryPayload(stationData));
     const categoryError=validateStationCategories(stationData,{required:true});
     if(categoryError)return res.status(400).json({error:categoryError});
     for(const key of ['_id','broadcasterId','isFeatured','boostStatus','boostExpiresAt',
@@ -174,6 +179,7 @@ exports.updateStation = async (req, res) => {
   try {
     const {data: updateData, error: locationError} = normalizeStationCity(req.body);
     if(locationError)return res.status(400).json({error:locationError});
+    Object.assign(updateData,normalizeStationCategoryPayload(updateData));
     const categoryError = validateStationCategories(updateData);
     if(categoryError)return res.status(400).json({error:categoryError});
 
@@ -196,6 +202,7 @@ exports.requestEdit = async (req, res) => {
     delete editData._id; 
     delete editData.broadcasterId; 
     delete editData.status;
+    Object.assign(editData,normalizeStationCategoryPayload(editData));
     const categoryError = validateStationCategories(editData);
     if(categoryError)return res.status(400).json({error:categoryError});
 

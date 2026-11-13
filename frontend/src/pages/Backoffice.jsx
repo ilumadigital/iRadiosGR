@@ -4,8 +4,8 @@ import {Link,NavLink,Routes,Route,Navigate,useLocation,useNavigate,useParams} fr
 import {Helmet} from 'react-helmet-async';
 import '../styles/backoffice-admin.css';
 import ScheduleXmlImport from '../components/ScheduleXmlImport';
-import {PrimaryCategorySelect,SecondaryCategorySelect} from '../components/StationCategorySelect';
-import {isPrimaryCategory,isSecondaryCategory} from '../utils/stationCategories';
+import {PrimaryCategorySelect,SecondaryCategoriesSelect,CommercialAdsDisclosure} from '../components/StationCategorySelect';
+import {isPrimaryCategory,isValidSecondarySelection,normalizePrimaryCategory,normalizeSelectedSecondaries} from '../utils/stationCategories';
 import {LOCATION_DATA,stationCityOptions,canonicalStationLocation} from '../utils/stationLocations';
 import {minutes,scheduleDayBase,toCanonical,normalize,nextDay} from '../utils/schedule';
 import {
@@ -47,10 +47,10 @@ const StationWidgetConfigurator=lazy(()=>import('./StationWidgetConfigurator'));
 const BroadcasterAds=lazy(()=>import('./AdControl'));
 const NewPush=lazy(()=>import('./NewPush'));
 const DAY_NAMES=['','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
-const EDIT_FIELDS=['name','slug','slogan','description','genre','secondaryGenre','transmissionType','frequency',
+const EDIT_FIELDS=['name','slug','slogan','description','genre','secondaryGenre','secondaryGenres','hasCommercialAds','transmissionType','frequency',
   'country','region','prefecture','city','website','email','phone','stream','metadata','facebook','instagram',
   'twitter','tiktok','explicit'];
-const BLANK={name:'',slug:'',slogan:'',description:'',genre:'',secondaryGenre:'',transmissionType:'Web Radio',
+const BLANK={name:'',slug:'',slogan:'',description:'',genre:'',secondaryGenre:'',secondaryGenres:[],hasCommercialAds:null,transmissionType:'Web Radio',
   frequency:'',country:'Ελλάδα',region:'',prefecture:'',city:'',website:'',email:'',phone:'',stream:'',metadata:'',
   facebook:'',instagram:'',twitter:'',tiktok:'',explicit:false};
 const panel='rounded-[26px] border border-white/[0.075] bg-[#111418] shadow-[0_22px_90px_rgba(0,0,0,0.14)]';
@@ -485,7 +485,11 @@ function StationEditor({data,reload,notify,requestDelete}){
     return ()=>{active=false;};
   },[id,isNew,listedStation?._id,notify]);
   useEffect(()=>{
-    const origin=isNew?BLANK:canonicalStationLocation({...BLANK,...station,...(station?.pendingEdits||{})});
+    const original=isNew?BLANK:canonicalStationLocation({...BLANK,...station,...(station?.pendingEdits||{})});
+    const primary=normalizePrimaryCategory(original.genre);
+    const selected=normalizeSelectedSecondaries(primary,original.secondaryGenres,original.secondaryGenre);
+    const origin={...original,genre:primary,secondaryGenres:selected,secondaryGenre:selected[0]||'',
+      hasCommercialAds:typeof original.hasCommercialAds==='boolean'?original.hasCommercialAds:null};
     setForm(Object.fromEntries(EDIT_FIELDS.map(k=>[k,origin[k]??BLANK[k]])));
     setSlugTouched(false);
     setDirty(false);
@@ -495,6 +499,8 @@ function StationEditor({data,reload,notify,requestDelete}){
     setForm(prev=>{
       const next={...prev,[field]:value};
       if(field==='name'&&isNew&&!slugTouched)next.slug=suggestStationSlug(value);
+      if(field==='genre'&&value!==prev.genre){next.secondaryGenres=[];next.secondaryGenre='';}
+      if(field==='secondaryGenres')next.secondaryGenre=value[0]||'';
       if(field==='country'){next.region='';next.prefecture='';next.city='';}
       if(field==='region'){next.prefecture='';next.city='';}
       if(field==='prefecture')next.city='';
@@ -505,8 +511,11 @@ function StationEditor({data,reload,notify,requestDelete}){
   };
   async function save(e){
     e.preventDefault();
-    if(!isPrimaryCategory(form.genre)||!isSecondaryCategory(form.secondaryGenre)){
-      notify('Επίλεξε μία βασική και μία δευτερεύουσα κατηγορία.','error');return;
+    if(!isPrimaryCategory(form.genre)||!isValidSecondarySelection(form.genre,form.secondaryGenres)){
+      notify('Επίλεξε βασική κατηγορία και από 1 έως 3 σχετικά υποείδη.','error');return;
+    }
+    if(typeof form.hasCommercialAds!=='boolean'){
+      notify('Απάντησε αν ο σταθμός μεταδίδει κερδοσκοπικές διαφημίσεις.','error');return;
     }
     if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug||'')){
       notify('Το slug πρέπει να περιέχει πεζά λατινικά γράμματα, αριθμούς και παύλες.','error');return;
@@ -517,7 +526,7 @@ function StationEditor({data,reload,notify,requestDelete}){
     }
     setBusy(true);
     try{
-      const payload=isNew?Object.fromEntries(['name','slug','slogan','description','genre','secondaryGenre','stream','metadata',
+      const payload=isNew?Object.fromEntries(['name','slug','slogan','description','genre','secondaryGenre','secondaryGenres','hasCommercialAds','stream','metadata',
         'transmissionType','frequency','country','region','prefecture','city'].map(k=>[k,form[k]])):
         Object.fromEntries(Object.entries(form).filter(([key])=>key!=='slug'||form.slug!==station.slug));
       const result=await api(isNew?'/stations':'/stations/'+station._id,
@@ -596,7 +605,14 @@ function StationEditor({data,reload,notify,requestDelete}){
               </div>
             </Field>
             <Field label="Βασική κατηγορία *"><PrimaryCategorySelect className={inputClass} value={form.genre} onChange={value=>update('genre',value)}/></Field>
-            <Field label="Δευτερεύουσα κατηγορία *" help="Εξειδικευμένο ύφος για SEO / GEO. Δεν εμφανίζεται στο βασικό μενού."><SecondaryCategorySelect className={inputClass} value={form.secondaryGenre} onChange={value=>update('secondaryGenre',value)}/></Field>
+            <Field label="Δευτερεύουσες κατηγορίες *" wide help="Διάλεξε από 1 έως 3 υποείδη, μόνο από τη βασική κατηγορία που επέλεξες.">
+              <SecondaryCategoriesSelect primary={form.genre} value={form.secondaryGenres}
+                onChange={value=>update('secondaryGenres',value)}
+                className="rounded-xl border border-white/10 bg-[#090b0d] p-4"/>
+            </Field>
+            <div className="md:col-span-2">
+              <CommercialAdsDisclosure value={form.hasCommercialAds} onChange={value=>update('hasCommercialAds',value)}/>
+            </div>
             <Field label="Slogan" wide><input maxLength={240} className={inputClass} placeholder="Η μουσική σου, ο κόσμος σου." value={form.slogan} onChange={e=>update('slogan',e.target.value)}/></Field>
             <Field label="Περιγραφή" wide><textarea rows={4} maxLength={4000} className={inputClass+' resize-y'} value={form.description} onChange={e=>update('description',e.target.value)}/></Field>
             <Field label="Τύπος μετάδοσης"><select className={inputClass} value={form.transmissionType} onChange={e=>update('transmissionType',e.target.value)}>
@@ -701,7 +717,7 @@ function StationEditor({data,reload,notify,requestDelete}){
             <div className="mx-auto flex size-28 items-center justify-center overflow-hidden rounded-2xl bg-[#121519]">
               {station?.pendingEdits?.logo||station?.logo?<img src={station.pendingEdits?.logo||station.logo} className="size-full object-contain p-3" alt="Logo"/>:<Radio size={46} className="text-[#caff00]"/>}</div>
             <h3 className="mt-4 truncate text-xl font-black text-white">{form.name||'Ο σταθμός σου'}</h3>
-            <p className="mt-2 text-xs text-zinc-400">{form.genre||'Βασική κατηγορία'}{form.secondaryGenre?` · ${form.secondaryGenre}`:''}</p>
+            <p className="mt-2 text-xs text-zinc-400">{form.genre||'Βασική κατηγορία'}{form.secondaryGenres?.length?` · ${form.secondaryGenres.join(' · ')}`:''}</p>
             <p className="mt-3 text-xs text-[#caff00]">{form.slogan||'iRadiosGR'}</p>
           </div>
           {!isNew&&<div className="mt-4 flex flex-wrap gap-2">

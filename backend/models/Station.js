@@ -32,7 +32,13 @@ const stationSchema = new mongoose.Schema({
   description: { type: String },
   genre: { type: String, required: true },
   // Old records are left as-is until manually classified.
-  secondaryGenre: { type: String, default: '' },
+  secondaryGenre: { type: String, default: '' }, // Legacy: first selected subcategory
+  secondaryGenres: { type: [String], default: [], validate: {
+    validator: values => Array.isArray(values) && values.length<=3 && new Set(values).size===values.length,
+    message: 'Μέχρι 3 μοναδικές δευτερεύουσες κατηγορίες.'
+  } },
+  // Null means an existing station has not yet explicitly answered the question.
+  hasCommercialAds: { type: Boolean, default: null },
   country: { type: String, default: 'Ελλάδα' },
   region: { type: String },
   prefecture: { type: String, default: '' },

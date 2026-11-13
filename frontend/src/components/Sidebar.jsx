@@ -5,7 +5,7 @@ import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
 import {CITY_SHORTCUTS, getAvailableRegionLinks} from '../utils/stationRegions';
 import { Compass, LayoutDashboard, LayoutGrid, FileText, Users, Radio, Heart, X, Mail, Disc3, BellRing, Megaphone, Crown, SlidersHorizontal, MapPin, Calendar, Rocket, Target, Lock, Activity, MapPinned, PanelLeftClose, PanelLeftOpen, Image, Newspaper, Navigation, ListMusic, History, Sparkles, Grid2X2, Trophy, ChevronDown, House, RadioTower } from 'lucide-react';
 
-function SidebarItem({ icon, label, to, state, currentPath, onClick, className = "", isCollapsed }) {
+function SidebarItem({ icon, label, to, state, currentPath, onClick, className = "", isCollapsed, badge }) {
   const active = currentPath === to || decodeURIComponent(currentPath) === to;
   
   return (
@@ -30,6 +30,7 @@ function SidebarItem({ icon, label, to, state, currentPath, onClick, className =
       >
         {label}
       </span>
+      {badge&&<span className={`ml-auto shrink-0 rounded-md bg-violet-600 px-1.5 py-0.5 text-[9px] font-black tracking-wide text-white ${isCollapsed?'lg:absolute lg:right-0 lg:top-0':''}`}>{badge}</span>}
     </Link>
   );
 }
@@ -213,6 +214,9 @@ export default function Sidebar({
                         document.getElementById('home-live-now')?.scrollIntoView({behavior:'smooth',block:'start'});
                     }} icon={<RadioTower size={20} />} label="Live Τώρα" />
                    <SidebarItem isCollapsed={isCollapsed} to="/newsfeed" currentPath={location.pathname} onClick={() => setIsMobileMenuOpen(false)} icon={<Newspaper size={20} />} label="Ειδήσεις" />
+                   <SidebarItem isCollapsed={isCollapsed} to="/without-ads" currentPath={location.pathname}
+                     onClick={() => setIsMobileMenuOpen(false)} icon={<RadioTower size={20}/>}
+                     label="Χωρίς Διαφημίσεις" badge="NEW" />
                   <button
                     type="button"
                     aria-expanded={categoriesOpen}

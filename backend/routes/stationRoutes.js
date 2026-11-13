@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {stationNameHostConflict}=require('../utils/scheduleHostValidation');
+const {isPrimaryCategory}=require('../utils/stationCategories');
 
 // Manual recognition uses only the approved station ID; ACRCloud keys stay server-side.
 const multer = require('multer');
@@ -158,7 +159,9 @@ router.put('/admin/stations/reorder', protect, authorizeRoles('admin'), async (r
       return res.status(400).json({ error: 'Υπάρχουν διπλοί σταθμοί στην κατάταξη.' });
     }
     const query = { status: 'approved' };
-    if (scope === 'genre') query.$or = [{ genre: value }, { secondaryGenre: value }];
+    if (scope === 'genre') query.$or = isPrimaryCategory(value)
+      ? [{genre:value},...(value==='Έντεχνη'?[{genre:'Έντεχνα'}]:[])]
+      : [{secondaryGenre:value},{secondaryGenres:value}];
     if (scope === 'region') query.$or = [{ region: value }, { city: value }];
     const existing = await Station.find(query).select('_id rankings boostExpiresAt').lean();
     const expected = new Set(existing.map(s => String(s._id)));

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import {PrimaryCategorySelect,SecondaryCategorySelect} from '../components/StationCategorySelect';
+import {PrimaryCategorySelect,SecondaryCategoriesSelect,CommercialAdsDisclosure} from '../components/StationCategorySelect';
 import {LOCATION_DATA, stationCityOptions, canonicalStationLocation, inferStationPrefecture} from '../utils/stationLocations';
-import {isPrimaryCategory,isSecondaryCategory,PRIMARY_CATEGORIES} from '../utils/stationCategories';
+import {isPrimaryCategory,isValidSecondarySelection,normalizePrimaryCategory,normalizeSelectedSecondaries,PRIMARY_CATEGORIES} from '../utils/stationCategories';
 import { 
   PlusCircle, Radio, Trash2, Edit, X, 
   CheckCircle, XCircle, Clock, Star, Loader2, Search, AlertTriangle, Check, LayoutDashboard,
@@ -16,7 +16,7 @@ import {
 
 // 🟢 Προστέθηκε το viber & το metadata
 const INITIAL_STATION_STATE = { 
-  name: '', slogan: '', slug: '', genre: '', secondaryGenre: '', country: 'Ελλάδα', region: '', prefecture: '', city: '', 
+  name: '', slogan: '', slug: '', genre: '', secondaryGenre: '', secondaryGenres: [], hasCommercialAds: null, country: 'Ελλάδα', region: '', prefecture: '', city: '', 
   transmissionType: 'Web Radio', frequency: '', 
   logo: '', stream: '', metadata: '', description: '', website: '', facebook: '', instagram: '', twitter: '', tiktok: '', 
   phone: '', viber: '', email: '', 
@@ -140,7 +140,7 @@ export default function Admin({ API_URL, refreshStations }) {
 
   const checkFormValidity = (formData) => {
     const { name, slug, genre, stream, country, region, prefecture, city, transmissionType, frequency } = formData;
-    const hasBasics = name && slug && isPrimaryCategory(genre) && isSecondaryCategory(formData.secondaryGenre) && stream && country && region && prefecture && city && stationCityOptions(country, region, prefecture).includes(city);
+    const hasBasics = name && slug && isPrimaryCategory(genre) && isValidSecondarySelection(genre,formData.secondaryGenres) && typeof formData.hasCommercialAds==='boolean' && stream && country && region && prefecture && city && stationCityOptions(country, region, prefecture).includes(city);
     const hasFreq = transmissionType === 'Επίγειο' ? frequency : true;
     const hasLogo = selectedFile || (formData.logo !== '' && isLogoValid);
     return hasBasics && hasFreq && hasLogo;
@@ -169,6 +169,7 @@ export default function Admin({ API_URL, refreshStations }) {
     Object.keys(INITIAL_STATION_STATE).forEach(key => {
       let value = formData[key];
       if (key === 'frequency') value = finalFrequency;
+      if (key === 'secondaryGenres') value = JSON.stringify(value || []);
       if (key === 'logo' && selectedFile) return; 
       payloadData.append(key, value === null || value === undefined ? '' : value);
     });
@@ -250,8 +251,13 @@ export default function Admin({ API_URL, refreshStations }) {
       name: sourceData.name || '',
       slug: sourceData.slug || '',
       slogan: sourceData.slogan || '',
-      genre: sourceData.genre || station.genre || '',
-      secondaryGenre: sourceData.secondaryGenre || station.secondaryGenre || '',
+      genre: normalizePrimaryCategory(sourceData.genre || station.genre || ''),
+      secondaryGenre: normalizeSelectedSecondaries(sourceData.genre || station.genre,
+        sourceData.secondaryGenres || station.secondaryGenres,sourceData.secondaryGenre || station.secondaryGenre)[0]||'',
+      secondaryGenres: normalizeSelectedSecondaries(sourceData.genre || station.genre,
+        sourceData.secondaryGenres || station.secondaryGenres,sourceData.secondaryGenre || station.secondaryGenre),
+      hasCommercialAds:typeof sourceData.hasCommercialAds==='boolean'?sourceData.hasCommercialAds:
+        typeof station.hasCommercialAds==='boolean'?station.hasCommercialAds:null,
       logo: sourceData.logo || '',
       stream: sourceData.stream || '',
       metadata: sourceData.metadata || '', // 🟢 Metadata
@@ -609,9 +615,15 @@ export default function Admin({ API_URL, refreshStations }) {
             
             <div className="space-y-2">
               <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Βασική κατηγορία *</label>
-              <PrimaryCategorySelect value={formData.genre} onChange={genre=>setFormData({...formData,genre})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white outline-none"/>
-              <label className="mt-3 block text-[9px] font-black text-zinc-500 uppercase tracking-widest">Δευτερεύουσα κατηγορία *</label>
-              <SecondaryCategorySelect value={formData.secondaryGenre} onChange={secondaryGenre=>setFormData({...formData,secondaryGenre})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white outline-none"/>
+              <PrimaryCategorySelect value={formData.genre} onChange={genre=>setFormData({...formData,genre,secondaryGenres:[],secondaryGenre:''})} className="w-full bg-black border border-white/10 h-12 rounded-xl px-4 text-white outline-none"/>
+              <label className="mt-3 block text-[9px] font-black text-zinc-500 uppercase tracking-widest">Δευτερεύουσες κατηγορίες (1–3) *</label>
+              <SecondaryCategoriesSelect primary={formData.genre} value={formData.secondaryGenres}
+                onChange={secondaryGenres=>setFormData({...formData,secondaryGenres,secondaryGenre:secondaryGenres[0]||''})}
+                className="mt-2 rounded-xl border border-white/10 bg-black p-3"/>
+              <div className="mt-4">
+                <CommercialAdsDisclosure value={formData.hasCommercialAds}
+                  onChange={hasCommercialAds=>setFormData({...formData,hasCommercialAds})}/>
+              </div>
             </div>
           </div>
 

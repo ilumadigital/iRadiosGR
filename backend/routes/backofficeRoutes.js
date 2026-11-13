@@ -11,7 +11,7 @@ const Station=require('../models/Station');
 const PromotedStation=require('../models/PromotedStation');
 const {projectPublicStations}=require('../services/stationBillingProjection');
 const {deleteStationRecord}=require('../services/stationDeletion');
-const {validateStationCategories}=require('../utils/stationCategories');
+const {validateStationCategories,normalizePrimaryCategory}=require('../utils/stationCategories');
 const {validateStationLocation}=require('../utils/stationLocations');
 const User=require('../models/User');
 const {hasAccountRight}=require('../services/billingEntitlements');
@@ -41,14 +41,14 @@ router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'
     next();
   });
 
-const fields='name slogan description genre secondaryGenre country region prefecture city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase scheduleFeed createdAt';
+const fields='name slogan description genre secondaryGenre secondaryGenres hasCommercialAds country region prefecture city transmissionType frequency plays popularity logo cover stream metadata website facebook instagram twitter tiktok phone viber email explicit status broadcasterId pendingEdits slug isFeatured schedule scheduleDayBase scheduleFeed createdAt';
 const textFields=Object.freeze({
   name:100,slug:100,slogan:240,description:4000,genre:100,secondaryGenre:100,country:100,region:100,prefecture:100,city:100,
   transmissionType:30,frequency:30,website:450,stream:1200,metadata:1200,
   facebook:450,instagram:450,twitter:450,tiktok:450,phone:60,viber:60,email:254
 });
 const imageFields=new Set(['logo','cover']);
-const allowedFields=new Set([...Object.keys(textFields),'explicit','logo','cover']);
+const allowedFields=new Set([...Object.keys(textFields),'explicit','logo','cover','secondaryGenres','hasCommercialAds']);
 const urlFields=new Set(['stream','metadata','website','facebook','instagram','twitter','tiktok']);
 function validationError(message){const e=new Error(message);e.status=400;return e;}
 function validExternalUrl(value){
@@ -72,6 +72,15 @@ function cleanEdits(payload,{ignoreUnknown=false}={}){
       if(ignoreUnknown)continue;
       throw validationError('Το πεδίο δεν επιτρέπεται: '+key);
     }
+    if(key==='secondaryGenres'){
+      if(!Array.isArray(value)||value.length>3||value.some(v=>typeof v!=='string'||v.length>100))
+        throw validationError('Επίλεξε έως 3 έγκυρες δευτερεύουσες κατηγορίες.');
+      result.secondaryGenres=[...value];continue;
+    }
+    if(key==='hasCommercialAds'){
+      if(typeof value!=='boolean')throw validationError('Απάντησε Ναι ή Όχι για τις κερδοσκοπικές διαφημίσεις.');
+      result.hasCommercialAds=value;continue;
+    }
     if(key==='explicit'){
       if(typeof value!=='boolean')throw validationError('Μη έγκυρη σήμανση explicit.');
       result.explicit=value;continue;
@@ -87,8 +96,9 @@ function cleanEdits(payload,{ignoreUnknown=false}={}){
       !validExternalUrl(trimmed))throw validationError('Μη έγκυρο URL εικόνας.');
     if(key==='transmissionType'&&trimmed&&!['Επίγειο','Web Radio','DAB'].includes(trimmed))
       throw validationError('Μη έγκυρος τύπος μετάδοσης.');
-    result[key]=trimmed;
+    result[key]=key==='genre'?normalizePrimaryCategory(trimmed):trimmed;
   }
+  if(Array.isArray(result.secondaryGenres))result.secondaryGenre=result.secondaryGenres[0]||'';
   const categoryError=validateStationCategories(result);
   if(categoryError)throw validationError(categoryError);
   if(Object.keys(result).length===0)throw validationError('Δεν υπάρχουν αλλαγές προς αποθήκευση.');

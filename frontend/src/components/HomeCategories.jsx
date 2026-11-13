@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Disc3, Music2 } from 'lucide-react';
-import { PRIMARY_CATEGORY_GROUPS } from '../utils/stationCategories';
+import { PRIMARY_CATEGORY_GROUPS, normalizePrimaryCategory } from '../utils/stationCategories';
 
 const gradients = [
   'from-[#812e70] via-[#4a2145] to-[#11151d]',
@@ -57,7 +57,7 @@ export default function HomeCategories({ stations = [], currentUser, allLink = t
     stations.forEach(station => {
       if (!station?._id || (station.status && station.status !== 'approved')) return;
       for (const category of counts.keys()) {
-        if (station.genre === category || station.secondaryGenre === category) {
+        if (normalizePrimaryCategory(station.genre) === category) {
           counts.set(category, counts.get(category) + 1);
         }
       }
