@@ -749,8 +749,13 @@ function MainApp() {
   const lastPlayedTimeAds = useRef({});
   const activeAdRef = useRef(null);
   const adListenClockRef = useRef(newAdListenClock());
+  const adBreakSpotCountRef = useRef(0);
   const [adSkipCountdown,setAdSkipCountdown] = useState(null);
-  const resetAdSkipClock=()=>{adListenClockRef.current=newAdListenClock();setAdSkipCountdown(null);};
+  const resetAdSkipClock=()=>{
+    adListenClockRef.current=newAdListenClock();
+    adBreakSpotCountRef.current=0;
+    setAdSkipCountdown(null);
+  };
   const logAdOutcome=(event,ad)=>{
     if(!ad?.id||!ad.started||ad.outcomeLogged)return;
     ad.outcomeLogged=true;
@@ -1177,6 +1182,8 @@ function MainApp() {
     const zappingAdsToPlay = selectStationBreak(ads,clicks,station,userLocation,checkGeoMatch);
 
     if (zappingAdsToPlay.length > 0) {
+      resetAdSkipClock();
+      adBreakSpotCountRef.current=zappingAdsToPlay.length;
       pendingStation.current = station; 
       adQueue.current = zappingAdsToPlay; // Bounded by selectStationBreak
       playNextAdOrStation();
@@ -1188,7 +1195,8 @@ function MainApp() {
   const skipCurrentAd=()=>{
     const ad=activeAdRef.current;
     const audio=audioRef.current;
-    if(!ad?.started||!audio||!canSkipAd(adListenClockRef.current,audio.duration))return;
+    if(!ad?.started||!audio||!canSkipAd(
+      adListenClockRef.current,audio.duration,adBreakSpotCountRef.current>1))return;
     // Skip the remaining scheduled break and return directly to the listener's
     // latest station selection, never starting another spot in the same break.
     logAdOutcome('skipped',ad);
@@ -1200,7 +1208,10 @@ function MainApp() {
   // MUST return to the pending station; never trap listeners in an ad break.
   const playNextAdOrStation = () => {
     if (!audioRef.current) return;
-    resetAdSkipClock();
+    // Keep the verified audible seconds from earlier spots of the same break.
+    // Suspension prevents source switches/buffering from advancing the clock.
+    adListenClockRef.current=suspendAdListenClock(adListenClockRef.current);
+    setAdSkipCountdown(null);
     clearAdWatchdog();
     activeAdRef.current = null;
     if (adQueue.current.length > 0) {
@@ -1229,6 +1240,7 @@ function MainApp() {
       }
       return;
     }
+    resetAdSkipClock();
     setIsPlayingAd(false);
     setCurrentAdInfo(null);
     setAdTimeRemaining(0);
@@ -1281,6 +1293,8 @@ function MainApp() {
       // 6. ΠΡΟΕΤΟΙΜΑΣΙΑ ΚΑΙ ΕΚΤΕΛΕΣΗ!
       console.log("⏰ Ήρθε η ώρα για διαφημίσεις! Επιλέχθηκαν:", selectedAds.map(a => a.title));
       
+      resetAdSkipClock();
+      adBreakSpotCountRef.current=selectedAds.length;
       pendingStation.current = currentStation; // Θυμόμαστε ποιον σταθμό ακούγαμε
       adQueue.current = [...selectedAds];      // Βάζουμε τα 2 σποτ στην ουρά
       
@@ -1904,7 +1918,8 @@ function MainApp() {
         }}
         onDurationChange={event=>{
           if(activeAdRef.current)setAdSkipCountdown(
-            secondsUntilAdSkip(adListenClockRef.current,event.currentTarget.duration));
+            secondsUntilAdSkip(adListenClockRef.current,event.currentTarget.duration,
+              adBreakSpotCountRef.current>1));
         }}
         onEnded={() => {
           const ad=activeAdRef.current;
@@ -1919,7 +1934,8 @@ function MainApp() {
               position:audio.currentTime,now:performance.now(),paused:audio.paused,
               seeking:audio.seeking,readyState:audio.readyState
             });
-            const seconds=secondsUntilAdSkip(adListenClockRef.current,audio.duration);
+            const seconds=secondsUntilAdSkip(
+              adListenClockRef.current,audio.duration,adBreakSpotCountRef.current>1);
             setAdSkipCountdown(old=>old===seconds?old:seconds);
             setAdTimeRemaining(Number.isFinite(e.target.duration)
               ? Math.max(0, Math.ceil(e.target.duration - e.target.currentTime)) : 0);
