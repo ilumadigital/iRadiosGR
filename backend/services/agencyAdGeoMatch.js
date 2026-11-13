@@ -21,4 +21,14 @@ function matchesAgencyGeo(campaign,geo) {
   if(clean(target)===clean(region))return true;
   return Boolean(geo.prefecture)&&clean(target)===clean(geo.prefecture);
 }
-module.exports={matchesAgencyGeo};
+// Staging is a NON-BILLABLE visual QA preview. Without a signed reverse-proxy
+// location there is no real visitor geo; do not pretend every visitor is in
+// Attica and hide paid, approved campaigns targeting other prefectures.
+// This bypass never applies with trusted geo or outside the explicit preview.
+function matchesDeliveryGeo(creative,req){
+ if(matchesAgencyGeo(creative,req?.geo))return true;
+ const {paidPlacementPreviewEnabled}=require('./advertisingStagePaidPreview');
+ return paidPlacementPreviewEnabled()&&req?.adGeoTrusted===false&&
+  Boolean(creative?.campaignId);
+}
+module.exports={matchesAgencyGeo,matchesDeliveryGeo};
