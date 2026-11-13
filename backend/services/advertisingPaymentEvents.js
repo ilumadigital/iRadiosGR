@@ -5,6 +5,7 @@ const Quote=require('../models/AdvertisingQuote');
 const Intent=require('../models/AdvertisingPaymentIntent');
 const FundingLot=require('../models/AdvertisingFundingLot');
 const {budgetMicros}=require('./advertisingPricingRules');
+const {budgetCentsToNanos}=require('./advertisingCpmMath');
 const {ensureAdvertisingFinancialIndexes}=require('./advertisingFinancialIndexes');
 const PAYMENT=/^[a-f0-9]{32}$/;
 const ORDER=/^IL[A-F0-9]{24}$/;
@@ -70,6 +71,8 @@ async function handleVerifiedAdvertisingEvent(event,res){
     agencyId:accountId,campaignId:campaign._id,quoteId:quote._id,
     gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
     budgetMicros:expected.budgetMicros,remainingMicros:expected.budgetMicros,
+    budgetNanos:budgetCentsToNanos(quote.budgetCents),
+    remainingNanos:budgetCentsToNanos(quote.budgetCents),
     priceVersion:quote.priceVersion,ratesMicros:quote.ratesMicros,
     currency:'EUR',source:'nexi_verified',paidAt
    });
@@ -87,6 +90,7 @@ async function handleVerifiedAdvertisingEvent(event,res){
     lot.gatewayPaymentId!==expected.gatewayPaymentId||
     lot.gatewayOrderId!==expected.gatewayOrderId||
     lot.budgetMicros!==expected.budgetMicros||
+    lot.budgetNanos!==budgetCentsToNanos(quote.budgetCents)||
     lot.priceVersion!==expected.priceVersion)
   return res.status(409).json({error:'Advertising funding collision'});
  await Intent.updateOne({_id:intent._id},{$set:{status:'paid',paidAt},
