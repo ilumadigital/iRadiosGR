@@ -19,6 +19,7 @@ const {qualifiedEventDebitNanos}=require('./advertisingCpmMath');
 const {clientFingerprint,issueTicket,sealTicket,verifyTicket,observation}=
  require('./advertisingQualifiedDelivery');
 const {hourlyQuota,hourBucket,tenMinuteBucket,fiveMinuteBucket,fairOrder}=require('./advertisingPacing');
+const {reserveTicketQuotas}=require('./advertisingTicketReservation');
 const ID=/^[a-f0-9]{24}$/;
 let indexReady=null;
 function enabled(){
@@ -139,27 +140,39 @@ async function issueShadow({kind,placement,geo,req}){
  const ordered=fairOrder(enriched.map(c=>({
   ...c,campaignId:String(c.campaign._id)
  })),fingerprint,now);
- // Limiter bounds even legitimate Admin testing; production rollout needs WAF.
- if(!await reserve('global:'+fingerprint+':'+hourBucket(now),60,now+7200000))
-  return {status:'shadow_rate_limited'};
+ // This is only Admin shadow QA. All five quotas must be admitted to
+ // create a ticket. Losing a later quota releases reservations this attempt
+ // acquired; a crash can conservatively leave unused quota, never a charge.
+ const adapter={reserve,release:async key=>{
+  await Counter.updateOne({_id:key,count:{$gt:0}},{$inc:{count:-1}});
+ }};
  for(const item of ordered){
   const id=String(item.campaign._id);
-  const frequency='freq:'+id+':'+fingerprint+':'+hourBucket(now);
-  const quiet='quiet:'+id+':'+fingerprint+':'+tenMinuteBucket(now);
-  if(!await reserve(quiet,1,now+3600000))continue;
-  if(!await reserve(frequency,3,now+7200000))continue;
-  // Enforce both hour and five-minute limits; a full hourly budget must
-  // not be consumed in the first seconds of an hour.
-  const pace5='pace5:'+id+':'+item.tier+':'+fiveMinuteBucket(now);
-  const quota5=Math.max(1,Math.ceil(item.quota/12*1.25));
-  if(!await reserve(pace5,quota5,now+1200000))continue;
-  if(!await reserve(item.bucket,item.quota,now+7200000))continue;
+  // Validate the actual local media BEFORE reserving any delivery quota.
   const durationMs=kind==='audio'?await durationForAudio(item.creative):0;
   if(kind==='audio'&&!durationMs)continue;
-  const doc=issueTicket({campaignId:id,creativeId:String(item.creative._id),
-   kind,tier:item.tier,placement,durationMs,clientKey:fingerprint,now,
-   id:crypto.randomBytes(16).toString('hex')});
-  await Ticket.create({...doc,cleanupAt:new Date(now+86400000)});
+  const frequency='freq:'+id+':'+fingerprint+':'+hourBucket(now);
+  const quiet='quiet:'+id+':'+fingerprint+':'+tenMinuteBucket(now);
+  const pace5='pace5:'+id+':'+item.tier+':'+fiveMinuteBucket(now);
+  const quota5=Math.max(1,Math.ceil(item.quota/12*1.25));
+  const quotas=[
+   {key:'global:'+fingerprint+':'+hourBucket(now),max:60,expiry:now+7200000},
+   {key:quiet,max:1,expiry:now+3600000},
+   {key:frequency,max:3,expiry:now+7200000},
+   {key:pace5,max:quota5,expiry:now+1200000},
+   {key:item.bucket,max:item.quota,expiry:now+7200000}
+  ];
+  const reserved=await reserveTicketQuotas(quotas,adapter,async()=>{
+   const doc=issueTicket({campaignId:id,creativeId:String(item.creative._id),
+    kind,tier:item.tier,placement,durationMs,clientKey:fingerprint,now,
+    id:crypto.randomBytes(16).toString('hex')});
+   await Ticket.create({...doc,cleanupAt:new Date(now+86400000)});
+   return doc;
+  });
+  if(reserved.status==='blocked'&&reserved.key.startsWith('global:'))
+   return {status:'shadow_rate_limited'};
+  if(reserved.status!=='issued')continue;
+  const doc=reserved.value;
   return {status:'issued',capability:sealTicket(doc,secret()),
    creativeId:String(item.creative._id),campaignId:id,kind,tier:item.tier,
    placement,durationMs,expiresAt:doc.expiresAt,billable:false};
