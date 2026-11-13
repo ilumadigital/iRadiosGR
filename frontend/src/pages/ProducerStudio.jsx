@@ -387,7 +387,7 @@ export default function ProducerStudio({
               return (
                 <div key={station._id} className="bg-zinc-900/40 border border-white/5 hover:border-[#ccff00]/30 transition-all p-6 rounded-[32px] flex flex-col md:flex-row items-center gap-6 group relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-1 h-full bg-[#ccff00] opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <img src={station.logo} alt="" onClick={() => navigate(stationPath)} className="w-24 h-24 rounded-2xl object-cover bg-white p-1 shadow-2xl group-hover:scale-105 transition-transform shrink-0 cursor-pointer" />
+                  <img src={station.logo} alt="" onClick={() => navigate(stationPath)} className="w-24 h-24 rounded-2xl object-contain bg-white p-1 shadow-2xl group-hover:scale-105 transition-transform shrink-0 cursor-pointer" />
                   <div className="flex-1 text-center md:text-left min-w-0">
                     <div className="flex items-center justify-center md:justify-start gap-2 mb-1">
                       <h4 onClick={() => navigate(stationPath)} className="text-2xl font-black text-white truncate cursor-pointer hover:text-[#ccff00] transition-colors">{station.name}</h4>
@@ -706,8 +706,8 @@ export default function ProducerStudio({
                   <div className="space-y-6 bg-black/20 p-8 rounded-[32px] border border-white/5 mt-8">
                     <h3 className="text-[#ccff00] font-black text-[10px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2"><Globe size={14}/> Media & Stream Assets</h3>
                     <div className="flex flex-col md:flex-row items-start gap-8">
-                      <div className="w-28 h-28 rounded-3xl bg-zinc-800 flex items-center justify-center overflow-hidden border border-white/10 shrink-0">
-                        {formData.logo ? <img src={formData.logo} className="w-full h-full object-cover" alt="" /> : <ImageIcon className="text-zinc-700" size={32} />}
+                      <div className="w-28 h-28 rounded-3xl bg-white flex items-center justify-center overflow-hidden border border-white/10 shrink-0">
+                        {formData.logo ? <img src={formData.logo} className="w-full h-full object-contain p-2" alt="" /> : <ImageIcon className="text-zinc-700" size={32} />}
                       </div>
                       <div className="flex-1 w-full space-y-4">
                         <div>
