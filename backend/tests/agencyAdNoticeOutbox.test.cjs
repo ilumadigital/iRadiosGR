@@ -20,7 +20,7 @@ const notice=(kind,recipient=admin1)=>makeNotice({kind,source,recipient,
 function fakeQueue(rows=[]){
  const data=rows.map(x=>({...x})),mail=[],clock=()=>500000;
  return {
-  data,mail,clock,
+  data,mail,clock,now:clock,
   claim:async()=>{
    const row=data.find(x=>(x.status==='pending'&&x.nextAttemptAt<=clock())||
     (x.status==='sending'&&x.leaseUntil<=clock()));
