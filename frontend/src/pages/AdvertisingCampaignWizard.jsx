@@ -43,8 +43,7 @@ const stages=[
  {title:'Visual / Audio',desc:'Δημιουργικά',icon:ImageIcon},
  {title:'Budget',desc:'Επένδυση',icon:Wallet},
  {title:'Overview',desc:'Έλεγχος & εκτίμηση',icon:BarChart3},
- {title:'Πληρωμή',desc:'Nexi Sandbox',icon:CreditCard},
- {title:'Έγκριση',desc:'Υποβολή στον Admin',icon:ShieldCheck}
+ {title:'Πληρωμή',desc:'Αυτόματη αποστολή στον Admin',icon:CreditCard}
 ];
 function Status({status}){
  const dict={draft:['Προσχέδιο','border-zinc-500/25 bg-zinc-500/10 text-zinc-300'],
@@ -197,9 +196,9 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
    startsAt:toLocal(new Date(data.campaign.startsAt)),
    endsAt:toLocal(new Date(data.campaign.endsAt))});
   setBudget(String(Number(data.campaign.plannedBudgetCents||10000)/100));
-  if(data.campaign.approvalStatus!=='draft')setStep(admin?4:5);
+  if(data.campaign.approvalStatus!=='draft')setStep(4);
   else if(admin)setStep(data.campaign.plannedBudgetCents>0?3:data.creatives.banners.length+data.creatives.audios.length>0?2:1);
-  else if(data.finance.fundedMicros>=data.campaign.plannedBudgetCents*10000&&data.campaign.plannedBudgetCents>0)setStep(5);
+  else if(data.finance.fundedMicros>=data.campaign.plannedBudgetCents*10000&&data.campaign.plannedBudgetCents>0)setStep(4);
   else if((data.intents||[]).some(intent=>['creating','redirect','unknown'].includes(intent.status)))setStep(4);
   else setStep(data.campaign.plannedBudgetCents>0?3:data.creatives.banners.length+data.creatives.audios.length>0?2:1);
   return data;
@@ -216,9 +215,9 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  },[loadList,loadDetails,requestedId,admin]);
  // The Nexi return is navigation only. While a Gateway intent is unresolved,
  // refresh its original signed request-key lookup and local funding ledger.
- // Never create a second checkout, infer paid from the redirect, or submit early.
+ // Never create a second checkout or infer paid from the redirect; the verified webhook submits automatically.
  useEffect(()=>{
-  if(admin||loading||!campaignId||!paymentPending||confirmed)return undefined;
+  if(admin||loading||!campaignId||(!paymentPending&&!(confirmed&&current?.approvalStatus==='draft')))return undefined;
   let active=true,inFlight=false;
   const refresh=async()=>{
    if(inFlight||document.visibilityState==='hidden')return;
@@ -237,14 +236,14 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
     setDetail(latest);setQuote(latest.quote||null);
     if(latest.finance.fundedMicros>=latest.campaign.plannedBudgetCents*10000&&
        latest.campaign.plannedBudgetCents>0){
-     setStep(5);setNotice('Η πληρωμή επιβεβαιώθηκε από το υπογεγραμμένο Gateway webhook.');
+     setStep(4);setNotice(latest.campaign.approvalStatus==='draft'?'Η πληρωμή επιβεβαιώθηκε. Η αυτόματη υποβολή ολοκληρώνεται.':'Η καμπάνια στάλθηκε αυτόματα στον Admin.');
     }
    }catch{/* Retry only read-only status; do not unlock a payment on network error. */}
    finally{inFlight=false;}
   };
   const timer=window.setInterval(refresh,6000);
   return ()=>{active=false;window.clearInterval(timer);};
- },[admin,loading,campaignId,paymentPending,confirmed,base]);
+ },[admin,loading,campaignId,paymentPending,confirmed,current?.approvalStatus,base]);
  const selectCampaign=async id=>{
   setError('');setNotice('');setCreativeDraft(null);
   if(!id){setCampaignId('');setDetail(null);setDraft(initialCampaign());setStep(0);setQuote(null);
@@ -314,7 +313,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
   const updated=await loadDetails(campaignId);
   if(updated.finance.fundedMicros>=updated.campaign.plannedBudgetCents*10000&&
     updated.campaign.plannedBudgetCents>0){
-   setStep(5);setNotice('Η πληρωμή επιβεβαιώθηκε μέσω υπογεγραμμένου webhook.');
+   setStep(4);setNotice(updated.campaign.approvalStatus==='draft'?'Η πληρωμή επιβεβαιώθηκε. Η υποβολή γίνεται αυτόματα.':'Η καμπάνια στάλθηκε αυτόματα στον Admin.');
   }else{
    const intent=(updated.intents||[]).find(row=>['redirect','unknown','creating'].includes(row.status));
    if(intent){
@@ -325,11 +324,10 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
   }
  });};
  const submit=()=>{void work(async()=>{
-  if(!admin&&!confirmed)throw Error('Απαιτείται επιβεβαιωμένη πληρωμή πριν από την έγκριση.');
+  if(!admin)throw Error('Η υποβολή στον Admin γίνεται αυτόματα μετά τη Nexi πληρωμή.');
   const result=await request(base+'/campaigns/'+campaignId+'/submit',{method:'POST'});
-  await loadDetails(campaignId);setStep(admin?4:5);await loadList();
-  setNotice(admin?'Η Admin καμπάνια αποθηκεύτηκε χωρίς πληρωμή.':'Η πληρωμένη καμπάνια υποβλήθηκε στον Admin για έγκριση.');
-  if(result?.note)setNotice(result.note);
+  await loadDetails(campaignId);setStep(4);await loadList();
+  setNotice(result?.note||'Η Admin καμπάνια δημοσιεύτηκε χωρίς πληρωμή.');
  });};
  const topStep=(index)=>{
   if(!current)return;
@@ -481,13 +479,13 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
 
    {!admin&&step===4&&<section className={panel+' space-y-6'}>
     <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">05 · Nexi Sandbox Payment</p><h3 className="mt-2 text-2xl font-black">Ολοκλήρωση πληρωμής.</h3>
-     <p className="mt-2 text-sm leading-6 text-zinc-400">Μόνο το υπογεγραμμένο webhook της Nexi πιστώνει το budget. Η επιστροφή στην εφαρμογή δεν σημαίνει εξόφληση.</p></div>
+     <p className="mt-2 text-sm leading-6 text-zinc-400">Μόνο το υπογεγραμμένο webhook της Nexi πιστώνει το budget. Μετά την επαλήθευση, η καμπάνια υποβάλλεται αυτόματα στον Admin για έγκριση, χωρίς επιπλέον κουμπί.</p></div>
     <div className="grid gap-3 sm:grid-cols-3">
      <Stat icon={Wallet} title="Budget" value={euro(totalBudget)} desc="Αρχικό budget"/>
      <Stat icon={CreditCard} title="Πληρωτέο quote" value={quote?euro(quote.paymentCents/100):'—'} desc={quote?'Quote v'+quote.priceVersion:'Αναμονή έκδοσης'}/>
      <Stat icon={BadgeCheck} title="Επιβεβαιωμένο" value={euro(Number(detail?.finance?.fundedMicros||0)/1e6)} desc="Μόνο από webhook"/>
     </div>
-    {confirmed?<div className="flex items-start gap-3 rounded-xl border border-emerald-400/25 bg-emerald-400/[.07] p-5 text-sm text-emerald-200"><CheckCircle2 className="shrink-0" size={20}/> Η πληρωμή επιβεβαιώθηκε. Μπορείς πλέον να υποβάλεις την καμπάνια για έγκριση.</div>:
+    {confirmed?<div className="flex items-start gap-3 rounded-xl border border-emerald-400/25 bg-emerald-400/[.07] p-5 text-sm text-emerald-200"><CheckCircle2 className="shrink-0" size={20}/> {current?.approvalStatus==='approved'?'Η πληρωμή επιβεβαιώθηκε και η καμπάνια εγκρίθηκε. Είναι επιλέξιμη για προβολή.':current?.approvalStatus==='pending'?'Η πληρωμή επιβεβαιώθηκε. Η καμπάνια βρίσκεται στον Admin προς έγκριση.':current?.approvalStatus==='rejected'?'Η καμπάνια απορρίφθηκε από τον Admin.':'Η πληρωμή επιβεβαιώθηκε. Η αυτόματη υποβολή ολοκληρώνεται.'}</div>:
      <div className="space-y-4">
       {!pricing?.sandboxCheckoutReady&&<p role="alert" className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-100">Το Advertising checkout δεν είναι ακόμη διαθέσιμο. Έλεγξε τον τιμοκατάλογο και τα υπάρχοντα credentials του ILUMA Gateway staging. Δεν υπάρχει εικονική πληρωμή.</p>}
       {quote&&<div className={card+' space-y-2 text-sm'}><p className="font-bold">Επίσημο quote · έκδοση {quote.priceVersion}</p><p className="text-zinc-400">Budget: {euro(quote.budgetCents/100)} · ΦΠΑ: {euro(quote.taxCents/100)}</p>
@@ -500,31 +498,32 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
         <button className={secondary} disabled={busy} onClick={makeQuote}>Ανανέωση ληγμένου quote</button>}
        <button className={secondary} disabled={busy} onClick={checkPayment}><RefreshCw size={16}/> Έλεγχος επιβεβαίωσης</button></div>
      </div>}
-    <div className="flex flex-wrap justify-between gap-3"><button className={secondary} onClick={()=>setStep(3)}><ArrowLeft size={17}/> Overview</button>
-     <button className={primary} disabled={!confirmed} onClick={()=>setStep(5)}>Τελική υποβολή <ArrowRight size={17}/></button></div>
+    <div className="flex flex-wrap justify-between gap-3">
+     <button className={secondary} onClick={()=>selectCampaign('')}><ArrowLeft size={17}/> Οι καμπάνιες μου</button>
+     {!confirmed&&<button className={secondary} onClick={()=>setStep(3)}><ArrowLeft size={17}/> Overview</button>}
+    </div>
+    {confirmed&&current?.approvalStatus!=='draft'&&<AgencyCampaignTopUp campaign={current} pricing={pricing} onRefresh={()=>loadDetails(campaignId)}/>}
    </section>}
 
-   {step===(admin?4:5)&&<section className={panel+' space-y-6'}>
+   {admin&&step===4&&<section className={panel+' space-y-6'}>
     <div className="text-center"><div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-purple-500/15 text-purple-300"><ShieldCheck size={34}/></div>
-     <p className="mt-5 text-xs font-black uppercase tracking-widest text-purple-300">{admin?'05 · Admin publish':'06 · Admin approval'}</p>
-     <h3 className="mt-3 text-2xl font-black">{current?.approvalStatus==='draft'?(admin?'Έτοιμο για δημοσίευση.':'Έτοιμο για έγκριση Admin.'):'Η καμπάνια έχει υποβληθεί.'}</h3>
-     <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-zinc-400">{admin?'Η Admin καμπάνια παρακάμπτει αποκλειστικά την πληρωμή. Δεν δημιουργείται πλασματική χρηματοδότηση.':'Μετά την επαληθευμένη πληρωμή, η τελική υποβολή στέλνει την καμπάνια και τα δημιουργικά στον Admin για έλεγχο και απόφαση.'}</p></div>
+     <p className="mt-5 text-xs font-black uppercase tracking-widest text-purple-300">05 · Admin publish</p>
+     <h3 className="mt-3 text-2xl font-black">{current?.approvalStatus==='draft'?'Έτοιμο για δημοσίευση.':'Η καμπάνια δημοσιεύτηκε.'}</h3>
+     <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-zinc-400">Η Admin καμπάνια παρακάμπτει αποκλειστικά την πληρωμή. Δεν δημιουργείται πλασματική χρηματοδότηση.</p></div>
     <div className="grid gap-3 sm:grid-cols-3">
      <Stat title="Δημιουργικά" icon={ImageIcon} value={num(creativeCount)} desc="Visual & Audio"/>
-     <Stat title="Budget" icon={Wallet} value={euro(totalBudget)} desc={admin?'Χωρίς πληρωμή':confirmed?'Επιβεβαιωμένο':'Ανεπιβεβαίωτο'}/>
+     <Stat title="Budget" icon={Wallet} value={euro(totalBudget)} desc="Χωρίς πληρωμή"/>
      <Stat title="Κατάσταση" icon={FileCheck2} value={current?.approvalStatus==='draft'?'Draft':current?.approvalStatus==='pending'?'Review':'Completed'} desc="Campaign status"/>
     </div>
     {current?.approvalStatus==='draft'?<div className="flex flex-col items-center gap-3">
-     {!admin&&!confirmed&&<p role="alert" className="text-sm text-amber-200">Δεν μπορεί να υποβληθεί χωρίς επαληθευμένη πληρωμή.</p>}
-     <button className={primary} disabled={busy||!creativeCount||!current?.plannedBudgetCents||!admin&&!confirmed} onClick={submit}>
+     <button className={primary} disabled={busy||!creativeCount||!current?.plannedBudgetCents} onClick={submit}>
       {busy?<Loader2 size={17} className="animate-spin"/>:<ShieldCheck size={18}/>}
-      {admin?'Οριστική δημοσίευση χωρίς πληρωμή':'Αποστολή στον Admin για έγκριση'}</button>
+      Οριστική δημοσίευση χωρίς πληρωμή</button>
     </div>:<div className="space-y-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[.05] p-5 text-center">
      <CheckCircle2 size={30} className="mx-auto text-emerald-300"/><h4 className="font-black">{current?.approvalStatus==='pending'?'Αναμονή έγκρισης':'Η διαδικασία ολοκληρώθηκε.'}</h4>
      <p className="text-xs text-zinc-400">{current?.approvalStatus==='pending'?'Ο Admin εξετάζει την πληρωμένη καμπάνια και τα δημιουργικά.':'Η κατάσταση της καμπάνιας ενημερώθηκε.'}</p></div>}
-    {!admin&&confirmed&&current?.approvalStatus!=='draft'&&<AgencyCampaignTopUp campaign={current} pricing={pricing} onRefresh={()=>loadDetails(campaignId)}/>}
     <div className="flex flex-wrap justify-center gap-3"><button className={secondary} onClick={()=>selectCampaign('')}><ArrowLeft size={16}/> Οι καμπάνιες μου</button>
-     {!admin&&current?.approvalStatus==='draft'&&<button className={secondary} onClick={()=>setStep(4)}>Προηγούμενο βήμα</button>}</div>
+</div>
    </section>}
   </div>:null}
  </div>;
