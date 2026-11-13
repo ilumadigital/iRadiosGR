@@ -85,6 +85,8 @@ jobs:
         run: node --test backend/tests/advertisingCpmTransactional.test.cjs
       - name: Verify foreground viewability and atomic shadow quota compensation
         run: node --test frontend/src/utils/adViewability.test.js backend/tests/advertisingTicketReservation.test.cjs
+      - name: Test durable Agency per-recipient email outbox, retries, leases and restart safety
+        run: node --test backend/tests/agencyAdNoticeOutbox.test.cjs
       - name: Guard Agency revision approval under concurrent Admin decisions and crash recovery
         run: node --test backend/tests/agencyRevisionApproval.test.cjs
       - name: Test non-billable qualified visual/audio tickets, anti-fraud and pacing
