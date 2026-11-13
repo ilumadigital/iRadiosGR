@@ -16,6 +16,8 @@ export default function AdminAdvertisingV2({mode='pricing'}){
  const [pricing,setPricing]=useState(null),[campaigns,setCampaigns]=useState([]);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const [notice,setNotice]=useState('');
+ const [auditByCampaign,setAuditByCampaign]=useState({});
+ const [auditBusyId,setAuditBusyId]=useState(null);
  const reload=useCallback(async()=>{
   setLoading(true);setNotice('');
   try{
@@ -58,6 +60,15 @@ export default function AdminAdvertisingV2({mode='pricing'}){
    if(!r.ok)throw Error(answer.error||'Η αλλαγή δεν ολοκληρώθηκε.');
    setCampaigns(list=>list.map(c=>c._id===id?{...c,...answer}:c));
   }catch(e){setNotice(e.message);}finally{setBusy(false);}
+ };
+ const auditCampaign=async(id)=>{
+  setAuditBusyId(id);setNotice('');
+  try{
+   const r=await fetch('/api/admin/advertising/campaigns/'+id+'/reconciliation');
+   const data=await r.json();
+   if(!r.ok)throw Error(data.error||'Αδυναμία οικονομικού ελέγχου.');
+   setAuditByCampaign(current=>({...current,[id]:data}));
+  }catch(e){setNotice(e.message);}finally{setAuditBusyId(null);}
  };
  const suspend=async(c)=>{
   setBusy(true);setNotice('');
@@ -135,11 +146,30 @@ export default function AdminAdvertisingV2({mode='pricing'}){
      <span>{c.adminSuspended?'Αναστολή Admin':'Χωρίς αναστολή'}</span>
     </div>
     <div className="flex flex-wrap gap-2">
-     <button disabled={busy} className={primary} onClick={()=>decide(c._id,'approved')}>Έγκριση</button>
-     <button disabled={busy} className="rounded-xl border border-rose-400/40 px-4 py-2 text-sm text-rose-200" onClick={()=>decide(c._id,'rejected')}>Απόρριψη</button>
+     {c.approvalStatus==='pending'&&<>
+      <button disabled={busy} className={primary} onClick={()=>decide(c._id,'approved')}>Έγκριση</button>
+      <button disabled={busy} className="rounded-xl border border-rose-400/40 px-4 py-2 text-sm text-rose-200" onClick={()=>decide(c._id,'rejected')}>Απόρριψη</button>
+     </>}
      <button disabled={busy} className="rounded-xl border border-white/20 px-4 py-2 text-sm text-zinc-300" onClick={()=>suspend(c)}>
       {c.adminSuspended?'Άρση αναστολής':'Αναστολή καμπάνιας'}</button>
+     <button type="button" disabled={auditBusyId===c._id}
+      className="rounded-xl border border-purple-400/40 px-4 py-2 text-sm text-purple-200 disabled:opacity-50"
+      onClick={()=>auditCampaign(c._id)}>
+      {auditBusyId===c._id?'Έλεγχος…':'Οικονομικό audit'}</button>
     </div>
+    {auditByCampaign[c._id]&&<div role="status" className="rounded-xl border border-white/10 bg-black/25 p-4 text-sm text-zinc-200">
+     <p className="font-bold text-purple-100">
+      {auditByCampaign[c._id].safe?'Οι χρεώσεις συμφωνούν':'Απαιτείται οικονομικός έλεγχος'}
+     </p>
+     <p className="mt-1 text-zinc-400">Funding lots: {auditByCampaign[c._id].fundedLots}
+      {' · '}Χρεωμένα events: {auditByCampaign[c._id].charged}
+      {' · '}Εκκρεμή: {auditByCampaign[c._id].pending}</p>
+     {auditByCampaign[c._id].issues?.length>0&&
+      <div className="mt-2 max-h-32 overflow-auto text-xs text-rose-300">
+       {auditByCampaign[c._id].issues.slice(0,20).map((issue,i)=><p key={i}>{issue}</p>)}
+      </div>}
+     <p className="mt-2 text-xs text-zinc-500">Έλεγχος μόνο για ανάγνωση. Δεν αλλάζει budget ή πληρωμές.</p>
+    </div>}
    </section>)}
   </>}
  </div>;
