@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {LIMITS,sanitizeAdDesign}=require('../backend/services/adDesignRules');
+const {LIMITS,sanitizeAdDesign}=require('../services/adDesignRules');
 
 test('every wide placement has separate strictly enforced desktop/mobile bounds',()=>{
   for(const [placement,range] of Object.entries(LIMITS)){
