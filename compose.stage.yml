@@ -48,7 +48,9 @@ services:
       # Nexi sandbox calls are enabled by this flag.
       AD_STAGE_QA_APPROVAL_ENABLED: '1'
       AD_DELIVERY_BILLING_ENABLED: '0'
-      AD_PAYMENTS_SANDBOX_ENABLED: '0'
+      # AD_PAYMENTS_SANDBOX_ENABLED comes ONLY from the private staging
+      # backend.env (default absent/off), not a hard-coded Compose override.
+      # Do not opt in until the Gateway staging tenant is reviewed and migrated.
     depends_on:
       mongo: {condition: service_healthy}
       mailpit: {condition: service_started}
