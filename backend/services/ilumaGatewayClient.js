@@ -204,7 +204,23 @@ async function cancelBroadcasterRecurring(user,sku,stationId=null){
  return data;
 }
 
-module.exports={configured,checkout,paymentStatus,paymentByRequestKey,winbackStatus,signedRequest,
+// Staging-only one-off advertising checkout; existing Premium and Broadcaster SKUs
+// remain fixed price and use their untouched checkout paths.
+async function advertisingCheckout({user,requestKey,campaignId,quoteId,amountCents}){
+ if(!configured()||process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')throw unavailable();
+ if(!Number.isSafeInteger(amountCents)||amountCents<100||amountCents>100000000)
+  throw Error('Invalid advertising checkout amount');
+ const first=String(user.fname||'').trim(),last=String(user.lname||'').trim();
+ const response=await signedRequest('POST',GATEWAY_CHECKOUT_PATH,{
+  customer_id:'iradios-stage-'+String(user._id),product_sku:'ADV-BUDGET',
+  email:String(user.email||'').trim(),
+  name:([first,last].filter(Boolean).join(' ')||String(user.username||'Agency')).slice(0,250),
+  campaign_id:String(campaignId),quote_id:String(quoteId),amount_cents:amountCents,
+  currency:'EUR'
+ },requestKey);
+ return validateGatewayPayment(response,{expectedAmountCents:amountCents});
+}
+module.exports={advertisingCheckout,configured,checkout,paymentStatus,paymentByRequestKey,winbackStatus,signedRequest,
  savedCardStatus,revokeSavedCard,recurringStatus,cancelRecurring,cancelAllOnAccountDeletion,paymentHistory,
  broadcasterCheckout,broadcasterPaymentStatus,broadcasterPaymentByRequestKey,
  broadcasterRecurringStatus,cancelBroadcasterRecurring};
