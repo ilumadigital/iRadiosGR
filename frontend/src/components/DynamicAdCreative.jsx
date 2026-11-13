@@ -1,6 +1,7 @@
 import React from 'react';
 import {ArrowUpRight, Megaphone} from 'lucide-react';
 import AdPlacementLink from './AdPlacementLink';
+import {adDesignFor} from '../utils/adVisualDesign';
 import '../styles/dynamic-ad-creative.css';
 
 const validColor = value => /^#[0-9a-f]{6}$/i.test(String(value || ''));
@@ -12,13 +13,28 @@ const safeLabel = value => String(value || 'Μάθε περισσότερα').tr
  * The same card geometry is shared by genre, region and home catalog grids.
  */
 export default function DynamicAdCreative({
-  banner, variant='card', placement='radio_feed', slotKey='', className='', preview=false
+  banner, variant='card', placement='radio_feed', slotKey='', className='', preview=false, previewMobile=false
 }) {
   if (!banner || !banner.imageUrl) return null;
   const accent = validColor(banner.brandColor) ? banner.brandColor : '#a855f7';
   const image = (variant==='card'||variant==='list') ?
     (banner.squareImageUrl || banner.imageUrl) : banner.imageUrl;
-  const position = `${Math.min(100,Math.max(0,Number(banner.focalX ?? 50)))}% ${Math.min(100,Math.max(0,Number(banner.focalY ?? 50)))}%`;
+  const wide=['hero','strip','profile','news'].includes(variant);
+  const design=wide?adDesignFor(banner,variant):null;
+  const position=wide?`${design.imageX}% ${design.imageY}%`:
+    `${Math.min(100,Math.max(0,Number(banner.focalX ?? 50)))}% ${Math.min(100,Math.max(0,Number(banner.focalY ?? 50)))}%`;
+  const style={'--ir-ad-accent':accent};
+  if(design)Object.assign(style,{
+    '--ir-ad-desktop-height':design.desktopHeight+'px',
+    '--ir-ad-mobile-height':design.mobileHeight+'px',
+    '--ir-ad-visual-width':design.visualWidth+'%',
+    '--ir-ad-zoom':design.zoom,
+    '--ir-ad-opacity':design.overlay/100,
+    '--ir-ad-shade':design.overlayColor,
+    '--ir-ad-secondary':design.secondaryColor,
+    '--ir-ad-title-scale':design.titleScale/100,
+    '--ir-ad-glow-opacity':design.glowIntensity/100,
+  });
   const title = String(banner.title||'').trim();
   const description = String(banner.description||'').trim();
   const text = <>
@@ -27,7 +43,10 @@ export default function DynamicAdCreative({
     <span className="ir-dynamic-ad-title">{title}</span>
     {variant!=='card'&&<span className="ir-dynamic-ad-description">{description}</span>}
   </>;
-  const props = {banner,placement,slotKey,style:{'--ir-ad-accent':accent},className:`ir-dynamic-ad ir-dynamic-ad--${variant} ${className}`.trim()};
+  const modifiers=wide?
+    ` ir-dynamic-ad--layout-${design.layout} ir-dynamic-ad--effect-${design.effect} ir-dynamic-ad--align-${design.textAlign}${design.heightMode==='auto'?' ir-dynamic-ad--auto-height':''}${previewMobile?' ir-dynamic-ad--simulate-mobile':''}`: '';
+  const props={banner,placement,slotKey,style,
+    className:`ir-dynamic-ad ir-dynamic-ad--${variant}${modifiers} ${className}`.trim()};
   const Wrapper = preview ? 'div' : AdPlacementLink;
   const wrapperProps = preview ? {className:props.className,style:props.style} : props;
   if (variant==='card') return (
