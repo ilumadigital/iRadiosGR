@@ -518,7 +518,7 @@ function StationEditor({data,reload,notify,requestDelete}){
     setBusy(true);
     try{
       const payload=isNew?Object.fromEntries(['name','slug','slogan','description','genre','secondaryGenre','stream','metadata',
-        'transmissionType','country','region','prefecture','city'].map(k=>[k,form[k]])):
+        'transmissionType','frequency','country','region','prefecture','city'].map(k=>[k,form[k]])):
         Object.fromEntries(Object.entries(form).filter(([key])=>key!=='slug'||form.slug!==station.slug));
       const result=await api(isNew?'/stations':'/stations/'+station._id,
         {method:isNew?'POST':'PATCH',body:JSON.stringify(payload)});
