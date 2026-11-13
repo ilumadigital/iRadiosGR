@@ -220,6 +220,17 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
   campaign.approvedAt=approval==='approved'?new Date():null;
   campaign.rejectedReason=approval==='rejected'?reason:'';
   await campaign.save();
+  if(approval==='approved'){
+   const now=new Date();
+   const active=campaign.agencyEnabled&&!campaign.adminSuspended&&
+    campaign.startsAt<=now&&campaign.endsAt>now;
+   try{
+    await require('../services/advertisingCampaignMailScheduler').enqueue({
+     eventKey:'campaign-approved:'+String(campaign._id)+':'+campaign.approvedAt.toISOString(),
+     kind:active?'campaign_activated':'campaign_approved',campaign
+    });
+   }catch(error){console.warn('[AD MAIL] Activation message pending',error.message);}
+  }
   res.json(campaign);
  }catch(error){return errorResponse(res,error,500);}
 });
