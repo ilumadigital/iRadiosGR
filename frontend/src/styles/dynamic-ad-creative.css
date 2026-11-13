@@ -140,3 +140,35 @@
  .ir-dynamic-ad--effect-glow::after{background:none}
  .ir-dynamic-ad--effect-glass .ir-dynamic-ad-content{backdrop-filter:none;-webkit-backdrop-filter:none}
 }
+
+/* The second advertiser color is strictly scoped to banner surfaces. */
+.ir-dynamic-ad:is(.ir-dynamic-ad--hero,.ir-dynamic-ad--strip,.ir-dynamic-ad--profile,.ir-dynamic-ad--news){
+  background:var(--ir-ad-secondary,#25133d);
+}
+.ir-dynamic-ad--news{height:var(--ir-ad-desktop-height);min-height:0;max-height:360px}
+.ir-dynamic-ad--news.ir-dynamic-ad--auto-height{height:auto;min-height:var(--ir-ad-desktop-height)}
+.ir-dynamic-ad--news .ir-dynamic-ad-cover{transform:scale(var(--ir-ad-zoom,1));transform-origin:center}
+.ir-dynamic-ad--news:hover .ir-dynamic-ad-cover{transform:scale(calc(var(--ir-ad-zoom,1)*1.025))}
+.ir-dynamic-ad--news.ir-dynamic-ad--layout-image-left,
+.ir-dynamic-ad--news.ir-dynamic-ad--layout-image-right{flex-direction:row}
+.ir-dynamic-ad--news.ir-dynamic-ad--layout-image-left .ir-dynamic-ad-cover,
+.ir-dynamic-ad--news.ir-dynamic-ad--layout-image-right .ir-dynamic-ad-cover{
+  width:var(--ir-ad-visual-width,55%);height:100%;flex:0 0 var(--ir-ad-visual-width,55%);
+}
+.ir-dynamic-ad--news.ir-dynamic-ad--layout-image-right{flex-direction:row-reverse}
+.ir-dynamic-ad--news .ir-dynamic-ad-content{min-width:0;flex:1;max-width:100%}
+@media(max-width:620px){
+  .ir-dynamic-ad--news{height:var(--ir-ad-mobile-height);min-height:0;max-height:300px}
+  .ir-dynamic-ad--news.ir-dynamic-ad--auto-height{height:auto;min-height:var(--ir-ad-mobile-height)}
+  .ir-dynamic-ad--news.ir-dynamic-ad--layout-image-left,
+  .ir-dynamic-ad--news.ir-dynamic-ad--layout-image-right{flex-direction:column}
+  .ir-dynamic-ad--news.ir-dynamic-ad--layout-image-left .ir-dynamic-ad-cover,
+  .ir-dynamic-ad--news.ir-dynamic-ad--layout-image-right .ir-dynamic-ad-cover{
+    width:100%;height:42%;flex:0 0 42%;opacity:1
+  }
+}
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad--news{height:var(--ir-ad-mobile-height);max-height:300px}
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad--news.ir-dynamic-ad--auto-height{height:auto;min-height:var(--ir-ad-mobile-height)}
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad--news.ir-dynamic-ad--layout-image-left,
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad--news.ir-dynamic-ad--layout-image-right{flex-direction:column}
+.ir-dynamic-ad--simulate-mobile.ir-dynamic-ad--news .ir-dynamic-ad-cover{width:100%;height:42%;flex:0 0 42%;opacity:1}
