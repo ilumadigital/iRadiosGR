@@ -91,3 +91,70 @@ Source CI simulates 100 simultaneous duplicate requests, 80 competing independen
 **Important:** Exhaustion notifications are not connected to a live qualified settlement event or background scheduler yet, and therefore **are not automatically sent by these source changes**. Wire them only after authorized paid delivery, eligibility, pacing and qualification are complete. The current hard-disabled v2 delivery flag must remain false.
 
 Remaining blockers include real MongoDB replica-set E2E, true Nexi Sandbox paid/refund flows, trusted GEO source verification, real visual/audio billable qualification and fraud controls, pacing/rotation, Agency revision transaction safety, durable per-recipient approval emails, explicit tax/business approval, and approval before any manual deployment.
+
+
+## 2026-11-13: Qualified Delivery / Pacing SHADOW QA (not paid)
+
+SOURCE-ONLY; NOT DEPLOYED. The permanent safety gate
+ATOMIC_SETTLEMENT_IMPLEMENTED=false remains in
+backend/services/advertisingDeliveryEligibility.js. Public paid v2
+inventory remains closed. Gateway PR #17, Nexi, finance and servers untouched.
+
+### New non-billable implementation
+
+- advertisingQualifiedDelivery.js: HMAC-signed, 120-second capability tickets
+  bound to server-derived pseudonymous request fingerprint; sequential server
+  heartbeat-time checks, replay detection and impossible audio progress guards.
+- AdvertisingDeliveryTicket: short-lived Mongo state with compare-and-swap seq.
+  AdvertisingQualifiedEvent: durable, unique shadow-only audit (billable=false).
+  AdvertisingDeliveryCounter: atomic campaign quotas and frequency counters.
+- Visual: >=50% viewport, continuously >=1 second; Hero >=2 seconds.
+  Low ratios, hidden tabs and >2.5-second heartbeat gaps reset the clock.
+- Audio: duration measured server-side by ffprobe and vetted local media file.
+  Qualification needs continuous reported audible foreground playback of
+  90% of audio duration, capped at 30 seconds. This remains separate from the
+  UI skip rule (<=30 seconds cannot skip, longer spots skip after 30 seconds).
+- Anti-fraud: short capabilities, monotonically advancing heartbeat sequence,
+  audio progression bounded by server elapsed time, invalidation on stream
+  changes/errors. Privacy-aware IP/UA HMAC fingerprints are coarse, not identity.
+- Pacing: hourly cap based on historical CPM and currently verified balances;
+  additional five-minute cap and fair under-served/quota selection; per-fingerprint
+  limits of 60 shadow tickets/hour, three/campaign/hour and one/campaign/10 min.
+- advertisingShadowSettlementPreview.js: read-only historical-rate cost preview,
+  without charging, creating financial claims or invoking settlement adapters.
+
+### Strict operator QA route contract
+
+Routes require authenticated Admin and staging, and return 404 unless both
+server-only settings exist (OFF by default):
+
+AD_QUALIFICATION_SHADOW_ENABLED=1
+AD_QUALIFICATION_SHADOW_SECRET=private_random_secret_at_least_32_bytes
+
+Never commit the secret or expose it to browsers. Do not enable ordinary
+staging/production traffic on this basis.
+
+POST /api/admin/advertising/shadow/ticket
+  JSON kind=visual, placement=home (or kind=audio, placement=audio).
+POST /api/admin/advertising/shadow/heartbeat
+  JSON capability and report. Visual reports: seq, ratio, foreground.
+  Audio reports: seq, positionMs, foreground, playing, muted, volume,
+  error, streamChanged.
+GET /api/admin/advertising/shadow/events/:id/financial-preview
+  Read-only affordability estimate; cannot charge.
+
+### Remaining hard blockers
+
+These are client-reported signals bounded by the server clock, NOT proof of a
+real human impression or audible speaker output; a custom client can fake
+signals in real time. No public player/banner integration exists, and shadow
+events MUST NOT be recycled as payable financial events.
+
+Required before payment: real frontend QA, browser/proxy fraud analysis,
+independent human-traffic policy, geo proxy validation, multi-process MongoDB
+CAS/index/integration tests, approved creative updates under concurrency,
+real Mongo replica-set financial settlement/reconciliation, budget exhaustion
+outbox, Nexi Sandbox and Mailpit E2E, refund/tax approvals, and authorized
+deployment. No SSH deployment, merge, SQL migration or Gateway redeploy.
+
+CI test: node --test backend/tests/advertisingQualifiedDelivery.test.cjs
