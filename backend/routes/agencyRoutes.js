@@ -38,6 +38,17 @@ router.get('/:agencyId/audio-ads',async(req,res)=>{
   try{res.json(await Ad.find(q).sort({createdAt:-1}));}
   catch{return res.status(500).json({error:'Δεν φορτώθηκαν τα spots.'});}
 });
+// Preview remains authenticated and strictly scoped to the campaign owner.
+router.get('/audio-ads/:id/preview-audio',stageOnly,async(req,res)=>{
+  try {
+    const campaign=await Ad.findOne({_id:req.params.id,
+      ...(req.user.role==='admin'?{}:{agencyId:req.user._id})}).select('audioUrl');
+    if(!campaign)return res.status(404).json({error:'Not found'});
+    await require('../services/adAudioDelivery').sendAdAudio(res,campaign.audioUrl,{preview:true});
+  }catch(error){
+    if(!res.headersSent)res.status(404).json({error:'Preview unavailable'});
+  }
+});
 router.post('/banners',stageOnly,async(req,res)=>{
   try{
     const patch=fields(req.body,bannerFields);
