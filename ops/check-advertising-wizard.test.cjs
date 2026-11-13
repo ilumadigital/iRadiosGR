@@ -63,7 +63,7 @@ test('Admin free creation is separated from signed Nexi money and no fake credit
  const eligibility=read('backend/services/advertisingDeliveryEligibility.js');
  assert.match(eligibility,/process\.env\.APP_ENV!=='staging'/);
  assert.match(eligibility,/createdByRole:'admin',approvalStatus:'approved'/);
- assert.match(eligibility,/role:'admin'/);
+ assert.match(eligibility,/roles\.get\(String\(c\.agencyId\)\)==='admin'/);
  assert.match(eligibility,/if\(!ATOMIC_SETTLEMENT_IMPLEMENTED\)/);
  // Agency placement QA is explicitly opt-in, requires verified funding,
  // and MUST NOT enable paid CPM settlement or counterfeit receipts.
