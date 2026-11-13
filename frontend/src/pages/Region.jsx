@@ -60,7 +60,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
         .then(data => setActiveBanners((Array.isArray(data)?data:[]).filter(banner =>
           banner.status==='active'&&
           (!banner.expiresAt||new Date(banner.expiresAt)>new Date())&&
-          geoAllowsAd(banner.targetLocations,userLocation,checkGeoMatch))))
+          geoAllowsAd(banner.targetLocations,userLocation,checkGeoMatch,banner.serverGeoEligible===true))))
         .catch(err => console.error(err));
     } else {
       setActiveBanners([]);
