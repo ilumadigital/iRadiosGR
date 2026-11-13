@@ -270,13 +270,21 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
   // The pending -> final transition is atomic: competing Admin decisions
   // cannot overwrite a previous decision or produce a second mail event.
   const reviewedAt=new Date();
+  // Agency campaigns start serving on approval. If the old wizard placed
+  // their start tomorrow, preserve purchased duration by shifting both dates.
+  const startsImmediately=approval==='approved'&&
+   campaign.createdByRole==='agency'&&campaign.startsAt>reviewedAt;
+  const originalDuration=campaign.endsAt-campaign.startsAt;
   const updated=await Campaign.findOneAndUpdate({
    _id:campaign._id,approvalStatus:'pending',isStageCampaign:true,deletedAt:null
   },{$set:{
    approvalStatus:approval,
    approvedBy:approval==='approved'?req.user._id:null,
    approvedAt:approval==='approved'?reviewedAt:null,
-   rejectedReason:approval==='rejected'?reason:''
+   rejectedReason:approval==='rejected'?reason:'',
+   ...(startsImmediately&&originalDuration>0?{
+    startsAt:reviewedAt,endsAt:new Date(reviewedAt.getTime()+originalDuration)
+   }:{})
   }},{new:true,runValidators:true});
   if(!updated)return res.status(409).json({error:'Campaign has already been reviewed.'});
   try{
@@ -375,8 +383,8 @@ router.get('/admin/advertising/campaigns/:id/delivery-check',async(req,res)=>{
   if(!campaign.isStageCampaign)campaignIssues.push('Λείπει ο δείκτης staging καμπάνιας.');
   if(owner?.role!==campaign.createdByRole)
    campaignIssues.push('Ο ρόλος του ιδιοκτήτη δεν συμφωνεί με την καμπάνια.');
-  if(new Date(campaign.startsAt)>now)
-   campaignIssues.push('Η έναρξη είναι στο μέλλον: '+new Date(campaign.startsAt).toLocaleString('el-GR'));
+  if(campaign.createdByRole==='admin'&&new Date(campaign.startsAt)>now)
+   campaignIssues.push('Η έναρξη της Admin καμπάνιας είναι στο μέλλον.');
   if(new Date(campaign.endsAt)<=now)campaignIssues.push('Η ημερομηνία λήξης έχει παρέλθει.');
   if(campaign.createdByRole==='agency'){
    if(!paidPlacementPreviewEnabled())
@@ -412,45 +420,9 @@ router.get('/admin/advertising/campaigns/:id/delivery-check',async(req,res)=>{
    isNonBillablePreview:paidPlacementPreviewEnabled(),
    geoMode:req.adGeoTrusted?'signed_proxy':'staging_fixture',
    fundedLots:lots.length,deliverableCreatives:creatives.filter(row=>row.ready).length,
-   canStartNow:campaign.createdByRole==='agency'&&campaign.workflowVersion===2&&
-    campaign.approvalStatus==='approved'&&!campaign.deletedAt&&
-    !campaign.adminSuspended&&campaign.agencyEnabled&&lots.some(l=>
-      Number.isSafeInteger(l.remainingNanos)&&l.remainingNanos>0)&&
-    new Date(campaign.startsAt)>now&&new Date(campaign.endsAt)>new Date(campaign.startsAt),
    campaignIssues,creatives});
  }catch(error){return errorResponse(res,error,500);}
 });
-// Explicit Admin-only correction of a paid STAGING campaign scheduled for
-// later (the old wizard defaulted to tomorrow). Preserve original duration,
-// approval, verified ledger and all payment records without new charges.
-router.put('/admin/advertising/campaigns/:id/start-now',async(req,res)=>{
- if(!isAdmin(req)||!objectId(req.params.id))
-  return res.status(403).json({error:'Admin required'});
- if(!paidPlacementPreviewEnabled())
-  return res.status(409).json({error:'Only available in non-billable staging preview'});
- try{
-  const now=new Date();
-  const campaign=await Campaign.findOne({_id:req.params.id,
-   workflowVersion:2,createdByRole:'agency',isStageCampaign:true,
-   deletedAt:null,approvalStatus:'approved',agencyEnabled:true,adminSuspended:false});
-  if(!campaign)return res.status(409).json({error:'Only approved, active Agency staging campaigns can start now.'});
-  const previousStart=new Date(campaign.startsAt),previousEnd=new Date(campaign.endsAt);
-  const duration=previousEnd.getTime()-previousStart.getTime();
-  if(!(previousStart>now)||!(duration>0)||!Number.isSafeInteger(duration))
-   return res.status(409).json({error:'Campaign is already started or has invalid dates.'});
-  const funded=await FundingLot.exists({campaignId:campaign._id,source:'nexi_verified',
-   remainingNanos:{$gt:0}});
-  if(!funded)return res.status(409).json({error:'Verified available funding required'});
-  const updated=await Campaign.findOneAndUpdate({
-   _id:campaign._id,startsAt:campaign.startsAt,endsAt:campaign.endsAt,
-   approvalStatus:'approved',deletedAt:null,agencyEnabled:true,adminSuspended:false
-  },{$set:{startsAt:now,endsAt:new Date(now.getTime()+duration)}},
-  {new:true,runValidators:true});
-  if(!updated)return res.status(409).json({error:'Campaign schedule changed, reload'});
-  return res.json(updated);
- }catch(error){return errorResponse(res,error,500);}
-});
-
 // Read-only financial reconciliation for the Admin. This endpoint never
 // adjusts balances, creates credits, or starts payment recovery.
 router.get('/admin/advertising/campaigns/:id/reconciliation',async(req,res)=>{
