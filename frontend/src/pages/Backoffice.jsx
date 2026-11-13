@@ -117,7 +117,7 @@ async function fetchBroadcasterAddonRights(signal){
   }
   return rights;
 }
-function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false,unavailable=false,promoted=false}){
+function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false,unavailable=false,promoted=false,agency=false}){
   if(locked||checking||unavailable){
     const reason=checking?'Έλεγχος δικαιωμάτων…':unavailable
       ?'Δεν ήταν δυνατή η επιβεβαίωση των δικαιωμάτων.'
@@ -133,7 +133,7 @@ function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false
   }
   return <NavLink to={to} end={end} onClick={close} className={({isActive})=>
     'group flex min-h-[35px] items-center gap-2.5 rounded-xl border border-transparent px-3 py-[7px] text-[12px] font-semibold leading-5 transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#caff00] '+
-    (isActive?'border-[#caff00]/25 bg-[#caff00] text-[#111400] shadow-[0_5px_20px_rgba(202,255,0,.11)]':
+    (isActive?(agency?'border-purple-400/35 bg-purple-500 text-white shadow-[0_5px_20px_rgba(168,85,247,.16)]':'border-[#caff00]/25 bg-[#caff00] text-[#111400] shadow-[0_5px_20px_rgba(202,255,0,.11)]'):
       promoted?'border-[#caff00]/35 bg-[#caff00]/[.09] text-[#dfff7f] hover:bg-[#caff00]/[.15]':
       'text-zinc-400 hover:border-white/[.06] hover:bg-white/[.06] hover:text-white')
   }><Icon size={16} strokeWidth={2} className="shrink-0"/><span className="min-w-0 flex-1 truncate">{label}</span>
@@ -1711,7 +1711,7 @@ export default function Backoffice(){
                 {group.section}
               </p>}
             {open&&<div className="mt-0.5 space-y-0.5">{items.map(item=>
-              <NavItem key={item.to} {...item}
+              <NavItem key={item.to} {...item} agency={agency}
                 locked={Boolean(item.entitlement)&&addonStatus==='ready'&&!addonRights.has(item.entitlement)}
                 checking={Boolean(item.entitlement)&&addonStatus==='loading'}
                 unavailable={Boolean(item.entitlement)&&addonStatus==='error'}
@@ -1722,8 +1722,8 @@ export default function Backoffice(){
       </nav>
 
       <div className="mt-2 grid shrink-0 grid-cols-2 gap-1.5 border-t border-white/[.08] pt-2">
-        <a href="/" className="flex items-center justify-center gap-1.5 rounded-xl border border-white/[.06] px-2 py-2 text-[10px] font-semibold text-zinc-400 transition hover:bg-white/[.06] hover:text-white">
-          <ExternalLink size={14}/> iRadios App
+        <a href={agency?'/go-ads':'/'} className="flex items-center justify-center gap-1.5 rounded-xl border border-white/[.06] px-2 py-2 text-[10px] font-semibold text-zinc-400 transition hover:bg-white/[.06] hover:text-white">
+          <ExternalLink size={14}/> {agency?'Ad Network':'iRadios App'}
         </a>
         <button onClick={logout} className="flex items-center justify-center gap-1.5 rounded-xl border border-white/[.06] px-2 py-2 text-[10px] font-semibold text-zinc-400 transition hover:border-rose-400/20 hover:bg-rose-500/10 hover:text-rose-300">
           <LogOut size={14}/> Αποσύνδεση
