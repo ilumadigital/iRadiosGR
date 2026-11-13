@@ -149,6 +149,11 @@ router.post('/advertising/quotes/:id/checkout',async(req,res)=>{
  if(process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')
   return res.status(503).json({error:'Advertising Nexi sandbox checkout is disabled.'});
  try{
+  // Disabling the current tax/checkout policy also blocks old unconsumed quotes.
+  // Their immutable price snapshots remain readable, but cannot charge Nexi.
+  const checkoutPolicy=await pricing();
+  if(!checkoutPolicy.enabled||checkoutPolicy.taxMode!=='budget_net_plus_vat')
+   return res.status(503).json({error:'Advertising checkout policy is disabled.'});
   const quote=await Quote.findOne({_id:req.params.id,agencyId:req.user._id,
    status:'quoted',isStageQuote:true,expiresAt:{$gt:new Date()}});
   if(!quote)return res.status(409).json({error:'Quote expired or already used'});
