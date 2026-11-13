@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import ShareStory from './ShareStory';
 import DesktopFullPlayer from './DesktopFullPlayer';
+import AdSkipControl from './AdSkipControl';
 import FoundWithAI from './FoundWithAI';
 import RdsCrossfade from './RdsCrossfade';
 import { SiApplemusic } from 'react-icons/si';
@@ -16,7 +17,8 @@ import {parseMusicMetadata,spotifySongLink,appleMusicSongLink} from '../utils/mu
 import { useAlert } from '../context/AlertContext';
 
 export default function Footer({ 
-  currentStation, isPlayingAd, currentAdInfo, adTimeRemaining, adWarning, 
+  currentStation, isPlayingAd, currentAdInfo, adTimeRemaining, adWarning,
+  adSkipCountdown, onSkipAd, 
   isPlaying, isBuffering, nowPlaying, nowPlayingInfo, volume, setVolume, togglePlayPause, 
   toggleFavorite, isFavorite, handleNextStation, handlePrevStation,
   currentUser, userOverrides, onUserDSPChange,
@@ -166,6 +168,7 @@ export default function Footer({
           adWarning={adWarning}
           currentAdInfo={currentAdInfo}
           adTimeRemaining={adTimeRemaining}
+          adSkipCountdown={adSkipCountdown} onSkipAd={onSkipAd}
           nowPlaying={nowPlaying}
           nowPlayingInfo={nowPlayingInfo}
           globalCoverArt={globalCoverArt}
@@ -281,6 +284,7 @@ export default function Footer({
             </button>
 
             <button onClick={handleNextStation} disabled={isPlayingAd || adWarning} className="text-zinc-400 hover:text-white transition-all active:scale-95 disabled:opacity-20"><SkipForward size={22} fill="currentColor" /></button>
+            <AdSkipControl isPlayingAd={isPlayingAd} secondsUntilSkip={adSkipCountdown} onSkip={onSkipAd} compact/>
           </div>
 
           {currentStation && (
