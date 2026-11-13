@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useState} from 'react';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import AdvertisingCampaignWizard from './AdvertisingCampaignWizard';
+import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 
 const panel='rounded-2xl border border-white/10 bg-[#14131f] p-5';
 const input='mt-1 w-full rounded-xl border border-white/10 bg-[#08090d] p-3 text-white focus:border-purple-400 outline-none';
@@ -231,7 +232,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
       <div className="flex items-center justify-between gap-3"><p className="font-black text-white">{ad.title}</p><span className="text-xs text-purple-200">{ad.status}</span></div>
       <p className="mt-2 text-xs text-zinc-400">{ad.kind==='banner'?ad.placement?.join(', '):ad.frequency}</p>
       {ad.kind==='banner'&&ad.imageUrl&&<img src={ad.imageUrl} alt={ad.title} className="mt-3 h-32 w-full rounded-xl object-contain"/>}
-      {ad.kind==='audio'&&<p className="mt-3 text-xs text-zinc-400">Audio spot — έλεγξε τον ήχο από το Admin Audio Studio.</p>}
+      {ad.kind==='audio'&&<div className="mt-3"><ProtectedAudioPreview scope="admin" adId={ad._id} sourceUrl={ad.audioUrl}/></div>}
       {ad.status==='pending'&&<div className="mt-4 flex flex-wrap gap-2">
        <button type="button" className={primary} disabled={busy} onClick={()=>reviewCreative(ad.kind,ad._id,'approved')}>Έγκριση</button>
        <button type="button" className="rounded-xl border border-rose-400/40 px-4 py-2 text-sm font-bold text-rose-200" disabled={busy} onClick={()=>reviewCreative(ad.kind,ad._id,'rejected')}>Απόρριψη</button>
