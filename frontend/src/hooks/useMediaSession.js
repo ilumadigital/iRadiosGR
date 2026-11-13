@@ -1,5 +1,6 @@
 import {useEffect,useRef} from 'react';
 import {parseMusicMetadata} from '../utils/musicMetadata';
+import {stationMediaArtworkUrl} from '../utils/mediaArtwork';
 
 const FIVE_MINUTES=5*60*1000;
 const LOADING=/^(?:Βρίσκουμε το τραγούδι|Ακούμε τον σταθμό|Ψάχνουμε το τραγούδι|Λίγο ακόμη|Σχεδόν έτοιμο|ΠΑΙΖΕΙ ΤΩΡΑ)/i;
@@ -64,8 +65,10 @@ export default function useMediaSession({
     const fields=mediaFields(data);
     // Radio logos may be /uploads/... paths; Media Session artwork needs an absolute URL.
     // Prefer album art, then fall back to the station logo when media cannot be loaded.
+    const stationLogoSelected=!fields.image||fields.image===data.currentStation.logo;
+    const whiteBackedLogo=stationLogoSelected?stationMediaArtworkUrl(data.currentStation):null;
     let image=null;
-    for(const src of [fields.image,data.currentStation.logo]){
+    for(const src of [whiteBackedLogo||fields.image,data.currentStation.logo]){
       if(typeof src!=='string'||!src.trim())continue;
       try{
         const url=new URL(src,window.location.origin);
@@ -76,9 +79,11 @@ export default function useMediaSession({
     }
     const metadata={
       title:fields.title,artist:fields.artist,album:fields.album,
-      artwork:image?[96,128,256,512].map(size=>({
-        src:image,sizes:`${size}x${size}`,...(artworkType(image)?{type:artworkType(image)}:{})
-      })):[]
+      artwork:image?(stationLogoSelected&&image.endsWith('.jpg')&&image.includes('/api/media/station-logo/')
+        ?[{src:image,sizes:'512x512',type:'image/jpeg'}]
+        :[96,128,256,512].map(size=>({
+          src:image,sizes:`${size}x${size}`,...(artworkType(image)?{type:artworkType(image)}:{})
+        }))):[]
     };
     try{
       navigator.mediaSession.metadata=new window.MediaMetadata(metadata);
@@ -104,7 +109,7 @@ export default function useMediaSession({
     }else if('mediaSession' in navigator){
       navigator.mediaSession.playbackState=isPlaying?'playing':'paused';
     }
-  },[currentStation?._id,currentUser?._id,isPlaying,isPlayingAd,currentAdInfo?._id,
+  },[currentStation?._id,currentStation?.logo,currentUser?._id,isPlaying,isPlayingAd,currentAdInfo?._id,
     nowPlaying,nowPlayingInfo?.foundWithAI,nowPlayingInfo?.source,nowPlayingInfo?.broadcastHint,
     globalCoverArt,liveBroadcast?.imageUrl,liveBroadcast?.title,liveBroadcast?.artist,rdsShowProducer]);
   useEffect(()=>{
