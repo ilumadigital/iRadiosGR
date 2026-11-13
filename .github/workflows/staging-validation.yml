@@ -79,6 +79,8 @@ jobs:
         run: node --test backend/tests/agencyAdGeo.test.cjs backend/tests/agencyAdGeoMatch.test.cjs backend/tests/trustedAdGeo.test.cjs backend/tests/advertisingPricingRules.test.cjs
       - name: Verify exact CPM nanos and fail-closed advertising financial/legacy metrics guards
         run: node --test backend/tests/advertisingV2FinancialGuards.test.cjs
+      - name: Simulate concurrent atomic CPM claims, funded balance depletion and recovery
+        run: node --test backend/tests/advertisingCpmSettlement.test.cjs
       - name: Verify staging Ad Network, placement contracts and safe legacy campaign handling
         run: node --test ops/check-ad-network-staging.test.cjs
       - name: Verify 30s audible Skip Ad and bounded per-placement Visual Ad Studio
