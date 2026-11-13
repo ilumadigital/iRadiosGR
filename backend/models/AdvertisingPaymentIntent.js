@@ -5,6 +5,9 @@ const schema=new mongoose.Schema({
  campaignId:{type:mongoose.Schema.Types.ObjectId,ref:'AdvertisingCampaign',required:true,index:true},
  quoteId:{type:mongoose.Schema.Types.ObjectId,ref:'AdvertisingQuote',required:true,unique:true},
  requestKey:{type:String,required:true,unique:true},
+ // A sparse UNIQUE index serializes checkout attempts across different quotes.
+ // Keep the lock while the Gateway outcome is unknown; release only on signed terminal events.
+ activeLockKey:{type:String,unique:true,sparse:true},
  gatewayPaymentId:{type:String,unique:true,sparse:true},
  gatewayOrderId:{type:String,unique:true,sparse:true},
  amountCents:{type:Number,required:true},
