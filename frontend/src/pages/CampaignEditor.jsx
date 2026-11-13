@@ -36,7 +36,7 @@ const flatAreas = Object.entries(LOCATION_DATA).flatMap(([country,regions])=>
       [{value:country,country,region:'All',prefecture:'All'},
        {value:region,country,region,prefecture:'All'},
        {value:prefecture,country,region,prefecture},
-       ...cities.map(value=>({value,country,region,prefecture}))])));
+       // Advertising targets prefectures, never individual cities.])));
 function normalize(item) {
   const value=(item?.targetLocations||[])[0]||'All';
   const inferred=flatAreas.find(a=>a.value===value);
@@ -86,6 +86,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const [previewDevice,setPreviewDevice]=useState('desktop');
   const [autoColor,setAutoColor]=useState(true);
   const [imported,setImported]=useState(false);
+  const [pendingRevisions,setPendingRevisions]=useState([]);
   const change=(name,value)=>setForm(old=>({...old,[name]:value}));
   const variantByPlacement={hero:'hero',home:'strip',station_profile:'profile',news_feed:'news'};
   const setDesignerPlacement=value=>{
@@ -115,12 +116,35 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
     })();
     return ()=>{mounted=false;};
   },[id,kind,scope,currentUser?._id]);
+  useEffect(()=>{
+    if(scope!=='admin'||!id)return;
+    fetch('/api/admin/agency-ad-revisions',{headers:auth()})
+      .then(r=>r.ok?r.json():[]).then(rows=>{
+        setPendingRevisions(rows.filter(row=>row.status==='pending' &&
+          String(row.creativeId)===String(id) && row.creativeType===(banner?'banner':'audio')));
+      }).catch(()=>{});
+  },[scope,id,kind]);
+  const review=async(revision,decision)=>{
+    const reason=decision==='reject'?window.prompt('Αιτιολογία απόρριψης (υποχρεωτική):',''):'';
+    if(decision==='reject'&&!reason?.trim())return;
+    setBusy(true);setError('');
+    try{
+      const response=await fetch('/api/admin/agency-ad-revisions/'+revision._id+'/decision',{
+        method:'PUT',headers:{...auth(),'Content-Type':'application/json'},
+        body:JSON.stringify({decision,reason})
+      });
+      const result=await response.json();
+      if(!response.ok)throw Error(result.error||'Αποτυχία έγκρισης.');
+      setPendingRevisions(rows=>rows.filter(row=>row._id!==revision._id));
+      if(decision==='approve')setForm(old=>({...old,...revision.patch}));
+      refreshGlobalAds?.();
+    }catch(e){setError(e.message);}finally{setBusy(false);}
+  };
   const target=form.targetLocations?.[0]||'All';
   const geo=flatAreas.find(a=>a.value===target&&a.country===form.targetCountry&&a.region===form.targetRegion);
   const prefecture=geo?.prefecture||'All';
   const regions=form.targetCountry==='All'?{}:(LOCATION_DATA[form.targetCountry]||{});
   const prefectures=form.targetRegion==='All'?{}:(regions[form.targetRegion]||{});
-  const cities=prefecture==='All'?[]:(prefectures[prefecture]||[]);
   const selectCountry=value=>setForm(old=>({...old,targetCountry:value,targetRegion:'All',targetLocations:[value==='All'?'All':value]}));
   const selectRegion=value=>setForm(old=>({...old,targetRegion:value,targetLocations:[value==='All'?old.targetCountry:value]}));
   const selectPrefecture=value=>change('targetLocations',[value==='All'?form.targetRegion:value]);
@@ -138,7 +162,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
     }).catch(()=>{});
     return ()=>{live=false;};
   },[files.imageFile,autoColor]);
-  const editable=scope!=='agency'||!id||['pending','rejected'].includes(form.status);
+  const editable=true; // Active agency campaigns submit revisions; public version stays unchanged.
   const upload=async(file,endpoint,field)=>{
     const body=new FormData();body.append(field,file);
     const response=await fetch('/api/uploads/'+endpoint,{method:'POST',headers:auth(),body});
@@ -183,6 +207,19 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const setFile=(field,file)=>setFiles(old=>({...old,[field]:file}));
   return <div className="ad-console mx-auto w-full max-w-[1500px] space-y-6 pb-20">
     <Link to={path} className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-[#ccff00]"><ArrowLeft size={15}/> Επιστροφή στις καμπάνιες</Link>
+    {scope==='admin'&&pendingRevisions.map(revision=><section key={revision._id} className="rounded-2xl border border-amber-400/40 bg-amber-950/20 p-5 space-y-3">
+      <h2 className="text-lg font-black text-amber-100">Αλλαγές Agency προς έγκριση</h2>
+      <p className="text-sm text-zinc-300">Οι αλλαγές δεν έχουν δημοσιευτεί. Έλεγξε τις τιμές πριν και μετά.</p>
+      <div className="grid gap-3">{Object.entries(revision.patch||{}).map(([key,value])=><div className="rounded-xl border border-white/10 bg-black/20 p-3" key={key}>
+        <div className="font-bold text-purple-200">{key}</div>
+        <div className="text-xs text-zinc-400 break-words">Πριν: {JSON.stringify(revision.before?.[key]??null)}</div>
+        <div className="text-xs text-white break-words">Μετά: {JSON.stringify(value)}</div>
+      </div>)}</div>
+      <div className="flex flex-wrap gap-3">
+        <button disabled={busy} type="button" onClick={()=>review(revision,'approve')} className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold text-white">Έγκριση αλλαγών</button>
+        <button disabled={busy} type="button" onClick={()=>review(revision,'reject')} className="rounded-xl border border-red-400/50 px-5 py-3 text-sm font-bold text-red-100">Απόρριψη με αιτιολογία</button>
+      </div>
+    </section>)}
     <header className="ad-console-hero flex flex-wrap items-center justify-between gap-4">
       <div><p className="text-xs font-black uppercase tracking-[.2em] text-purple-300">{scope==='admin'?'Admin Ad Studio':'Agency Ad Studio'}</p>
         <h1 className="mt-2 text-2xl font-black text-white sm:text-4xl">{id?'Επεξεργασία':'Νέα'} {banner?'διαφήμιση banner':'ηχητική διαφήμιση'}</h1>
@@ -253,9 +290,9 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
             <Field label="Χώρα"><select className={input} value={form.targetCountry} onChange={e=>selectCountry(e.target.value)}><option value="All">Όλες οι χώρες</option>{Object.keys(LOCATION_DATA).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
             <Field label="Περιφέρεια"><select className={input} value={form.targetRegion} disabled={form.targetCountry==='All'} onChange={e=>selectRegion(e.target.value)}><option value="All">Όλες οι περιφέρειες</option>{Object.keys(regions).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
             <Field label="Νομός"><select className={input} value={prefecture} disabled={form.targetRegion==='All'} onChange={e=>selectPrefecture(e.target.value)}><option value="All">Όλοι οι νομοί</option>{Object.keys(prefectures).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
-            <Field label="Πόλη"><select className={input} value={cities.includes(target)?target:'All'} disabled={prefecture==='All'} onChange={e=>change('targetLocations',[e.target.value==='All'?prefecture:e.target.value])}><option value="All">Όλες οι πόλεις</option>{cities.map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
+
           </div>
-          <p className="text-xs text-purple-200">Στόχευση: {form.targetLocations?.join(', ')||'All'}</p>
+          <p className="text-xs text-purple-200">Στόχευση έως επίπεδο νομού (όχι πόλης): {form.targetLocations?.join(', ')||'All'}</p>
           {scope==='admin'&&<div className="grid gap-3 sm:grid-cols-2">
             <Field label="Κατάσταση"><select className={input} value={form.status} onChange={e=>change('status',e.target.value)}><option value="active">Ενεργή</option><option value="pending">Προς έγκριση</option><option value="expired">Ανενεργή / έληξε</option><option value="rejected">Απορρίφθηκε</option></select></Field>
             <Field label="Διάρκεια"><select className={input} value={form.duration} onChange={e=>change('duration',e.target.value)}><option value="day">24 ώρες</option><option value="month">Μήνας</option><option value="year">Έτος</option></select></Field>
