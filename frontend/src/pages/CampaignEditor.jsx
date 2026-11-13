@@ -113,7 +113,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
         if(!response.ok)throw Error(data.error||'Δεν φορτώθηκε η καμπάνια.');
         const item=Array.isArray(data)?data.find(row=>String(row._id)===String(id)):null;
         if(!item)throw Error('Δεν βρέθηκε η καμπάνια ή δεν έχεις πρόσβαση.');
-        if(mounted){setForm(normalize(item));setImported(stage&&!item.isStageCreative);}
+        if(mounted){setForm(normalize(scope==='agency'&&item.pendingRevision?.patch?{...item,...item.pendingRevision.patch}:item));setImported(stage&&!item.isStageCreative);}
       }catch(e){if(mounted)setError(e.message);}
       finally{if(mounted)setLoading(false);}
     })();

@@ -14,6 +14,7 @@ router.post('/ads/:id/skipped', adController.logSkipped);
 
 router.get('/admin/ads', ...admin, adController.getAdminAds);
 router.get('/admin/ads/:id/preview-audio',...admin,adController.previewAudio);
+router.get('/admin/ads/:id/preview-pending-audio',...admin,adController.previewPendingAudio);
 router.get('/admin/local-ads', ...admin, adController.getAdminLocalAds);
 router.post('/admin/ads', ...admin, adController.createAdminAd);
 router.put('/admin/ads/:id', ...admin, adController.updateAd);

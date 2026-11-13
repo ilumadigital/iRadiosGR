@@ -5,20 +5,20 @@ import {AlertTriangle,Headphones,Loader2} from 'lucide-react';
  * JWT stays in the fetch header (never in a public media URL).
  * Creating a blob only happens after a deliberate operator click.
  */
-export default function ProtectedAudioPreview({adId,scope='admin',sourceUrl='',className=''}) {
+export default function ProtectedAudioPreview({adId,scope='admin',sourceUrl='',className='',pending=false}) {
   const stage=typeof window!=='undefined'&&window.location.hostname==='stage.iradios.gr';
   const [resource,setResource]=useState(null);
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState('');
   useEffect(()=>()=>{if(resource)URL.revokeObjectURL(resource);},[resource]);
-  useEffect(()=>{setResource(null);setError('');},[adId,scope,sourceUrl]);
+  useEffect(()=>{setResource(null);setError('');},[adId,scope,sourceUrl,pending]);
   const handleLoad=async()=>{
     if(!adId||loading)return;
     setLoading(true);setError('');
     try {
       const endpoint=scope==='agency'
         ?'/api/agency/audio-ads/'+encodeURIComponent(adId)+'/preview-audio'
-        :'/api/admin/ads/'+encodeURIComponent(adId)+'/preview-audio';
+        :'/api/admin/ads/'+encodeURIComponent(adId)+(pending?'/preview-pending-audio':'/preview-audio');
       const response=await fetch(endpoint,{headers:{
         Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')
       }});

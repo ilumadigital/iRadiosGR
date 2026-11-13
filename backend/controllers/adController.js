@@ -64,6 +64,21 @@ exports.streamPublicAudio=async(req,res)=>{
   }
 };
 
+// Preview the proposed (not-yet-approved) audio asset with JWT, never public.
+exports.previewPendingAudio=async(req,res)=>{
+ if(!isStage()||!mongoose.isValidObjectId(req.params.id))
+  return res.status(404).json({error:'Not found'});
+ try{
+  const ad=await Ad.findById(req.params.id).select('pendingRevision');
+  const pendingUrl=ad?.pendingRevision?.patch?.audioUrl;
+  if(!pendingUrl)return res.status(404).json({error:'No pending audio revision'});
+  await sendAdAudio(res,pendingUrl,{preview:true});
+ }catch(error){
+  console.error('[ADS] Pending audio preview',error.message);
+  if(!res.headersSent)res.status(500).json({error:'Preview unavailable'});
+ }
+};
+
 // Authenticated staff preview never contributes to impression/play metrics;
 // imported campaigns can be inspected but missing local files fail with 404.
 exports.previewAudio=async(req,res)=>{
