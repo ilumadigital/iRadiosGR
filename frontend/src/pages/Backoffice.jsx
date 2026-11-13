@@ -1412,7 +1412,7 @@ function Operations({data,section,reload}){
   const views={
     analytics:<AdminDashboard {...common}/>,users:<AdminUsers {...common}/>,
     ads:<AdminAds {...common}/>,banners:<AdminBanners {...common}/>,
-    campaigns:<AdminAdvertisingV2 mode="campaigns"/>,
+    campaigns:<AdminAdvertisingV2 mode="campaigns" currentUser={data.user}/>,
     pricing:<AdminAdvertisingV2 mode="pricing"/>,
     slides:<AdminHomeSlides {...common}/>,newsfeed:<AdminNewsFeed {...common}/>,promoted:<AdminPromotedStations stations={data.stations}/>,
     emails:<AdminEmails {...common}/>,
