@@ -12,6 +12,10 @@ const schema=new mongoose.Schema({
  // Legacy micros are a rounded read-model and never authorize a debit.
  budgetNanos:{type:Number,min:0},
  remainingNanos:{type:Number,min:0},
+ // Legacy atomic embedded receipts remain the default. High-volume wallet
+ // debits use full MongoDB transactions only after staged replica-set UAT.
+ settlementMode:{type:String,enum:['embedded_receipts','mongo_transaction_v2'],
+  default:'embedded_receipts',required:true},
  settledEvents:{type:[new mongoose.Schema({
   eventId:{type:String,required:true},
   creativeId:{type:mongoose.Schema.Types.ObjectId,required:true},
@@ -26,4 +30,5 @@ const schema=new mongoose.Schema({
  paidAt:{type:Date,required:true}
 },{timestamps:true});
 schema.index({campaignId:1,paidAt:1,_id:1});
+schema.index({campaignId:1,settlementMode:1,paidAt:1,_id:1});
 module.exports=mongoose.model('AdvertisingFundingLot',schema);
