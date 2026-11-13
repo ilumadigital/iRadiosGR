@@ -1,12 +1,17 @@
 'use strict';
 const Event=require('../models/AdvertisingBillableEvent');
+const FundingLot=require('../models/AdvertisingFundingLot');
 const {store}=require('./advertisingSettlementStore');
 const {settleQualifiedEvent}=require('./advertisingSettlementCore');
+const {settleQualifiedEventTransactional}=require('./advertisingTransactionalSettlement');
 const {ensureAdvertisingFinancialIndexes}=require('./advertisingFinancialIndexes');
-// Run explicitly under a controlled staging maintenance task. NOT attached to
-// a public API, cron, or paid-delivery switch until qualifying events are
-// authenticated and Mongo staging recovery has passed an end-to-end trial.
-async function recoverPendingSettlements({limit=50,olderThanMs=30000}={}){
+// Manually invoked only; never wired to requests or cron. The selected
+// protocol is permanently determined by the original funding lot, so a
+// transaction receipt can NEVER be replayed as an embedded debit.
+async function recoverPendingSettlements({limit=50,olderThanMs=30000,manual=false}={}){
+ if(process.env.APP_ENV!=='staging'||manual!==true||
+    process.env.AD_CPM_RECOVERY_MANUAL_APPROVAL!=='CONFIRMED_DISPOSABLE_TESTS')
+  throw Error('Manual settlement recovery disabled until staging financial UAT');
  if(!Number.isSafeInteger(limit)||limit<1||limit>100||
     !Number.isSafeInteger(olderThanMs)||olderThanMs<1000)
   throw Error('Invalid settlement recovery range');
@@ -17,11 +22,18 @@ async function recoverPendingSettlements({limit=50,olderThanMs=30000}={}){
  const summary={examined:rows.length,charged:0,deferred:0,errors:0};
  for(const row of rows){
   try{
-   const result=await settleQualifiedEvent({
+   const lot=await FundingLot.findOne({
+    _id:row.fundingLotId,campaignId:row.campaignId
+   }).select('settlementMode').lean();
+   if(!lot)throw Error('Missing original funding lot');
+   const event={
     eventId:row._id,campaignId:String(row.campaignId),
     creativeId:String(row.creativeId),kind:row.kind,tier:row.tier,
     qualifiedAt:row.qualifiedAt
-   },store);
+   };
+   const result=lot.settlementMode==='mongo_transaction_v2'?
+    await settleQualifiedEventTransactional(event):
+    await settleQualifiedEvent(event,store);
    if(result.status==='charged')summary.charged++;
    else summary.deferred++;
   }catch(error){
