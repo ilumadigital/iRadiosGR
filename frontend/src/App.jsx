@@ -2145,6 +2145,8 @@ function MainApp() {
         <CarMode 
           station={currentStation}
           isPlaying={isPlaying}
+          isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo}
+          adSkipCountdown={adSkipCountdown} onSkipAd={skipCurrentAd}
           onPlayPause={togglePlayPause}
           onClose={() => setIsCarModeActive(false)}
           nowPlaying={nowPlaying}
