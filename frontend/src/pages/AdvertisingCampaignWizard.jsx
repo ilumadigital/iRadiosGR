@@ -22,9 +22,11 @@ const num=value=>new Intl.NumberFormat('el-GR',{maximumFractionDigits:0}).format
 const toLocal=millis=>{
  const d=new Date(millis);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
 };
+// A newly purchased and approved campaign should be eligible TODAY by
+// default. Advertisers can still explicitly schedule a future start.
 const initialCampaign=()=>({title:'',brand:'',description:'',country:'Ελλάδα',region:'All',
- prefecture:'Ελλάδα',startsAt:toLocal(Date.now()+86400000),
- endsAt:toLocal(Date.now()+11*86400000)});
+ prefecture:'Ελλάδα',startsAt:toLocal(Date.now()),
+ endsAt:toLocal(Date.now()+10*86400000)});
 const initialCreative=kind=>({kind,title:'',description:'',imageUrl:'',squareImageUrl:'',
  logoUrl:'',targetUrl:'',linkUrl:'',audioUrl:'',brandColor:'#a855f7',
  ctaLabel:'Μάθε περισσότερα',focalX:50,focalY:50,placement:['home'],
