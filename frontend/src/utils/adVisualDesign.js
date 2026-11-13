@@ -26,7 +26,7 @@ export function adDesignFor(banner,placement){
   const limits=AD_DESIGN_LIMITS[id]||AD_DESIGN_LIMITS.home;
   const pixel=(value,range,fallback)=>Number.isFinite(Number(value))?
     clamp(Math.round(Number(value)),range[0],range[1]):fallback;
-  const color=value=>/^#[0-9a-f]{6}$/i.test(String(value||''))?value:base.overlayColor;
+  const color=(value,fallback)=>/^#[0-9a-f]{6}$/i.test(String(value||''))?value:fallback;
   const allowed=(value,values,fallback)=>values.includes(value)?value:fallback;
   return {...base,
     heightMode:allowed(settings.heightMode,['auto','custom'],'auto'),
@@ -39,8 +39,8 @@ export function adDesignFor(banner,placement){
     zoom:clamp(Number(settings.zoom)||1,1,1.6),
     overlay:pixel(settings.overlay,[20,95],base.overlay),
     effect:allowed(settings.effect,['clean','soft','glow','vignette','glass'],'clean'),
-    overlayColor:color(settings.overlayColor),
-    secondaryColor:color(settings.secondaryColor),
+    overlayColor:color(settings.overlayColor,base.overlayColor),
+    secondaryColor:color(settings.secondaryColor,base.secondaryColor),
     textAlign:allowed(settings.textAlign,['left','center','right'],'left'),
     titleScale:pixel(settings.titleScale,[85,120],100),
     glowIntensity:pixel(settings.glowIntensity,[0,70],30)
