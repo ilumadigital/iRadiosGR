@@ -263,6 +263,31 @@ router.put('/admin/advertising/campaigns/:id/suspend',async(req,res)=>{
  if(!changed)return res.status(404).json({error:'Campaign not found'});
  res.json(changed);
 });
+// Read-only financial reconciliation for the Admin. This endpoint never
+// adjusts balances, creates credits, or starts payment recovery.
+router.get('/admin/advertising/campaigns/:id/reconciliation',async(req,res)=>{
+ if(!isAdmin(req)||!objectId(req.params.id))
+  return res.status(403).json({error:'Admin required'});
+ try{
+  const campaign=await Campaign.exists({_id:req.params.id,
+   isStageCampaign:true,deletedAt:null});
+  if(!campaign)return res.status(404).json({error:'Campaign not found'});
+  const Event=require('../models/AdvertisingBillableEvent');
+  const [lotCount,eventCount]=await Promise.all([
+   FundingLot.countDocuments({campaignId:req.params.id}),
+   Event.countDocuments({campaignId:req.params.id})
+  ]);
+  // An incomplete audit must never be presented as fully reconciled.
+  if(lotCount>100||eventCount>50000)
+   return res.status(409).json({error:'Audit exceeds safe staging bounds'});
+  const [lots,events]=await Promise.all([
+   FundingLot.find({campaignId:req.params.id}).lean(),
+   Event.find({campaignId:req.params.id}).lean()
+  ]);
+  const {auditFundingSet}=require('../services/advertisingFinancialAudit');
+  return res.json({campaignId:req.params.id,...auditFundingSet(lots,events)});
+ }catch(error){return errorResponse(res,error,500);}
+});
 router.get('/advertising/campaigns/:id/finance',async(req,res)=>{
  if(!isAgency(req)&&!isAdmin(req))return res.status(403).json({error:'Forbidden'});
  if(!objectId(req.params.id))return res.status(400).json({error:'Invalid campaign'});
