@@ -14,7 +14,7 @@ test('one audio skip policy and timer controls every player variant',()=>{
   assert.match(app,/logAdOutcome\('completed',ad\)/);
   assert.match(app,/logAdOutcome\('skipped',ad\)/);
   assert.match(app,/onSkipAd=\{skipCurrentAd\}/);
-  for(const p of ['Footer','MobileMiniPlayer','DesktopFullPlayer']){
+  for(const p of ['Footer','MobileMiniPlayer','DesktopFullPlayer','CarMode']){
     const component=read('frontend/src/components/'+p+'.jsx');
     assert.match(component,/AdSkipControl/);
     assert.match(component,/adSkipCountdown/);
