@@ -377,7 +377,7 @@ export default function MyRadios({ API_URL, currentUser }) {
                         </span>
                       )}
                     </div>
-                    <img src={s.logo} alt="" className="absolute -bottom-4 left-6 w-20 h-20 rounded-2xl object-cover border-4 border-zinc-900 shadow-2xl transition-transform group-hover:scale-105 z-10 bg-white" />
+                    <img src={s.logo} alt="" className="absolute -bottom-4 left-6 w-20 h-20 rounded-2xl object-contain p-1 border-4 border-zinc-900 shadow-2xl transition-transform group-hover:scale-105 z-10 bg-white" />
                   </div>
 
                   <div className="px-6 pt-8 pb-6 flex-1 flex flex-col bg-zinc-950/50">
@@ -423,13 +423,13 @@ export default function MyRadios({ API_URL, currentUser }) {
                   <div className="flex flex-col md:flex-row items-start gap-8">
                     
                     {/* Logo Preview Area */}
-                    <div className="w-28 h-28 rounded-3xl bg-zinc-800 flex items-center justify-center overflow-hidden border border-white/10 shrink-0 relative">
+                    <div className="w-28 h-28 rounded-3xl bg-white flex items-center justify-center overflow-hidden border border-white/10 shrink-0 relative">
                       {selectedFile ? (
-                         <img src={URL.createObjectURL(selectedFile)} className="w-full h-full object-cover" alt="Preview" />
+                         <img src={URL.createObjectURL(selectedFile)} className="w-full h-full object-contain p-2" alt="Preview" />
                       ) : formData.logo ? (
                         <img 
                           src={formData.logo} 
-                          className={`w-full h-full object-cover transition-all ${!isLogoValid ? 'opacity-20 grayscale' : ''}`} 
+                          className={`w-full h-full object-contain p-2 transition-all ${!isLogoValid ? 'opacity-20 grayscale' : ''}`} 
                           alt="Logo Preview" 
                           onLoad={() => setIsLogoValid(true)}
                           onError={() => setIsLogoValid(false)}
