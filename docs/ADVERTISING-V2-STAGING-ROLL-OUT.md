@@ -73,3 +73,21 @@ A qualified event permanently claims exactly one funding lot and its historical 
 - Refunds, adjustment journal, financial reversals, exact-once notification sends, budget-exhaustion email lifecycle and signed Nexi Sandbox E2E remain to be implemented and verified.
 
 **Non-negotiable:** No paid rollout, checkout switch, financial migrations, merging or SSH/Hostinger deployments based solely on CI success. Review the financial policy, immutable receipt capacity, verified qualification and true Mongo recovery first.
+
+## Scalable CPM settlement v2 — replica-set transaction prototype
+
+A **separate, unwired** `advertisingTransactionalSettlement` adapter now supports `settlementMode: mongo_transaction_v2`. It writes the remaining funding-lot balance and the immutable `AdvertisingBillableEvent.status=charged` receipt **inside the same MongoDB snapshot/majority transaction**. Unlike the earlier embedded-receipt prototype, it does not append to a 6,000-event array and therefore avoids that receipt capacity limit. The charged event is the ledger receipt; retries and ambiguous commit responses read the original unique event marker, never issue a separate standalone debit.
+
+**Do not use transaction mode on standalone MongoDB:** it requires an actual replica set with majority writes and verified transaction retry semantics. The currently signed Gateway funding path still explicitly creates `embedded_receipts` lots; an operator may not flip modes by environment flag or mutate an already-used lot. A controlled payment/mode migration and new-funding cutover require financial review. Legacy embedded receipt and new transactional paths are mutually exclusive, including manual recovery. A staging-only, explicit-approval manual recovery guard remains in place.
+
+Source CI simulates 100 simultaneous duplicate requests, 80 competing independent charges, unknown commit results and transaction rollback. There is also a **manual-only** replica-set test: `backend/tests/advertisingCpmMongoTransactionalDisposable.cjs`. It rejects non-disposable DB names and requires both `APP_ENV=staging` and `AD_CPM_DISPOSABLE_APPROVAL=I_CONFIRMED_TEST_ONLY_DATABASE`. The older embedded-receipt integration harness now requires the same protection. Run both only with an independently checked, dedicated test database and least-privilege test credentials, never against the actual staging app database. **Neither database harness was executed in this development session.**
+
+## Budget exhaustion and Agency finance visibility
+
+`advertisingBudgetAffordability` evaluates actual **nano-EUR** funded balances against each funding lot's **historical CPM** and the currently active Visual (standard/hero) and Audio placements. It does not merge two insufficient lots into a fictional billable impression, report a 6,000-receipt technical capacity block as an exhausted wallet, or trust old micros-only lots for charge decisions. The Agency `/finance` response and budget/top-up UI now distinguish: funded, exhausted, below the next-event price, no approved creatives, not funded, technical capacity blocked and needs financial review.
+
+`advertisingBudgetExhaustionNotifier` prepares the already-branded Mailpit `budget_exhausted` email and deduplicates per **verified funding generation**; a new signed top-up produces a new generation. It refuses to notify on unknown, invalid or mixed-source balances. The outbox now tolerates racing unique-key upserts.
+
+**Important:** Exhaustion notifications are not connected to a live qualified settlement event or background scheduler yet, and therefore **are not automatically sent by these source changes**. Wire them only after authorized paid delivery, eligibility, pacing and qualification are complete. The current hard-disabled v2 delivery flag must remain false.
+
+Remaining blockers include real MongoDB replica-set E2E, true Nexi Sandbox paid/refund flows, trusted GEO source verification, real visual/audio billable qualification and fraud controls, pacing/rotation, Agency revision transaction safety, durable per-recipient approval emails, explicit tax/business approval, and approval before any manual deployment.
