@@ -42,10 +42,29 @@ async function handleVerifiedAdvertisingEvent(event,res){
  const [quote,campaign]=await Promise.all([
   Quote.findOne({_id:intent.quoteId,agencyId:accountId,campaignId:intent.campaignId,
    paymentCents:event.amount_cents,currency:'EUR'}),
-  Campaign.findOne({_id:intent.campaignId,agencyId:accountId,isStageCampaign:true,
-   deletedAt:null})
+  Campaign.findOne({_id:intent.campaignId,agencyId:accountId,isStageCampaign:true})
  ]);
  if(!quote||!campaign)return res.status(409).json({error:'Quote/owner mismatch'});
+ if(campaign.deletedAt){
+  // A deleted campaign never accepts NEW money. An already reconciled paid
+  // event may be replayed by the durable Gateway outbox after archival;
+  // acknowledge only an existing, fully matching immutable funding lot.
+  if(event.event_type==='payment.paid'&&intent.status==='paid'){
+   const lot=await FundingLot.findOne({gatewayPaymentId:event.payment_id});
+   if(lot&&String(lot.agencyId)===String(accountId)&&
+      String(lot.campaignId)===String(campaign._id)&&
+      String(lot.quoteId)===String(quote._id)&&
+      lot.gatewayOrderId===event.order_id&&
+      lot.budgetMicros===budgetMicros(quote.budgetCents)&&
+      lot.priceVersion===quote.priceVersion)
+    return res.json({received:true,credited:false,duplicate:true,archived:true});
+  }
+  // Signed repeat terminal failure/cancel also needs an idempotent ACK.
+  if(['failed','canceled'].includes(intent.status)&&
+     event.event_type==='payment.'+intent.status)
+   return res.json({received:true,credited:false,duplicate:true,archived:true});
+  return res.status(409).json({error:'Campaign archived; financial reconciliation required'});
+ }
  if(event.event_type!=='payment.paid'){
   if(intent.status==='paid')return res.json({received:true,paid:true,ignored:true});
   const next=event.event_type.split('.')[1];
