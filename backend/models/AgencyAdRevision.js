@@ -14,4 +14,6 @@ const revisionSchema = new mongoose.Schema({
   notificationState: {type:String,enum:['pending','sent','failed'],default:'pending'}
 },{timestamps:true});
 revisionSchema.index({creativeType:1,creativeId:1,status:1});
+revisionSchema.index({creativeType:1,creativeId:1},{unique:true,
+  partialFilterExpression:{status:'pending'}});
 module.exports = mongoose.model('AgencyAdRevision',revisionSchema);
