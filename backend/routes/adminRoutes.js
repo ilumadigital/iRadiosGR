@@ -30,6 +30,35 @@ router.get('/admin/agency-ad-revisions',...admin,async(req,res)=>{
     res.json(revisions);
   }catch{return res.status(500).json({error:'Δεν φορτώθηκαν οι αλλαγές.'});}
 });
+// A revision remains pending throughout the creative write. If an Admin
+// request crashes, retrying the SAME approval safely recovers its marker.
+const {reviewAgencyRevision}=require('../services/agencyRevisionApprovalCore');
+const modelForRevision=revision=>revision.creativeType==='banner'?BannerAd:Ad;
+const revisionDecisionStore={
+ getRevision:id=>AgencyAdRevision.findById(id).lean(),
+ getCreative:revision=>modelForRevision(revision).findOne({
+  _id:revision.creativeId,agencyId:revision.agencyId,isStageCreative:true
+ }).lean(),
+ claimApproval:(revision,reviewer)=>AgencyAdRevision.findOneAndUpdate({
+  _id:revision._id,status:'pending',processing:{$ne:true}
+ },{$set:{processing:true,processingDecision:'approve',
+  processingBy:reviewer,processingStartedAt:new Date()}},
+ {new:true,runValidators:true}).lean(),
+ applyApproval:revision=>modelForRevision(revision).findOneAndUpdate({
+  _id:revision.creativeId,agencyId:revision.agencyId,
+  isStageCreative:true,updatedAt:revision.baseUpdatedAt||{$exists:false},
+  lastApprovedRevisionId:{$ne:revision._id}
+ },{$set:{...revision.patch,lastApprovedRevisionId:revision._id}},
+ {new:true,runValidators:true}).lean(),
+ finalizeApproval:(revision,reviewer)=>AgencyAdRevision.findOneAndUpdate({
+  _id:revision._id,status:'pending',processing:true,processingDecision:'approve'
+ },{$set:{status:'approved',processing:false,reviewedBy:revision.processingBy||reviewer,
+  reviewedAt:new Date(),rejectionReason:''}},{new:true,runValidators:true}).lean(),
+ reject:(revision,reviewer,reason)=>AgencyAdRevision.findOneAndUpdate({
+  _id:revision._id,status:'pending',processing:{$ne:true}
+ },{$set:{status:'rejected',reviewedBy:reviewer,reviewedAt:new Date(),
+  rejectionReason:reason}},{new:true,runValidators:true}).lean()
+};
 router.put('/admin/agency-ad-revisions/:id/decision',...admin,async(req,res)=>{
   const decision=req.body?.decision;
   const rejectionReason=String(req.body?.reason||'').trim().slice(0,1000);
@@ -37,42 +66,36 @@ router.put('/admin/agency-ad-revisions/:id/decision',...admin,async(req,res)=>{
     return res.status(400).json({error:'Invalid decision'});
   if(decision==='reject'&&!rejectionReason)
     return res.status(400).json({error:'Απαιτείται αιτιολογία απόρριψης.'});
+  const mongoose=require('mongoose');
+  if(!mongoose.isValidObjectId(req.params.id))
+    return res.status(400).json({error:'Invalid revision ID'});
   try{
-    const revision=await AgencyAdRevision.findOne({_id:req.params.id,status:'pending'});
-    if(!revision)return res.status(409).json({error:'Η αλλαγή έχει ήδη εξεταστεί ή δεν υπάρχει.'});
-    const Model=revision.creativeType==='banner'?BannerAd:Ad;
-    const creative=await Model.findOne({_id:revision.creativeId,agencyId:revision.agencyId,
-      isStageCreative:true});
-    if(!creative)return res.status(404).json({error:'Η καμπάνια δεν υπάρχει.'});
-    // Guard against stale approvals after admin-side creative modification.
-    for(const [key,previous] of Object.entries(revision.before||{})){
-      if(JSON.stringify(creative.get(key)??null)!==JSON.stringify(previous??null))
-        return res.status(409).json({error:'Η καμπάνια άλλαξε μετά την υποβολή. Απαιτείται νέα υποβολή.'});
+    const outcome=await reviewAgencyRevision({
+      revisionId:req.params.id,decision,reviewerId:req.user._id,
+      reason:rejectionReason
+    },revisionDecisionStore);
+    if(outcome.state==='not_found')return res.status(404).json({
+      error:'Το δημιουργικό δεν υπάρχει πλέον.'});
+    if(outcome.state==='needs_manual_review')return res.status(409).json({
+      error:'Η εφαρμογή αλλαγών χρειάζεται χειροκίνητο έλεγχο. '+
+       'Μην υποβάλεις δεύτερη αναθεώρηση.',
+      recoveryRequired:true,reason:outcome.code});
+    if(outcome.state==='conflict')return res.status(409).json({
+      error:'Η έκδοση άλλαξε, έχει εγκριθεί ή εξετάζεται ήδη.',
+      reason:outcome.code});
+    let notified=false;
+    if(outcome.notify){
+      const agency=await User.findById(outcome.revision.agencyId).select('email').lean();
+      notified=await mailAgency({agency,creative:outcome.creative,
+        approved:outcome.state==='approved',reason:rejectionReason})
+       .catch(()=>false);
     }
-    const status=decision==='approve'?'approved':'rejected';
-    const claimed=await AgencyAdRevision.findOneAndUpdate({_id:revision._id,status:'pending'},
-      {$set:{status,reviewedBy:req.user._id,reviewedAt:new Date(),
-        rejectionReason:decision==='reject'?rejectionReason:''}},{new:true});
-    if(!claimed)return res.status(409).json({error:'Η αλλαγή εξετάστηκε ήδη.'});
-    try{
-      if(decision==='approve'){
-        const updated=await Model.findOneAndUpdate({_id:creative._id,agencyId:revision.agencyId,
-          updatedAt:revision.baseUpdatedAt||{$exists:false}},
-          {$set:revision.patch},{new:true,runValidators:true});
-        if(!updated)throw Error('Creative no longer exists');
-      }
-    }catch(error){
-      await AgencyAdRevision.updateOne({_id:revision._id,status},{$set:{status:'pending',
-        reviewedBy:null,reviewedAt:null,rejectionReason:''}});
-      throw error;
-    }
-    const agency=await User.findById(revision.agencyId).select('email').lean();
-    const notified=await mailAgency({agency,creative,approved:decision==='approve',reason:rejectionReason})
-      .catch(()=>false);
-    res.json({success:true,status,agencyNotified:notified});
+    return res.json({success:true,status:outcome.state,
+      duplicate:Boolean(outcome.duplicate),agencyNotified:notified});
   }catch(error){
     console.error('[ADMIN] Agency revision decision failed',error.message);
-    res.status(500).json({error:'Αποτυχία ελέγχου αλλαγών.'});
+    return res.status(500).json({error:'Αποτυχία ελέγχου αλλαγών. '+
+     'Αν έγινε claim, επανάλαβε την ίδια απόφαση για ασφαλή ανάκτηση.'});
   }
 });
 
