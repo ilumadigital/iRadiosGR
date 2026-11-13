@@ -5,6 +5,7 @@ const Quote=require('../models/AdvertisingQuote');
 const Intent=require('../models/AdvertisingPaymentIntent');
 const FundingLot=require('../models/AdvertisingFundingLot');
 const {budgetMicros}=require('./advertisingPricingRules');
+const {ensureAdvertisingFinancialIndexes}=require('./advertisingFinancialIndexes');
 const PAYMENT=/^[a-f0-9]{32}$/;
 const ORDER=/^IL[A-F0-9]{24}$/;
 const USER=/^iradios-stage-[a-f0-9]{24}$/;
@@ -25,7 +26,7 @@ function validAdvertisingEvent(e,headerEventId,now=new Date()){
  return Number.isFinite(at)&&at>Date.UTC(2020,0,1)&&at<=now.getTime()+300000;
 }
 async function handleVerifiedAdvertisingEvent(event,res){
- await Promise.all([Intent.init(),FundingLot.init()]);
+ await ensureAdvertisingFinancialIndexes();
  const accountId=event.external_user_id.slice('iradios-stage-'.length);
  const intent=await Intent.findOne({
    agencyId:accountId,campaignId:event.campaign_id,quoteId:event.quote_id,
