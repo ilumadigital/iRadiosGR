@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iradios-pwa-v2'; // Άλλαξα το v1 σε v2 για να καθαρίσει η παλιά cache των χρηστών
+const CACHE_NAME = 'iradios-pwa-v3-brand-safe'; // Άλλαξα το v1 σε v2 για να καθαρίσει η παλιά cache των χρηστών
 
 // Όταν εγκαθίσταται το PWA
 self.addEventListener('install', (event) => {
@@ -45,10 +45,16 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
+        // Cache only valid 200 image responses; never cache a 404 or SPA
+        // HTML fallback under an SVG URL (would permanently break branding).
+        const contentType = response.headers.get('content-type') || '';
+        const validSvg = !url.pathname.endsWith('.svg') || contentType.includes('image/svg+xml');
+        if (response.ok && validSvg) {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          }).catch(() => {});
+        }
         return response;
       })
       .catch(() => {

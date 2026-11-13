@@ -22,11 +22,11 @@ export default function Preloader() {
       <div className="ir-splash__content">
         <div className="ir-splash__symbol" aria-hidden="true">
           <span className="ir-splash__orbit" />
-          <img src="/icon-tr.svg" alt="" />
+          <img src="/icon-tr.svg?brand=20261113" alt="" />
         </div>
         <img
           className="ir-splash__brand"
-          src="/noicon-iradios-app-logo.svg"
+          src="/noicon-iradios-app-logo.svg?brand=20261113"
           alt="iRadios GR"
           fetchPriority="high"
         />
