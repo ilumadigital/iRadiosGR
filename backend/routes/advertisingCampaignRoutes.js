@@ -40,8 +40,12 @@ const errorResponse=(res,error,code=400)=>res.status(code).json({error:String(er
 // Pricing changes are versioned and never mutate a funded lot's CPM snapshot.
 router.get('/advertising/pricing',async(req,res)=>{
  if(!isAgency(req)&&!isAdmin(req))return res.status(403).json({error:'Forbidden'});
- try{return res.json(await pricing());}
- catch{return res.status(500).json({error:'Pricing unavailable'});}
+ try{
+  const row=await pricing();
+  return res.json({...row?.toObject?.()||row,
+   sandboxCheckoutReady:row.enabled===true&&row.taxMode==='budget_net_plus_vat'&&
+     process.env.AD_PAYMENTS_SANDBOX_ENABLED==='1'});
+ }catch{return res.status(500).json({error:'Pricing unavailable'});}
 });
 router.put('/admin/advertising/pricing',async(req,res)=>{
  if(!isAdmin(req))return res.status(403).json({error:'Admin required'});
@@ -64,8 +68,11 @@ router.put('/admin/advertising/pricing',async(req,res)=>{
     minTopupCents:previous.minTopupCents,durationDays:previous.durationDays,
     taxMode:previous.taxMode,taxBps:previous.taxBps,enabled:previous.enabled}
   };
+  // Never $set version and $inc version in the same MongoDB update.
+  // This was the source of 'Updating the path version would create a conflict'.
+  const {version:obsoleteVersion,...updatedFields}=next;
   const updated=await Pricing.findOneAndUpdate({_id:pricingId,version:previous.version},
-   {$set:{...next,changedBy:req.user._id},$inc:{version:1},$push:{history}},
+   {$set:{...updatedFields,changedBy:req.user._id},$inc:{version:1},$push:{history}},
    {new:true,runValidators:true});
   if(!updated)return res.status(409).json({error:'Concurrent pricing update'});
   return res.json(updated);
