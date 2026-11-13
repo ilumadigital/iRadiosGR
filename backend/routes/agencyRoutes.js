@@ -3,7 +3,6 @@ const express=require('express');
 const router=express.Router();
 const BannerAd=require('../models/BannerAd');
 const Ad=require('../models/Ad');
-const User=require('../models/User');
 const AgencyAdRevision=require('../models/AgencyAdRevision');
 // The partial unique pending index is a correctness requirement. Without it,
 // simultaneous Agency edits could both be queued before Admin approval.
@@ -16,7 +15,7 @@ function ensureAgencyRevisionIndexes(){
 const AdvertisingCampaign=require('../models/AdvertisingCampaign');
 const mongoose=require('mongoose');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
-const {mailAdmins}=require('../services/agencyAdNotifications');
+const noticeOutbox=require('../services/agencyAdNoticeOutbox');
 const {localAudioFile}=require('../services/adAudioDelivery');
 const {protect}=require('../utils/authMiddleware');
 const {isStage,fields}=require('../services/adDeliveryRules');
@@ -90,9 +89,10 @@ router.post('/banners',stageOnly,async(req,res)=>{
       !safeLink(patch.targetUrl))
       return res.status(400).json({error:'Επίλεξε έγκυρα placements και URL.'});
     const saved=await BannerAd.create({...patch,agencyId:req.user._id,
-      duration:'month',status:'pending',isActive:false,isStageCreative:true});
-    await notifySubmission('banner',saved,patch,req.user);
-    res.status(201).json(saved);
+      duration:'month',status:'pending',isActive:false,isStageCreative:true,
+      agencyDraftNoticeVersion:1});
+    const adminNotificationQueued=await safeNotice(()=>noticeOutbox.queueDraft('banner',saved));
+    res.status(201).json({...saved.toObject(),adminNotificationQueued});
   }catch(error){
     console.error('[AGENCY] Banner draft failed',error.message);
     res.status(400).json({error:'Δεν δημιουργήθηκε το δοκιμαστικό banner.'});
@@ -107,9 +107,9 @@ router.post('/audio-ads',stageOnly,async(req,res)=>{
       return res.status(400).json({error:'Μη έγκυρη συχνότητα spot.'});
     const saved=await Ad.create({...patch,frequency:patch.frequency||'entry',
       agencyId:req.user._id,duration:'month',status:'pending',
-      isGlobal:true,isStageCreative:true});
-    await notifySubmission('audio',saved,patch,req.user);
-    res.status(201).json(saved);
+      isGlobal:true,isStageCreative:true,agencyDraftNoticeVersion:1});
+    const adminNotificationQueued=await safeNotice(()=>noticeOutbox.queueDraft('audio',saved));
+    res.status(201).json({...saved.toObject(),adminNotificationQueued});
   }catch(error){
     console.error('[AGENCY] Audio draft failed',error.message);
     res.status(400).json({error:'Δεν δημιουργήθηκε το δοκιμαστικό spot.'});
@@ -117,18 +117,15 @@ router.post('/audio-ads',stageOnly,async(req,res)=>{
 });
 // Every agency edit is submitted as a separate immutable revision. Active
 // creative fields remain unchanged until the admin explicitly approves it.
-async function notifySubmission(kind,creative,patch,user,revision=null) {
-  const agency=await User.findById(creative.agencyId).select('username email').lean();
-  const item=revision||{patch,before:{},agencyId:creative.agencyId};
-  try {
-    const ok=await mailAdmins({kind,creative,revision:item,agency});
-    if(revision)await AgencyAdRevision.updateOne({_id:revision._id},
-      {$set:{notificationState:ok?'sent':'failed'}});
-  }catch(error){
-    console.error('[AGENCY] Approval notification failed',error.message);
-    if(revision)await AgencyAdRevision.updateOne({_id:revision._id},
-      {$set:{notificationState:'failed'}}).catch(()=>{});
-  }
+async function safeNotice(task){
+ try{await task();return true;}
+ catch(error){
+  // The source has already committed in Mongo. The staging reconciliation
+  // worker reconstructs missing per-recipient notices after a restart.
+  console.warn('[AGENCY NOTICE] Saved source, mail queue pending:',
+   String(error.message||error).slice(0,160));
+  return false;
+ }
 }
 async function revise(req,res,kind) {
   try {
@@ -162,10 +159,11 @@ async function revise(req,res,kind) {
     await ensureAgencyRevisionIndexes();
     const revision=await AgencyAdRevision.create({
       agencyId:req.user._id,creativeId:creative._id,creativeType:kind,
-      patch,before,baseUpdatedAt:creative.updatedAt||null,submittedBy:req.user._id
+      patch,before,baseUpdatedAt:creative.updatedAt||null,submittedBy:req.user._id,
+      noticeVersion:1,creativeTitleAtSubmission:creative.title
     });
-    await notifySubmission(kind,creative,patch,req.user,revision);
-    return res.status(202).json({pendingApproval:true,revisionId:revision._id,
+    const adminNotificationQueued=await safeNotice(()=>noticeOutbox.queueRevision(revision));
+    return res.status(202).json({pendingApproval:true,revisionId:revision._id,adminNotificationQueued,
       message:'Οι αλλαγές υποβλήθηκαν προς έγκριση.',creative});
   }catch(error){
     console.error('[AGENCY] Revision failed',error.message);
@@ -180,4 +178,6 @@ router.get('/revisions/pending',stageOnly,async(req,res)=>{
     res.json(await AgencyAdRevision.find({...filter,status:'pending'}).sort({createdAt:-1}).lean());
   }catch{return res.status(500).json({error:'Δεν φορτώθηκαν οι αλλαγές.'});}
 });
+// Stage-only Mailpit worker; no production mail or financial effects.
+noticeOutbox.start();
 module.exports=router;
