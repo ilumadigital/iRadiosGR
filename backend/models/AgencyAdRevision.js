@@ -6,7 +6,7 @@ const revisionSchema = new mongoose.Schema({
   creativeId: {type:mongoose.Schema.Types.ObjectId,required:true,index:true},
   patch: {type:mongoose.Schema.Types.Mixed,required:true},
   before: {type:mongoose.Schema.Types.Mixed,default:{}},
-  baseUpdatedAt:{type:Date,required:true},
+  baseUpdatedAt:{type:Date,default:null},
   status: {type:String,enum:['pending','approved','rejected'],default:'pending',index:true},
   submittedBy: {type:mongoose.Schema.Types.ObjectId,ref:'User',required:true},
   reviewedBy: {type:mongoose.Schema.Types.ObjectId,ref:'User',default:null},
