@@ -22,17 +22,21 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
  const [auditBusyId,setAuditBusyId]=useState(null);
  const [mailRows,setMailRows]=useState(null),[mailLoading,setMailLoading]=useState(false);
  const [reviewId,setReviewId]=useState(null),[reviewCreatives,setReviewCreatives]=useState(null);
+ const [showDeleted,setShowDeleted]=useState(false);
+ const [deleteTarget,setDeleteTarget]=useState(null);
+ const [deleteTitle,setDeleteTitle]=useState(''),[deleteReason,setDeleteReason]=useState('');
+ const [deleteError,setDeleteError]=useState('');
  const reload=useCallback(async()=>{
   setLoading(true);setNotice('');
   try{
-   const endpoint=mode==='pricing'?'/api/advertising/pricing':'/api/advertising/campaigns';
+   const endpoint=mode==='pricing'?'/api/advertising/pricing':
+    '/api/advertising/campaigns'+(showDeleted?'?includeDeleted=1':'');
    const r=await fetch(endpoint);
    const data=await r.json();
    if(!r.ok)throw Error(data.error||'Αποτυχία φόρτωσης.');
-   if(mode==='pricing')setPricing(data);else setCampaigns(data.filter(c=>
-    c.workflowVersion!==2||c.createdByRole==='admin'||c.approvalStatus!=='draft'));
+   if(mode==='pricing')setPricing(data);else setCampaigns(data);
   }catch(e){setNotice(e.message);}finally{setLoading(false);}
- },[mode]);
+ },[mode,showDeleted]);
  useEffect(()=>{reload();},[reload]);
  const update=(key,v)=>setPricing(p=>({...p,[key]:v}));
  const updateRate=(key,v)=>setPricing(p=>({...p,cpmMicros:{
@@ -74,6 +78,26 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
    if(!r.ok)throw Error(data.error||'Αδυναμία οικονομικού ελέγχου.');
    setAuditByCampaign(current=>({...current,[id]:data}));
   }catch(e){setNotice(e.message);}finally{setAuditBusyId(null);}
+ };
+ const archiveCampaign=async()=>{
+  if(!deleteTarget||deleteTitle!==deleteTarget.title||deleteReason.trim().length<5)return;
+  setBusy(true);setNotice('');setDeleteError('');
+  try{
+   const response=await fetch('/api/admin/advertising/campaigns/'+deleteTarget._id,{
+    method:'DELETE',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({confirmTitle:deleteTitle,reason:deleteReason.trim()})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok)throw Error(result.error||'Η διαγραφή της καμπάνιας απέτυχε.');
+   setCampaigns(current=>current.filter(row=>row._id!==deleteTarget._id));
+   setAuditByCampaign(current=>{
+    const next={...current};delete next[deleteTarget._id];return next;
+   });
+   if(reviewId===deleteTarget._id){setReviewId(null);setReviewCreatives(null);}
+   setDeleteTarget(null);setDeleteTitle('');setDeleteReason('');
+   setNotice('Η καμπάνια αφαιρέθηκε από τις ενεργές λίστες. Τα οικονομικά παραστατικά και το audit διατηρήθηκαν. Δεν εκδόθηκε επιστροφή χρημάτων.');
+  }catch(e){setDeleteError(e.message);}
+  finally{setBusy(false);}
  };
  const suspend=async(c)=>{
   setBusy(true);setNotice('');
@@ -165,8 +189,14 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
   </>}
   {mode==='campaigns'&&<>
    <AdvertisingCampaignWizard role="admin" currentUser={currentUser}/>
-   <div className="mt-10 border-t border-white/10 pt-8"><h2 className="text-2xl font-black text-white">Έλεγχος πληρωμένων Agency καμπανιών</h2>
-   <p className="mt-2 text-sm text-zinc-400">Οι νέες καμπάνιες εμφανίζονται εδώ μόνο μετά από επιβεβαιωμένη πληρωμή και τελική υποβολή Agency.</p></div>
+   <div className="mt-10 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-8">
+    <div><h2 className="text-2xl font-black text-white">Διαχείριση όλων των καμπανιών</h2>
+     <p className="mt-2 text-sm text-zinc-400">Drafts, καμπάνιες προς έγκριση και εγκεκριμένες. Η διαγραφή γίνεται μόνο από Admin και διατηρεί το οικονομικό ιστορικό.</p></div>
+    <button type="button" aria-pressed={showDeleted} onClick={()=>setShowDeleted(v=>!v)}
+     className={'rounded-xl border px-4 py-2.5 text-sm font-bold transition '+(showDeleted?'border-purple-400 bg-purple-500/15 text-purple-100':'border-white/15 text-zinc-300 hover:border-purple-400/40')}>
+     {showDeleted?'Επιστροφή στις καμπάνιες':'Αρχείο διαγραμμένων'}
+    </button>
+   </div>
    <section className={panel+' space-y-3'}>
     <div className="flex flex-wrap items-center justify-between gap-3">
      <div>
@@ -198,30 +228,39 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
     </>}
    </section>
 
-   {!campaigns.length&&<div className={panel+' text-zinc-300'}>Δεν έχουν δημιουργηθεί unified campaigns.</div>}
+   {!campaigns.length&&<div className={panel+' text-zinc-300'}>{showDeleted?'Δεν υπάρχουν διαγραμμένες καμπάνιες.':'Δεν υπάρχουν καμπάνιες.'}</div>}
    {campaigns.map(c=><section className={panel+' space-y-3'} key={c._id}>
     <div className="flex flex-wrap justify-between gap-2">
      <div><h3 className="font-black text-white">{c.title}</h3>
       <p className="text-xs text-zinc-400">{c.brand} · {c.region} / {c.prefecture}</p></div>
-     <span className="text-sm text-purple-200">{c.approvalStatus}</span>
+     <span className="text-sm text-purple-200">{c.deletedAt?'Διαγραμμένη':c.approvalStatus}</span>
     </div>
     <div className="grid gap-3 sm:grid-cols-3 text-sm text-zinc-300">
      <span>Πληρωμένο budget: €{(c.budget.fundedMicros/1000000).toFixed(2)}</span>
      <span>Υπόλοιπο: €{(c.budget.remainingMicros/1000000).toFixed(2)}</span>
      <span>{c.adminSuspended?'Αναστολή Admin':'Χωρίς αναστολή'}</span>
     </div>
+    {c.deletedAt&&<p className="rounded-xl border border-rose-400/20 bg-rose-400/[.05] p-3 text-xs leading-6 text-zinc-300">
+     Διαγράφηκε στις {new Date(c.deletedAt).toLocaleString('el-GR')} · Αιτία: {c.deletionReason||'Δεν έχει οριστεί'}.
+     Το οικονομικό audit παραμένει διαθέσιμο και δεν έγινε αυτόματη επιστροφή χρημάτων.
+    </p>}
     <div className="flex flex-wrap gap-2">
-     {c.approvalStatus==='pending'&&<>
+     {!c.deletedAt&&c.approvalStatus==='pending'&&<>
       <button type="button" disabled={busy} className="rounded-xl border border-purple-400/40 bg-purple-500/10 px-4 py-2.5 text-sm font-bold text-purple-200" onClick={()=>loadReview(c._id)}>Έλεγχος δημιουργικών</button>
       <button disabled={busy} className={primary} onClick={()=>decide(c._id,'approved')}>Έγκριση</button>
       <button disabled={busy} className="rounded-xl border border-rose-400/40 px-4 py-2 text-sm text-rose-200" onClick={()=>decide(c._id,'rejected')}>Απόρριψη</button>
      </>}
-     <button disabled={busy} className="rounded-xl border border-white/20 px-4 py-2 text-sm text-zinc-300" onClick={()=>suspend(c)}>
-      {c.adminSuspended?'Άρση αναστολής':'Αναστολή καμπάνιας'}</button>
+     {!c.deletedAt&&<button disabled={busy} className="rounded-xl border border-white/20 px-4 py-2 text-sm text-zinc-300" onClick={()=>suspend(c)}>
+      {c.adminSuspended?'Άρση αναστολής':'Αναστολή καμπάνιας'}</button>}
      <button type="button" disabled={auditBusyId===c._id}
       className="rounded-xl border border-purple-400/40 px-4 py-2 text-sm text-purple-200 disabled:opacity-50"
       onClick={()=>auditCampaign(c._id)}>
       {auditBusyId===c._id?'Έλεγχος…':'Οικονομικό audit'}</button>
+     {!c.deletedAt&&<button type="button" disabled={busy} onClick={()=>{
+      setDeleteTarget(c);setDeleteTitle('');setDeleteReason('');setDeleteError('');
+     }} className="rounded-xl border border-rose-400/40 bg-rose-400/[.07] px-4 py-2 text-sm font-black text-rose-200 hover:bg-rose-400/15 disabled:opacity-40">
+      Διαγραφή καμπάνιας
+     </button>}
     </div>
     {reviewId===c._id&&<section className="space-y-3 rounded-2xl border border-purple-400/25 bg-purple-500/[.04] p-4">
      <h4 className="font-black text-white">Δημιουργικά προς έγκριση</h4>
@@ -254,5 +293,23 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
     </div>}
    </section>)}
   </>}
+  {mode==='campaigns'&&deleteTarget&&<div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 px-4 py-8 backdrop-blur-sm" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setDeleteTarget(null);}}>
+   <div role="dialog" aria-modal="true" aria-labelledby="delete-campaign-title" className="w-full max-w-xl space-y-5 rounded-[26px] border border-rose-400/30 bg-[#18141e] p-6 shadow-2xl sm:p-8">
+    <div><h3 id="delete-campaign-title" className="text-xl font-black text-white">Διαγραφή καμπάνιας</h3>
+     <p className="mt-3 text-sm leading-6 text-zinc-300">Η καμπάνια <strong className="text-white">{deleteTarget.title}</strong> και τα δημιουργικά της σταματούν να προβάλλονται και αφαιρούνται από τις ενεργές λίστες.</p>
+     <p className="mt-3 text-xs leading-6 text-amber-200">Οι πληρωμές, τα διαθέσιμα ποσά, οι χρεώσεις και το ιστορικό διατηρούνται για έλεγχο. Η διαγραφή ΔΕΝ κάνει αυτόματα refund. Αν εκκρεμεί πληρωμή, η ενέργεια θα απορριφθεί.</p>
+    </div>
+    <label className="block text-xs font-bold text-zinc-300">Γράψε τον τίτλο ακριβώς για επιβεβαίωση
+     <input autoFocus autoComplete="off" className={input+' w-full'} value={deleteTitle} onChange={e=>setDeleteTitle(e.target.value)} placeholder={deleteTarget.title}/></label>
+    <label className="block text-xs font-bold text-zinc-300">Αιτιολογία διαγραφής (τουλάχιστον 5 χαρακτήρες)
+     <textarea rows={3} maxLength={1000} className={input+' w-full'} value={deleteReason} onChange={e=>setDeleteReason(e.target.value)} placeholder="Γιατί διαγράφεται η καμπάνια;"/></label>
+    {deleteError&&<p role="alert" className="rounded-xl border border-rose-400/35 bg-rose-400/10 p-3 text-sm text-rose-200">{deleteError}</p>}
+    <div className="flex flex-wrap justify-end gap-3">
+     <button type="button" disabled={busy} onClick={()=>setDeleteTarget(null)} className="rounded-xl border border-white/15 px-5 py-3 text-sm font-bold text-zinc-300">Ακύρωση</button>
+     <button type="button" disabled={busy||deleteTitle!==deleteTarget.title||deleteReason.trim().length<5} onClick={archiveCampaign}
+      className="rounded-xl bg-rose-600 px-5 py-3 text-sm font-black text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-40">{busy?'Διαγραφή…':'Επιβεβαίωση διαγραφής'}</button>
+    </div>
+   </div>
+  </div>}
  </div>;
 }
