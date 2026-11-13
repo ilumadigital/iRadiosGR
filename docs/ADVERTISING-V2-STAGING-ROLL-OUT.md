@@ -321,13 +321,14 @@ Source-only regressions:
 node --test backend/tests/agencyAdNoticeOutbox.test.cjs
 node --test backend/tests/agencyRevisionApproval.test.cjs
 
-All source CI simulations use in-memory fake leases and deterministic clocks.
-Real multi-process Mongo concurrency, Mailpit E2E, user inbox and failure
-injection have NOT been performed in this session. No SSH deployment, SQL
-migration, Nexi checkout, Gateway change or Git merge.
+Source unit tests still use deterministic fake leases. A separate disposable
+GitHub Actions job now exercises actual MongoDB and Mailpit SMTP, including
+fault injection; see the CI evidence below. Browser/backoffice and real
+staging tenant/real-provider inbox UAT have NOT been performed. No SSH
+deployment, SQL migration, Nexi checkout, Gateway change or Git merge.
 
 
-### Guarded disposable MongoDB test harness (NOT executed)
+### Guarded disposable MongoDB test harness (CI-only execution verified)
 
 backend/tests/agencyAdNoticeMongoDisposable.cjs performs real MongoDB
 per-recipient index, 80 concurrent duplicate upserts, 70 competing claims,
@@ -340,9 +341,59 @@ It requires all of:
   ad_notice_disposable_<unique> database (never iradios_stage or Gateway DB)
 
 The harness only deletes its own random event keys; it never drops a
-collection/database or executes a financial mutation. Review the URI and
-credential scope before manual execution. This source test HAS NOT RUN.
+collection/database or executes a financial mutation. It has now run ONLY
+inside a GitHub-hosted disposable MongoDB service. Review the URI and
+credential scope before any manual execution; never point it at live
+staging or production data.
 
-A separate manual Mailpit SMTP/inbox exercise is still required because
-this harness intentionally never calls sendEmail or the real SMTP transport.
-Even after both exercises, the email protocol remains at-least-once.
+This harness intentionally never calls sendEmail. The NEW, separate
+backend/tests/agencyAdNoticeMailpitCI.cjs now exercises the application
+mailer through an isolated Mailpit SMTP service, but hands-on Backoffice
+approval and real staging tenant testing remain required. Even after CI,
+the email protocol remains at-least-once.
+
+
+### Evidence: real disposable MongoDB + Mailpit GitHub Actions, 2026-11-13
+
+Workflow: .github/workflows/agency-notice-integration.yml
+CI verification (current slice): GitHub Actions run #43471800091, PASSED.
+Validated head: 033fa3fc66c01e7d6cbbcbdce1a682ca06149690.
+
+This separate pull-request-only job uses the node:22-bookworm job container
+and isolated service containers mongo:7.0 and axllent/mailpit:v1.32.0.
+It has NO application/Gateway secrets and does not publish the database or
+SMTP service to the public network. Mailpit accepts only throwaway
+@example.invalid recipients. No production provider is configured.
+
+- The pre-existing Mongo disposable harness was exercised against only
+  ad_notice_disposable_ci_20261113: 80 duplicate concurrent recipient
+  upserts, two unique recipient records, 70 simultaneous claims and a
+  token-fenced expired-lease recovery. The database is ephemeral to the job.
+- The new Mailpit integration exercised the real Agency notice
+  persistence -> worker -> existing myMailer SMTP path. It verified 2
+  separate Admin approval-request emails, one final Agency approval email,
+  one final Agency rejection, branded HTML, escaped malicious fragments,
+  sender/recipient correctness and no repeated sends after rerunning the
+  recovery scan. The actual Mailpit REST inbox was inspected per message.
+- The chaos-enabled Mailpit server rejected additional messages with SMTP
+  code 451. The outbox persisted the per-recipient SMTP errors and backoff
+  without marking them sent. After restoring SMTP and advancing retry due
+  time ONLY in the disposable test database, the worker retried and both
+  messages were accepted exactly once in that controlled scenario.
+- CI also verifies the paid-delivery hard-disable. No qualified shadow event
+  was converted into a billable CPM event and no Gateway operation occurred.
+
+IMPORTANT: This is automated GitHub Actions integration, not a staging VPS
+deployment or evidence of deliverability to a real Gmail/Outlook inbox.
+Mailpit acceptance is not inbox placement. Deliberate transport ambiguity
+can still result in duplicate email in at-least-once systems. Browser UI
+and full authenticated HTTP approval UAT remain required before rollout.
+
+CI dependency note: the current backend package-lock.json predates
+the canvas dependency declared in package.json, so npm ci fails with a
+lockfile mismatch. The NEW isolated integration workflow uses a separate
+temporary test-only install of pinned mongoose 9.2.4 and nodemailer 8.0.1
+without modifying the application's production lockfile. Repair and
+review the backend dependency lockfile before any staging/production
+application deployment; passing this isolated CI job does NOT mean the
+backend lockfile is ready for a full clean install.
