@@ -42,6 +42,11 @@ test('all five placements are independent and geo uses any matched area',async()
   assert.equal(geoAllowsAd(['Θεσσαλονίκη','Αθήνα'],'Αθήνα',(a,b)=>a===b),true);
   assert.equal(geoAllowsAd(['Θεσσαλονίκη'],'Αθήνα',(a,b)=>a===b),false);
   assert.equal(geoAllowsAd(['All'],null,null),true);
+  // Only a backend-authorized stage campaign can opt out of browser-side
+  // geo re-filtering. Unmarked production/legacy data behaves as before.
+  assert.equal(geoAllowsAd(['Αττική'],null,null),false);
+  assert.equal(geoAllowsAd(['Αττική'],null,null,true),true);
+  assert.equal(geoAllowsAd(['Αττική'],null,null,false),false);
   const b={status:'active',placement:['hero','home'],targetLocations:['All']};
   assert.equal(bannerMatchesPlacement(b,'hero',null,null),true);
   assert.equal(bannerMatchesPlacement(b,'radio_feed',null,null),false);
