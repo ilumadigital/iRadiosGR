@@ -143,6 +143,8 @@ jobs:
         run: node --test ops/check-agency-backoffice.test.cjs
       - name: Verify six-step Advertising Wizard and verified-pay-before-approval
         run: node --test ops/check-advertising-wizard.test.cjs
+      - name: Test Admin campaign deletion, payment safety and archived audit
+        run: node --test backend/tests/advertisingAdminArchive.test.cjs
       - name: Verify public staging API access boundaries
         run: node ops/check-stage-public-access.cjs
       - name: Verify versioned broadcaster consent behavior
