@@ -187,9 +187,9 @@ export default function AdminRadioSet({ API_URL }) {
                 
                 <div>
                   <div className="flex justify-between items-start mb-4 relative z-10">
-                    <div className="w-12 h-12 rounded-xl bg-black border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-white border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
                       {station.logo ? (
-                        <img src={station.logo} alt={station.name} className="w-full h-full object-cover" />
+                        <img src={station.logo} alt={station.name} className="w-full h-full object-contain p-1" />
                       ) : (
                         <Radio className="text-zinc-600" size={20} />
                       )}
