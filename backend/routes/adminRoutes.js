@@ -57,7 +57,7 @@ router.put('/admin/agency-ad-revisions/:id/decision',...admin,async(req,res)=>{
     try{
       if(decision==='approve'){
         const updated=await Model.findOneAndUpdate({_id:creative._id,agencyId:revision.agencyId,
-          updatedAt:revision.baseUpdatedAt},
+          updatedAt:revision.baseUpdatedAt||{$exists:false}},
           {$set:revision.patch},{new:true,runValidators:true});
         if(!updated)throw Error('Creative no longer exists');
       }
