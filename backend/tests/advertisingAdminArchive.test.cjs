@@ -161,6 +161,10 @@ test('Financial documents are never physically deleted or implicitly refunded',(
  assert.match(deletion,/deletedAt:new Date\(\),deletedBy:req\.user\._id/);
  assert.match(routes,/router\.get\('\/admin\/advertising\/campaigns\/:id\/reconciliation'/);
  assert.match(source('backend/services/advertisingDeliveryEligibility.js'),/deletedAt:null/);
+ const webhook=source('backend/services/advertisingPaymentEvents.js');
+ assert.match(webhook,/if\(campaign\.deletedAt\)/);
+ assert.match(webhook,/credited:false,duplicate:true,archived:true/);
+ assert.match(webhook,/Campaign archived; financial reconciliation required/);
 });
 
 test('Archived campaign creatives are excluded from operational inventory',()=>{
