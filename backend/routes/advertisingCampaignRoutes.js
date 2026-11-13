@@ -144,6 +144,16 @@ router.post('/advertising/campaigns/:id/quotes',async(req,res)=>{
   if((kind==='topup'&&!funded)||(kind==='initial'&&funded))
    throw Error('Invalid initial purchase/top-up sequence');
   const current=await pricing();
+  if(campaign.workflowVersion===2&&kind==='initial'){
+   if(campaign.approvalStatus!=='draft'||
+      campaign.plannedBudgetCents!==req.body?.budgetCents)
+    return res.status(409).json({error:'Το budget στο quote πρέπει να συμφωνεί με το Overview.'});
+   const exists=await Promise.all([
+    BannerAd.exists({campaignId:campaign._id,isStageCreative:true,status:'draft'}),
+    Ad.exists({campaignId:campaign._id,isStageCreative:true,status:'draft'})
+   ]);
+   if(!exists.some(Boolean))return res.status(409).json({error:'Απαιτείται δημιουργικό πριν από την πληρωμή.'});
+  }
   const amounts=quotedAmounts(req.body?.budgetCents,current,kind);
   const quote=await Quote.create({
    agencyId:req.user._id,campaignId:campaign._id,...amounts,
@@ -171,6 +181,9 @@ router.post('/advertising/quotes/:id/checkout',async(req,res)=>{
   const campaign=await Campaign.findOne({_id:quote.campaignId,agencyId:req.user._id,
    isStageCampaign:true,deletedAt:null});
   if(!campaign)return res.status(404).json({error:'Campaign unavailable'});
+  if(campaign.workflowVersion===2&&quote.kind==='initial'&&
+     (campaign.approvalStatus!=='draft'||campaign.plannedBudgetCents!==quote.budgetCents))
+   return res.status(409).json({error:'Το quote δεν αντιστοιχεί πλέον στο draft.'});
   // No parallel unresolved HPP intents: an unknown provider outcome is never
   // cleared simply because the browser retries or starts a new quote.
   const unresolved=await Intent.findOne({campaignId:campaign._id,
@@ -229,7 +242,7 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
    const funded=await FundingLot.exists({campaignId:campaign._id,remainingMicros:{$gt:0}});
    // Optional staging QA: test Admin decisions/emails without Nexi funding.
    // No lot is fabricated and paid delivery remains completely disabled.
-   if(!funded&&!allowUnfundedReview())
+   if(!funded&&(campaign.workflowVersion===2||!allowUnfundedReview()))
     return res.status(409).json({error:'Verified funding required before approval'});
    const approvedCreative=await Promise.all([
     BannerAd.exists({campaignId:campaign._id,agencyId:campaign.agencyId,status:'active',
