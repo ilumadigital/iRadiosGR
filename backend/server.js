@@ -175,6 +175,7 @@ app.use('/api', require('./routes/newsFeedRoutes'));
 app.use('/api', require('./routes/promotedStationRoutes'));
 app.use('/api', require('./routes/catalogNowPlayingRoutes'));
 app.use('/api', require('./routes/stationPlaylistRoutes'));
+app.use('/api', require('./utils/trustedAdGeo').trustedAdGeo);
 app.use('/api', require('./routes/advertisingCampaignRoutes'));
 app.use('/api/agency', agencyRoutes);
 app.use('/api/uploads', uploadRoutes);
