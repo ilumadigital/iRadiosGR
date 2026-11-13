@@ -5,6 +5,14 @@ const BannerAd=require('../models/BannerAd');
 const Ad=require('../models/Ad');
 const User=require('../models/User');
 const AgencyAdRevision=require('../models/AgencyAdRevision');
+// The partial unique pending index is a correctness requirement. Without it,
+// simultaneous Agency edits could both be queued before Admin approval.
+let revisionIndexesReady=null;
+function ensureAgencyRevisionIndexes(){
+ if(!revisionIndexesReady)revisionIndexesReady=AgencyAdRevision.createIndexes()
+  .catch(error=>{revisionIndexesReady=null;throw error;});
+ return revisionIndexesReady;
+}
 const AdvertisingCampaign=require('../models/AdvertisingCampaign');
 const mongoose=require('mongoose');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
@@ -151,6 +159,7 @@ async function revise(req,res,kind) {
       error:'Υπάρχουν ήδη αλλαγές προς έγκριση. Περίμενε απόφαση Admin.',revisionId:existing._id
     });
     const before=Object.fromEntries(Object.keys(patch).map(k=>[k,creative.get(k)]));
+    await ensureAgencyRevisionIndexes();
     const revision=await AgencyAdRevision.create({
       agencyId:req.user._id,creativeId:creative._id,creativeType:kind,
       patch,before,baseUpdatedAt:creative.updatedAt||null,submittedBy:req.user._id
