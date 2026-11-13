@@ -13,6 +13,7 @@ function ensureAgencyRevisionIndexes(){
  return revisionIndexesReady;
 }
 const AdvertisingCampaign=require('../models/AdvertisingCampaign');
+const {excludeArchivedCampaignCreatives}=require('../services/advertisingArchiveVisibility');
 const mongoose=require('mongoose');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const noticeOutbox=require('../services/agencyAdNoticeOutbox');
@@ -53,14 +54,14 @@ const safeLink=value=>{
 router.get('/:agencyId/banners',async(req,res)=>{
   const q=ownQuery(req,req.params.agencyId);
   if(!q)return res.status(403).json({error:'Forbidden'});
-  try{res.json(await BannerAd.find(q).sort({createdAt:-1}));}
+  try{res.json(await excludeArchivedCampaignCreatives(await BannerAd.find(q).sort({createdAt:-1})));}
   catch{return res.status(500).json({error:'Δεν φορτώθηκαν οι καμπάνιες.'});}
 });
 router.get('/:agencyId/audio-ads',async(req,res)=>{
   const q=ownQuery(req,req.params.agencyId);
   if(!q)return res.status(403).json({error:'Forbidden'});
   try{
-    const ads=await Ad.find(q).sort({createdAt:-1}).lean();
+    const ads=await excludeArchivedCampaignCreatives(await Ad.find(q).sort({createdAt:-1}).lean());
     if(!isStage())return res.json(ads);
     const files=await Promise.all(ads.map(ad=>localAudioFile(ad.audioUrl)));
     res.json(ads.map((ad,i)=>({...ad,mediaReady:Boolean(files[i])})));
@@ -145,6 +146,8 @@ async function revise(req,res,kind) {
     const creative=await Model.findOne({_id:req.params.id,agencyId:req.user._id,
       isStageCreative:true});
     if(!creative)return res.status(404).json({error:'Δεν βρέθηκε η καμπάνια.'});
+    if(creative.campaignId&&await AdvertisingCampaign.exists({_id:creative.campaignId,deletedAt:{$ne:null}}))
+      return res.status(409).json({error:'Η καμπάνια έχει διαγραφεί και δεν επιτρέπονται αλλαγές.'});
     if(patch.campaignId!==undefined && String(patch.campaignId||'')!==String(creative.campaignId||''))
       return res.status(409).json({error:'Δεν επιτρέπεται μεταφορά δημιουργικού σε άλλη καμπάνια.'});
     if(!['active','pending','rejected','expired'].includes(creative.status))
