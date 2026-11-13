@@ -73,6 +73,8 @@ async function handleVerifiedAdvertisingEvent(event,res){
     budgetMicros:expected.budgetMicros,remainingMicros:expected.budgetMicros,
     budgetNanos:budgetCentsToNanos(quote.budgetCents),
     remainingNanos:budgetCentsToNanos(quote.budgetCents),
+    // Do not switch to transactional ledger without Mongo replica-set UAT.
+    settlementMode:'embedded_receipts',
     priceVersion:quote.priceVersion,ratesMicros:quote.ratesMicros,
     currency:'EUR',source:'nexi_verified',paidAt
    });
