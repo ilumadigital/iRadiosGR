@@ -341,7 +341,7 @@ router.get('/advertising/payments/:id',async(req,res)=>{
   if(process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')
    return res.json({id:intent._id,status:intent.status,recovery:'disabled'});
   try{
-   const provider=await gateway.paymentByRequestKey(intent.requestKey,intent.amountCents);
+   const provider=await gateway.advertisingPaymentByRequestKey(intent.requestKey,intent.amountCents);
    if(intent.gatewayPaymentId&&intent.gatewayPaymentId!==provider.payment_id||
       intent.gatewayOrderId&&intent.gatewayOrderId!==provider.order_id)
     return res.status(409).json({error:'Gateway reference mismatch'});
