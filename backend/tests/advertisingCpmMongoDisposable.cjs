@@ -7,6 +7,16 @@ const assert=require('node:assert/strict');
 const mongoose=require('mongoose');
 const {settleQualifiedEvent}=require('../services/advertisingSettlementCore');
 const {store}=require('../services/advertisingSettlementStore');
+// Isolated CI diagnostics only: show the MongoDB error before the production
+// settlement core deliberately converts ambiguous writes into safe retries.
+const diagnosticStore={...store,atomicDebitWithReceipt:async event=>{
+ try{return await store.atomicDebitWithReceipt(event);}
+ catch(error){
+  console.error('Disposable Mongo atomic debit failure',error.code||'',
+   String(error.message||error).slice(0,400));
+  throw error;
+ }
+}};
 const {ensureAdvertisingFinancialIndexes}=require('../services/advertisingFinancialIndexes');
 const Event=require('../models/AdvertisingBillableEvent');
 const FundingLot=require('../models/AdvertisingFundingLot');
@@ -40,11 +50,11 @@ if(process.env.APP_ENV!=='staging'||process.env.NODE_ENV==='production'||
    creativeId:String(creativeId),kind:'visual',tier:'standard',
    qualifiedAt:new Date().toISOString()};
   const same=await Promise.all(Array.from({length:75},
-   ()=>settleQualifiedEvent(first,store)));
+   ()=>settleQualifiedEvent(first,diagnosticStore)));
   assert.ok(same.every(x=>x.status==='charged'));
   const different=await Promise.all(Array.from({length:50},(_,i)=>
    settleQualifiedEvent({...first,
-    eventId:(i+1).toString(16).padStart(32,'0')},store)));
+    eventId:(i+1).toString(16).padStart(32,'0')},diagnosticStore)));
   const refreshed=await FundingLot.findById(funding._id).lean();
   assert.equal(refreshed.remainingNanos,0);
   assert.equal(refreshed.settledEvents.length,5);
