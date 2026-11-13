@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {useNavigate} from 'react-router-dom';
 import '../styles/ad-campaign-console.css';
 import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
+import CampaignRevisionReview from '../components/CampaignRevisionReview';
 import { Plus, Edit2, Trash2, Megaphone, LayoutPanelTop, Rows3, LayoutGrid, ExternalLink, Activity, X, Check, Loader2 } from 'lucide-react';
 
 // 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
@@ -292,6 +293,23 @@ export default function AdminBanners() {
     }
   };
 
+  const handleReject=async id=>{
+    const reason=window.prompt('Λόγος απόρριψης προς το Agency (4–600 χαρακτήρες):');
+    if(reason===null)return;
+    if(reason.trim().length<4||reason.length>600){window.alert('Συμπλήρωσε αιτιολογία.');return;}
+    try{
+      const res=await fetch(`/api/admin/banners/${id}/reject`,{method:'PUT',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:reason.trim()})});
+      if(!res.ok)throw Error((await res.json().catch(()=>({}))).error||'Αποτυχία');
+      await fetchBanners();
+    }catch(error){window.alert(error.message);}
+  };
+  useEffect(()=>{
+    if(loading)return;
+    const id=new URLSearchParams(window.location.search).get('review');
+    if(id)document.getElementById('review-'+id)?.scrollIntoView({block:'center',behavior:'smooth'});
+  },[banners,loading]);
+
   const cloneStageBanner=async banner=>{
     if(!window.confirm('Δημιουργία δοκιμαστικού αντιγράφου χωρίς αλλαγή της παραγωγικής καμπάνιας;'))return;
     try{
@@ -302,7 +320,7 @@ export default function AdminBanners() {
   };
   const filteredBanners=banners.filter(b=>
     (filter==='all'||b.placement?.includes(filter))&&
-    (statusFilter==='all'||b.status===statusFilter)&&
+    (statusFilter==='all'||b.status===statusFilter||(statusFilter==='pending'&&Boolean(b.pendingRevision)))&&
     [b.title,b.description].some(v=>String(v||'').toLocaleLowerCase('el-GR')
       .includes(searchTerm.toLocaleLowerCase('el-GR')))
   );
@@ -375,7 +393,7 @@ export default function AdminBanners() {
             const isActive = banner.status === 'active' && (!stage || banner.isStageCreative); 
             
             return (
-              <div key={banner._id} className={`ad-console-card bg-zinc-900 rounded-3xl overflow-hidden border transition-all ${isActive ? 'border-white/10 hover:border-[#ccff00]/50' : isPending ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]' : 'border-red-500/30 opacity-60'}`}>
+              <div id={'review-'+banner._id} key={banner._id} className={`ad-console-card bg-zinc-900 rounded-3xl overflow-hidden border transition-all ${isActive ? 'border-white/10 hover:border-[#ccff00]/50' : isPending ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]' : 'border-red-500/30 opacity-60'}`}>
                 
                 <div className="h-40 bg-zinc-800 relative overflow-hidden group">
                   <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -386,9 +404,12 @@ export default function AdminBanners() {
                       </span>
                     ))}
                     {/* 🟢 STATUS BADGES */}
-                    {stage&&!banner.isStageCreative&&<span className="ad-console-label ad-console-demo">Εισαγμένο · Δεν προβάλλεται</span>}
+                    {(isPending||banner.pendingRevision)&&(!stage||banner.isStageCreative)&&
+                         <button type="button" onClick={()=>handleReject(banner._id)} className="rounded-xl border border-red-400/30 bg-red-400/10 px-2 py-2 text-xs font-bold text-red-200">Απόρριψη</button>}
+                       {stage&&!banner.isStageCreative&&<span className="ad-console-label ad-console-demo">Εισαγμένο · Δεν προβάλλεται</span>}
                     <div className="mt-2"><CampaignDeliveryStatus campaign={banner} kind="banner" stage={stage}/></div>
-                     {isPending && <span className="bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg animate-pulse">PENDING</span>}
+                     {banner.pendingRevision&&<span className="rounded bg-amber-500 px-2 py-1 text-[8px] font-bold text-black">REVISION PENDING</span>}
+                      {isPending && <span className="bg-orange-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg animate-pulse">PENDING</span>}
                     {banner.status === 'expired' && <span className="bg-red-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg">ΛΗΓΜΕΝΟ</span>}
                     {banner.status === 'rejected' && <span className="bg-red-500 text-white text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-lg">ΑΠΟΡΡΙΦΘΗΚΕ</span>}
                   </div>
@@ -402,6 +423,7 @@ export default function AdminBanners() {
 
                 <div className="p-5 space-y-4">
                   <h3 className="font-bold text-lg text-white truncate">{banner.title}</h3>
+                   <CampaignRevisionReview revision={banner.pendingRevision} adId={banner._id} kind="banner"/>
 
                   <div className="grid grid-cols-3 gap-2 border-y border-white/5 py-3">
                     <div className="text-center">
@@ -426,7 +448,7 @@ export default function AdminBanners() {
                     </a>
                     
                     <div className="flex gap-2">
-                      {isPending && (!stage||banner.isStageCreative) && (
+                      {(isPending||Boolean(banner.pendingRevision)) && (!stage||banner.isStageCreative) && (
                         <button onClick={() => handleApprove(banner._id)} className="p-2 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-black rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse" title="Έγκριση & Έναρξη">
                           <Check size={16} strokeWidth={3} />
                         </button>
