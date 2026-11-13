@@ -29,6 +29,7 @@ const bannerAdSchema = new mongoose.Schema({
   
   // 🟢 ΝΕΑ ΠΕΔΙΑ B2B AD NETWORK
   agencyId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  campaignId: {type: mongoose.Schema.Types.ObjectId, ref: 'AdvertisingCampaign', default: null, index:true},
   status: { type: String, enum: ['pending', 'active', 'expired', 'rejected'], default: 'active' }, // Default active για τον Admin, αλλά στα Agencies μπαίνει pending
   duration: { type: String, enum: ['day', 'month', 'year'] },
   expiresAt: { type: Date, default: null },
