@@ -1,3 +1,5 @@
+const {matchesAgencyGeo}=require('../services/agencyAdGeoMatch');
+const {filterFundedCreatives,isFundedCreative}=require('../services/advertisingDeliveryEligibility');
 const Ad = require('../models/Ad');
 const User = require('../models/User');
 const Station=require('../models/Station');
@@ -37,11 +39,13 @@ const deleteMediaFile = async (fileUrl) => {
 exports.getPublicAds=async(req,res)=>{
   try {
     res.set('Cache-Control','no-store, private');
-    const ads=await Ad.find(activeCampaignQuery()).sort({createdAt:1}).lean();
-    if(!isStage())return res.json(ads.map(publicAd));
+    const ads=(await Ad.find(activeCampaignQuery()).sort({createdAt:1}).lean())
+      .filter(ad=>matchesAgencyGeo(ad,req.geo));
+    if(!isStage())return res.json((await filterFundedCreatives(ads)).map(publicAd));
     // Never offer listeners an unplayable spot (e.g. imported missing files).
-    const media=await Promise.all(ads.map(ad=>localAudioFile(ad.audioUrl)));
-    return res.json(ads.filter((ad,index)=>Boolean(media[index]))
+    const approvedAds=await filterFundedCreatives(ads);
+    const media=await Promise.all(approvedAds.map(ad=>localAudioFile(ad.audioUrl)));
+    return res.json(approvedAds.filter((ad,index)=>Boolean(media[index]))
       .map(ad=>({...publicAd(ad),audioUrl:'/api/ads/'+ad._id+'/media'})));
   }catch(error){
     console.error('[ADS] Public delivery failed',error.message);
@@ -55,8 +59,9 @@ exports.streamPublicAudio=async(req,res)=>{
   if(!isStage()||!mongoose.isValidObjectId(req.params.id))
     return res.status(404).json({error:'Not found'});
   try {
-    const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative');
-    if(!live(ad))return res.status(404).json({error:'Not found'});
+    const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations campaignId');
+    if(!live(ad)||!matchesAgencyGeo(ad,req.geo)||!(await isFundedCreative(ad)))
+      return res.status(404).json({error:'Not found'});
     await sendAdAudio(res,ad.audioUrl);
   }catch(error){
     console.error('[ADS] Playback media failed',error.message);
@@ -238,10 +243,10 @@ exports.deleteBroadcasterAd=async(req,res)=>{
 exports.logImpression=async(req,res)=>{
   try{
     if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
-    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative');
-    if(!live(ad))return res.status(404).json({error:'Not found'});
+    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative campaignId');
+    if(!live(ad)||ad.campaignId)return res.status(404).json({error:'Not found'});
     if(!permitMetric(req,'audio-play',req.params.id))return res.json({success:true,deduplicated:true});
-    await Ad.updateOne({_id:ad._id,...activeCampaignQuery()},{$inc:{impressions:1,plays:1}});
+    await Ad.updateOne({_id:ad._id,...activeCampaignQuery(),campaignId:null},{$inc:{impressions:1,plays:1}});
     res.json({success:true});
   }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής play'});}
 };
@@ -249,10 +254,10 @@ exports.logImpression=async(req,res)=>{
 exports.logClick=async(req,res)=>{
   try{
     if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
-    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative');
-    if(!live(ad))return res.status(404).json({error:'Not found'});
+    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative campaignId');
+    if(!live(ad)||ad.campaignId)return res.status(404).json({error:'Not found'});
     if(!permitMetric(req,'audio-click',req.params.id))return res.json({success:true,deduplicated:true});
-    await Ad.updateOne({_id:ad._id,...activeCampaignQuery()},{$inc:{clicks:1}});
+    await Ad.updateOne({_id:ad._id,...activeCampaignQuery(),campaignId:null},{$inc:{clicks:1}});
     res.json({success:true});
   }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής click'});}
 };
@@ -260,11 +265,11 @@ exports.logClick=async(req,res)=>{
 const registerAdOutcome=field=>async(req,res)=>{
   try {
     if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
-    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative');
-    if(!live(ad))return res.status(404).json({error:'Not found'});
+    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative campaignId');
+    if(!live(ad)||ad.campaignId)return res.status(404).json({error:'Not found'});
     if(!permitMetric(req,'audio-'+field,req.params.id,3000))
       return res.json({success:true,deduplicated:true});
-    await Ad.updateOne({_id:ad._id,...activeCampaignQuery()},{$inc:{[field]:1}});
+    await Ad.updateOne({_id:ad._id,...activeCampaignQuery(),campaignId:null},{$inc:{[field]:1}});
     return res.json({success:true});
   }catch(error){
     return res.status(500).json({error:'Σφάλμα στατιστικών Audio Ads'});

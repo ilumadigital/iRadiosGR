@@ -91,6 +91,7 @@ import AcceptInvite from './pages/AcceptInvite';
 import BroadcasterInvitation from './pages/BroadcasterInvitation';
 import GoAgency from './pages/GoAgency';
 import AgencyDashboard from './pages/AgencyDashboard';
+import AgencyAdvertisingV2 from './pages/AgencyAdvertisingV2';
 import CampaignEditor from './pages/CampaignEditor';
 import TermsListeners from './pages/TermsListeners';
 import TermsBroadcasters from './pages/TermsBroadcasters';
@@ -2078,6 +2079,13 @@ function MainApp() {
                   ?<RequireTerms currentUser={currentUser}><CampaignEditor scope="agency" kind={type} currentUser={currentUser}/></RequireTerms>
                   :<Navigate to="/go-ads" replace/>}/>
             ])}
+            <Route path="/agency/v2/campaigns" element={
+              <RequireTerms currentUser={currentUser}>
+                {currentUser?.role==='agency'||currentUser?.role==='admin'
+                  ?<AgencyAdvertisingV2/>
+                  :<Navigate to="/go-ads" replace/>}
+              </RequireTerms>
+            }/>
             <Route path="/agency/dashboard" element={
               <RequireTerms currentUser={currentUser}>
                 {currentUser && (currentUser.role === 'agency' || currentUser.role === 'admin') ? (

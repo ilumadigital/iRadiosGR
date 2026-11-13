@@ -166,6 +166,7 @@ app.use('/api', require('./routes/emailPreviewRoutes'));
 app.use('/api', authRoutes);
 app.use('/api', stationRoutes);
 app.use('/api', require('./routes/stationContactRoutes'));
+app.use('/api', require('./utils/trustedAdGeo').trustedAdGeo);
 app.use('/api', adRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', extraRoutes);
@@ -175,6 +176,9 @@ app.use('/api', require('./routes/newsFeedRoutes'));
 app.use('/api', require('./routes/promotedStationRoutes'));
 app.use('/api', require('./routes/catalogNowPlayingRoutes'));
 app.use('/api', require('./routes/stationPlaylistRoutes'));
+app.use('/api', require('./routes/advertisingCampaignRoutes'));
+// Admin-only opted-in advertising shadow QA; paid delivery remains hard-disabled.
+app.use('/api', require('./routes/advertisingQualificationRoutes'));
 app.use('/api/agency', agencyRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/stats', statsRoutes);

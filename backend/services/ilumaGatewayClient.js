@@ -1,6 +1,6 @@
 'use strict';
 const https=require('node:https');
-const {headersForRequest,validateGatewayPayment,GATEWAY_CHECKOUT_PATH,PAYMENT_ID}=
+const {headersForRequest,validateGatewayPayment,validateAdvertisingGatewayPayment,GATEWAY_CHECKOUT_PATH,PAYMENT_ID}=
  require('./gatewayBillingProtocol');
 const GATEWAY_HOST='gateway.iluma.gr';
 function configured(){
@@ -204,7 +204,35 @@ async function cancelBroadcasterRecurring(user,sku,stationId=null){
  return data;
 }
 
-module.exports={configured,checkout,paymentStatus,paymentByRequestKey,winbackStatus,signedRequest,
+// Staging-only one-off advertising checkout; existing Premium and Broadcaster SKUs
+// remain fixed price and use their untouched checkout paths.
+async function advertisingCheckout({user,requestKey,campaignId,quoteId,amountCents}){
+ if(!configured()||process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')throw unavailable();
+ if(!Number.isSafeInteger(amountCents)||amountCents<100||amountCents>100000000)
+  throw Error('Invalid advertising checkout amount');
+ const first=String(user.fname||'').trim(),last=String(user.lname||'').trim();
+ const response=await signedRequest('POST',GATEWAY_CHECKOUT_PATH,{
+  customer_id:'iradios-stage-'+String(user._id),product_sku:'ADV-BUDGET',
+  email:String(user.email||'').trim(),
+  name:([first,last].filter(Boolean).join(' ')||String(user.username||'Agency')).slice(0,250),
+  campaign_id:String(campaignId),quote_id:String(quoteId),amount_cents:amountCents,
+  currency:'EUR'
+ },requestKey);
+ return validateAdvertisingGatewayPayment(response,{expectedAmountCents:amountCents});
+}
+// Recover the original advertising checkout WITHOUT issuing a second Nexi order.
+// The variable-price parser is intentionally unavailable to premium products.
+async function advertisingPaymentByRequestKey(requestKey,expectedAmountCents){
+ if(!configured()||process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')throw unavailable();
+ if(typeof requestKey!=='string'||
+    !/^iradios-stage-[a-f0-9]{24}-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(requestKey))
+  throw Error('Invalid advertising original request key');
+ if(!Number.isSafeInteger(expectedAmountCents)||expectedAmountCents<100||
+    expectedAmountCents>100000000)throw Error('Invalid advertising recovery amount');
+ const data=await signedRequest('GET','/api/v1/payments/by-request-key/'+requestKey);
+ return validateAdvertisingGatewayPayment(data,{expectedAmountCents});
+}
+module.exports={advertisingCheckout,advertisingPaymentByRequestKey,configured,checkout,paymentStatus,paymentByRequestKey,winbackStatus,signedRequest,
  savedCardStatus,revokeSavedCard,recurringStatus,cancelRecurring,cancelAllOnAccountDeletion,paymentHistory,
  broadcasterCheckout,broadcasterPaymentStatus,broadcasterPaymentByRequestKey,
  broadcasterRecurringStatus,cancelBroadcasterRecurring};

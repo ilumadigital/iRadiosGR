@@ -1,4 +1,5 @@
 import React, {useEffect, useRef} from 'react';
+import {startVisualViewabilityTracking} from '../utils/adViewability';
 
 // Stable component identity: re-rendering a list must never count another view.
 // One impression is emitted when >=50% of each creative slot becomes visible.
@@ -15,17 +16,17 @@ export default function AdPlacementLink({banner,placement,children,className='',
       viewed.current=true;
       if(seenInPageSession.size>5000)seenInPageSession.clear();
       seenInPageSession.add(slot);
-      fetch(`/api/banners/${banner._id}/impression`,{method:'POST'}).catch(()=>{});
+      // This remains a NON-BILLABLE legacy counter. V2 campaigns never use
+      // the unaudited /impression endpoint for financial settlement.
+      fetch('/api/banners/'+banner._id+'/impression',{method:'POST'}).catch(()=>{});
     };
-    if(typeof IntersectionObserver==='undefined'){track();return;}
-    const observer=new IntersectionObserver(entries=>{
-      if(entries.some(entry=>entry.isIntersecting&&entry.intersectionRatio>=0.5)){
-        track();observer.disconnect();
-      }
-    },{threshold:0.5});
-    observer.observe(node.current);
-    return()=>observer.disconnect();
-  },[banner?._id]);
+    // Fail closed without IntersectionObserver. A page request never earns an
+    // impression: require 50% continuous foreground visibility for 1s (2s hero).
+    return startVisualViewabilityTracking(node.current,{
+      minimumMs:(placement||banner.placement?.[0])==='hero'?2000:1000,
+      onQualified:track
+    });
+  },[banner?._id,placement,slotKey]);
 
   if(!banner||!/^https?:\/\//i.test(banner.targetUrl||''))return null;
   const slot=placement||banner.placement?.[0]||'home';

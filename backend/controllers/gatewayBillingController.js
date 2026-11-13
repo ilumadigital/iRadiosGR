@@ -361,16 +361,21 @@ async function webhook(req,res){
  if(!verified.valid)return res.status(401).json({error:'Invalid webhook signature'});
  let event;
  try{event=JSON.parse(raw.toString('utf8'));}catch{return res.status(400).json({error:'Invalid JSON'});}
+ const advertising=event?.product_sku==='ADV-BUDGET';
  const broadcaster=BILLING_SKUS.includes(event?.product_sku);
- const eventValid=broadcaster?
-  broadcasterEventValid(event,verified.eventId):
-  validatePaymentEvent(event,verified.eventId);
+ const eventValid=advertising?
+  require('../services/advertisingPaymentEvents').validAdvertisingEvent(event,verified.eventId):
+  (broadcaster?broadcasterEventValid(event,verified.eventId):
+  validatePaymentEvent(event,verified.eventId));
  if(!eventValid)return res.status(422).json({error:'Invalid payment event'});
  await ensureBillingIndexes();
  try{await GatewayWebhookNonce.create({nonce:verified.nonce});}
  catch(error){if(error.code===11000)return res.status(409).json({error:'Webhook nonce replay'});throw error;}
  // Both product families use the SAME verified HMAC + single-use nonce.
  // Distinct ledgers and scoped correlation keep Listener Premium unchanged.
+ if(advertising){
+  return require('../services/advertisingPaymentEvents').handleVerifiedAdvertisingEvent(event,res);
+ }
  if(broadcaster){
   await require('../models/BroadcasterBillingOrder').init();
   return require('./broadcasterBillingController').handleVerifiedEvent(event,res);

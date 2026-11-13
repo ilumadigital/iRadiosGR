@@ -17,6 +17,7 @@ function decodePng(buffer) {
   }
   let width, height, bitDepth, colorType, interlace;
   const idat = [];
+  let palette=null, transparency=null;
   for (let offset = 8; offset < buffer.length;) {
     const length = buffer.readUInt32BE(offset);
     const type = buffer.toString('ascii', offset + 4, offset + 8);
@@ -27,6 +28,10 @@ function decodePng(buffer) {
       bitDepth = data[8];
       colorType = data[9];
       interlace = data[12];
+    } else if(type === 'PLTE') {
+      palette=data;
+    } else if(type === 'tRNS') {
+      transparency=data;
     } else if (type === 'IDAT') {
       idat.push(data);
     } else if (type === 'IEND') {
@@ -34,11 +39,12 @@ function decodePng(buffer) {
     }
     offset += length + 12;
   }
-  if (!width || !height || bitDepth !== 8 || colorType !== 6 || interlace !== 0) {
-    throw new Error('favicon.png must be a non-interlaced 8-bit RGBA PNG');
+  if (!width || !height || bitDepth !== 8 || ![0,2,3,4,6].includes(colorType) || interlace !== 0) {
+    throw new Error('favicon.png must be a non-interlaced 8-bit PNG');
   }
+  const channels={0:1,2:3,3:1,4:2,6:4}[colorType];
   const raw = zlib.inflateSync(Buffer.concat(idat));
-  const stride = width * 4;
+  const stride = width * channels;
   if (raw.length !== height * (stride + 1)) {
     throw new Error('Invalid PNG scanline length');
   }
@@ -49,9 +55,9 @@ function decodePng(buffer) {
     const rawStart = y * (stride + 1) + 1;
     const rowStart = y * stride;
     for (let x = 0; x < stride; x++) {
-      const a = x >= 4 ? pixels[rowStart + x - 4] : 0;
+      const a = x >= channels ? pixels[rowStart + x - channels] : 0;
       const b = y > 0 ? pixels[rowStart - stride + x] : 0;
-      const c = y > 0 && x >= 4 ? pixels[rowStart - stride + x - 4] : 0;
+      const c = y > 0 && x >= channels ? pixels[rowStart - stride + x - channels] : 0;
       let predictor = 0;
       if (filter === 1) predictor = a;
       if (filter === 2) predictor = b;
@@ -64,7 +70,27 @@ function decodePng(buffer) {
       pixels[rowStart + x] = (raw[rawStart + x] + predictor) & 0xff;
     }
   }
-  return { width, height, pixels };
+  const rgba=Buffer.alloc(width*height*4);
+  for(let i=0;i<width*height;i++){
+    const source=i*channels, dest=i*4;
+    if(colorType===6) {
+      pixels.copy(rgba,dest,source,source+4);
+    } else if(colorType===2) {
+      pixels.copy(rgba,dest,source,source+3);
+      rgba[dest+3]=255;
+    } else if(colorType===3) {
+      const index=pixels[source];
+      if(!palette||index*3+2>=palette.length)throw Error('Invalid PNG palette');
+      rgba[dest]=palette[index*3];
+      rgba[dest+1]=palette[index*3+1];
+      rgba[dest+2]=palette[index*3+2];
+      rgba[dest+3]=transparency?.[index]??255;
+    } else {
+      rgba[dest]=rgba[dest+1]=rgba[dest+2]=pixels[source];
+      rgba[dest+3]=colorType===4?pixels[source+1]:255;
+    }
+  }
+  return { width, height, pixels:rgba };
 }
 
 // Area filtering keeps the 16px/32px icons legible; premultiplied alpha

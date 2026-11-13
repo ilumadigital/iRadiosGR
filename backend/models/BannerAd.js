@@ -29,6 +29,9 @@ const bannerAdSchema = new mongoose.Schema({
   
   // 🟢 ΝΕΑ ΠΕΔΙΑ B2B AD NETWORK
   agencyId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  campaignId: {type: mongoose.Schema.Types.ObjectId, ref: 'AdvertisingCampaign', default: null, index:true},
+  // Set in the same creative write as its approved Agency revision changes.
+  lastApprovedRevisionId: {type: mongoose.Schema.Types.ObjectId, ref: 'AgencyAdRevision', default:null},
   status: { type: String, enum: ['pending', 'active', 'expired', 'rejected'], default: 'active' }, // Default active για τον Admin, αλλά στα Agencies μπαίνει pending
   duration: { type: String, enum: ['day', 'month', 'year'] },
   expiresAt: { type: Date, default: null },
@@ -36,7 +39,9 @@ const bannerAdSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }, // Legacy
   impressions: { type: Number, default: 0 },
   clicks: { type: Number, default: 0 },
-  isStageCreative: { type: Boolean, default: false }
+  isStageCreative: { type: Boolean, default: false },
+  agencyDraftNoticeVersion:{type:Number,default:0},
+  draftOutboxSeededAt:{type:Date,default:null}
 }, { timestamps: true });
 
 module.exports = mongoose.model('BannerAd', bannerAdSchema);

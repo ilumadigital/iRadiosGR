@@ -1,0 +1,78 @@
+name: Advertising v2 disposable financial MongoDB integration
+
+on:
+  pull_request:
+    branches: [staging]
+    paths:
+      - backend/services/advertising*.js
+      - backend/models/Advertising*.js
+      - backend/tests/advertising*Cpm*.cjs
+      - backend/tests/advertisingQualificationMongoDisposable.cjs
+      - .github/workflows/advertising-financial-mongo-integration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-ad-ledger:
+    name: Disposable replica-set CPM and qualified-event concurrency (no payments)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      APP_ENV: staging
+      NODE_ENV: test
+      CI: 'true'
+      AD_CPM_DISPOSABLE_APPROVAL: I_CONFIRMED_TEST_ONLY_DATABASE
+      AD_CPM_DISPOSABLE_MONGODB_URI: mongodb://127.0.0.1:27017/ad_cpm_disposable_ci_20261113?replicaSet=rs0&directConnection=true
+      AD_QUALIFICATION_DISPOSABLE_APPROVAL: I_CONFIRMED_TEST_ONLY_DATABASE
+      AD_QUALIFICATION_DISPOSABLE_MONGODB_URI: mongodb://127.0.0.1:27017/ad_qualification_disposable_ci_20261113?replicaSet=rs0&directConnection=true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Start isolated throwaway MongoDB replica set on loopback
+        run: |
+          set -euo pipefail
+          docker run --detach --rm --name iradios-ad-financial-ci \
+            --publish 127.0.0.1:27017:27017 mongo:7.0 \
+            --replSet rs0 --bind_ip_all
+          ready=0
+          for i in {1..40}; do
+            if docker exec iradios-ad-financial-ci mongosh --quiet \
+                --eval 'db.adminCommand({ping:1}).ok' 2>/dev/null | grep -qx '1'; then
+              ready=1; break
+            fi
+            sleep 1
+          done
+          test "$ready" -eq 1
+          docker exec iradios-ad-financial-ci mongosh --quiet \
+            --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]})'
+          primary=0
+          for i in {1..40}; do
+            if docker exec iradios-ad-financial-ci mongosh --quiet \
+                --eval 'db.adminCommand({hello:1}).isWritablePrimary' 2>/dev/null | grep -qx 'true'; then
+              primary=1; break
+            fi
+            sleep 1
+          done
+          test "$primary" -eq 1
+      - name: Install only pinned isolated Mongo driver, never modify application lockfile
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/iradios-ad-ledger-deps
+          printf '%s\n' '{"private":true,"dependencies":{"mongoose":"9.2.4"}}' > /tmp/iradios-ad-ledger-deps/package.json
+          npm --prefix /tmp/iradios-ad-ledger-deps install --ignore-scripts --no-audit --no-fund
+          ln -s /tmp/iradios-ad-ledger-deps/node_modules backend/node_modules
+      - name: Prove embedded receipts survive concurrent duplicate and competing charges
+        run: node backend/tests/advertisingCpmMongoDisposable.cjs
+      - name: Prove replica-set transactional ledger and abort atomicity
+        run: node backend/tests/advertisingCpmMongoTransactionalDisposable.cjs
+      - name: Prove shadow qualification CAS and capped concurrent reservations
+        run: node backend/tests/advertisingQualificationMongoDisposable.cjs
+      - name: Ensure public paid delivery remains hard-disabled
+        run: node --test backend/tests/advertisingV2FinancialGuards.test.cjs
+      - name: Destroy throwaway MongoDB
+        if: always()
+        run: docker rm --force iradios-ad-financial-ci || true

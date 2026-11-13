@@ -75,6 +75,24 @@ jobs:
         run: node --test backend/tests/broadcasterCheckoutRecovery.test.js
       - name: Verify branded Broadcaster billing emails and one-off Boost messaging
         run: node --test backend/tests/broadcasterBillingEmailTemplates.test.js backend/tests/broadcasterBillingEmailScheduler.test.js
+      - name: Verify Advertising v2 prefecture targeting and safe geo fallback
+        run: node --test backend/tests/agencyAdGeo.test.cjs backend/tests/agencyAdGeoMatch.test.cjs backend/tests/trustedAdGeo.test.cjs backend/tests/advertisingPricingRules.test.cjs
+      - name: Verify exact CPM nanos and fail-closed advertising financial/legacy metrics guards
+        run: node --test backend/tests/advertisingV2FinancialGuards.test.cjs
+      - name: Simulate concurrent atomic CPM claims, funded balance depletion and recovery
+        run: node --test backend/tests/advertisingCpmSettlement.test.cjs
+      - name: Validate scalable transactional CPM wallet and ledger under simulated races
+        run: node --test backend/tests/advertisingCpmTransactional.test.cjs
+      - name: Verify foreground viewability and atomic shadow quota compensation
+        run: node --test frontend/src/utils/adViewability.test.js backend/tests/advertisingTicketReservation.test.cjs
+      - name: Test durable Agency per-recipient email outbox, retries, leases and restart safety
+        run: node --test backend/tests/agencyAdNoticeOutbox.test.cjs
+      - name: Guard Agency revision approval under concurrent Admin decisions and crash recovery
+        run: node --test backend/tests/agencyRevisionApproval.test.cjs
+      - name: Test non-billable qualified visual/audio tickets, anti-fraud and pacing
+        run: node --test backend/tests/advertisingQualifiedDelivery.test.cjs
+      - name: Prevent incorrect budget-exhaustion mail or 6k receipt-cap mislabeling
+        run: node --test backend/tests/advertisingBudgetExhaustion.test.cjs
       - name: Verify staging Ad Network, placement contracts and safe legacy campaign handling
         run: node --test ops/check-ad-network-staging.test.cjs
       - name: Verify 30s audible Skip Ad and bounded per-placement Visual Ad Studio

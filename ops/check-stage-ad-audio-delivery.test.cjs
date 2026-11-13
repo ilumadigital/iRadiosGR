@@ -48,7 +48,7 @@ test('staging Nginx blocks private file paths; Express authorizes only active ad
   const publicAccess=read('backend/utils/stagePublicAccess.js');
   assert.match(publicAccess,/\/api\\\/ads\\\/\[a-f0-9\]\{24\}\\\/media/);
   const controller=read('backend/controllers/adController.js');
-  assert.match(controller,/if\(!live\(ad\)\)/);
+  assert.match(controller,/if\(!live\(ad\)\|\|ad\.campaignId\)/);
   assert.match(controller,/sendAdAudio\(res,ad\.audioUrl\)/);
   assert.match(controller,/localAudioFile\(ad\.audioUrl\)/);
   assert.match(controller,/audioUrl:'\/api\/ads\/'/);

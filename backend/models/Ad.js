@@ -27,6 +27,10 @@ const adSchema = new mongoose.Schema({
   },
   
   agencyId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  campaignId: {type: mongoose.Schema.Types.ObjectId, ref: 'AdvertisingCampaign', default: null, index:true},
+  // Immutable-style applied-revision marker written atomically WITH the patch;
+  // needed to recover a crash before the revision decision is finalized.
+  lastApprovedRevisionId: {type: mongoose.Schema.Types.ObjectId, ref: 'AgencyAdRevision', default:null},
   status: { type: String, enum: ['pending', 'active', 'expired', 'rejected'], default: 'active' },
   duration: { type: String, enum: ['day', 'month', 'year'] },
   expiresAt: { type: Date, default: null },
@@ -43,7 +47,9 @@ const adSchema = new mongoose.Schema({
   stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Station', default: null },
   isGlobal: { type: Boolean, default: true },
   // Isolated staging inventory only; imported production campaigns remain hidden.
-  isStageCreative: { type: Boolean, default: false }
-});
+  isStageCreative: { type: Boolean, default: false },
+  agencyDraftNoticeVersion:{type:Number,default:0},
+  draftOutboxSeededAt:{type:Date,default:null}
+},{timestamps:{createdAt:false,updatedAt:true}});
 
 module.exports = mongoose.model('Ad', adSchema);

@@ -1,0 +1,63 @@
+name: Agency notice isolated MongoDB and Mailpit integration
+on:
+  pull_request:
+    branches: [staging]
+    paths:
+      - backend/services/agencyAdNotice*.js
+      - backend/services/agencyRevisionApprovalCore.js
+      - backend/models/AgencyAd*.js
+      - backend/models/Ad.js
+      - backend/models/BannerAd.js
+      - backend/models/User.js
+      - backend/tests/agencyAdNotice*.cjs
+      - backend/package-lock.json
+      - .github/workflows/agency-notice-integration.yml
+permissions:
+  contents: read
+jobs:
+  disposable-mongo-mailpit:
+    name: Disposable MongoDB + captured Mailpit SMTP (NO real users/funds)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    # Docker service names only resolve inside this dedicated job container.
+    # The entire job has NO staging/prod secrets, no published service ports.
+    container:
+      image: node:22-bookworm
+    services:
+      mongo:
+        image: mongo:7.0
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+      mailpit:
+        image: axllent/mailpit:v1.32.0
+        env:
+          MP_ENABLE_CHAOS: 'true'
+    env:
+      APP_ENV: staging
+      NODE_ENV: test
+      CI: 'true'
+      GITHUB_ACTIONS: 'true'
+      AD_AGENCY_NOTICE_DISPOSABLE_APPROVAL: I_CONFIRMED_TEST_ONLY_DATABASE
+      AD_AGENCY_NOTICE_DISPOSABLE_MONGODB_URI: mongodb://mongo:27017/ad_notice_disposable_ci_20261113
+      AD_AGENCY_NOTICE_MAILPIT_CI: '1'
+      APP_PUBLIC_URL: https://stage.iradios.gr
+      MAIL_FROM: '"iRadios GR CI" <no-reply@iradios.gr>'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated pinned Mongo and SMTP test-only dependencies
+        # The existing backend lockfile predates canvas in package.json. Do not
+        # rewrite the application's production lockfile as a side-effect of CI.
+        run: |
+          mkdir -p /tmp/agency-notice-ci
+          printf '%s\n' '{"private":true,"dependencies":{"mongoose":"9.2.4","nodemailer":"8.0.1"}}' > /tmp/agency-notice-ci/package.json
+          npm --prefix /tmp/agency-notice-ci install --ignore-scripts --no-audit --no-fund
+          ln -s /tmp/agency-notice-ci/node_modules backend/node_modules
+      - name: Test unique recipient key and real Mongo concurrent lease recovery (NO SMTP)
+        run: node backend/tests/agencyAdNoticeMongoDisposable.cjs
+      - name: Exercise application SMTP -> isolated Mailpit API and durable Mongo outbox
+        run: node backend/tests/agencyAdNoticeMailpitCI.cjs
+      - name: Assert financial settlement remains hard-disabled
+        run: node --test backend/tests/advertisingQualifiedDelivery.test.cjs

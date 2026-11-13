@@ -30,7 +30,8 @@ test('skips and completions follow campaign eligibility and cannot count an edit
     assert.ok(routes.includes("'/ads/:id/"+type+"'"));
     assert.ok(access.includes('completed|skipped'));
   }
-  assert.match(controller,/if\(!live\(ad\)\)/);
+  // Legacy outcome metrics must reject unfunded/unqualified paid v2 creatives.
+  assert.match(controller,/if\(!live\(ad\)\|\|ad\.campaignId\)/);
   assert.match(controller,/permitMetric\(req,'audio-'/);
   for(const field of ['skips','completions'])assert.ok(model.includes(field+':'));
   assert.doesNotMatch(read('frontend/src/components/ProtectedAudioPreview.jsx'),/fetch\(.*\/(completed|skipped)/);
