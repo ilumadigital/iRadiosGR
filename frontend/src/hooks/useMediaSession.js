@@ -1,30 +1,6 @@
 import {useEffect,useRef} from 'react';
 import {parseMusicMetadata} from '../utils/musicMetadata';
-import {stationMediaArtworkUrl} from '../utils/mediaArtwork';
 
-// Only advertise server-generated art after verifying it contains a real
-// image. Failed logo composition must never hide the station's original logo
-// behind placeholder text or a broken JPEG.
-const composedArtworkChecks=new Map();
-function composedArtworkReady(url,onReady){
-  const now=Date.now();
-  const cached=composedArtworkChecks.get(url);
-  if(cached&&cached.expires>now)return cached.state==='ready';
-  const entry={state:'pending',expires:now+15000};
-  composedArtworkChecks.set(url,entry);
-  fetch(url,{method:'HEAD',cache:'no-store'}).then(response=>{
-    if(composedArtworkChecks.get(url)!==entry)return;
-    entry.state=response.ok&&/^image\/jpeg(?:;|$)/i.test(response.headers.get('content-type')||'')
-      ?'ready':'failed';
-    entry.expires=Date.now()+(entry.state==='ready'?30*60*1000:30000);
-    if(entry.state==='ready')onReady();
-  }).catch(()=>{
-    if(composedArtworkChecks.get(url)!==entry)return;
-    entry.state='failed';
-    entry.expires=Date.now()+30000;
-  });
-  return false;
-}
 const FIVE_MINUTES=5*60*1000;
 const LOADING=/^(?:Βρίσκουμε το τραγούδι|Ακούμε τον σταθμό|Ψάχνουμε το τραγούδι|Λίγο ακόμη|Σχεδόν έτοιμο|ΠΑΙΖΕΙ ΤΩΡΑ)/i;
 function artworkType(url){
@@ -88,17 +64,8 @@ export default function useMediaSession({
     const fields=mediaFields(data);
     // Radio logos may be /uploads/... paths; Media Session artwork needs an absolute URL.
     // Prefer album art, then fall back to the station logo when media cannot be loaded.
-    const stationLogoSelected=!fields.image||fields.image===data.currentStation.logo;
-    const composedUrl=stationLogoSelected?stationMediaArtworkUrl(data.currentStation):null;
-    const stationId=data.currentStation._id,stationLogo=data.currentStation.logo;
-    const whiteBackedReady=Boolean(composedUrl?.startsWith('/api/media/station-logo/') &&
-      composedArtworkReady(composedUrl,()=>{
-        // Async HEAD may finish after zapping to a different station.
-        if(latest.current.currentStation?._id===stationId &&
-          latest.current.currentStation?.logo===stationLogo)write();
-      }));
     let image=null;
-    for(const src of [whiteBackedReady?composedUrl:fields.image,data.currentStation.logo]){
+    for(const src of [fields.image,data.currentStation.logo]){
       if(typeof src!=='string'||!src.trim())continue;
       try{
         const url=new URL(src,window.location.origin);
@@ -109,11 +76,9 @@ export default function useMediaSession({
     }
     const metadata={
       title:fields.title,artist:fields.artist,album:fields.album,
-      artwork:image?(stationLogoSelected&&/\/api\/media\/station-logo\/[a-f0-9]{24}\.jpg(?:\?.*)?$/i.test(image)
-        ?[{src:image,sizes:'512x512',type:'image/jpeg'}]
-        :[96,128,256,512].map(size=>({
-          src:image,sizes:`${size}x${size}`,...(artworkType(image)?{type:artworkType(image)}:{})
-        }))):[]
+      artwork:image?[96,128,256,512].map(size=>({
+        src:image,sizes:`${size}x${size}`,...(artworkType(image)?{type:artworkType(image)}:{})
+      })):[]
     };
     try{
       navigator.mediaSession.metadata=new window.MediaMetadata(metadata);
@@ -139,7 +104,7 @@ export default function useMediaSession({
     }else if('mediaSession' in navigator){
       navigator.mediaSession.playbackState=isPlaying?'playing':'paused';
     }
-  },[currentStation?._id,currentStation?.logo,currentUser?._id,isPlaying,isPlayingAd,currentAdInfo?._id,
+  },[currentStation?._id,currentUser?._id,isPlaying,isPlayingAd,currentAdInfo?._id,
     nowPlaying,nowPlayingInfo?.foundWithAI,nowPlayingInfo?.source,nowPlayingInfo?.broadcastHint,
     globalCoverArt,liveBroadcast?.imageUrl,liveBroadcast?.title,liveBroadcast?.artist,rdsShowProducer]);
   useEffect(()=>{
