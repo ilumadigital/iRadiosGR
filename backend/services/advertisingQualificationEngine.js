@@ -65,7 +65,8 @@ function tierFor(kind,placement){
 }
 async function candidates(kind,placement,geo,now){
  const tier=tierFor(kind,placement);
- const q={status:'active',isStageCreative:true,campaignId:{$ne:null}};
+ const q={status:'active',isStageCreative:true,campaignId:{$ne:null},
+  expiresAt:{$not:{$lte:new Date(now)}}};
  const creatives=kind==='audio'?
   await Audio.find(q).limit(250).lean():
   await Banner.find({...q,isActive:true,placement}).limit(250).lean();
@@ -188,10 +189,11 @@ async function heartbeatShadow({req,capability,report}){
   if(!campaign)throw Error('Campaign approval or period revoked');
   const creative=original.kind==='audio'?
    await Audio.exists({_id:original.creativeId,campaignId:original.campaignId,
-    isStageCreative:true,status:'active'}):
+    isStageCreative:true,status:'active',
+    expiresAt:{$not:{$lte:new Date(now)}}}):
    await Banner.exists({_id:original.creativeId,campaignId:original.campaignId,
     isStageCreative:true,status:'active',isActive:true,
-    placement:original.placement});
+    expiresAt:{$not:{$lte:new Date(now)}},placement:original.placement});
   if(!creative)throw Error('Creative approval revoked');
   const change=observation(original,report,now);
   if(change.duplicate)return {status:original.status,duplicate:true,billable:false};
