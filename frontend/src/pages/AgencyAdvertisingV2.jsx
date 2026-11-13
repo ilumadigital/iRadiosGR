@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
+import AdvertisingCampaignWizard from './AdvertisingCampaignWizard';
 import {Link} from 'react-router-dom';
 import {LOCATION_DATA} from '../utils/stationLocations';
 const bg='rounded-2xl border border-white/10 bg-[#151321] p-5';
@@ -11,7 +12,7 @@ const toLocal=millis=>{
  const date=new Date(millis);
  return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
 };
-export default function AgencyAdvertisingV2(){
+function LegacyAgencyAdvertisingV2(){
  const [campaigns,setCampaigns]=useState([]),[pricing,setPricing]=useState(null);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [activeId,setActiveId]=useState(null),[budget,setBudget]=useState('100.00');
