@@ -17,7 +17,7 @@
   object-fit: cover;
 }
 .ir-showcase-art__base--fallback {
-  background: linear-gradient(150deg,#f8fafb,#d6dee1);
+  background: #ffffff;
   object-fit: contain;
   padding: 12%;
 }
