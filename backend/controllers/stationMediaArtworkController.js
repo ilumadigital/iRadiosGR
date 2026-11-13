@@ -21,9 +21,11 @@ async function localLogoBytes(raw) {
   catch { return null; }
   if (!['stage.iradios.gr','play.iradios.gr'].includes(url.hostname.toLowerCase()) ||
       !['https:','http:'].includes(url.protocol) || url.username || url.password ||
-      !url.pathname.startsWith('/media/radioassets/')) return null;
+      !/^\/(?:media|uploads)\/radioassets\//.test(url.pathname)) return null;
 
-  const relative=url.pathname.slice('/media/radioassets/'.length);
+  // Imported station records may still contain legacy /uploads/radioassets
+  // URLs, while the stage serves those bytes through /media/radioassets.
+  const relative=url.pathname.replace(/^\/(?:media|uploads)\/radioassets\//,'');
   let decoded;
   try { decoded=decodeURIComponent(relative); }
   catch { return null; }
@@ -66,25 +68,13 @@ async function renderStationLogo(station){
   const context=canvas.getContext('2d');
   context.fillStyle='#ffffff';
   context.fillRect(0,0,SIZE,SIZE);
-  try {
-    const bytes=await readLogo(station.logo);
-    if(!bytes)throw new Error('Logo unavailable');
-    const image=await loadImage(bytes);
-    if(!(image.width>0 && image.height>0))throw new Error('Invalid logo dimensions');
-    const ratio=Math.min((SIZE-PADDING*2)/image.width,(SIZE-PADDING*2)/image.height);
-    const width=image.width*ratio,height=image.height*ratio;
-    context.drawImage(image,(SIZE-width)/2,(SIZE-height)/2,width,height);
-  }catch{
-    // An unavailable/broken upstream logo must not make the Media Session
-    // artwork URL fail: still return a useful opaque white station identity.
-    context.fillStyle='#25252c';
-    context.textAlign='center';
-    context.textBaseline='middle';
-    context.font='bold 32px sans-serif';
-    const name=String(station.name||'iRadios').slice(0,36);
-    const lines=name.length>20?[name.slice(0,20),name.slice(20)]:[name];
-    lines.forEach((line,index)=>context.fillText(line,SIZE/2,SIZE/2+(index-(lines.length-1)/2)*42,SIZE-48));
-  }
+  const bytes=await readLogo(station.logo);
+  if(!bytes)throw new Error('Approved station logo could not be loaded');
+  const image=await loadImage(bytes);
+  if(!(image.width>0 && image.height>0))throw new Error('Invalid logo dimensions');
+  const ratio=Math.min((SIZE-PADDING*2)/image.width,(SIZE-PADDING*2)/image.height);
+  const width=image.width*ratio,height=image.height*ratio;
+  context.drawImage(image,(SIZE-width)/2,(SIZE-height)/2,width,height);
   return canvas.toBuffer('image/jpeg',{quality:0.92,progressive:false,chromaSubsampling:false});
 }
 
@@ -112,10 +102,12 @@ exports.stationMediaArtwork=async (req,res)=>{
       }finally{pending--;inFlight.delete(key);}
     }
     res.setHeader('Content-Type','image/jpeg');
-    res.setHeader('Cache-Control','public, max-age=900');
+    res.setHeader('Cache-Control','public, max-age=300');
     return res.send(buffer);
   }catch(error){
     console.warn('[MEDIA ARTWORK] Unable to render station logo:',error.message);
-    return res.status(503).end();
+    // Never return a made-up text-only image for Media Session artwork.
+    // The browser will keep the station's authentic original logo instead.
+    return res.status(502).end();
   }
 };
