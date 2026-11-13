@@ -23,7 +23,7 @@ export default function TermsAgency({ API_URL, currentUser }) {
         }
       });
       if (res.ok) {
-        window.location.href = '/agency/dashboard'; // Reloads and redirects
+        window.location.href = '/backoffice'; // Reload fresh session into private Agency console
       } else {
         alert("Σφάλμα κατά την αποθήκευση της συγκατάθεσης.");
       }
@@ -149,7 +149,7 @@ export default function TermsAgency({ API_URL, currentUser }) {
                     <span className="font-bold text-sm uppercase tracking-widest">Έχετε αποδεχτεί τους όρους</span>
                   </div>
                   <button 
-                    onClick={() => navigate('/agency/dashboard')}
+                    onClick={() => navigate('/backoffice')}
                     className="px-8 py-4 bg-purple-600 hover:bg-purple-500 text-white font-black uppercase text-xs tracking-widest rounded-xl transition-all"
                   >
                     Συνεχεια στο Agency Panel
