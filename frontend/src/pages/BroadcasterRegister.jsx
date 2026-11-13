@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import BrandLogo from '../components/BrandLogo';
 import { Helmet } from 'react-helmet-async';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Building2, CheckCircle2, Eye, EyeOff,
@@ -19,7 +20,7 @@ const initial={businessType:'individual',countryCode:'EL',vatNumber:'',companyNa
 function BrandHeader({back='/broadcast'}){
   return <header className="border-b border-white/10 bg-[#0d1212]"><div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-8">
     <Link to="/broadcast" className="flex items-center gap-3" aria-label="iRadios Broadcaster"><span className="flex min-w-0 flex-col items-start gap-0.5">
-  <img src="/noicon-iradios-app-logo.svg" alt="iRadios GR" className="h-10 w-[175px] max-w-full object-contain object-left"/>
+  <BrandLogo variant="full" title="iRadios GR" className="h-10 w-[175px] max-w-full object-contain object-left"/>
   <span className="text-[9px] font-bold uppercase tracking-[.2em] text-zinc-400">Broadcaster Network</span>
 </span></Link>
     <Link to={back} className="flex items-center gap-2 text-xs font-bold text-zinc-300 hover:text-white"><ArrowLeft size={16}/> Πίσω</Link>

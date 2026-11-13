@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import BrandLogo from '../components/BrandLogo';
 import {Helmet} from 'react-helmet-async';
 import {Link,useSearchParams} from 'react-router-dom';
 import {ArrowLeft,ArrowRight,Banknote,AlertTriangle,BarChart3,BookOpen,CheckCircle2,
@@ -61,7 +62,7 @@ export default function TermsBroadcasters({API_URL='/api',currentUser:initialUse
       <meta name="description" content="Όροι συνεργασίας Broadcaster στο iRadiosGR: επαλήθευση, σταθμοί, άδειες, υπηρεσίες και ασφαλής αποδοχή."/></Helmet>
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0c1111]/95 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <Link to="/broadcast" className="flex items-center gap-3"><span className="flex flex-col items-start gap-0.5"><img src="/noicon-iradios-app-logo.svg" alt="iRadios GR" className="h-10 w-[165px] max-w-[45vw] object-contain object-left"/><small className="block text-[9px] font-bold uppercase tracking-[.2em] text-zinc-400">Broadcaster Network</small></span></Link>
+        <Link to="/broadcast" className="flex items-center gap-3"><span className="flex flex-col items-start gap-0.5"><BrandLogo variant="full" title="iRadios GR" className="h-10 w-[165px] max-w-[45vw] object-contain object-left"/><small className="block text-[9px] font-bold uppercase tracking-[.2em] text-zinc-400">Broadcaster Network</small></span></Link>
         <div className="flex items-center gap-4"><Link to="/broadcast" className="flex items-center gap-2 text-xs font-bold text-zinc-300 hover:text-white"><ArrowLeft size={17}/> Broadcaster</Link>
           {verified&&accepted?<Link to={destination} className="rounded-xl bg-[#ccff00] px-4 py-2.5 text-xs font-black text-black">Backoffice</Link>:
           !broadcaster?<Link to="/broadcast/register" className="rounded-xl bg-[#ccff00] px-4 py-2.5 text-xs font-black text-black">Εγγραφή</Link>:null}</div>

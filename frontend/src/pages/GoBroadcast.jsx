@@ -1,4 +1,5 @@
 import React from 'react';
+import BrandLogo from '../components/BrandLogo';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Activity, ArrowRight, AudioLines, BarChart3, CalendarDays, Check, ChevronRight,
@@ -35,7 +36,7 @@ export default function GoBroadcast(){
   return <div className="min-h-screen bg-[#080c0c] text-white selection:bg-[#ccff00] selection:text-black">
     <Helmet><title>iRadiosGR Broadcasters | Ο σταθμός σου στο δίκτυο</title><meta name="description" content="Καταχώρισε δωρεάν τον ραδιοφωνικό σταθμό σου στο iRadiosGR. Δες Free, Broadcaster Premium, Pro Add-ons και Boost."/></Helmet>
     <header className="border-b border-white/10 bg-[#0b1010]"><div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-5 sm:px-8"><Link to="/" className="flex items-center gap-3" aria-label="Αρχική iRadiosGR"><span className="flex min-w-0 flex-col items-start gap-0.5">
-  <img src="/noicon-iradios-app-logo.svg" alt="iRadios GR" className="h-10 w-[175px] max-w-full object-contain object-left"/>
+  <BrandLogo variant="full" title="iRadios GR" className="h-10 w-[175px] max-w-full object-contain object-left"/>
   <span className="text-[9px] font-bold uppercase tracking-[.2em] text-zinc-400">Broadcaster Network</span>
 </span></Link><nav className="flex items-center gap-4"><Link to="/login" className="hidden text-sm font-semibold text-zinc-300 hover:text-white sm:block">Σύνδεση</Link><Action>Εγγραφή</Action></nav></div></header>
     <main>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import BrandLogo from '../components/BrandLogo';
 import { FileText, Download, X } from 'lucide-react'; // Πρόσθεσα μερικά εικονίδια για πιο ωραίο UI
 
 const PressKit = () => {
@@ -92,7 +93,7 @@ const PressKit = () => {
           {/* Badge 1: Κανονικό Logo */}
           <div className="flex flex-col gap-6 bg-zinc-900/30 p-8 rounded-[32px] border border-white/5 hover:border-white/10 transition-colors">
             <div className="w-full flex items-center justify-center bg-black p-8 rounded-2xl border border-white/5 shadow-inner h-40">
-              <img src="/noicon-iradios-app-logo.svg" alt="iRadios GR Full Logo" className="max-h-full max-w-[200px] object-contain" />
+              <BrandLogo variant="full" title="iRadios GR Full Logo" className="max-h-full w-[200px] object-contain" />
             </div>
             <div className="w-full flex flex-col flex-1">
               <h3 className="text-[#ccff00] text-xs font-black uppercase tracking-widest mb-3">Standard App Logo</h3>
@@ -111,7 +112,7 @@ const PressKit = () => {
           {/* Badge 2: Logo χωρίς εικονίδιο */}
           <div className="flex flex-col gap-6 bg-zinc-900/30 p-8 rounded-[32px] border border-white/5 hover:border-white/10 transition-colors">
             <div className="w-full flex items-center justify-center bg-black p-8 rounded-2xl border border-white/5 shadow-inner h-40">
-              <img src="/iradios-app-logo.svg" alt="iRadios GR Wordmark" className="max-h-full max-w-[200px] object-contain" />
+              <BrandLogo variant="wordmark" title="iRadios GR Wordmark" className="max-h-full w-[200px] object-contain" />
             </div>
             <div className="w-full flex flex-col flex-1">
               <h3 className="text-[#ccff00] text-xs font-black uppercase tracking-widest mb-3">Text-Only Logo</h3>
