@@ -27,7 +27,11 @@ test('staging compose enables only QA approval while disabling Nexi and CPM bill
  const eligibility=fs.readFileSync(path.join(root,'backend/services/advertisingDeliveryEligibility.js'),'utf8');
  assert.match(compose,/AD_STAGE_QA_APPROVAL_ENABLED: '1'/);
  assert.match(compose,/AD_DELIVERY_BILLING_ENABLED: '0'/);
- assert.match(compose,/AD_PAYMENTS_SANDBOX_ENABLED: '0'/);
+ // The private backend.env controls the separately gated Nexi sandbox; Docker
+ // Compose must not silently override an authorized 1 back to 0.
+ assert.doesNotMatch(compose,/^\\s*AD_PAYMENTS_SANDBOX_ENABLED\\s*:/m);
+ const envExample=fs.readFileSync(path.join(root,'backend/.env.example'),'utf8');
+ assert.match(envExample,/^AD_PAYMENTS_SANDBOX_ENABLED=0$/m);
  assert.match(eligibility,/const ATOMIC_SETTLEMENT_IMPLEMENTED=false/);
  assert.match(routes,/router\.use\(protect,stage\)/);
  assert.match(routes,/if\(!funded&&!allowUnfundedReview\(\)\)/);
