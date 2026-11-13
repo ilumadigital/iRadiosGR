@@ -27,7 +27,7 @@ const defaults = {
   title:'',client:'',description:'',imageUrl:'',squareImageUrl:'',logoUrl:'',
   ctaLabel:'Μάθε περισσότερα',brandColor:'#a855f7',focalX:50,focalY:50,
   targetUrl:'',linkUrl:'',audioUrl:'',frequency:'entry',dspPreset:'OFF',designConfig:{},
-  placement:['home'],targetLocations:['All'],targetCountry:'All',targetRegion:'All',
+  placement:['home'],targetLocations:['Ελλάδα'],targetCountry:'Ελλάδα',targetRegion:'All',
   duration:'month',expiresAt:'',status:'active'
 };
 const flatAreas = Object.entries(LOCATION_DATA).flatMap(([country,regions])=>
@@ -39,12 +39,16 @@ const flatAreas = Object.entries(LOCATION_DATA).flatMap(([country,regions])=>
        ...cities.map(value=>({value,country,region,prefecture}))])));
 function normalize(item) {
   const value=(item?.targetLocations||[])[0]||'All';
-  const inferred=flatAreas.find(a=>a.value===value);
+  const cityArea=Object.entries(LOCATION_DATA).flatMap(([country,regions])=>Object.entries(regions)
+    .flatMap(([region,prefs])=>Object.entries(prefs).flatMap(([prefecture,cities])=>
+      cities.map(city=>({city,country,region,prefecture}))))).find(row=>row.city===value);
+  const canonicalValue=cityArea?.prefecture||value;
+  const inferred=flatAreas.find(a=>a.value===canonicalValue);
   return {...defaults,...item,
     targetCountry:item?.targetCountry&&item.targetCountry!=='All'?item.targetCountry:(inferred?.country||'All'),
     targetRegion:item?.targetRegion&&item.targetRegion!=='All'?item.targetRegion:(inferred?.region||'All'),
     designConfig:item?.designConfig&&typeof item.designConfig==='object'?item.designConfig:{},
-    targetLocations:Array.isArray(item?.targetLocations)&&item.targetLocations.length?item.targetLocations:['All'],
+    targetLocations:[canonicalValue],
     placement:Array.isArray(item?.placement)?item.placement:(item?.placement?[item.placement]:['home']),
     brandColor:/^#[0-9a-f]{6}$/i.test(item?.brandColor||'')?item.brandColor:'#a855f7',
     expiresAt:item?.expiresAt?new Date(item.expiresAt).toISOString().slice(0,16):'',
@@ -120,7 +124,6 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const prefecture=geo?.prefecture||'All';
   const regions=form.targetCountry==='All'?{}:(LOCATION_DATA[form.targetCountry]||{});
   const prefectures=form.targetRegion==='All'?{}:(regions[form.targetRegion]||{});
-  const cities=prefecture==='All'?[]:(prefectures[prefecture]||[]);
   const selectCountry=value=>setForm(old=>({...old,targetCountry:value,targetRegion:'All',targetLocations:[value==='All'?'All':value]}));
   const selectRegion=value=>setForm(old=>({...old,targetRegion:value,targetLocations:[value==='All'?old.targetCountry:value]}));
   const selectPrefecture=value=>change('targetLocations',[value==='All'?form.targetRegion:value]);
@@ -138,7 +141,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
     }).catch(()=>{});
     return ()=>{live=false;};
   },[files.imageFile,autoColor]);
-  const editable=scope!=='agency'||!id||['pending','rejected'].includes(form.status);
+  const editable=true; // Active agency creative changes are submitted as pending revisions.
   const upload=async(file,endpoint,field)=>{
     const body=new FormData();body.append(field,file);
     const response=await fetch('/api/uploads/'+endpoint,{method:'POST',headers:auth(),body});
@@ -252,7 +255,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Χώρα"><select className={input} value={form.targetCountry} onChange={e=>selectCountry(e.target.value)}><option value="All">Όλες οι χώρες</option>{Object.keys(LOCATION_DATA).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
             <Field label="Περιφέρεια"><select className={input} value={form.targetRegion} disabled={form.targetCountry==='All'} onChange={e=>selectRegion(e.target.value)}><option value="All">Όλες οι περιφέρειες</option>{Object.keys(regions).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
-            <Field label="Νομός"><select className={input} value={prefecture} disabled={form.targetRegion==='All'} onChange={e=>selectPrefecture(e.target.value)}><option value="All">Όλοι οι νομοί</option>{Object.keys(prefectures).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
+            <Field label="Νομός / Περιφερειακή Ενότητα"><select className={input} value={prefecture} disabled={form.targetRegion==='All'} onChange={e=>selectPrefecture(e.target.value)}><option value="All">Όλοι οι νομοί</option>{Object.keys(prefectures).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
             <Field label="Πόλη"><select className={input} value={cities.includes(target)?target:'All'} disabled={prefecture==='All'} onChange={e=>change('targetLocations',[e.target.value==='All'?prefecture:e.target.value])}><option value="All">Όλες οι πόλεις</option>{cities.map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
           </div>
           <p className="text-xs text-purple-200">Στόχευση: {form.targetLocations?.join(', ')||'All'}</p>
@@ -261,7 +264,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
             <Field label="Διάρκεια"><select className={input} value={form.duration} onChange={e=>change('duration',e.target.value)}><option value="day">24 ώρες</option><option value="month">Μήνας</option><option value="year">Έτος</option></select></Field>
             <Field label="Λήξη (προαιρετικό)"><input type="datetime-local" className={input} value={form.expiresAt} onChange={e=>change('expiresAt',e.target.value)}/></Field>
           </div>}
-          {scope==='agency'&&<p className="text-xs text-amber-200">Αποθήκευση ως draft προς έγκριση Admin · καμία δοκιμαστική χρέωση.</p>}
+          {scope==='agency'&&<p className="text-xs text-amber-200">Κάθε αλλαγή υποβάλλεται για έγκριση Admin. Η ενεργή έκδοση παραμένει διαθέσιμη μέχρι την έγκριση · καμία δοκιμαστική χρέωση.</p>}
         </section>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <Link to={path} className="rounded-xl border border-white/10 px-6 py-3 text-sm font-bold text-zinc-300">Ακύρωση</Link>
