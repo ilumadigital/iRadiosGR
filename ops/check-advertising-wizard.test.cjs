@@ -10,16 +10,20 @@ const ui=read('frontend/src/pages/AdvertisingCampaignWizard.jsx');
 const billing=read('backend/routes/advertisingCampaignRoutes.js');
 const webhook=read('backend/services/advertisingPaymentEvents.js');
 const agency=read('backend/routes/agencyRoutes.js');
+const auto=read('backend/services/advertisingAutoSubmission.js');
 
-test('Campaign wizard stages are exactly ordered and Agency final submission is last',()=>{
- for(const label of ['Καμπάνια','Visual / Audio','Budget','Overview','Πληρωμή','Έγκριση'])
+test('Agency wizard ends at Nexi payment and queues Admin review automatically',()=>{
+ for(const label of ['Καμπάνια','Visual / Audio','Budget','Overview','Πληρωμή'])
   assert.ok(ui.includes("title:'"+label+"'"),label);
  assert.ok(ui.includes("admin?[...stages.slice(0,4)"));
  assert.ok(ui.includes('AdvertisingCampaignWizard({role='));
- assert.ok(ui.includes('Αποστολή στον Admin για έγκριση'));
+ assert.ok(!ui.includes('Αποστολή στον Admin για έγκριση'));
+ assert.ok(ui.includes('Η καμπάνια βρίσκεται στον Admin προς έγκριση.'));
+ assert.ok(!ui.includes('setStep(5)'));
+ assert.match(webhook,/await submitPaidCampaign\(campaign\._id\)/);
  assert.ok(ui.includes('estimatedImpressions'));
  assert.ok(ui.includes('quote.paymentCents'));
- assert.ok(ui.includes('Η επιστροφή στην εφαρμογή δεν σημαίνει εξόφληση.'));
+ assert.ok(ui.includes('Μόνο το υπογεγραμμένο webhook της Nexi πιστώνει το budget.'));
  assert.ok(ui.includes('window.setInterval(refresh,6000)'));
  assert.ok(ui.includes("await request('/api/advertising/payments/'+intent._id)"));
  assert.ok(ui.includes('Μόνο το υπογεγραμμένο webhook') || ui.includes('μόνο το υπογεγραμμένο webhook'));
@@ -39,15 +43,16 @@ test('Wizard routes are scoped to their explicit authenticated prefix; no global
  assert.match(wizard,/approvalStatus:'draft'/);
 });
 
-test('New creatives remain private drafts until verified payment and explicit submit',()=>{
+test('Agency creatives become pending automatically after a verified signed payment',()=>{
  assert.match(wizard,/status:'draft',isStageCreative:true/);
  assert.match(wizard,/agencyDraftNoticeVersion:0/);
- assert.match(wizard,/if\(paid<campaign\.plannedBudgetCents\*10000\)/);
- assert.match(wizard,/source:'nexi_verified'/);
- assert.match(wizard,/kind:'paid_pending_review'/);
- assert.match(wizard,/approvalStatus:'pending',submittedAt:new Date\(\)/);
- assert.match(wizard,/agencyDraftNoticeVersion:1/);
- assert.match(webhook,/if\(campaign\.workflowVersion!==2\)/);
+ assert.match(auto,/source:'nexi_verified'/);
+ assert.match(auto,/kind:'paid_pending_review'/);
+ assert.match(auto,/approvalStatus:'pending',submittedAt:new Date\(\)/);
+ assert.match(auto,/agencyDraftNoticeVersion:1/);
+ assert.match(auto,/BigInt\(budgetCentsToNanos\(campaign\.plannedBudgetCents\)\)/);
+ assert.match(wizard,/Η καμπάνια υποβάλλεται αυτόματα μετά την επαλήθευση πληρωμής Nexi/);
+ assert.match(webhook,/if\(campaign\.workflowVersion===2&&quote\.kind==='initial'\)/);
  assert.match(webhook,/if\(quote\.kind==='topup'\|\|campaign\.workflowVersion!==2\)/);
  assert.match(agency,/workflowVersion:\{\$ne:2\}/);
  assert.match(billing,/campaign\.plannedBudgetCents!==req\.body\?\.budgetCents/);
@@ -82,7 +87,7 @@ test('Pricing update does not $set and $inc the same Mongo path',()=>{
  assert.match(billing,/sandboxCheckoutReady/);
 });
 
-test('Only Admin can review wizard creatives after Agency submits verified funds',()=>{
+test('Only Admin can review Agency creatives after signed payment auto-submits them',()=>{
  assert.match(wizard,/router\.get\('\/admin\/advertising\/wizard\/campaigns\/:id\/creatives-review'/);
  assert.match(wizard,/router\.put\('\/admin\/advertising\/wizard\/campaigns\/:id\/creatives-review\/:kind\/:creativeId'/);
  assert.match(wizard,/approvalStatus:'pending'/);
