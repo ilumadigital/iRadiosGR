@@ -26,8 +26,16 @@ function resolveGeo(headers,secret){
 function trustedAdGeo(req,res,next){
  // Never trust a client query string, arbitrary browser header or raw CF-*.
  // Reverse proxy must overwrite ALL x-iradios-geo-* values and keep its
- // shared secret out of client reach. Without provisioning, fail to country.
- req.geo=resolveGeo(req.headers,process.env.IRADIOS_TRUSTED_GEO_SECRET);
+ // shared secret out of client reach.
+ const trusted=resolveGeo(req.headers,process.env.IRADIOS_TRUSTED_GEO_SECRET);
+ // This public staging host currently has no trusted reverse-proxy geo.
+ // Show Greece / Attica test placements ONLY while the non-billable preview
+ // switch is explicitly enabled. This is FIXTURE geo, NOT a visitor location.
+ // Do not use this fallback in production or for any real paid accounting.
+ const {paidPlacementPreviewEnabled}=require('../services/advertisingStagePaidPreview');
+ req.geo=trusted||(paidPlacementPreviewEnabled()?{
+  country:'Ελλάδα',region:'Αττική',prefecture:'Αττική'
+ }:null);
  next();
 }
 module.exports={authorizedToken,resolveGeo,trustedAdGeo};
