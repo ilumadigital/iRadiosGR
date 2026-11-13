@@ -222,9 +222,8 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
   await campaign.save();
   if(approval==='approved'){
    const now=new Date();
-   const active=process.env.AD_DELIVERY_BILLING_ENABLED==='1'&&
-    campaign.agencyEnabled&&!campaign.adminSuspended&&
-    campaign.startsAt<=now&&campaign.endsAt>now;
+   // No "activated" claim until atomically billable CPM delivery exists.
+   const active=false;
    try{
     await require('../services/advertisingCampaignMailScheduler').enqueue({
      eventKey:'campaign-approved:'+String(campaign._id)+':'+campaign.approvedAt.toISOString(),
