@@ -304,10 +304,10 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
               <RotateCw size={20} className={`${loading ? 'animate-spin text-[#ccff00]' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
             </button>
             <button 
-              onClick={() => navigate('/agency/campaigns/'+(activeTab==='audio'?'audio':'banners')+'/new')}
+              onClick={() => navigate('/agency/v2/campaigns')}
               className="bg-[#ccff00] text-black px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(204,255,0,0.2)] flex items-center gap-3 shrink-0"
             >
-              <Plus size={18} /> Νεα Καμπανια
+              <Plus size={18} /> Ενιαία Καμπάνια v2
             </button>
           </div>
         </div>
@@ -435,7 +435,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                     <span className="text-zinc-500">Ληξη: {new Date(campaign.expiresAt).toLocaleDateString('el-GR')}</span>
                   )}
                 </div>
-                {['pending','rejected'].includes(campaign.status)&&
+                {['pending','rejected','active','expired'].includes(campaign.status)&&
                   <button type="button" onClick={()=>navigate('/agency/campaigns/'+(activeTab==='banners'?'banners':'audio')+'/'+campaign._id+'/edit')}
                     className="mt-4 w-full rounded-xl border border-purple-500/40 bg-purple-500/10 px-4 py-3 text-xs font-bold text-purple-200 hover:bg-purple-500/20">
                     Επεξεργασία καμπάνιας
