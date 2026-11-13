@@ -1,4 +1,5 @@
 const {matchesAgencyGeo}=require('../services/agencyAdGeoMatch');
+const {filterFundedCreatives,isFundedCreative}=require('../services/advertisingDeliveryEligibility');
 // controllers/bannerController.js
 const BannerAd = require('../models/BannerAd');
 const mongoose=require('mongoose');
@@ -43,8 +44,8 @@ exports.getActiveBanners=async(req,res)=>{
   try{
     res.set('Cache-Control','no-store, private');
     const banners=await BannerAd.find(activeCampaignQuery()).sort({createdAt:-1}).lean();
-    res.json(banners.filter(b=>Array.isArray(b.placement)&&b.placement.length &&
-      matchesAgencyGeo(b,req.geo)));
+    res.json(await filterFundedCreatives(banners.filter(b=>Array.isArray(b.placement)&&b.placement.length &&
+      matchesAgencyGeo(b,req.geo))));
   }catch(error){
     console.error('[BANNERS] Public delivery failed',error.message);
     res.status(500).json({error:'Σφάλμα ανάκτησης Banners.'});
