@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Link, useNavigate, useParams} from 'react-router-dom';
+import {Link, useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import {ArrowLeft, Check, Image as ImageIcon, Music2, RefreshCw, ShieldAlert} from 'lucide-react';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import DynamicAdCreative from '../components/DynamicAdCreative';
@@ -27,7 +27,7 @@ const defaults = {
   title:'',client:'',description:'',imageUrl:'',squareImageUrl:'',logoUrl:'',
   ctaLabel:'Μάθε περισσότερα',brandColor:'#a855f7',focalX:50,focalY:50,
   targetUrl:'',linkUrl:'',audioUrl:'',frequency:'entry',dspPreset:'OFF',designConfig:{},
-  placement:['home'],targetLocations:['All'],targetCountry:'All',targetRegion:'All',
+  campaignId:null,placement:['home'],targetLocations:['All'],targetCountry:'All',targetRegion:'All',
   duration:'month',expiresAt:'',status:'active'
 };
 const flatAreas = Object.entries(LOCATION_DATA).flatMap(([country,regions])=>
@@ -73,6 +73,7 @@ function getEndpoint(scope,kind,user,id) {
 }
 export default function CampaignEditor({scope='admin',kind='banners',currentUser,refreshGlobalAds}) {
   const {id}=useParams();
+  const [searchParams]=useSearchParams();
   const navigate=useNavigate();
   const banner=kind!=='audio';
   const path=scope==='agency'?'/agency/dashboard':'/backoffice/admin/'+(banner?'banners':'ads');
@@ -101,7 +102,8 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const route=getEndpoint(scope,kind,currentUser,id);
   const auth=()=>({Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')});
   useEffect(()=>{
-    if(!id){setForm({...defaults, status:scope==='agency'?'pending':'active'});return;}
+    if(!id){setForm({...defaults, status:scope==='agency'?'pending':'active',
+      campaignId:scope==='agency'?searchParams.get('campaignId'):null});return;}
     let mounted=true;
     (async()=>{
       try {
