@@ -20,5 +20,8 @@ test('Loutraki matches Greece, Peloponnese, Corinthia not Attica',()=>{
 });
 test('unknown region never unlocks prefecture campaigns',()=>{
   assert.equal(matchesAgencyGeo(campaign('Ελλάδα','Πελοπόννησος','Κορινθία'),null),false);
-  assert.equal(matchesAgencyGeo(campaign('Ελλάδα','All','Ελλάδα'),null),true);
+  assert.equal(matchesAgencyGeo(campaign('Ελλάδα','All','Ελλάδα'),null),false);
+  assert.equal(matchesAgencyGeo(campaign('All','All','All'),null),true);
+  assert.equal(matchesAgencyGeo(campaign('Ελλάδα','All','Ελλάδα'),{country:'Ελλάδα'}),true);
+  assert.equal(matchesAgencyGeo(campaign('Ελλάδα','All','Ελλάδα'),{country:'Κύπρος'}),false);
 });
