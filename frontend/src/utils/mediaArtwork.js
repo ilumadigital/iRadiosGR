@@ -4,7 +4,7 @@
 export function stationMediaArtworkUrl(station) {
   const id = String(station?._id || '');
   if (/^[a-f0-9]{24}$/i.test(id)) {
-    return `/api/media/station-logo/${id}.jpg`;
+    return `/api/media/station-logo/${id}.jpg?v=2`;
   }
   return station?.logo || '';
 }
