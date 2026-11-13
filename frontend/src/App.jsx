@@ -1195,7 +1195,9 @@ function MainApp() {
   const skipCurrentAd=()=>{
     const ad=activeAdRef.current;
     const audio=audioRef.current;
-    if(!ad?.started||!audio||!canSkipAd(
+    // Once 15 audible seconds have been earned, the remaining break is
+    // skippable even while the next spot is loading (before onPlaying fires).
+    if(!ad||!audio||!canSkipAd(
       adListenClockRef.current,audio.duration,adBreakSpotCountRef.current>1))return;
     // Skip the remaining scheduled break and return directly to the listener's
     // latest station selection, never starting another spot in the same break.
