@@ -45,8 +45,14 @@ jobs:
       MAIL_FROM: '"iRadios GR CI" <no-reply@iradios.gr>'
     steps:
       - uses: actions/checkout@v4
-      - name: Install only lockfile-backed backend dependencies; no native postinstall scripts
-        run: npm --prefix backend ci --ignore-scripts --no-audit --no-fund
+      - name: Install isolated pinned Mongo and SMTP test-only dependencies
+        # The existing backend lockfile predates canvas in package.json. Do not
+        # rewrite the application's production lockfile as a side-effect of CI.
+        run: |
+          mkdir -p /tmp/agency-notice-ci
+          printf '%s\n' '{"private":true,"dependencies":{"mongoose":"9.2.4","nodemailer":"8.0.1"}}' > /tmp/agency-notice-ci/package.json
+          npm --prefix /tmp/agency-notice-ci install --ignore-scripts --no-audit --no-fund
+          ln -s /tmp/agency-notice-ci/node_modules backend/node_modules
       - name: Test unique recipient key and real Mongo concurrent lease recovery (NO SMTP)
         run: node backend/tests/agencyAdNoticeMongoDisposable.cjs
       - name: Exercise application SMTP -> isolated Mailpit API and durable Mongo outbox
