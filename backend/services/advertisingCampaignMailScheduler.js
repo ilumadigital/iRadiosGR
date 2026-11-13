@@ -9,10 +9,17 @@ const safe=value=>escapeHtml(String(value||''));
 const origin=()=>process.env.APP_PUBLIC_URL||'https://stage.iradios.gr';
 async function enqueue({eventKey,kind,campaign,amountCents=0}){
  if(process.env.APP_ENV!=='staging')return false;
- await MailEvent.updateOne({eventKey},{$setOnInsert:{
-  eventKey,kind,campaignId:campaign._id,agencyId:campaign.agencyId,
-  amountCents,status:'pending'
- }},{upsert:true});
+ try{
+  await MailEvent.updateOne({eventKey},{$setOnInsert:{
+   eventKey,kind,campaignId:campaign._id,agencyId:campaign.agencyId,
+   amountCents,status:'pending'
+  }},{upsert:true});
+ }catch(error){
+  // Two concurrent settlement workers may enqueue the same funding-cycle
+  // notification. Unique eventKey is authoritative; losing the upsert race
+  // must not falsely report a failed already-committed CPM charge.
+  if(error.code!==11000||!await MailEvent.exists({eventKey}))throw error;
+ }
  kick();
  return true;
 }
