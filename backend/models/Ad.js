@@ -47,7 +47,9 @@ const adSchema = new mongoose.Schema({
   stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Station', default: null },
   isGlobal: { type: Boolean, default: true },
   // Isolated staging inventory only; imported production campaigns remain hidden.
-  isStageCreative: { type: Boolean, default: false }
+  isStageCreative: { type: Boolean, default: false },
+  agencyDraftNoticeVersion:{type:Number,default:0},
+  draftOutboxSeededAt:{type:Date,default:null}
 },{timestamps:{createdAt:false,updatedAt:true}});
 
 module.exports = mongoose.model('Ad', adSchema);
