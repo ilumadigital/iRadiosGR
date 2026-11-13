@@ -12,11 +12,12 @@ const Event=require('../models/AdvertisingBillableEvent');
 const FundingLot=require('../models/AdvertisingFundingLot');
 const {auditFundingSet}=require('../services/advertisingFinancialAudit');
 const uri=process.env.AD_CPM_DISPOSABLE_MONGODB_URI||'';
-const explicitDb=uri.match(/\/ad_cpm_disposable_[A-Za-z0-9_-]+(?:\?|$)/);
-if(process.env.APP_ENV!=='staging'||!explicitDb||
-   process.env.NODE_ENV==='production'||
-   /(?:[?&]authSource=admin\b)/i.test(uri)&&!process.env.AD_CPM_ALLOW_AUTH_SOURCE_ADMIN)
- throw Error('Refusing to run settlement integration against any non-disposable MongoDB');
+const pathname=uri.split('?')[0];
+const disposable=/\/ad_cpm_disposable_[a-zA-Z0-9_-]{8,}$/.test(pathname);
+if(process.env.APP_ENV!=='staging'||process.env.NODE_ENV==='production'||
+   !disposable||! /^(mongodb|mongodb\+srv):\/\//.test(uri)||
+   process.env.AD_CPM_DISPOSABLE_APPROVAL!=='I_CONFIRMED_TEST_ONLY_DATABASE')
+ throw Error('Refusing non-disposable/unapproved MongoDB integration test target');
 (async()=>{
  await mongoose.connect(uri,{serverSelectionTimeoutMS:7000});
  try{
