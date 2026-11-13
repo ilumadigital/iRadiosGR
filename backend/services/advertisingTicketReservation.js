@@ -11,7 +11,7 @@ async function reserveTicketQuotas(quotas,adapter,createTicket){
  async function undo(){
   // Rollback only reservations THIS attempt actually won. Never delete
   // counters entirely; other concurrent reservations may exist.
-  const results=await Promise.allSettled(acquired.reverse().map(q=>
+  const results=await Promise.allSettled(acquired.splice(0).reverse().map(q=>
    adapter.release(q.key)));
   if(results.some(r=>r.status==='rejected'))
    throw Error('Shadow counter release failed; manual QA review required');
