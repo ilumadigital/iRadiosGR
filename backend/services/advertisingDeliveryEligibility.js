@@ -4,6 +4,8 @@
 const Campaign=require('../models/AdvertisingCampaign');
 const FundingLot=require('../models/AdvertisingFundingLot');
 async function eligibleCampaignIds(creatives,now=new Date()){
+ // Do not serve prepaid inventory until atomic billable-event settlement exists.
+ if(process.env.AD_DELIVERY_BILLING_ENABLED!=='1')return new Set();
  const ids=[...new Set(creatives.map(ad=>ad?.campaignId)
   .filter(Boolean).map(String))];
  if(!ids.length)return new Set();
