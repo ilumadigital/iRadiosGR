@@ -156,7 +156,7 @@ export default function AdminAdControl({ API_URL }) {
         finalAudioUrl = uploadResult.url;
       }
 
-      const finalLogo = editingAd.logoUrl.trim() === '' ? '/favicon.png' : editingAd.logoUrl;
+      const finalLogo = editingAd.logoUrl.trim() === '' ? '/icon-tr.svg' : editingAd.logoUrl;
 
       // ΣΩΖΟΥΜΕ ΤΙΣ ΑΛΛΑΓΕΣ
       const res = await fetch(`${API_URL}/admin/ads/${editingAd._id}`, {

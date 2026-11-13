@@ -185,7 +185,7 @@ export default function AdControl({ API_URL, currentUser }) {
       }
 
       const generatedAudioUrl = uploadResult.url; 
-      const finalLogo = newAd.logoUrl.trim() === '' ? '/favicon.png' : newAd.logoUrl;
+      const finalLogo = newAd.logoUrl.trim() === '' ? '/icon-tr.svg' : newAd.logoUrl;
 
       // 2. ΑΠΟΘΗΚΕΥΣΗ ΤΗΣ ΔΙΑΦΗΜΙΣΗΣ ΣΤΗ ΒΑΣΗ
       const res = await fetch(`${API_URL}/broadcaster/ads`, {
@@ -221,7 +221,7 @@ export default function AdControl({ API_URL, currentUser }) {
       alert('Το Ad Control δεν είναι ενεργό για αυτόν τον σταθμό.');return;
     }
     try {
-      const finalLogo = editingAd.logoUrl.trim() === '' ? '/favicon.png' : editingAd.logoUrl;
+      const finalLogo = editingAd.logoUrl.trim() === '' ? '/icon-tr.svg' : editingAd.logoUrl;
 
       const res = await fetch(`${API_URL}/broadcaster/ads/${editingAd._id}`, {
         method: 'PUT',
@@ -429,7 +429,7 @@ export default function AdControl({ API_URL, currentUser }) {
             {myAds.map(ad => (
               <div key={ad._id} className="flex justify-between items-center bg-black p-3 rounded-xl border border-white/5 group hover:border-white/10 transition-colors">
                 <div className="flex items-center gap-4">
-                  <img src={ad.logoUrl || '/favicon.png'} className="w-10 h-10 rounded-lg object-cover bg-zinc-900" alt="" />
+                  <img src={ad.logoUrl || '/icon-tr.svg'} className="w-10 h-10 rounded-lg object-cover bg-zinc-900" alt="" />
                   <div>
                     <div className="text-sm font-bold text-white">{ad.title}</div>
                     <div className="text-[10px] text-[#ccff00] uppercase tracking-widest">{ad.client}</div>
