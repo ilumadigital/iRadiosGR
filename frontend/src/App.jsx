@@ -1196,7 +1196,7 @@ function MainApp() {
       audio.load();
       adWatchdogRef.current = setTimeout(() => {
         if (activeAdRef.current?.token === token) playNextAdOrStation();
-      }, 12000);
+      }, 20000);
       const attempt = audio.play();
       if (attempt && typeof attempt.catch === 'function') {
         attempt.catch(error => {
@@ -1880,12 +1880,21 @@ function MainApp() {
         }}
 
         onError={(e) => {
-          console.warn("⚠️ Το stream του ραδιοφώνου διακόπηκε από τον server του σταθμού:", e);
-          // A failed HTTP/stream request must not leave the UI spinning indefinitely.
+          // The same audio element serves spots and station streams.
+          // A failed ad has its own diagnostic and must never be presented as
+          // a broken radio station or trap the listener in a silent break.
+          const media=e.currentTarget;
+          const code=media.error?.code||0;
+          const ad=activeAdRef.current;
           setIsBuffering(false);
-          if (activeAdRef.current) {
+          if (ad) {
+            console.warn('[ADS] Spot playback failed; resuming station', {
+              adId:ad.id,code,networkState:media.networkState,
+              readyState:media.readyState,source:media.currentSrc
+            });
             playNextAdOrStation();
           } else {
+            console.warn('[RADIO] Station stream failed', {code,source:media.currentSrc});
             setIsPlaying(false);
             showAlert("Ο σταθμός δεν ανταποκρίνεται αυτή τη στιγμή. Δοκίμασε έναν άλλο σταθμό.");
           }
