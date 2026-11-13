@@ -243,10 +243,10 @@ function stagePublicAccess(req, res, next) {
   if(req.method==='GET'&&path==='/api/stations/dsp-preview-access')
     return protect(req,res,()=>authorizeRoles('broadcaster')(req,res,next));
 
-  // Phase 4 Backoffice: signed-in operational roles only. Each backoffice
-  // route additionally enforces station ownership and action-specific roles.
+  // Agency can load only the dedicated overview projection. Every other
+  // Backoffice path is still denied inside backofficeRoutes's role gate.
   if (path === '/api/backoffice' || path.startsWith('/api/backoffice/')) {
-    return protect(req,res,()=>authorizeRoles('admin','broadcaster','producer')(req,res,next));
+    return protect(req,res,()=>authorizeRoles('admin','broadcaster','producer','agency')(req,res,next));
   }
 
   // Hardened stage Ad Control actions: route verifies owner AND station
@@ -256,6 +256,14 @@ function stagePublicAccess(req, res, next) {
       ((req.method==='PUT'||req.method==='DELETE')&&
        /^\/api\/broadcaster\/ads\/[a-f0-9]{24}$/i.test(path)))
     return protect(req,res,next);
+
+  // Advertising v2 must be reachable by its own Agency. The actual routes
+  // also validate tenant ownership and Admin-only actions. Never open a broad
+  // /api pass-through: public radio still requires its own allowlisted route.
+  if (path.startsWith('/api/advertising/'))
+    return protect(req,res,()=>authorizeRoles('agency','admin')(req,res,next));
+  if (path.startsWith('/api/admin/advertising/'))
+    return protect(req,res,()=>authorizeRoles('admin')(req,res,next));
 
   // Agency sandbox actions are authenticated; handlers verify role and ownership.
   if (path.startsWith('/api/agency/') ||
