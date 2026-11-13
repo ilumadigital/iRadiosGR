@@ -26,6 +26,15 @@ async function api(relative){
  if(!response.ok)throw Error('Mailpit API failed: '+response.status);
  return response.json();
 }
+async function setMailpitChaos(enabled){
+ const response=await fetch('http://mailpit:8025/api/v1/chaos',{
+  method:'PUT',
+  headers:{'content-type':'application/json'},
+  body:JSON.stringify(enabled?{Sender:{ErrorCode:451,Probability:100}}:{}),
+  signal:AbortSignal.timeout(3500)
+ });
+ if(!response.ok)throw Error('Mailpit chaos configuration failed: '+response.status);
+}
 async function awaitCondition(check,description){
  for(let i=0;i<75;i++){
   await outbox.run();
@@ -142,8 +151,47 @@ async function awaitCondition(check,description){
   assert.equal(rejectedMessages.length,1);
   assert.equal(rejectedMessages[0].To[0].Address,agency.email);
   assert.match(rejectedMessages[0].HTML,/&lt;script&gt;unsafe&lt;\/script&gt;/);
+  // Real SMTP failure injection: Mailpit replies 451 before accepting mail,
+  // Mongo retains both recipient attempts for retry without extra inbox mail.
+  await setMailpitChaos(true);
+  const retryRevision=await Revision.create({
+   agencyId:agency._id,creativeId,creativeType:'banner',
+   patch:{title:'Transient SMTP failure'},
+   before:{title:'Previously approved'},
+   baseUpdatedAt:new Date(),status:'pending',
+   noticeVersion:1,creativeTitleAtSubmission:'SMTP chaos CI '+tag,
+   submittedBy:agency._id
+  });
+  revisionIds.push(retryRevision._id);
+  try{
+   await outbox.queueRevision(retryRevision.toObject());
+   await awaitCondition(async()=>await Notice.countDocuments({
+    revisionId:retryRevision._id,kind:'revision_submitted',
+    status:'pending',attempts:{$gte:1}
+   })===2,'two failed SMTP 451 attempts recorded for retry');
+   assert.equal((await api('/api/v1/messages')).total,4,
+    'SMTP 451 must never be mistaken for a delivered email');
+   const failed=await Notice.find({revisionId:retryRevision._id}).lean();
+   assert.equal(failed.length,2);
+   assert.ok(failed.every(row=>row.lastError.includes('451')),
+    'SMTP temporary error must be visible in outbox diagnostics');
+  }finally{
+   await setMailpitChaos(false);
+  }
+  // Do NOT wait for a real thirty-second backoff during CI; move the
+  // nextAttemptAt clock forward ONLY in this isolated disposable database.
+  await Notice.updateMany({revisionId:retryRevision._id,status:'pending'},
+   {$set:{nextAttemptAt:new Date(0)}});
+  await awaitCondition(async()=>await Notice.countDocuments({
+   revisionId:retryRevision._id,kind:'revision_submitted',status:'sent'
+  })===2,'two recovered Admin notices after restoring SMTP');
+  assert.equal((await api('/api/v1/messages')).total,6);
+  const recovered=await Notice.find({revisionId:retryRevision._id}).lean();
+  assert.ok(recovered.every(row=>row.attempts===2&&row.lastError===''));
+  console.log('PASS: real Mailpit 451 temporary SMTP outage, Mongo backoff and exactly one accepted recovery per recipient.');
   console.log('PASS: real disposable Mongo/Mailpit 2 Admin notices, approval, rejection, recovery, branded HTML, deduplication.');
  }finally{
+  await setMailpitChaos(false).catch(()=>{});
   await Notice.deleteMany({revisionId:{$in:revisionIds}});
   await Revision.deleteMany({_id:{$in:revisionIds}});
   await User.deleteMany({_id:{$in:[...adminIds,agencyId].filter(Boolean)}});
