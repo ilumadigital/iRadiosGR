@@ -94,6 +94,12 @@ async function handleVerifiedAdvertisingEvent(event,res){
  // an admin approves a fully configured campaign.
  await Campaign.updateOne({_id:campaign._id,approvalStatus:'draft'},
   {$set:{approvalStatus:'pending'}});
+ const mailer=require('./advertisingCampaignMailScheduler');
+ await mailer.enqueue({
+  eventKey:(quote.kind==='topup'?'topup:':'paid:')+event.payment_id,
+  kind:quote.kind==='topup'?'topup_success':'paid_pending_review',
+  campaign,amountCents:quote.budgetCents
+ });
  return res.json({received:true,credited:true,duplicate:!newlyCredited});
 }
 module.exports={validAdvertisingEvent,handleVerifiedAdvertisingEvent};
