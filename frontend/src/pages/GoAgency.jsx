@@ -423,7 +423,7 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
             
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-purple-500/20">
-                <img src="/iradios-app-logo.png" alt="iRadiosGR" className="w-12 h-12 object-contain" />
+                <img src="/icon-tr.svg" alt="iRadiosGR" className="w-12 h-12 object-contain" />
               </div>
               <h3 className="text-3xl font-black text-white tracking-tight uppercase italic">Agency Portal</h3>
               <p className="text-sm text-zinc-400 mt-2">Δημιουργήστε τον εταιρικό λογαριασμό διαφημιστή.</p>

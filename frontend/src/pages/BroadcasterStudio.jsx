@@ -1107,7 +1107,7 @@ const getDSPBackgroundCurve = (preset) => {
                 ) : (
                   localAds.slice(0, 4).map(ad => (
                     <div key={ad._id} className="bg-zinc-900/50 border border-white/5 p-4 rounded-2xl flex items-center gap-4 group hover:border-orange-500/30 transition-colors">
-                      <img src={ad.logoUrl || '/favicon.png'} alt="" className="w-12 h-12 rounded-xl object-cover bg-black" />
+                      <img src={ad.logoUrl || '/icon-tr.svg'} alt="" className="w-12 h-12 rounded-xl object-cover bg-black" />
                       <div className="flex-1 min-w-0">
                         <h5 className="text-sm font-black text-white truncate">{ad.title}</h5>
                         <p className="text-[10px] text-orange-400 font-bold uppercase tracking-widest truncate">{ad.client}</p>

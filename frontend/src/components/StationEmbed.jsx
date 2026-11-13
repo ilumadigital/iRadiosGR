@@ -236,7 +236,7 @@ function useCoverArtwork(station,song){
   return cover.key===key?cover.url:null;
 }
 function ArtworkVisual({station,src,className='',alt='',showArtwork=false}){
-  const logo=station?.logo||'/iradios-logo.png';
+  const logo=station?.logo||'/icon-tr.svg';
   const [failure,setFailure]=useState({src:null,stage:'direct'});
   const stage=failure.src===src?failure.stage:'direct';
   const proxy=showArtwork?widgetShowImageProxy(station,src):null;
@@ -251,8 +251,8 @@ function ArtworkVisual({station,src,className='',alt='',showArtwork=false}){
         setFailure({src,stage:stage==='direct'&&proxy?'proxy':'logo'});
         return;
       }
-      if(!event.currentTarget.src.endsWith('/iradios-logo.png'))
-        event.currentTarget.src='/iradios-logo.png';
+      if(!event.currentTarget.src.endsWith('/icon-tr.svg'))
+        event.currentTarget.src='/icon-tr.svg';
     }}/>;
 }
 function ArtworkBackground({station,src,showSrc,showSecondary=false,showArtwork=false}){
@@ -263,7 +263,7 @@ function ArtworkBackground({station,src,showSrc,showSecondary=false,showArtwork=
   </div>;
 }
 function ArtworkStack({station,rds,className='',alt=''}){
-  const showSrc=rds.broadcast?.show?(rds.broadcast.imageUrl||rds.broadcast.show.imageUrl||station.logo||'/iradios-logo.png'):null;
+  const showSrc=rds.broadcast?.show?(rds.broadcast.imageUrl||rds.broadcast.show.imageUrl||station.logo||'/icon-tr.svg'):null;
   return <div className={classNames('relative overflow-hidden',className)}>
     <ArtworkVisual station={station} src={rds.artwork}
       className="absolute inset-0 size-full object-cover" alt={alt}/>

@@ -15,7 +15,7 @@ const generateMinimalOgImage = async (logoUrl, stationName) => {
     try {
         const safeLogoUrl = logoUrl && logoUrl.startsWith('http') 
             ? logoUrl 
-            : `__IRADIOS_SITE_ORIGIN__${logoUrl || '/iradios-logo.png'}`;
+            : `__IRADIOS_SITE_ORIGIN__${logoUrl || '/favicon.png'}`;
 
         const img = await loadImage(safeLogoUrl);
         const logoSize = 350; // Ελαφρώς μικρότερο για να χωρέσει το κείμενο

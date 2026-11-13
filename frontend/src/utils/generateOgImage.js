@@ -15,7 +15,7 @@ const generateMinimalOgImage = async (logoUrl) => {
         // Έλεγχος αν το URL είναι απόλυτο (http) ή σχετικό (/uploads/...)
         const safeLogoUrl = logoUrl && logoUrl.startsWith('http') 
             ? logoUrl 
-            : `__IRADIOS_SITE_ORIGIN__${logoUrl || '/iradios-logo.png'}`;
+            : `__IRADIOS_SITE_ORIGIN__${logoUrl || '/icon-tr.svg'}`;
 
         const img = await loadImage(safeLogoUrl);
         const logoSize = 380; // Μεγάλο και επιβλητικό
