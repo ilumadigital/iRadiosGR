@@ -27,9 +27,9 @@ export default function DynamicAdCreative({
     <span className="ir-dynamic-ad-title">{title}</span>
     {variant!=='card'&&<span className="ir-dynamic-ad-description">{description}</span>}
   </>;
-  const props = {banner,placement,slotKey,className:`ir-dynamic-ad ir-dynamic-ad--${variant} ${className}`.trim()};
+  const props = {banner,placement,slotKey,style:{'--ir-ad-accent':accent},className:`ir-dynamic-ad ir-dynamic-ad--${variant} ${className}`.trim()};
   const Wrapper = preview ? 'div' : AdPlacementLink;
-  const wrapperProps = preview ? {className:props.className} : props;
+  const wrapperProps = preview ? {className:props.className,style:props.style} : props;
   if (variant==='card') return (
     <Wrapper {...wrapperProps} >
       <span className="ir-dynamic-ad-square">
