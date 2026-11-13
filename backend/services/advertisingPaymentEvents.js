@@ -61,6 +61,7 @@ async function handleVerifiedAdvertisingEvent(event,res){
  };
  const paidAt=new Date(Math.min(Date.parse(event.occurred_at),Date.now()));
  let lot=await FundingLot.findOne({gatewayPaymentId:event.payment_id});
+ let newlyCredited=false;
  if(!lot){
   try{
    lot=await FundingLot.create({
@@ -70,6 +71,7 @@ async function handleVerifiedAdvertisingEvent(event,res){
     priceVersion:quote.priceVersion,ratesMicros:quote.ratesMicros,
     currency:'EUR',source:'nexi_verified',paidAt
    });
+   newlyCredited=true;
   }catch(error){
    if(error.code!==11000)throw error;
    lot=await FundingLot.findOne({$or:[
@@ -92,7 +94,6 @@ async function handleVerifiedAdvertisingEvent(event,res){
  // an admin approves a fully configured campaign.
  await Campaign.updateOne({_id:campaign._id,approvalStatus:'draft'},
   {$set:{approvalStatus:'pending'}});
- return res.json({received:true,credited:true,duplicate:!!lot.createdAt&&
-  String(lot._id)!==''});
+ return res.json({received:true,credited:true,duplicate:!newlyCredited});
 }
 module.exports={validAdvertisingEvent,handleVerifiedAdvertisingEvent};
