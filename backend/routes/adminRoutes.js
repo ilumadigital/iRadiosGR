@@ -15,6 +15,8 @@ router.get('/admin/fix-slugs', adminController.fixSlugs);
 // 🟢 ΕΓΚΡΙΣΗ ΔΙΑΦΗΜΙΣΕΩΝ (AD NETWORK)
 router.put('/admin/banners/:id/approve', ...admin, adminController.approveBannerAd);
 router.put('/admin/ads/:id/approve', ...admin, adminController.approveAudioAd);
+router.put('/admin/banners/:id/reject', ...admin, adminController.rejectBannerAd);
+router.put('/admin/ads/:id/reject', ...admin, adminController.rejectAudioAd);
 
 // 🟢 B2B PAYMENTS & INVOICES ROUTES
 router.get('/admin/transactions', adminController.getAllTransactions);

@@ -242,46 +242,22 @@ const calculateExpiryDate = (duration) => {
   return new Date(now.setMonth(now.getMonth() + 1));
 };
 
-exports.approveBannerAd = async (req, res) => {
-  try {
-    const banner = await BannerAd.findById(req.params.id);
-    if (!banner) return res.status(404).json({ error: 'Η διαφήμιση δεν βρέθηκε.' });
-    if (process.env.APP_ENV === 'staging' && banner.isStageCreative !== true)
-      return res.status(409).json({error:'Η παλιά παραγωγική καμπάνια δεν ενεργοποιείται στο staging. Δημιούργησε δοκιμαστικό αντίγραφο.'});
-
-    const expiresAt = calculateExpiryDate(banner.duration || 'month');
-
-    banner.status = 'active';
-    banner.isActive = true; 
-    banner.expiresAt = expiresAt;
-
-    await banner.save();
-    res.json({ success: true, message: 'Η διαφήμιση εγκρίθηκε και ξεκίνησε να τρέχει!', banner });
-  } catch (error) {
-    console.error("Σφάλμα έγκρισης Banner:", error);
-    res.status(500).json({ error: 'Σφάλμα διακομιστή.' });
-  }
-};
-
-exports.approveAudioAd = async (req, res) => {
-  try {
-    const ad = await Ad.findById(req.params.id);
-    if (!ad) return res.status(404).json({ error: 'Το spot δεν βρέθηκε.' });
-    if (process.env.APP_ENV === 'staging' && ad.isStageCreative !== true)
-      return res.status(409).json({error:'Το παλιό spot παραγωγής δεν ενεργοποιείται στο staging. Δημιούργησε δοκιμαστικό αντίγραφο.'});
-
-    const expiresAt = calculateExpiryDate(ad.duration || 'month');
-
-    ad.status = 'active';
-    ad.expiresAt = expiresAt;
-
-    await ad.save();
-    res.json({ success: true, message: 'Το Audio Spot εγκρίθηκε και είναι live!', ad });
-  } catch (error) {
-    console.error("Σφάλμα έγκρισης Audio Ad:", error);
-    res.status(500).json({ error: 'Σφάλμα διακομιστή.' });
-  }
-};
+const adApprovalWorkflow=require('../services/adApprovalWorkflow');
+async function reviewCreative(req,res,type,approve){
+ try{
+  const updated=await adApprovalWorkflow.decision({type,id:req.params.id,
+   actorId:req.user._id,approve,reason:String(req.body?.reason||'')});
+  res.json({success:true,message:approve?'Εγκρίθηκε':'Απορρίφθηκε',
+   [type==='banner'?'banner':'ad']:updated});
+ }catch(error){
+  console.error('[AD APPROVAL]',error.message);
+  res.status(error.http||500).json({error:error.http?error.message:'Σφάλμα έγκρισης.'});
+ }
+}
+exports.approveBannerAd=(req,res)=>reviewCreative(req,res,'banner',true);
+exports.approveAudioAd=(req,res)=>reviewCreative(req,res,'audio',true);
+exports.rejectBannerAd=(req,res)=>reviewCreative(req,res,'banner',false);
+exports.rejectAudioAd=(req,res)=>reviewCreative(req,res,'audio',false);
 
 // ============================================================================
 // 🟢 TRACKING METRICS (VIEWS, CLICKS, PLAYS)
