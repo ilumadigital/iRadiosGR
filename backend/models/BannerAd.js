@@ -32,7 +32,7 @@ const bannerAdSchema = new mongoose.Schema({
   campaignId: {type: mongoose.Schema.Types.ObjectId, ref: 'AdvertisingCampaign', default: null, index:true},
   // Set in the same creative write as its approved Agency revision changes.
   lastApprovedRevisionId: {type: mongoose.Schema.Types.ObjectId, ref: 'AgencyAdRevision', default:null},
-  status: { type: String, enum: ['pending', 'active', 'expired', 'rejected'], default: 'active' }, // Default active για τον Admin, αλλά στα Agencies μπαίνει pending
+  status: { type: String, enum: ['draft', 'pending', 'active', 'expired', 'rejected'], default: 'active' }, // Default active για τον Admin, αλλά στα Agencies μπαίνει pending
   duration: { type: String, enum: ['day', 'month', 'year'] },
   expiresAt: { type: Date, default: null },
 
