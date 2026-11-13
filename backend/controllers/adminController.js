@@ -252,7 +252,8 @@ exports.approveBannerAd = async (req, res) => {
     if(banner.campaignId){
       const Campaign=require('../models/AdvertisingCampaign');
       const Lot=require('../models/AdvertisingFundingLot');
-      const campaign=await Campaign.findById(banner.campaignId).select('workflowVersion approvalStatus createdByRole');
+      const campaign=await Campaign.findById(banner.campaignId).select('workflowVersion approvalStatus createdByRole deletedAt');
+      if(campaign?.deletedAt)return res.status(409).json({error:'Η καμπάνια έχει διαγραφεί.'});
       if(campaign?.workflowVersion===2&&campaign.createdByRole==='agency'&&
         (campaign.approvalStatus!=='pending'||!
           await Lot.exists({campaignId:campaign._id,source:'nexi_verified'})))
@@ -282,7 +283,8 @@ exports.approveAudioAd = async (req, res) => {
     if(ad.campaignId){
       const Campaign=require('../models/AdvertisingCampaign');
       const Lot=require('../models/AdvertisingFundingLot');
-      const campaign=await Campaign.findById(ad.campaignId).select('workflowVersion approvalStatus createdByRole');
+      const campaign=await Campaign.findById(ad.campaignId).select('workflowVersion approvalStatus createdByRole deletedAt');
+      if(campaign?.deletedAt)return res.status(409).json({error:'Η καμπάνια έχει διαγραφεί.'});
       if(campaign?.workflowVersion===2&&campaign.createdByRole==='agency'&&
         (campaign.approvalStatus!=='pending'||!
           await Lot.exists({campaignId:campaign._id,source:'nexi_verified'})))
