@@ -113,7 +113,7 @@ const SmartHomeRoute = ({ currentUser, children }) => {
     return <Navigate to="/backoffice" replace />;
   }
   if (currentUser?.role === 'agency') {
-    return <Navigate to="/agency/dashboard" replace />;
+    return <Navigate to="/backoffice" replace />;
   }
 
   return children;
@@ -2233,10 +2233,15 @@ function AppContent(){
     '/admin/emails':'/backoffice/admin/emails',
     '/admin/boost':'/backoffice/admin/boost',
     '/admin/ad-control':'/backoffice/admin/adcontrol',
-    '/admin/push':'/backoffice/admin/push'
+    '/admin/push':'/backoffice/admin/push',
+    '/agency/dashboard':'/backoffice',
+    '/agency/v2/campaigns':'/backoffice/agency/campaigns'
   };
   const legacyTarget=legacyBackofficePaths[location.pathname];
-  if(legacyTarget)return <Navigate to={legacyTarget} replace/>;
+  if(legacyTarget)return <Navigate to={legacyTarget+location.search} replace/>;
+  // Keep legacy bookmarks, but never instantiate listener playback for B2B work.
+  if(/^\/agency\/campaigns\/(?:audio|banners)\/(?:new|[a-f0-9]{24}\/edit)$/i.test(location.pathname))
+    return <Navigate to={'/backoffice/agency/creatives/'+location.pathname.slice('/agency/campaigns/'.length)+location.search} replace/>;
   return location.pathname==='/backoffice'||location.pathname.startsWith('/backoffice/')
     ? <Backoffice/> : <MainApp/>;
 }
