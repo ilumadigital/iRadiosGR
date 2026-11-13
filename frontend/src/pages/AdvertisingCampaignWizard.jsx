@@ -275,16 +275,17 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
   await loadDetails(campaignId);setStep(4);
  });};
  const checkPayment=()=>{void work(async()=>{
-  const intent=(detail?.intents||[]).find(row=>['redirect','unknown','creating'].includes(row.status));
-  if(intent){
-   const result=await request('/api/advertising/payments/'+intent._id);
-   if(result.checkoutUrl)setNotice('Η πληρωμή παραμένει στο Nexi Sandbox. Επανέλεγξε την πληρωμή μετά την επιστροφή.');
-  }
+  // Only signed-webhook credits can authorize final submission.
   const updated=await loadDetails(campaignId);
   if(updated.finance.fundedMicros>=updated.campaign.plannedBudgetCents*10000&&
     updated.campaign.plannedBudgetCents>0){
    setStep(5);setNotice('Η πληρωμή επιβεβαιώθηκε μέσω υπογεγραμμένου webhook.');
   }else{
+   const intent=(updated.intents||[]).find(row=>['redirect','unknown','creating'].includes(row.status));
+   if(intent){
+    try{await request('/api/advertising/payments/'+intent._id);}
+    catch{/* A Gateway status timeout never overrides the verified funding ledger. */}
+   }
    setStep(4);setNotice('Δεν υπάρχει ακόμη επαληθευμένη πίστωση. Δεν έχει ειδοποιηθεί ο Admin.');
   }
  });};
@@ -460,6 +461,8 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
       <div className="flex flex-wrap gap-3">{!quote?<button className={primary} disabled={busy||!pricing?.enabled} onClick={makeQuote}>Δημιουργία quote</button>:
        <button className={primary} onClick={checkout} disabled={busy||!pricing?.sandboxCheckoutReady||Boolean(inProgress)||new Date(quote.expiresAt)<=new Date()}>
         <CreditCard size={17}/> Ασφαλής πληρωμή Nexi</button>}
+       {quote&&new Date(quote.expiresAt)<=new Date()&&!inProgress&&
+        <button className={secondary} disabled={busy} onClick={makeQuote}>Ανανέωση ληγμένου quote</button>}
        <button className={secondary} disabled={busy} onClick={checkPayment}><RefreshCw size={16}/> Έλεγχος επιβεβαίωσης</button></div>
      </div>}
     <div className="flex flex-wrap justify-between gap-3"><button className={secondary} onClick={()=>setStep(3)}><ArrowLeft size={17}/> Overview</button>
