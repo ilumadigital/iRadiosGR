@@ -52,7 +52,7 @@ async function transactionalDebit(event){
  try{
   return await session.withTransaction(async()=>{
    const claim=await Event.findById(event._id).session(session).lean();
-   assertClaimMatches(claim,event);
+   assertClaimMatches(claim,{...event,eventId:event._id});
    if(claim.status==='charged')return 'already_charged';
    if(claim.status!=='pending')throw Error('Invalid settlement claim state');
    const lot=await FundingLot.findOne({
