@@ -48,7 +48,8 @@ async function handleVerifiedAdvertisingEvent(event,res){
   if(intent.status==='paid')return res.json({received:true,paid:true,ignored:true});
   const next=event.event_type.split('.')[1];
   await Intent.updateOne({_id:intent._id,status:{$ne:'paid'}},
-   {$set:{status:next},$addToSet:{eventIds:event.event_id}});
+   {$set:{status:next},$unset:{activeLockKey:''},
+    $addToSet:{eventIds:event.event_id}});
   await Quote.updateOne({_id:quote._id,status:{$ne:'paid'}},{$set:{status:'canceled'}});
   return res.json({received:true,paid:false});
  }
@@ -88,7 +89,7 @@ async function handleVerifiedAdvertisingEvent(event,res){
     lot.priceVersion!==expected.priceVersion)
   return res.status(409).json({error:'Advertising funding collision'});
  await Intent.updateOne({_id:intent._id},{$set:{status:'paid',paidAt},
-  $addToSet:{eventIds:event.event_id}});
+  $unset:{activeLockKey:''},$addToSet:{eventIds:event.event_id}});
  await Quote.updateOne({_id:quote._id},{$set:{status:'paid'}});
  // Only request approval. Creative and campaign delivery remain disabled until
  // an admin approves a fully configured campaign.
