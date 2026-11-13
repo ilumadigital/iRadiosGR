@@ -111,7 +111,11 @@ router.post('/advertising/campaigns',async(req,res)=>{
 router.get('/advertising/campaigns',async(req,res)=>{
  if(!isAgency(req)&&!isAdmin(req))return res.status(403).json({error:'Forbidden'});
  try{
-  const filter=isAdmin(req)?{}:{agencyId:req.user._id};
+  // Agencies never see deleted campaigns. Admin can inspect their immutable
+  // financial history via a separate read-only archive list.
+  const filter=isAdmin(req)?
+   (req.query.includeDeleted==='1'?{deletedAt:{$ne:null}}:{deletedAt:null}):
+   {agencyId:req.user._id,deletedAt:null};
   const campaigns=await Campaign.find(filter).sort({createdAt:-1}).limit(150).lean();
   const lots=await FundingLot.find({campaignId:{$in:campaigns.map(c=>c._id)}})
    .select('campaignId budgetNanos remainingNanos budgetMicros remainingMicros').lean();
@@ -131,7 +135,7 @@ router.patch('/advertising/campaigns/:id/enabled',async(req,res)=>{
   return res.status(400).json({error:'Invalid campaign or switch'});
  try{
   // Operational pause/resume does not rewrite approved creatives or prices.
-  const saved=await Campaign.findOneAndUpdate({_id:req.params.id,agencyId:req.user._id},
+  const saved=await Campaign.findOneAndUpdate({_id:req.params.id,agencyId:req.user._id,deletedAt:null},
    {$set:{agencyEnabled:req.body.enabled}},{new:true});
   if(!saved)return res.status(404).json({error:'Campaign not found'});
   res.json(saved);
@@ -287,19 +291,63 @@ router.put('/admin/advertising/campaigns/:id/suspend',async(req,res)=>{
  if(!isAdmin(req)||!objectId(req.params.id)||
     typeof req.body?.suspended!=='boolean')
   return res.status(400).json({error:'Invalid suspension'});
- const changed=await Campaign.findByIdAndUpdate(req.params.id,
+ const changed=await Campaign.findOneAndUpdate({_id:req.params.id,deletedAt:null,isStageCampaign:true},
   {$set:{adminSuspended:req.body.suspended}},{new:true});
  if(!changed)return res.status(404).json({error:'Campaign not found'});
  res.json(changed);
 });
+// An Admin can remove any staging campaign from active management without
+// destroying a payment receipt, funding lot, billing event or creative history.
+// The archived record remains available to Admin for financial reconciliation.
+router.delete('/admin/advertising/campaigns/:id',async(req,res)=>{
+ if(!isAdmin(req))return res.status(403).json({error:'Admin required'});
+ if(!objectId(req.params.id))return res.status(400).json({error:'Invalid campaign'});
+ const reason=typeof req.body?.reason==='string'?req.body.reason.trim():'';
+ const confirmTitle=req.body?.confirmTitle;
+ if(reason.length<5||reason.length>1000||typeof confirmTitle!=='string')
+  return res.status(400).json({error:'Απαιτείται επιβεβαίωση τίτλου και αιτιολογία τουλάχιστον 5 χαρακτήρων.'});
+ try{
+  const campaign=await Campaign.findOne({_id:req.params.id,isStageCampaign:true});
+  if(!campaign)return res.status(404).json({error:'Campaign not found'});
+  if(campaign.deletedAt)return res.status(409).json({error:'Η καμπάνια έχει ήδη αρχειοθετηθεί.'});
+  if(confirmTitle!==campaign.title)
+   return res.status(400).json({error:'Ο τίτλος επιβεβαίωσης δεν ταιριάζει.'});
+  // Do not hide a campaign while its outcome may still turn into a signed
+  // Nexi credit; the Admin must first resolve the ORIGINAL payment intent.
+  const unresolved=await Intent.exists({campaignId:campaign._id,
+   status:{$in:['creating','redirect','unknown']}});
+  if(unresolved)return res.status(409).json({
+   error:'Υπάρχει πληρωμή σε εξέλιξη ή άγνωστη κατάσταση. Ολοκλήρωσε τον οικονομικό έλεγχο πριν από τη διαγραφή.'
+  });
+  // Atomic state transition is the delivery kill switch. The campaign-based
+  // creative eligibility query excludes deletedAt != null at every read.
+  const archived=await Campaign.findOneAndUpdate({
+   _id:campaign._id,isStageCampaign:true,deletedAt:null
+  },{$set:{deletedAt:new Date(),deletedBy:req.user._id,
+   deletionReason:reason,agencyEnabled:false,adminSuspended:true}},
+   {new:true,runValidators:true});
+  if(!archived)return res.status(409).json({error:'Campaign was already deleted'});
+  // Quotes not yet sent to Nexi cannot be used again. Existing intents,
+  // quotes, funding lots and receipts remain intact for tax / audit records.
+  try{
+   await Quote.updateMany({campaignId:archived._id,status:'quoted'},
+    {$set:{status:'canceled'}});
+  }catch(error){
+   console.error('[AD ARCHIVE] Quote cleanup deferred',error.message);
+  }
+  return res.json({deleted:true,campaignId:String(archived._id),
+   deletedAt:archived.deletedAt,deletionReason:archived.deletionReason,
+   financialHistoryPreserved:true,refundIssued:false});
+ }catch(error){return errorResponse(res,error,500);}
+});
+
 // Read-only financial reconciliation for the Admin. This endpoint never
 // adjusts balances, creates credits, or starts payment recovery.
 router.get('/admin/advertising/campaigns/:id/reconciliation',async(req,res)=>{
  if(!isAdmin(req)||!objectId(req.params.id))
   return res.status(403).json({error:'Admin required'});
  try{
-  const campaign=await Campaign.exists({_id:req.params.id,
-   isStageCampaign:true,deletedAt:null});
+  const campaign=await Campaign.exists({_id:req.params.id,isStageCampaign:true});
   if(!campaign)return res.status(404).json({error:'Campaign not found'});
   const Event=require('../models/AdvertisingBillableEvent');
   const [lotCount,eventCount]=await Promise.all([
@@ -322,7 +370,7 @@ router.get('/advertising/campaigns/:id/finance',async(req,res)=>{
  if(!objectId(req.params.id))return res.status(400).json({error:'Invalid campaign'});
  try{
   const campaign=await Campaign.findOne({_id:req.params.id,
-   ...(isAdmin(req)?{}:{agencyId:req.user._id})});
+   ...(isAdmin(req)?{}:{agencyId:req.user._id,deletedAt:null})});
   if(!campaign)return res.status(404).json({error:'Campaign not found'});
   const [lots,intents,banners,audios]=await Promise.all([
    FundingLot.find({campaignId:campaign._id}).sort({paidAt:1}).lean(),
