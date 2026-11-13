@@ -22,7 +22,7 @@ export default function FullscreenArtwork({
       {activeProducer&&<img key={producerImage} src={producerImage}
         alt="" aria-hidden="true" className={'ir-showcase-art__dj '+(showProducer?'is-active':'')}
         onError={()=>setFailedProducer(producerImage)}/>}
-      <div className="ir-showcase-art__scrim" aria-hidden="true"/>
+      {(hasArtwork||activeProducer)&&<div className="ir-showcase-art__scrim" aria-hidden="true"/>}
       {!adImage&&station?.logo&&(
         onStationClick
           ? <button type="button" className="ir-showcase-art__brand ir-showcase-art__brand--link"
