@@ -31,7 +31,7 @@ const adSchema = new mongoose.Schema({
   // Immutable-style applied-revision marker written atomically WITH the patch;
   // needed to recover a crash before the revision decision is finalized.
   lastApprovedRevisionId: {type: mongoose.Schema.Types.ObjectId, ref: 'AgencyAdRevision', default:null},
-  status: { type: String, enum: ['pending', 'active', 'expired', 'rejected'], default: 'active' },
+  status: { type: String, enum: ['draft', 'pending', 'active', 'expired', 'rejected'], default: 'active' },
   duration: { type: String, enum: ['day', 'month', 'year'] },
   expiresAt: { type: Date, default: null },
   
