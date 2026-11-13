@@ -15,7 +15,8 @@ if(process.env.APP_ENV!=='staging'||process.env.NODE_ENV!=='test'||
  process.env.AD_AGENCY_NOTICE_DISPOSABLE_APPROVAL!=='I_CONFIRMED_TEST_ONLY_DATABASE'||
  process.env.AD_AGENCY_NOTICE_MAILPIT_CI!=='1'||
  !/^mongodb:\/\/mongo:27017\/ad_notice_disposable_ci_[a-z0-9]{8,}$/.test(uri)||
- process.env.SMTP_HOST||process.env.SMTP_USER||process.env.SMTP_PASS)
+ process.env.SMTP_HOST||process.env.SMTP_USER||process.env.SMTP_PASS||
+ process.env.APP_PUBLIC_URL!=='https://stage.iradios.gr')
  throw Error('Refusing Agency notice integration outside isolated CI Docker services');
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
