@@ -171,6 +171,17 @@ export default function AgencyAdvertisingV2(){
    </div>}
    {finance&&finance.campaignId===current._id&&<div className="space-y-2 text-sm text-zinc-400">
     <p>Πληρωμές: {finance.intents.length} · Funding lots: {finance.lots.length}</p>
+    {finance.affordability&&<p role="status" className="rounded-xl border border-purple-400/20 bg-purple-500/5 p-3 text-sm text-purple-100">
+     {({
+      funded:'Υπάρχει διαθέσιμο budget για την επόμενη επιλέξιμη προβολή.',
+      exhausted:'Το διαθέσιμο budget έχει εξαντληθεί. Μπορείς να προσθέσεις νέο budget.',
+      below_minimum_event_cost:'Το υπόλοιπο δεν επαρκεί για νέα χρέωση CPM. Χρειάζεται top-up.',
+      receipt_capacity_blocked:'Η εκκαθάριση απαιτεί τεχνικό έλεγχο. Δεν επιτρέπεται νέα χρέωση.',
+      needs_financial_review:'Το οικονομικό υπόλοιπο απαιτεί επαλήθευση από τον Admin.',
+      not_funded:'Δεν υπάρχει ακόμη επιβεβαιωμένο budget.',
+      no_active_creatives:'Δεν υπάρχουν εγκεκριμένα ενεργά δημιουργικά για εκκαθάριση.'
+     })[finance.affordability.status]||'Η κατάσταση budget ελέγχεται.'}
+    </p>}
     {finance.intents.map(intent=><div className="flex flex-wrap items-center gap-2" key={intent._id}><span>{new Date(intent.createdAt).toLocaleString('el-GR')} · €{(intent.amountCents/100).toFixed(2)} · {intent.status}</span>{['creating','redirect','unknown'].includes(intent.status)&&<button className="rounded-lg border border-purple-400/40 px-3 py-1 text-xs text-purple-100 disabled:opacity-40" type="button" disabled={busy} onClick={()=>recover(intent)}>Έλεγχος Gateway (μόνο ανάγνωση)</button>}</div>)}
    </div>}
   </section>}
