@@ -82,6 +82,17 @@ export default function AgencyAdvertisingV2(){
    }else setNotice('Gateway: '+data.status+' · αναμονή επιβεβαίωσης.');
   }catch(e){setNotice(e.message);}finally{setBusy(false);}
  };
+ const recover=async intent=>{
+  setBusy(true);setNotice('');
+  try{
+   const r=await fetch('/api/advertising/payments/'+intent._id,{headers:headers()});
+   const d=await r.json();
+   if(!r.ok)throw Error(d.error||'Η ανάκτηση πληρωμής δεν ολοκληρώθηκε.');
+   setNotice(d.status==='paid'?'Η πληρωμή έχει πιστωθεί.':
+     'Η απάντηση του Nexi δεν αποτελεί απόδειξη πληρωμής. Αναμονή υπογεγραμμένης επιβεβαίωσης.');
+   if(activeId)await openFinance(activeId);
+  }catch(e){setNotice(e.message);}finally{setBusy(false);}
+ };
  const openFinance=async id=>{
   setActiveId(id);setQuote(null);
   try{
@@ -96,6 +107,10 @@ export default function AgencyAdvertisingV2(){
     <p className="mt-2 text-sm text-zinc-400">Visual + Audio · κοινό προπληρωμένο budget · έγκριση Admin.</p></div>
    <Link to="/agency/dashboard" className="self-start rounded-xl border border-white/20 px-4 py-2.5 text-sm text-zinc-200">Επιστροφή</Link>
   </header>
+  {typeof window!=='undefined'&&new URLSearchParams(window.location.search).has('gateway_return')&&
+   <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-4 text-sm text-amber-100">
+    Η επιστροφή από τη Nexi δεν επιβεβαιώνει μόνη της την πληρωμή. Το budget πιστώνεται μόνο μετά από υπογεγραμμένο webhook.
+   </div>}
   {notice&&<div role="status" className="rounded-xl border border-purple-400/30 bg-purple-400/10 p-4 text-sm text-purple-100">{notice}</div>}
   <form className={bg+' space-y-4'} onSubmit={create}>
    <h2 className="text-lg font-black">Νέα καμπάνια</h2>
@@ -156,7 +171,7 @@ export default function AgencyAdvertisingV2(){
    </div>}
    {finance&&finance.campaignId===current._id&&<div className="space-y-2 text-sm text-zinc-400">
     <p>Πληρωμές: {finance.intents.length} · Funding lots: {finance.lots.length}</p>
-    {finance.intents.map(intent=><p key={intent._id}>{new Date(intent.createdAt).toLocaleString('el-GR')} · €{(intent.amountCents/100).toFixed(2)} · {intent.status}</p>)}
+    {finance.intents.map(intent=><div className="flex flex-wrap items-center gap-2" key={intent._id}><span>{new Date(intent.createdAt).toLocaleString('el-GR')} · €{(intent.amountCents/100).toFixed(2)} · {intent.status}</span>{['creating','redirect','unknown'].includes(intent.status)&&<button className="rounded-lg border border-purple-400/40 px-3 py-1 text-xs text-purple-100 disabled:opacity-40" type="button" disabled={busy} onClick={()=>recover(intent)}>Έλεγχος Gateway (μόνο ανάγνωση)</button>}</div>)}
    </div>}
   </section>}
  </div>;
