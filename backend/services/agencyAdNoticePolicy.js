@@ -32,7 +32,7 @@ function makeNotice({kind,source,recipient,agencyName=''}) {
   '/agency/v2/campaigns');
  const rows=kind==='revision_submitted'?
   '<p>Η προηγούμενη εγκεκριμένη έκδοση παραμένει ενεργή έως την απόφαση του Admin.</p>'+
-  '<ul>'+Object.entries(source.patch||{}).slice(0,32).map(([field,value])=>
+  '<ul>'+Object.entries(source.patch||{}).slice(0,12).map(([field,value])=>
    '<li><strong>'+escape(field.slice(0,100))+'</strong>: '+
    escape(JSON.stringify(source.before?.[field]??null).slice(0,1300))+
    ' → '+escape(JSON.stringify(value??null).slice(0,1300))+'</li>').join('')+'</ul>':
