@@ -11,6 +11,12 @@ const Intent=require('../models/AdvertisingPaymentIntent');
 const FundingLot=require('../models/AdvertisingFundingLot');
 const BannerAd=require('../models/BannerAd');
 const Ad=require('../models/Ad');
+const User=require('../models/User');
+const {matchesDeliveryGeo}=require('../services/agencyAdGeoMatch');
+const {filterFundedCreatives}=require('../services/advertisingDeliveryEligibility');
+const {paidPlacementPreviewEnabled,affordablePaidPreview}=
+ require('../services/advertisingStagePaidPreview');
+const {localAudioFile}=require('../services/adAudioDelivery');
 const {DEFAULTS,validatePricing,quotedAmounts}=require('../services/advertisingPricingRules');
 const {getAdvertisingPricing}=require('../services/advertisingPricingStore');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
@@ -335,6 +341,113 @@ router.delete('/admin/advertising/campaigns/:id',async(req,res)=>{
   return res.json({deleted:true,campaignId:String(archived._id),
    deletedAt:archived.deletedAt,deletionReason:archived.deletionReason,
    financialHistoryPreserved:true,refundIssued:false});
+ }catch(error){return errorResponse(res,error,500);}
+});
+
+// Diagnostic parity with the public /ads/public and /banners/active filters.
+// Read-only: no credit, no impression, no status or approval mutation.
+router.get('/admin/advertising/campaigns/:id/delivery-check',async(req,res)=>{
+ if(!isAdmin(req)||!objectId(req.params.id))
+  return res.status(403).json({error:'Admin required'});
+ try{
+  const now=new Date();
+  const campaign=await Campaign.findOne({_id:req.params.id,isStageCampaign:true}).lean();
+  if(!campaign)return res.status(404).json({error:'Campaign not found'});
+  const [owner,lots,banners,audios]=await Promise.all([
+   User.findById(campaign.agencyId).select('role').lean(),
+   FundingLot.find({campaignId:campaign._id,source:'nexi_verified'})
+    .select('campaignId source budgetNanos remainingNanos ratesMicros settlementMode settledEvents').lean(),
+   BannerAd.find({campaignId:campaign._id}).lean(),
+   Ad.find({campaignId:campaign._id}).lean()
+  ]);
+  const creativeRows=[
+   ...banners.map(creative=>({kind:'banner',creative})),
+   ...audios.map(creative=>({kind:'audio',creative}))
+  ];
+  const permitted=new Set((await filterFundedCreatives(
+   creativeRows.map(row=>row.creative),now)).map(row=>String(row._id)));
+  const campaignIssues=[];
+  if(campaign.deletedAt)campaignIssues.push('Η καμπάνια έχει διαγραφεί.');
+  if(campaign.workflowVersion!==2)campaignIssues.push('Η καμπάνια δεν χρησιμοποιεί τον νέο wizard.');
+  if(campaign.approvalStatus!=='approved')campaignIssues.push('Η καμπάνια δεν έχει τελική έγκριση Admin.');
+  if(!campaign.agencyEnabled)campaignIssues.push('Η Agency έχει θέσει την καμπάνια σε παύση.');
+  if(campaign.adminSuspended)campaignIssues.push('Υπάρχει αναστολή από Admin.');
+  if(!campaign.isStageCampaign)campaignIssues.push('Λείπει ο δείκτης staging καμπάνιας.');
+  if(owner?.role!==campaign.createdByRole)
+   campaignIssues.push('Ο ρόλος του ιδιοκτήτη δεν συμφωνεί με την καμπάνια.');
+  if(new Date(campaign.startsAt)>now)
+   campaignIssues.push('Η έναρξη είναι στο μέλλον: '+new Date(campaign.startsAt).toLocaleString('el-GR'));
+  if(new Date(campaign.endsAt)<=now)campaignIssues.push('Η ημερομηνία λήξης έχει παρέλθει.');
+  if(campaign.createdByRole==='agency'){
+   if(!paidPlacementPreviewEnabled())
+    campaignIssues.push('Το μη χρεώσιμο staging preview πληρωμένων καμπανιών είναι ανενεργό.');
+   if(!lots.length)campaignIssues.push('Δεν βρέθηκε επαληθευμένη πίστωση Nexi στην καμπάνια.');
+  }
+  const creatives=await Promise.all(creativeRows.map(async({kind,creative})=>{
+   const reasons=[...campaignIssues];
+   if(creative.status!=='active')reasons.push('Το creative δεν είναι εγκεκριμένο/active.');
+   if(creative.isStageCreative!==true)reasons.push('Το creative δεν έχει staging marker.');
+   if(creative.expiresAt&&new Date(creative.expiresAt)<=now)
+    reasons.push('Το creative έχει λήξει.');
+   if(kind==='banner'){
+    if(creative.isActive===false)reasons.push('Το banner είναι ανενεργό.');
+    if(!Array.isArray(creative.placement)||!creative.placement.length)
+     reasons.push('Δεν υπάρχει banner placement.');
+    if(!creative.imageUrl)reasons.push('Λείπει η εικόνα του banner.');
+   }else if(!(await localAudioFile(creative.audioUrl))){
+    reasons.push('Το αρχείο audio δεν υπάρχει ή δεν είναι αναπαράξιμο στον staging server.');
+   }
+   if(!matchesDeliveryGeo(creative,req))
+    reasons.push('Η γεωγραφική στόχευση δεν ταιριάζει με το τρέχον trusted geo.');
+   if(campaign.createdByRole==='agency'&&lots.length&&
+      !affordablePaidPreview(lots,creative))
+    reasons.push('Το επαληθευμένο budget δεν καλύπτει το συγκεκριμένο placement/CPM.');
+   if(!permitted.has(String(creative._id))&&!reasons.length)
+    reasons.push('Το delivery eligibility απέρριψε το creative.');
+   return {id:creative._id,title:creative.title,kind,
+    placements:kind==='banner'?creative.placement:['audio'],
+    status:creative.status,ready:reasons.length===0,reasons};
+  }));
+  return res.json({campaignId:campaign._id,checkedAt:now,
+   isNonBillablePreview:paidPlacementPreviewEnabled(),
+   geoMode:req.adGeoTrusted?'signed_proxy':'staging_fixture',
+   fundedLots:lots.length,deliverableCreatives:creatives.filter(row=>row.ready).length,
+   canStartNow:campaign.createdByRole==='agency'&&campaign.workflowVersion===2&&
+    campaign.approvalStatus==='approved'&&!campaign.deletedAt&&
+    !campaign.adminSuspended&&campaign.agencyEnabled&&lots.some(l=>
+      Number.isSafeInteger(l.remainingNanos)&&l.remainingNanos>0)&&
+    new Date(campaign.startsAt)>now&&new Date(campaign.endsAt)>new Date(campaign.startsAt),
+   campaignIssues,creatives});
+ }catch(error){return errorResponse(res,error,500);}
+});
+// Explicit Admin-only correction of a paid STAGING campaign scheduled for
+// later (the old wizard defaulted to tomorrow). Preserve original duration,
+// approval, verified ledger and all payment records without new charges.
+router.put('/admin/advertising/campaigns/:id/start-now',async(req,res)=>{
+ if(!isAdmin(req)||!objectId(req.params.id))
+  return res.status(403).json({error:'Admin required'});
+ if(!paidPlacementPreviewEnabled())
+  return res.status(409).json({error:'Only available in non-billable staging preview'});
+ try{
+  const now=new Date();
+  const campaign=await Campaign.findOne({_id:req.params.id,
+   workflowVersion:2,createdByRole:'agency',isStageCampaign:true,
+   deletedAt:null,approvalStatus:'approved',agencyEnabled:true,adminSuspended:false});
+  if(!campaign)return res.status(409).json({error:'Only approved, active Agency staging campaigns can start now.'});
+  const previousStart=new Date(campaign.startsAt),previousEnd=new Date(campaign.endsAt);
+  const duration=previousEnd.getTime()-previousStart.getTime();
+  if(!(previousStart>now)||!(duration>0)||!Number.isSafeInteger(duration))
+   return res.status(409).json({error:'Campaign is already started or has invalid dates.'});
+  const funded=await FundingLot.exists({campaignId:campaign._id,source:'nexi_verified',
+   remainingNanos:{$gt:0}});
+  if(!funded)return res.status(409).json({error:'Verified available funding required'});
+  const updated=await Campaign.findOneAndUpdate({
+   _id:campaign._id,startsAt:campaign.startsAt,endsAt:campaign.endsAt,
+   approvalStatus:'approved',deletedAt:null,agencyEnabled:true,adminSuspended:false
+  },{$set:{startsAt:now,endsAt:new Date(now.getTime()+duration)}},
+  {new:true,runValidators:true});
+  if(!updated)return res.status(409).json({error:'Campaign schedule changed, reload'});
+  return res.json(updated);
  }catch(error){return errorResponse(res,error,500);}
 });
 
