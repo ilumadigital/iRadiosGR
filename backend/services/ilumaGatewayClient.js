@@ -1,6 +1,6 @@
 'use strict';
 const https=require('node:https');
-const {headersForRequest,validateGatewayPayment,GATEWAY_CHECKOUT_PATH,PAYMENT_ID}=
+const {headersForRequest,validateGatewayPayment,validateAdvertisingGatewayPayment,GATEWAY_CHECKOUT_PATH,PAYMENT_ID}=
  require('./gatewayBillingProtocol');
 const GATEWAY_HOST='gateway.iluma.gr';
 function configured(){
@@ -218,9 +218,21 @@ async function advertisingCheckout({user,requestKey,campaignId,quoteId,amountCen
   campaign_id:String(campaignId),quote_id:String(quoteId),amount_cents:amountCents,
   currency:'EUR'
  },requestKey);
- return validateGatewayPayment(response,{expectedAmountCents:amountCents});
+ return validateAdvertisingGatewayPayment(response,{expectedAmountCents:amountCents});
 }
-module.exports={advertisingCheckout,configured,checkout,paymentStatus,paymentByRequestKey,winbackStatus,signedRequest,
+// Recover the original advertising checkout WITHOUT issuing a second Nexi order.
+// The variable-price parser is intentionally unavailable to premium products.
+async function advertisingPaymentByRequestKey(requestKey,expectedAmountCents){
+ if(!configured()||process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')throw unavailable();
+ if(typeof requestKey!=='string'||
+    !/^iradios-stage-[a-f0-9]{24}-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(requestKey))
+  throw Error('Invalid advertising original request key');
+ if(!Number.isSafeInteger(expectedAmountCents)||expectedAmountCents<100||
+    expectedAmountCents>100000000)throw Error('Invalid advertising recovery amount');
+ const data=await signedRequest('GET','/api/v1/payments/by-request-key/'+requestKey);
+ return validateAdvertisingGatewayPayment(data,{expectedAmountCents});
+}
+module.exports={advertisingCheckout,advertisingPaymentByRequestKey,configured,checkout,paymentStatus,paymentByRequestKey,winbackStatus,signedRequest,
  savedCardStatus,revokeSavedCard,recurringStatus,cancelRecurring,cancelAllOnAccountDeletion,paymentHistory,
  broadcasterCheckout,broadcasterPaymentStatus,broadcasterPaymentByRequestKey,
  broadcasterRecurringStatus,cancelBroadcasterRecurring};
