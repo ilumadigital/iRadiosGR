@@ -46,3 +46,12 @@ test('legacy unaudited counters cannot count paid advertising v2 events',()=>{
  const eligibility=read('services/advertisingDeliveryEligibility.js');
  assert.match(eligibility,/const ATOMIC_SETTLEMENT_IMPLEMENTED=false/);
 });
+
+test('new Agency creatives cannot bypass v2 checkout by omitting campaign ownership',()=>{
+ const routes=read('routes/agencyRoutes.js');
+ assert.match(routes,/if\(campaignId===undefined\|\|campaignId===null\|\|campaignId===''\)/);
+ assert.match(routes,/throw Error\('Απαιτείται ενιαία καμπάνια v2/);
+ assert.equal((routes.match(/await checkCampaignOwner\(patch\.campaignId,req\.user\._id\)/g)||[]).length,2);
+ const eligibility=read('services/advertisingDeliveryEligibility.js');
+ assert.match(eligibility,/const ATOMIC_SETTLEMENT_IMPLEMENTED=false/);
+});
