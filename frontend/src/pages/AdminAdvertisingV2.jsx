@@ -90,17 +90,6 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
    setDeliveryByCampaign(current=>({...current,[id]:data}));
   }catch(e){setNotice(e.message);}finally{setDeliveryBusyId(null);}
  };
- const startCampaignNow=async id=>{
-  setBusy(true);setNotice('');
-  try{
-   const response=await fetch('/api/admin/advertising/campaigns/'+id+'/start-now',{method:'PUT'});
-   const data=await response.json();
-   if(!response.ok)throw Error(data.error||'Αποτυχία ενεργοποίησης.');
-   await reload();
-   await checkDelivery(id);
-   setNotice('Η εγκεκριμένη καμπάνια ξεκινά τώρα στο staging. Η διάρκεια διατηρήθηκε και δεν έγινε νέα χρέωση.');
-  }catch(e){setNotice(e.message);}finally{setBusy(false);}
- };
  const archiveCampaign=async()=>{
   if(!deleteTarget||deleteTitle!==deleteTarget.title||deleteReason.trim().length<5)return;
   setBusy(true);setNotice('');setDeleteError('');
@@ -320,17 +309,14 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
       {deliveryByCampaign[c._id].creatives.map(creative=>
        <div key={creative.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
         <p className={creative.ready?'font-bold text-emerald-200':'font-bold text-amber-200'}>
-         {creative.title} · {creative.kind} · {creative.ready?'Εμφανίζεται':'Μπλοκαρισμένο'}
+         {creative.title} · {creative.kind} · {creative.ready?'Έτοιμο για προβολή':'Μπλοκαρισμένο'}
         </p>
         <p className="mt-1 text-xs text-zinc-400">{creative.placements.join(', ')}</p>
         {creative.reasons.map((reason,i)=><p key={i} className="mt-1 text-xs text-amber-200">{reason}</p>)}
        </div>)}
       {!deliveryByCampaign[c._id].creatives.length&&<p className="text-xs text-zinc-400">Δεν υπάρχουν δημιουργικά.</p>}
      </div>
-     {deliveryByCampaign[c._id].canStartNow&&
-      <button type="button" className={primary+' mt-3'} disabled={busy}
-       onClick={()=>startCampaignNow(c._id)}>Έναρξη τώρα στο staging</button>}
-     <p className="mt-3 text-xs text-zinc-500">Ο έλεγχος είναι read-only. Το «Έναρξη τώρα» αλλάζει αποκλειστικά το πρόγραμμα προβολής με ρητή ενέργεια Admin, όχι τις πληρωμές.</p>
+     <p className="mt-3 text-xs text-zinc-500">Ο έλεγχος είναι μόνο για ανάγνωση. Μετά την έγκριση από Admin, η πληρωμένη Agency καμπάνια γίνεται αυτόματα επιλέξιμη για προβολή, χωρίς δεύτερη ενεργοποίηση ή πληρωμή.</p>
     </div>}
     {auditByCampaign[c._id]&&<div role="status" className="rounded-xl border border-white/10 bg-black/25 p-4 text-sm text-zinc-200">
      <p className="font-bold text-purple-100">
