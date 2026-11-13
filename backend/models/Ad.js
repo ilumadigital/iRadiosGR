@@ -45,6 +45,6 @@ const adSchema = new mongoose.Schema({
   isGlobal: { type: Boolean, default: true },
   // Isolated staging inventory only; imported production campaigns remain hidden.
   isStageCreative: { type: Boolean, default: false }
-});
+},{timestamps:{createdAt:false,updatedAt:true}});
 
 module.exports = mongoose.model('Ad', adSchema);
