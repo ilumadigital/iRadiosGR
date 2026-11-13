@@ -177,6 +177,8 @@ app.use('/api', require('./routes/promotedStationRoutes'));
 app.use('/api', require('./routes/catalogNowPlayingRoutes'));
 app.use('/api', require('./routes/stationPlaylistRoutes'));
 app.use('/api', require('./routes/advertisingCampaignRoutes'));
+// Admin-only opted-in advertising shadow QA; paid delivery remains hard-disabled.
+app.use('/api', require('./routes/advertisingQualificationRoutes'));
 app.use('/api/agency', agencyRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/stats', statsRoutes);
