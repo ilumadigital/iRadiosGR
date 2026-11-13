@@ -14,6 +14,7 @@ async function getEvent(eventId){
 async function chooseFundedLot(campaignId,tier){
  const lots=await FundingLot.find({
   campaignId,remainingNanos:{$gt:0},[capPath]:{$exists:false},
+  settlementMode:{$ne:'mongo_transaction_v2'},
   source:'nexi_verified'
  }).sort({paidAt:1,_id:1}).select('_id remainingNanos ratesMicros').limit(100).lean();
  return lots.find(lot=>{
@@ -50,6 +51,7 @@ async function atomicDebitWithReceipt(event){
  // A parallel request cannot write a negative balance or overfill the journal.
  const change=await FundingLot.updateOne({
   _id:event.fundingLotId,campaignId:event.campaignId,
+  settlementMode:{$ne:'mongo_transaction_v2'},
   remainingNanos:{$gte:amount},'settledEvents.eventId':{$ne:event._id},
   [capPath]:{$exists:false}
  },[{$set:{
