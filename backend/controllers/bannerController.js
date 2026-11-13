@@ -1,5 +1,6 @@
 const {matchesAgencyGeo}=require('../services/agencyAdGeoMatch');
 const {filterFundedCreatives,isFundedCreative}=require('../services/advertisingDeliveryEligibility');
+const {excludeArchivedCampaignCreatives}=require('../services/advertisingArchiveVisibility');
 // controllers/bannerController.js
 const BannerAd = require('../models/BannerAd');
 const mongoose=require('mongoose');
@@ -56,7 +57,7 @@ exports.getActiveBanners=async(req,res)=>{
 exports.getAllBanners = async (req, res) => {
   try {
     const banners = await BannerAd.find({status:{$ne:'draft'}}).sort({ createdAt: -1 });
-    res.json(banners);
+    res.json(await excludeArchivedCampaignCreatives(banners));
   } catch (err) {
     res.status(500).json({ error: 'Σφάλμα ανάκτησης Banners Admin.' });
   }
