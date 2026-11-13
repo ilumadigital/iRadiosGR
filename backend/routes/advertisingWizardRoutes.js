@@ -232,6 +232,8 @@ for(const {prefix,role} of routes){
  });
  router.post(prefix+'/campaigns/:id/submit',async(req,res)=>{
   try{
+   if(role==='agency')
+    throw issue('Η καμπάνια υποβάλλεται αυτόματα μετά την επαλήθευση πληρωμής Nexi.',409);
    const campaign=await owned(req,req.params.id,role);
    if(!['draft','pending'].includes(campaign.approvalStatus))
     throw issue('Η καμπάνια έχει ήδη ολοκληρωθεί.',409);
@@ -240,29 +242,6 @@ for(const {prefix,role} of routes){
    if(await countCreatives(campaign)<1)throw issue('Πρόσθεσε πρώτα τουλάχιστον ένα δημιουργικό.',409);
    if(!Number.isSafeInteger(campaign.plannedBudgetCents)||campaign.plannedBudgetCents<1)
     throw issue('Δεν έχει οριστεί budget.',409);
-   if(role==='agency'){
-    // The ONLY payment authority: a unique funding lot from a signed webhook.
-    const lots=await Lot.find({campaignId:campaign._id,source:'nexi_verified'})
-      .select('budgetMicros budgetNanos').lean();
-    const paid=lots.reduce((sum,lot)=>sum+Math.floor(
-     Number(lot.budgetNanos??lot.budgetMicros*1000)/1000),0);
-    if(paid<campaign.plannedBudgetCents*10000)
-     throw issue('Η πληρωμή δεν έχει επιβεβαιωθεί από το Nexi webhook.',409);
-    // Owner-supplied drafts never enter the approval inbox before verified pay.
-    await Campaign.updateOne({_id:campaign._id,approvalStatus:'draft'},
-     {$set:{approvalStatus:'pending',submittedAt:new Date()}});
-    await Promise.all([
-     Banner.updateMany({campaignId:campaign._id,agencyId:campaign.agencyId,
-       status:'draft',isStageCreative:true},{$set:{status:'pending',isActive:false,agencyDraftNoticeVersion:1}}),
-     Audio.updateMany({campaignId:campaign._id,agencyId:campaign.agencyId,
-       status:'draft',isStageCreative:true},{$set:{status:'pending',agencyDraftNoticeVersion:1}})
-    ]);
-    // Replayed submit is safe: eventKey and creative outbox keys are unique.
-    await mailer.enqueue({eventKey:'wizard-paid-submit:'+String(campaign._id),
-     kind:'paid_pending_review',campaign,amountCents:campaign.plannedBudgetCents});
-    noticeOutbox.kick();
-    return res.json({status:'pending',submitted:true});
-   }
    // An Admin manages their OWN creative directly, without Checkout or false
    // Nexi funding lots. Paid CPM eligibility remains financial-ledger guarded.
    const now=new Date();
