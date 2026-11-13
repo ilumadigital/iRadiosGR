@@ -235,7 +235,7 @@ export default function BroadcasterWebDSPPreview({stations=[],API_URL='/api'}){
         </div>
         <div className="relative rounded-[27px] border border-white/15 bg-black/25 p-5 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-[#1f2929]">
+            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white">
               {station.logo?<img src={station.logo} alt="" className="h-full w-full object-contain p-1"/>:<Radio size={27} className="text-[#caff00]"/>}
             </div>
             <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.16em] text-zinc-400">YOUR STATION</p>
