@@ -56,7 +56,8 @@ router.put('/admin/agency-ad-revisions/:id/decision',...admin,async(req,res)=>{
     if(!claimed)return res.status(409).json({error:'Η αλλαγή εξετάστηκε ήδη.'});
     try{
       if(decision==='approve'){
-        const updated=await Model.findOneAndUpdate({_id:creative._id,agencyId:revision.agencyId},
+        const updated=await Model.findOneAndUpdate({_id:creative._id,agencyId:revision.agencyId,
+          updatedAt:revision.baseUpdatedAt},
           {$set:revision.patch},{new:true,runValidators:true});
         if(!updated)throw Error('Creative no longer exists');
       }
