@@ -147,11 +147,13 @@ test('core remains at-least-once: acknowledged-but-uncommitted mail may retry',a
  store.send=async row=>{store.mail.push(row.eventKey);acknowledged=true;
   return {success:true};};
  store.markSent=async()=>{throw Error('Simulated Mongo unavailable after SMTP ACK')};
- await assert.rejects(()=>deliverOne(store),/Mongo unavailable/);
+ const ambiguous=await deliverOne(store);
  assert.equal(acknowledged,true);
- assert.equal(store.data[0].status,'sending');
- // A later lease recovery can resend. This is explicitly not exactly-once.
- store.data[0].leaseUntil=0;
+ assert.equal(ambiguous.status,'retry_pending');
+ assert.equal(store.data[0].status,'pending');
+ // The transport ACKed, but durable completion did not: a later retry could
+ // duplicate the email. Per-recipient idempotency is not SMTP exactly-once.
+ store.data[0].nextAttemptAt=500000;
  const recovered=await store.claim();
  assert.equal(recovered.attempts,2);
 });
