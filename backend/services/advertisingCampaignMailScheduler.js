@@ -30,7 +30,12 @@ const templates={
  campaign_approved:{
   subject:'Η καμπάνια εγκρίθηκε στο iRadios GR',
   headline:'Η καμπάνια σου εγκρίθηκε',
-  body:'Η καμπάνια εγκρίθηκε. Η προβολή της θα ξεκινήσει όταν ικανοποιούνται οι προϋποθέσεις διάρκειας, ON/OFF και διαθέσιμου budget.'
+  body:'Η καμπάνια εγκρίθηκε. Η προβολή της θα ξεκινήσει όταν ικανοποιούνται οι προϋποθέσεις διάρκειας, ON/OFF, διαθέσιμου budget και ασφαλούς delivery.'
+ },
+ campaign_rejected:{
+  subject:'Η καμπάνια απορρίφθηκε στο iRadios GR',
+  headline:'Η καμπάνια σου δεν εγκρίθηκε',
+  body:'Η καμπάνια απορρίφθηκε από τον Admin. Η αιτιολογία εμφανίζεται παρακάτω.'
  },
  topup_success:{
   subject:'Επιτυχής προσθήκη budget',
@@ -60,10 +65,12 @@ async function deliver(event){
  const action=toAdmins?
   origin().replace(/\/$/,'')+'/backoffice/admin/campaigns':
   origin().replace(/\/$/,'')+'/agency/v2/campaigns';
+ const reason=event.kind==='campaign_rejected'&&campaign.rejectedReason?
+  '<p><strong>Αιτιολογία:</strong> '+safe(campaign.rejectedReason)+'</p>':'';
  const html='<h2>'+safe(template.headline)+'</h2>'+
   '<p><strong>Καμπάνια:</strong> '+safe(campaign.title)+'</p>'+
   '<p><strong>Brand:</strong> '+safe(campaign.brand)+'</p>'+amount+
-  '<p>'+safe(template.body)+'</p>'+
+  '<p>'+safe(template.body)+'</p>'+reason+
   actionButton(toAdmins?'Έλεγχος στο Admin Backoffice':'Προβολή καμπάνιας',action);
  for(const recipient of recipients){
   const outcome=await sendEmail({to:recipient,
