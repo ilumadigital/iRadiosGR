@@ -14,12 +14,15 @@ const ATOMIC_SETTLEMENT_IMPLEMENTED=false;
 async function stageEligibleCreativeIds(creatives,now){
  const ids=[...new Set(creatives.map(ad=>ad?.campaignId).filter(Boolean).map(String))];
  if(!ids.length)return new Set();
+ // Agency approval is the activation event on staging. The historical
+ // wizard defaulted startsAt to tomorrow, leaving already-approved and
+ // funded campaigns invisible. Keep the end-date, approval and wallet gates.
  const common={_id:{$in:ids},workflowVersion:2,agencyEnabled:true,
   adminSuspended:false,isStageCampaign:true,deletedAt:null,
-  startsAt:{$lte:now},endsAt:{$gt:now}};
+  endsAt:{$gt:now}};
  const preview=paidPlacementPreviewEnabled();
  const [adminCampaigns,paidCampaigns]=await Promise.all([
-  Campaign.find({...common,createdByRole:'admin',approvalStatus:'approved'})
+  Campaign.find({...common,startsAt:{$lte:now},createdByRole:'admin',approvalStatus:'approved'})
    .select('_id agencyId createdByRole').lean(),
   preview?Campaign.find({...common,createdByRole:'agency',approvalStatus:'approved'})
    .select('_id agencyId createdByRole').lean():Promise.resolve([])
