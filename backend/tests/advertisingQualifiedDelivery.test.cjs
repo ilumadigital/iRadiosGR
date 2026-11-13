@@ -143,3 +143,13 @@ test('financial shadow preview uses historical lot CPM but never writes or settl
  assert.match(engine,/fiveMinuteBucket\(now\)/);
  assert.match(engine,/Qualified\.updateOne\(\{_id:ticket\._id\},\{\$setOnInsert:event\},\{upsert:true\}\)/);
 });
+
+test('Mongo concurrency harness is never invoked by source CI or normal staging',()=>{
+ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
+ const harness=read('tests/advertisingQualificationMongoDisposable.cjs');
+ assert.match(harness,/AD_QUALIFICATION_DISPOSABLE_APPROVAL/);
+ assert.match(harness,/ad_qualification_disposable_/);
+ assert.match(harness,/APP_ENV!=='staging'/);
+ assert.doesNotMatch(read('services/advertisingQualificationEngine.js'),
+  /AD_QUALIFICATION_DISPOSABLE_MONGODB_URI/);
+});
