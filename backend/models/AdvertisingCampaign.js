@@ -10,6 +10,11 @@ const schema=new mongoose.Schema({
  prefecture:{type:String,default:'All'},
  startsAt:{type:Date,required:true},
  endsAt:{type:Date,required:true},
+ // Wizard budgeting is a PLAN until Nexi's signed webhook creates a funding lot.
+ workflowVersion:{type:Number,default:1},
+ createdByRole:{type:String,enum:['agency','admin'],default:'agency'},
+ plannedBudgetCents:{type:Number,default:0,min:0,max:100000000},
+ submittedAt:{type:Date,default:null},
  agencyEnabled:{type:Boolean,default:true},
  adminSuspended:{type:Boolean,default:false},
  approvalStatus:{type:String,enum:['draft','pending','approved','rejected'],default:'draft'},
