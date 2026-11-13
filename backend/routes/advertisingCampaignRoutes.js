@@ -207,4 +207,35 @@ router.get('/advertising/campaigns/:id/finance',async(req,res)=>{
  }catch(error){return errorResponse(res,error,500);}
 });
 
+
+// Read-only recovery of the ORIGINAL Gateway idempotency key. Even a provider
+// status of paid never credits budget; only the signed webhook can do that.
+router.get('/advertising/payments/:id',async(req,res)=>{
+ if(!isAgency(req)||!objectId(req.params.id))
+  return res.status(403).json({error:'Forbidden'});
+ try{
+  const intent=await Intent.findOne({_id:req.params.id,agencyId:req.user._id});
+  if(!intent)return res.status(404).json({error:'Payment intent not found'});
+  if(intent.status==='paid'||intent.status==='failed'||intent.status==='canceled')
+   return res.json({id:intent._id,status:intent.status});
+  if(process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')
+   return res.json({id:intent._id,status:intent.status,recovery:'disabled'});
+  try{
+   const provider=await gateway.paymentByRequestKey(intent.requestKey,intent.amountCents);
+   if(intent.gatewayPaymentId&&intent.gatewayPaymentId!==provider.payment_id||
+      intent.gatewayOrderId&&intent.gatewayOrderId!==provider.order_id)
+    return res.status(409).json({error:'Gateway reference mismatch'});
+   await Intent.updateOne({_id:intent._id,status:{$nin:['paid','failed','canceled']}},
+    {$set:{gatewayPaymentId:provider.payment_id,gatewayOrderId:provider.order_id,
+      status:provider.status==='redirect'?'redirect':'unknown'}});
+   return res.json({id:intent._id,status:'pending_verification',
+    gatewayStatus:provider.status,
+    checkoutUrl:provider.status==='redirect'?provider.checkout_url:null});
+  }catch(error){
+   return res.status(503).json({id:intent._id,status:'unknown',
+    error:'Provider result is not yet recoverable. Contact support before retrying.'});
+  }
+ }catch(error){return errorResponse(res,error,500);}
+});
+
 module.exports=router;
