@@ -39,7 +39,9 @@ const bannerAdSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }, // Legacy
   impressions: { type: Number, default: 0 },
   clicks: { type: Number, default: 0 },
-  isStageCreative: { type: Boolean, default: false }
+  isStageCreative: { type: Boolean, default: false },
+  agencyDraftNoticeVersion:{type:Number,default:0},
+  draftOutboxSeededAt:{type:Date,default:null}
 }, { timestamps: true });
 
 module.exports = mongoose.model('BannerAd', bannerAdSchema);
