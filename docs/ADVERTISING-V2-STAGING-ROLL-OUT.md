@@ -28,7 +28,7 @@ Status: **DRAFT / NOT SAFE FOR DEPLOYMENT**. PR #124 is a development slice; no 
 
 ## Gateway deployment dependency
 
-- Companion draft: `ilumadigital/iluma-gateway` PR #17.
+- Companion source draft: `ilumadigital/iluma-gateway` PR #17. The staging-specific integration candidate is **Gateway draft PR #18**, based directly on the existing Gateway `staging` branch to preserve unrelated staging payment fixes. Neither PR is deployed.
 - The Gateway's staging SQL migration `database/migrations/2026-11-staging-advertising-budget.sql` needs reviewed manual application **to the staging tenant only**.
 - The gateway `ADV-BUDGET` SKU is staging and iRadios app scoped, and does not alter Premium or Broadcaster fixed-price checkout.
 - Gateway production is live. A merge/deploy requires a separate change approval and rollback plan.
@@ -397,3 +397,14 @@ without modifying the application's production lockfile. Repair and
 review the backend dependency lockfile before any staging/production
 application deployment; passing this isolated CI job does NOT mean the
 backend lockfile is ready for a full clean install.
+
+
+## 2026-11-13 — Real isolated integration CI and stage checkout switch (not a deployment)
+
+- iRadios financial MongoDB validation now runs on every Advertising PR change in `.github/workflows/advertising-financial-mongo-integration.yml`. It creates a disposable, loopback-only MongoDB replica set, executes actual concurrent embedded-receipt debits, transactional wallet/ledger commits and controlled rollbacks, plus shadow ticket CAS/frequency tests, then destroys the container. No real iRadios account, staging app DB, Nexi payment or production resources are used.
+- The first real Mongo run caught a Mongoose 9 requirement: aggregation pipeline `updateOne()` needs explicit `updatePipeline:true` for both embedded-receipt and transactional paths. Fixed in both source adapters; financial integration run [#43479591563](https://github.com/ilumadigital/iRadiosGR/actions/runs/43479591563), source validation [#43479591586](https://github.com/ilumadigital/iRadiosGR/actions/runs/43479591586), and isolated Mongo/Mailpit Agency notices [#43479591545](https://github.com/ilumadigital/iRadiosGR/actions/runs/43479591545) passed.
+- The signed Gateway variable-price checkout and original-key recovery are now validated independently of fixed 199/399-cent Listener Premium purchases; the old fixed-price validator was not relaxed.
+- Gateway staging candidate [PR #18](https://github.com/ilumadigital/iluma-gateway/pull/18) preserves the staging codebase, supplies an independent opt-in switch and a READ-ONLY `php bin/manage.php audit-staging-advertising` command, and does not inspect the optional advertising table when reconciling non-advertising payments. PHP checks [#43480141886](https://github.com/ilumadigital/iluma-gateway/actions/runs/43480141886) passed.
+- `compose.stage.yml` no longer overrides the private staging `AD_PAYMENTS_SANDBOX_ENABLED` flag with literal 0, so an authorized operator can deliberately enable Gateway/Nexi Sandbox UAT from `/etc/iradios/staging/backend.env`; absent/0 remains disabled. `AD_DELIVERY_BILLING_ENABLED=0` and `ATOMIC_SETTLEMENT_IMPLEMENTED=false` still block all public paid v2 traffic.
+- **NOT STAGING READY FOR FULL PAID DELIVERY:** Actual VPS Mongo is standalone (no replica set), so the transactional adapter must not be enabled on it. Public verified ticket issuance and qualified-to-paid CPM debit are NOT wired. Real Geo reverse-proxy verification, staging migration/tenant audit, tax/refund policy sign-off, Nexi Sandbox payment/return/webhook UAT, and Mailpit/browser end-to-end checks remain mandatory. A CI success is never equivalent to real staging readiness.
+- No repository `staging` branch changes, database migration, Hostinger redeploy, SSH staging deployment or Nexi charge were performed. Release remains gated on explicit `/pushstaging` and a separate readiness review.
