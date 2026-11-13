@@ -12,7 +12,7 @@ const Pricing=require('../models/AdvertisingPricing');
 const Quote=require('../models/AdvertisingQuote');
 const Intent=require('../models/AdvertisingPaymentIntent');
 const Lot=require('../models/AdvertisingFundingLot');
-const {DEFAULTS}=require('../services/advertisingPricingRules');
+const {getAdvertisingPricing}=require('../services/advertisingPricingStore');
 const {aggregateBalances}=require('../services/advertisingBalances');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const {sanitizeAdDesign}=require('../services/adDesignRules');
@@ -41,8 +41,7 @@ const validBudget=(value,settings)=>{
    value>settings.maxBudgetCents)throw issue('Το budget πρέπει να είναι εντός των ορίων τιμολόγησης.');
  return value;
 };
-const settings=async()=>await Pricing.findById('iradios-advertising-v2').lean()||
- {_id:'iradios-advertising-v2',...DEFAULTS};
+const settings=getAdvertisingPricing;
 async function owned(req,id,role){
  if(!oid(id))throw issue('Invalid campaign id');
  const result=await Campaign.findOne({_id:id,agencyId:req.user._id,
