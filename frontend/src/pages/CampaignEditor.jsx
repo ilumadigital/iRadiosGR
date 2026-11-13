@@ -128,6 +128,10 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
       }).catch(()=>{});
   },[scope,id,kind]);
   const review=async(revision,decision)=>{
+    if(revision.processing&&decision==='reject'){
+      setError('Η έγκριση έχει ήδη ξεκινήσει. Χρειάζεται ασφαλής επανάληψη έγκρισης, όχι απόρριψη.');
+      return;
+    }
     const reason=decision==='reject'?window.prompt('Αιτιολογία απόρριψης (υποχρεωτική):',''):'';
     if(decision==='reject'&&!reason?.trim())return;
     setBusy(true);setError('');
@@ -211,16 +215,16 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   return <div className="ad-console mx-auto w-full max-w-[1500px] space-y-6 pb-20">
     <Link to={path} className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-[#ccff00]"><ArrowLeft size={15}/> Επιστροφή στις καμπάνιες</Link>
     {scope==='admin'&&pendingRevisions.map(revision=><section key={revision._id} className="rounded-2xl border border-amber-400/40 bg-amber-950/20 p-5 space-y-3">
-      <h2 className="text-lg font-black text-amber-100">Αλλαγές Agency προς έγκριση</h2>
-      <p className="text-sm text-zinc-300">Οι αλλαγές δεν έχουν δημοσιευτεί. Έλεγξε τις τιμές πριν και μετά.</p>
+      <h2 className="text-lg font-black text-amber-100">{revision.processing?'Ανάκτηση έγκρισης Agency':'Αλλαγές Agency προς έγκριση'}</h2>
+      <p className="text-sm text-zinc-300">{revision.processing?'Η εφαρμογή της έγκρισης έχει ξεκινήσει. Μόνο η ίδια απόφαση μπορεί να ολοκληρώσει με ασφάλεια την εκκρεμότητα.':'Οι αλλαγές δεν έχουν δημοσιευτεί. Έλεγξε τις τιμές πριν και μετά.'}</p>
       <div className="grid gap-3">{Object.entries(revision.patch||{}).map(([key,value])=><div className="rounded-xl border border-white/10 bg-black/20 p-3" key={key}>
         <div className="font-bold text-purple-200">{key}</div>
         <div className="text-xs text-zinc-400 break-words">Πριν: {JSON.stringify(revision.before?.[key]??null)}</div>
         <div className="text-xs text-white break-words">Μετά: {JSON.stringify(value)}</div>
       </div>)}</div>
       <div className="flex flex-wrap gap-3">
-        <button disabled={busy} type="button" onClick={()=>review(revision,'approve')} className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold text-white">Έγκριση αλλαγών</button>
-        <button disabled={busy} type="button" onClick={()=>review(revision,'reject')} className="rounded-xl border border-red-400/50 px-5 py-3 text-sm font-bold text-red-100">Απόρριψη με αιτιολογία</button>
+        <button disabled={busy} type="button" onClick={()=>review(revision,'approve')} className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold text-white">{revision.processing?'Ασφαλής επανάληψη έγκρισης':'Έγκριση αλλαγών'}</button>
+        {!revision.processing&&<button disabled={busy} type="button" onClick={()=>review(revision,'reject')} className="rounded-xl border border-red-400/50 px-5 py-3 text-sm font-bold text-red-100">Απόρριψη με αιτιολογία</button>}
       </div>
     </section>)}
     <header className="ad-console-hero flex flex-wrap items-center justify-between gap-4">
