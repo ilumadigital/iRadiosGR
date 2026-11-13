@@ -3,6 +3,8 @@ import {Link,useSearchParams} from 'react-router-dom';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
+import VisualAdStudioControls from '../components/VisualAdStudioControls';
+import {adDesignFor} from '../utils/adVisualDesign';
 import AgencyCampaignTopUp from './AgencyCampaignTopUp';
 import {ArrowLeft,ArrowRight,AudioLines,BadgeCheck,BarChart3,Check,CheckCircle2,
  ChevronRight,CircleAlert,Clock3,CreditCard,FileCheck2,Image as ImageIcon,
@@ -77,6 +79,7 @@ function estimatedImpressions({amount,campaign,pricing,creatives}){
 }
 function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy}){
  const banner=draft.kind==='banner';
+ const [designPlacement,setDesignPlacement]=useState('home');
  const update=(key,value)=>setDraft(d=>({...d,[key]:value}));
  return <form className={panel+' space-y-5'} onSubmit={submit}>
   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -104,6 +107,20 @@ function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy}){
      <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={e=>onUpload(e.target.files?.[0],'squareImageUrl','upload-banner','imageFile')} className={field+' file:mr-4 file:rounded-lg file:border-0 file:bg-purple-500/20 file:p-2 file:text-purple-100'}/></label>
    </div>
    {draft.imageUrl&&<div className="overflow-hidden rounded-xl border border-white/10 bg-black/20"><img src={draft.imageUrl} alt="Προεπισκόπηση Visual" className="max-h-48 w-full object-contain"/></div>}
+   <section className="space-y-4 rounded-2xl border border-purple-400/20 bg-purple-500/[.05] p-5">
+    <h4 className="text-base font-black">Visual Ad Studio · πλήρης παραμετροποίηση</h4>
+    <p className="text-xs leading-6 text-zinc-400">Ύψος desktop/mobile, layout, θέση εικόνας, overlay, εφέ, χρώματα και τυπογραφία ανά θέση. Οι αλλαγές προβάλλονται με τα ίδια ασφαλή όρια του iRadios.</p>
+    <label className={label}>Θέση που επεξεργάζεσαι
+     <select className={field} value={designPlacement} onChange={e=>setDesignPlacement(e.target.value)}>
+      <option value="hero">Homepage Hero</option>
+      <option value="home">Home Feed</option>
+      <option value="station_profile">Station Profile</option>
+      <option value="news_feed">News Feed</option>
+     </select></label>
+    <VisualAdStudioControls placement={designPlacement} design={adDesignFor(draft,designPlacement)}
+     onChange={next=>update('designConfig',{...(draft.designConfig||{}),[designPlacement]:next})}/>
+    <p className="text-xs text-zinc-500">Το Radio Grid διατηρεί τις αναλογίες της κάρτας σταθμού.</p>
+   </section>
    <label className={label}>URL προορισμού
     <input type="url" required className={field} value={draft.targetUrl} onChange={e=>update('targetUrl',e.target.value)} placeholder="https://brand.gr/promo"/></label>
    <div className="grid gap-4 sm:grid-cols-2">
