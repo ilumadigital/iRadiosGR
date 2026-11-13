@@ -7,7 +7,7 @@ function normalize(input){
  if(!input||!EVENT_ID.test(input.eventId||'')||
     !ENTITY_ID.test(input.campaignId||'')||
     !ENTITY_ID.test(input.creativeId||'')||
-    !TIERS.has(input.tier)||
+    !['visual','audio'].includes(input.kind)||!TIERS.has(input.tier)||
     !((input.tier==='audio')===(input.kind==='audio')))
   throw Error('Invalid server-qualified advertising event');
  const qualifiedAt=input.qualifiedAt instanceof Date?input.qualifiedAt:
