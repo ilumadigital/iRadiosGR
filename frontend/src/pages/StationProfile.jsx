@@ -123,7 +123,7 @@ export default function StationProfile({
   const homeBanners = activeBanners.filter(b =>
     b.status==='active'&&b.placement?.includes('station_profile')&&
     (!b.expiresAt||new Date(b.expiresAt)>new Date())&&
-    geoAllowsAd(b.targetLocations,userLocation,checkGeoMatch));
+    geoAllowsAd(b.targetLocations,userLocation,checkGeoMatch,b.serverGeoEligible===true));
 
   // Fetch live song information only for the authenticated listener's active station.
   useEffect(() => {
