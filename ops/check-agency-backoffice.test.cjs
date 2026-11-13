@@ -22,8 +22,11 @@ test('Agency uses player-free Backoffice shell for all operational pages',()=>{
  assert.match(shell,/\/backoffice\/agency\/creatives/);
  assert.match(shell,/if\(agency && !\[/);
  assert.match(shell,/hasAcceptedTerms!==true/);
- assert.match(v2,/\/backoffice\/agency\/creatives\/banners\/new\?campaignId=/);
- assert.match(v2,/\/backoffice\/agency\/creatives\/audio\/new\?campaignId=/);
+ assert.match(v2,/AdvertisingCampaignWizard/);
+ const wizard=read('frontend/src/pages/AdvertisingCampaignWizard.jsx');
+ assert.match(wizard,/Συνέχεια στο Budget/);
+ assert.match(wizard,/Αποστολή στον Admin για έγκριση/);
+ assert.match(wizard,/Nexi Sandbox Payment/);
  assert.match(editor,/\/backoffice\/agency\/creatives/);
  assert.doesNotMatch(editor,/'\/agency\/dashboard'/);
 });
