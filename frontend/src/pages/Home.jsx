@@ -139,7 +139,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
         .then(data => setActiveBanners((Array.isArray(data)?data:[]).filter(banner =>
           banner.status === 'active' &&
           (!banner.expiresAt || new Date(banner.expiresAt) > new Date()) &&
-          geoAllowsAd(banner.targetLocations,userLocation,checkGeoMatch))))
+          geoAllowsAd(banner.targetLocations,userLocation,checkGeoMatch,banner.serverGeoEligible===true))))
         .catch(err => console.error("Error fetching banners:", err));
     }
   }, [isFreeOrGuest, userLocation, checkGeoMatch]); 
