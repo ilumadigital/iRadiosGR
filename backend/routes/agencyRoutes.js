@@ -22,7 +22,7 @@ const {protect}=require('../utils/authMiddleware');
 const {isStage,fields}=require('../services/adDeliveryRules');
 const {sanitizeAdDesign}=require('../services/adDesignRules');
 const allowedPlacements=new Set(['hero','home','radio_feed','news_feed','station_profile']);
-const audioFields=['title','client','audioUrl','logoUrl','linkUrl','frequency','targetLocations','targetCountry','targetRegion','dspPreset','campaignId'];
+const audioFields=['title','client','audioUrl','logoUrl','linkUrl','frequency','targetLocations','targetCountry','targetRegion','campaignId'];
 const bannerFields=['title','description','imageUrl','squareImageUrl','targetUrl','placement','targetLocations','targetCountry','targetRegion',
   'logoUrl','ctaLabel','brandColor','focalX','focalY','designConfig','campaignId'];
 const frequencies=new Set(['entry','every_5_stations','every_10_stations','every_15_stations',
@@ -106,7 +106,7 @@ router.post('/audio-ads',stageOnly,async(req,res)=>{
     Object.assign(patch,validateAgencyGeo(patch));
     if(!frequencies.has(patch.frequency||'entry'))
       return res.status(400).json({error:'Μη έγκυρη συχνότητα spot.'});
-    const saved=await Ad.create({...patch,frequency:patch.frequency||'entry',
+    const saved=await Ad.create({...patch,dspPreset:'OFF',frequency:patch.frequency||'entry',
       agencyId:req.user._id,duration:'month',status:'pending',
       isGlobal:true,isStageCreative:true,agencyDraftNoticeVersion:1});
     const adminNotificationQueued=await safeNotice(()=>noticeOutbox.queueDraft('audio',saved));
