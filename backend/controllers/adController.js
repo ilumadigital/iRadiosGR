@@ -60,7 +60,7 @@ exports.streamPublicAudio=async(req,res)=>{
   if(!isStage()||!mongoose.isValidObjectId(req.params.id))
     return res.status(404).json({error:'Not found'});
   try {
-    const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations campaignId');
+    const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations campaignId agencyId');
     if(!live(ad)||!matchesAgencyGeo(ad,req.geo)||!(await isFundedCreative(ad)))
       return res.status(404).json({error:'Not found'});
     await sendAdAudio(res,ad.audioUrl);
