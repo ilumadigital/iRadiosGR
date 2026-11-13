@@ -1,5 +1,37 @@
 # Advertising Platform v2 — staging integration checklist
 
+## 2026-11-13: Advertising Gateway Sandbox checkout (staging only)
+
+This section supersedes the older **payment-flag** rollout language below.
+The user-authorized scope is a real Nexi **Sandbox HPP test**, never production
+charging or public, billable advertising delivery.
+
+- `ADV-BUDGET` uses the already configured iRadios staging HMAC Gateway
+  credentials (`IRADIOS_BILLING_SANDBOX_ENABLED=1` and existing staging key/secret).
+  There is **no separate** `AD_PAYMENTS_SANDBOX_ENABLED` switch in iRadios
+  or `ADVERTISING_SANDBOX_ENABLED` switch in Gateway.
+- Gateway still strictly accepts only the signed `iradiosgr` staging tenant
+  under development/staging configuration, refuses production, verifies tenant
+  database isolation and prepares the advertising schema/catalog there only.
+- On first staging use, the previously untouched/unconfigured Advertising v2
+  pricing policy is initialized with the historical CPM rates, explicit 24%
+  Greek VAT and enabled checkout. Existing Admin-edited policies, including an
+  explicit disable, are preserved and remain editable in Admin.
+- Quotes are immutable, have an expiry, and bind campaign, quote, amount and
+  account to a uniquely locked request. Browser return never credits money.
+  Only verified HMAC outbox webhooks and the idempotent funding lot count.
+- The Agency wizard automatically performs **read-only** status/recovery
+  checks every 6 seconds while the original payment is unresolved and routes
+  verified funding to final Admin submission. Unknown states cannot be retried
+  as new Nexi payments.
+- `ATOMIC_SETTLEMENT_IMPLEMENTED=false` continues to prevent paid creative
+  delivery. Checkout testing alone does not activate billable impressions.
+- Deploy is **not automatic**: manually redeploy Gateway from Git in Hostinger
+  hPanel, then run `cd /srv/iradios/staging/app && sudo ./ilumadev.sh`
+  on the staging VPS. Verify HPP, Gateway outbox, signed iRadios webhook,
+  approval flow and Mailpit with Sandbox test credentials; production is untouched.
+
+
 Status: **DRAFT / NOT SAFE FOR DEPLOYMENT**. PR #124 is a development slice; no server or database migration has been run.
 
 ## Boundaries
