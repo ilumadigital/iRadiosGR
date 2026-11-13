@@ -158,3 +158,10 @@ outbox, Nexi Sandbox and Mailpit E2E, refund/tax approvals, and authorized
 deployment. No SSH deployment, merge, SQL migration or Gateway redeploy.
 
 CI test: node --test backend/tests/advertisingQualifiedDelivery.test.cjs
+
+Manual MongoDB concurrency harness (NOT run):
+backend/tests/advertisingQualificationMongoDisposable.cjs. It requires
+APP_ENV=staging, a dedicated ad_qualification_disposable_* MongoDB database,
+AD_QUALIFICATION_DISPOSABLE_MONGODB_URI and the explicit approval phrase
+AD_QUALIFICATION_DISPOSABLE_APPROVAL=I_CONFIRMED_TEST_ONLY_DATABASE.
+This test is not part of CI and must never target a real staging or production DB.
