@@ -25,8 +25,14 @@ const {loadFeed,previewFeed,publicPreview,syncOne,startCron}=require('../service
 startCron();
 const router=express.Router();
 
-router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer'),
+// Agency shares the private Backoffice shell, NOT the station management API.
+// Allow only its own minimal overview; all other Station Console endpoints
+// remain restricted to their original operational roles.
+router.use('/backoffice',protect,authorizeRoles('admin','broadcaster','producer','agency'),
   (req,res,next)=>{
+    if(req.user.role==='agency' &&
+      (req.method!=='GET'||req.originalUrl.split('?')[0]!=='/api/backoffice/overview'))
+      return res.status(403).json({error:'Agency Backoffice does not grant station access'});
     res.setHeader('Cache-Control','private, no-store');
     if(req.user.role==='broadcaster'&&req.user.isVerified!==true)
       return res.status(403).json({code:'BROADCASTER_EMAIL_UNVERIFIED',error:'Επιβεβαίωσε το email σου πριν μπεις στο Backoffice.'});
@@ -195,6 +201,15 @@ router.get('/backoffice/review-queue',authorizeRoles('admin'),async(req,res)=>{
 });
 router.get('/backoffice/overview',async(req,res)=>{
   try{
+    if(req.user.role==='agency'){
+      return res.json({
+        user:{_id:String(req.user._id),role:'agency',fname:req.user.fname||'',
+          email:req.user.email||'',username:req.user.username||'',
+          hasAcceptedTerms:req.user.hasAcceptedTerms===true},
+        counts:{total:0,approved:0,pendingApproval:0,pendingEdits:0},
+        stations:[]
+      });
+    }
     const query=stationQuery(req.user);
     const [items,total,pendingEdits,pendingApproval,approved]=await Promise.all([
       Station.find(query).select(fields).sort({popularity:-1,plays:-1,_id:1}).limit(1000).lean(),
