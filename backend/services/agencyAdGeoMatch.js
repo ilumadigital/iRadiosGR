@@ -11,10 +11,9 @@ function matchesAgencyGeo(campaign,geo) {
   const region=campaign.targetRegion||'All';
   if(country==='All'&&region==='All'&&target==='All')return true;
   if(region==='All'&&(clean(target)===clean(country))) {
-    // A Greek-wide campaign is still eligible when the regional location is
-    // unavailable, consistent with the Greek-language iRadios inventory.
-    return !geo || !geo.country ? clean(country)===clean('Ελλάδα') :
-      clean(geo.country)===clean(country);
+    // No inferred Greek nationality from app language or missing proxy geo.
+    // Country-only trusted geo may match national campaigns; unknown cannot.
+    return Boolean(geo?.country)&&clean(geo.country)===clean(country);
   }
   if(!geo?.country||!geo?.region)return false;
   if(clean(country)!==clean(geo.country)||clean(region)!==clean(geo.region))
