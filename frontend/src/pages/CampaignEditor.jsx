@@ -185,6 +185,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
     setBusy(true);setError('');
     try {
       const patch={...form};
+      if(!banner&&scope==='agency')patch.dspPreset='OFF';
       if(files.imageFile)patch.imageUrl=await upload(files.imageFile,'upload-banner','imageFile');
       if(files.squareImageFile)patch.squareImageUrl=await upload(files.squareImageFile,'upload-banner','imageFile');
       if(files.logoFile)patch.logoUrl=await upload(files.logoFile,'upload-logo','logoFile');
@@ -291,7 +292,8 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
             </label>)}</div></fieldset>:
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Συχνότητα αναπαραγωγής"><select className={input} value={form.frequency} onChange={e=>change('frequency',e.target.value)}>{frequencies.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></Field>
-              <Field label="Audio processing"><select className={input} value={form.dspPreset} onChange={e=>change('dspPreset',e.target.value)}><option value="OFF">Bypass</option><option value="NORMALIZE">Normalize</option></select></Field>
+              {scope==='admin'?<Field label="Audio processing"><select className={input} value={form.dspPreset} onChange={e=>change('dspPreset',e.target.value)}><option value="OFF">Bypass</option><option value="NORMALIZE">Normalize</option></select></Field>:
+                <p className="self-end rounded-xl border border-purple-400/20 bg-purple-500/10 px-4 py-3 text-xs text-purple-200">Ηχητική επεξεργασία: αυτόματο VMax σε desktop / laptop. Δεν απαιτείται ρύθμιση από το Agency.</p>}
             </div>}
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Χώρα"><select className={input} value={form.targetCountry} onChange={e=>selectCountry(e.target.value)}><option value="All">Όλες οι χώρες</option>{Object.keys(LOCATION_DATA).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
