@@ -9,8 +9,7 @@ export default function AuthShell({ children }) {
       <div className="ir-auth-shell">
         <aside className="ir-auth-story">
           <div className="ir-auth-story__brand">
-            <img src="/iradios-app-logo.png" alt="" width="56" height="56" />
-            <span><strong>iRadiosGR</strong><small>THE RADIO EXPERIENCE</small></span>
+            <img src="/noicon-iradios-app-logo.svg" alt="iRadios GR" width="200" height="56" />
           </div>
           <div className="ir-auth-story__body">
             <span className="ir-auth-eyebrow">YOUR SOUND. YOUR WORLD.</span>
@@ -24,8 +23,7 @@ export default function AuthShell({ children }) {
         </aside>
         <div className="ir-auth-content">
           <div className="ir-auth-mobile-brand">
-            <img src="/iradios-app-logo.png" alt="iRadiosGR" width="42" height="42" />
-            <span>iRadiosGR</span>
+            <img src="/noicon-iradios-app-logo.svg" alt="iRadios GR" width="190" height="52" />
           </div>
           {children}
         </div>

@@ -4,18 +4,14 @@ import { FileText, Download, X } from 'lucide-react'; // Πρόσθεσα μερ
 const PressKit = () => {
   const [selectedImage, setSelectedImage] = useState(null);
 
-  // Εδώ βάζεις τα ονόματα των αρχείων που έχεις ρίξει στον φάκελο /public/presskit-assets/ (ή /public/presskit/)
+  // Public, existing SVG master assets (no legacy /presskit/*.png 404s).
   const pressImages = [
-    '/presskit/iradios_fbcover-logo.png',
-    '/presskit/iradios_fbcover-mockups.png',
-    '/presskit/iradios-app-logo.png',
-    '/presskit/noicon-iradios-app-logo.png',
-    '/presskit/iradios-logo.png',
-    '/presskit/iradios-wall.png',
-    '/presskit/iradios-app-broadcaster-guide.png',
-    '/presskit/iradios-app-agency-guide.png',
-    '/presskit/station-profile-mockup.png',
-    '/presskit/ads.png'
+    '/noicon-iradios-app-logo.svg',
+    '/iradios-app-logo.svg',
+    '/icon-tr.svg',
+    '/favicon.svg',
+    '/iradios-app-broadcaster-guide.png',
+    '/iradios-app-agency-guide.png'
   ];
 
   // Βοηθητική συνάρτηση για την παραγωγή του HTML κώδικα
@@ -96,7 +92,7 @@ const PressKit = () => {
           {/* Badge 1: Κανονικό Logo */}
           <div className="flex flex-col gap-6 bg-zinc-900/30 p-8 rounded-[32px] border border-white/5 hover:border-white/10 transition-colors">
             <div className="w-full flex items-center justify-center bg-black p-8 rounded-2xl border border-white/5 shadow-inner h-40">
-              <img src="/presskit/iradios-app-logo.png" alt="iRadios App Logo" className="max-h-full max-w-[200px] object-contain" />
+              <img src="/noicon-iradios-app-logo.svg" alt="iRadios GR Full Logo" className="max-h-full max-w-[200px] object-contain" />
             </div>
             <div className="w-full flex flex-col flex-1">
               <h3 className="text-[#ccff00] text-xs font-black uppercase tracking-widest mb-3">Standard App Logo</h3>
@@ -104,7 +100,7 @@ const PressKit = () => {
                 <textarea 
                   readOnly 
                   className="w-full flex-1 min-h-[100px] bg-black/50 text-zinc-400 font-mono text-[10px] p-5 rounded-xl border border-white/10 focus:outline-none focus:border-[#ccff00]/50 transition-colors resize-none custom-scrollbar"
-                  value={generateHtmlCode('/presskit/iradios-app-logo.png', 'Listen on iRadios App')}
+                  value={generateHtmlCode('/noicon-iradios-app-logo.svg', 'Listen on iRadios App')}
                   onClick={(e) => e.target.select()}
                   title="Κάντε κλικ για επιλογή κειμένου"
                 />
@@ -115,7 +111,7 @@ const PressKit = () => {
           {/* Badge 2: Logo χωρίς εικονίδιο */}
           <div className="flex flex-col gap-6 bg-zinc-900/30 p-8 rounded-[32px] border border-white/5 hover:border-white/10 transition-colors">
             <div className="w-full flex items-center justify-center bg-black p-8 rounded-2xl border border-white/5 shadow-inner h-40">
-              <img src="/presskit/noicon-iradios-app-logo.png" alt="iRadios Logo Text" className="max-h-full max-w-[200px] object-contain" />
+              <img src="/iradios-app-logo.svg" alt="iRadios GR Wordmark" className="max-h-full max-w-[200px] object-contain" />
             </div>
             <div className="w-full flex flex-col flex-1">
               <h3 className="text-[#ccff00] text-xs font-black uppercase tracking-widest mb-3">Text-Only Logo</h3>
@@ -123,7 +119,7 @@ const PressKit = () => {
                 <textarea 
                   readOnly 
                   className="w-full flex-1 min-h-[100px] bg-black/50 text-zinc-400 font-mono text-[10px] p-5 rounded-xl border border-white/10 focus:outline-none focus:border-[#ccff00]/50 transition-colors resize-none custom-scrollbar"
-                  value={generateHtmlCode('/presskit/noicon-iradios-app-logo.png', 'Powered by iRadios')}
+                  value={generateHtmlCode('/iradios-app-logo.svg', 'Powered by iRadios')}
                   onClick={(e) => e.target.select()}
                   title="Κάντε κλικ για επιλογή κειμένου"
                 />

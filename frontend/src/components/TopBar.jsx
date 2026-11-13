@@ -10,7 +10,6 @@ import './smart-header.css';
 
 const ICONS = { station: Radio, region: MapPin, genre: Music2, news: Newspaper };
 const WEATHER_ICONS = { Sun, Cloud, CloudRain, Snowflake, CloudSun };
-const equalizer = [1, 2, 3, 4, 5];
 
 export default function TopBar({
   setIsMobileMenuOpen, stations = [], handleSearchResultClick,
@@ -230,10 +229,10 @@ export default function TopBar({
         <button type="button" onClick={() => setIsMobileMenuOpen(true)} aria-label="Άνοιγμα μενού πλοήγησης"
           className="ir-header__mobile-menu ir-header__icon-button lg:hidden"><Menu size={21}/></button>
         <Link to="/" className="ir-header__mobile-brand flex min-w-0 items-center gap-2 lg:hidden" aria-label="iRadiosGR αρχική">
-          <span className="ir-header__equalizer flex h-6 shrink-0 items-end gap-[3px]" aria-hidden="true">
-            {equalizer.map(i => <span className={'ir-header__eq-bar ir-header__eq-bar--' + i} key={i}/>)}
+          <span className="ir-header__brand-swap">
+            <img src="/iradios-app-logo.svg" alt="iRadios GR" className="ir-header__brand-wordmark"/>
+            <img src="/icon-tr.svg" alt="" aria-hidden="true" className="ir-header__brand-icon"/>
           </span>
-          <img src="/noicon-iradios-app-logo.png" alt="iRadiosGR" className="ir-header__brand-image h-6 w-auto max-w-[118px] object-contain"/>
         </Link>
         <div className="ir-header__desktop-intro hidden min-w-0 items-center gap-3 2xl:flex">
           <span className="ir-header__live-dot" aria-hidden="true"/>

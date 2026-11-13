@@ -31,7 +31,7 @@
 }
 .ir-auth-story::after { content: ""; position: absolute; width: 300px; height: 300px; border-radius: 50%; bottom: -200px; right: -90px; background: rgba(204,255,0,.21); filter: blur(90px); pointer-events: none; }
 .ir-auth-story__brand { display: flex; align-items: center; gap: 13px; font-size: 1.15rem; letter-spacing: -.04em; }
-.ir-auth-story__brand img, .ir-auth-mobile-brand img { object-fit: contain; flex: none; filter: drop-shadow(0 8px 15px rgba(0,0,0,.25)); }
+.ir-auth-story__brand img, .ir-auth-mobile-brand img { object-fit: contain; object-position: left center; flex: none; width: min(100%, 200px); height: auto; max-height: 56px; filter: drop-shadow(0 8px 15px rgba(0,0,0,.25)); }
 .ir-auth-story__brand strong, .ir-auth-story__brand small { display: block; }
 .ir-auth-story__brand small { color: #9faeaf; letter-spacing: .19em; font-size: .55rem; font-weight: 750; margin-top: 3px; }
 .ir-auth-eyebrow { color: #ccff00; letter-spacing: .18em; font-size: .65rem; font-weight: 800; }
