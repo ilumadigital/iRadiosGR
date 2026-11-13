@@ -78,7 +78,7 @@ function stagePublicAccess(req, res, next) {
   if ((req.method==='GET'||req.method==='HEAD') &&
       /^\/api\/ads\/[a-f0-9]{24}\/media$/i.test(path))return next();
   // Only campaign metrics are public writes; stage creative/status checks happen in controllers.
-  if (req.method === 'POST' && /^\/api\/(?:ads|banners)\/[a-f0-9]{24}\/(?:impression|click)$/i.test(path)) return next();
+  if (req.method === 'POST' && /^\/api\/(?:ads|banners)\/[a-f0-9]{24}\/(?:impression|click|completed|skipped)$/i.test(path)) return next();
   // A preview capability is checked by its own HMAC verifier, never issued here.
   if (req.method === 'POST' && path === '/api/widget-previews/verify') return next();
   // Approved station widgets read native-only RDS; the controller excludes
