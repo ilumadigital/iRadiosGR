@@ -76,16 +76,9 @@ assert.match(glass, /\.ir-glass-header__close\s*\{[^}]*border:0;border-radius:0;
 assert.ok(mobileStation.includes("'στο iRadiosGR'") && player.includes("'στο iRadiosGR'"),
   'mobile fallback copy uses iRadiosGR');
 assert.ok(stationPage.includes('<ShareStory') && mobileStation.includes('<ShareStory'), 'Story must work on desktop/mobile station profiles');
-for(const value of ['width: 1080', 'height: 1920', 'Powered by ILUMA Digital Agency', 'downloadStory(file)', 'navigator.share']) {
+for(const value of ['width: 1080', 'height: 1920', 'Powered by ILUMA Digital Agency', "loadImage('/noicon-iradios-app-logo.svg')", 'downloadStory(file)', 'navigator.share']) {
   assert.ok(storyUtility.includes(value), 'missing branded 9:16 story contract: '+value);
 }
-// The staging branding migration replaces the former PNG with the SVG logo.
-// Both exact assets are recognized during the parallel advertising PR merge.
-assert.ok(
-  storyUtility.includes("loadImage('/noicon-iradios-app-logo.svg')") ||
-  storyUtility.includes("loadImage('/iradios-app-logo.png')"),
-  'Story must load a known official iRadios app logo'
-);
 
 assert.ok(!player.includes('<audio'), 'fullscreen must remain a visual layer');
 assert.ok(!player.includes('LiveChat') && !player.includes('showChat') && !player.includes('Live chat'), 'legacy chat must not return to mobile player');
