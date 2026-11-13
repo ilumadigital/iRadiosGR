@@ -243,10 +243,10 @@ exports.deleteBroadcasterAd=async(req,res)=>{
 exports.logImpression=async(req,res)=>{
   try{
     if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
-    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative');
-    if(!live(ad))return res.status(404).json({error:'Not found'});
+    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative campaignId');
+    if(!live(ad)||ad.campaignId)return res.status(404).json({error:'Not found'});
     if(!permitMetric(req,'audio-play',req.params.id))return res.json({success:true,deduplicated:true});
-    await Ad.updateOne({_id:ad._id,...activeCampaignQuery()},{$inc:{impressions:1,plays:1}});
+    await Ad.updateOne({_id:ad._id,...activeCampaignQuery(),campaignId:null},{$inc:{impressions:1,plays:1}});
     res.json({success:true});
   }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής play'});}
 };
@@ -254,10 +254,10 @@ exports.logImpression=async(req,res)=>{
 exports.logClick=async(req,res)=>{
   try{
     if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
-    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative');
-    if(!live(ad))return res.status(404).json({error:'Not found'});
+    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative campaignId');
+    if(!live(ad)||ad.campaignId)return res.status(404).json({error:'Not found'});
     if(!permitMetric(req,'audio-click',req.params.id))return res.json({success:true,deduplicated:true});
-    await Ad.updateOne({_id:ad._id,...activeCampaignQuery()},{$inc:{clicks:1}});
+    await Ad.updateOne({_id:ad._id,...activeCampaignQuery(),campaignId:null},{$inc:{clicks:1}});
     res.json({success:true});
   }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής click'});}
 };
@@ -265,11 +265,11 @@ exports.logClick=async(req,res)=>{
 const registerAdOutcome=field=>async(req,res)=>{
   try {
     if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
-    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative');
-    if(!live(ad))return res.status(404).json({error:'Not found'});
+    const ad=await Ad.findById(req.params.id).select('status expiresAt isStageCreative campaignId');
+    if(!live(ad)||ad.campaignId)return res.status(404).json({error:'Not found'});
     if(!permitMetric(req,'audio-'+field,req.params.id,3000))
       return res.json({success:true,deduplicated:true});
-    await Ad.updateOne({_id:ad._id,...activeCampaignQuery()},{$inc:{[field]:1}});
+    await Ad.updateOne({_id:ad._id,...activeCampaignQuery(),campaignId:null},{$inc:{[field]:1}});
     return res.json({success:true});
   }catch(error){
     return res.status(500).json({error:'Σφάλμα στατιστικών Audio Ads'});
