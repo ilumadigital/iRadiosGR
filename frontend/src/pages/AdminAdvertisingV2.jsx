@@ -28,7 +28,8 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
    const r=await fetch(endpoint);
    const data=await r.json();
    if(!r.ok)throw Error(data.error||'Αποτυχία φόρτωσης.');
-   if(mode==='pricing')setPricing(data);else setCampaigns(data);
+   if(mode==='pricing')setPricing(data);else setCampaigns(data.filter(c=>
+    c.workflowVersion!==2||c.createdByRole==='admin'||c.approvalStatus!=='draft'));
   }catch(e){setNotice(e.message);}finally{setLoading(false);}
  },[mode]);
  useEffect(()=>{reload();},[reload]);
