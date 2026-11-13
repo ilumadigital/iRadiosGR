@@ -36,4 +36,14 @@ router.post('/admin/advertising/shadow/heartbeat',async(req,res)=>{
   return res.status(400).json({error:'Invalid or stale observation'});
  }
 });
+// Finance preview is read-only and never invokes either settlement adapter.
+router.get('/admin/advertising/shadow/events/:id/financial-preview',async(req,res)=>{
+ try{
+  const {previewShadowCharge}=require('../services/advertisingShadowSettlementPreview');
+  return res.json(await previewShadowCharge(req.params.id));
+ }catch(error){
+  console.warn('[AD SHADOW] Preview rejected:',error.message);
+  return res.status(400).json({error:'Shadow finance preview unavailable'});
+ }
+});
 module.exports=router;
