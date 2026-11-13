@@ -134,3 +134,46 @@ test('settlement adapter persists debit+receipt in a single guarded Mongo update
  assert.match(read('services/advertisingFinancialIndexes.js'),/Event\.createIndexes\(\)/);
  assert.match(read('services/advertisingDeliveryEligibility.js'),/const ATOMIC_SETTLEMENT_IMPLEMENTED=false/);
 });
+
+test('read-only funding audit detects lost, duplicated and incorrect CPM receipts',()=>{
+ const {auditFundingSet}=require('../services/advertisingFinancialAudit');
+ const id=ad(700).eventId;
+ const receipt={eventId:id,creativeId:creative,tier:'standard',costNanos:4000000};
+ const funded={
+  _id:lotId,budgetNanos:8000000,remainingNanos:4000000,
+  remainingMicros:4000,ratesMicros:{standard:4000000},
+  settledEvents:[receipt]
+ };
+ const claim={_id:id,creativeId:creative,tier:'standard',costNanos:4000000,
+  fundingLotId:lotId,status:'charged'};
+ const good=auditFundingSet([funded],[claim]);
+ assert.equal(good.safe,true);
+ assert.equal(good.charged,1);
+ assert.equal(good.reports[0].status,'reconciled');
+ const missing=auditFundingSet([{...funded,settledEvents:[]}],[claim]);
+ assert.equal(missing.safe,false);
+ assert.ok(missing.issues.some(x=>x.includes('charged_without_receipt')));
+ const duplicated=auditFundingSet([
+  {...funded,remainingNanos:0,remainingMicros:0,settledEvents:[receipt,receipt]}
+ ],[claim]);
+ assert.equal(duplicated.safe,false);
+ assert.ok(duplicated.issues.some(x=>x.includes('duplicate_event')));
+ const tampered=auditFundingSet([{
+  ...funded,settledEvents:[{...receipt,costNanos:8000000}]
+ }],[claim]);
+ assert.equal(tampered.safe,false);
+ assert.ok(tampered.issues.some(x=>x.includes('incorrect_historical_rate')));
+ const legacy=auditFundingSet([{
+  _id:lotId,budgetMicros:8000,remainingMicros:4000,
+  ratesMicros:{standard:4000000},settledEvents:[]
+ }],[]);
+ assert.equal(legacy.safe,false);
+ assert.equal(legacy.reports[0].status,'legacy_needs_review');
+});
+test('financial reconciliation is admin-only and cannot mutate balances',()=>{
+ const routes=read('routes/advertisingCampaignRoutes.js');
+ assert.match(routes,/router\.get\('\/admin\/advertising\/campaigns\/:id\/reconciliation'/);
+ assert.match(routes,/if\(!isAdmin\(req\)\|\|!objectId\(req\.params\.id\)\)/);
+ const audit=read('services/advertisingFinancialAudit.js');
+ assert.doesNotMatch(audit,/updateOne|findOneAndUpdate|save\(/);
+});
