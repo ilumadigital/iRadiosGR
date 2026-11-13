@@ -3,6 +3,7 @@ import {Link, useNavigate, useParams} from 'react-router-dom';
 import {ArrowLeft, Check, Image as ImageIcon, Music2, RefreshCw, ShieldAlert} from 'lucide-react';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import DynamicAdCreative from '../components/DynamicAdCreative';
+import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 import {deriveCreativeAccent} from '../utils/creativePalette';
 import '../styles/ad-campaign-console.css';
 
@@ -251,7 +252,9 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
             <DynamicAdCreative banner={{...previewBanner,targetUrl:form.targetUrl||'https://example.com'}} variant={preview} placement={form.placement?.[0]||'home'} slotKey="editor-preview" preview />
           </div><p className="text-[11px] text-zinc-500">Το preview δεν καταγράφει προβολές όταν το δημιουργικό δεν έχει αποθηκευμένο ID.</p></>:
             <div className="space-y-3"><div className="rounded-2xl bg-purple-950/30 p-5"><Music2 className="mb-3 text-purple-300"/><p className="font-black text-white">{form.title||'Τίτλος Audio Spot'}</p><p className="mt-1 text-xs text-zinc-400">{form.client||'Brand'}</p></div>
-            {(previewAudio||form.audioUrl)?<audio src={previewAudio||form.audioUrl} controls preload="none" className="w-full"/>:<p className="text-xs text-zinc-500">Ανέβασε spot για προεπισκόπηση μετά την αποθήκευση.</p>}</div>}
+            {previewAudio?<audio src={previewAudio} controls preload="metadata" className="w-full"/>:
+              form.audioUrl?<ProtectedAudioPreview adId={id} scope={scope} sourceUrl={form.audioUrl}/>:
+              <p className="text-xs text-zinc-500">Επίλεξε MP3/WAV για προεπισκόπηση πριν την αποθήκευση.</p>}</div>}
           <div className="flex gap-2 rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-zinc-400"><ImageIcon size={18}/> Οι εικόνες, τα κείμενα και το CTA αποτελούν responsive HTML — όχι flattened banner.</div>
         </section>
       </aside>
