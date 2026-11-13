@@ -1,5 +1,6 @@
 const {matchesAgencyGeo}=require('../services/agencyAdGeoMatch');
 const {filterFundedCreatives,isFundedCreative}=require('../services/advertisingDeliveryEligibility');
+const {excludeArchivedCampaignCreatives}=require('../services/advertisingArchiveVisibility');
 const Ad = require('../models/Ad');
 const User = require('../models/User');
 const Station=require('../models/Station');
@@ -87,7 +88,7 @@ exports.previewAudio=async(req,res)=>{
 exports.getAdminAds = async (req, res) => {
   try {
     // Εδώ ο admin τα βλέπει όλα
-    const ads = await Ad.find({ isGlobal: true,status:{$ne:'draft'} }).sort({ createdAt: -1 }).lean();
+    const ads = await excludeArchivedCampaignCreatives(await Ad.find({ isGlobal: true,status:{$ne:'draft'} }).sort({ createdAt: -1 }).lean());
     if(!isStage())return res.json(ads);
     const files=await Promise.all(ads.map(ad=>localAudioFile(ad.audioUrl)));
     res.json(ads.map((ad,i)=>({...ad,mediaReady:Boolean(files[i])})));
