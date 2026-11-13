@@ -14,6 +14,7 @@ const Ad=require('../models/Ad');
 const {DEFAULTS,validatePricing,quotedAmounts}=require('../services/advertisingPricingRules');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const gateway=require('../services/ilumaGatewayClient');
+const {ensureAdvertisingFinancialIndexes}=require('../services/advertisingFinancialIndexes');
 const stage=(req,res,next)=>process.env.APP_ENV==='staging'?next():
  res.status(503).json({error:'Advertising v2 is staging only'});
 router.use(protect,stage);
@@ -161,7 +162,7 @@ router.post('/advertising/quotes/:id/checkout',async(req,res)=>{
   if(unresolved)return res.status(409).json({
    error:'An advertising payment is awaiting provider confirmation.',intentId:unresolved._id
   });
-  await Intent.init();
+  await ensureAdvertisingFinancialIndexes();
   const key='iradios-stage-'+idString(req.user._id)+'-'+crypto.randomUUID();
   let intent;
   try{
