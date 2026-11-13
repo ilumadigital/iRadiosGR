@@ -49,7 +49,6 @@ router.post('/recognize-proxy',protect,
   require('../utils/stageAcrcloud').stageRecognizeProxy);
 
 // --- Public & Global ---
-router.get('/media/station-logo/:stationId.jpg',require('../controllers/stationMediaArtworkController').stationMediaArtwork);
 router.get('/stations', stationController.getApprovedStations);
 router.get('/stations/all', stationController.getAllStations);
 router.get('/stations/dsp-access',protect,authorizeRoles('admin','broadcaster'),stationController.getDSPStations);
