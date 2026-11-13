@@ -84,5 +84,9 @@ test('Only Admin can review wizard creatives after Agency submits verified funds
  assert.match(wizard,/source:'nexi_verified'/);
  assert.match(read('frontend/src/pages/AdminAdvertisingV2.jsx'),/Έλεγχος δημιουργικών/);
  assert.match(read('frontend/src/pages/AdminAdvertisingV2.jsx'),/reviewCreative/);
- assert.match(read('frontend/src/pages/AdminAdvertisingV2.jsx'),/c\.workflowVersion!==2\|\|c\.createdByRole==='admin'\|\|c\.approvalStatus!=='draft'/);
+ // Admin can now see drafts for deletion; approval remains pending-only.
+ const adminUI=read('frontend/src/pages/AdminAdvertisingV2.jsx');
+ assert.match(adminUI,/setCampaigns\(data\)/);
+ assert.match(adminUI,/c\.approvalStatus==='pending'/);
+ assert.match(adminUI,/!c\.deletedAt&&c\.approvalStatus==='pending'/);
 });
