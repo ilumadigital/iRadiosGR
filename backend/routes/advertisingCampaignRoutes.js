@@ -166,9 +166,12 @@ router.post('/advertising/quotes/:id/checkout',async(req,res)=>{
   let intent;
   try{
    intent=await Intent.create({agencyId:req.user._id,campaignId:campaign._id,
-    quoteId:quote._id,requestKey:key,amountCents:quote.paymentCents,status:'creating'});
+    quoteId:quote._id,requestKey:key,amountCents:quote.paymentCents,
+    activeLockKey:String(campaign._id),status:'creating'});
   }catch(error){
-   if(error.code===11000)return res.status(409).json({error:'Checkout already started for quote'});
+   if(error.code===11000)return res.status(409).json({
+    error:'Checkout already started for this quote or campaign. Recover the existing payment first.'
+   });
    throw error;
   }
   // Mark as consumed before initiating the provider request; no second HPP
