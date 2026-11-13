@@ -4,90 +4,11 @@ import {useNavigate} from 'react-router-dom';
 import '../styles/ad-campaign-console.css';
 import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
+import CampaignRevisionReview from '../components/CampaignRevisionReview';
 import { Megaphone, PlusCircle, Trash2, Edit, X, Clock, Search, SlidersHorizontal, Check, Loader2, Image as ImageIcon, Link as LinkIcon, Music } from 'lucide-react';
 
-// 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
-const LOCATION_DATA = { 
-  "Ελλάδα": {
-    "Αττική": [
-      "Αθήνα", "Πειραιάς", "Νέα Σμύρνη", "Καλλιθέα", "Παλαιό Φάληρο", "Άλιμος", "Ελληνικό", 
-      "Αργυρούπολη", "Γλυφάδα", "Βούλα", "Βουλιαγμένη", "Ηλιούπολη", "Άγιος Δημήτριος", 
-      "Ζωγράφου", "Καισαριανή", "Βύρωνας", "Γαλάτσι", "Νέα Ιωνία", "Νέο Ηράκλειο", 
-      "Νέα Φιλαδέλφεια", "Χαλάνδρι", "Μαρούσι", "Κηφισιά", "Πεύκη", "Μελίσσια", "Βριλήσσια", 
-      "Αγία Παρασκευή", "Περιστέρι", "Αιγάλεω", "Χαϊδάρι", "Ίλιον", "Πετρούπολη", "Αγία Βαρβάρα", 
-      "Νίκαια", "Κορυδαλλός", "Κερατσίνι", "Δραπετσώνα", "Πέραμα", "Σαλαμίνα", "Ελευσίνα", 
-      "Αχαρνές", "Παλλήνη", "Γέρακας", "Κορωπί", "Μαρκόπουλο", "Ραφήνα", "Λαύριο", "Άλλη"
-    ],
-    "Θεσσαλονίκη": [
-      "Θεσσαλονίκη", "Καλαμαριά", "Εύοσμος", "Κορδελιό", "Αμπελόκηποι", "Μενεμένη", "Σταυρούπολη", 
-      "Πολίχνη", "Νεάπολη", "Συκιές", "Πυλαία", "Χορτιάτης", "Πανόραμα", "Θέρμη", "Ωραιόκαστρο", 
-      "Μηχανιώνα", "Περαία", "Σίνδος", "Χαλάστρα", "Άλλη"
-    ],
-    "Αιτωλοακαρνανία": ["Μεσολόγγι", "Αγρίνιο", "Ναύπακτος", "Άλλη"],
-    "Αργολίδα": ["Ναύπλιο", "Άργος", "Άλλη"],
-    "Αρκαδία": ["Τρίπολη", "Μεγαλόπολη", "Άλλη"],
-    "Άρτα": ["Άρτα", "Άλλη"],
-    "Αχαΐα": ["Πάτρα", "Αίγιο", "Καλάβρυτα", "Άλλη"],
-    "Βοιωτία": ["Λιβαδειά", "Θήβα", "Αράχωβα", "Άλλη"],
-    "Γρεβενά": ["Γρεβενά", "Άλλη"],
-    "Δράμα": ["Δράμα", "Άλλη"],
-    "Δωδεκάνησα": ["Ρόδος", "Κως", "Κάλυμνος", "Κάρπαθος", "Άλλη"],
-    "Έβρος": ["Αλεξανδρούπολη", "Ορεστιάδα", "Διδυμότειχο", "Άλλη"],
-    "Εύβοια": ["Χαλκίδα", "Κάρυστος", "Άλλη"],
-    "Ευρυτανία": ["Καρπενήσι", "Άλλη"],
-    "Ζάκυνθος": ["Ζάκυνθος", "Άλλη"],
-    "Ηλεία": ["Πύργος", "Αμαλιάδα", "Άλλη"],
-    "Ημαθία": ["Βέροια", "Νάουσα", "Αλεξάνδρεια", "Άλλη"],
-    "Ηράκλειο": ["Ηράκλειο", "Μοίρες", "Χερσόνησος", "Άλλη"],
-    "Θεσπρωτία": ["Ηγουμενίτσα", "Άλλη"],
-    "Ιωάννινα": ["Ιωάννινα", "Μέτσοβο", "Άλλη"],
-    "Καβάλα": ["Καβάλα", "Άλλη"],
-    "Καρδίτσα": ["Καρδίτσα", "Άλλη"],
-    "Καστοριά": ["Καστοριά", "Άλλη"],
-    "Κέρκυρα": ["Κέρκυρα", "Άλλη"],
-    "Κεφαλληνία": ["Αργοστόλι", "Ληξούρι", "Άλλη"],
-    "Κιλκίς": ["Κιλκίς", "Άλλη"],
-    "Κοζάνη": ["Κοζάνη", "Πτολεμαΐδα", "Άλλη"],
-    "Κορινθία": ["Κόρινθος", "Λουτράκι", "Κιάτο", "Άλλη"],
-    "Κυκλάδες": ["Σύρος", "Νάξος", "Μύκονος", "Σαντορίνη", "Πάρος", "Τήνος", "Μήλος", "Άλλη"],
-    "Λακωνία": ["Σπάρτη", "Γύθειο", "Άλλη"],
-    "Λάρισα": ["Λάρισα", "Ελασσόνα", "Φάρσαλα", "Άλλη"],
-    "Λασίθι": ["Άγιος Νικόλαος", "Ιεράπετρα", "Σητεία", "Άλλη"],
-    "Λέσβος": ["Μυτιλήνη", "Άλλη"],
-    "Λευκάδα": ["Λευκάδα", "Άλλη"],
-    "Μαγνησία": ["Βόλος", "Αλμυρός", "Άλλη"],
-    "Μεσσηνία": ["Καλαμάτα", "Μεσσήνη", "Άλλη"],
-    "Ξάνθη": ["Ξάνθη", "Άλλη"],
-    "Πέλλα": ["Έδεσσα", "Γιαννιτσά", "Άλλη"],
-    "Πιερία": ["Κατερίνη", "Άλλη"],
-    "Πρέβεζα": ["Πρέβεζα", "Πάργα", "Άλλη"],
-    "Ρέθυμνο": ["Ρέθυμνο", "Άλλη"],
-    "Ροδόπη": ["Κομοτηνή", "Άλλη"],
-    "Σάμος": ["Σάμος", "Άλλη"],
-    "Σέρρες": ["Σέρρες", "Άλλη"],
-    "Τρίκαλα": ["Τρίκαλα", "Καλαμπάκα", "Άλλη"],
-    "Φθιώτιδα": ["Λαμία", "Άλλη"],
-    "Φλώρινα": ["Φλώρινα", "Αμύνταιο", "Άλλη"],
-    "Φωκίδα": ["Άμφισσα", "Δελφοί", "Άλλη"],
-    "Χαλκιδική": ["Πολύγυρος", "Νέα Μουδανιά", "Χαλκιδική", "Άλλη"],
-    "Χανιά": ["Χανιά", "Κίσσαμος", "Άλλη"],
-    "Χίος": ["Χίος", "Άλλη"]
-  },
-  "Κύπρος": {
-    "Λευκωσία": ["Λευκωσία", "Στρόβολος", "Λακατάμεια", "Άλλη"],
-    "Λεμεσός": ["Λεμεσός", "Άλλη"],
-    "Λάρνακα": ["Λάρνακα", "Άλλη"],
-    "Πάφος": ["Πάφος", "Άλλη"],
-    "Αμμόχωστος": ["Παραλίμνι", "Αγία Νάπα", "Άλλη"],
-    "Κερύνεια": ["Κερύνεια", "Άλλη"]
-  },
-  "Εξωτερικό": {
-    "Ευρώπη": ["Λονδίνο", "Παρίσι", "Βερολίνο", "Άλλη"],
-    "Αμερική": ["Νέα Υόρκη", "Σικάγο", "Άλλη"],
-    "Αυστραλία": ["Σίδνεϊ", "Μελβούρνη", "Άλλη"],
-    "Άλλο": ["Άλλη"]
-  }
-};
+// Use the same canonical Περιφέρεια → Νομός geography as the agency Campaign Editor.
+import {LOCATION_DATA} from '../utils/stationLocations';
 
 const INITIAL_AD_STATE = { 
   title: '', client: '', audioUrl: '', frequency: 'entry', logoUrl: '', linkUrl: '', dspPreset: 'OFF', status: 'active',
@@ -263,6 +184,24 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
     }
   };
 
+  const handleReject=async id=>{
+    const reason=window.prompt('Λόγος απόρριψης προς το Agency (4–600 χαρακτήρες):');
+    if(reason===null)return;
+    if(reason.trim().length<4||reason.length>600){window.alert('Συμπλήρωσε αιτιολογία.');return;}
+    try {
+      const res=await fetch(`${API_URL}/admin/ads/${id}/reject`,{
+       method:'PUT',headers:{...getAuthHeaders(),'Content-Type':'application/json'},
+       body:JSON.stringify({reason:reason.trim()})});
+      if(!res.ok)throw Error((await res.json().catch(()=>({}))).error||'Αποτυχία');
+      await loadAds();
+    }catch(error){window.alert(error.message);}
+  };
+  useEffect(()=>{
+    if(loading)return;
+    const id=new URLSearchParams(window.location.search).get('review');
+    if(id)document.getElementById('review-'+id)?.scrollIntoView({block:'center',behavior:'smooth'});
+  },[ads,loading]);
+
   const getFrequencyLabel = (freq) => {
     switch(freq) {
       case 'entry':case 'first_station':return 'Στην Είσοδο (1ος Σταθμός)';
@@ -293,7 +232,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
     }catch(error){alert(error.message);}
   };
   const filteredAds=ads.filter(ad=>
-    (statusFilter==='all'||ad.status===statusFilter)&&
+    (statusFilter==='all'||ad.status===statusFilter||(statusFilter==='pending'&&Boolean(ad.pendingRevision)))&&
     [ad.title,ad.client].some(v=>String(v||'').toLocaleLowerCase('el-GR')
       .includes(searchTerm.toLocaleLowerCase('el-GR')))
   );
@@ -416,7 +355,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest pl-1">Νομός / Περιφέρεια</label>
+            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest pl-1">Περιφέρεια</label>
             <select 
               value={formData.targetRegion || 'All'} 
               onChange={e => {
@@ -426,23 +365,23 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
               disabled={!formData.targetCountry || formData.targetCountry === 'All'}
               className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-white focus:border-purple-500 outline-none appearance-none cursor-pointer disabled:opacity-50 text-xs font-bold transition-colors"
             >
-              <option value="All">Όλοι οι Νομοί</option>
+              <option value="All">Όλες οι Περιφέρειες</option>
               {formData.targetCountry && formData.targetCountry !== 'All' && 
                 Object.keys(LOCATION_DATA[formData.targetCountry]).map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest pl-1">Πόλη</label>
+            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest pl-1">Νομός / Περιφερειακή Ενότητα</label>
             <select 
               value={(formData.targetLocations && formData.targetLocations[0]) || 'All'} 
               onChange={e => setFormData({...formData, targetLocations: [e.target.value]})} 
               disabled={!formData.targetRegion || formData.targetRegion === 'All'}
               className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-white focus:border-purple-500 outline-none appearance-none cursor-pointer disabled:opacity-50 text-xs font-bold transition-colors"
             >
-              <option value={formData.targetRegion && formData.targetRegion !== 'All' ? formData.targetRegion : 'All'}>Όλες οι Πόλεις</option>
+              <option value={formData.targetRegion && formData.targetRegion !== 'All' ? formData.targetRegion : 'All'}>Όλοι οι Νομοί</option>
               {formData.targetCountry && formData.targetCountry !== 'All' && formData.targetRegion && formData.targetRegion !== 'All' && 
-                LOCATION_DATA[formData.targetCountry]?.[formData.targetRegion]?.map(c => <option key={c} value={c}>{c}</option>)}
+                Object.keys(LOCATION_DATA[formData.targetCountry]?.[formData.targetRegion]||{}).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         </div>
@@ -552,7 +491,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
         Δεν βρέθηκαν σποτ. Μπορείς να δημιουργήσεις νέο ή να καθαρίσεις την αναζήτηση.</div>}
       <div className="space-y-4">
         {filteredAds.map(ad => (
-          <div key={ad._id} className={`ad-console-card border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group transition-all ${ad.status === 'pending' ? 'bg-zinc-900 border-orange-500/30' : 'bg-zinc-900/30 border-white/5 hover:bg-zinc-900/60'}`}>
+          <div id={'review-'+ad._id} key={ad._id} className={`ad-console-card border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group transition-all ${ad.status === 'pending' ? 'bg-zinc-900 border-orange-500/30' : 'bg-zinc-900/30 border-white/5 hover:bg-zinc-900/60'}`}>
             <div className="flex items-center gap-5">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-zinc-800 shadow-xl shrink-0 flex items-center justify-center border border-white/5">
                 {ad.logoUrl ? <img src={ad.logoUrl} alt={ad.client} className="w-full h-full object-cover bg-white" /> : <span className="text-xl font-black text-zinc-500 uppercase">{ad.client ? ad.client.charAt(0) : 'A'}</span>}
@@ -561,12 +500,16 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
                 <h4 className="font-bold text-white text-base sm:text-lg flex items-center gap-2 truncate">
                   {ad.title || 'Ανώνυμη Καμπάνια'}
                    <span className="ad-console-label" data-state={ad.status}>{ad.status==='active'?'Ενεργή εγγραφή':ad.status==='pending'?'Για έγκριση':ad.status==='expired'?'Έληξε':'Ανενεργό'}</span>
-                   {stage&&!ad.isStageCreative&&<span className="ad-console-label ad-console-demo">Εισαγμένο · Μη δημοσιευμένο</span>}
+                   {(ad.status==='pending'||ad.pendingRevision)&&(!stage||ad.isStageCreative)&&
+                <button type="button" onClick={()=>handleReject(ad._id)} className="rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs font-bold text-red-200">Απόρριψη</button>}
+               {stage&&!ad.isStageCreative&&<span className="ad-console-label ad-console-demo">Εισαγμένο · Μη δημοσιευμένο</span>}
                   {/* 🟢 Ένδειξη Pending */}
-                  {ad.status === 'pending' && <span className="text-[9px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest ml-2 animate-pulse">PENDING</span>}
+                  {ad.pendingRevision&&<span className="rounded bg-amber-500/20 px-2 py-1 text-[9px] text-amber-200">REVISION PENDING</span>}
+                   {ad.status === 'pending' && <span className="text-[9px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest ml-2 animate-pulse">PENDING</span>}
                   {ad.status === 'expired' && <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full uppercase tracking-widest ml-2">ΛΗΓΜΕΝΟ</span>}
                 </h4>
                 <div className="mt-2"><CampaignDeliveryStatus campaign={ad} kind="audio" stage={stage}/></div>
+                 <CampaignRevisionReview revision={ad.pendingRevision} adId={ad._id} kind="audio"/>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span className="text-[10px] text-[#ccff00] font-black uppercase tracking-wider">{ad.client || 'Unknown'}</span>
                   <span className="w-1 h-1 bg-zinc-700 rounded-full hidden sm:block"></span>
@@ -591,7 +534,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
             
             {/* 🟢 ACTION BUTTONS */}
             <div className="flex items-center gap-3">
-              {ad.status === 'pending' && (!stage||ad.isStageCreative) && (
+              {(ad.status === 'pending'||Boolean(ad.pendingRevision)) && (!stage||ad.isStageCreative) && (
                 <button onClick={() => handleApprove(ad._id)} className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:text-black transition-all animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.2)]" title="Έγκριση">
                   <Check size={16} strokeWidth={3} />
                 </button>

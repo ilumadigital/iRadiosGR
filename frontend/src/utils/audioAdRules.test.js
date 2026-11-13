@@ -22,15 +22,17 @@ test('clock rule honors frequency since most recent attempt',()=>{
   assert.equal(dueOnClock('every_1_hour',now+1000,now),false);
 });
 test('delivery excludes missing media, expired status, geo mismatch and disabled networks',()=>{
-  const geo=(a,loc)=>a===loc;
-  assert.equal(canServeAudioAd(ad('entry'),station,null,geo),true);
-  assert.equal(canServeAudioAd(ad('entry',{audioUrl:''}),station,null,geo),false);
-  assert.equal(canServeAudioAd(ad('entry',{status:'pending'}),station,null,geo),false);
-  assert.equal(canServeAudioAd(ad('entry',{expiresAt:'2020-01-01'}),station,null,geo),false);
-  assert.equal(canServeAudioAd(ad('entry',{targetLocations:['Αθήνα']}),station,'Θεσσαλονίκη',geo),false);
-  assert.equal(canServeAudioAd(ad('entry',{targetLocations:['Αθήνα']}),station,'Αθήνα',geo),true);
-  assert.equal(canServeAudioAd(ad('entry'),{...station,disableNetworkAds:true},null,geo),false);
-  assert.equal(canServeAudioAd(ad('entry',{isGlobal:false,stationId:'a'}),station,null,geo),true);
+  const athens={city:'Athens',region:'Attica',country:'GR'};
+  const loutraki={city:'Loutraki',region:'Peloponnese',country:'GR'};
+  assert.equal(canServeAudioAd(ad('entry'),station,null),true);
+  assert.equal(canServeAudioAd(ad('entry',{audioUrl:''}),station,null),false);
+  assert.equal(canServeAudioAd(ad('entry',{status:'pending'}),station,null),false);
+  assert.equal(canServeAudioAd(ad('entry',{expiresAt:'2020-01-01'}),station,null),false);
+  assert.equal(canServeAudioAd(ad('entry',{targetLocations:['Αττική']}),station,loutraki),false);
+  assert.equal(canServeAudioAd(ad('entry',{targetLocations:['Αττική']}),station,athens),true);
+  assert.equal(canServeAudioAd(ad('entry',{targetLocations:['Κορινθία']}),station,loutraki),true);
+  assert.equal(canServeAudioAd(ad('entry'),{...station,disableNetworkAds:true},null),false);
+  assert.equal(canServeAudioAd(ad('entry',{isGlobal:false,stationId:'a'}),station,null),true);
 });
 test('a burst of matching campaigns results in at most two spots, preserving order',()=>{
   const list=[ad('entry',{_id:'1'}),ad('entry',{_id:'2'}),ad('entry',{_id:'3'}),ad('every_5_stations',{_id:'4'})];

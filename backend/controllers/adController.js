@@ -37,7 +37,7 @@ const deleteMediaFile = async (fileUrl) => {
 exports.getPublicAds=async(req,res)=>{
   try {
     res.set('Cache-Control','no-store, private');
-    const ads=await Ad.find(activeCampaignQuery()).sort({createdAt:1}).lean();
+    const ads=await Ad.find(activeCampaignQuery()).select('-pendingRevision').sort({createdAt:1}).lean();
     if(!isStage())return res.json(ads.map(publicAd));
     // Never offer listeners an unplayable spot (e.g. imported missing files).
     const media=await Promise.all(ads.map(ad=>localAudioFile(ad.audioUrl)));
@@ -62,6 +62,21 @@ exports.streamPublicAudio=async(req,res)=>{
     console.error('[ADS] Playback media failed',error.message);
     if(!res.headersSent)res.status(500).json({error:'Audio unavailable'});
   }
+};
+
+// Preview the proposed (not-yet-approved) audio asset with JWT, never public.
+exports.previewPendingAudio=async(req,res)=>{
+ if(!isStage()||!mongoose.isValidObjectId(req.params.id))
+  return res.status(404).json({error:'Not found'});
+ try{
+  const ad=await Ad.findById(req.params.id).select('pendingRevision');
+  const pendingUrl=ad?.pendingRevision?.patch?.audioUrl;
+  if(!pendingUrl)return res.status(404).json({error:'No pending audio revision'});
+  await sendAdAudio(res,pendingUrl,{preview:true});
+ }catch(error){
+  console.error('[ADS] Pending audio preview',error.message);
+  if(!res.headersSent)res.status(500).json({error:'Preview unavailable'});
+ }
 };
 
 // Authenticated staff preview never contributes to impression/play metrics;

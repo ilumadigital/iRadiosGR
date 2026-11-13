@@ -125,11 +125,11 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
   // Payment States
 
   const [bannerForm, setBannerForm] = useState({ 
-    title: '', description: '', imageUrl: '', squareImageUrl: '', targetUrl: '', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
+    title: '', description: '', imageUrl: '', squareImageUrl: '', targetUrl: '', targetCountry: 'Ελλάδα', targetRegion: 'All', targetLocations: ['Ελλάδα']
   });
   
   const [audioForm, setAudioForm] = useState({ 
-    title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'entry', dspPreset: 'OFF', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
+    title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'entry', dspPreset: 'OFF', targetCountry: 'Ελλάδα', targetRegion: 'All', targetLocations: ['Ελλάδα']
   });
 
   // Final VAT-inclusive monthly price catalog. Each campaign is billed separately.
@@ -377,7 +377,8 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                 <div className="absolute top-6 right-6">
                   {campaign.status === 'active' && (!isStaging||campaign.isStageCreative) && <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-emerald-500/20">LIVE</span>}
                   {campaign.status === 'active' && isStaging && !campaign.isStageCreative && <span className="bg-purple-500/10 text-purple-200 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-purple-500/20">Εισαγμένη · δεν προβάλλεται</span>}
-                  {campaign.status === 'pending' && <span className="bg-orange-500/10 text-orange-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-orange-500/20 animate-pulse">IN REVIEW</span>}
+                  {campaign.pendingRevision&&<span className="bg-amber-500/10 text-amber-300 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-amber-500/30">Αλλαγές σε έλεγχο</span>}
+                   {campaign.status === 'pending' && <span className="bg-orange-500/10 text-orange-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-orange-500/20 animate-pulse">IN REVIEW</span>}
                   {campaign.status === 'expired' && <span className="bg-red-500/10 text-red-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border border-red-500/20">EXPIRED</span>}
                 </div>
 
@@ -435,7 +436,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                     <span className="text-zinc-500">Ληξη: {new Date(campaign.expiresAt).toLocaleDateString('el-GR')}</span>
                   )}
                 </div>
-                {['pending','rejected'].includes(campaign.status)&&
+                {['pending','rejected','active'].includes(campaign.status)&&
                   <button type="button" onClick={()=>navigate('/agency/campaigns/'+(activeTab==='banners'?'banners':'audio')+'/'+campaign._id+'/edit')}
                     className="mt-4 w-full rounded-xl border border-purple-500/40 bg-purple-500/10 px-4 py-3 text-xs font-bold text-purple-200 hover:bg-purple-500/20">
                     Επεξεργασία καμπάνιας

@@ -27,6 +27,7 @@ const adSchema = new mongoose.Schema({
   },
   
   agencyId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  pendingRevision: { type: mongoose.Schema.Types.Mixed, default: null }, // never exposed publicly
   status: { type: String, enum: ['pending', 'active', 'expired', 'rejected'], default: 'active' },
   duration: { type: String, enum: ['day', 'month', 'year'] },
   expiresAt: { type: Date, default: null },
