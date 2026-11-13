@@ -36,7 +36,8 @@ const flatAreas = Object.entries(LOCATION_DATA).flatMap(([country,regions])=>
       [{value:country,country,region:'All',prefecture:'All'},
        {value:region,country,region,prefecture:'All'},
        {value:prefecture,country,region,prefecture},
-       // Advertising targets prefectures, never individual cities.])));
+       // Advertising targets prefectures, never individual cities.
+      ])));
 function normalize(item) {
   const value=(item?.targetLocations||[])[0]||'All';
   const inferred=flatAreas.find(a=>a.value===value);
