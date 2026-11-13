@@ -33,6 +33,8 @@ jobs:
           --health-retries 12
       mailpit:
         image: axllent/mailpit:v1.32.0
+        env:
+          MP_ENABLE_CHAOS: 'true'
     env:
       APP_ENV: staging
       NODE_ENV: test
