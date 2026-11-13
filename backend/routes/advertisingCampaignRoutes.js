@@ -16,6 +16,8 @@ const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const gateway=require('../services/ilumaGatewayClient');
 const {ensureAdvertisingFinancialIndexes}=require('../services/advertisingFinancialIndexes');
 const {fromLot,aggregateBalances}=require('../services/advertisingBalances');
+const {activeCreativeTiers,evaluateBudgetAffordability}=
+ require('../services/advertisingBudgetAffordability');
 const stage=(req,res,next)=>process.env.APP_ENV==='staging'?next():
  res.status(503).json({error:'Advertising v2 is staging only'});
 router.use(protect,stage);
@@ -295,22 +297,29 @@ router.get('/advertising/campaigns/:id/finance',async(req,res)=>{
   const campaign=await Campaign.findOne({_id:req.params.id,
    ...(isAdmin(req)?{}:{agencyId:req.user._id})});
   if(!campaign)return res.status(404).json({error:'Campaign not found'});
-  const [lots,intents]=await Promise.all([
-   FundingLot.find({campaignId:campaign._id}).select('-settledEvents')
-    .sort({paidAt:1}).lean(),
-   Intent.find({campaignId:campaign._id}).sort({createdAt:-1}).limit(30).lean()]);
+  const [lots,intents,banners,audios]=await Promise.all([
+   FundingLot.find({campaignId:campaign._id}).sort({paidAt:1}).lean(),
+   Intent.find({campaignId:campaign._id}).sort({createdAt:-1}).limit(30).lean(),
+   BannerAd.find({campaignId:campaign._id,isStageCreative:true,
+    status:'active',isActive:true}).select('placement status isActive').lean(),
+   Ad.find({campaignId:campaign._id,isStageCreative:true,
+    status:'active'}).select('status').lean()
+  ]);
   const balances=aggregateBalances(lots);
+  const affordability=evaluateBudgetAffordability(lots,
+   activeCreativeTiers(banners,audios));
   // Keep the existing micros response compatible, without exposing the
   // permanent financial receipt journal or stale micros-only counters.
   const publicLots=lots.map(lot=>{
    const row=fromLot(lot);
-   return {...lot,budgetNanos:row.fundedNanos,
+   const {settledEvents,...safeLot}=lot;
+   return {...safeLot,budgetNanos:row.fundedNanos,
     remainingNanos:row.remainingNanos,
     budgetMicros:Math.floor(row.fundedNanos/1000),
     remainingMicros:Math.floor(row.remainingNanos/1000)};
   });
   return res.json({campaignId:campaign._id,...balances,
-   lots:publicLots,intents});
+   affordability,lots:publicLots,intents});
  }catch(error){return errorResponse(res,error,500);}
 });
 
