@@ -32,7 +32,7 @@ function TrackCover({track,fallback}) {
   },[ready,track.raw]);
   return <img ref={imgRef} src={url||fallback} alt="" loading="lazy"
     onError={e=>{ e.currentTarget.onerror=null; e.currentTarget.src=fallback; }}
-    className="h-12 w-12 shrink-0 rounded-xl border border-white/10 bg-white object-cover"/>;
+    className={`h-12 w-12 shrink-0 rounded-xl border border-white/10 bg-white ${url?'object-cover':'object-contain p-1'}`}/>;
 }
 
 export default function StationPlaylistPanel({
