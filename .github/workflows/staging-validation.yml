@@ -83,6 +83,8 @@ jobs:
         run: node --test backend/tests/advertisingCpmSettlement.test.cjs
       - name: Validate scalable transactional CPM wallet and ledger under simulated races
         run: node --test backend/tests/advertisingCpmTransactional.test.cjs
+      - name: Test non-billable qualified visual/audio tickets, anti-fraud and pacing
+        run: node --test backend/tests/advertisingQualifiedDelivery.test.cjs
       - name: Prevent incorrect budget-exhaustion mail or 6k receipt-cap mislabeling
         run: node --test backend/tests/advertisingBudgetExhaustion.test.cjs
       - name: Verify staging Ad Network, placement contracts and safe legacy campaign handling
