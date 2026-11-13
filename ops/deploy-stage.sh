@@ -36,7 +36,25 @@ for i in $(seq 1 30); do
       echo 'STOP: anonymous login did not reach mandatory Turnstile validation; check global JWT middleware and billing routers.' >&2
       exit 1
     fi
-    echo 'Stage backend, frontend, login routing and Turnstile configuration healthy on localhost.'
+    # A bare app.use('/api', advertisingRouter) previously intercepted ALL
+    # anonymous streams with 401 before the real proxy handler. An invalid URL
+    # must reach the public proxy validator and return 400, not JWT 401.
+    if ! curl -sS --max-time 6 -w '\n%{http_code}' \
+      'http://127.0.0.1:5511/api/proxy-stream?url=not-a-url' | \
+      python3 -c 'import json,sys; t=sys.stdin.read().splitlines(); assert t[-1]=="400"; assert json.loads("\n".join(t[:-1])).get("error")=="Disallowed stream target"'; then
+      echo 'STOP: anonymous radio proxy is blocked by authorization middleware or is not reaching the stream validator.' >&2
+      exit 1
+    fi
+    # Verify that PWA static assets are served from the frontend container.
+    # Host CDN/Cloudflare 403 requires an additional public-edge check.
+    for asset in manifest.json favicon.png; do
+      asset_status=$(curl -sS --max-time 6 -o /dev/null -w '%{http_code}' "http://127.0.0.1:5510/$asset")
+      if [[ "$asset_status" != 200 ]]; then
+        echo "STOP: frontend static /$asset returned HTTP $asset_status from the container." >&2
+        exit 1
+      fi
+    done
+    echo 'Stage backend, anonymous radio proxy, frontend PWA assets, login routing and Turnstile healthy on localhost.'
     exit 0
   fi
   sleep 5

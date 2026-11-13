@@ -137,6 +137,8 @@ jobs:
         run: node --test ops/check-billing-paid-entitlements.test.cjs
       - name: Check staging radio proxy URL safety
         run: node ops/check-stage-stream-proxy.cjs
+      - name: Prevent advertising API authentication from intercepting anonymous radio playback
+        run: node --test backend/tests/advertisingRouterIsolation.test.cjs
       - name: Verify public staging API access boundaries
         run: node ops/check-stage-public-access.cjs
       - name: Verify versioned broadcaster consent behavior
