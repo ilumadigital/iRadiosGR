@@ -513,4 +513,6 @@ router.get('/advertising/payments/:id',async(req,res)=>{
 
 // Route registration initializes staging-only advertising mail retries.
 require('../services/advertisingCampaignMailScheduler').start();
+// Retry verified paid v2 campaigns after webhook/DB/notification interruptions.
+require('../services/advertisingAutoSubmission').start();
 module.exports=router;
