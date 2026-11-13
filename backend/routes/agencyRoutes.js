@@ -150,7 +150,7 @@ async function revise(req,res,kind) {
     const before=Object.fromEntries(Object.keys(patch).map(k=>[k,creative.get(k)]));
     const revision=await AgencyAdRevision.create({
       agencyId:req.user._id,creativeId:creative._id,creativeType:kind,
-      patch,before,submittedBy:req.user._id
+      patch,before,baseUpdatedAt:creative.updatedAt||new Date(0),submittedBy:req.user._id
     });
     await notifySubmission(kind,creative,patch,req.user,revision);
     return res.status(202).json({pendingApproval:true,revisionId:revision._id,
