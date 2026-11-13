@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Read-only verification of exact PNG assets used by the expanded/collapsed
-# iRadiosGR sidebar and the legacy station console branding.
-# A missing PNG may fall through to React's index.html with HTTP 200.
+# Read-only verification of exact SVG assets used by the app and station console.
+# A missing SVG may fall through to React's index.html with HTTP 200.
 set -euo pipefail
 
 APP=/srv/iradios/staging/app
 PUBLIC="$APP/frontend/public"
-assets=(iradios-app-logo.png iradios-logo.png noicon-iradios-app-logo.png)
+assets=(noicon-iradios-app-logo.svg iradios-app-logo.svg icon-tr.svg)
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
@@ -22,15 +21,15 @@ check() {
     echo "FAIL: HTTP $code" >&2
     return 1
   fi
-  if ! grep -iq '^content-type: image/png' "$tmp/headers"; then
-    echo "FAIL: not image/png (possibly React index.html fallback)" >&2
+  if ! grep -iq '^content-type: image/svg\+xml' "$tmp/headers"; then
+    echo "FAIL: not image/svg+xml (possibly React index.html fallback)" >&2
     return 1
   fi
   if ! cmp -s "$expected" "$tmp/body"; then
-    echo "FAIL: served PNG differs from the expected Git staging asset" >&2
+    echo "FAIL: served SVG differs from the expected Git staging asset" >&2
     return 1
   fi
-  echo "OK: matching PNG ($(wc -c < "$tmp/body") bytes)"
+  echo "OK: matching SVG ($(wc -c < "$tmp/body") bytes)"
 }
 
 for asset in "${assets[@]}"; do
@@ -45,4 +44,4 @@ for asset in "${assets[@]}"; do
     --noproxy '*' --resolve stage.iradios.gr:443:127.0.0.1 \
     "https://stage.iradios.gr/$asset"
 done
-echo "Stage expanded/collapsed sidebar branding matches frontend container and HTTPS."
+echo "Stage SVG branding matches frontend container and HTTPS."

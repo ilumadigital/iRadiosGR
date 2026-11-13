@@ -76,7 +76,7 @@ assert.match(glass, /\.ir-glass-header__close\s*\{[^}]*border:0;border-radius:0;
 assert.ok(mobileStation.includes("'στο iRadiosGR'") && player.includes("'στο iRadiosGR'"),
   'mobile fallback copy uses iRadiosGR');
 assert.ok(stationPage.includes('<ShareStory') && mobileStation.includes('<ShareStory'), 'Story must work on desktop/mobile station profiles');
-for(const value of ['width: 1080', 'height: 1920', 'Powered by ILUMA Digital Agency', "loadImage('/iradios-app-logo.png')", 'downloadStory(file)', 'navigator.share']) {
+for(const value of ['width: 1080', 'height: 1920', 'Powered by ILUMA Digital Agency', "loadImage('/noicon-iradios-app-logo.svg')", 'downloadStory(file)', 'navigator.share']) {
   assert.ok(storyUtility.includes(value), 'missing branded 9:16 story contract: '+value);
 }
 
