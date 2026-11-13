@@ -105,7 +105,7 @@ export default function AgencyAdvertisingV2(){
    <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">Advertising Network v2</p>
     <h1 className="mt-2 text-3xl font-black">Οι ενιαίες καμπάνιες μου</h1>
     <p className="mt-2 text-sm text-zinc-400">Visual + Audio · κοινό προπληρωμένο budget · έγκριση Admin.</p></div>
-   <Link to="/agency/dashboard" className="self-start rounded-xl border border-white/20 px-4 py-2.5 text-sm text-zinc-200">Επιστροφή</Link>
+   <Link to="/backoffice" className="self-start rounded-xl border border-white/20 px-4 py-2.5 text-sm text-zinc-200">Επιστροφή</Link>
   </header>
   {typeof window!=='undefined'&&new URLSearchParams(window.location.search).has('gateway_return')&&
    <div className="rounded-xl border border-amber-400/20 bg-amber-500/5 p-4 text-sm text-amber-100">
@@ -151,8 +151,8 @@ export default function AgencyAdvertisingV2(){
     <div className="flex flex-wrap gap-2">
      <button type="button" onClick={()=>openFinance(c._id)} className={button}>Budget / Top-up</button>
      <button type="button" disabled={busy} onClick={()=>toggle(c)} className="rounded-xl border border-purple-300/30 px-4 py-2 text-sm text-purple-200">{c.agencyEnabled?'Απενεργοποίηση':'Ενεργοποίηση'}</button>
-     <Link className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white" to={'/agency/campaigns/banners/new?campaignId='+c._id}>Νέο Visual</Link>
-     <Link className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white" to={'/agency/campaigns/audio/new?campaignId='+c._id}>Νέο Audio</Link>
+     <Link className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white" to={'/backoffice/agency/creatives/banners/new?campaignId='+c._id}>Νέο Visual</Link>
+     <Link className="rounded-xl border border-white/20 px-4 py-2 text-sm text-white" to={'/backoffice/agency/creatives/audio/new?campaignId='+c._id}>Νέο Audio</Link>
     </div>
    </div>)}
   </section>
