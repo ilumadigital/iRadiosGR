@@ -28,6 +28,9 @@ function trustedAdGeo(req,res,next){
  // Reverse proxy must overwrite ALL x-iradios-geo-* values and keep its
  // shared secret out of client reach.
  const trusted=resolveGeo(req.headers,process.env.IRADIOS_TRUSTED_GEO_SECRET);
+ // Required by delivery checks: a fixture location must NEVER be mistaken
+ // for a signed reverse-proxy location when previewing a regional campaign.
+ req.adGeoTrusted=Boolean(trusted);
  // This public staging host currently has no trusted reverse-proxy geo.
  // Show Greece / Attica test placements ONLY while the non-billable preview
  // switch is explicitly enabled. This is FIXTURE geo, NOT a visitor location.
