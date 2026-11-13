@@ -5,9 +5,11 @@ const express=require('express');
 const router=express.Router();
 const {protect}=require('../utils/authMiddleware');
 const engine=require('../services/advertisingQualificationEngine');
-router.use(protect,(req,res,next)=>
+// Restrict Admin auth and shadow feature gates to this router's own prefix.
+// Global router.use(protect) on a router mounted at /api breaks the radio player.
+router.use('/admin/advertising/shadow',protect,(req,res,next)=>
  req.user?.role==='admin'?next():res.status(403).json({error:'Admin required'}));
-router.use((req,res,next)=>{
+router.use('/admin/advertising/shadow',(req,res,next)=>{
  res.set('Cache-Control','private, no-store');
  return engine.enabled()?next():res.status(404).json({error:'Shadow QA disabled'});
 });
