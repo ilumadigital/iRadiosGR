@@ -222,7 +222,8 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
   await campaign.save();
   if(approval==='approved'){
    const now=new Date();
-   const active=campaign.agencyEnabled&&!campaign.adminSuspended&&
+   const active=process.env.AD_DELIVERY_BILLING_ENABLED==='1'&&
+    campaign.agencyEnabled&&!campaign.adminSuspended&&
     campaign.startsAt<=now&&campaign.endsAt>now;
    try{
     await require('../services/advertisingCampaignMailScheduler').enqueue({
