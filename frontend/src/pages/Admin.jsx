@@ -414,13 +414,13 @@ export default function Admin({ API_URL, refreshStations }) {
         <div className="space-y-6 bg-black/20 p-8 rounded-[32px] border border-white/5">
           <h3 className="text-[#ccff00] font-black text-[10px] uppercase tracking-[0.2em] mb-4 flex items-center gap-2"><Globe size={14}/> Media & Stream Assets</h3>
           <div className="flex flex-col md:flex-row items-start gap-8">
-            <div className="w-28 h-28 rounded-3xl bg-zinc-800 flex items-center justify-center overflow-hidden border border-white/10 shrink-0 relative">
+            <div className="w-28 h-28 rounded-3xl bg-white flex items-center justify-center overflow-hidden border border-white/10 shrink-0 relative">
               {selectedFile ? (
-                 <img src={URL.createObjectURL(selectedFile)} className="w-full h-full object-cover" alt="Preview" />
+                 <img src={URL.createObjectURL(selectedFile)} className="w-full h-full object-contain p-2" alt="Preview" />
               ) : formData.logo ? (
                 <img 
                   src={formData.logo} 
-                  className={`w-full h-full object-cover transition-all ${!isLogoValid ? 'opacity-20 grayscale' : ''}`} 
+                  className={`w-full h-full object-contain p-2 transition-all ${!isLogoValid ? 'opacity-20 grayscale' : ''}`} 
                   alt="Station Preview" 
                   onLoad={() => setIsLogoValid(true)}
                   onError={() => setIsLogoValid(false)}
@@ -911,7 +911,7 @@ export default function Admin({ API_URL, refreshStations }) {
               <div className={`flex ${viewMode === 'grid' ? 'flex-col items-center text-center' : 'items-center gap-5'}`}>
                 <img 
                   src={station.logo} 
-                  className={`${viewMode === 'grid' ? 'w-24 h-24 mb-3' : 'w-14 h-14 sm:w-16 sm:h-16'} rounded-2xl object-cover bg-black shadow-xl shrink-0`} 
+                  className={`${viewMode === 'grid' ? 'w-24 h-24 mb-3' : 'w-14 h-14 sm:w-16 sm:h-16'} rounded-2xl object-contain bg-white p-1 shadow-xl shrink-0`} 
                   alt="" 
                 />
                 <div className="min-w-0">
