@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Station=require('../models/Station');
 const {hasStationRight}=require('../services/billingEntitlements');
 const mongoose=require('mongoose');
+const {sendAdAudio,localAudioFile}=require('../services/adAudioDelivery');
 const {isStage,activeCampaignQuery,live,publicAd,fields,permitMetric} =
   require('../services/adDeliveryRules');
 const writable=['title','client','audioUrl','logoUrl','linkUrl','frequency',
@@ -34,13 +35,47 @@ const deleteMediaFile = async (fileUrl) => {
 };
 
 exports.getPublicAds=async(req,res)=>{
-  try{
+  try {
     res.set('Cache-Control','no-store, private');
     const ads=await Ad.find(activeCampaignQuery()).sort({createdAt:1}).lean();
-    res.json(ads.map(publicAd));
+    if(!isStage())return res.json(ads.map(publicAd));
+    // Never offer listeners an unplayable spot (e.g. imported missing files).
+    const media=await Promise.all(ads.map(ad=>localAudioFile(ad.audioUrl)));
+    return res.json(ads.filter((ad,index)=>Boolean(media[index]))
+      .map(ad=>({...publicAd(ad),audioUrl:'/api/ads/'+ad._id+'/media'})));
   }catch(error){
     console.error('[ADS] Public delivery failed',error.message);
     res.status(500).json({error:'Σφάλμα λήψης.'});
+  }
+};
+
+// Public streaming serves ONLY an active, local, stage-tagged spot. The same
+// endpoint supports browser Range requests and Safari media preloading.
+exports.streamPublicAudio=async(req,res)=>{
+  if(!isStage()||!mongoose.isValidObjectId(req.params.id))
+    return res.status(404).json({error:'Not found'});
+  try {
+    const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative');
+    if(!live(ad))return res.status(404).json({error:'Not found'});
+    await sendAdAudio(res,ad.audioUrl);
+  }catch(error){
+    console.error('[ADS] Playback media failed',error.message);
+    if(!res.headersSent)res.status(500).json({error:'Audio unavailable'});
+  }
+};
+
+// Authenticated staff preview never contributes to impression/play metrics;
+// imported campaigns can be inspected but missing local files fail with 404.
+exports.previewAudio=async(req,res)=>{
+  if(!isStage()||!mongoose.isValidObjectId(req.params.id))
+    return res.status(404).json({error:'Not found'});
+  try {
+    const ad=await Ad.findById(req.params.id).select('audioUrl');
+    if(!ad)return res.status(404).json({error:'Not found'});
+    await sendAdAudio(res,ad.audioUrl,{preview:true});
+  }catch(error){
+    console.error('[ADS] Preview media failed',error.message);
+    if(!res.headersSent)res.status(500).json({error:'Preview unavailable'});
   }
 };
 
