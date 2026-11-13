@@ -583,7 +583,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
                     <ProtectedAudioPreview adId={ad._id} scope="admin" sourceUrl={ad.audioUrl}/>
                   </div>}
                   <p className="mt-2 text-[11px] text-zinc-500">
-                    Plays: {ad.plays||0} · Clicks: {ad.clicks||0} · {ad.expiresAt?`Λήξη ${new Date(ad.expiresAt).toLocaleDateString('el-GR')}`:'Χωρίς λήξη'}
+                    Plays: {ad.plays||0} · Completed: {ad.completions||0} · Skipped: {ad.skips||0} · Clicks: {ad.clicks||0} · {ad.expiresAt?`Λήξη ${new Date(ad.expiresAt).toLocaleDateString('el-GR')}`:'Χωρίς λήξη'}
                   </p>
                 </div>
               </div>

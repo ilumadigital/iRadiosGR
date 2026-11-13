@@ -11,6 +11,7 @@ import FoundWithAI from './FoundWithAI';
 import MusicServiceLinks from './MusicServiceLinks';
 import RdsCrossfade from './RdsCrossfade';
 import FullscreenArtwork from './FullscreenArtwork';
+import AdSkipControl from './AdSkipControl';
 import OnAirShowCard from './OnAirShowCard';
 import {parseMusicMetadata} from '../utils/musicMetadata';
 import { useAlert } from '../context/AlertContext';
@@ -22,6 +23,8 @@ export default function MobileMiniPlayer({
   currentAdInfo,
   adTimeRemaining,
   adWarning,
+  adSkipCountdown,
+  onSkipAd,
   nowPlaying,
   nowPlayingInfo,
   isPlaying,
@@ -351,6 +354,8 @@ export default function MobileMiniPlayer({
                 {visibleSong && !isPlayingAd && nowPlayingInfo?.foundWithAI &&
                   <FoundWithAI compact className="ir-glass-found-ai"/>}
               </div>
+              <AdSkipControl isPlayingAd={isPlayingAd} secondsUntilSkip={adSkipCountdown} onSkip={onSkipAd}
+                className="mx-4 mb-2 self-center"/>
               {!isPlayingAd && <OnAirShowCard show={liveBroadcast?.show} stationName={currentStation.name}
                 showArtwork={false} className="ir-mobile-show-card ir-glass-on-air"/>}
             </div>
@@ -501,6 +506,8 @@ export default function MobileMiniPlayer({
         </div>
         
         <div className="flex items-center shrink-0">
+          <AdSkipControl isPlayingAd={isPlayingAd} secondsUntilSkip={adSkipCountdown} onSkip={onSkipAd} compact
+            className="mr-1"/>
           {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={isActualSong ? nowPlaying : null}
             artworkUrl={showCoverArt ? globalCoverArt : null} show={liveBroadcast?.show} showImageUrl={liveBroadcast?.imageUrl}
             className="ir-mini-story-button" iconSize={20}/>}

@@ -34,6 +34,8 @@ const adSchema = new mongoose.Schema({
   // 🟢 METRICS (Tracking)
   clicks: { type: Number, default: 0 }, 
   plays: { type: Number, default: 0 }, // Προστέθηκαν τα plays
+  completions: { type: Number, default: 0 },
+  skips: { type: Number, default: 0 },
   impressions: { type: Number, default: 0 }, // Legacy (κρατιέται για συμβατότητα)
   
   createdAt: { type: Date, default: Date.now },

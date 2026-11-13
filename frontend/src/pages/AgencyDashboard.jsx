@@ -425,6 +425,10 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                   </div>
                 </div>
 
+                {activeTab==='audio'&&<div className="mb-4 flex flex-wrap gap-3 rounded-xl border border-white/10 bg-purple-500/5 p-3 text-xs text-zinc-300">
+                  <span>Ολοκληρώθηκαν: <strong className="text-emerald-300">{campaign.completions||0}</strong></span>
+                  <span>Έγιναν Skip: <strong className="text-purple-300">{campaign.skips||0}</strong></span>
+                </div>}
                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2">
                   <span className="text-zinc-600">Πακετο: <span className="text-zinc-300">{campaign.duration}</span></span>
                   {campaign.expiresAt && campaign.status === 'active' && (

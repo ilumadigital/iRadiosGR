@@ -13,6 +13,7 @@ import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
 import {geoAllowsAd} from './utils/adPlacements';
 import {selectStationBreak,dueOnClock,canServeAudioAd} from './utils/audioAdRules';
+import {newAdListenClock,resumeAdListenClock,suspendAdListenClock,sampleAdListenClock,canSkipAd,secondsUntilAdSkip} from './utils/adSkipPolicy';
 import useMediaSession from './hooks/useMediaSession';
 import {getAthensClock} from './utils/schedule';
 import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
@@ -746,6 +747,14 @@ function MainApp() {
 
   const lastPlayedTimeAds = useRef({});
   const activeAdRef = useRef(null);
+  const adListenClockRef = useRef(newAdListenClock());
+  const [adSkipCountdown,setAdSkipCountdown] = useState(null);
+  const resetAdSkipClock=()=>{adListenClockRef.current=newAdListenClock();setAdSkipCountdown(null);};
+  const logAdOutcome=(event,ad)=>{
+    if(!ad?.id||!ad.started||ad.outcomeLogged)return;
+    ad.outcomeLogged=true;
+    fetch(`${API_URL}/ads/${ad.id}/${event}`,{method:'POST',keepalive:true}).catch(()=>{});
+  };
   const adWatchdogRef = useRef(null);
   const clearAdWatchdog = () => {
     if (adWatchdogRef.current) clearTimeout(adWatchdogRef.current);
@@ -1099,6 +1108,7 @@ function MainApp() {
     const finalStreamUrl = getSmartStreamUrl(rawStreamUrl);
 
     setCurrentStation(station);
+    resetAdSkipClock();
     clearAdWatchdog();
     activeAdRef.current = null;
     setIsPlayingAd(false);
@@ -1174,10 +1184,22 @@ function MainApp() {
     }
   };
 
+  const skipCurrentAd=()=>{
+    const ad=activeAdRef.current;
+    const audio=audioRef.current;
+    if(!ad?.started||!audio||!canSkipAd(adListenClockRef.current,audio.duration))return;
+    // Skip the remaining scheduled break and return directly to the listener's
+    // latest station selection, never starting another spot in the same break.
+    logAdOutcome('skipped',ad);
+    adQueue.current=[];
+    playNextAdOrStation();
+  };
+
   // The same audio element handles ads and radio. Every rejected/invalid MP3
   // MUST return to the pending station; never trap listeners in an ad break.
   const playNextAdOrStation = () => {
     if (!audioRef.current) return;
+    resetAdSkipClock();
     clearAdWatchdog();
     activeAdRef.current = null;
     if (adQueue.current.length > 0) {
@@ -1847,6 +1869,7 @@ function MainApp() {
         onLoadStart={() => setIsBuffering(true)}
         onWaiting={() => {
           setIsBuffering(true);
+          if(activeAdRef.current)adListenClockRef.current=suspendAdListenClock(adListenClockRef.current);
           if (activeAdRef.current) {
             clearAdWatchdog();
             const token = activeAdRef.current.token;
@@ -1858,6 +1881,8 @@ function MainApp() {
         onPlaying={() => {
           setIsBuffering(false);
           const ad = activeAdRef.current;
+          if(ad)adListenClockRef.current=resumeAdListenClock(
+            adListenClockRef.current,audioRef.current?.currentTime||0,performance.now());
           if (ad && !ad.started) {
             ad.started = true;
             fetch(`${API_URL}/ads/${ad.id}/impression`, { method: 'POST' }).catch(() => {});
@@ -1865,12 +1890,36 @@ function MainApp() {
           clearAdWatchdog();
         }}
         
-        onEnded={() => { 
-          activeAdRef.current ? playNextAdOrStation() : handleActualStationPlay(currentStation) 
+        onPause={() => {
+          if(activeAdRef.current)adListenClockRef.current=suspendAdListenClock(adListenClockRef.current);
+        }}
+        onSeeking={()=>{
+          if(activeAdRef.current)adListenClockRef.current=suspendAdListenClock(adListenClockRef.current);
+        }}
+        onSeeked={event=>{
+          if(activeAdRef.current&&!event.currentTarget.paused)
+            adListenClockRef.current=resumeAdListenClock(adListenClockRef.current,
+              event.currentTarget.currentTime,performance.now());
+        }}
+        onDurationChange={event=>{
+          if(activeAdRef.current)setAdSkipCountdown(
+            secondsUntilAdSkip(adListenClockRef.current,event.currentTarget.duration));
+        }}
+        onEnded={() => {
+          const ad=activeAdRef.current;
+          if(ad){logAdOutcome('completed',ad);playNextAdOrStation();}
+          else handleActualStationPlay(currentStation);
         }} 
 
         onTimeUpdate={(e) => {
-          if (isPlayingAd) {
+          if (activeAdRef.current) {
+            const audio=e.currentTarget;
+            adListenClockRef.current=sampleAdListenClock(adListenClockRef.current,{
+              position:audio.currentTime,now:performance.now(),paused:audio.paused,
+              seeking:audio.seeking,readyState:audio.readyState
+            });
+            const seconds=secondsUntilAdSkip(adListenClockRef.current,audio.duration);
+            setAdSkipCountdown(old=>old===seconds?old:seconds);
             setAdTimeRemaining(Number.isFinite(e.target.duration)
               ? Math.max(0, Math.ceil(e.target.duration - e.target.currentTime)) : 0);
           } else if (isPlaying && !isRecognizing && !recognitionLock.current && Date.now() - lastMetaFetch.current > 10000) {
@@ -2051,7 +2100,8 @@ function MainApp() {
         
         <MobileMiniPlayer 
           currentStation={currentStation} isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo}
-          adTimeRemaining={adTimeRemaining} adWarning={adWarning} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo}
+          adTimeRemaining={adTimeRemaining} adWarning={adWarning}
+          adSkipCountdown={adSkipCountdown} onSkipAd={skipCurrentAd} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo}
           isPlaying={isPlaying} togglePlayPause={togglePlayPause} isBuffering={isBuffering}
           toggleFavorite={handleToggleFavorite} isFavorite={isFavorite}
           currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP}
@@ -2072,7 +2122,8 @@ function MainApp() {
 
       <Footer 
         currentStation={currentStation} isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo} isBuffering={isBuffering}    
-        adTimeRemaining={adTimeRemaining} adWarning={adWarning} isPlaying={isPlaying} 
+        adTimeRemaining={adTimeRemaining} adWarning={adWarning}
+        adSkipCountdown={adSkipCountdown} onSkipAd={skipCurrentAd} isPlaying={isPlaying} 
         nowPlaying={isPlayingAd ? `Sponsored: ${currentAdInfo?.title}` : nowPlaying} nowPlayingInfo={nowPlayingInfo} 
         volume={volume} setVolume={setVolume} togglePlayPause={togglePlayPause} 
         toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} 
@@ -2094,6 +2145,8 @@ function MainApp() {
         <CarMode 
           station={currentStation}
           isPlaying={isPlaying}
+          isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo}
+          adSkipCountdown={adSkipCountdown} onSkipAd={skipCurrentAd}
           onPlayPause={togglePlayPause}
           onClose={() => setIsCarModeActive(false)}
           nowPlaying={nowPlaying}

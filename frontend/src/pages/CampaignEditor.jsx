@@ -5,6 +5,8 @@ import {LOCATION_DATA} from '../utils/stationLocations';
 import DynamicAdCreative from '../components/DynamicAdCreative';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 import {deriveCreativeAccent} from '../utils/creativePalette';
+import {adDesignFor} from '../utils/adVisualDesign';
+import VisualAdStudioControls from '../components/VisualAdStudioControls';
 import '../styles/ad-campaign-console.css';
 
 const box = 'rounded-2xl border border-white/10 bg-[#14161c] p-5 sm:p-6';
@@ -24,7 +26,7 @@ const frequencies = [
 const defaults = {
   title:'',client:'',description:'',imageUrl:'',squareImageUrl:'',logoUrl:'',
   ctaLabel:'Μάθε περισσότερα',brandColor:'#a855f7',focalX:50,focalY:50,
-  targetUrl:'',linkUrl:'',audioUrl:'',frequency:'entry',dspPreset:'OFF',
+  targetUrl:'',linkUrl:'',audioUrl:'',frequency:'entry',dspPreset:'OFF',designConfig:{},
   placement:['home'],targetLocations:['All'],targetCountry:'All',targetRegion:'All',
   duration:'month',expiresAt:'',status:'active'
 };
@@ -41,6 +43,7 @@ function normalize(item) {
   return {...defaults,...item,
     targetCountry:item?.targetCountry&&item.targetCountry!=='All'?item.targetCountry:(inferred?.country||'All'),
     targetRegion:item?.targetRegion&&item.targetRegion!=='All'?item.targetRegion:(inferred?.region||'All'),
+    designConfig:item?.designConfig&&typeof item.designConfig==='object'?item.designConfig:{},
     targetLocations:Array.isArray(item?.targetLocations)&&item.targetLocations.length?item.targetLocations:['All'],
     placement:Array.isArray(item?.placement)?item.placement:(item?.placement?[item.placement]:['home']),
     brandColor:/^#[0-9a-f]{6}$/i.test(item?.brandColor||'')?item.brandColor:'#a855f7',
@@ -79,9 +82,20 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const [loading,setLoading]=useState(Boolean(id));
   const [error,setError]=useState('');
   const [preview,setPreview]=useState('strip');
+  const [designPlacement,setDesignPlacement]=useState('home');
+  const [previewDevice,setPreviewDevice]=useState('desktop');
   const [autoColor,setAutoColor]=useState(true);
   const [imported,setImported]=useState(false);
   const change=(name,value)=>setForm(old=>({...old,[name]:value}));
+  const variantByPlacement={hero:'hero',home:'strip',station_profile:'profile',news_feed:'news'};
+  const setDesignerPlacement=value=>{
+    setDesignPlacement(value);
+    setPreview(variantByPlacement[value]);
+  };
+  const design=adDesignFor(form,designPlacement);
+  const updateDesigner=next=>setForm(old=>({...old,
+    designConfig:{...(old.designConfig||{}),[designPlacement]:next}}));
+
   const route=getEndpoint(scope,kind,currentUser,id);
   const auth=()=>({Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')});
   useEffect(()=>{
@@ -211,8 +225,22 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
             <Field label={'Εστίαση εικόνας κάθετα · '+form.focalY+'%'}><input type="range" min="0" max="100" value={form.focalY} onChange={e=>change('focalY',Number(e.target.value))} className="mt-3 w-full accent-purple-500"/></Field>
           </div>}
         </section>
+        {banner&&<section className={box+' space-y-5'}>
+          <div><h2 className="text-base font-black text-white">03 · Visual Ad Studio</h2>
+            <p className="mt-2 text-xs text-zinc-400">Προσαρμόζεις κάθε θέση ξεχωριστά, χωρίς να χαλάει η διάταξη σταθμών ή των κινητών.</p></div>
+          <Field label="Placement που σχεδιάζεις">
+            <select className={input} value={designPlacement} onChange={e=>setDesignerPlacement(e.target.value)}>
+              <option value="hero">Home Hero</option>
+              <option value="home">Home section banner</option>
+              <option value="station_profile">Station Profile</option>
+              <option value="news_feed">News Feed</option>
+            </select>
+          </Field>
+          <VisualAdStudioControls placement={designPlacement} design={design} onChange={updateDesigner}/>
+          <p className="text-xs text-zinc-500">Οι διαφημίσεις Radio Grid και List παραμένουν στο ακριβές μέγεθος των καρτών σταθμών.</p>
+        </section>}
         <section className={box+' space-y-4'}>
-          <h2 className="text-base font-black text-white">03 · Delivery & στόχευση</h2>
+          <h2 className="text-base font-black text-white">{banner?'04':'03'} · Delivery & στόχευση</h2>
           {banner?<fieldset><legend className="mb-3 text-xs font-bold text-zinc-300">Placements *</legend><div className="grid gap-2 sm:grid-cols-2">
             {placements.map(([value,label])=><label key={value} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 p-3 text-xs text-zinc-200">
               <input type="checkbox" checked={form.placement?.includes(value)||false} onChange={e=>change('placement',e.target.checked?[...(form.placement||[]),value]:form.placement.filter(p=>p!==value))} className="accent-purple-500"/>{label}
@@ -246,10 +274,23 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
         <section className={box+' space-y-4'}>
           <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">Live preview</p><h2 className="mt-1 text-xl font-black text-white">Ακριβώς όπως στο App</h2></div>
           {banner?<><div className="flex flex-wrap gap-2">
-            {['hero','strip','card','list','news'].map(v=><button key={v} type="button" onClick={()=>setPreview(v)}
+            {['hero','strip','profile','card','list','news'].map(v=><button key={v} type="button" onClick={()=>{
+              setPreview(v);
+              const id=Object.keys(variantByPlacement).find(p=>variantByPlacement[p]===v);
+              if(id)setDesignPlacement(id);
+            }}
               className={'rounded-lg px-3 py-2 text-xs font-bold '+(preview===v?'bg-purple-600 text-white':'border border-white/10 text-zinc-300')}>{v}</button>)}
-          </div><div className={preview==='card'?'max-w-[245px]':''}>
-            <DynamicAdCreative banner={{...previewBanner,targetUrl:form.targetUrl||'https://example.com'}} variant={preview} placement={form.placement?.[0]||'home'} slotKey="editor-preview" preview />
+          </div>
+          <div className="flex gap-2" role="group" aria-label="Μέγεθος προεπισκόπησης">
+            {['desktop','mobile'].map(device=><button key={device} type="button"
+              onClick={()=>setPreviewDevice(device)}
+              aria-pressed={previewDevice===device}
+              className={'rounded-lg border px-3 py-2 text-xs font-bold '+(previewDevice===device?'border-purple-400 bg-purple-500/20 text-purple-200':'border-white/10 text-zinc-400')}>
+              {device==='desktop'?'Desktop':'Mobile'}
+            </button>)}
+          </div>
+          <div className={preview==='card'?'max-w-[245px]':previewDevice==='mobile'?'mx-auto max-w-[380px] w-full':'w-full'}>
+            <DynamicAdCreative banner={{...previewBanner,targetUrl:form.targetUrl||'https://example.com'}} variant={preview} placement={form.placement?.[0]||'home'} slotKey="editor-preview" preview previewMobile={previewDevice==='mobile'} />
           </div><p className="text-[11px] text-zinc-500">Το preview δεν καταγράφει προβολές όταν το δημιουργικό δεν έχει αποθηκευμένο ID.</p></>:
             <div className="space-y-3"><div className="rounded-2xl bg-purple-950/30 p-5"><Music2 className="mb-3 text-purple-300"/><p className="font-black text-white">{form.title||'Τίτλος Audio Spot'}</p><p className="mt-1 text-xs text-zinc-400">{form.client||'Brand'}</p></div>
             {previewAudio?<audio src={previewAudio} controls preload="metadata" className="w-full"/>:

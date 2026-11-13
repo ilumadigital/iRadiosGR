@@ -9,6 +9,8 @@ router.get('/ads/public', adController.getPublicAds);
 router.get('/ads/:id/media',adController.streamPublicAudio);
 router.post('/ads/:id/impression', adController.logImpression);
 router.post('/ads/:id/click', adController.logClick);
+router.post('/ads/:id/completed', adController.logCompleted);
+router.post('/ads/:id/skipped', adController.logSkipped);
 
 router.get('/admin/ads', ...admin, adController.getAdminAds);
 router.get('/admin/ads/:id/preview-audio',...admin,adController.previewAudio);

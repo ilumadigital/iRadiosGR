@@ -1,4 +1,5 @@
 import React from 'react';
+import AdSkipControl from './AdSkipControl';
 import { Play, Pause, SkipBack, SkipForward, X, Radio, AudioLines, ScanSearch, Loader2 } from 'lucide-react';
 
 export default function CarMode({ 
@@ -11,12 +12,13 @@ export default function CarMode({
   nowPlaying,
   isRecognizing,
   handleRecognizeTrack,
-  spotifyUrl
+  spotifyUrl,
+  isPlayingAd=false,currentAdInfo,adSkipCountdown,onSkipAd
 }) {
   if (!station) return null;
 
   const isActualSong = 
-    !isRecognizing &&
+    !isPlayingAd && !isRecognizing &&
     nowPlaying && 
     nowPlaying !== "LIVE NOW" && 
     nowPlaying !== "ΠΑΙΖΕΙ ΤΩΡΑ" && 
@@ -61,7 +63,7 @@ export default function CarMode({
         <div className={`relative w-full border rounded-[32px] p-6 flex flex-col items-center justify-center gap-4 text-center transition-colors ${isRecognizing ? 'bg-blue-500/10 border-blue-500/50 shadow-[0_0_30px_rgba(59,130,246,0.2)]' : 'bg-zinc-900/50 border-white/10'}`}>
           
           <div className="flex items-center gap-2 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-zinc-400">
-            {isRecognizing ? (
+            {isPlayingAd ? <span className="text-purple-300">ΔΙΑΦΗΜΙΣΤΙΚΟ ΔΙΑΛΕΙΜΜΑ</span> : isRecognizing ? (
               <span className="text-blue-400 flex items-center gap-2"><AudioLines size={16} className="animate-pulse" /> Το Music Radar Ψαχνει...</span>
             ) : (
               <span>NOW PLAYING</span>
@@ -69,12 +71,14 @@ export default function CarMode({
           </div>
           
           <h3 className={`text-xl sm:text-2xl font-bold truncate w-full px-2 ${isRecognizing ? 'text-blue-300' : 'text-white'}`}>
-            {nowPlaying || " "}
+            {isPlayingAd?(currentAdInfo?.title||'Διαφήμιση'):(nowPlaying||' ')}
           </h3>
 
           {/* ACTION BUTTONS (SHAZAM OR SPOTIFY) */}
           <div className="mt-2 h-14">
-            {!isActualSong ? (
+            {isPlayingAd ? (
+              <AdSkipControl isPlayingAd={isPlayingAd} secondsUntilSkip={adSkipCountdown} onSkip={onSkipAd}/>
+            ) : !isActualSong ? (
               <button 
                 onClick={handleRecognizeTrack}
                 disabled={isRecognizing || !isPlaying}
@@ -105,7 +109,7 @@ export default function CarMode({
         
         {/* PREVIOUS BUTTON */}
         <button 
-            onClick={onPrev} // 🟢 Μην ξεχάσεις να περάσεις το onPrev στα props του CarMode στο App.jsx
+            onClick={onPrev} disabled={isPlayingAd}
             className="w-24 h-24 sm:w-28 sm:h-28 bg-white/10 text-white rounded-[32px] flex items-center justify-center active:scale-95 transition-transform border border-white/5 hover:bg-white/20"
         >
             <SkipBack size={40} fill="currentColor" />
@@ -113,7 +117,7 @@ export default function CarMode({
 
         {/* PLAY / PAUSE */}
         <button 
-            onClick={onPlayPause}
+            onClick={onPlayPause} disabled={isPlayingAd}
             className="w-32 h-32 sm:w-40 sm:h-40 bg-[#ccff00] text-black rounded-[40px] flex items-center justify-center shadow-[0_20px_40px_rgba(204,255,0,0.2)] active:scale-95 transition-transform"
         >
             {isPlaying ? (
@@ -125,7 +129,7 @@ export default function CarMode({
 
         {/* NEXT BUTTON */}
         <button 
-            onClick={onNext}
+            onClick={onNext} disabled={isPlayingAd}
             className="w-24 h-24 sm:w-28 sm:h-28 bg-white/10 text-white rounded-[32px] flex items-center justify-center active:scale-95 transition-transform border border-white/5 hover:bg-white/20"
         >
             <SkipForward size={40} fill="currentColor" />
