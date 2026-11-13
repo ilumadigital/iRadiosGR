@@ -17,7 +17,7 @@
   object-fit: cover;
 }
 .ir-showcase-art__base--fallback {
-  background: linear-gradient(150deg,#f8fafb,#d6dee1);
+  background: #fff;
   object-fit: contain;
   padding: 12%;
 }
@@ -46,7 +46,7 @@
   padding: 2%;
   border: 1px solid rgba(255,255,255,.63);
   border-radius: 24%;
-  background: rgba(255,255,255,.79);
+  background: #fff;
   -webkit-backdrop-filter: blur(18px) saturate(145%);
   backdrop-filter: blur(18px) saturate(145%);
   box-shadow: 0 10px 35px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.65);
