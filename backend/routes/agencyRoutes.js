@@ -31,7 +31,10 @@ const ownQuery=(req,id)=>req.user.role==='admin'?{agencyId:id}:
 const stageOnly=(req,res,next)=>isStage()?next():
   res.status(503).json({error:'Agency purchases are not enabled in this environment.'});
 async function checkCampaignOwner(campaignId,agencyId) {
- if(campaignId===undefined||campaignId===null||campaignId==='')return;
+ // Newly created Agency ads must belong to an owned unified campaign.
+ // Existing pre-v2 legacy creatives remain readable and are not migrated.
+ if(campaignId===undefined||campaignId===null||campaignId==='')
+  throw Error('Απαιτείται ενιαία καμπάνια v2 για τη δημιουργία Agency διαφήμισης.');
  if(!mongoose.isValidObjectId(campaignId)||!
    await AdvertisingCampaign.exists({_id:campaignId,agencyId,isStageCampaign:true,deletedAt:null}))
    throw Error('Η ενιαία καμπάνια δεν ανήκει στο Agency.');
