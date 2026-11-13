@@ -197,6 +197,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
   if(data.campaign.approvalStatus!=='draft')setStep(admin?4:5);
   else if(admin)setStep(data.campaign.plannedBudgetCents>0?3:data.creatives.banners.length+data.creatives.audios.length>0?2:1);
   else if(data.finance.fundedMicros>=data.campaign.plannedBudgetCents*10000&&data.campaign.plannedBudgetCents>0)setStep(5);
+  else if((data.intents||[]).some(intent=>['creating','redirect','unknown'].includes(intent.status)))setStep(4);
   else setStep(data.campaign.plannedBudgetCents>0?3:data.creatives.banners.length+data.creatives.audios.length>0?2:1);
   return data;
  },[base,admin]);
@@ -210,6 +211,37 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
    .finally(()=>{if(live)setLoading(false)});
   return ()=>{live=false;};
  },[loadList,loadDetails,requestedId,admin]);
+ // The Nexi return is navigation only. While a Gateway intent is unresolved,
+ // refresh its original signed request-key lookup and local funding ledger.
+ // Never create a second checkout, infer paid from the redirect, or submit early.
+ useEffect(()=>{
+  if(admin||loading||!campaignId||!inProgress||confirmed)return undefined;
+  let active=true,inFlight=false;
+  const refresh=async()=>{
+   if(inFlight||document.visibilityState==='hidden')return;
+   inFlight=true;
+   try{
+    const previous=await request(base+'/campaigns/'+campaignId);
+    if(!active)return;
+    const intent=(previous.intents||[]).find(row=>['creating','redirect','unknown'].includes(row.status));
+    if(intent){
+     try{await request('/api/advertising/payments/'+intent._id);}
+     catch{/* Network/provider uncertainty stays pending; signed webhook remains authoritative. */}
+    }
+    if(!active)return;
+    const latest=await request(base+'/campaigns/'+campaignId);
+    if(!active)return;
+    setDetail(latest);setQuote(latest.quote||null);
+    if(latest.finance.fundedMicros>=latest.campaign.plannedBudgetCents*10000&&
+       latest.campaign.plannedBudgetCents>0){
+     setStep(5);setNotice('Η πληρωμή επιβεβαιώθηκε από το υπογεγραμμένο Gateway webhook.');
+    }
+   }catch{/* Retry only read-only status; do not unlock a payment on network error. */}
+   finally{inFlight=false;}
+  };
+  const timer=window.setInterval(refresh,6000);
+  return ()=>{active=false;window.clearInterval(timer);};
+ },[admin,loading,campaignId,Boolean(inProgress),confirmed,base]);
  const selectCampaign=async id=>{
   setError('');setNotice('');setCreativeDraft(null);
   if(!id){setCampaignId('');setDetail(null);setDraft(initialCampaign());setStep(0);setQuote(null);
@@ -454,10 +486,10 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
     </div>
     {confirmed?<div className="flex items-start gap-3 rounded-xl border border-emerald-400/25 bg-emerald-400/[.07] p-5 text-sm text-emerald-200"><CheckCircle2 className="shrink-0" size={20}/> Η πληρωμή επιβεβαιώθηκε. Μπορείς πλέον να υποβάλεις την καμπάνια για έγκριση.</div>:
      <div className="space-y-4">
-      {!pricing?.sandboxCheckoutReady&&<p role="alert" className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-100">Το Advertising Nexi Sandbox checkout δεν είναι ενεργό στο περιβάλλον. Απαιτούνται ενεργός τιμοκατάλογος, φορολογική πολιτική και το server-side sandbox payment flag. Δεν υπάρχει εικονική πληρωμή.</p>}
+      {!pricing?.sandboxCheckoutReady&&<p role="alert" className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-100">Το Advertising checkout δεν είναι ακόμη διαθέσιμο. Έλεγξε τον τιμοκατάλογο και τα υπάρχοντα credentials του ILUMA Gateway staging. Δεν υπάρχει εικονική πληρωμή.</p>}
       {quote&&<div className={card+' space-y-2 text-sm'}><p className="font-bold">Επίσημο quote · έκδοση {quote.priceVersion}</p><p className="text-zinc-400">Budget: {euro(quote.budgetCents/100)} · ΦΠΑ: {euro(quote.taxCents/100)}</p>
        <p className="text-xs text-zinc-500">Λήξη: {new Date(quote.expiresAt).toLocaleString('el-GR')}</p></div>}
-      {inProgress&&<p className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-xs text-purple-100">Υπάρχει ήδη πληρωμή σε εξέλιξη. Μην ξεκινήσεις δεύτερη χρέωση. Έλεγξε πρώτα την ίδια συναλλαγή.</p>}
+      {inProgress&&<p className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-xs text-purple-100">Αναμονή επιβεβαίωσης από ILUMA Gateway. Η κατάσταση ελέγχεται αυτόματα κάθε 6 δευτερόλεπτα. Μην ξεκινήσεις δεύτερη πληρωμή· μόνο το υπογεγραμμένο webhook πιστώνει το budget.</p>}
       <div className="flex flex-wrap gap-3">{!quote?<button className={primary} disabled={busy||!pricing?.enabled} onClick={makeQuote}>Δημιουργία quote</button>:
        <button className={primary} onClick={checkout} disabled={busy||!pricing?.sandboxCheckoutReady||Boolean(inProgress)||new Date(quote.expiresAt)<=new Date()}>
         <CreditCard size={17}/> Ασφαλής πληρωμή Nexi</button>}
