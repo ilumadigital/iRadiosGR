@@ -22,7 +22,7 @@ const AgencyAdRevision=require('../models/AgencyAdRevision');
 const BannerAd=require('../models/BannerAd');
 const Ad=require('../models/Ad');
 const User=require('../models/User');
-const {mailAgency}=require('../services/agencyAdNotifications');
+const agencyNoticeOutbox=require('../services/agencyAdNoticeOutbox');
 router.get('/admin/agency-ad-revisions',...admin,async(req,res)=>{
   try {
     const revisions=await AgencyAdRevision.find({}).sort({createdAt:-1}).limit(200)
@@ -83,20 +83,37 @@ router.put('/admin/agency-ad-revisions/:id/decision',...admin,async(req,res)=>{
     if(outcome.state==='conflict')return res.status(409).json({
       error:'Η έκδοση άλλαξε, έχει εγκριθεί ή εξετάζεται ήδη.',
       reason:outcome.code});
-    let notified=false;
-    if(outcome.notify){
-      const agency=await User.findById(outcome.revision.agencyId).select('email').lean();
-      notified=await mailAgency({agency,creative:outcome.creative,
-        approved:outcome.state==='approved',reason:rejectionReason})
-       .catch(()=>false);
+    let notificationQueued=false;
+    // The approved/rejected revision is already durable. If this outbox
+    // enqueue fails, the stage reconciliation scanner recovers the record.
+    try{
+      const result=await agencyNoticeOutbox.queueRevision(outcome.revision);
+      notificationQueued=result.status==='queued';
+    }catch(error){
+      console.warn('[AGENCY NOTICE] Decision saved; mail enqueue pending:',
+       String(error.message||error).slice(0,160));
     }
     return res.json({success:true,status:outcome.state,
-      duplicate:Boolean(outcome.duplicate),agencyNotified:notified});
+      duplicate:Boolean(outcome.duplicate),agencyNotified:false,
+      agencyNotificationQueued:notificationQueued});
+
   }catch(error){
     console.error('[ADMIN] Agency revision decision failed',error.message);
     return res.status(500).json({error:'Αποτυχία ελέγχου αλλαγών. '+
      'Αν έγινε claim, επανάλαβε την ίδια απόφαση για ασφαλή ανάκτηση.'});
   }
+});
+
+// Read-only Admin notice status; no ability to mark emails sent or mutate queue.
+router.get('/admin/agency-ad-notices',...admin,async(req,res)=>{
+ if(process.env.APP_ENV!=='staging')
+  return res.status(404).json({error:'Staging only'});
+ try{
+  const entries=await agencyNoticeOutbox.recentAdminNotices(80);
+  return res.json(entries);
+ }catch(error){
+  return res.status(503).json({error:'Δεν φορτώθηκαν οι ειδοποιήσεις Agency.'});
+ }
 });
 
 // 🟢 B2B PAYMENTS & INVOICES ROUTES
