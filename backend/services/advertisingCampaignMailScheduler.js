@@ -71,7 +71,7 @@ async function deliver(event){
   (event.amountCents/100).toFixed(2)+' €</p>':'';
  const action=toAdmins?
   origin().replace(/\/$/,'')+'/backoffice/admin/campaigns':
-  origin().replace(/\/$/,'')+'/agency/v2/campaigns';
+  origin().replace(/\/$/,'')+'/backoffice/agency/campaigns';
  const reason=event.kind==='campaign_rejected'&&campaign.rejectedReason?
   '<p><strong>Αιτιολογία:</strong> '+safe(campaign.rejectedReason)+'</p>':'';
  const html='<h2>'+safe(template.headline)+'</h2>'+
