@@ -479,7 +479,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           onClick={() => isCurrentlyPlaying ? navigate(`/station/${station.slug || station._id}`) : setCurrentStation(station)}
         >
           <div className={`ir-station-image relative aspect-square w-full rounded-2xl md:rounded-3xl overflow-hidden bg-white transition-all duration-500 group-hover:-translate-y-1`}>
-            <img src={station.logo} alt={station.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+            <img src={station.logo} alt={station.name} className="w-full h-full bg-white object-contain p-2 transition-transform duration-700 group-hover:scale-105" />
             <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${isCurrentlyPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}></div>
             
             <div className={`absolute transition-all duration-500 z-10 ${isCurrentlyPlaying ? 'inset-0 flex items-center justify-center md:inset-auto md:bottom-4 md:right-4 md:w-10 md:h-10' : 'bottom-2 right-2 md:bottom-4 md:right-4 w-8 h-8 md:w-8 md:h-8 opacity-0 group-hover:opacity-100'}`}>
