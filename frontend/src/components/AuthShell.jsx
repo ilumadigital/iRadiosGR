@@ -1,4 +1,5 @@
 import React from 'react';
+import BrandLogo from './BrandLogo';
 import {useLocation} from 'react-router-dom';
 
 export default function AuthShell({ children }) {
@@ -9,7 +10,7 @@ export default function AuthShell({ children }) {
       <div className="ir-auth-shell">
         <aside className="ir-auth-story">
           <div className="ir-auth-story__brand">
-            <img src="/noicon-iradios-app-logo.svg" alt="iRadios GR" width="200" height="56" />
+            <BrandLogo variant="full" title="iRadios GR" width="200" height="56" />
           </div>
           <div className="ir-auth-story__body">
             <span className="ir-auth-eyebrow">YOUR SOUND. YOUR WORLD.</span>
@@ -23,7 +24,7 @@ export default function AuthShell({ children }) {
         </aside>
         <div className="ir-auth-content">
           <div className="ir-auth-mobile-brand">
-            <img src="/noicon-iradios-app-logo.svg" alt="iRadios GR" width="190" height="52" />
+            <BrandLogo variant="full" title="iRadios GR" width="190" height="52" />
           </div>
           {children}
         </div>

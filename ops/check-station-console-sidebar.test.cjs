@@ -9,7 +9,7 @@ const source=fs.readFileSync(path.join(root,'frontend/src/pages/Backoffice.jsx')
 
 test('Station Console v6 uses the exact expanded App navbar logo and identity card',()=>{
   const sidebar=fs.readFileSync(path.join(root,'frontend/src/components/Sidebar.jsx'),'utf8');
-  const logo='<img src="/noicon-iradios-app-logo.svg"';
+  const logo='<BrandLogo variant="full"';
   assert.ok(sidebar.includes(logo),'the expanded App navbar uses the official full SVG logo');
   assert.ok(source.includes(logo),'Backoffice shares the same expanded App asset');
   assert.doesNotMatch(source,/src="\/noicon-iradios-app-logo\.png"/);

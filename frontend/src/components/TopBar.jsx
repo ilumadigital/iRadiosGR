@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { createSearchIndex, directVoiceMatch, groupedSearch, SEARCH_TYPES, spokenQuery } from '../utils/smartSearch';
 import './smart-header.css';
+import BrandLogo from './BrandLogo';
 
 const ICONS = { station: Radio, region: MapPin, genre: Music2, news: Newspaper };
 const WEATHER_ICONS = { Sun, Cloud, CloudRain, Snowflake, CloudSun };
@@ -230,8 +231,8 @@ export default function TopBar({
           className="ir-header__mobile-menu ir-header__icon-button lg:hidden"><Menu size={21}/></button>
         <Link to="/" className="ir-header__mobile-brand flex min-w-0 items-center gap-2 lg:hidden" aria-label="iRadiosGR αρχική">
           <span className="ir-header__brand-swap">
-            <img src="/iradios-app-logo.svg" alt="iRadios GR" className="ir-header__brand-wordmark"/>
-            <img src="/icon-tr.svg" alt="" aria-hidden="true" className="ir-header__brand-icon"/>
+            <BrandLogo variant="wordmark" title="iRadios GR" className="ir-header__brand-wordmark"/>
+            <BrandLogo variant="icon" title="iRadios GR" aria-hidden="true" className="ir-header__brand-icon"/>
           </span>
         </Link>
         <div className="ir-header__desktop-intro hidden min-w-0 items-center gap-3 2xl:flex">

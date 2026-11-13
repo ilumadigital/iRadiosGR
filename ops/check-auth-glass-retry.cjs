@@ -48,7 +48,7 @@ assert.match(read('frontend/src/components/EmailVerificationBanner.jsx'),/auth\/
   'Unverified listener sees a resend action');
 const css = read('frontend/src/styles/auth.css');
 assert.match(read('frontend/src/index.css'), /@import "\.\/styles\/auth\.css"/);
-assert.match(read('frontend/src/components/AuthShell.jsx'), /noicon-iradios-app-logo\.svg/);
+assert.match(read('frontend/src/components/AuthShell.jsx'), /<BrandLogo variant="full"/);
 assert.match(css, /@media \(max-width: 480px\)/, 'small-screen breakpoints');
 assert.match(css, /backdrop-filter: blur/, 'translucent glass');
 assert.match(css, /prefers-reduced-motion/, 'reduced-motion support');

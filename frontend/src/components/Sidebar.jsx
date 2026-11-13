@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import BrandLogo from './BrandLogo';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
 import {CITY_SHORTCUTS, getAvailableRegionLinks} from '../utils/stationRegions';
@@ -135,8 +136,8 @@ export default function Sidebar({
             <Link to={homeRoute} onClick={() => setIsMobileMenuOpen(false)}
               className="flex min-w-0 shrink-0 items-center justify-center overflow-hidden rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ccff00]"
               title="iRadiosGR" aria-label="iRadiosGR">
-              <img src="/noicon-iradios-app-logo.svg" alt="iRadiosGR" className={`h-11 w-[158px] object-contain object-left ${isCollapsed ? 'lg:hidden' : ''}`}/>
-              {isCollapsed && <img src="/icon-tr.svg" alt="" aria-hidden="true" className="hidden h-10 w-10 object-contain lg:block"/>}
+              <BrandLogo variant="full" title="iRadiosGR" className={`h-11 w-[158px] object-contain object-left ${isCollapsed ? 'lg:hidden' : ''}`}/>
+              {isCollapsed && <BrandLogo variant="icon" title="iRadiosGR" aria-hidden="true" className="hidden h-10 w-10 object-contain lg:block"/>}
             </Link>
 
             <button 

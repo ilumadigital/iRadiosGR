@@ -38,7 +38,7 @@
   height: 80px;
   margin-bottom: 12px;
 }
-.ir-splash__symbol img {
+.ir-splash__symbol svg {
   position: relative;
   z-index: 1;
   display: block;
@@ -97,7 +97,7 @@
 @keyframes ir-splash-orbit { 0%, 100% { opacity: .35; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.06); } }
 @media (max-width: 420px) {
   .ir-splash__symbol { width: 68px; height: 68px; }
-  .ir-splash__symbol img { width: 54px; height: 54px; }
+  .ir-splash__symbol svg { width: 54px; height: 54px; }
   .ir-splash__brand { width: min(80vw, 270px); }
   .ir-splash__tagline { font-size: 8px; letter-spacing: .22em; }
 }

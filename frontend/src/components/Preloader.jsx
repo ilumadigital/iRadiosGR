@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './preloader.css';
+import BrandLogo from './BrandLogo';
 
 // Branding transition only: never holds playback, navigation or API startup.
 export default function Preloader() {
@@ -22,14 +23,9 @@ export default function Preloader() {
       <div className="ir-splash__content">
         <div className="ir-splash__symbol" aria-hidden="true">
           <span className="ir-splash__orbit" />
-          <img src="/icon-tr.svg?brand=20261113" alt="" />
+          <BrandLogo variant="icon" title="iRadios GR" />
         </div>
-        <img
-          className="ir-splash__brand"
-          src="/noicon-iradios-app-logo.svg?brand=20261113"
-          alt="iRadios GR"
-          fetchPriority="high"
-        />
+        <BrandLogo variant="full" className="ir-splash__brand" title="iRadios GR" />
         <span className="ir-splash__tagline">YOUR SOUND. YOUR WORLD.</span>
         <div className="ir-splash__track" aria-hidden="true"><span /></div>
       </div>
