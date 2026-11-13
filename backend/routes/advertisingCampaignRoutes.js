@@ -12,6 +12,7 @@ const FundingLot=require('../models/AdvertisingFundingLot');
 const BannerAd=require('../models/BannerAd');
 const Ad=require('../models/Ad');
 const {DEFAULTS,validatePricing,quotedAmounts}=require('../services/advertisingPricingRules');
+const {getAdvertisingPricing}=require('../services/advertisingPricingStore');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const gateway=require('../services/ilumaGatewayClient');
 const {ensureAdvertisingFinancialIndexes}=require('../services/advertisingFinancialIndexes');
@@ -31,10 +32,7 @@ const objectId=value=>mongoose.isValidObjectId(value);
 const idString=x=>String(x||'');
 const pricingId='iradios-advertising-v2';
 const freshPricing=()=>JSON.parse(JSON.stringify(DEFAULTS));
-async function pricing(){
- const saved=await Pricing.findById(pricingId).lean();
- return saved||{_id:pricingId,...freshPricing()};
-}
+const pricing=getAdvertisingPricing;
 const errorResponse=(res,error,code=400)=>res.status(code).json({error:String(error.message||error)});
 
 // Pricing changes are versioned and never mutate a funded lot's CPM snapshot.
@@ -44,14 +42,14 @@ router.get('/advertising/pricing',async(req,res)=>{
   const row=await pricing();
   return res.json({...row?.toObject?.()||row,
    sandboxCheckoutReady:row.enabled===true&&row.taxMode==='budget_net_plus_vat'&&
-     process.env.AD_PAYMENTS_SANDBOX_ENABLED==='1'&&gateway.configured()});
+     gateway.configured()});
  }catch{return res.status(500).json({error:'Pricing unavailable'});}
 });
 router.put('/admin/advertising/pricing',async(req,res)=>{
  if(!isAdmin(req))return res.status(403).json({error:'Admin required'});
  try{
-  const previous=await Pricing.findOneAndUpdate({_id:pricingId},
-   {$setOnInsert:freshPricing()},{upsert:true,new:true});
+  await pricing();
+  const previous=await Pricing.findById(pricingId);
   if(req.body?.expectedVersion!==previous.version)
    return res.status(409).json({error:'Pricing version changed; reload before editing.'});
   const next={...freshPricing(),...{
@@ -174,8 +172,8 @@ router.post('/advertising/campaigns/:id/quotes',async(req,res)=>{
 router.post('/advertising/quotes/:id/checkout',async(req,res)=>{
  if(!isAgency(req)||!objectId(req.params.id))
   return res.status(403).json({error:'Forbidden'});
- if(process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')
-  return res.status(503).json({error:'Advertising Nexi sandbox checkout is disabled.'});
+ if(!gateway.configured())
+  return res.status(503).json({error:'ILUMA Gateway staging credentials are unavailable.'});
  try{
   // Disabling the current tax/checkout policy also blocks old unconsumed quotes.
   // Their immutable price snapshots remain readable, but cannot charge Nexi.
@@ -361,8 +359,8 @@ router.get('/advertising/payments/:id',async(req,res)=>{
   if(!intent)return res.status(404).json({error:'Payment intent not found'});
   if(intent.status==='paid'||intent.status==='failed'||intent.status==='canceled')
    return res.json({id:intent._id,status:intent.status});
-  if(process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')
-   return res.json({id:intent._id,status:intent.status,recovery:'disabled'});
+  if(!gateway.configured())
+   return res.json({id:intent._id,status:intent.status,recovery:'gateway_unavailable'});
   try{
    const provider=await gateway.advertisingPaymentByRequestKey(intent.requestKey,intent.amountCents);
    if(intent.gatewayPaymentId&&intent.gatewayPaymentId!==provider.payment_id||
