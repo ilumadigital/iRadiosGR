@@ -125,11 +125,11 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
   // Payment States
 
   const [bannerForm, setBannerForm] = useState({ 
-    title: '', description: '', imageUrl: '', squareImageUrl: '', targetUrl: '', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
+    title: '', description: '', imageUrl: '', squareImageUrl: '', targetUrl: '', targetCountry: 'Ελλάδα', targetRegion: 'All', targetLocations: ['Ελλάδα']
   });
   
   const [audioForm, setAudioForm] = useState({ 
-    title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'entry', dspPreset: 'OFF', targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
+    title: '', client: '', audioUrl: '', logoUrl: '', linkUrl: '', frequency: 'entry', dspPreset: 'OFF', targetCountry: 'Ελλάδα', targetRegion: 'All', targetLocations: ['Ελλάδα']
   });
 
   // Final VAT-inclusive monthly price catalog. Each campaign is billed separately.

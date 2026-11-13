@@ -18,8 +18,8 @@ function changed(doc,patch){
  return Object.entries(patch).filter(([key,value])=>stringify(doc[key])!==stringify(value))
   .map(([field,after])=>({field,before:doc[field]??null,after}));
 }
-const quote=body=>Object.fromEntries(Object.entries(body||{}).filter(([key])=>
- ['targetCountry','targetRegion','targetLocations'].includes(key)));
+const quote=doc=>Object.fromEntries(['targetCountry','targetRegion','targetLocations']
+ .filter(key=>doc?.[key]!==undefined).map(key=>[key,doc[key]]));
 async function event({kind,type,doc,agencyId,actorId,revisionId,isRevision,changes=[],reason=''}) {
  const ref=String(doc._id);
  const item={eventKey:[kind,type,ref,revisionId].join(':'),kind,adType:type,
