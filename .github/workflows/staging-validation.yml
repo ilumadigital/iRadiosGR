@@ -81,6 +81,8 @@ jobs:
         run: node --test backend/tests/advertisingV2FinancialGuards.test.cjs
       - name: Simulate concurrent atomic CPM claims, funded balance depletion and recovery
         run: node --test backend/tests/advertisingCpmSettlement.test.cjs
+      - name: Validate scalable transactional CPM wallet and ledger under simulated races
+        run: node --test backend/tests/advertisingCpmTransactional.test.cjs
       - name: Verify staging Ad Network, placement contracts and safe legacy campaign handling
         run: node --test ops/check-ad-network-staging.test.cjs
       - name: Verify 30s audible Skip Ad and bounded per-placement Visual Ad Studio
