@@ -268,7 +268,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
 
 
   return (
-    <div className="ad-console min-h-screen bg-black text-white p-6 lg:p-12 font-sans pb-32 animate-fade-in relative overflow-hidden">
+    <div className="ad-console w-full text-white font-sans pb-12 animate-fade-in relative overflow-hidden">
       
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-500/10 blur-[150px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#ccff00]/5 blur-[120px] rounded-full pointer-events-none"></div>
@@ -304,7 +304,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
               <RotateCw size={20} className={`${loading ? 'animate-spin text-[#ccff00]' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
             </button>
             <button 
-              onClick={() => navigate('/agency/v2/campaigns')}
+              onClick={() => navigate('/backoffice/agency/campaigns')}
               className="bg-[#ccff00] text-black px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(204,255,0,0.2)] flex items-center gap-3 shrink-0"
             >
               <Plus size={18} /> Ενιαία Καμπάνια v2
@@ -436,7 +436,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                   )}
                 </div>
                 {['pending','rejected','active','expired'].includes(campaign.status)&&
-                  <button type="button" onClick={()=>navigate('/agency/campaigns/'+(activeTab==='banners'?'banners':'audio')+'/'+campaign._id+'/edit')}
+                  <button type="button" onClick={()=>navigate('/backoffice/agency/creatives/'+(activeTab==='banners'?'banners':'audio')+'/'+campaign._id+'/edit')}
                     className="mt-4 w-full rounded-xl border border-purple-500/40 bg-purple-500/10 px-4 py-3 text-xs font-bold text-purple-200 hover:bg-purple-500/20">
                     Επεξεργασία καμπάνιας
                   </button>}

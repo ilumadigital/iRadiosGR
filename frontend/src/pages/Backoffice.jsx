@@ -17,6 +17,10 @@ import {
   SlidersHorizontal,Sparkles,Trash2,Users,X,LockKeyhole
 } from 'lucide-react';
 
+const AgencyBackofficeHome=lazy(()=>import('./AgencyBackofficeHome'));
+const AgencyDashboard=lazy(()=>import('./AgencyDashboard'));
+const AgencyAdvertisingV2=lazy(()=>import('./AgencyAdvertisingV2'));
+const TermsAgency=lazy(()=>import('./TermsAgency'));
 const AdminDashboard=lazy(()=>import('./AdminDashboard'));
 const AdminUsers=lazy(()=>import('./AdminUsers'));
 const AdminAds=lazy(()=>import('./AdminAds'));
@@ -53,7 +57,7 @@ const panel='rounded-[26px] border border-white/[0.075] bg-[#111418] shadow-[0_2
 const inputClass='w-full rounded-xl border border-white/10 bg-[#090b0d] px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-[#caff00]/70 focus:ring-2 focus:ring-[#caff00]/10';
 const buttonPrimary='inline-flex items-center justify-center gap-2 rounded-xl bg-[#caff00] px-5 py-3 text-[12px] font-black uppercase tracking-[.08em] text-[#101300] shadow-[0_8px_26px_rgba(202,255,0,.18)] transition hover:bg-[#e5ff83] disabled:opacity-50';
 const buttonSecondary='inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[.04] px-4 py-3 text-[12px] font-bold text-zinc-200 transition hover:border-white/25 hover:bg-white/[.09]';
-const roleLabels={admin:'Administrator',broadcaster:'Broadcaster',producer:'Producer'};
+const roleLabels={admin:'Administrator',broadcaster:'Broadcaster',producer:'Producer',agency:'Agency'};
 function suggestStationSlug(name){
   const greek={α:'a',β:'v',γ:'g',δ:'d',ε:'e',ζ:'z',η:'i',θ:'th',ι:'i',
     κ:'k',λ:'l',μ:'m',ν:'n',ξ:'x',ο:'o',π:'p',ρ:'r',σ:'s',ς:'s',
@@ -113,7 +117,7 @@ async function fetchBroadcasterAddonRights(signal){
   }
   return rights;
 }
-function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false,unavailable=false,promoted=false}){
+function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false,unavailable=false,promoted=false,agency=false}){
   if(locked||checking||unavailable){
     const reason=checking?'Έλεγχος δικαιωμάτων…':unavailable
       ?'Δεν ήταν δυνατή η επιβεβαίωση των δικαιωμάτων.'
@@ -129,21 +133,21 @@ function NavItem({to,icon:Icon,label,close,end=false,locked=false,checking=false
   }
   return <NavLink to={to} end={end} onClick={close} className={({isActive})=>
     'group flex min-h-[35px] items-center gap-2.5 rounded-xl border border-transparent px-3 py-[7px] text-[12px] font-semibold leading-5 transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#caff00] '+
-    (isActive?'border-[#caff00]/25 bg-[#caff00] text-[#111400] shadow-[0_5px_20px_rgba(202,255,0,.11)]':
+    (isActive?(agency?'border-purple-400/35 bg-purple-500 text-white shadow-[0_5px_20px_rgba(168,85,247,.16)]':'border-[#caff00]/25 bg-[#caff00] text-[#111400] shadow-[0_5px_20px_rgba(202,255,0,.11)]'):
       promoted?'border-[#caff00]/35 bg-[#caff00]/[.09] text-[#dfff7f] hover:bg-[#caff00]/[.15]':
       'text-zinc-400 hover:border-white/[.06] hover:bg-white/[.06] hover:text-white')
   }><Icon size={16} strokeWidth={2} className="shrink-0"/><span className="min-w-0 flex-1 truncate">{label}</span>
     {promoted&&<span className="rounded-full bg-[#caff00] px-2 py-0.5 text-[9px] font-black tracking-wide text-[#111600]">NEW</span>}
   </NavLink>;
 }
-function Logo(){
+function Logo({agency=false}){
   // Match the expanded listener-app navbar: use the complete branded
   // asset, not separate icon/wordmark/GR pieces.
   return <div className="flex min-w-0 flex-col items-start gap-0.5">
     <BrandLogo variant="full" title="iRadios GR"
       className="h-11 w-[174px] max-w-full object-contain object-left"/>
     <p className="pl-0.5 text-[9px] font-extrabold uppercase tracking-[.18em] text-zinc-400">
-      Station Console <span className="text-[#caff00]">v6</span>
+      {agency?<React.Fragment>Agency Ad Network <span className="text-purple-300">GR</span></React.Fragment>:<React.Fragment>Station Console <span className="text-[#caff00]">v6</span></React.Fragment>}
     </p>
   </div>;
 }
@@ -1534,9 +1538,15 @@ export default function Backoffice(){
   useEffect(()=>{
     setSidebarOpen(false);setNotice(null);setNavFilter('');setExpandedSection('');
   },[location.pathname]);
-  const admin=data?.user.role==='admin',producer=data?.user.role==='producer';
+  const admin=data?.user.role==='admin',producer=data?.user.role==='producer',agency=data?.user.role==='agency';
   const logout=()=>{localStorage.removeItem('iluma_token');window.location.assign('/login');};
-  const nav=[
+  const nav=agency?[
+    {section:'AGENCY WORKSPACE',items:[
+      {to:'/backoffice',label:'Επισκόπηση',icon:LayoutDashboard,end:true},
+      {to:'/backoffice/agency/campaigns',label:'Καμπάνιες & Budget',icon:FileCheck2},
+      {to:'/backoffice/agency/creatives',label:'Visual & Audio',icon:Mic2}
+    ]}
+  ]:[
     {section:'Ο ΧΩΡΟΣ ΜΟΥ',items:[
       {to:'/backoffice',label:'Αρχική',icon:LayoutDashboard,end:true},
       {to:'/backoffice/stations',label:admin?'Σταθμοί δικτύου':'Οι σταθμοί μου',icon:Radio},
@@ -1586,7 +1596,7 @@ export default function Backoffice(){
     item.end?location.pathname===item.to:
       location.pathname===item.to||location.pathname.startsWith(item.to+'/')
   ))?.section||'Ο ΧΩΡΟΣ ΜΟΥ';
-  const accordionSidebar=shortSidebar||admin;
+  const accordionSidebar=shortSidebar||admin||agency;
   if(loading)return <div className="flex min-h-screen items-center justify-center bg-[#080a0b] text-[#caff00]">
     <RefreshCw className="animate-spin" size={28}/><span className="ml-3 text-sm font-black">iRadios Station Console v6</span></div>;
   if(error){
@@ -1602,13 +1612,21 @@ export default function Backoffice(){
       href={error.status===403?'/':'/login'}
       label={error.status===403?'Επιστροφή στο iRadios':'Σύνδεση'}/>;
   }
+  if(agency&&data.user.hasAcceptedTerms!==true&&location.pathname!=='/backoffice/agency/terms')
+    return <AuthGate title="Όροι συνεργασίας Agency"
+      description="Για να χρησιμοποιήσεις το Agency Backoffice, αποδέξου τους όρους συνεργασίας."
+      href="/backoffice/agency/terms" label="Αποδοχή όρων"/>;
+  // Agency accounts never mount Station Console tools via a manually typed URL.
+  if(agency && !['/backoffice','/backoffice/agency/campaigns','/backoffice/agency/creatives','/backoffice/agency/terms'].includes(location.pathname) &&
+    !/^\/backoffice\/agency\/creatives\/(?:audio|banners)\/(?:new|[a-f0-9]{24}\/edit)$/i.test(location.pathname))
+    return <Navigate to="/backoffice" replace/>;
   return <div className="flex min-h-screen bg-[#090b0d] font-sans text-white">
     <Helmet><title>iRadiosGR Station Console v6 | Backoffice</title><meta name="robots" content="noindex,nofollow"/></Helmet>
     {sidebarOpen&&<button onClick={()=>setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/80 lg:hidden" aria-label="Κλείσιμο μενού"/>}
     <aside aria-label="Station Console πλοήγηση" className={'fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[272px] shrink-0 flex-col overflow-y-auto border-r border-white/[.08] lg:overflow-hidden bg-[#0e1112] px-3 pb-3 pt-4 shadow-[18px_0_65px_rgba(0,0,0,.14)] transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 '+(sidebarOpen?'translate-x-0':'-translate-x-full')}>
       <Link to="/backoffice" onClick={()=>setSidebarOpen(false)}
         className="mb-3 block shrink-0 rounded-xl px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#caff00]">
-        <Logo/>
+        <Logo agency={agency}/>
       </Link>
 
       <div className="mb-3 flex shrink-0 items-center gap-3 rounded-2xl border border-white/10 bg-white/[.035] px-3 py-2.5">
@@ -1693,7 +1711,7 @@ export default function Backoffice(){
                 {group.section}
               </p>}
             {open&&<div className="mt-0.5 space-y-0.5">{items.map(item=>
-              <NavItem key={item.to} {...item}
+              <NavItem key={item.to} {...item} agency={agency}
                 locked={Boolean(item.entitlement)&&addonStatus==='ready'&&!addonRights.has(item.entitlement)}
                 checking={Boolean(item.entitlement)&&addonStatus==='loading'}
                 unavailable={Boolean(item.entitlement)&&addonStatus==='error'}
@@ -1704,8 +1722,8 @@ export default function Backoffice(){
       </nav>
 
       <div className="mt-2 grid shrink-0 grid-cols-2 gap-1.5 border-t border-white/[.08] pt-2">
-        <a href="/" className="flex items-center justify-center gap-1.5 rounded-xl border border-white/[.06] px-2 py-2 text-[10px] font-semibold text-zinc-400 transition hover:bg-white/[.06] hover:text-white">
-          <ExternalLink size={14}/> iRadios App
+        <a href={agency?'/go-ads':'/'} className="flex items-center justify-center gap-1.5 rounded-xl border border-white/[.06] px-2 py-2 text-[10px] font-semibold text-zinc-400 transition hover:bg-white/[.06] hover:text-white">
+          <ExternalLink size={14}/> {agency?'Ad Network':'iRadios App'}
         </a>
         <button onClick={logout} className="flex items-center justify-center gap-1.5 rounded-xl border border-white/[.06] px-2 py-2 text-[10px] font-semibold text-zinc-400 transition hover:border-rose-400/20 hover:bg-rose-500/10 hover:text-rose-300">
           <LogOut size={14}/> Αποσύνδεση
@@ -1717,7 +1735,7 @@ export default function Backoffice(){
         <div className="flex min-w-0 items-center gap-3">
           <button onClick={()=>setSidebarOpen(v=>!v)} aria-label="Μενού" className="rounded-xl border border-white/10 p-2.5 text-zinc-400 lg:hidden"><Menu size={19}/></button>
           <div><p className="text-[9px] font-black uppercase tracking-[.24em] text-zinc-600">IRADIOS / BACKOFFICE</p>
-            <p className="mt-1 truncate text-sm font-black text-white">{admin?'Network Control':producer?'Producer Workspace':'Broadcaster Portal'}</p></div>
+            <p className="mt-1 truncate text-sm font-black text-white">{admin?'Network Control':agency?'Agency Ad Network':producer?'Producer Workspace':'Broadcaster Portal'}</p></div>
         </div>
         <div className="flex items-center gap-3">
           <Badge tone="lime"><span className="size-1.5 rounded-full bg-[#caff00]"/> STAGING</Badge>
@@ -1734,7 +1752,16 @@ export default function Backoffice(){
         </div>}
         <Suspense fallback={<div role="status" className={panel+' p-10 text-center text-[#caff00]'}>Φόρτωση εργαλείου…</div>}>
         <Routes>
-          <Route path="/backoffice" element={<Dashboard data={data}/>}/>
+          <Route path="/backoffice" element={agency?<AgencyBackofficeHome user={data.user}/>:<Dashboard data={data}/>}/>
+          <Route path="/backoffice/agency/terms" element={agency?<TermsAgency API_URL="/api" currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/agency/campaigns" element={agency?<AgencyAdvertisingV2/>:<Navigate to="/backoffice" replace/>}/>
+          <Route path="/backoffice/agency/creatives" element={agency?<AgencyDashboard API_URL="/api" currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>
+          {['audio','banners'].map(type=>[
+            <Route key={'agency-'+type+'-new'} path={'/backoffice/agency/creatives/'+type+'/new'}
+              element={agency?<CampaignEditor scope="agency" kind={type} currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>,
+            <Route key={'agency-'+type+'-edit'} path={'/backoffice/agency/creatives/'+type+'/:id/edit'}
+              element={agency?<CampaignEditor scope="agency" kind={type} currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>
+          ])}
           <Route path="/backoffice/stations" element={<Stations data={data} requestDelete={requestDelete} reload={reload} notify={notify}/>}/>
           <Route path="/backoffice/stations/new" element={<StationEditor data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
           <Route path="/backoffice/stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>

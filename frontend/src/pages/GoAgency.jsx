@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import BrandLogo from '../components/BrandLogo';
+import GoAgencyLanding from './GoAgencyLanding';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Target, Crown, Clock, LayoutGrid, LayoutPanelTop, Rows3, Mic2, Check, ArrowRight, 
@@ -17,10 +18,8 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
   const {siteKey,turnstileError,retryTurnstile}=useTurnstileSiteKey(BASE_URL);
   const resetTurnstile = () => { setCfToken(''); turnstileRef.current?.reset(); };
 
-  const isGuest = !currentUser;
 
   // --- UI STATES ---
-  const [billingCycle, setBillingCycle] = useState('month'); 
   const [showModal, setShowModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -61,13 +60,6 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
     phone: ''
   });
 
-  const marketingPrices = {
-    radio_feed: { day: 3.99, month: 89.00, quarter: 239.00, half: 449.00, year: 899.00 },
-    home:       { day: 5.99, month: 129.00, quarter: 349.00, half: 649.00, year: 1290.00 },
-    hero:       { day: 8.99, month: 199.00, quarter: 539.00, half: 999.00, year: 1990.00 },
-    audio:      { day: 9.99, month: 229.00, quarter: 619.00, half: 1149.00, year: 2290.00 }
-  };
-
   useEffect(() => {
     const pendingEmail = localStorage.getItem('iradios_agency_pending_otp');
     if (pendingEmail) {
@@ -80,7 +72,7 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
     if (!currentUser) {
       setShowModal(true);
     } else if (currentUser.role === 'agency') {
-      navigate('/agency/dashboard');
+      navigate('/backoffice');
     } else {
       showAlert('Απαιτειται Agency Λογαριασμος', 'Για να δημιουργήσετε διαφημιστικές καμπάνιες, παρακαλώ αποσυνδεθείτε και δημιουργήστε έναν ξεχωριστό εταιρικό λογαριασμό (Agency).', 'warning');
     }
@@ -188,7 +180,7 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
         localStorage.setItem('iluma_user', JSON.stringify(data.user));
         if (setCurrentUser) setCurrentUser(data.user);
         setShowOtpModal(false);
-        navigate('/agency/dashboard');
+        navigate('/backoffice');
       } else {
         setOtpError(data.error || 'Λάθος κωδικός OTP.');
       }
@@ -206,212 +198,8 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden pb-40">
-      
-      {/* --- BG EFFECTS --- */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-purple-500/10 blur-[150px] rounded-full pointer-events-none opacity-50"></div>
-      <div className="absolute top-1/3 -right-64 w-[600px] h-[600px] bg-[#ccff00]/5 blur-[150px] rounded-full pointer-events-none opacity-40"></div>
-
-      <div className="relative z-10 max-w-7xl mx-auto px-4 lg:px-12 pt-24 animate-in fade-in slide-in-from-bottom-8 duration-700">
-        
-        {/* --- HERO SECTION --- */}
-        <div className="text-center max-w-4xl mx-auto mb-20">
-          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-black tracking-[0.3em] mb-8 shadow-[0_0_30px_rgba(168,85,247,0.2)]">
-            <Building2 size={14} className="animate-pulse" /> iRadios AD NETWORK
-          </div>
-          <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter leading-[1] uppercase italic">
-            Ο ΗΧΟΣ ΓΙΝΕΤΑΙ <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-500 to-pink-500">ACTIONABLE DATA.</span>
-          </h1>
-          <p className="text-zinc-400 text-lg md:text-xl max-w-3xl mx-auto font-medium leading-relaxed mb-10">
-            Σταματήστε να μαντεύετε την απόδοση των audio campaigns. Συνδέστε τα brands σας με ένα Premium κοινό και παρακολουθήστε Impressions, Clicks και CTR σε πραγματικό χρόνο, σε ένα 100% Brand Safe περιβάλλον.
-          </p>
-
-          <button 
-            onClick={handleActionClick}
-            className="bg-[#ccff00] text-black px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_20px_50px_rgba(204,255,0,0.25)] inline-flex items-center gap-3"
-          >
-            {currentUser?.role === 'agency' ? 'Μεταβαση στο Dashboard' : 'Ξεκινηστε μια Καμπανια'} <ArrowRight size={20} />
-          </button>
-        </div>
-
-        {/* --- VALUE PROPOSITION (KEY POINTS) --- */}
-        <div className="mb-24">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Prop 1 */}
-            <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[32px] hover:bg-zinc-900/60 transition-colors group">
-              <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <ShieldCheck size={28} className="text-emerald-400" />
-              </div>
-              <h3 className="text-xl font-black text-white mb-3 tracking-tight">Διαφημιστική προβολή μέσα στον player</h3>
-              <p className="text-zinc-400 text-sm leading-relaxed">
-                Τα Audio Spots αναπαράγονται από τον iRadios player πριν ή κατά την ακρόαση, ανάλογα με τη συχνότητα της καμπάνιας. Η προβολή εξαρτάται από τη συσκευή, τον browser και τη διαθεσιμότητα του αρχείου.
-              </p>
-            </div>
-
-            {/* Prop 2 */}
-            <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[32px] hover:bg-zinc-900/60 transition-colors group">
-              <div className="w-14 h-14 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <PieChart size={28} className="text-purple-400" />
-              </div>
-              <h3 className="text-xl font-black text-white mb-3 tracking-tight">Real-Time Metrics</h3>
-              <p className="text-zinc-400 text-sm leading-relaxed">
-                Τέλος στα reports με υποθέσεις. Μέσα από το Agency Dashboard παρακολουθείτε <strong className="text-white">Live Impressions, Clicks και CTR</strong> για να δείχνετε το ROI στους πελάτες σας.
-              </p>
-            </div>
-
-            {/* Prop 3 */}
-            <div className="bg-zinc-900/30 border border-white/5 p-8 rounded-[32px] hover:bg-zinc-900/60 transition-colors group">
-              <div className="w-14 h-14 bg-[#ccff00]/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Users size={28} className="text-[#ccff00]" />
-              </div>
-              <h3 className="text-xl font-black text-white mb-3 tracking-tight">Premium High-Intent Audience</h3>
-              <p className="text-zinc-400 text-sm leading-relaxed">
-                Προβάλετε το brand σας δίπλα σε κορυφαίους ραδιοφωνικούς σταθμούς. Ένα <strong className="text-white">Brand Safe</strong> περιβάλλον χωρίς user-generated "σκουπίδια".
-              </p>
-            </div>
-
-          </div>
-        </div>
-
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-24"></div>
-
-        {/* --- PRICING SECTION HEADER --- */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter text-white mb-4">
-            Ευέλικτο <span className="text-purple-400">Inventory.</span>
-          </h2>
-          <p className="text-zinc-400 max-w-2xl mx-auto">
-            Επιλέξτε τη διάρκεια και το format που ταιριάζει στο budget σας. Χωρίς κρυφές χρεώσεις, πληρώνετε εφάπαξ (One-off) ανά καμπάνια, και ο χρόνος μετράει αυστηρά μετά την έγκριση (Go-Live).
-          </p>
-        </div>
-
-        {/* --- DURATION TOGGLE --- */}
-        <div className="flex justify-center mb-16 px-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 bg-zinc-900/80 border border-white/10 p-2 rounded-3xl md:rounded-[40px] shadow-2xl w-full max-w-4xl mx-auto">
-            {['day', 'month', 'quarter', 'half', 'year'].map(p => (
-            <button 
-              key={p} 
-              onClick={() => setBillingCycle(p)} 
-              className={`w-full md:flex-1 px-4 py-4 rounded-2xl md:rounded-[32px] text-[11px] md:text-xs font-black uppercase tracking-widest transition-all ${
-                billingCycle === p ? 'bg-white text-black shadow-xl md:scale-105' : 'text-zinc-500 hover:text-white hover:bg-white/5 md:hover:bg-transparent'
-              }`}
-            >
-                {p === 'day' ? '1 Ημερα' : p === 'month' ? '1 Μηνας' : p === 'quarter' ? '3 Μηνες' : p === 'half' ? '6 Μηνες' : '1 Ετος'}
-            </button>
-            ))}
-          </div>
-        </div>
-
-        {/* --- CARDS GRID --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
-          
-          {/* Card 1 */}
-          <div className="bg-gradient-to-b from-purple-900/20 to-black border border-purple-500/30 hover:border-purple-500/60 rounded-[40px] p-8 flex flex-col relative shadow-[0_0_40px_rgba(168,85,247,0.05)] group transition-all">
-            <div className="absolute top-0 right-0 bg-purple-500 text-white text-[9px] font-black px-4 py-1.5 rounded-bl-2xl rounded-tr-[40px] uppercase tracking-widest">Best CTR</div>
-            <div className="w-14 h-14 bg-purple-500/20 text-purple-400 rounded-2xl flex items-center justify-center mb-6">
-                <LayoutGrid size={28} />
-            </div>
-            <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Native Grid<br/>Injection</h3>
-            <p className="text-zinc-400 text-xs font-medium mb-6 min-h-[60px]">Εμφάνιση της διαφήμισής σας σαν κανονικός σταθμός μέσα στα feed των κατηγοριών.</p>
-            <div className="text-4xl font-black tracking-tighter mb-8 text-white flex items-end gap-1 h-10">
-                {isGuest ? (
-                  <span className="text-sm text-zinc-500 font-black uppercase tracking-widest flex items-center gap-2"><Lock size={16} /> Συνδεση για €</span>
-                ) : (
-                  `${marketingPrices.radio_feed[billingCycle]}€`
-                )}
-            </div>
-            <div className="space-y-3 mb-10 flex-1">
-              {['Highest Click-Through Rate', 'Native Seamless Experience', 'Square Format (1:1)', 'Targeted by Genre'].map((f, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11px] font-bold text-zinc-300">
-                    <Check size={14} className="text-purple-500" /> {f}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card 2 */}
-          <div className="bg-gradient-to-b from-blue-900/20 to-black border border-blue-500/30 hover:border-blue-500/60 rounded-[40px] p-8 flex flex-col relative shadow-[0_0_40px_rgba(59,130,246,0.05)] group transition-all">
-            <div className="w-14 h-14 bg-blue-500/20 text-blue-400 rounded-2xl flex items-center justify-center mb-6">
-                <LayoutPanelTop size={28} />
-            </div>
-            <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Prime Hero<br/>Takeover</h3>
-            <p className="text-zinc-400 text-xs font-medium mb-6 min-h-[60px]">Μέγιστο Brand Awareness. Το πρώτο οπτικό ερέθισμα στην κορυφή της αρχικής σελίδας.</p>
-            <div className="text-4xl font-black tracking-tighter mb-8 text-white flex items-end gap-1 h-10">
-                {isGuest ? (
-                  <span className="text-sm text-zinc-500 font-black uppercase tracking-widest flex items-center gap-2"><Lock size={16} /> Συνδεση για €</span>
-                ) : (
-                  `${marketingPrices.hero[billingCycle]}€`
-                )}
-            </div>
-            <div className="space-y-3 mb-10 flex-1">
-              {['Massive Brand Awareness', 'Top of the Page Placement', 'Horizontal Format (16:9)', 'Maximum Reach'].map((f, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11px] font-bold text-zinc-300">
-                    <Check size={14} className="text-blue-500" /> {f}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card 3 */}
-          <div className="bg-gradient-to-b from-emerald-900/20 to-black border border-emerald-500/30 hover:border-emerald-500/60 rounded-[40px] p-8 flex flex-col relative shadow-[0_0_40px_rgba(16,185,129,0.05)] group transition-all">
-            <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mb-6">
-                <Rows3 size={28} />
-            </div>
-            <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2">In-Feed<br/>Display</h3>
-            <p className="text-zinc-400 text-xs font-medium mb-6 min-h-[60px]">Έξυπνη και οργανική προβολή μεγάλου banner ανάμεσα στις λίστες των ραδιοφώνων.</p>
-            <div className="text-4xl font-black tracking-tighter mb-8 text-white flex items-end gap-1 h-10">
-                {isGuest ? (
-                  <span className="text-sm text-zinc-500 font-black uppercase tracking-widest flex items-center gap-2"><Lock size={16} /> Συνδεση για €</span>
-                ) : (
-                  `${marketingPrices.home[billingCycle]}€`
-                )}
-            </div>
-            <div className="space-y-3 mb-10 flex-1">
-              {['In-Feed Scrolling View', 'Cost-Effective Choice', 'Horizontal Format (16:9)', 'Excellent for Direct Promos'].map((f, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11px] font-bold text-zinc-300">
-                    <Check size={14} className="text-emerald-500" /> {f}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card 4 */}
-          <div className="bg-gradient-to-b from-orange-900/20 to-black border border-orange-500/30 hover:border-orange-500/60 rounded-[40px] p-8 flex flex-col relative shadow-[0_0_40px_rgba(249,115,22,0.05)] group transition-all">
-            <div className="w-14 h-14 bg-orange-500/20 text-orange-400 rounded-2xl flex items-center justify-center mb-6">
-                <Mic2 size={28} />
-            </div>
-            <h3 className="text-2xl font-black uppercase italic tracking-tighter mb-2 text-white">Interactive<br/>Audio</h3>
-            <p className="text-zinc-400 text-xs font-medium mb-6 min-h-[60px]">Το μέλλον του ραδιοφώνου. Ηχητικό σποτ πριν την ακρόαση με Click-to-Action Companion Ad.</p>
-            <div className="text-4xl font-black tracking-tighter mb-8 text-white flex items-end gap-1 h-10">
-                {isGuest ? (
-                  <span className="text-sm text-zinc-500 font-black uppercase tracking-widest flex items-center gap-2"><Lock size={16} /> Συνδεση για €</span>
-                ) : (
-                  `${marketingPrices.audio[billingCycle]}€`
-                )}
-            </div>
-            <div className="space-y-3 mb-10 flex-1">
-                {['Player Audio Pre-roll & Mid-roll', 'Companion Display Ad Link', 'Μετρήσιμη αναπαραγωγή', 'Direct Conversion Action'].map((f, i) => (
-                <div key={i} className="flex items-center gap-2 text-[11px] font-bold text-zinc-300">
-                    <Check size={14} className="text-orange-500" /> {f}
-                </div>
-                ))}
-            </div>
-          </div>
-        </div>
-
-        {/* --- BOTTOM CALL TO ACTION --- */}
-        <div className="mt-24 text-center pb-12">
-          <h3 className="text-2xl font-bold text-white mb-6">Έτοιμοι να ανεβάσετε το ROI των πελατών σας;</h3>
-          <button 
-            onClick={handleActionClick}
-            className="bg-white text-black px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_10px_40px_rgba(255,255,255,0.2)] inline-flex items-center gap-3"
-          >
-            {currentUser?.role === 'agency' ? 'Ανοιγμα Dashboard' : 'Δημιουργια Agency Account'} <ArrowRight size={20} />
-          </button>
-        </div>
-
-      </div>
+    <div className="min-h-screen bg-[#08080e] text-white">
+      <GoAgencyLanding currentUser={currentUser} onAction={handleActionClick}/>
 
       {/* --- AGENCY REGISTRATION MODAL --- */}
       {showModal && !showOtpModal && (

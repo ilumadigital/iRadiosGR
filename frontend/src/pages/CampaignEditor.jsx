@@ -76,7 +76,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const [searchParams]=useSearchParams();
   const navigate=useNavigate();
   const banner=kind!=='audio';
-  const path=scope==='agency'?'/agency/dashboard':'/backoffice/admin/'+(banner?'banners':'ads');
+  const path=scope==='agency'?'/backoffice/agency/creatives':'/backoffice/admin/'+(banner?'banners':'ads');
   const stage=typeof window!=='undefined'&&window.location.hostname==='stage.iradios.gr';
   const [form,setForm]=useState(defaults);
   const [files,setFiles]=useState({});
@@ -232,8 +232,8 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
         <h1 className="mt-2 text-2xl font-black text-white sm:text-4xl">{id?'Επεξεργασία':'Νέα'} {banner?'διαφήμιση banner':'ηχητική διαφήμιση'}</h1>
         <p className="mt-2 text-sm text-zinc-400">Αποθήκευση όλων των πεδίων · πραγματικά creatives · καθαρή κατάσταση προβολής</p></div>
       {!id&&<div className="flex gap-2">
-        <Link to={scope==='agency'?'/agency/campaigns/banners/new':'/backoffice/admin/banners/new'} className="ad-console-filter">Banner</Link>
-        <Link to={scope==='agency'?'/agency/campaigns/audio/new':'/backoffice/admin/ads/new'} className="ad-console-filter">Audio</Link>
+        <Link to={scope==='agency'?'/backoffice/agency/creatives/banners/new':'/backoffice/admin/banners/new'} className="ad-console-filter">Banner</Link>
+        <Link to={scope==='agency'?'/backoffice/agency/creatives/audio/new':'/backoffice/admin/ads/new'} className="ad-console-filter">Audio</Link>
       </div>}
     </header>
     {imported&&<div role="status" className={box+' border-purple-500/40'}>
