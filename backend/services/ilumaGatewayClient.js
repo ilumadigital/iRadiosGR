@@ -207,7 +207,7 @@ async function cancelBroadcasterRecurring(user,sku,stationId=null){
 // Staging-only one-off advertising checkout; existing Premium and Broadcaster SKUs
 // remain fixed price and use their untouched checkout paths.
 async function advertisingCheckout({user,requestKey,campaignId,quoteId,amountCents}){
- if(!configured()||process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')throw unavailable();
+ if(!configured())throw unavailable();
  if(!Number.isSafeInteger(amountCents)||amountCents<100||amountCents>100000000)
   throw Error('Invalid advertising checkout amount');
  const first=String(user.fname||'').trim(),last=String(user.lname||'').trim();
@@ -223,7 +223,7 @@ async function advertisingCheckout({user,requestKey,campaignId,quoteId,amountCen
 // Recover the original advertising checkout WITHOUT issuing a second Nexi order.
 // The variable-price parser is intentionally unavailable to premium products.
 async function advertisingPaymentByRequestKey(requestKey,expectedAmountCents){
- if(!configured()||process.env.AD_PAYMENTS_SANDBOX_ENABLED!=='1')throw unavailable();
+ if(!configured())throw unavailable();
  if(typeof requestKey!=='string'||
     !/^iradios-stage-[a-f0-9]{24}-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(requestKey))
   throw Error('Invalid advertising original request key');
