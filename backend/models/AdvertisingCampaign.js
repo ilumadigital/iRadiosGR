@@ -22,6 +22,8 @@ const schema=new mongoose.Schema({
  approvedAt:{type:Date,default:null},
  rejectedReason:{type:String,default:''},
  deletedAt:{type:Date,default:null},
+ deletedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User',default:null},
+ deletionReason:{type:String,default:'',maxlength:1000},
  isStageCampaign:{type:Boolean,default:true}
 },{timestamps:true});
 schema.index({agencyId:1,createdAt:-1});
