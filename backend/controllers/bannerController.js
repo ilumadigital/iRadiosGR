@@ -55,7 +55,7 @@ exports.getActiveBanners=async(req,res)=>{
 // Φέρνει ΟΛΑ τα banners (Για το Admin Panel)
 exports.getAllBanners = async (req, res) => {
   try {
-    const banners = await BannerAd.find().sort({ createdAt: -1 });
+    const banners = await BannerAd.find({status:{$ne:'draft'}}).sort({ createdAt: -1 });
     res.json(banners);
   } catch (err) {
     res.status(500).json({ error: 'Σφάλμα ανάκτησης Banners Admin.' });
