@@ -33,10 +33,10 @@ function testEnvironment(){
   if(query.campaignId===campaign._id&&patch.$set.status==='canceled')history.canceled++;
  }};
  const FundingLot={find(){return {select(){return this;},async lean(){return [];}}}};
- const express=()=>{const router={};for(const verb of ['get','post','put','patch','delete']){
+ const express={Router:()=>{const router={};for(const verb of ['get','post','put','patch','delete']){
   router[verb]=(url,handler)=>routes.set(verb.toUpperCase()+' '+url,handler);
  }
- router.use=()=>{};return router;};
+ router.use=()=>{};return router;}};
  const mocks={
   express, mongoose:{isValidObjectId:x=>/^[a-f0-9]{24}$/.test(String(x))},
   '../models/AdvertisingCampaign':Campaign,
