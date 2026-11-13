@@ -66,6 +66,31 @@ test('Reject non-Nexi redirects and invalid amount or environment-currency',()=>
  assert.throws(()=>validateGatewayPayment({...valid,currency:'USD'}));
  assert.throws(()=>validateGatewayPayment({...valid,payment_id:'1'.repeat(32)},{expectedPaymentId:valid.payment_id}));
 });
+
+test('Advertising quoted EUR checkout accepts variable amounts but Premium remains fixed',()=>{
+ const {validateAdvertisingGatewayPayment}=require('../services/gatewayBillingProtocol');
+ const base={payment_id:'1'.repeat(32),order_id:'IL'+'A'.repeat(24),
+  amount_cents:12400,currency:'EUR',status:'redirect',
+  checkout_url:'https://pay.nexigroup.com/hosted/session'};
+ assert.equal(validateAdvertisingGatewayPayment(base,{expectedAmountCents:12400}).status,'redirect');
+ assert.throws(()=>validateGatewayPayment(base,{expectedAmountCents:12400}),/gateway_price_mismatch/);
+ for(const bad of [
+  [{...base,amount_cents:12401},12400],
+  [{...base,currency:'USD'},12400],
+  [{...base,status:'paid',checkout_url:null},12401],
+  [{...base,status:'redirect',checkout_url:'https://evil.test'},12400],
+  [{...base,payment_id:'bad'},12400],
+  [{...base,order_id:'bad'},12400],
+  [{...base,status:'redirect'},-1],
+  [{...base,status:'redirect'},100000001],
+  [{...base,status:'redirect'},124.3]
+ ])assert.throws(()=>validateAdvertisingGatewayPayment(bad[0],{expectedAmountCents:bad[1]}));
+ assert.throws(()=>validateAdvertisingGatewayPayment(base,{expectedAmountCents:12400,
+  expectedOrderId:'IL'+'B'.repeat(24)}));
+ assert.throws(()=>validateAdvertisingGatewayPayment(base,{expectedAmountCents:12400,
+  expectedPaymentId:'2'.repeat(32)}));
+});
+
 test('Only exact signed event body fields can activate Listener Premium',()=>{
  const e=JSON.parse(payload);
  assert.equal(validatePaymentEvent(e,eventId,now),true);
