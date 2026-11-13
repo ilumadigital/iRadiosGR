@@ -45,8 +45,14 @@ exports.getActiveBanners=async(req,res)=>{
   try{
     res.set('Cache-Control','no-store, private');
     const banners=await BannerAd.find(activeCampaignQuery()).sort({createdAt:-1}).lean();
-    res.json(await filterFundedCreatives(banners.filter(b=>Array.isArray(b.placement)&&b.placement.length &&
-      matchesAgencyGeo(b,req.geo))));
+    const eligible=await filterFundedCreatives(banners.filter(b=>
+      Array.isArray(b.placement)&&b.placement.length&&b.isActive!==false&&
+      matchesAgencyGeo(b,req.geo)));
+    // Server-authorized geo is authoritative for v2 stage placements. This
+    // test marker is ONLY emitted in non-billable staging preview mode.
+    const {paidPlacementPreviewEnabled}=require('../services/advertisingStagePaidPreview');
+    res.json(eligible.map(b=>paidPlacementPreviewEnabled()&&b.campaignId?
+      {...b,serverGeoEligible:true}:b));
   }catch(error){
     console.error('[BANNERS] Public delivery failed',error.message);
     res.status(500).json({error:'Σφάλμα ανάκτησης Banners.'});
