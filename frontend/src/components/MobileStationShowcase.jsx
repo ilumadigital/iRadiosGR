@@ -112,7 +112,7 @@ export default function MobileStationShowcase({
       </div>
 
       <div className="ir-mobile-station-now-card">
-        <img src={image} alt="" onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = station.logo; }} />
+        <img src={image} alt="" className={image===station.logo?'ir-station-logo-on-white':undefined} onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = station.logo; }} />
         <div className="ir-mobile-station-now-text">
           <div className="ir-mobile-station-now-label">
             <span aria-hidden="true" className="ir-mobile-station-equalizer"><i/><i/><i/></span>
