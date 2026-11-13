@@ -139,7 +139,7 @@ export function useStationWidgetMediaSession({station,rds,audio,artwork,enabled=
       isPlayingAd:false,globalCoverArt:artwork||null,
       liveBroadcast:broadcast,rdsShowProducer:showProducer
     });
-    const logo=absoluteArtwork(station.logo||'/iradios-logo.png');
+    const logo=absoluteArtwork(station.logo||'/icon-tr.svg');
     // Consistent with App: the active song's cover or DJ photo goes to the
     // lockscreen; station branding remains the last, stable fallback.
     const image=absoluteArtwork(fields.image)||logo;
