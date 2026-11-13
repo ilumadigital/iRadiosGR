@@ -10,6 +10,7 @@ const bannerAdSchema = new mongoose.Schema({
   brandColor: { type: String, default: '#a855f7', match: /^#[0-9A-Fa-f]{6}$/ },
   focalX: { type: Number, min: 0, max: 100, default: 50 },
   focalY: { type: Number, min: 0, max: 100, default: 50 },
+  designConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
   targetCountry: { type: String, default: 'All' },
   targetRegion: { type: String, default: 'All' }, 
   targetUrl: { type: String, required: true },
