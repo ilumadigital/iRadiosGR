@@ -23,6 +23,7 @@ export default function DynamicAdCreative({
   const design=wide?adDesignFor(banner,variant):null;
   const position=wide?`${design.imageX}% ${design.imageY}%`:
     `${Math.min(100,Math.max(0,Number(banner.focalX ?? 50)))}% ${Math.min(100,Math.max(0,Number(banner.focalY ?? 50)))}%`;
+  const rgba=(hex,alpha)=>`rgba(${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)},${alpha})`;
   const style={'--ir-ad-accent':accent};
   if(design)Object.assign(style,{
     '--ir-ad-desktop-height':design.desktopHeight+'px',
@@ -30,6 +31,9 @@ export default function DynamicAdCreative({
     '--ir-ad-visual-width':design.visualWidth+'%',
     '--ir-ad-zoom':design.zoom,
     '--ir-ad-opacity':design.overlay/100,
+    '--ir-ad-shade-strong':rgba(design.overlayColor,design.overlay/100),
+    '--ir-ad-shade-soft':rgba(design.overlayColor,Math.max(.08,design.overlay/250)),
+    '--ir-ad-glow-layer':rgba(accent,design.glowIntensity/100),
     '--ir-ad-shade':design.overlayColor,
     '--ir-ad-secondary':design.secondaryColor,
     '--ir-ad-title-scale':design.titleScale/100,
