@@ -2,19 +2,14 @@
 // EXPERIMENTAL / UNWIRED: unlimited-volume accounting uses MongoDB majority
 // transactions. Requires a replica set, real Mongo concurrency UAT and
 // explicit financial approval. Does not enable paid ad delivery.
-const {normalize,assertClaimMatches}=require('./advertisingSettlementCore');
+const {assertClaimMatches}=require('./advertisingSettlementCore');
+const {settleQualifiedEventTransactional:transactionalCore}=
+ require('./advertisingTransactionalCore');
 const {qualifiedEventDebitNanos}=require('./advertisingCpmMath');
 const {ensureAdvertisingFinancialIndexes}=require('./advertisingFinancialIndexes');
 const Event=require('../models/AdvertisingBillableEvent');
 const FundingLot=require('../models/AdvertisingFundingLot');
 const mongoose=require('mongoose');
-function charged(event,duplicate){
- if(event.status!=='charged'||!event.settledAt)
-  throw Error('Invalid committed transactional advertising event');
- return {status:'charged',charged:true,duplicate,
-  eventId:event._id,costNanos:event.costNanos,
-  fundingLotId:String(event.fundingLotId)};
-}
 async function chooseFundedLot(campaignId,tier){
  const ratePath='$ratesMicros.'+tier;
  return FundingLot.findOne({
@@ -95,31 +90,7 @@ const productionStore={
  chooseFundedLot,claimEvent,transactionalDebit
 };
 async function settleQualifiedEventTransactional(input,store=productionStore){
- // Only a privileged, independently validated server event may call this.
- // No browser token, HTTP counter, or stream request proves qualification.
- const request=normalize(input);
- await store.ensureIndexes();
- let event=await store.getEvent(request.eventId);
- if(!event)event=await store.claimEvent(request);
- if(!event)return {status:'unfunded',charged:false};
- assertClaimMatches(event,request);
- if(event.status==='charged')return charged(event,true);
- if(event.status!=='pending')throw Error('Invalid transaction claim status');
- try{
-  const state=await store.transactionalDebit(event);
-  if(state==='unfunded')
-   return {status:'pending',charged:false,reason:'funding_depleted'};
-  const saved=await store.getEvent(event._id);
-  assertClaimMatches(saved,request);
-  return charged(saved,state==='already_charged');
- }catch(error){
-  // UnknownTransactionCommitResult is resolvable ONLY by reading the durable
-  // unique event marker, not by issuing an independent second wallet debit.
-  const after=await store.getEvent(event._id);
-  assertClaimMatches(after,request);
-  if(after.status==='charged')return charged(after,true);
-  throw error;
- }
+ return transactionalCore(input,store);
 }
 module.exports={settleQualifiedEventTransactional,transactionalDebit,
  chooseFundedLot,claimEvent};
