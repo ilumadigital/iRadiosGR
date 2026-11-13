@@ -59,7 +59,7 @@ async function atomicDebitWithReceipt(event){
   remainingMicros:{$floor:{$divide:[
    {$subtract:['$remainingNanos',amount]},1000]}},
   settledEvents:{$concatArrays:[{$ifNull:['$settledEvents',[]]},[receipt]]}
- }}]);
+ }}],{updatePipeline:true});
  return change.modifiedCount===1;
 }
 async function markCharged(eventId){
