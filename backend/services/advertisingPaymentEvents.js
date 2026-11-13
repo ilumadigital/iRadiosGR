@@ -101,14 +101,21 @@ async function handleVerifiedAdvertisingEvent(event,res){
  await Quote.updateOne({_id:quote._id},{$set:{status:'paid'}});
  // Only request approval. Creative and campaign delivery remain disabled until
  // an admin approves a fully configured campaign.
- await Campaign.updateOne({_id:campaign._id,approvalStatus:'draft'},
-  {$set:{approvalStatus:'pending'}});
- const mailer=require('./advertisingCampaignMailScheduler');
- await mailer.enqueue({
-  eventKey:(quote.kind==='topup'?'topup:':'paid:')+event.payment_id,
-  kind:quote.kind==='topup'?'topup_success':'paid_pending_review',
-  campaign,amountCents:quote.budgetCents
- });
+ // Wizard v2: verified funds ALONE do not submit the campaign for approval.
+ // The Agency reviews the full overview and explicitly submits AFTER payment.
+ // Legacy v1 retains its original behavior for already-created campaigns.
+ if(campaign.workflowVersion!==2){
+  await Campaign.updateOne({_id:campaign._id,approvalStatus:'draft'},
+   {$set:{approvalStatus:'pending'}});
+ }
+ if(quote.kind==='topup'||campaign.workflowVersion!==2){
+  const mailer=require('./advertisingCampaignMailScheduler');
+  await mailer.enqueue({
+   eventKey:(quote.kind==='topup'?'topup:':'paid:')+event.payment_id,
+   kind:quote.kind==='topup'?'topup_success':'paid_pending_review',
+   campaign,amountCents:quote.budgetCents
+  });
+ }
  return res.json({received:true,credited:true,duplicate:!newlyCredited});
 }
 module.exports={validAdvertisingEvent,handleVerifiedAdvertisingEvent};
