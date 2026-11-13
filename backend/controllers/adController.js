@@ -1,4 +1,5 @@
 const {matchesAgencyGeo}=require('../services/agencyAdGeoMatch');
+const {filterFundedCreatives,isFundedCreative}=require('../services/advertisingDeliveryEligibility');
 const Ad = require('../models/Ad');
 const User = require('../models/User');
 const Station=require('../models/Station');
@@ -40,10 +41,11 @@ exports.getPublicAds=async(req,res)=>{
     res.set('Cache-Control','no-store, private');
     const ads=(await Ad.find(activeCampaignQuery()).sort({createdAt:1}).lean())
       .filter(ad=>matchesAgencyGeo(ad,req.geo));
-    if(!isStage())return res.json(ads.map(publicAd));
+    if(!isStage())return res.json((await filterFundedCreatives(ads)).map(publicAd));
     // Never offer listeners an unplayable spot (e.g. imported missing files).
-    const media=await Promise.all(ads.map(ad=>localAudioFile(ad.audioUrl)));
-    return res.json(ads.filter((ad,index)=>Boolean(media[index]))
+    const approvedAds=await filterFundedCreatives(ads);
+    const media=await Promise.all(approvedAds.map(ad=>localAudioFile(ad.audioUrl)));
+    return res.json(approvedAds.filter((ad,index)=>Boolean(media[index]))
       .map(ad=>({...publicAd(ad),audioUrl:'/api/ads/'+ad._id+'/media'})));
   }catch(error){
     console.error('[ADS] Public delivery failed',error.message);
@@ -57,8 +59,9 @@ exports.streamPublicAudio=async(req,res)=>{
   if(!isStage()||!mongoose.isValidObjectId(req.params.id))
     return res.status(404).json({error:'Not found'});
   try {
-    const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations');
-    if(!live(ad)||!matchesAgencyGeo(ad,req.geo))return res.status(404).json({error:'Not found'});
+    const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations campaignId');
+    if(!live(ad)||!matchesAgencyGeo(ad,req.geo)||!(await isFundedCreative(ad)))
+      return res.status(404).json({error:'Not found'});
     await sendAdAudio(res,ad.audioUrl);
   }catch(error){
     console.error('[ADS] Playback media failed',error.message);
