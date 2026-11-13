@@ -69,7 +69,7 @@ async function transactionalDebit(event){
     remainingNanos:{$subtract:['$remainingNanos',event.costNanos]},
     remainingMicros:{$floor:{$divide:[
      {$subtract:['$remainingNanos',event.costNanos]},1000]}}
-   }}],{session});
+   }}],{session,updatePipeline:true});
    if(debit.modifiedCount!==1)throw Error('Atomic wallet debit did not commit');
    const commit=await Event.updateOne({
     _id:event._id,campaignId:event.campaignId,
