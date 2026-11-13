@@ -17,6 +17,7 @@ function hourlyQuota(remainingNanos,costNanos,endsAt,now=Date.now()){
 }
 const hourBucket=now=>new Date(now).toISOString().slice(0,13);
 const tenMinuteBucket=now=>Math.floor(now/600000);
+const fiveMinuteBucket=now=>Math.floor(now/300000);
 function fairOrder(candidates,visitor,now=Date.now()){
  if(!Array.isArray(candidates)||typeof visitor!=='string')throw Error('Invalid pacing selection');
  const list=candidates.map(item=>{
@@ -32,4 +33,4 @@ function fairOrder(candidates,visitor,now=Date.now()){
  return list.sort((a,b)=>a.score-b.score||
   String(a.campaignId).localeCompare(String(b.campaignId)));
 }
-module.exports={hourlyQuota,hourBucket,tenMinuteBucket,fairOrder};
+module.exports={hourlyQuota,hourBucket,tenMinuteBucket,fiveMinuteBucket,fairOrder};
