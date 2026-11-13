@@ -43,7 +43,7 @@ async function checkCampaignOwner(campaignId,agencyId) {
  if(campaignId===undefined||campaignId===null||campaignId==='')
   throw Error('Απαιτείται ενιαία καμπάνια v2 για τη δημιουργία Agency διαφήμισης.');
  if(!mongoose.isValidObjectId(campaignId)||!
-   await AdvertisingCampaign.exists({_id:campaignId,agencyId,isStageCampaign:true,deletedAt:null}))
+   await AdvertisingCampaign.exists({_id:campaignId,agencyId,isStageCampaign:true,deletedAt:null,workflowVersion:{$ne:2}}))
    throw Error('Η ενιαία καμπάνια δεν ανήκει στο Agency.');
 }
 const safeLink=value=>{
