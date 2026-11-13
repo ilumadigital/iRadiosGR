@@ -31,8 +31,8 @@ test('delivery excludes missing media, expired status, geo mismatch and disabled
   assert.equal(canServeAudioAd(ad('entry',{targetLocations:['Αττική']}),station,loutraki),false);
   assert.equal(canServeAudioAd(ad('entry',{targetLocations:['Αττική']}),station,athens),true);
   assert.equal(canServeAudioAd(ad('entry',{targetLocations:['Κορινθία']}),station,loutraki),true);
-  assert.equal(canServeAudioAd(ad('entry'),{...station,disableNetworkAds:true},null,geo),false);
-  assert.equal(canServeAudioAd(ad('entry',{isGlobal:false,stationId:'a'}),station,null,geo),true);
+  assert.equal(canServeAudioAd(ad('entry'),{...station,disableNetworkAds:true},null),false);
+  assert.equal(canServeAudioAd(ad('entry',{isGlobal:false,stationId:'a'}),station,null),true);
 });
 test('a burst of matching campaigns results in at most two spots, preserving order',()=>{
   const list=[ad('entry',{_id:'1'}),ad('entry',{_id:'2'}),ad('entry',{_id:'3'}),ad('every_5_stations',{_id:'4'})];

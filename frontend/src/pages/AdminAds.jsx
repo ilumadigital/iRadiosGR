@@ -7,88 +7,8 @@ import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 import CampaignRevisionReview from '../components/CampaignRevisionReview';
 import { Megaphone, PlusCircle, Trash2, Edit, X, Clock, Search, SlidersHorizontal, Check, Loader2, Image as ImageIcon, Link as LinkIcon, Music } from 'lucide-react';
 
-// 🗺️ ΔΥΝΑΜΙΚΟΣ ΧΑΡΤΗΣ ΤΟΠΟΘΕΣΙΩΝ
-const LOCATION_DATA = { 
-  "Ελλάδα": {
-    "Αττική": [
-      "Αθήνα", "Πειραιάς", "Νέα Σμύρνη", "Καλλιθέα", "Παλαιό Φάληρο", "Άλιμος", "Ελληνικό", 
-      "Αργυρούπολη", "Γλυφάδα", "Βούλα", "Βουλιαγμένη", "Ηλιούπολη", "Άγιος Δημήτριος", 
-      "Ζωγράφου", "Καισαριανή", "Βύρωνας", "Γαλάτσι", "Νέα Ιωνία", "Νέο Ηράκλειο", 
-      "Νέα Φιλαδέλφεια", "Χαλάνδρι", "Μαρούσι", "Κηφισιά", "Πεύκη", "Μελίσσια", "Βριλήσσια", 
-      "Αγία Παρασκευή", "Περιστέρι", "Αιγάλεω", "Χαϊδάρι", "Ίλιον", "Πετρούπολη", "Αγία Βαρβάρα", 
-      "Νίκαια", "Κορυδαλλός", "Κερατσίνι", "Δραπετσώνα", "Πέραμα", "Σαλαμίνα", "Ελευσίνα", 
-      "Αχαρνές", "Παλλήνη", "Γέρακας", "Κορωπί", "Μαρκόπουλο", "Ραφήνα", "Λαύριο", "Άλλη"
-    ],
-    "Θεσσαλονίκη": [
-      "Θεσσαλονίκη", "Καλαμαριά", "Εύοσμος", "Κορδελιό", "Αμπελόκηποι", "Μενεμένη", "Σταυρούπολη", 
-      "Πολίχνη", "Νεάπολη", "Συκιές", "Πυλαία", "Χορτιάτης", "Πανόραμα", "Θέρμη", "Ωραιόκαστρο", 
-      "Μηχανιώνα", "Περαία", "Σίνδος", "Χαλάστρα", "Άλλη"
-    ],
-    "Αιτωλοακαρνανία": ["Μεσολόγγι", "Αγρίνιο", "Ναύπακτος", "Άλλη"],
-    "Αργολίδα": ["Ναύπλιο", "Άργος", "Άλλη"],
-    "Αρκαδία": ["Τρίπολη", "Μεγαλόπολη", "Άλλη"],
-    "Άρτα": ["Άρτα", "Άλλη"],
-    "Αχαΐα": ["Πάτρα", "Αίγιο", "Καλάβρυτα", "Άλλη"],
-    "Βοιωτία": ["Λιβαδειά", "Θήβα", "Αράχωβα", "Άλλη"],
-    "Γρεβενά": ["Γρεβενά", "Άλλη"],
-    "Δράμα": ["Δράμα", "Άλλη"],
-    "Δωδεκάνησα": ["Ρόδος", "Κως", "Κάλυμνος", "Κάρπαθος", "Άλλη"],
-    "Έβρος": ["Αλεξανδρούπολη", "Ορεστιάδα", "Διδυμότειχο", "Άλλη"],
-    "Εύβοια": ["Χαλκίδα", "Κάρυστος", "Άλλη"],
-    "Ευρυτανία": ["Καρπενήσι", "Άλλη"],
-    "Ζάκυνθος": ["Ζάκυνθος", "Άλλη"],
-    "Ηλεία": ["Πύργος", "Αμαλιάδα", "Άλλη"],
-    "Ημαθία": ["Βέροια", "Νάουσα", "Αλεξάνδρεια", "Άλλη"],
-    "Ηράκλειο": ["Ηράκλειο", "Μοίρες", "Χερσόνησος", "Άλλη"],
-    "Θεσπρωτία": ["Ηγουμενίτσα", "Άλλη"],
-    "Ιωάννινα": ["Ιωάννινα", "Μέτσοβο", "Άλλη"],
-    "Καβάλα": ["Καβάλα", "Άλλη"],
-    "Καρδίτσα": ["Καρδίτσα", "Άλλη"],
-    "Καστοριά": ["Καστοριά", "Άλλη"],
-    "Κέρκυρα": ["Κέρκυρα", "Άλλη"],
-    "Κεφαλληνία": ["Αργοστόλι", "Ληξούρι", "Άλλη"],
-    "Κιλκίς": ["Κιλκίς", "Άλλη"],
-    "Κοζάνη": ["Κοζάνη", "Πτολεμαΐδα", "Άλλη"],
-    "Κορινθία": ["Κόρινθος", "Λουτράκι", "Κιάτο", "Άλλη"],
-    "Κυκλάδες": ["Σύρος", "Νάξος", "Μύκονος", "Σαντορίνη", "Πάρος", "Τήνος", "Μήλος", "Άλλη"],
-    "Λακωνία": ["Σπάρτη", "Γύθειο", "Άλλη"],
-    "Λάρισα": ["Λάρισα", "Ελασσόνα", "Φάρσαλα", "Άλλη"],
-    "Λασίθι": ["Άγιος Νικόλαος", "Ιεράπετρα", "Σητεία", "Άλλη"],
-    "Λέσβος": ["Μυτιλήνη", "Άλλη"],
-    "Λευκάδα": ["Λευκάδα", "Άλλη"],
-    "Μαγνησία": ["Βόλος", "Αλμυρός", "Άλλη"],
-    "Μεσσηνία": ["Καλαμάτα", "Μεσσήνη", "Άλλη"],
-    "Ξάνθη": ["Ξάνθη", "Άλλη"],
-    "Πέλλα": ["Έδεσσα", "Γιαννιτσά", "Άλλη"],
-    "Πιερία": ["Κατερίνη", "Άλλη"],
-    "Πρέβεζα": ["Πρέβεζα", "Πάργα", "Άλλη"],
-    "Ρέθυμνο": ["Ρέθυμνο", "Άλλη"],
-    "Ροδόπη": ["Κομοτηνή", "Άλλη"],
-    "Σάμος": ["Σάμος", "Άλλη"],
-    "Σέρρες": ["Σέρρες", "Άλλη"],
-    "Τρίκαλα": ["Τρίκαλα", "Καλαμπάκα", "Άλλη"],
-    "Φθιώτιδα": ["Λαμία", "Άλλη"],
-    "Φλώρινα": ["Φλώρινα", "Αμύνταιο", "Άλλη"],
-    "Φωκίδα": ["Άμφισσα", "Δελφοί", "Άλλη"],
-    "Χαλκιδική": ["Πολύγυρος", "Νέα Μουδανιά", "Χαλκιδική", "Άλλη"],
-    "Χανιά": ["Χανιά", "Κίσσαμος", "Άλλη"],
-    "Χίος": ["Χίος", "Άλλη"]
-  },
-  "Κύπρος": {
-    "Λευκωσία": ["Λευκωσία", "Στρόβολος", "Λακατάμεια", "Άλλη"],
-    "Λεμεσός": ["Λεμεσός", "Άλλη"],
-    "Λάρνακα": ["Λάρνακα", "Άλλη"],
-    "Πάφος": ["Πάφος", "Άλλη"],
-    "Αμμόχωστος": ["Παραλίμνι", "Αγία Νάπα", "Άλλη"],
-    "Κερύνεια": ["Κερύνεια", "Άλλη"]
-  },
-  "Εξωτερικό": {
-    "Ευρώπη": ["Λονδίνο", "Παρίσι", "Βερολίνο", "Άλλη"],
-    "Αμερική": ["Νέα Υόρκη", "Σικάγο", "Άλλη"],
-    "Αυστραλία": ["Σίδνεϊ", "Μελβούρνη", "Άλλη"],
-    "Άλλο": ["Άλλη"]
-  }
-};
+// Use the same canonical Περιφέρεια → Νομός geography as the agency Campaign Editor.
+import {LOCATION_DATA} from '../utils/stationLocations';
 
 const INITIAL_AD_STATE = { 
   title: '', client: '', audioUrl: '', frequency: 'entry', logoUrl: '', linkUrl: '', dspPreset: 'OFF', status: 'active',
@@ -435,7 +355,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest pl-1">Νομός / Περιφέρεια</label>
+            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest pl-1">Περιφέρεια</label>
             <select 
               value={formData.targetRegion || 'All'} 
               onChange={e => {
@@ -445,23 +365,23 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
               disabled={!formData.targetCountry || formData.targetCountry === 'All'}
               className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-white focus:border-purple-500 outline-none appearance-none cursor-pointer disabled:opacity-50 text-xs font-bold transition-colors"
             >
-              <option value="All">Όλοι οι Νομοί</option>
+              <option value="All">Όλες οι Περιφέρειες</option>
               {formData.targetCountry && formData.targetCountry !== 'All' && 
                 Object.keys(LOCATION_DATA[formData.targetCountry]).map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest pl-1">Πόλη</label>
+            <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest pl-1">Νομός / Περιφερειακή Ενότητα</label>
             <select 
               value={(formData.targetLocations && formData.targetLocations[0]) || 'All'} 
               onChange={e => setFormData({...formData, targetLocations: [e.target.value]})} 
               disabled={!formData.targetRegion || formData.targetRegion === 'All'}
               className="w-full bg-black border border-white/5 h-12 rounded-xl px-4 text-white focus:border-purple-500 outline-none appearance-none cursor-pointer disabled:opacity-50 text-xs font-bold transition-colors"
             >
-              <option value={formData.targetRegion && formData.targetRegion !== 'All' ? formData.targetRegion : 'All'}>Όλες οι Πόλεις</option>
+              <option value={formData.targetRegion && formData.targetRegion !== 'All' ? formData.targetRegion : 'All'}>Όλοι οι Νομοί</option>
               {formData.targetCountry && formData.targetCountry !== 'All' && formData.targetRegion && formData.targetRegion !== 'All' && 
-                LOCATION_DATA[formData.targetCountry]?.[formData.targetRegion]?.map(c => <option key={c} value={c}>{c}</option>)}
+                Object.keys(LOCATION_DATA[formData.targetCountry]?.[formData.targetRegion]||{}).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
         </div>
