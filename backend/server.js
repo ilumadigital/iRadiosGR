@@ -177,6 +177,8 @@ app.use('/api', require('./routes/promotedStationRoutes'));
 app.use('/api', require('./routes/catalogNowPlayingRoutes'));
 app.use('/api', require('./routes/stationPlaylistRoutes'));
 app.use('/api', require('./routes/advertisingCampaignRoutes'));
+// Wizard routes are prefix-scoped: never guard all /api listener traffic.
+app.use('/api', require('./routes/advertisingWizardRoutes'));
 // Admin-only opted-in advertising shadow QA; paid delivery remains hard-disabled.
 app.use('/api', require('./routes/advertisingQualificationRoutes'));
 app.use('/api/agency', agencyRoutes);

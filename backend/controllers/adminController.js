@@ -249,6 +249,15 @@ exports.approveBannerAd = async (req, res) => {
     if (process.env.APP_ENV === 'staging' && banner.isStageCreative !== true)
       return res.status(409).json({error:'Η παλιά παραγωγική καμπάνια δεν ενεργοποιείται στο staging. Δημιούργησε δοκιμαστικό αντίγραφο.'});
 
+    if(banner.campaignId){
+      const Campaign=require('../models/AdvertisingCampaign');
+      const Lot=require('../models/AdvertisingFundingLot');
+      const campaign=await Campaign.findById(banner.campaignId).select('workflowVersion approvalStatus createdByRole');
+      if(campaign?.workflowVersion===2&&campaign.createdByRole==='agency'&&
+        (campaign.approvalStatus!=='pending'||!
+          await Lot.exists({campaignId:campaign._id,source:'nexi_verified'})))
+        return res.status(409).json({error:'Η έγκριση Visual απαιτεί πληρωμή και τελική υποβολή.'});
+    }
     const expiresAt = calculateExpiryDate(banner.duration || 'month');
 
     banner.status = 'active';
@@ -270,6 +279,15 @@ exports.approveAudioAd = async (req, res) => {
     if (process.env.APP_ENV === 'staging' && ad.isStageCreative !== true)
       return res.status(409).json({error:'Το παλιό spot παραγωγής δεν ενεργοποιείται στο staging. Δημιούργησε δοκιμαστικό αντίγραφο.'});
 
+    if(ad.campaignId){
+      const Campaign=require('../models/AdvertisingCampaign');
+      const Lot=require('../models/AdvertisingFundingLot');
+      const campaign=await Campaign.findById(ad.campaignId).select('workflowVersion approvalStatus createdByRole');
+      if(campaign?.workflowVersion===2&&campaign.createdByRole==='agency'&&
+        (campaign.approvalStatus!=='pending'||!
+          await Lot.exists({campaignId:campaign._id,source:'nexi_verified'})))
+        return res.status(409).json({error:'Η έγκριση Audio απαιτεί πληρωμή και τελική υποβολή.'});
+    }
     const expiresAt = calculateExpiryDate(ad.duration || 'month');
 
     ad.status = 'active';

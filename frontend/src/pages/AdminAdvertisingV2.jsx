@@ -1,5 +1,7 @@
 import React,{useCallback,useEffect,useState} from 'react';
 import {adminFetch as fetch} from '../utils/adminFetch';
+import AdvertisingCampaignWizard from './AdvertisingCampaignWizard';
+import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 
 const panel='rounded-2xl border border-white/10 bg-[#14131f] p-5';
 const input='mt-1 w-full rounded-xl border border-white/10 bg-[#08090d] p-3 text-white focus:border-purple-400 outline-none';
@@ -12,13 +14,14 @@ function TextField({label,value,onChange,type='number',step='1'}){
    type==='number'?Number(e.target.value):e.target.value)} type={type} step={step}/>
  </label>;
 }
-export default function AdminAdvertisingV2({mode='pricing'}){
+export default function AdminAdvertisingV2({mode='pricing',currentUser}){
  const [pricing,setPricing]=useState(null),[campaigns,setCampaigns]=useState([]);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
  const [notice,setNotice]=useState('');
  const [auditByCampaign,setAuditByCampaign]=useState({});
  const [auditBusyId,setAuditBusyId]=useState(null);
  const [mailRows,setMailRows]=useState(null),[mailLoading,setMailLoading]=useState(false);
+ const [reviewId,setReviewId]=useState(null),[reviewCreatives,setReviewCreatives]=useState(null);
  const reload=useCallback(async()=>{
   setLoading(true);setNotice('');
   try{
@@ -26,7 +29,8 @@ export default function AdminAdvertisingV2({mode='pricing'}){
    const r=await fetch(endpoint);
    const data=await r.json();
    if(!r.ok)throw Error(data.error||'Αποτυχία φόρτωσης.');
-   if(mode==='pricing')setPricing(data);else setCampaigns(data);
+   if(mode==='pricing')setPricing(data);else setCampaigns(data.filter(c=>
+    c.workflowVersion!==2||c.createdByRole==='admin'||c.approvalStatus!=='draft'));
   }catch(e){setNotice(e.message);}finally{setLoading(false);}
  },[mode]);
  useEffect(()=>{reload();},[reload]);
@@ -80,6 +84,24 @@ export default function AdminAdvertisingV2({mode='pricing'}){
    const answer=await r.json();
    if(!r.ok)throw Error(answer.error||'Δεν άλλαξε η αναστολή.');
    setCampaigns(list=>list.map(row=>row._id===c._id?{...row,...answer}:row));
+  }catch(e){setNotice(e.message);}finally{setBusy(false);}
+ };
+ const loadReview=async id=>{
+  setNotice('');setReviewId(id);setReviewCreatives(null);
+  try{
+   const r=await fetch('/api/admin/advertising/wizard/campaigns/'+id+'/creatives-review');
+   const data=await r.json();if(!r.ok)throw Error(data.error||'Δεν φορτώθηκαν τα δημιουργικά.');
+   setReviewCreatives(data);
+  }catch(e){setNotice(e.message);}
+ };
+ const reviewCreative=async(kind,id,approval)=>{
+  setBusy(true);setNotice('');
+  try{
+   const r=await fetch('/api/admin/advertising/wizard/campaigns/'+reviewId+'/creatives-review/'+kind+'/'+id,{
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({approval})});
+   const result=await r.json();if(!r.ok)throw Error(result.error||'Η αξιολόγηση απέτυχε.');
+   await loadReview(reviewId);await reload();
+   setNotice('Η απόφαση για το δημιουργικό αποθηκεύτηκε.');
   }catch(e){setNotice(e.message);}finally{setBusy(false);}
  };
  const loadAgencyMail=async()=>{
@@ -142,7 +164,9 @@ export default function AdminAdvertisingV2({mode='pricing'}){
    </section>
   </>}
   {mode==='campaigns'&&<>
-   <h2 className="text-xl font-black text-white">Ενιαίες καμπάνιες Agency</h2>
+   <AdvertisingCampaignWizard role="admin" currentUser={currentUser}/>
+   <div className="mt-10 border-t border-white/10 pt-8"><h2 className="text-2xl font-black text-white">Έλεγχος πληρωμένων Agency καμπανιών</h2>
+   <p className="mt-2 text-sm text-zinc-400">Οι νέες καμπάνιες εμφανίζονται εδώ μόνο μετά από επιβεβαιωμένη πληρωμή και τελική υποβολή Agency.</p></div>
    <section className={panel+' space-y-3'}>
     <div className="flex flex-wrap items-center justify-between gap-3">
      <div>
@@ -188,6 +212,7 @@ export default function AdminAdvertisingV2({mode='pricing'}){
     </div>
     <div className="flex flex-wrap gap-2">
      {c.approvalStatus==='pending'&&<>
+      <button type="button" disabled={busy} className="rounded-xl border border-purple-400/40 bg-purple-500/10 px-4 py-2.5 text-sm font-bold text-purple-200" onClick={()=>loadReview(c._id)}>Έλεγχος δημιουργικών</button>
       <button disabled={busy} className={primary} onClick={()=>decide(c._id,'approved')}>Έγκριση</button>
       <button disabled={busy} className="rounded-xl border border-rose-400/40 px-4 py-2 text-sm text-rose-200" onClick={()=>decide(c._id,'rejected')}>Απόρριψη</button>
      </>}
@@ -198,6 +223,22 @@ export default function AdminAdvertisingV2({mode='pricing'}){
       onClick={()=>auditCampaign(c._id)}>
       {auditBusyId===c._id?'Έλεγχος…':'Οικονομικό audit'}</button>
     </div>
+    {reviewId===c._id&&<section className="space-y-3 rounded-2xl border border-purple-400/25 bg-purple-500/[.04] p-4">
+     <h4 className="font-black text-white">Δημιουργικά προς έγκριση</h4>
+     {reviewCreatives===null?<p className="text-xs text-zinc-400">Φόρτωση δημιουργικών…</p>:<div className="grid gap-3 md:grid-cols-2">{[
+      ...(reviewCreatives.banners||[]).map(a=>({...a,kind:'banner'})),
+      ...(reviewCreatives.audios||[]).map(a=>({...a,kind:'audio'}))
+     ].map(ad=><div key={ad._id} className="rounded-xl border border-white/10 bg-black/20 p-4">
+      <div className="flex items-center justify-between gap-3"><p className="font-black text-white">{ad.title}</p><span className="text-xs text-purple-200">{ad.status}</span></div>
+      <p className="mt-2 text-xs text-zinc-400">{ad.kind==='banner'?ad.placement?.join(', '):ad.frequency}</p>
+      {ad.kind==='banner'&&ad.imageUrl&&<img src={ad.imageUrl} alt={ad.title} className="mt-3 h-32 w-full rounded-xl object-contain"/>}
+      {ad.kind==='audio'&&<div className="mt-3"><ProtectedAudioPreview scope="admin" adId={ad._id} sourceUrl={ad.audioUrl}/></div>}
+      {ad.status==='pending'&&<div className="mt-4 flex flex-wrap gap-2">
+       <button type="button" className={primary} disabled={busy} onClick={()=>reviewCreative(ad.kind,ad._id,'approved')}>Έγκριση</button>
+       <button type="button" className="rounded-xl border border-rose-400/40 px-4 py-2 text-sm font-bold text-rose-200" disabled={busy} onClick={()=>reviewCreative(ad.kind,ad._id,'rejected')}>Απόρριψη</button>
+      </div>}
+     </div>)}</div>}
+    </section>}
     {auditByCampaign[c._id]&&<div role="status" className="rounded-xl border border-white/10 bg-black/25 p-4 text-sm text-zinc-200">
      <p className="font-bold text-purple-100">
       {auditByCampaign[c._id].safe?'Οι χρεώσεις συμφωνούν':'Απαιτείται οικονομικός έλεγχος'}

@@ -281,10 +281,10 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
               <Building2 size={12} className="text-purple-400" /> Agency Ad Network
             </div>
             <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter">
-              Agency <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-[#ccff00]">Dashboard</span>
+              Agency <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-fuchsia-400">Creative Library</span>
             </h1>
             <p className="text-zinc-500 font-medium mt-2 max-w-lg">
-              Καλωσορίσατε. Διαχειριστείτε τις καμπάνιες σας, παρακολουθήστε τα στατιστικά σε πραγματικό χρόνο και δημιουργήστε νέες διαφημίσεις.
+              Βιβλιοθήκη Visual & Audio, προεπισκόπηση, καταστάσεις και ιστορικά στατιστικά. Οι νέες καμπάνιες και τα νέα δημιουργικά φτιάχνονται αποκλειστικά μέσω του Campaign Wizard.
             </p>
           </div>
           
@@ -305,9 +305,9 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
             </button>
             <button 
               onClick={() => navigate('/backoffice/agency/campaigns')}
-              className="bg-[#ccff00] text-black px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:scale-105 active:scale-95 transition-all shadow-[0_10px_30px_rgba(204,255,0,0.2)] flex items-center gap-3 shrink-0"
+              className="bg-purple-500 text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-purple-400 active:scale-95 transition-all shadow-[0_10px_30px_rgba(168,85,247,0.2)] flex items-center gap-3 shrink-0"
             >
-              <Plus size={18} /> Ενιαία Καμπάνια v2
+              <Plus size={18} /> Campaign Wizard
             </button>
           </div>
         </div>

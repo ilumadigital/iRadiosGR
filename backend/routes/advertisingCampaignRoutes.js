@@ -40,8 +40,12 @@ const errorResponse=(res,error,code=400)=>res.status(code).json({error:String(er
 // Pricing changes are versioned and never mutate a funded lot's CPM snapshot.
 router.get('/advertising/pricing',async(req,res)=>{
  if(!isAgency(req)&&!isAdmin(req))return res.status(403).json({error:'Forbidden'});
- try{return res.json(await pricing());}
- catch{return res.status(500).json({error:'Pricing unavailable'});}
+ try{
+  const row=await pricing();
+  return res.json({...row?.toObject?.()||row,
+   sandboxCheckoutReady:row.enabled===true&&row.taxMode==='budget_net_plus_vat'&&
+     process.env.AD_PAYMENTS_SANDBOX_ENABLED==='1'&&gateway.configured()});
+ }catch{return res.status(500).json({error:'Pricing unavailable'});}
 });
 router.put('/admin/advertising/pricing',async(req,res)=>{
  if(!isAdmin(req))return res.status(403).json({error:'Admin required'});
@@ -64,8 +68,11 @@ router.put('/admin/advertising/pricing',async(req,res)=>{
     minTopupCents:previous.minTopupCents,durationDays:previous.durationDays,
     taxMode:previous.taxMode,taxBps:previous.taxBps,enabled:previous.enabled}
   };
+  // Never $set version and $inc version in the same MongoDB update.
+  // This was the source of 'Updating the path version would create a conflict'.
+  const {version:obsoleteVersion,...updatedFields}=next;
   const updated=await Pricing.findOneAndUpdate({_id:pricingId,version:previous.version},
-   {$set:{...next,changedBy:req.user._id},$inc:{version:1},$push:{history}},
+   {$set:{...updatedFields,changedBy:req.user._id},$inc:{version:1},$push:{history}},
    {new:true,runValidators:true});
   if(!updated)return res.status(409).json({error:'Concurrent pricing update'});
   return res.json(updated);
@@ -144,6 +151,16 @@ router.post('/advertising/campaigns/:id/quotes',async(req,res)=>{
   if((kind==='topup'&&!funded)||(kind==='initial'&&funded))
    throw Error('Invalid initial purchase/top-up sequence');
   const current=await pricing();
+  if(campaign.workflowVersion===2&&kind==='initial'){
+   if(campaign.approvalStatus!=='draft'||
+      campaign.plannedBudgetCents!==req.body?.budgetCents)
+    return res.status(409).json({error:'Το budget στο quote πρέπει να συμφωνεί με το Overview.'});
+   const exists=await Promise.all([
+    BannerAd.exists({campaignId:campaign._id,isStageCreative:true,status:'draft'}),
+    Ad.exists({campaignId:campaign._id,isStageCreative:true,status:'draft'})
+   ]);
+   if(!exists.some(Boolean))return res.status(409).json({error:'Απαιτείται δημιουργικό πριν από την πληρωμή.'});
+  }
   const amounts=quotedAmounts(req.body?.budgetCents,current,kind);
   const quote=await Quote.create({
    agencyId:req.user._id,campaignId:campaign._id,...amounts,
@@ -171,6 +188,9 @@ router.post('/advertising/quotes/:id/checkout',async(req,res)=>{
   const campaign=await Campaign.findOne({_id:quote.campaignId,agencyId:req.user._id,
    isStageCampaign:true,deletedAt:null});
   if(!campaign)return res.status(404).json({error:'Campaign unavailable'});
+  if(campaign.workflowVersion===2&&quote.kind==='initial'&&
+     (campaign.approvalStatus!=='draft'||campaign.plannedBudgetCents!==quote.budgetCents))
+   return res.status(409).json({error:'Το quote δεν αντιστοιχεί πλέον στο draft.'});
   // No parallel unresolved HPP intents: an unknown provider outcome is never
   // cleared simply because the browser retries or starts a new quote.
   const unresolved=await Intent.findOne({campaignId:campaign._id,
@@ -229,7 +249,7 @@ router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
    const funded=await FundingLot.exists({campaignId:campaign._id,remainingMicros:{$gt:0}});
    // Optional staging QA: test Admin decisions/emails without Nexi funding.
    // No lot is fabricated and paid delivery remains completely disabled.
-   if(!funded&&!allowUnfundedReview())
+   if(!funded&&(campaign.workflowVersion===2||!allowUnfundedReview()))
     return res.status(409).json({error:'Verified funding required before approval'});
    const approvedCreative=await Promise.all([
     BannerAd.exists({campaignId:campaign._id,agencyId:campaign.agencyId,status:'active',
