@@ -19,7 +19,9 @@ async function checkAndQueueBudgetExhaustion(campaignId,now=new Date()){
  }).lean();
  if(!campaign)return {status:'not_active'};
  const [lots,banners,audios,charged]=await Promise.all([
-  FundingLot.find({campaignId:campaign._id,source:'nexi_verified'})
+  // Include unsupported funding sources: a mixed wallet must fail closed,
+  // never produce a false exhaustion alert by filtering those lots out.
+  FundingLot.find({campaignId:campaign._id})
    .sort({paidAt:1,_id:1}).lean(),
   Banner.find({campaignId:campaign._id,isStageCreative:true,
    status:'active',isActive:true}).select('placement status isActive').lean(),
