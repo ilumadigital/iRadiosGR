@@ -12,3 +12,10 @@ test('Peloponnese / Corinthia is valid, city is rejected',()=>{
  assert.equal(validAgencyGeo({targetCountry:'Ελλάδα',targetRegion:'Πελοπόννησος',targetLocations:['Λουτράκι']}),false);
  assert.equal(validAgencyGeo({targetCountry:'Ελλάδα',targetRegion:'Αττική',targetLocations:['Κορινθία']}),false);
 });
+
+test('Multiple prefectures in different regions use targetRegion All',()=>{
+ assert.equal(validAgencyGeo({targetCountry:'Ελλάδα',targetRegion:'All',targetLocations:['Κορινθία','Αχαΐα','Αττική']}),true);
+ assert.equal(validAgencyGeo({targetCountry:'Ελλάδα',targetRegion:'All',targetLocations:['Λουτράκι','Αθήνα']}),false);
+ assert.equal(validAgencyGeo({targetCountry:'Ελλάδα',targetRegion:'All',targetLocations:['Ελλάδα','Αττική']}),false);
+ assert.equal(validAgencyGeo({targetCountry:'Ελλάδα',targetRegion:'Πελοπόννησος',targetLocations:['Κορινθία','Αχαΐα']}),false);
+});

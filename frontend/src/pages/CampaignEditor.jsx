@@ -30,25 +30,27 @@ const defaults = {
   placement:['home'],targetLocations:['Ελλάδα'],targetCountry:'Ελλάδα',targetRegion:'All',
   duration:'month',expiresAt:'',status:'active'
 };
-const flatAreas = Object.entries(LOCATION_DATA).flatMap(([country,regions])=>
-  Object.entries(regions).flatMap(([region,prefectures])=>
-    Object.entries(prefectures).flatMap(([prefecture,cities])=>
-      [{value:country,country,region:'All',prefecture:'All'},
-       {value:region,country,region,prefecture:'All'},
-       {value:prefecture,country,region,prefecture},
-       ...cities.map(value=>({value,country,region,prefecture}))])));
+const flatAreas=Object.entries(LOCATION_DATA).flatMap(([country,regions])=>[
+  {value:country,country,region:'All',prefecture:'All'},
+  ...Object.entries(regions).flatMap(([region,prefs])=>[
+    {value:region,country,region,prefecture:'All'},
+    ...Object.keys(prefs).map(prefecture=>({value:prefecture,country,region,prefecture}))
+  ])
+]);
+const legacyCities=Object.entries(LOCATION_DATA).flatMap(([country,regions])=>
+ Object.entries(regions).flatMap(([region,prefs])=>
+ Object.entries(prefs).flatMap(([prefecture,cities])=>
+ cities.map(city=>({city,country,region,prefecture})))));
+const canonicalArea=value=>legacyCities.find(row=>row.city===value)?.prefecture||value;
 function normalize(item) {
-  const value=(item?.targetLocations||[])[0]||'All';
-  const cityArea=Object.entries(LOCATION_DATA).flatMap(([country,regions])=>Object.entries(regions)
-    .flatMap(([region,prefs])=>Object.entries(prefs).flatMap(([prefecture,cities])=>
-      cities.map(city=>({city,country,region,prefecture}))))).find(row=>row.city===value);
-  const canonicalValue=cityArea?.prefecture||value;
-  const inferred=flatAreas.find(a=>a.value===canonicalValue);
+  const raw=item?.targetLocations?.length?item.targetLocations:['Ελλάδα'];
+  const areas=[...new Set(raw.map(canonicalArea))];
+  const inferred=flatAreas.find(row=>row.value===areas[0]);
   return {...defaults,...item,
-    targetCountry:item?.targetCountry&&item.targetCountry!=='All'?item.targetCountry:(inferred?.country||'All'),
-    targetRegion:item?.targetRegion&&item.targetRegion!=='All'?item.targetRegion:(inferred?.region||'All'),
+    targetCountry:item?.targetCountry&&item.targetCountry!=='All'?item.targetCountry:(inferred?.country||'Ελλάδα'),
+    targetRegion:areas.length>1?'All':item?.targetRegion&&item.targetRegion!=='All'?item.targetRegion:(inferred?.region||'All'),
     designConfig:item?.designConfig&&typeof item.designConfig==='object'?item.designConfig:{},
-    targetLocations:[canonicalValue],
+    targetLocations:areas,
     placement:Array.isArray(item?.placement)?item.placement:(item?.placement?[item.placement]:['home']),
     brandColor:/^#[0-9a-f]{6}$/i.test(item?.brandColor||'')?item.brandColor:'#a855f7',
     expiresAt:item?.expiresAt?new Date(item.expiresAt).toISOString().slice(0,16):'',
@@ -127,6 +129,22 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   const selectCountry=value=>setForm(old=>({...old,targetCountry:value,targetRegion:'All',targetLocations:[value==='All'?'All':value]}));
   const selectRegion=value=>setForm(old=>({...old,targetRegion:value,targetLocations:[value==='All'?old.targetCountry:value]}));
   const selectPrefecture=value=>change('targetLocations',[value==='All'?form.targetRegion:value]);
+  const addArea=value=>{
+    if(!value)return;
+    setForm(old=>{
+      const items=[...(old.targetLocations||[]).filter(a=>a!=='All'&&a!==old.targetCountry),value];
+      return {...old,targetRegion:'All',targetLocations:[...new Set(items)]};
+    });
+  };
+  const removeArea=value=>setForm(old=>{
+    const areas=(old.targetLocations||[]).filter(item=>item!==value);
+    return {...old,targetRegion:'All',targetLocations:areas.length?areas:[old.targetCountry]};
+  });
+  const selectableAreas=Object.entries(regions).flatMap(([region,prefs])=>[
+    {value:region,label:'Περιφέρεια · '+region},
+    ...Object.keys(prefs).map(county=>({value:county,label:region+' · '+county}))
+  ]).filter(area=>!form.targetLocations?.includes(area.value));
+
   const previewImage=useFilePreview(files.imageFile);
   const previewSquare=useFilePreview(files.squareImageFile);
   const previewLogo=useFilePreview(files.logoFile);
@@ -256,9 +274,22 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
             <Field label="Χώρα"><select className={input} value={form.targetCountry} onChange={e=>selectCountry(e.target.value)}>{scope!=='agency'&&<option value="All">Όλες οι χώρες</option>}{Object.keys(LOCATION_DATA).filter(v=>scope!=='agency'||v==='Ελλάδα').map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
             <Field label="Περιφέρεια"><select className={input} value={form.targetRegion} disabled={form.targetCountry==='All'} onChange={e=>selectRegion(e.target.value)}><option value="All">Όλες οι περιφέρειες</option>{Object.keys(regions).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
             <Field label="Νομός / Περιφερειακή Ενότητα"><select className={input} value={prefecture} disabled={form.targetRegion==='All'} onChange={e=>selectPrefecture(e.target.value)}><option value="All">Όλοι οι νομοί</option>{Object.keys(prefectures).map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
-            <Field label="Πόλη"><select className={input} value={cities.includes(target)?target:'All'} disabled={prefecture==='All'} onChange={e=>change('targetLocations',[e.target.value==='All'?prefecture:e.target.value])}><option value="All">Όλες οι πόλεις</option>{cities.map(v=><option value={v} key={v}>{v}</option>)}</select></Field>
           </div>
-          <p className="text-xs text-purple-200">Στόχευση: {form.targetLocations?.join(', ')||'All'}</p>
+          {form.targetCountry==='Ελλάδα'&&<div className="rounded-xl border border-white/10 bg-white/[.02] p-3">
+            <p className="text-xs font-bold text-zinc-300">Προσθήκη επιπλέον Περιφέρειας ή Νομού</p>
+            <select aria-label="Προσθήκη γεωγραφικής περιοχής" className={input} value="" onChange={e=>addArea(e.target.value)}>
+              <option value="">Επίλεξε επιπλέον περιοχή…</option>
+              {selectableAreas.map(area=><option key={area.value} value={area.value}>{area.label}</option>)}
+            </select>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(form.targetLocations||[]).map(area=><button type="button" key={area}
+                onClick={()=>removeArea(area)} title={'Αφαίρεση '+area}
+                className="rounded-full border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-xs font-bold text-purple-200 hover:bg-purple-500/20">
+                {area} ×
+              </button>)}
+            </div>
+          </div>}
+          <p className="text-xs text-purple-200">Στόχευση: {form.targetLocations?.join(', ')||'All'} · μέχρι Νομό, όχι Πόλη.</p>
           {scope==='admin'&&<div className="grid gap-3 sm:grid-cols-2">
             <Field label="Κατάσταση"><select className={input} value={form.status} onChange={e=>change('status',e.target.value)}><option value="active">Ενεργή</option><option value="pending">Προς έγκριση</option><option value="expired">Ανενεργή / έληξε</option><option value="rejected">Απορρίφθηκε</option></select></Field>
             <Field label="Διάρκεια"><select className={input} value={form.duration} onChange={e=>change('duration',e.target.value)}><option value="day">24 ώρες</option><option value="month">Μήνας</option><option value="year">Έτος</option></select></Field>
