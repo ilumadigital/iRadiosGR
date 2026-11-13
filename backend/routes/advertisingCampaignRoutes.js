@@ -9,6 +9,8 @@ const Pricing=require('../models/AdvertisingPricing');
 const Quote=require('../models/AdvertisingQuote');
 const Intent=require('../models/AdvertisingPaymentIntent');
 const FundingLot=require('../models/AdvertisingFundingLot');
+const BannerAd=require('../models/BannerAd');
+const Ad=require('../models/Ad');
 const {DEFAULTS,validatePricing,quotedAmounts}=require('../services/advertisingPricingRules');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const gateway=require('../services/ilumaGatewayClient');
@@ -189,6 +191,46 @@ router.post('/advertising/quotes/:id/checkout',async(req,res)=>{
     intentId:intent._id});
   }
  }catch(error){return errorResponse(res,error,500);}
+});
+router.put('/admin/advertising/campaigns/:id/approval',async(req,res)=>{
+ if(!isAdmin(req)||!objectId(req.params.id))
+  return res.status(403).json({error:'Admin required'});
+ const approval=req.body?.approval;
+ const reason=String(req.body?.reason||'').trim().slice(0,1000);
+ if(!['approved','rejected'].includes(approval)||
+    (approval==='rejected'&&!reason))
+  return res.status(400).json({error:'Invalid review decision or missing reason'});
+ try{
+  const campaign=await Campaign.findById(req.params.id);
+  if(!campaign)return res.status(404).json({error:'Campaign not found'});
+  if(approval==='approved'){
+   const funded=await FundingLot.exists({campaignId:campaign._id,remainingMicros:{$gt:0}});
+   if(!funded)return res.status(409).json({error:'Verified funding required before approval'});
+   const approvedCreative=await Promise.all([
+    BannerAd.exists({campaignId:campaign._id,agencyId:campaign.agencyId,status:'active',
+     isStageCreative:true,isActive:true}),
+    Ad.exists({campaignId:campaign._id,agencyId:campaign.agencyId,status:'active',
+     isStageCreative:true})
+   ]);
+   if(!approvedCreative.some(Boolean))
+    return res.status(409).json({error:'Approve at least one funded campaign creative first'});
+  }
+  campaign.approvalStatus=approval;
+  campaign.approvedBy=approval==='approved'?req.user._id:null;
+  campaign.approvedAt=approval==='approved'?new Date():null;
+  campaign.rejectedReason=approval==='rejected'?reason:'';
+  await campaign.save();
+  res.json(campaign);
+ }catch(error){return errorResponse(res,error,500);}
+});
+router.put('/admin/advertising/campaigns/:id/suspend',async(req,res)=>{
+ if(!isAdmin(req)||!objectId(req.params.id)||
+    typeof req.body?.suspended!=='boolean')
+  return res.status(400).json({error:'Invalid suspension'});
+ const changed=await Campaign.findByIdAndUpdate(req.params.id,
+  {$set:{adminSuspended:req.body.suspended}},{new:true});
+ if(!changed)return res.status(404).json({error:'Campaign not found'});
+ res.json(changed);
 });
 router.get('/advertising/campaigns/:id/finance',async(req,res)=>{
  if(!isAgency(req)&&!isAdmin(req))return res.status(403).json({error:'Forbidden'});
