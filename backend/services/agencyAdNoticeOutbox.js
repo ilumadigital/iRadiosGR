@@ -205,7 +205,7 @@ function start(){
 async function recentAdminNotices(limit=80){
  if(!stage())return [];
  return Notice.find({}).sort({createdAt:-1}).limit(Math.min(100,limit))
-  .select('-html').lean();
+  .select('-html -leaseToken').lean();
 }
 module.exports={queueDraft,queueRevision,reconcileSources,run,start,kick,
  recentAdminNotices,ensureIndexes};
