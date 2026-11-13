@@ -246,7 +246,7 @@ const DiscoverySlide = ({ station, isActive, onPlayLive, toggleFavorite, isFavor
           <img 
             src={displayImage} 
             alt={station.name} 
-            className="w-48 h-48 md:w-56 md:h-56 object-cover bg-white group-hover/logo:scale-105 transition-transform duration-500"
+            className={`w-48 h-48 md:w-56 md:h-56 bg-white group-hover/logo:scale-105 transition-transform duration-500 ${coverArt?'object-cover':'object-contain p-3'}`}
           />
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity">
              <Play size={48} className="text-[#ccff00]" fill="currentColor" />
