@@ -5,6 +5,8 @@ const BannerAd=require('../models/BannerAd');
 const Ad=require('../models/Ad');
 const User=require('../models/User');
 const AgencyAdRevision=require('../models/AgencyAdRevision');
+const AdvertisingCampaign=require('../models/AdvertisingCampaign');
+const mongoose=require('mongoose');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const {mailAdmins}=require('../services/agencyAdNotifications');
 const {localAudioFile}=require('../services/adAudioDelivery');
@@ -12,9 +14,9 @@ const {protect}=require('../utils/authMiddleware');
 const {isStage,fields}=require('../services/adDeliveryRules');
 const {sanitizeAdDesign}=require('../services/adDesignRules');
 const allowedPlacements=new Set(['hero','home','radio_feed','news_feed','station_profile']);
-const audioFields=['title','client','audioUrl','logoUrl','linkUrl','frequency','targetLocations','targetCountry','targetRegion','dspPreset'];
+const audioFields=['title','client','audioUrl','logoUrl','linkUrl','frequency','targetLocations','targetCountry','targetRegion','dspPreset','campaignId'];
 const bannerFields=['title','description','imageUrl','squareImageUrl','targetUrl','placement','targetLocations','targetCountry','targetRegion',
-  'logoUrl','ctaLabel','brandColor','focalX','focalY','designConfig'];
+  'logoUrl','ctaLabel','brandColor','focalX','focalY','designConfig','campaignId'];
 const frequencies=new Set(['entry','every_5_stations','every_10_stations','every_15_stations',
   'every_20_stations','every_30_stations','every_1_hour','every_2_hours',
   'every_6_hours','once_a_day','twice_a_day','four_times_a_day','once_a_week']);
@@ -28,6 +30,12 @@ const ownQuery=(req,id)=>req.user.role==='admin'?{agencyId:id}:
   String(req.user._id)===String(id)?{agencyId:req.user._id}:null;
 const stageOnly=(req,res,next)=>isStage()?next():
   res.status(503).json({error:'Agency purchases are not enabled in this environment.'});
+async function checkCampaignOwner(campaignId,agencyId) {
+ if(campaignId===undefined||campaignId===null||campaignId==='')return;
+ if(!mongoose.isValidObjectId(campaignId)||!
+   await AdvertisingCampaign.exists({_id:campaignId,agencyId,isStageCampaign:true,deletedAt:null}))
+   throw Error('Η ενιαία καμπάνια δεν ανήκει στο Agency.');
+}
 const safeLink=value=>{
   try{return ['https:','http:'].includes(new URL(value).protocol);}
   catch{return false;}
@@ -63,6 +71,7 @@ router.get('/audio-ads/:id/preview-audio',stageOnly,async(req,res)=>{
 router.post('/banners',stageOnly,async(req,res)=>{
   try{
     const patch=fields(req.body,bannerFields);
+    await checkCampaignOwner(patch.campaignId,req.user._id);
     if(patch.designConfig!==undefined)patch.designConfig=sanitizeAdDesign(patch.designConfig);
     Object.assign(patch,validateAgencyGeo(patch));
     if(!Array.isArray(patch.placement)||!patch.placement.length||
@@ -81,6 +90,7 @@ router.post('/banners',stageOnly,async(req,res)=>{
 router.post('/audio-ads',stageOnly,async(req,res)=>{
   try{
     const patch=fields(req.body,audioFields);
+    await checkCampaignOwner(patch.campaignId,req.user._id);
     Object.assign(patch,validateAgencyGeo(patch));
     if(!frequencies.has(patch.frequency||'entry'))
       return res.status(400).json({error:'Μη έγκυρη συχνότητα spot.'});
@@ -127,6 +137,8 @@ async function revise(req,res,kind) {
     const creative=await Model.findOne({_id:req.params.id,agencyId:req.user._id,
       isStageCreative:true});
     if(!creative)return res.status(404).json({error:'Δεν βρέθηκε η καμπάνια.'});
+    if(patch.campaignId!==undefined && String(patch.campaignId||'')!==String(creative.campaignId||''))
+      return res.status(409).json({error:'Δεν επιτρέπεται μεταφορά δημιουργικού σε άλλη καμπάνια.'});
     if(!['active','pending','rejected','expired'].includes(creative.status))
       return res.status(409).json({error:'Μη επεξεργάσιμη καμπάνια.'});
     if(['targetCountry','targetRegion','targetLocations'].some(k=>Object.hasOwn(patch,k)))
