@@ -11,7 +11,6 @@ import confetti from 'canvas-confetti';
 import PlayingNow from './PlayingNow';
 import HomeHeroSlider from '../components/HomeHeroSlider';
 import DynamicAdCreative from '../components/DynamicAdCreative';
-import '../styles/listener-v6-ads.css';
 import {geoAllowsAd} from '../utils/adPlacements';
 import HomeExplore from '../components/HomeExplore';
 import StationPlaylistPanel from '../components/StationPlaylistPanel';
