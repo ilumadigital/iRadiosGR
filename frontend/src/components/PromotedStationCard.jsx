@@ -81,7 +81,7 @@ export default function PromotedStationCard({
         </div>
         <Link to={href} aria-label={'Προφίλ '+station.name}
           className="flex size-[76px] shrink-0 items-center justify-center rounded-[20px] border border-white/30 bg-white p-2 shadow-[0_12px_40px_rgba(0,0,0,.35)] sm:size-[92px]">
-          <img src={station.logo||'/iradios-logo.png'} alt={'Λογότυπο '+station.name}
+          <img src={station.logo||'/icon-tr.svg'} alt={'Λογότυπο '+station.name}
             className="h-full w-full object-contain"/>
         </Link>
       </div>

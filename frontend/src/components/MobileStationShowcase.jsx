@@ -77,7 +77,7 @@ export default function MobileStationShowcase({
       <div className="ir-mobile-station-identity">
         <div className="ir-mobile-station-logo-frame">
           <img src={station.logo} alt={'Λογότυπο ' + station.name}
-            onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/iradios-app-logo.png'; }} />
+            onError={event => { event.currentTarget.onerror = null; event.currentTarget.src = '/icon-tr.svg'; }} />
         </div>
         <span className={'ir-mobile-station-status' + (offline ? ' is-offline' : '')}>
           <span aria-hidden="true" />{offline ? 'OFFLINE' : 'LIVE'}

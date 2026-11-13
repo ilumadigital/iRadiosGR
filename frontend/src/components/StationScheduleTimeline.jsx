@@ -6,9 +6,9 @@ import { CalendarDays, Clock3, Heart, Loader2, Music2, Radio } from 'lucide-reac
 const DAYS=['Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
 function Cover({imageUrl,fallback,title}){
   return <div className="ir-program-art">
-    <img src={imageUrl||fallback||'/iradios-app-logo.png'} alt={title||'Εικόνα εκπομπής'}
+    <img src={imageUrl||fallback||'/icon-tr.svg'} alt={title||'Εικόνα εκπομπής'}
       loading="lazy" onError={e=>{
-        const safe=fallback||'/iradios-app-logo.png';
+        const safe=fallback||'/icon-tr.svg';
         if(e.currentTarget.src!==new URL(safe,window.location.href).href)e.currentTarget.src=safe;
         else e.currentTarget.style.opacity='0.2';
       }}/>

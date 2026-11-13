@@ -36,7 +36,7 @@ function NewsRadioCard({station, index, currentStation, isPlaying, onPlayStation
       <button type="button" onClick={() => navigate('/station/' + (station.slug || station._id))}
         aria-label={'Προφίλ σταθμού ' + station.name}
         className="relative z-10 flex max-w-full flex-col items-start text-left">
-        <img src={station.logo || '/iradios-logo.png'} alt="" loading="lazy"
+        <img src={station.logo || '/icon-tr.svg'} alt="" loading="lazy"
           className="size-12 rounded-xl border border-white/15 bg-white object-contain p-1 shadow-lg sm:size-14" />
         <span className="mt-3 block max-w-full truncate text-[10px] font-semibold text-zinc-200">Ειδησεογραφικά</span>
         <span className="mt-1 block max-w-full truncate pr-10 text-xs font-black text-white group-hover:text-[#ccff00] sm:text-sm">{station.name}</span>

@@ -281,7 +281,7 @@ export default function RadioGeoMap({
               const live=nowPlayingById?catalogStationInfo(station,nowPlayingById[String(station._id)],catalogClock):null;
               return (
                 <div key={station._id} className="flex items-center gap-2 rounded-xl p-2 transition-colors hover:bg-white/5">
-                  <img alt="" src={station.logo || '/iradios-logo.png'} loading="lazy"
+                  <img alt="" src={station.logo || '/icon-tr.svg'} loading="lazy"
                     className="h-10 w-10 shrink-0 rounded-lg border border-white/10 bg-white object-contain" />
                   <button type="button" onClick={() => navigate('/station/' + (station.slug || station._id))}
                     className="min-w-0 flex-1 text-left">

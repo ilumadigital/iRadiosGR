@@ -126,7 +126,7 @@ export default function StationPlaylistPanel({
       {tracks.length>0&&<div className={`ir-playlist-tracks mt-3 min-h-0 divide-y divide-white/5 overflow-y-auto pr-1 ${compact?'flex-1':'max-h-[560px]'}`} aria-live="polite">
         {tracks.map((track,i)=><div key={(track.raw||'ai-teaser')+'-'+track.playedAt+'-'+i}
           className={`ir-station-playlist-track flex min-w-0 items-center gap-3 rounded-lg px-2 py-2.5 ${i===0?'bg-[#ccff00]/10':''}`}>
-          {!track.premiumOnly&&<TrackCover track={track} fallback={chosen?.logo||'/iradios-app-logo.png'}/>}
+          {!track.premiumOnly&&<TrackCover track={track} fallback={chosen?.logo||'/icon-tr.svg'}/>}
           {track.premiumOnly?<div className="min-w-0 flex-1 text-left">
             <p className="text-xs font-bold text-[#ccff00]">✦ Premium μέλος ανακάλυψε τραγούδι με AI</p>
             <button type="button" onClick={()=>navigate('/premium')} className="mt-1 text-[11px] font-black text-white underline underline-offset-2 hover:text-[#ccff00]">Αναβάθμιση για να δεις το τραγούδι</button>

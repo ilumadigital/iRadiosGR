@@ -5,7 +5,7 @@ import {getAthensClock} from '../utils/schedule';
 import {widgetShowImageProxy} from '../utils/widgetShowArtwork';
 
 const DAYS=['Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'];
-const fallback='/iradios-logo.png';
+const fallback='/icon-tr.svg';
 const readToken=()=>{
   try{return window.localStorage.getItem('iluma_token')||'';}catch{return '';}
 };
