@@ -139,10 +139,10 @@ exports.deleteBanner = async (req, res) => {
 exports.registerClick=async(req,res)=>{
   try{
     if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
-    const banner=await BannerAd.findById(req.params.id).select('status expiresAt isStageCreative');
-    if(!live(banner))return res.status(404).json({error:'Not found'});
+    const banner=await BannerAd.findById(req.params.id).select('status expiresAt isStageCreative campaignId');
+    if(!live(banner)||banner.campaignId)return res.status(404).json({error:'Not found'});
     if(!permitMetric(req,'banner-click',req.params.id))return res.json({success:true,deduplicated:true});
-    await BannerAd.updateOne({_id:banner._id,...activeCampaignQuery()},{$inc:{clicks:1}});
+    await BannerAd.updateOne({_id:banner._id,...activeCampaignQuery(),campaignId:null},{$inc:{clicks:1}});
     res.json({success:true});
   }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής κλικ.'});}
 };
@@ -150,10 +150,10 @@ exports.registerClick=async(req,res)=>{
 exports.registerImpression=async(req,res)=>{
   try{
     if(!mongoose.isValidObjectId(req.params.id))return res.status(400).json({error:'Invalid ID'});
-    const banner=await BannerAd.findById(req.params.id).select('status expiresAt isStageCreative');
-    if(!live(banner))return res.status(404).json({error:'Not found'});
+    const banner=await BannerAd.findById(req.params.id).select('status expiresAt isStageCreative campaignId');
+    if(!live(banner)||banner.campaignId)return res.status(404).json({error:'Not found'});
     if(!permitMetric(req,'banner-view',req.params.id,10000))return res.json({success:true,deduplicated:true});
-    await BannerAd.updateOne({_id:banner._id,...activeCampaignQuery()},{$inc:{impressions:1}});
+    await BannerAd.updateOne({_id:banner._id,...activeCampaignQuery(),campaignId:null},{$inc:{impressions:1}});
     res.json({success:true});
   }catch(error){res.status(500).json({error:'Σφάλμα καταγραφής view'});}
 };
