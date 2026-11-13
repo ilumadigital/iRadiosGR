@@ -42,7 +42,10 @@ async function localAudioFile(storedUrl,options={}) {
 }
 async function sendAdAudio(res,storedUrl,{preview=false}={}){
   const file=await localAudioFile(storedUrl);
-  if(!file)return false;
+  if(!file){
+    res.status(404).json({error:preview?'Το αρχείο δεν υπάρχει στον staging server. Ανέβασέ το ξανά.':'Audio unavailable'});
+    return false;
+  }
   res.set({
     'Cache-Control':preview?'private, no-store':'no-store',
     'X-Content-Type-Options':'nosniff',
