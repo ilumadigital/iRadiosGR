@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import StationCatalogCard from './StationCatalogCard';
 import DynamicAdCreative from './DynamicAdCreative';
+import {sparseAdMap} from '../utils/sparseAdSlots';
 import CatalogFilterPopover from './CatalogFilterPopover';
 import EditorialPlacement from './EditorialPlacement';
 import {PRIMARY_CATEGORY_GROUPS} from '../utils/stationCategories';
@@ -26,6 +27,7 @@ const tabs=[
 export default function HomeExplore({stations=[], currentUser, bannerAds=[], recentStations=[], favoriteStations=[], currentStation, isPlaying, onPlayStation, onPlayPause, onOpenDiscovery, catalogNowPlaying={}, catalogClock, listeningProfile={}, onCategorySelected}) {
   const location=useLocation();
   const [tab,setTab]=useState('for-you');
+  const [adSeed]=useState(()=>Math.floor(Math.random()*0xFFFFFFFF));
   const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1024:window.innerWidth);
   const [sponsorClock,setSponsorClock]=useState(()=>Date.now());
   useEffect(()=>{
@@ -115,6 +117,10 @@ export default function HomeExplore({stations=[], currentUser, bannerAds=[], rec
   }):displayed.map(station=>({station,sponsored:false})),
   [showSponsors,displayed,eligible,genre,region,viewportWidth,sponsorClock,tab,tasteCategories]);
   const clear=()=>{setGenre('');setRegion('');setQuery('');setShowAll(false);};
+  const adPlacementMap=useMemo(
+    ()=>sparseAdMap(sponsoredEntries.length,bannerAds,adSeed),
+    [sponsoredEntries.length,bannerAds,adSeed]
+  );
   return (
     <section id="station-explorer" className="ir-discovery-shell scroll-mt-24 space-y-5 rounded-[28px] border border-white/10 bg-gradient-to-b from-[#141a20]/95 to-[#0b1014]/95 p-4 sm:p-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -193,8 +199,8 @@ export default function HomeExplore({stations=[], currentUser, bannerAds=[], rec
       </div>
       {!!sponsoredEntries.length?<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
         {sponsoredEntries.map(({station:s,sponsored},index)=><React.Fragment key={s._id}>
-          {index>0 && index%5===0 && bannerAds.length>0 &&
-            <DynamicAdCreative banner={bannerAds[(Math.floor(index/5)-1)%bannerAds.length]} variant="card"
+          {adPlacementMap.has(index) &&
+            <DynamicAdCreative banner={adPlacementMap.get(index)} variant="card"
               placement="radio_feed" slotKey={`home-explore-${index}`}/>}
           <StationCatalogCard station={s} sponsored={sponsored} currentStation={currentStation}
             isPlaying={isPlaying} onPlayStation={onPlayStation} onPlayPause={onPlayPause}
