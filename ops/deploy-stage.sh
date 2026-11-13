@@ -39,9 +39,9 @@ for i in $(seq 1 30); do
     # A bare app.use('/api', advertisingRouter) previously intercepted ALL
     # anonymous streams with 401 before the real proxy handler. An invalid URL
     # must reach the public proxy validator and return 400, not JWT 401.
-    if ! curl -sS --max-time 6 -w '\\n%{http_code}' \\
-      'http://127.0.0.1:5511/api/proxy-stream?url=not-a-url' | \\
-      python3 -c 'import json,sys; t=sys.stdin.read().splitlines(); assert t[-1]=="400"; assert json.loads("\\n".join(t[:-1])).get("error")=="Disallowed stream target"'; then
+    if ! curl -sS --max-time 6 -w '\n%{http_code}' \
+      'http://127.0.0.1:5511/api/proxy-stream?url=not-a-url' | \
+      python3 -c 'import json,sys; t=sys.stdin.read().splitlines(); assert t[-1]=="400"; assert json.loads("\n".join(t[:-1])).get("error")=="Disallowed stream target"'; then
       echo 'STOP: anonymous radio proxy is blocked by authorization middleware or is not reaching the stream validator.' >&2
       exit 1
     fi
