@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import DynamicAdCreative from '../components/DynamicAdCreative';
+import {sparseAdMap} from '../utils/sparseAdSlots';
 import {geoAllowsAd} from '../utils/adPlacements';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Play, Pause, ArrowLeft, Radio, LayoutGrid, List, MapPin, Zap, Megaphone, ExternalLink, SignalHigh } from 'lucide-react';
@@ -21,6 +22,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
   const [viewMode, setViewMode] = useState('grid');
   const [viewportWidth,setViewportWidth]=useState(()=>typeof window==='undefined'?1024:window.innerWidth);
   const [sponsorClock,setSponsorClock]=useState(()=>Date.now());
+  const [adSeed]=useState(()=>Math.floor(Math.random()*0xFFFFFFFF));
   useEffect(()=>{
     const timer=setInterval(()=>setSponsorClock(Date.now()),30000);
     return()=>clearInterval(timer);
@@ -120,6 +122,11 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
   }),[displayStations,stations,promotedStationId,genreName,viewMode,viewportWidth,sponsorClock,
     selectedRegion,selectedTransmission]);
 
+  const adPlacementMap=useMemo(
+    ()=>sparseAdMap(sponsoredEntries.length,radioFeedBanners,adSeed),
+    [sponsoredEntries.length,radioFeedBanners,adSeed]
+  );
+
   const handleBannerView = async (bannerId) => {
     try {
       await fetch(`/api/banners/${bannerId}/impression`, { method: 'POST' });
@@ -184,8 +191,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
             const isCurrentlyPlaying = isCurrent && isPlaying;
 
             // 🟢 ΤΑ ΜΙΚΡΑ BANNERS (Κάθε 5)
-            const showAd = isFreeOrGuest && index > 0 && index % 5 === 0 && radioFeedBanners.length > 0;
-            const currentBanner = showAd ? radioFeedBanners[Math.floor(index / 5) % radioFeedBanners.length] : null;
+            const currentBanner=isFreeOrGuest?adPlacementMap.get(index):null;
 
             // 🔥 ΤΑ HERO BANNERS (Κάθε 12)
 
@@ -193,7 +199,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
               <React.Fragment key={station._id}>
                 
                 {/* 🟢 SQUARE BANNER INJECTION */}
-                {showAd && currentBanner &&
+                {currentBanner &&
                   <SquareAdCard banner={currentBanner} variant={viewMode==='grid'?'card':'list'}
                     slotKey={`catalog-${index}`} />
                 }
