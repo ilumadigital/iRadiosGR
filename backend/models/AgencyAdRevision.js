@@ -18,7 +18,13 @@ const revisionSchema = new mongoose.Schema({
   reviewedBy: {type:mongoose.Schema.Types.ObjectId,ref:'User',default:null},
   reviewedAt: {type:Date,default:null},
   rejectionReason: {type:String,default:''},
-  notificationState: {type:String,enum:['pending','sent','failed'],default:'pending'}
+  notificationState: {type:String,enum:['pending','sent','failed'],default:'pending'},
+  // Only version-1 revisions participate in the new durable outbox scanner.
+  // Imported historic revisions are deliberately not replayed.
+  noticeVersion:{type:Number,default:0},
+  creativeTitleAtSubmission:{type:String,default:''},
+  submissionOutboxSeededAt:{type:Date,default:null},
+  decisionOutboxSeededAt:{type:Date,default:null}
 },{timestamps:true});
 revisionSchema.index({creativeType:1,creativeId:1,status:1});
 revisionSchema.index({creativeType:1,creativeId:1},{unique:true,
