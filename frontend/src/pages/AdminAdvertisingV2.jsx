@@ -18,6 +18,7 @@ export default function AdminAdvertisingV2({mode='pricing'}){
  const [notice,setNotice]=useState('');
  const [auditByCampaign,setAuditByCampaign]=useState({});
  const [auditBusyId,setAuditBusyId]=useState(null);
+ const [mailRows,setMailRows]=useState(null),[mailLoading,setMailLoading]=useState(false);
  const reload=useCallback(async()=>{
   setLoading(true);setNotice('');
   try{
@@ -81,6 +82,15 @@ export default function AdminAdvertisingV2({mode='pricing'}){
    setCampaigns(list=>list.map(row=>row._id===c._id?{...row,...answer}:row));
   }catch(e){setNotice(e.message);}finally{setBusy(false);}
  };
+ const loadAgencyMail=async()=>{
+  setMailLoading(true);setNotice('');
+  try{
+   const response=await fetch('/api/admin/agency-ad-notices');
+   const data=await response.json();
+   if(!response.ok)throw Error(data.error||'Αδυναμία ανάκτησης Mailpit outbox.');
+   setMailRows(Array.isArray(data)?data:[]);
+  }catch(e){setNotice(e.message);}finally{setMailLoading(false);}
+ };
  if(loading)return <div className={panel+' text-zinc-300'}>Φόρτωση Advertising v2…</div>;
  return <div className="space-y-5">
   {notice&&<div role="status" className="rounded-xl border border-purple-400/30 bg-purple-400/10 p-4 text-sm text-purple-100">{notice}</div>}
@@ -133,6 +143,37 @@ export default function AdminAdvertisingV2({mode='pricing'}){
   </>}
   {mode==='campaigns'&&<>
    <h2 className="text-xl font-black text-white">Ενιαίες καμπάνιες Agency</h2>
+   <section className={panel+' space-y-3'}>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+     <div>
+      <h3 className="font-black text-white">Ειδοποιήσεις Agency · Mailpit Outbox</h3>
+      <p className="mt-1 text-xs text-zinc-400">Μόνιμη ουρά ανά παραλήπτη · read-only έλεγχος. Η καταχώριση δεν αποδεικνύει παράδοση στο inbox.</p>
+     </div>
+     <button type="button" disabled={mailLoading}
+      className="rounded-xl border border-purple-400/40 px-4 py-2 text-sm font-bold text-purple-200 disabled:opacity-50"
+      onClick={loadAgencyMail}>{mailLoading?'Φόρτωση…':'Ανανέωση ουράς'}</button>
+    </div>
+    {mailRows!==null&&<>
+     <div className="flex flex-wrap gap-2 text-xs font-bold">
+      {['pending','sending','sent','superseded'].map(status=>
+       <span key={status} className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-zinc-200">
+        {({pending:'Εκκρεμούν',sending:'Σε αποστολή',sent:'SMTP accepted',superseded:'Δεν χρειάζονται'})[status]}: {mailRows.filter(row=>row.status===status).length}
+       </span>)}
+     </div>
+     <div className="max-h-72 space-y-2 overflow-y-auto">
+      {mailRows.slice(0,20).map(row=><div key={row._id} className="rounded-xl border border-white/10 bg-black/20 p-3 text-xs">
+       <div className="flex flex-wrap justify-between gap-2">
+        <span className="font-bold text-purple-100 break-all">{row.subject}</span>
+        <span className="text-zinc-300">{row.status}</span>
+       </div>
+       <p className="mt-1 text-zinc-400 break-all">{row.recipientEmail} · Προσπάθειες: {row.attempts} · {new Date(row.createdAt).toLocaleString('el-GR')}</p>
+       {row.lastError&&<p className="mt-1 text-rose-300">{row.lastError}</p>}
+      </div>)}
+      {!mailRows.length&&<p className="text-sm text-zinc-500">Δεν υπάρχουν καταχωρημένες ειδοποιήσεις Agency.</p>}
+     </div>
+    </>}
+   </section>
+
    {!campaigns.length&&<div className={panel+' text-zinc-300'}>Δεν έχουν δημιουργηθεί unified campaigns.</div>}
    {campaigns.map(c=><section className={panel+' space-y-3'} key={c._id}>
     <div className="flex flex-wrap justify-between gap-2">
