@@ -89,28 +89,33 @@ async function transactionalDebit(event){
   });
  }finally{await session.endSession();}
 }
-async function settleQualifiedEventTransactional(input){
+const productionStore={
+ ensureIndexes:ensureAdvertisingFinancialIndexes,
+ getEvent:eventId=>Event.findById(eventId).lean(),
+ chooseFundedLot,claimEvent,transactionalDebit
+};
+async function settleQualifiedEventTransactional(input,store=productionStore){
  // Only a privileged, independently validated server event may call this.
  // No browser token, HTTP counter, or stream request proves qualification.
  const request=normalize(input);
- await ensureAdvertisingFinancialIndexes();
- let event=await Event.findById(request.eventId).lean();
- if(!event)event=await claimEvent(request);
+ await store.ensureIndexes();
+ let event=await store.getEvent(request.eventId);
+ if(!event)event=await store.claimEvent(request);
  if(!event)return {status:'unfunded',charged:false};
  assertClaimMatches(event,request);
  if(event.status==='charged')return charged(event,true);
  if(event.status!=='pending')throw Error('Invalid transaction claim status');
  try{
-  const state=await transactionalDebit(event);
+  const state=await store.transactionalDebit(event);
   if(state==='unfunded')
    return {status:'pending',charged:false,reason:'funding_depleted'};
-  const saved=await Event.findById(event._id).lean();
+  const saved=await store.getEvent(event._id);
   assertClaimMatches(saved,request);
   return charged(saved,state==='already_charged');
  }catch(error){
   // UnknownTransactionCommitResult is resolvable ONLY by reading the durable
   // unique event marker, not by issuing an independent second wallet debit.
-  const after=await Event.findById(event._id).lean();
+  const after=await store.getEvent(event._id);
   assertClaimMatches(after,request);
   if(after.status==='charged')return charged(after,true);
   throw error;
