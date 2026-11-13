@@ -153,7 +153,7 @@ export default function WidgetNow({ API_URL = '/api' }) {
       
       {/* BACKGROUNDS */}
       <img src={displayImage} alt="bg" className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-40 scale-110 pointer-events-none" />
-      <img src={displayImage} alt="cover" className={`absolute inset-0 w-full h-full object-cover transition-transform duration-700 pointer-events-none scale-105`} />
+      <img src={displayImage} alt="cover" className={`absolute inset-0 w-full h-full transition-transform duration-700 pointer-events-none scale-105 ${displayImage===station.logo?'bg-white object-contain p-[9%]':'object-cover'}`} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-black/60 pointer-events-none"></div>
 
       {/* 🟢 TOP LEFT: METADATA ΜΟΝΟ */}
@@ -237,7 +237,7 @@ export default function WidgetNow({ API_URL = '/api' }) {
       {/* 🟢 BOTTOM RIGHT: BRANDING COLUMN */}
       <div className="absolute bottom-[6%] right-[5%] z-50 flex flex-col items-end gap-[2vw]">
         {coverArt && (
-          <div className="w-[18vw] h-[18vw] max-w-[100px] max-h-[100px] bg-zinc-950/90 backdrop-blur-md p-[15%] rounded-[20%] border border-white/10 shadow-2xl flex items-center justify-center animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="w-[18vw] h-[18vw] max-w-[100px] max-h-[100px] bg-white p-[8%] rounded-[20%] border border-white/10 shadow-2xl flex items-center justify-center animate-in fade-in slide-in-from-bottom-2 duration-500">
             <img src={station.logo} alt={station.name} className="w-full h-full object-contain rounded-[10%]" />
           </div>
         )}
