@@ -80,7 +80,7 @@ export default function Login({ API_URL, setCurrentUser }) {
         else if (data.user.role === 'broadcaster' && data.user.hasAcceptedCurrentBroadcasterTerms !== true)
           navigate('/broadcaster-terms'+(inviteToken?'?invite='+encodeURIComponent(inviteToken):''));
         else if (afterLogin) navigate(afterLogin);
-        else if (['admin','broadcaster','producer'].includes(data.user.role)) navigate('/backoffice');
+        else if (['admin','broadcaster','producer','agency'].includes(data.user.role)) navigate('/backoffice');
         else navigate('/');
       } 
       else if (res.status === 403 && data.requireOtp) {
@@ -124,7 +124,7 @@ export default function Login({ API_URL, setCurrentUser }) {
         setShowOtpModal(false);
         
         if (afterLogin) navigate(afterLogin);
-        else if (['admin','broadcaster','producer'].includes(data.user.role)) navigate('/backoffice');
+        else if (['admin','broadcaster','producer','agency'].includes(data.user.role)) navigate('/backoffice');
         else navigate('/');
       } else {
         setError(data.error || 'Λάθος κωδικός OTP.');
