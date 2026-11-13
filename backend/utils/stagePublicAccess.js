@@ -73,7 +73,11 @@ function stagePublicAccess(req, res, next) {
   // The middleware is mounted at /api, and Express req.path excludes the mount prefix.
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
-  // Public, read-only JPEG of an approved station logo on a white background.\n  // The controller accepts only a station ID and never a client-supplied URL.\n  if ((req.method==='GET'||req.method==='HEAD') &&\n      /^\\/api\\/media\\/station-logo\\/[a-f0-9]{24}\\.jpg$/i.test(path))return next();\n  // Media bytes are served only after the Ad controller verifies this exact
+  // Public, read-only JPEG of an approved station logo on a white background.
+  // The controller accepts only a station ID and never a client-supplied URL.
+  if ((req.method==='GET'||req.method==='HEAD') &&
+      /^\/api\/media\/station-logo\/[a-f0-9]{24}\.jpg$/i.test(path)) return next();
+  // Media bytes are served only after the Ad controller verifies this exact
   // active campaign and resolves a local /uploads/audio file. No directory access.
   if ((req.method==='GET'||req.method==='HEAD') &&
       /^\/api\/ads\/[a-f0-9]{24}\/media$/i.test(path))return next();
