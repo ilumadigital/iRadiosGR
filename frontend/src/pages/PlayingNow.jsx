@@ -147,7 +147,7 @@ export default function PlayingNow({ stations = [], API_URL, currentUser }) {
                 className="ir-now-playing-card relative block aspect-square w-full overflow-hidden rounded-2xl border border-white/15 bg-zinc-900 text-left transition-all hover:border-[#ccff00]/60 hover:shadow-[0_0_20px_rgba(204,255,0,0.13)]">
                 <img src={item.coverArt||item.logo} alt="" loading="lazy"
                   onError={e=>{e.currentTarget.onerror=null;e.currentTarget.src=item.logo||'/icon-tr.svg';}}
-                  className="h-full w-full bg-white object-cover transition-transform duration-500 group-hover:scale-105"/>
+                  className={`h-full w-full bg-white transition-transform duration-500 group-hover:scale-105 ${item.coverArt===item.logo?\'object-contain p-2\':\'object-cover\'}`}/>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"/>
                 <span className="absolute bottom-2 left-2 rounded-full border border-black/20 bg-[#ccff00] px-2 py-1 text-[9px] font-black uppercase text-black">LIVE</span>
                 {item.coverArt!==item.logo&&item.logo&&
