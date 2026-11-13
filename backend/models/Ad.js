@@ -28,6 +28,9 @@ const adSchema = new mongoose.Schema({
   
   agencyId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   campaignId: {type: mongoose.Schema.Types.ObjectId, ref: 'AdvertisingCampaign', default: null, index:true},
+  // Immutable-style applied-revision marker written atomically WITH the patch;
+  // needed to recover a crash before the revision decision is finalized.
+  lastApprovedRevisionId: {type: mongoose.Schema.Types.ObjectId, ref: 'AgencyAdRevision', default:null},
   status: { type: String, enum: ['pending', 'active', 'expired', 'rejected'], default: 'active' },
   duration: { type: String, enum: ['day', 'month', 'year'] },
   expiresAt: { type: Date, default: null },
