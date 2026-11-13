@@ -43,6 +43,24 @@ test('a multi-spot break unlocks skip after 15 audible seconds total, even with 
   assert.equal(canSkipAd(clock,8),false);
   assert.equal(secondsUntilAdSkip(clock,8),null);
 });
+test('three consecutive spots share the same 15-second listening threshold',()=>{
+  let clock=newAdListenClock();
+  let now=0;
+  for(const duration of [5,6]){
+    clock=resumeAdListenClock(clock,0,now);
+    for(let second=1;second<=duration;second++)
+      clock=sampleAdListenClock(clock,{position:second,now:now+second*1000});
+    now+=duration*1000;
+    clock=suspendAdListenClock(clock);
+    assert.equal(canSkipAd(clock,duration,true),false);
+  }
+  clock=resumeAdListenClock(clock,0,now);
+  for(let second=1;second<=4;second++)
+    clock=sampleAdListenClock(clock,{position:second,now:now+second*1000});
+  assert.equal(clock.seconds,15);
+  assert.equal(canSkipAd(clock,20,true),true);
+  assert.equal(secondsUntilAdSkip(clock,20,true),0);
+});
 test('skipped media, stalls, and pauses do not inflate a multi-spot break clock',()=>{
   let clock=play(10,10).clock;
   clock=suspendAdListenClock(clock);
