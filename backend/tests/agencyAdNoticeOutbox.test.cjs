@@ -157,6 +157,18 @@ test('core remains at-least-once: acknowledged-but-uncommitted mail may retry',a
  const recovered=await store.claim();
  assert.equal(recovered.attempts,2);
 });
+test('real Mongo integration harness refuses app databases and is manual-only',()=>{
+ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
+ const harness=read('tests/agencyAdNoticeMongoDisposable.cjs');
+ assert.match(harness,/AD_AGENCY_NOTICE_DISPOSABLE_APPROVAL/);
+ assert.match(harness,/ad_notice_disposable_/);
+ assert.match(harness,/APP_ENV!=='staging'/);
+ assert.match(harness,/NODE_ENV==='production'/);
+ assert.doesNotMatch(harness,/dropDatabase|dropCollection|sendEmail|sendMail/);
+ const ci=fs.readFileSync(path.join(__dirname,'..','..',
+  '.github/workflows/staging-validation.yml'),'utf8');
+ assert.doesNotMatch(ci,/node (?:--test )?backend\/tests\/agencyAdNoticeMongoDisposable\.cjs/);
+});
 test('all Agency writes use durable notice outbox; production mail disabled',()=>{
  const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
  const agencyRoutes=read('routes/agencyRoutes.js');
