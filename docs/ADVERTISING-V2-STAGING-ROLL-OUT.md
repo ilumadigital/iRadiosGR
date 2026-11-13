@@ -222,11 +222,9 @@ not enable paid Advertising v2 or turn on shadow diagnostics.
 
 ### Remaining critical financial and operational blockers
 
-The existing email notifications for Agency creative revisions still use
-direct sends rather than a fully durable per-event/per-recipient outbox.
-A process crash immediately after finalization can leave an email unsent.
-Design and validate the notification outbox + Mailpit E2E before approval
-readiness is claimed; HTTP success is NOT proof of successful email delivery.
+UPDATE: This direct-send limitation was replaced in the later durable Agency
+notice outbox slice below. Actual disposable MongoDB concurrency and Mailpit
+E2E tests are still outstanding; HTTP success is NOT proof of inbox delivery.
 
 Actual Mongo concurrency/index verification, browser E2E, trusted geo,
 audio anti-fraud validation, payment/top-up/refund tax approvals, signed Nexi
@@ -237,3 +235,93 @@ New regressions:
 node --test frontend/src/utils/adViewability.test.js
 node --test backend/tests/advertisingTicketReservation.test.cjs
 node --test backend/tests/agencyRevisionApproval.test.cjs
+
+
+## 2026-11-13: Durable Agency draft / revision / decision emails (source-only)
+
+**NOT DEPLOYED / Draft PR #124.** New Agency draft and revision notification
+paths no longer send SMTP directly in their create/approval HTTP request.
+They store version-1 source markers, then seed per-recipient durable notices.
+The worker attempts sending asynchronously in staging ONLY. The only
+transport reachable under APP_ENV=staging is the internal Mailpit SMTP
+host at mailpit:1025 via the existing myMailer module. Never point staging
+directly to production SMTP.
+
+### Durable event protocol
+
+- New model AgencyAdNotice has one unique eventKey per kind, immutable source
+  identifier and individual recipient User ID. Kinds: draft_submitted,
+  revision_submitted, revision_approved and revision_rejected. Each record
+  snapshots recipient address, validated subject and HTML, scoped creative,
+  agency and revision identifiers, status, attempt count, retry schedule,
+  lease token, lease expiry and SMTP-accepted message ID.
+- All templates inherit the existing branded iRadios email shell. Revision
+  submissions include sanitized before/after changes; rejections include the
+  Admin reason. Approval links lead only to the authenticated Backoffice,
+  never to a one-click email decision URL.
+- Mongo's unique eventKey index is verified before any queue upsert. New
+  documents are inserted through setOnInsert only; duplicate calls cannot
+  overwrite message snapshots or create a second queue entry.
+- New revisions have noticeVersion=1, submissionOutboxSeededAt and
+  decisionOutboxSeededAt; newly created Agency banner/audio drafts carry
+  agencyDraftNoticeVersion=1 and draftOutboxSeededAt. Existing imported
+  and previously notified records remain version 0 and are NOT replayed.
+- The worker periodically scans unseeded new sources (including already
+  committed approvals/rejections) and rebuilds any missing notices. Thus a
+  crash between a creative/revision commit and a queue insert can recover
+  without a second Agency action. On already-final revisions, a retroactive
+  Admin review request is skipped; the final Agency decision email is still
+  recovered independently.
+- A Mongo findOneAndUpdate claims a due notice with a random lease token,
+  six-hundred-second lease and attempt counter. Only the owner of that
+  lease may mark it sent, retry-pending or superseded. Retries use
+  exponential backoff capped at one hour. Pending Admin requests for already
+  decided revisions or already-approved drafts are marked superseded rather
+  than misleading recipients with old review instructions.
+- SMTP accepted does NOT equal inbox delivered. The worker offers
+  **at-least-once** semantics, NOT exact-once: after an SMTP ACK and before
+  the sent-status Mongo commit, a crash/unknown DB outcome may produce a
+  second Mailpit message. Each eventKey/recipient has one durable queue row.
+- Existing AdvertisingCampaignMailScheduler is separate and remains subject
+  to its own readiness checks; this Agency notice slice does not authorize
+  paid campaign activation, changes to financial settlement or budget emails.
+
+### Admin diagnostics
+
+GET /api/admin/agency-ad-notices is read-only, authenticated Admin only
+and staging-only. It returns recent entries with the email HTML excluded.
+The Admin Advertising v2 Campaigns page offers a purple Mailpit outbox
+summary with pending/sending/sent/superseded counters, recipient emails,
+attempt count and errors. It cannot modify, purge or mark notices sent.
+
+### Required manual UAT BEFORE treating notifications as operational
+
+1. Use a DEDICATED disposable staging MongoDB (never iradios_stage or a
+   production database) and dedicated Mailpit; verify URI, recipient
+   isolation, network and backup policy before connecting.
+2. Validate concurrent duplicate revision submissions, partial per-recipient
+   queue inserts, unique key indexes and one Admin email per unique address.
+3. Create a throwaway pending Agency banner and audio, change both, and
+   review each through the authenticated Admin editor. Check Mailpit HTML
+   (logo, escaped values, correct before/after, correct CTA links, no email
+   approval bypass), sender, subject and per-recipient entries.
+4. Check Admin approve and reject decisions; ensure the Agency receives
+   only the final appropriate decision and rejection reason.
+5. On the **isolated test** stack, interrupt Mailpit before delivery and
+   verify pending/retry/backoff; restore it and confirm a single persisted
+   sent marker per recipient. Simulate interruption after source commit
+   but before queue insertion, restart and verify the reconciliation scan.
+6. Simulate an ambiguous SMTP ACK followed by interrupted Mongo finalization;
+   record that a duplicate mail CAN occur. Verify no financial balances,
+   Gateway events or paid impressions are touched.
+7. If any source cannot seed its recipient notices, inspect app logs and
+   read-only Admin notice list; do NOT clear indexes or manually mark sent.
+
+Source-only regressions:
+node --test backend/tests/agencyAdNoticeOutbox.test.cjs
+node --test backend/tests/agencyRevisionApproval.test.cjs
+
+All source CI simulations use in-memory fake leases and deterministic clocks.
+Real multi-process Mongo concurrency, Mailpit E2E, user inbox and failure
+injection have NOT been performed in this session. No SSH deployment, SQL
+migration, Nexi checkout, Gateway change or Git merge.
