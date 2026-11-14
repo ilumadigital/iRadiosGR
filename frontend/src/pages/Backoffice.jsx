@@ -40,6 +40,7 @@ const AdminAdControl=lazy(()=>import('./AdminAdControl'));
 const Boost=lazy(()=>import('./Boost'));
 const BroadcasterCommerce=lazy(()=>import('./BroadcasterCommerce'));
 const BroadcasterBillingDashboard=lazy(()=>import('./BroadcasterBillingDashboard'));
+const BroadcasterHome=lazy(()=>import('./BroadcasterHome'));
 const BroadcasterRadar=lazy(()=>import('./BroadcasterRadar'));
 const BroadcasterDSP=lazy(()=>import('./DSP'));
 const BroadcasterWebDSPPreview=lazy(()=>import('./BroadcasterWebDSPPreview'));
@@ -259,7 +260,7 @@ function StationCard({station,role,onDelete,onStatusChange}){
       <h3 className="truncate text-lg font-black tracking-tight text-white">{station.name}</h3><StationStatus station={station}/></div>
       <p className="text-xs text-zinc-500">{station.genre||'Χωρίς κατηγορία'} · {station.city||station.region||'Online radio'}</p>
       <div className="mt-3 flex flex-wrap gap-3 text-[10px] font-semibold text-zinc-400">
-        <span className="flex items-center gap-1"><Headphones size={13}/> {shortNumber(station.plays)} ακροάσεις</span>
+        {station.plays!==undefined&&<span className="flex items-center gap-1"><Headphones size={13}/> {shortNumber(station.plays)} ακροάσεις</span>}
         <span className="flex items-center gap-1"><Globe2 size={13}/> {station.transmissionType||'Web Radio'}</span>
       </div></div>
     <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -1570,7 +1571,8 @@ export default function Backoffice(){
       {to:'/backoffice/stations',label:admin?'Σταθμοί δικτύου':'Οι σταθμοί μου',icon:Radio},
       ...(admin?[{to:'/backoffice/admin/promoted',label:'Promoted Stations',icon:Sparkles}]:[]),
       {to:'/backoffice/schedules',label:'Πρόγραμμα εκπομπών',icon:CalendarDays},
-      ...(!admin?[{to:'/backoffice/insights',label:'Στατιστικά σταθμών',icon:BarChart3}]:[]),
+      ...(!admin&&!producer?[{to:'/backoffice/radar',label:'Στατιστικά σταθμών',icon:BarChart3,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/radar']}]:[]),
+      ...(producer?[{to:'/backoffice/insights',label:'Στατιστικά σταθμών',icon:BarChart3}]:[]),
       ...(data?.user.role==='broadcaster'?[{to:'/backoffice/team',label:'Παραγωγοί & ομάδα',icon:Users}]:[]),
       ...(!producer?[{to:'/backoffice/stations/new',label:'Προσθήκη σταθμού',icon:Plus}]:[])
     ]},
@@ -1770,7 +1772,7 @@ export default function Backoffice(){
         </div>}
         <Suspense fallback={<div role="status" className={panel+' p-10 text-center text-[#caff00]'}>Φόρτωση εργαλείου…</div>}>
         <Routes>
-          <Route path="/backoffice" element={agency?<AgencyBackofficeHome user={data.user}/>:<Dashboard data={data}/>}/>
+          <Route path="/backoffice" element={agency?<AgencyBackofficeHome user={data.user}/>:data.user.role==='broadcaster'?<BroadcasterHome data={data}/>:<Dashboard data={data}/>}/>
           <Route path="/backoffice/agency/terms" element={agency?<TermsAgency API_URL="/api" currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/agency/campaigns" element={agency?<AgencyAdvertisingV2/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/agency/creatives" element={agency?<AgencyDashboard API_URL="/api" currentUser={data.user}/>:<Navigate to="/backoffice" replace/>}/>
@@ -1784,7 +1786,7 @@ export default function Backoffice(){
           <Route path="/backoffice/stations/new" element={<StationEditor data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
           <Route path="/backoffice/stations/:id/edit" element={<StationEditor data={data} reload={reload} notify={notify} requestDelete={requestDelete}/>}/>
           <Route path="/backoffice/schedules" element={<Scheduler data={data} reload={reload} notify={notify}/>}/>
-          <Route path="/backoffice/insights" element={<BroadcasterInsights data={data}/>}/>
+          <Route path="/backoffice/insights" element={data.user.role==='broadcaster'?<Navigate to="/backoffice/radar" replace/>:<BroadcasterInsights data={data}/>}/>
           <Route path="/backoffice/team" element={<Team data={data} notify={notify}/>}/>
           <Route path="/backoffice/pro-features" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="features" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
           <Route path="/backoffice/boost" element={data.user.role==='broadcaster'?<BroadcasterCommerce view="boost" stations={data.stations} role={data.user.role} accountId={data.user._id}/>:<Navigate to="/backoffice" replace/>}/>
