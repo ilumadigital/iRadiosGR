@@ -87,10 +87,6 @@ export default function CookieConsent() {
               className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#ccff00] px-3 py-2.5 text-xs font-black text-black transition-colors hover:bg-[#dfff54]">
               <Check size={16}/> Αποδοχή όλων
             </button>
-            <button type="button" onClick={() => complete(NOTHING)}
-              className="min-h-11 rounded-xl border border-white/25 bg-white/[.05] px-3 py-2.5 text-xs font-black text-white transition-colors hover:bg-white/10">
-              Απόρριψη όλων
-            </button>
             {expanded ?
               <button type="button" onClick={() => complete(choices)}
                 className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#ccff00]/45 bg-[#ccff00]/10 px-3 py-2.5 text-xs font-black text-[#ccff00] transition-colors hover:bg-[#ccff00]/20">
@@ -100,6 +96,10 @@ export default function CookieConsent() {
                 className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/25 px-3 py-2.5 text-xs font-black text-white transition-colors hover:bg-white/10">
                 Επιλογές <ChevronRight size={15}/>
               </button>}
+            <button type="button" onClick={() => complete(NOTHING)}
+              className="min-h-11 rounded-xl border border-white/25 bg-white/[.05] px-3 py-2.5 text-xs font-black text-white transition-colors hover:bg-white/10">
+              Απόρριψη όλων
+            </button>
           </div>
         </div>
       </section>
