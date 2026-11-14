@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Pause, Play, SkipBack, SkipForward, Volume2, Heart,
-  ListMusic, Info, ScanSearch, Loader2, Radio, ExternalLink, X } from 'lucide-react';
+  ListMusic, Info, ScanSearch, Loader2, Radio, ExternalLink, X, MonitorSpeaker } from 'lucide-react';
 import StationPlaylistPanel from './StationPlaylistPanel';
 import MusicServiceLinks from './MusicServiceLinks';
 import FoundWithAI from './FoundWithAI';
@@ -14,7 +14,7 @@ export default function DesktopFullPlayer({
   station, currentUser, isPlaying, isBuffering, isPlayingAd, adWarning, currentAdInfo,
   adTimeRemaining, adSkipCountdown, onSkipAd, nowPlaying, nowPlayingInfo, globalCoverArt, currentShow, liveBroadcast, rdsShowProducer, volume, setVolume,
   togglePlayPause, handlePrevStation, handleNextStation, onClose, onFavorite, isFavorite,
-  onRecognize, isRecognizing, onOpenStation
+  onRecognize, isRecognizing, onOpenStation, onOpenDevices
 }) {
   const [showPlaylist,setShowPlaylist]=useState(false);
   useEffect(()=>{
@@ -58,6 +58,10 @@ export default function DesktopFullPlayer({
             <span className="rounded-full border border-[#ccff00]/20 bg-[#ccff00]/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[#ccff00]">LIVE RADIO</span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {currentUser&&<button type="button" onClick={onOpenDevices} aria-label="Συσκευές αναπαραγωγής"
+              title="iRadios Connect" className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/5 hover:text-[#ccff00]">
+              <MonitorSpeaker size={21}/>
+            </button>}
             <button type="button" onClick={()=>setShowPlaylist(v=>!v)} aria-expanded={showPlaylist}
               className="flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 text-xs font-bold hover:border-[#ccff00]/40">
               <ListMusic size={18}/> Playlist σταθμού

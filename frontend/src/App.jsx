@@ -15,6 +15,8 @@ import {geoAllowsAd} from './utils/adPlacements';
 import {selectStationBreak,dueOnClock,canServeAudioAd} from './utils/audioAdRules';
 import {newAdListenClock,resumeAdListenClock,suspendAdListenClock,sampleAdListenClock,canSkipAd,secondsUntilAdSkip} from './utils/adSkipPolicy';
 import useMediaSession from './hooks/useMediaSession';
+import usePlayDevices from './hooks/usePlayDevices';
+import DevicePicker from './components/DevicePicker';
 import {getAthensClock} from './utils/schedule';
 import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
 import {showProducerNow,RDS_INTERVAL_MS} from './utils/rdsPresentation';
@@ -673,8 +675,15 @@ function MainApp() {
     return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   }, []);
 
-  const [availableDevices, setAvailableDevices] = useState([]);
-  const localDeviceId = useMemo(() => getLocalDeviceId(), []);
+  const [devicesOpen,setDevicesOpen]=useState(false);
+  const deviceCallbacksRef=useRef({});
+  const {availableDevices,localDeviceId,connected:devicesConnected,
+    requestDevices,acquirePlayback,startedPlayback,releasePlayback,
+    transferPlayback,renameDevice,forgetDevice}=usePlayDevices({
+      currentUser,
+      onRemotePlay:stationId=>deviceCallbacksRef.current.play?.(stationId),
+      onRemoteStop:()=>deviceCallbacksRef.current.stop?.()
+    });
   const localDeviceName = useMemo(() => getLocalDeviceName(isCarModeActive), [isCarModeActive]);
 
   const { 
@@ -864,141 +873,18 @@ function MainApp() {
     return () => { if (s) s.disconnect(); };
   }, []);
 
-  // ==============================================================
-  // 🟢 DEVICE SYNC (SOCKET LOGIC)
-  // ==============================================================
-  useEffect(() => {
-    if (!globalSocket || !currentUser) return;
-
-    const userId = String(currentUser._id || currentUser.id);
-
-    const registerMyDevice = () => {
-      if (globalSocket.connected) {
-        globalSocket.emit('register_device', {
-          userId,
-          deviceId: localDeviceId,
-          deviceName: localDeviceName
-        });
-      }
-    };
-
-    const handleUpdateDevices = (devices) => {
-      const uniqueDevices = Array.from(new Map(devices.map(item => [item.deviceId, item])).values());
-      setAvailableDevices(uniqueDevices);
-
-      const amIIncluded = uniqueDevices.some(d => d.deviceId === localDeviceId);
-      if (!amIIncluded && globalSocket.connected) {
-        registerMyDevice();
-      }
-    };
-
-    const handlePlayTransfer = async (data) => {
-      if (data && data.station) {
-        let fullStation = stationsRef.current.find(s => s._id === data.station._id);
-        
-        // Αν το socket έστειλε "μισό" αρχείο, τράβα το stream από το API!
-        if (!fullStation || !fullStation.stream) {
-          try {
-            const res = await fetch(`${API_URL}/stations/${data.station._id}`);
-            if (res.ok) fullStation = await res.json();
-          } catch(e) {}
-        }
-        handleActualStationPlay(fullStation || data.station);
-      }
-    };
-
-    const handleStopTransfer = () => {
-      if (audioRef.current) audioRef.current.pause();
-      setIsPlaying(false);
-      intendedPlayState.current = false;
-    };
-
-    globalSocket.on('update_devices', handleUpdateDevices);
-    globalSocket.on('play_transfer', handlePlayTransfer);
-    globalSocket.on('stop_transfer', handleStopTransfer);
-    
-    globalSocket.on('ping_announce', () => {
-      registerMyDevice();
-    });
-
-    if (globalSocket.connected) registerMyDevice();
-    globalSocket.on('connect', registerMyDevice);
-
-    const heartbeat = setInterval(() => {
-      if (globalSocket.connected) registerMyDevice();
-    }, 10000);
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (globalSocket) {
-          globalSocket.disconnect(); 
-          setTimeout(() => {
-            globalSocket.connect();  
-            registerMyDevice();      
-          }, 500);
-        }
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      clearInterval(heartbeat);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      globalSocket.off('connect', registerMyDevice);
-      globalSocket.off('update_devices', handleUpdateDevices);
-      globalSocket.off('play_transfer', handlePlayTransfer);
-      globalSocket.off('stop_transfer', handleStopTransfer);
-      globalSocket.off('ping_announce');
-    };
-  }, [globalSocket, currentUser, localDeviceId, localDeviceName]);
-
-  const handleRequestDevices = () => {
-    if (globalSocket && currentUser) {
-      if (!globalSocket.connected) {
-        globalSocket.connect();
-        setTimeout(() => {
-          globalSocket.emit('request_devices', { userId: String(currentUser._id || currentUser.id) });
-        }, 500);
-      } else {
-        globalSocket.emit('request_devices', { userId: String(currentUser._id || currentUser.id) });
-      }
-    }
-  };
-
-  const activeRemoteDevice = useMemo(() => {
-    return availableDevices.find(d => d.isPlaying && d.deviceId !== localDeviceId);
-  }, [availableDevices, localDeviceId]);
-
-  // 🚀 ΑΝΤΙΚΑΤΕΣΤΗΣΕ ΑΥΤΟ ΤΟ useEffect:
-  useEffect(() => {
-    const syncRemoteStation = async () => {
-      if (activeRemoteDevice && activeRemoteDevice.station) {
-        if (!currentStation || currentStation._id !== activeRemoteDevice.station._id) {
-          let fullStation = stations.find(s => s._id === activeRemoteDevice.station._id);
-          
-          if (!fullStation || !fullStation.stream) {
-            try {
-              const res = await fetch(`${API_URL}/stations/${activeRemoteDevice.station._id}`);
-              if (res.ok) fullStation = await res.json();
-            } catch(e) {}
-          }
-          
-          if (fullStation) setCurrentStation(fullStation);
-          else setCurrentStation(activeRemoteDevice.station);
-        }
-      }
-    };
-    syncRemoteStation();
-  }, [activeRemoteDevice, currentStation, stations]);
-
-  const handleTransferPlayback = (targetDeviceId) => {
-    if (!globalSocket || !currentUser || !currentStation) return;
-    
-    globalSocket.emit('transfer_playback', {
-      userId: String(currentUser._id || currentUser.id),
-      targetDeviceId: targetDeviceId,
-      station: currentStation
-    });
+  // iRadios Connect: persistent devices + JWT-authenticated playback leases.
+  // The legacy public-stage Socket.IO endpoint is intentionally never used.
+  const handleRequestDevices=()=>requestDevices();
+  const activeRemoteDevice=useMemo(()=>
+    availableDevices.find(d=>d.isPlaying&&d.deviceId!==localDeviceId),
+    [availableDevices,localDeviceId]);
+  const handleTransferPlayback=async targetDeviceId=>{
+    const stationId=String(currentStation?._id||activeRemoteDevice?.stationId||'');
+    if(!stationId){showAlert('Επίλεξε πρώτα έναν σταθμό.');return {ok:false,error:'NO_STATION'};}
+    const result=await transferPlayback(targetDeviceId,stationId);
+    if(!result.ok)showAlert('Δεν ολοκληρώθηκε η μεταφορά αναπαραγωγής.');
+    return result;
   };
 
   // The stage Socket.IO gateway is intentionally closed to public traffic.
@@ -1101,6 +987,7 @@ function MainApp() {
     localStorage.removeItem('iluma_token');
     setCurrentUser(null);
     if (audioRef.current) audioRef.current.pause();
+    releasePlayback();
     setIsPlaying(false);
     intendedPlayState.current = false;
     navigate('/login');
@@ -1131,6 +1018,14 @@ function MainApp() {
       if (silentPromise !== undefined) silentPromise.catch(() => {});
     }
 
+    // A Premium radio stream may start only after the account's authoritative
+    // playback lease is acquired. Free/guest playback remains unlimited.
+    if(!await acquirePlayback(String(station._id))){
+      intendedPlayState.current=false;
+      setIsPlaying(false);
+      showAlert('Η συσκευή δεν μπόρεσε να αποκτήσει δικαίωμα αναπαραγωγής. Έλεγξε τη σύνδεση iRadios Connect.');
+      return;
+    }
     const rawStreamUrl = station.streamUrl || station.stream;
     const finalStreamUrl = getSmartStreamUrl(rawStreamUrl);
 
@@ -1179,6 +1074,24 @@ function MainApp() {
     }
   };
 
+  // These callbacks deliberately share the *same* audio element as all players.
+  deviceCallbacksRef.current.stop=()=>{
+    intendedPlayState.current=false;
+    if(audioRef.current&&!audioRef.current.paused)audioRef.current.pause();
+    if(silentAudioRef.current)silentAudioRef.current.pause();
+    setIsPlaying(false);setIsBuffering(false);
+  };
+  deviceCallbacksRef.current.play=async stationId=>{
+    let station=stationsRef.current.find(s=>String(s._id)===String(stationId));
+    if(!station?.stream){
+      try{
+        const response=await fetch(`${API_URL}/stations/${encodeURIComponent(stationId)}`);
+        if(response.ok)station=await response.json();
+      }catch{/* Device may need to retry after reconnecting. */}
+    }
+    if(station?.stream)void handleActualStationPlay(station);
+  };
+
   const handleStationSelectWithAds = (station) => {
     if(!station || station.isOffline === true || stationsRef.current.find(s=>String(s._id)===String(station._id))?.isOffline === true)return;
     if (!audioRef.current) return;
@@ -1186,15 +1099,6 @@ function MainApp() {
     if (isPlayingAd || activeAdRef.current) { pendingStation.current = station; return; }
     if (currentStation && currentStation._id === station._id && isPlaying) return;
     
-    if (currentUser?.isPremium && activeRemoteDevice) {
-      globalSocket.emit('transfer_playback', {
-        userId: String(currentUser._id || currentUser.id),
-        targetDeviceId: activeRemoteDevice.deviceId,
-        station: station
-      });
-      return; 
-    }
-
     if (currentUser?.isPremium) return handleActualStationPlay(station);
 
     stationSwitches.current += 1;
@@ -1356,15 +1260,6 @@ function MainApp() {
       next = zappingPlaylist[(idx + 1) % zappingPlaylist.length];
     }
 
-    if (currentUser?.isPremium && activeRemoteDevice) {
-      globalSocket.emit('transfer_playback', {
-        userId: String(currentUser._id || currentUser.id),
-        targetDeviceId: activeRemoteDevice.deviceId,
-        station: next
-      });
-      return; 
-    }
-
     handleStationSelectWithAds(next);
   };
 
@@ -1381,15 +1276,6 @@ function MainApp() {
       prev = zappingPlaylist[idx <= 0 ? zappingPlaylist.length - 1 : idx - 1];
     }
 
-    if (currentUser?.isPremium && activeRemoteDevice) {
-      globalSocket.emit('transfer_playback', {
-        userId: String(currentUser._id || currentUser.id),
-        targetDeviceId: activeRemoteDevice.deviceId,
-        station: prev
-      });
-      return; 
-    }
-
     handleStationSelectWithAds(prev);
   };
 
@@ -1400,14 +1286,8 @@ function MainApp() {
     if (isPlaying) {
       intendedPlayState.current = false; 
       audioRef.current.pause();
-      setIsPlaying(false); 
-      
-      if (globalSocket && currentUser) {
-        globalSocket.emit('local_play_stopped', {
-          userId: String(currentUser._id || currentUser.id),
-          deviceId: localDeviceId
-        });
-      }
+      releasePlayback();
+      setIsPlaying(false);
     } else {
       intendedPlayState.current = true; 
       handleActualStationPlay(currentStation);
@@ -1926,6 +1806,7 @@ function MainApp() {
             fetch(`${API_URL}/ads/${ad.id}/impression`, { method: 'POST' }).catch(() => {});
           }
           clearAdWatchdog();
+          if(!ad)void startedPlayback();
         }}
         
         onPause={() => {
@@ -2029,7 +1910,7 @@ function MainApp() {
                 <HomeCategories stations={stations} currentUser={currentUser} allLink={false}/>
               </div>
             } />
-            <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} currentUser={currentUser} onLogout={handleLogout} onUserUpdated={setCurrentUser} /> : <Navigate to="/login" />} />
+            <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} currentUser={currentUser} onLogout={handleLogout} onUserUpdated={setCurrentUser} onOpenDevices={()=>setDevicesOpen(true)} /> : <Navigate to="/login" />} />
             <Route path="/settings" element={<Navigate to="/profile?tab=details" replace />} />
             <Route path="/press-kit" element={<PressKit />} />
             <Route path="/newsfeed" element={<NewsFeed stations={stations} userLocation={userLocation} checkGeoMatch={checkGeoMatch} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
@@ -2165,6 +2046,7 @@ function MainApp() {
           localDeviceId={localDeviceId}
           onTransferPlayback={handleTransferPlayback}
           onRequestDevices={handleRequestDevices}
+          onOpenDevices={()=>setDevicesOpen(true)}
         />
       </main>
 
@@ -2185,7 +2067,13 @@ function MainApp() {
         localDeviceId={localDeviceId}
         onTransferPlayback={handleTransferPlayback}
         onRequestDevices={handleRequestDevices}
+        onOpenDevices={()=>setDevicesOpen(true)}
       />
+      <DevicePicker open={devicesOpen} onClose={()=>setDevicesOpen(false)}
+        devices={availableDevices} localDeviceId={localDeviceId}
+        connected={devicesConnected} premium={currentUser?.role==='user'&&currentUser?.isPremium===true}
+        onRefresh={requestDevices} onTransfer={handleTransferPlayback}
+        onRename={renameDevice} onForget={forgetDevice} currentStation={currentStation}/>
       <InstallPrompt />
       <NotificationTicker API_URL={API_URL} currentUser={currentUser} />
 

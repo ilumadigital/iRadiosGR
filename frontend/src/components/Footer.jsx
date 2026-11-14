@@ -26,7 +26,7 @@ export default function Footer({
   availableDevices = [],
   localDeviceId,
   onTransferPlayback,
-  onRequestDevices,
+  onRequestDevices, onOpenDevices,
   globalCoverArt, liveBroadcast, rdsShowProducer
 }) {
   
@@ -186,6 +186,7 @@ export default function Footer({
           isRecognizing={isRecognizing}
           onOpenStation={() => { setIsMaximized(false); navigate('/station/'+(currentStation.slug||currentStation._id)); }}
           onClose={() => setIsMaximized(false)}
+          onOpenDevices={onOpenDevices}
         />
       )}
 
@@ -329,46 +330,11 @@ export default function Footer({
             </div>
           </div>
           <div className="w-px h-6 bg-white/10 mx-2"></div>
-          {isPremium && (
-            <div className="relative" ref={devicesMenuRef}>
-              <button onClick={() => { setShowDevicesMenu(!showDevicesMenu); if (!showDevicesMenu && onRequestDevices) onRequestDevices(); }} className={`p-2 transition-all hover:scale-110 active:scale-95 rounded-full ${isPlaying ? 'text-[#ccff00]' : 'text-zinc-500 hover:text-white'}`} title="Συσκευές Αναπαραγωγής">
-                <MonitorSpeaker size={20} />
-              </button>
-              {showDevicesMenu && (
-                <div className="absolute bottom-full right-0 mb-6 w-72 bg-zinc-900 border border-white/10 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] p-4 z-[100] animate-in fade-in slide-in-from-bottom-2">
-                  <div className="absolute -bottom-2 right-4 w-4 h-4 bg-zinc-900 border-b border-r border-white/10 rotate-45"></div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-white">Συνδεδεμενες Συσκευες</span>
-                    <button onClick={() => setShowDevicesMenu(false)} className="text-zinc-500 hover:text-white"><X size={16}/></button>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {availableDevices.length === 0 && (
-                       <button className="w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all bg-[#ccff00]/10 border border-[#ccff00]/20 cursor-default">
-                         <div className="flex items-center gap-3"><Laptop size={18} className="text-[#ccff00]" /><span className="text-sm font-bold text-[#ccff00]">Αυτή η συσκευή</span></div>
-                         {isPlaying && <div className="w-1.5 h-1.5 rounded-full bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]"></div>}
-                       </button>
-                    )}
-                    {availableDevices.map(device => {
-                      const isLocal = device.deviceId === localDeviceId;
-                      const isMobileDev = /iphone|ipad|android|mobile/i.test(device.deviceName);
-                      const DeviceIcon = isMobileDev ? Smartphone : Laptop;
-                      return (
-                        <button key={device.deviceId} onClick={(e) => { e.stopPropagation(); onTransferPlayback(device.deviceId); setShowDevicesMenu(false); }} className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${device.isPlaying ? 'bg-[#ccff00]/10 border border-[#ccff00]/20' : 'bg-zinc-950/50 border border-white/5 hover:bg-white/5 hover:border-white/10'}`}>
-                          <div className="flex items-center gap-3">
-                            <DeviceIcon size={18} className={device.isPlaying ? 'text-[#ccff00]' : 'text-zinc-400'} />
-                            <div className="flex flex-col items-start">
-                              <span className={`text-sm font-bold leading-tight ${device.isPlaying ? 'text-[#ccff00]' : 'text-zinc-300'}`}>{isLocal ? 'Αυτή η συσκευή' : device.deviceName}</span>
-                              {isLocal && <span className="text-[9px] text-[#ccff00] uppercase tracking-widest">{device.deviceName}</span>}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {currentUser&&<button type="button" onClick={onOpenDevices}
+            className={'p-2 transition-all hover:scale-110 rounded-full '+(isPlaying?'text-[#ccff00]':'text-zinc-400 hover:text-white')}
+            title="iRadios Connect · Συσκευές" aria-label="Συσκευές αναπαραγωγής">
+            <MonitorSpeaker size={20}/>
+          </button>}
           <button onClick={() => setIsMaximized(true)} className="p-2 text-zinc-500 hover:text-[#ccff00] transition-colors active:scale-90" title="Πλήρης Οθόνη"><Maximize2 size={20} /></button>
         </div>
       </footer>

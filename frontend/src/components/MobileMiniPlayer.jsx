@@ -41,7 +41,7 @@ export default function MobileMiniPlayer({
   availableDevices = [],
   localDeviceId,
   onTransferPlayback,
-  onRequestDevices,
+  onRequestDevices, onOpenDevices,
   globalCoverArt,
   liveBroadcast,
   rdsShowProducer
@@ -261,12 +261,8 @@ export default function MobileMiniPlayer({
   };
 
   const openDevices = () => {
-    if (!isPremium) {
-      showAlert('Αναβαθμίστε σε Premium για να αλλάζετε συσκευή αναπαραγωγής.');
-      return;
-    }
-    setShowDevicesMenu(true);
-    onRequestDevices?.();
+    if(!currentUser){navigate('/login');return;}
+    onOpenDevices?.();
   };
 
   const handleTouchEndMinified = () => {
