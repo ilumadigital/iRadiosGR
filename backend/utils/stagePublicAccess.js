@@ -173,7 +173,7 @@ function stagePublicAccess(req, res, next) {
     const email = req.body?.email;
     const normalized = typeof email === 'string' ? email.trim() : '';
     if (!normalized || normalized.length > 254 ||
-        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized)) {
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
       return res.status(400).json({ error: 'Συμπλήρωσε έγκυρη διεύθυνση email.' });
     }
     return next();
