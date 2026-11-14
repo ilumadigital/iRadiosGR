@@ -8,6 +8,7 @@ import FullscreenArtwork from './FullscreenArtwork';
 import AdSkipControl from './AdSkipControl';
 import OnAirShowCard from './OnAirShowCard';
 import {parseMusicMetadata} from '../utils/musicMetadata';
+import {remoteLocationLabel} from '../utils/playbackPresentation.mjs';
 
 // This visual layer never creates an <audio>. App.jsx remains the only stream player.
 export default function DesktopFullPlayer({
@@ -100,7 +101,7 @@ export default function DesktopFullPlayer({
             {remotePlayback&&<button type="button" onClick={onOpenDevices}
               className="mt-3 flex max-w-full items-center gap-2 self-start rounded-xl border border-[#ccff00]/25 bg-[#ccff00]/10 px-3 py-2 text-xs font-bold text-[#ccff00]">
               <MonitorSpeaker size={17}/>
-              <span className="truncate">{remotePlayback.state==='paused'?'Σε παύση στο':'Παίζει στο'} {remotePlayback.deviceName}</span>
+              <span className="truncate">{remoteLocationLabel(remotePlayback.state)} {remotePlayback.deviceName}</span>
               <span className="shrink-0 text-white/70">· Συσκευές</span>
             </button>}
             {!isPlayingAd&&<OnAirShowCard show={currentShow} stationName={station.name}
@@ -121,7 +122,7 @@ export default function DesktopFullPlayer({
                 {isBuffering?<Loader2 className="animate-spin" size={34}/>:isPlaying&&!isPlayingAd?<Pause size={36} fill="currentColor"/>:<Play size={36} fill="currentColor"/>}
               </button>
               <div className="flex flex-col gap-1"><span className="text-xs font-black uppercase tracking-widest">ON AIR / LIVE</span>
-                <span className="text-xs text-zinc-400">{isBuffering?'Σύνδεση…':remotePlayback?(remotePlayback.state==='paused'?'Σε παύση στο ':'Παίζει στο ')+remotePlayback.deviceName:isPlaying?'Ακούς ζωντανά':'Έτοιμο για αναπαραγωγή'}</span>
+                <span className="text-xs text-zinc-400">{isBuffering?'Σύνδεση…':remotePlayback?remoteLocationLabel(remotePlayback.state)+' '+remotePlayback.deviceName:isPlaying?'Ακούς ζωντανά':'Έτοιμο για αναπαραγωγή'}</span>
               </div>
               <span className="mx-1 h-10 w-px bg-white/15"/>
               <button type="button" onClick={handlePrevStation} disabled={isPlayingAd||adWarning}

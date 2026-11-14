@@ -12,6 +12,7 @@ import DesktopFullPlayer from './DesktopFullPlayer';
 import AdSkipControl from './AdSkipControl';
 import FoundWithAI from './FoundWithAI';
 import RdsCrossfade from './RdsCrossfade';
+import {remoteLocationLabel} from '../utils/playbackPresentation.mjs';
 import { SiApplemusic } from 'react-icons/si';
 import {parseMusicMetadata,spotifySongLink,appleMusicSongLink} from '../utils/musicMetadata'; 
 import { useAlert } from '../context/AlertContext';
@@ -297,7 +298,7 @@ export default function Footer({
                   className="max-w-full truncate rounded-full border border-[#ccff00]/30 bg-[#ccff00]/10 px-3 py-0.5 text-[10px] font-bold text-[#ccff00]"
                   title="Διαχείριση απομακρυσμένης αναπαραγωγής">
                   <MonitorSpeaker size={12} className="mr-1 inline"/>
-                  {remotePlayback.state==='paused'?'Σε παύση στο':'Παίζει στο'} {remotePlayback.deviceName}
+                  {remoteLocationLabel(remotePlayback.state)} {remotePlayback.deviceName}
                 </button>
               ) : (
                 <div className="flex w-full min-w-0 items-center justify-center">

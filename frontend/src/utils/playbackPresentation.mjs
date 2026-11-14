@@ -18,6 +18,9 @@ export function shouldShowPause(localPlaying,remotePlayback){
   return Boolean(localPlaying || (remotePlayback &&
     ['playing','pending'].includes(remotePlayback.state)));
 }
+export function remoteLocationLabel(state){
+  return state==='paused'?'Σε παύση στο':state==='pending'?'Σύνδεση στο':'Παίζει στο';
+}
 export function ownerTransportAction(owner){
   return owner?.playbackState==='paused'?'resume':'pause';
 }

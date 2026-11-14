@@ -16,7 +16,7 @@ import {selectStationBreak,dueOnClock,canServeAudioAd} from './utils/audioAdRule
 import {newAdListenClock,resumeAdListenClock,suspendAdListenClock,sampleAdListenClock,canSkipAd,secondsUntilAdSkip} from './utils/adSkipPolicy';
 import useMediaSession from './hooks/useMediaSession';
 import usePlayDevices from './hooks/usePlayDevices';
-import {findPremiumOwner,remotePremiumPlayback,shouldShowPause,ownerTransportAction} from './utils/playbackPresentation.mjs';
+import {findPremiumOwner,remotePremiumPlayback,shouldShowPause,ownerTransportAction,remoteLocationLabel} from './utils/playbackPresentation.mjs';
 import DevicePicker from './components/DevicePicker';
 import {getAthensClock} from './utils/schedule';
 import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
@@ -1411,9 +1411,13 @@ function MainApp() {
 
     // Play/Pause acts on the actual Premium playback owner, even when this
     // screen has no audio. An explicit Transfer is the ONLY way to move audio.
-    if(premiumSync&&playbackOwner){
-      const action=ownerTransportAction(playbackOwner);
-      void handlePlaybackControl(action);
+    if(premiumSync&&(playbackOwner||isPlaying)){
+      const action=playbackOwner?ownerTransportAction(playbackOwner):'pause';
+      void handlePlaybackControl(action).then(result=>{
+        // A Premium player must never continue locally after losing the server
+        // control channel or the exclusive playback authorization.
+        if(!result.ok&&isPlaying)deviceCallbacksRef.current.stop?.();
+      });
       return;
     }
     if (isPlaying) {
@@ -1852,7 +1856,7 @@ function MainApp() {
           >
             <MonitorSpeaker className="w-4 h-4 lg:w-5 lg:h-5 animate-pulse" />
             <div className="flex flex-col items-start text-left">
-              <span className="text-[8px] lg:text-[9px] font-black tracking-widest opacity-80 leading-none mb-0.5">{activeRemoteDevice.playbackState==='paused'?'Σε παύση στο':'Τώρα παίζει στο'}</span>
+              <span className="text-[8px] lg:text-[9px] font-black tracking-widest opacity-80 leading-none mb-0.5">{remoteLocationLabel(activeRemoteDevice.playbackState)}</span>
               <span className="text-[10px] lg:text-xs font-bold leading-none">{activeRemoteDevice.deviceName} · Μεταφορά εδώ</span>
             </div>
           </button>

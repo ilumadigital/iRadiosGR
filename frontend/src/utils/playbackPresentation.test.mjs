@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {findPremiumOwner,remotePremiumPlayback,shouldShowPause,ownerTransportAction}
+import {findPremiumOwner,remotePremiumPlayback,shouldShowPause,ownerTransportAction,remoteLocationLabel}
   from './playbackPresentation.mjs';
 const deseo='507f1f77bcf86cd799439011';
 const device={deviceId:'iphone',deviceName:'iPhone',stationId:deseo,
@@ -31,4 +31,10 @@ test('Free accounts have independent playback and no shared owner',()=>{
   assert.equal(findPremiumOwner([device],false),null);
   assert.equal(shouldShowPause(false,null),false);
   assert.equal(shouldShowPause(true,null),true);
+});
+
+test('Remote labels distinguish playing, pending and paused',()=>{
+  assert.equal(remoteLocationLabel('playing'),'Παίζει στο');
+  assert.equal(remoteLocationLabel('pending'),'Σύνδεση στο');
+  assert.equal(remoteLocationLabel('paused'),'Σε παύση στο');
 });

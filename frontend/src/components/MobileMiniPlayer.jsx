@@ -14,6 +14,7 @@ import FullscreenArtwork from './FullscreenArtwork';
 import AdSkipControl from './AdSkipControl';
 import OnAirShowCard from './OnAirShowCard';
 import {parseMusicMetadata} from '../utils/musicMetadata';
+import {remoteLocationLabel} from '../utils/playbackPresentation.mjs';
 import { useAlert } from '../context/AlertContext';
 import '../styles/mobile-player-glass.css';
 
@@ -299,7 +300,7 @@ export default function MobileMiniPlayer({
               <span className="ir-glass-header__eyebrow"><span className="ir-glass-live-dot"/> ΖΩΝΤΑΝΑ ΣΤΟ iRadios</span>
               <strong>{currentStation.name}</strong>
               {remotePlayback&&<span className="block max-w-[180px] truncate text-[10px] font-bold text-[#ccff00]">
-                {remotePlayback.state==='paused'?'Σε παύση στο':'Παίζει στο'} {remotePlayback.deviceName}
+                {remoteLocationLabel(remotePlayback.state)} {remotePlayback.deviceName}
               </span>}
             </button>
             <div className="ir-glass-header__right">
@@ -441,7 +442,7 @@ export default function MobileMiniPlayer({
                 <div className="text-sm font-bold text-white truncate tracking-tight">{currentStation.name}</div>
                 <div className={`text-[11px] font-medium truncate max-w-[140px] mt-0.5 ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
                   {remotePlayback ? <span className="block truncate font-bold text-[#ccff00]">
-                    {remotePlayback.state==='paused'?'Σε παύση στο':'Παίζει στο'} {remotePlayback.deviceName}
+                    {remoteLocationLabel(remotePlayback.state)} {remotePlayback.deviceName}
                   </span> : isRecognizing ? "Αναγνώριση..." : (
                     <RdsCrossfade showSecondary={showProducerArt}
                       secondary={canShowDj?<span className="block truncate">{liveBroadcast.title}</span>:null}>
