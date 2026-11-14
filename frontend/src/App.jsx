@@ -16,6 +16,7 @@ import {selectStationBreak,dueOnClock,canServeAudioAd} from './utils/audioAdRule
 import {newAdListenClock,resumeAdListenClock,suspendAdListenClock,sampleAdListenClock,canSkipAd,secondsUntilAdSkip} from './utils/adSkipPolicy';
 import useMediaSession from './hooks/useMediaSession';
 import usePlayDevices from './hooks/usePlayDevices';
+import {findPremiumOwner,remotePremiumPlayback,shouldShowPause,ownerTransportAction} from './utils/playbackPresentation.mjs';
 import DevicePicker from './components/DevicePicker';
 import {getAthensClock} from './utils/schedule';
 import {resolveLiveShowArtwork,isBroadcastMetadata} from './utils/liveBroadcast';
@@ -886,16 +887,10 @@ function MainApp() {
   const handleRequestDevices=()=>requestDevices();
   const premiumSync=Boolean(currentUser?.role==='user'&&currentUser?.isPremium===true);
   const playbackOwner=useMemo(()=>
-    premiumSync?availableDevices.find(d=>d.online&&d.playbackState&&d.stationId):null,
-    [premiumSync,availableDevices]);
+    findPremiumOwner(availableDevices,premiumSync),[premiumSync,availableDevices]);
   const activeRemoteDevice=playbackOwner?.deviceId!==localDeviceId?playbackOwner:null;
-  const displayIsPlaying=Boolean(isPlaying || (activeRemoteDevice &&
-    ['playing','pending'].includes(activeRemoteDevice.playbackState)));
-  const remotePlayback=activeRemoteDevice?{
-    deviceName:activeRemoteDevice.deviceName,
-    state:activeRemoteDevice.playbackState,
-    stationId:activeRemoteDevice.stationId
-  }:null;
+  const remotePlayback=remotePremiumPlayback(playbackOwner,localDeviceId);
+  const displayIsPlaying=shouldShowPause(isPlaying,remotePlayback);
   const handlePlaybackControl=async(action,stationId)=>{
     const result=await controlPlayback(action,stationId);
     if(!result.ok)showAlert('Ο συγχρονισμός αναπαραγωγής απέτυχε. Άνοιξε τις Συσκευές για έλεγχο.');
@@ -1417,7 +1412,7 @@ function MainApp() {
     // Play/Pause acts on the actual Premium playback owner, even when this
     // screen has no audio. An explicit Transfer is the ONLY way to move audio.
     if(premiumSync&&playbackOwner){
-      const action=playbackOwner.playbackState==='paused'?'resume':'pause';
+      const action=ownerTransportAction(playbackOwner);
       void handlePlaybackControl(action);
       return;
     }
