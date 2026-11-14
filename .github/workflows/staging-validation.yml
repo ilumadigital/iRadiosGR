@@ -233,8 +233,8 @@ jobs:
         run: node ops/check-phase4-backoffice.cjs
       - name: Verify locked Broadcaster add-ons and billing entitlement aware sidebar
         run: node ops/check-broadcaster-locked-addons.cjs
-      - name: Verify broadcaster dashboard premium data isolation and locked cards
-        run: node --test backend/tests/broadcasterDashboardProjection.test.js
+      - name: Verify broadcaster dashboard premium cards and safe stream startup checks
+        run: node --test backend/tests/broadcasterDashboardProjection.test.js backend/tests/broadcasterStreamHealth.test.js
       - name: Validate official Station Console v6 branding and WebDSP-first compact navigation
         run: node --test ops/check-station-console-sidebar.test.cjs
       - name: Check Phase 4.1 Backoffice simplicity, schedules and admin authorization
