@@ -1866,7 +1866,10 @@ function MainApp() {
             secondsUntilAdSkip(adListenClockRef.current,event.currentTarget.duration,
               adBreakSpotCountRef.current>1));
         }}
-        onEnded={() => {
+        onEnded={(event) => {
+          // Safari prewarm is silent PCM, not a radio stream or ad break.
+          if(premiumAuthorizationPendingRef.current||
+             String(event.currentTarget.currentSrc||'').startsWith('data:audio/'))return;
           const ad=activeAdRef.current;
           if(ad){logAdOutcome('completed',ad);playNextAdOrStation();}
           else handleActualStationPlay(currentStation);
@@ -1891,6 +1894,8 @@ function MainApp() {
         }}
 
         onError={(e) => {
+          if(premiumAuthorizationPendingRef.current||
+             String(e.currentTarget.currentSrc||'').startsWith('data:audio/'))return;
           // The same audio element serves spots and station streams.
           // A failed ad has its own diagnostic and must never be presented as
           // a broken radio station or trap the listener in a silent break.
