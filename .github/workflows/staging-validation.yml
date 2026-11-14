@@ -75,6 +75,8 @@ jobs:
         run: node --test backend/tests/stationDeletionBilling.test.js
       - name: Verify secure Free listener email-link token generation
         run: node --test backend/tests/emailVerification.test.js
+      - name: Verify public password recovery and strict staging route guard
+        run: node --test backend/tests/passwordRecovery.test.js ops/check-password-recovery-access.test.cjs
       - name: Verify phase-1 subscription catalog, complimentary grants and paid Boost priority
         run: node --test backend/tests/billingPhase1.test.js backend/tests/billingGrantRequest.test.js
       - name: Verify expired purchased and Premium Boost retains only organic ranking reward
