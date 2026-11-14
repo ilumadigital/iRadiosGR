@@ -465,7 +465,9 @@ exports.getDiscoveryStations = async (req, res) => {
       { $sample: { size: 10 } },
       // Φέρνουμε μόνο τα απαραίτητα πεδία για ταχύτητα
       { $project: {
-          name: 1, genre: 1, logo: 1, stream: 1, region: 1, slug: 1, isFeatured: 1
+          name: 1, genre: 1, logo: 1, stream: 1, streamUrl: 1,
+          region: 1, city: 1, slogan: 1, slug: 1, isFeatured: 1,
+          schedule: 1, scheduleDayBase: 1
       }}
     ]);
 

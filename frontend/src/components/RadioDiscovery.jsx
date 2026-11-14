@@ -242,7 +242,8 @@ export default function RadioDiscovery({
   const activeId = stationId(selected);
 
   const loadMore = useCallback(async () => {
-    if (inFlightRef.current || abortRef.current?.signal.aborted || !hasMore) return;
+    // A React StrictMode remount may abort the previous request; allow its replacement.
+    if ((inFlightRef.current && !abortRef.current?.signal.aborted) || !hasMore) return;
     inFlightRef.current = true;
     setLoading(true);
     setError('');
@@ -266,8 +267,10 @@ export default function RadioDiscovery({
     } catch (err) {
       if (!controller.signal.aborted) setError('Δεν φορτώθηκαν οι νέοι σταθμοί. Δοκίμασε ξανά.');
     } finally {
-      inFlightRef.current = false;
-      if (!controller.signal.aborted) setLoading(false);
+      if (abortRef.current === controller) {
+        inFlightRef.current = false;
+        if (!controller.signal.aborted) setLoading(false);
+      }
     }
   }, [API_URL, hasMore]);
 
@@ -385,7 +388,7 @@ export default function RadioDiscovery({
         {loading && !selected ? <Loader2 size={19} className="ir-reel-spin"/> : <Play size={19} fill="currentColor"/>}
         {loading && !selected ? 'Φόρτωση σταθμών…' : selected ? 'ΞΕΚΙΝΑ ΤΟ DISCOVERY' : 'Δεν βρέθηκαν σταθμοί'}
       </button>
-      {!selected && error && <button type="button" onClick={() => { setHasMore(true); void loadMore(); }}
+      {!selected && error && <button type="button" onClick={() => void loadMore()}
         className="ir-reels-retry"><RefreshCw size={16}/> Επανάληψη</button>}
       <div className="ir-reels-intro-hint"><ChevronUp size={16}/> Swipe up για τον επόμενο σταθμό</div>
     </div> : <>
