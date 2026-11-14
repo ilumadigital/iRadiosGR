@@ -7,6 +7,15 @@ on:
 permissions:
   contents: read
 jobs:
+  password_recovery:
+    name: Password recovery regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test backend/tests/passwordRecovery.test.js ops/check-password-recovery-access.test.cjs
   play_devices:
     name: iRadios Connect playback synchronization
     runs-on: ubuntu-latest
