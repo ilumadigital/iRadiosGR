@@ -4,7 +4,7 @@ import {
   ArrowRight,Bell,BellRing,CalendarDays,Check,ChevronRight,Clock3,Compass,
   CreditCard,Crown,Headphones,Heart,Loader2,LogOut,Mail,MapPin,Mic2,
   Music2,Newspaper,Radio,Save,Settings2,ShieldCheck,Sparkles,UserRound,
-  Volume2,Wallet,XCircle,Zap
+  Volume2,Wallet,XCircle,Zap,MonitorSpeaker
 } from 'lucide-react';
 import ProfileFollows from '../components/ProfileFollows';
 import ProfileInbox from '../components/ProfileInbox';
@@ -63,7 +63,7 @@ function SectionHeading({icon:Icon,title,description}){
   </div>;
 }
 
-export default function Profile({API_URL='/api',onLogout,currentUser=null,onUserUpdated}){
+export default function Profile({API_URL='/api',onLogout,currentUser=null,onUserUpdated,onOpenDevices}){
   const navigate=useNavigate();
   const location=useLocation();
   const allowedTabs=['details','notifications','follows','inbox','billing'];
@@ -309,6 +309,7 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null,onUser
         </div>
       </div>
       <div className="relative mt-6 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+        <button type="button" onClick={onOpenDevices} className="ir-profile-quick"><MonitorSpeaker size={17}/><span>Οι συσκευές μου</span><ArrowRight size={14} className="ml-auto"/></button>
         <button type="button" onClick={()=>selectTab('inbox')} className="ir-profile-quick"><Bell size={17}/><span>Notification Center</span><ArrowRight size={14} className="ml-auto"/></button>
         <button type="button" onClick={()=>selectTab('billing')} className="ir-profile-quick"><Wallet size={17}/><span>Το πλάνο μου</span><ArrowRight size={14} className="ml-auto"/></button>
         <button type="button" onClick={()=>selectTab('follows')} className="ir-profile-quick col-span-2 sm:col-span-1">

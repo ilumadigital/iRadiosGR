@@ -4,7 +4,7 @@ import {
   Play, Pause, Heart, SkipBack, Car, SkipForward, Shuffle, 
   ScanSearch, Loader2, ChevronUp, ChevronDown, 
   AlertTriangle, MonitorSpeaker, 
-  Laptop, Smartphone, X, ArrowUpRight, RefreshCw 
+  ArrowUpRight 
 } from 'lucide-react';
 import ShareStory from './ShareStory';
 import FoundWithAI from './FoundWithAI';
@@ -61,10 +61,6 @@ export default function MobileMiniPlayer({
   const [isAnimatingX, setIsAnimatingX] = useState(false);
   const [swipeDirection, setSwipeDirection] = useState(null);
 
-  const [showDevicesMenu, setShowDevicesMenu] = useState(false);
-
-  const devicesMenuRef = useRef(null);
-
   useEffect(() => { setIsMaximized(false); }, [location.pathname]);
 
   useEffect(() => {
@@ -73,7 +69,6 @@ export default function MobileMiniPlayer({
     return () => window.removeEventListener('minify_player', handleMinify);
   }, []);
 
-  useEffect(() => { setShowDevicesMenu(false); }, [currentStation?._id]);
   useEffect(()=>{
     if(!isMaximized)return;
     const previousOverflow=document.body.style.overflow;
@@ -82,8 +77,7 @@ export default function MobileMiniPlayer({
     fullscreenRef.current?.querySelector('[aria-label="Ελαχιστοποίηση player"]')?.focus();
     const onEscape=e=>{
       if(e.key==='Escape'){
-        if (showDevicesMenu) setShowDevicesMenu(false);
-        else setIsMaximized(false);
+        setIsMaximized(false);
       }
     };
     document.addEventListener('keydown',onEscape);
@@ -92,17 +86,9 @@ export default function MobileMiniPlayer({
       document.removeEventListener('keydown',onEscape);
       if(previousFocus?.isConnected)previousFocus.focus();
     };
-  },[isMaximized,showDevicesMenu]);
+  },[isMaximized]);
 
   // Playback metrics are emitted by the shared audio element only.
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (devicesMenuRef.current && !devicesMenuRef.current.contains(event.target)) setShowDevicesMenu(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   if (!currentStation) return null;
 
@@ -161,7 +147,7 @@ export default function MobileMiniPlayer({
   };
 
   const handleTouchMoveMaximized = (e) => {
-    if (touchStartY === null || touchStartX === null || showDevicesMenu) return; 
+    if (touchStartY === null || touchStartX === null) return; 
 
     const currentY = e.touches[0].clientY;
     const currentX = e.touches[0].clientX;
@@ -419,41 +405,7 @@ export default function MobileMiniPlayer({
           </div>
         </div>
 
-        {showDevicesMenu && <div className="ir-glass-sheet-layer">
-          <button type="button" className="ir-glass-sheet-scrim" aria-label="Κλείσιμο συσκευών"
-            onClick={() => setShowDevicesMenu(false)}/>
-          <section role="dialog" aria-modal="true" aria-label="Επιλογή συσκευής αναπαραγωγής"
-            className="ir-glass-sheet ir-glass-sheet--devices">
-            <div className="ir-glass-sheet__handle" aria-hidden="true"/>
-            <div className="ir-glass-sheet__header">
-              <div><span className="ir-glass-sheet__eyebrow">iRadios CONNECT</span><h3>Οι συσκευές σου</h3></div>
-              <div className="ir-glass-sheet__header-actions">
-                <button type="button" onClick={() => onRequestDevices?.()} aria-label="Ανανέωση συσκευών"
-                  className="ir-glass-sheet__close"><RefreshCw size={19}/></button>
-                <button type="button" onClick={() => setShowDevicesMenu(false)}
-                  aria-label="Κλείσιμο συσκευών" className="ir-glass-sheet__close"><X size={21}/></button>
-              </div>
-            </div>
-            <p className="ir-glass-device-hint">Συνέχισε την ακρόαση σε άλλη συνδεδεμένη συσκευή.</p>
-            <div className="ir-glass-device-list">
-              {availableDevices.length === 0 &&
-                <div className="ir-glass-device-row is-selected"><Smartphone size={22}/>
-                  <span>Αυτό το κινητό</span><small>Τρέχουσα συσκευή</small></div>}
-              {availableDevices.map(device => {
-                const local = device.deviceId === localDeviceId;
-                const mobile = /iphone|ipad|android|mobile/i.test(device.deviceName || '');
-                const DeviceIcon = mobile ? Smartphone : Laptop;
-                return <button type="button" key={device.deviceId}
-                  onClick={() => { if (!local) onTransferPlayback?.(device.deviceId); setShowDevicesMenu(false); }}
-                  className={'ir-glass-device-row ' + (device.isPlaying || local ? 'is-selected' : '')}>
-                  <DeviceIcon size={22}/>
-                  <span>{local ? 'Αυτό το κινητό' : (device.deviceName || 'Συσκευή')}</span>
-                  {(device.isPlaying || local) && <small>Ενεργή</small>}
-                </button>;
-              })}
-            </div>
-          </section>
-        </div>}
+}
 
       </div>
 
@@ -507,6 +459,9 @@ export default function MobileMiniPlayer({
           {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={isActualSong ? nowPlaying : null}
             artworkUrl={showCoverArt ? globalCoverArt : null} show={liveBroadcast?.show} showImageUrl={liveBroadcast?.imageUrl}
             className="ir-mini-story-button" iconSize={20}/>}
+          {currentUser&&<button type="button" onClick={e=>{e.stopPropagation();openDevices();}}
+            aria-label="Συσκευές αναπαραγωγής" title="iRadios Connect"
+            className="p-2 text-[#ccff00] active:scale-90"><MonitorSpeaker size={20}/></button>}
           {!isPlayingAd && (
             <button onClick={(e) => { e.stopPropagation(); toggleFavorite(currentStation._id); }} aria-label={isCurrentlyFavorite ? "Αφαίρεση από αγαπημένα" : "Προσθήκη στα αγαπημένα"} className={`p-2 transition-all active:scale-90 mr-1 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-zinc-400'}`}>
               <Heart size={20} fill={isCurrentlyFavorite ? "currentColor" : "none"} />

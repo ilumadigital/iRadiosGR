@@ -34,9 +34,7 @@ export default function Footer({
   const navigate = useNavigate();
   const [showEQMenu, setShowEQMenu] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [showDevicesMenu, setShowDevicesMenu] = useState(false);
   const eqMenuRef = useRef(null);
-  const devicesMenuRef = useRef(null);
 
   const formatGenre = (text) => {
     if (!text || typeof text !== 'string') return "";
@@ -60,7 +58,6 @@ export default function Footer({
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (eqMenuRef.current && !eqMenuRef.current.contains(event.target)) setShowEQMenu(false);
-      if (devicesMenuRef.current && !devicesMenuRef.current.contains(event.target)) setShowDevicesMenu(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);

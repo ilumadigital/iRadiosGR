@@ -1089,7 +1089,12 @@ function MainApp() {
         if(response.ok)station=await response.json();
       }catch{/* Device may need to retry after reconnecting. */}
     }
-    if(station?.stream)void handleActualStationPlay(station);
+    if(station?.stream){
+      if(currentUser?.role==='user'&&currentUser?.isPremium===true)
+        void handleActualStationPlay(station);
+      else if(currentStation?._id===station._id&&isPlaying)void startedPlayback();
+      else handleStationSelectWithAds(station);
+    }
   };
 
   const handleStationSelectWithAds = (station) => {
@@ -1865,6 +1870,7 @@ function MainApp() {
             playNextAdOrStation();
           } else {
             console.warn('[RADIO] Station stream failed', {code,source:media.currentSrc});
+            releasePlayback();
             setIsPlaying(false);
             showAlert("Ο σταθμός δεν ανταποκρίνεται αυτή τη στιγμή. Δοκίμασε έναν άλλο σταθμό.");
           }
