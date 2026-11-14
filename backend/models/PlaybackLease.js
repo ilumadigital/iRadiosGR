@@ -6,7 +6,7 @@ const schema=new mongoose.Schema({
   socketId:{type:String,required:true},
   token:{type:String,required:true},
   stationId:{type:mongoose.Schema.Types.ObjectId,ref:'Station',required:true},
-  state:{type:String,enum:['pending','playing'],default:'pending'},
+  state:{type:String,enum:['pending','playing','paused'],default:'pending'},
   expiresAt:{type:Date,required:true}
 },{timestamps:true});
 schema.index({accountId:1},{unique:true});
