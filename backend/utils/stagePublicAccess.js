@@ -89,6 +89,12 @@ function stagePublicAccess(req, res, next) {
   if (req.method === 'GET' && /^\/api\/catalog\/widget-show-image\/[a-f0-9]{24}$/i.test(path)) return next();
   if (req.method === 'GET' && /^\/api\/catalog\/widget-native\/[a-f0-9]{24}\/playlist$/i.test(path)) return next();
   if (req.method === 'GET' && path === '/api/broadcaster-invitations/preview') return next();
+  // The VAPID public key contains no secret. Device writes remain JWT scoped.
+  if (req.method === 'GET' && path === '/api/notifications/vapidPublicKey') return next();
+  if ((req.method === 'PUT' || req.method === 'DELETE') && path === '/api/notifications/my-device')
+    return protect(req,res,next);
+  if (req.method === 'POST' && path === '/api/notifications/my-device/status')
+    return protect(req,res,next);
   // The runtime public site key is intentionally public; the secret is never returned.
   if (req.method === 'GET' && path === '/api/auth/turnstile-config') return next();
   if (req.method === 'POST' && (path === '/api/auth/register' ||
