@@ -53,6 +53,10 @@ export default function Register({ API_URL, setCurrentUser }) {
       if (res.ok && data.token && data.user) {
         localStorage.removeItem('iradios_pending_otp_email');
         localStorage.setItem('iluma_token', data.token);
+        // Show one optional, non-blocking Push ticker after account creation.
+        if (data.user.role === 'user' && (data.user._id || data.user.id)) {
+          sessionStorage.setItem('iradios_push_onboarding_user', String(data.user._id || data.user.id));
+        }
         if (setCurrentUser) setCurrentUser(data.user);
         navigate('/');
       } else {
