@@ -64,18 +64,23 @@ const errorNames={
   LEASE_REVOKED:'Η αναπαραγωγή έχει μεταφερθεί σε άλλη συσκευή.',
   DEVICE_REVOKED:'Η συσκευή έχει αφαιρεθεί από τον λογαριασμό.',
   CONNECT_UNAVAILABLE:'Η σύνδεση iRadios Connect δεν είναι διαθέσιμη.',
-  TIMEOUT:'Η σύνδεση με τις συσκευές καθυστέρησε. Δοκίμασε ξανά.'
+  TIMEOUT:'Η σύνδεση με τις συσκευές καθυστέρησε. Δοκίμασε ξανά.',
+  NO_ACTIVE_PLAYBACK:'Δεν υπάρχει συνδεδεμένη συσκευή αναπαραγωγής.',
+  PLAYBACK_CHANGED:'Η αναπαραγωγή άλλαξε. Δοκίμασε ξανά.',
+  CONTROL_FAILED:'Δεν ολοκληρώθηκε ο απομακρυσμένος χειρισμός.',
+  PREMIUM_REQUIRED:'Ο συγχρονισμένος χειρισμός απαιτεί Listener Premium.'
 };
 export const connectError=error=>errorNames[error]||'Η ενέργεια δεν ολοκληρώθηκε. Δοκίμασε ξανά.';
-export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
+export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop,
+  onRemotePause,onRemoteResume,onRemoteStation}){
   const localDeviceId=useMemo(localConnectId,[]);
   const [availableDevices,setAvailableDevices]=useState([]);
   const [connected,setConnected]=useState(false);
   const socketRef=useRef(null);
   const leaseRef=useRef(null); // {token,stationId,issuedAt}
   const transferRef=useRef(null);
-  const callbacksRef=useRef({onRemotePlay,onRemoteStop});
-  callbacksRef.current={onRemotePlay,onRemoteStop};
+  const callbacksRef=useRef({onRemotePlay,onRemoteStop,onRemotePause,onRemoteResume,onRemoteStation});
+  callbacksRef.current={onRemotePlay,onRemoteStop,onRemotePause,onRemoteResume,onRemoteStation};
   const premiumRef=useRef(false);
   premiumRef.current=currentUser?.role==='user'&&currentUser?.isPremium===true;
   const ack=useCallback((event,payload={})=>new Promise(resolve=>{
@@ -144,6 +149,21 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
       transferRef.current=payload.transferId||null;
       callbacksRef.current.onRemotePlay?.(stationId);
     };
+    const onCommand=payload=>{
+      const active=leaseRef.current;
+      if(!active?.token||payload?.token!==active.token)return;
+      if(payload.action==='pause'){
+        callbacksRef.current.onRemotePause?.();
+      }else if(payload.action==='resume'){
+        callbacksRef.current.onRemoteResume?.(payload.stationId);
+      }else if(payload.action==='station'&&typeof payload.stationId==='string'){
+        // Preserve ownership on the receiving device when a different device
+        // changes the radio station. No second local stream is created.
+        leaseRef.current={...active,stationId:payload.stationId,
+          issuedAt:Date.now(),started:!payload.shouldPlay};
+        callbacksRef.current.onRemoteStation?.(payload.stationId,payload.shouldPlay);
+      }
+    };
     const onConnect=()=>{void register();};
     const onDisconnect=()=>{
       setConnected(false);
@@ -154,6 +174,7 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
       if(Array.isArray(rows)&&live)setAvailableDevices(rows);
     });
     socket.on('connect:play',onPlay);
+    socket.on('connect:command',onCommand);
     socket.on('connect:stop',stop);
     socket.on('connect:forget',()=>{
       localStorage.removeItem(
@@ -186,8 +207,16 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
   const acquirePlayback=useCallback(async stationId=>{
     if(!premiumRef.current)return true;
     const existing=leaseRef.current;
-    if(existing?.stationId===stationId && Date.now()-existing.issuedAt<23000)
-      return true; // Transfer already reserved by the server.
+    if(existing?.stationId===stationId &&
+       (existing.started || Date.now()-existing.issuedAt<23000))
+      return true; // Already authorized on the active playback-owner socket.
+    if(existing?.token && existing?.started && existing.stationId!==stationId){
+      // Updating a radio on its actual owner is NOT a device transfer.
+      const changed=await ack('connect:control',{action:'station',stationId});
+      if(!changed.ok)return false;
+      leaseRef.current={...existing,stationId,issuedAt:Date.now(),started:false};
+      return true;
+    }
     const result=await ack('connect:acquire',{stationId});
     if(!result.ok)return false;
     leaseRef.current=result.premium&&result.token?
@@ -203,8 +232,18 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
     const result=await ack('connect:started',token?{token,stationId}:{transferId,stationId});
     if(token&&leaseRef.current?.token===token){
       if(result.ok)leaseRef.current={...leaseRef.current,started:true};
-      else{leaseRef.current=null;callbacksRef.current.onRemoteStop?.();}
+      else if(result.error!=='STALE_PLAYBACK_EVENT'){
+        leaseRef.current=null;callbacksRef.current.onRemoteStop?.();
+      }
     }
+  },[ack]);
+  const controlPlayback=useCallback(async(action,stationId)=>{
+    if(!premiumRef.current)return {ok:false,error:'PREMIUM_REQUIRED'};
+    return ack('connect:control',action==='station'?{action,stationId}:{action});
+  },[ack]);
+  const reportPlaybackBlocked=useCallback(()=>{
+    const token=leaseRef.current?.token;
+    if(token)void ack('connect:blocked',{token});
   },[ack]);
   const releasePlayback=useCallback(()=>{
     const token=leaseRef.current?.token;
@@ -218,5 +257,6 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
   const forgetDevice=useCallback(async(deviceId)=>
     ack('connect:forget',{deviceId}),[ack]);
   return {availableDevices,localDeviceId,connected,requestDevices,acquirePlayback,
-    startedPlayback,releasePlayback,transferPlayback,renameDevice,forgetDevice};
+    startedPlayback,releasePlayback,transferPlayback,renameDevice,forgetDevice,
+    controlPlayback,reportPlaybackBlocked};
 }
