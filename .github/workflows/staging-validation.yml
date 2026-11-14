@@ -7,6 +7,18 @@ on:
 permissions:
   contents: read
 jobs:
+  play_devices:
+    name: iRadios Connect playback synchronization
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check backend syntax and synchronized transport behavior
+        run: |
+          node --check backend/services/playDevices.js
+          node --test frontend/src/utils/playbackPresentation.test.mjs backend/tests/playbackControlPolicy.test.js ops/check-play-devices-sync.test.cjs
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -47,8 +59,6 @@ jobs:
         run: node ops/check-stage-backend-env.cjs
       - name: Validate backend JavaScript syntax
         run: find backend -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check
-      - name: Test remote Premium playback status and owner-only transport state machine
-        run: node --test frontend/src/utils/playbackPresentation.test.mjs backend/tests/playbackControlPolicy.test.js
       - name: Verify safe real-time backoffice invalidation and SSE events
         run: node --test backend/tests/liveUpdates.test.js
       - name: Verify For You listener personalization, safe sync and offline fallback
