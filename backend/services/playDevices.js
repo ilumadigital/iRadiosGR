@@ -8,6 +8,7 @@ const UserDevice=require('../models/UserDevice');
 const PlaybackLease=require('../models/PlaybackLease');
 const Station=require('../models/Station');
 const {hasAccountRight}=require('./billingEntitlements');
+const {nextPlaybackState}=require('./playbackControlPolicy');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const OBJECT_ID=/^[a-f0-9]{24}$/i;
 const LEASE_MS=30000;
@@ -244,20 +245,14 @@ function createDeviceService(io){
           if(!ownerSocket?.connected || ownerSocket.data.accountId!==account ||
              ownerSocket.data.deviceId!==lease.deviceId)
             return {ok:false,error:'DEVICE_OFFLINE'};
-          let nextState=lease.state,stationId=String(lease.stationId);
+          const nextState=nextPlaybackState(lease.state,action);
+          let stationId=String(lease.stationId);
           if(action==='station'){
             if(!OBJECT_ID.test(raw?.stationId||''))
               return {ok:false,error:'INVALID_STATION'};
             if(!await Station.exists({_id:raw.stationId,status:'approved',isOffline:{$ne:true}}))
               return {ok:false,error:'STATION_UNAVAILABLE'};
             stationId=raw.stationId;
-            // Selecting a different station also requests playback to start
-            // on the current owner; Pause stays a separate explicit action.
-            nextState='pending';
-          }else if(action==='pause'){
-            nextState='paused';
-          }else if(action==='resume' && lease.state!=='playing'){
-            nextState='pending';
           }
           const updated=await PlaybackLease.findOneAndUpdate({
             accountId:account,token:lease.token,socketId:lease.socketId,
