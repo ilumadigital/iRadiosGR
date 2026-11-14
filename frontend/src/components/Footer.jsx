@@ -26,7 +26,7 @@ export default function Footer({
   availableDevices = [],
   localDeviceId,
   onTransferPlayback,
-  onRequestDevices, onOpenDevices,
+  onRequestDevices, onOpenDevices, remotePlayback,
   globalCoverArt, liveBroadcast, rdsShowProducer
 }) {
   
@@ -184,6 +184,7 @@ export default function Footer({
           onOpenStation={() => { setIsMaximized(false); navigate('/station/'+(currentStation.slug||currentStation._id)); }}
           onClose={() => setIsMaximized(false)}
           onOpenDevices={onOpenDevices}
+          remotePlayback={remotePlayback}
         />
       )}
 
@@ -291,6 +292,13 @@ export default function Footer({
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00] animate-bounce">ΔΙΑΦΗΜΙΣΗ ΣΕ {adWarning}...</span>
               ) : isPlayingAd ? (
                 <span className="text-[10px] font-bold uppercase tracking-widest text-[#ccff00] animate-pulse">ADVERTISEMENT • {adTimeRemaining}s</span>
+              ) : remotePlayback ? (
+                <button type="button" onClick={onOpenDevices}
+                  className="max-w-full truncate rounded-full border border-[#ccff00]/30 bg-[#ccff00]/10 px-3 py-0.5 text-[10px] font-bold text-[#ccff00]"
+                  title="Διαχείριση απομακρυσμένης αναπαραγωγής">
+                  <MonitorSpeaker size={12} className="mr-1 inline"/>
+                  {remotePlayback.state==='paused'?'Σε παύση στο':'Παίζει στο'} {remotePlayback.deviceName}
+                </button>
               ) : (
                 <div className="flex w-full min-w-0 items-center justify-center">
                   <div className="flex max-w-full min-w-0 items-center justify-center gap-2">

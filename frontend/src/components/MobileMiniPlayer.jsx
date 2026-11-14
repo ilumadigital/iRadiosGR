@@ -41,7 +41,7 @@ export default function MobileMiniPlayer({
   availableDevices = [],
   localDeviceId,
   onTransferPlayback,
-  onRequestDevices, onOpenDevices,
+  onRequestDevices, onOpenDevices, remotePlayback,
   globalCoverArt,
   liveBroadcast,
   rdsShowProducer
@@ -298,6 +298,9 @@ export default function MobileMiniPlayer({
               className="ir-glass-header__station" aria-label={'Άνοιγμα προφίλ σταθμού ' + currentStation.name}>
               <span className="ir-glass-header__eyebrow"><span className="ir-glass-live-dot"/> ΖΩΝΤΑΝΑ ΣΤΟ iRadios</span>
               <strong>{currentStation.name}</strong>
+              {remotePlayback&&<span className="block max-w-[180px] truncate text-[10px] font-bold text-[#ccff00]">
+                {remotePlayback.state==='paused'?'Σε παύση στο':'Παίζει στο'} {remotePlayback.deviceName}
+              </span>}
             </button>
             <div className="ir-glass-header__right">
               {currentStation.explicit && <span className="ir-glass-explicit"><AlertTriangle size={11}/> Explicit</span>}
@@ -437,7 +440,9 @@ export default function MobileMiniPlayer({
               <>
                 <div className="text-sm font-bold text-white truncate tracking-tight">{currentStation.name}</div>
                 <div className={`text-[11px] font-medium truncate max-w-[140px] mt-0.5 ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                  {isRecognizing ? "Αναγνώριση..." : (
+                  {remotePlayback ? <span className="block truncate font-bold text-[#ccff00]">
+                    {remotePlayback.state==='paused'?'Σε παύση στο':'Παίζει στο'} {remotePlayback.deviceName}
+                  </span> : isRecognizing ? "Αναγνώριση..." : (
                     <RdsCrossfade showSecondary={showProducerArt}
                       secondary={canShowDj?<span className="block truncate">{liveBroadcast.title}</span>:null}>
                       <span className="block truncate">{isActualSong?nowPlaying:

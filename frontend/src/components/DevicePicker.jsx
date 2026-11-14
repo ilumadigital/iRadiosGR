@@ -58,6 +58,9 @@ export default function DevicePicker({open,onClose,devices=[],localDeviceId,prem
           const local=device.deviceId===localDeviceId;
           const Icon=iconFor[device.deviceType]||Monitor;
           const playing=device.isPlaying===true;
+          const paused=device.playbackState==='paused';
+          const hasOwnerElsewhere=premium&&devices.some(d=>d.online&&d.playbackState&&d.deviceId!==localDeviceId);
+          const owner=Boolean(device.playbackState);
           const online=device.online===true;
           const sub=device.clientType==='app'?'App':'Browser';
           return <div key={device.deviceId} className={'rounded-2xl border p-3 transition-colors '+(playing?'border-[#ccff00]/30 bg-[#ccff00]/10':'border-white/10 bg-white/[.035]')}>
@@ -72,20 +75,21 @@ export default function DevicePicker({open,onClose,devices=[],localDeviceId,prem
                   <p className="truncate text-sm font-bold">{device.deviceName||'Συσκευή'} {local&&<span className="text-[10px] font-normal text-[#ccff00]">· Αυτή η συσκευή</span>}</p>}
                 <p className="mt-0.5 text-xs text-zinc-400">{sub}{device.clientType==='browser'&&device.browser?' · '+device.browser:''}</p>
                 <p className="mt-1 text-[11px] text-zinc-500">
-                  {playing?'Παίζει τώρα':device.isPending?'Αναμονή έναρξης':online?'Online':'Offline'}
+                  {playing?'Παίζει τώρα':paused?'Σε παύση':device.isPending?'Αναμονή έναρξης':online?'Online':'Offline'}
                   {!online&&device.lastSeenAt?' · Τελευταία σύνδεση '+new Date(device.lastSeenAt).toLocaleDateString('el-GR'):''}
                 </p>
               </div>
               <span className={'h-2.5 w-2.5 shrink-0 rounded-full '+(playing?'bg-[#ccff00]':online?'bg-emerald-400':'bg-zinc-600')}/>
             </div>
             <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3">
-              {!local&&<button type="button" disabled={!connected||!online||!!busy} onClick={async()=>{
+              {(!local||hasOwnerElsewhere)&&!owner&&<button type="button" disabled={!connected||!online||!!busy} onClick={async()=>{
                 if(await run('transfer:'+device.deviceId,()=>onTransfer(device.deviceId)))onClose?.();
               }} className="flex min-h-9 flex-1 items-center justify-center gap-2 rounded-xl bg-[#ccff00] px-3 text-xs font-bold text-black disabled:cursor-not-allowed disabled:opacity-30">
                 {busy==='transfer:'+device.deviceId?<Loader2 className="animate-spin" size={15}/>:<ArrowRight size={15}/>}
                 Μεταφορά εδώ
               </button>}
-              {local&&<span className="flex-1 text-xs text-zinc-500">{playing?'Η συσκευή που παίζει':'Τρέχουσα συσκευή'}</span>}
+              {local&&!hasOwnerElsewhere&&<span className="flex-1 text-xs text-zinc-500">{playing?'Η συσκευή που παίζει':paused?'Η συσκευή σε παύση':'Τρέχουσα συσκευή'}</span>}
+              {owner&&!local&&<span className="flex-1 text-xs font-semibold text-[#ccff00]">Ενεργή συσκευή ήχου</span>}
               <button type="button" title="Μετονομασία" aria-label="Μετονομασία συσκευής" onClick={()=>{setEditing(device.deviceId);setName(device.deviceName||'');}} className="rounded-lg border border-white/10 p-2 text-zinc-300"><Pencil size={16}/></button>
               {!local&&<button type="button" disabled={!!busy} title="Αφαίρεση συσκευής" aria-label="Αφαίρεση συσκευής" onClick={async()=>{
                 if(window.confirm('Να αφαιρεθεί αυτή η συσκευή από τον λογαριασμό;'))

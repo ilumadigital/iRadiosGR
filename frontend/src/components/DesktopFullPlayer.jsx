@@ -14,7 +14,7 @@ export default function DesktopFullPlayer({
   station, currentUser, isPlaying, isBuffering, isPlayingAd, adWarning, currentAdInfo,
   adTimeRemaining, adSkipCountdown, onSkipAd, nowPlaying, nowPlayingInfo, globalCoverArt, currentShow, liveBroadcast, rdsShowProducer, volume, setVolume,
   togglePlayPause, handlePrevStation, handleNextStation, onClose, onFavorite, isFavorite,
-  onRecognize, isRecognizing, onOpenStation, onOpenDevices
+  onRecognize, isRecognizing, onOpenStation, onOpenDevices, remotePlayback
 }) {
   const [showPlaylist,setShowPlaylist]=useState(false);
   useEffect(()=>{
@@ -97,6 +97,12 @@ export default function DesktopFullPlayer({
               </div>
               <span className="ml-2 rounded-full bg-[#ccff00] px-3 py-1.5 text-[10px] font-black text-black">LIVE</span>
             </div>
+            {remotePlayback&&<button type="button" onClick={onOpenDevices}
+              className="mt-3 flex max-w-full items-center gap-2 self-start rounded-xl border border-[#ccff00]/25 bg-[#ccff00]/10 px-3 py-2 text-xs font-bold text-[#ccff00]">
+              <MonitorSpeaker size={17}/>
+              <span className="truncate">{remotePlayback.state==='paused'?'Σε παύση στο':'Παίζει στο'} {remotePlayback.deviceName}</span>
+              <span className="shrink-0 text-white/70">· Συσκευές</span>
+            </button>}
             {!isPlayingAd&&<OnAirShowCard show={currentShow} stationName={station.name}
               className="mt-[clamp(0.45rem,1.8dvh,1rem)]"/>}
             {isPlayingAd&&<p className="ir-desktop-player-show mt-[clamp(0.25rem,1dvh,0.75rem)] line-clamp-1 text-xs text-zinc-300">{currentAdInfo?.title||'Διαφημιστικό διάλειμμα'}{Number.isFinite(adTimeRemaining)?' · '+adTimeRemaining+'″':''}</p>}
@@ -115,7 +121,7 @@ export default function DesktopFullPlayer({
                 {isBuffering?<Loader2 className="animate-spin" size={34}/>:isPlaying&&!isPlayingAd?<Pause size={36} fill="currentColor"/>:<Play size={36} fill="currentColor"/>}
               </button>
               <div className="flex flex-col gap-1"><span className="text-xs font-black uppercase tracking-widest">ON AIR / LIVE</span>
-                <span className="text-xs text-zinc-400">{isBuffering?'Σύνδεση…':isPlaying?'Ακούς ζωντανά':'Έτοιμο για αναπαραγωγή'}</span>
+                <span className="text-xs text-zinc-400">{isBuffering?'Σύνδεση…':remotePlayback?(remotePlayback.state==='paused'?'Σε παύση στο ':'Παίζει στο ')+remotePlayback.deviceName:isPlaying?'Ακούς ζωντανά':'Έτοιμο για αναπαραγωγή'}</span>
               </div>
               <span className="mx-1 h-10 w-px bg-white/15"/>
               <button type="button" onClick={handlePrevStation} disabled={isPlayingAd||adWarning}

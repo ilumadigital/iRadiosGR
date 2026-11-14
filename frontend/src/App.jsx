@@ -1857,8 +1857,8 @@ function MainApp() {
           >
             <MonitorSpeaker className="w-4 h-4 lg:w-5 lg:h-5 animate-pulse" />
             <div className="flex flex-col items-start text-left">
-              <span className="text-[8px] lg:text-[9px] font-black tracking-widest opacity-80 leading-none mb-0.5">Τώρα Παίζει στο</span>
-              <span className="text-[10px] lg:text-xs font-bold leading-none">{activeRemoteDevice.deviceName}</span>
+              <span className="text-[8px] lg:text-[9px] font-black tracking-widest opacity-80 leading-none mb-0.5">{activeRemoteDevice.playbackState==='paused'?'Σε παύση στο':'Τώρα παίζει στο'}</span>
+              <span className="text-[10px] lg:text-xs font-bold leading-none">{activeRemoteDevice.deviceName} · Μεταφορά εδώ</span>
             </div>
           </button>
         </div>
