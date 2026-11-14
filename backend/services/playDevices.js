@@ -251,7 +251,9 @@ function createDeviceService(io){
             if(!await Station.exists({_id:raw.stationId,status:'approved',isOffline:{$ne:true}}))
               return {ok:false,error:'STATION_UNAVAILABLE'};
             stationId=raw.stationId;
-            nextState=lease.state==='paused'?'paused':'pending';
+            // Selecting a different station also requests playback to start
+            // on the current owner; Pause stays a separate explicit action.
+            nextState='pending';
           }else if(action==='pause'){
             nextState='paused';
           }else if(action==='resume' && lease.state!=='playing'){
