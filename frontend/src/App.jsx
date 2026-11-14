@@ -1909,11 +1909,24 @@ function MainApp() {
       )}
 
       {showDiscovery && (
-        <RadioDiscovery 
-          API_URL={API_URL} 
-          onClose={() => setShowDiscovery(false)} 
+        <RadioDiscovery
+          API_URL={API_URL}
+          onClose={() => setShowDiscovery(false)}
           onSelectStation={handleStationSelectWithAds}
-          userOverrides={userOverrides} 
+          onTogglePlayPause={togglePlayPause}
+          catalogStations={stations}
+          currentStation={currentStation}
+          currentUser={currentUser}
+          isPlaying={displayIsPlaying}
+          isBuffering={isBuffering}
+          isPlayingAd={isPlayingAd}
+          currentAdInfo={currentAdInfo}
+          nowPlaying={nowPlaying}
+          nowPlayingInfo={nowPlayingInfo}
+          globalCoverArt={globalCoverArt}
+          analyser={analyserRef.current}
+          toggleFavorite={handleToggleFavorite}
+          isFavorite={isFavorite}
         />
       )}
 

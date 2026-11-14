@@ -1,557 +1,436 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Heart, Share2, Play, ChevronUp, ChevronRight, ChevronLeft,
-  Music, Radio as RadioIcon, X, Disc3, Loader2, Check
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import {
+  ArrowUpRight, Check, ChevronDown, ChevronUp, Disc3, Heart, Loader2,
+  Music2, Pause, Play, Radio, RadioTower, RefreshCw, Share2, X
 } from 'lucide-react';
-import { cleanMetadata } from '../utils/cleanMetadata'; // 🟢 Import το καθαριστικό metadata
+import { useStationAmbient } from '../hooks/useStationAmbient';
+import { activeStationShow } from '../utils/liveBroadcast';
+import { getAthensClock, minutes, scheduleDayBase, toCanonical } from '../utils/schedule';
+import { parseMusicMetadata } from '../utils/musicMetadata';
+import './RadioDiscovery.css';
 
-// --- ΞΕΧΩΡΙΣΤΟ COMPONENT ΓΙΑ ΚΑΘΕ ΣΤΑΘΜΟ (SLIDE / CAROUSEL ITEM) ---
-const DiscoverySlide = ({ station, isActive, onPlayLive, toggleFavorite, isFavorite, currentUser }) => {
-  const audioRef = useRef(null);
-  const canvasRef = useRef(null);
-  const audioCtxRef = useRef(null);
-  const analyserRef = useRef(null);
-  const sourceRef = useRef(null);
-  const animationRef = useRef(null);
-
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showBigHeart, setShowBigHeart] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [nowPlaying, setNowPlaying] = useState('');
-  const [aiTeaser,setAiTeaser]=useState(false);
-  const [coverArt, setCoverArt] = useState(null); // 🟢 State για το cover art
-
-  const isLoggedIn = !!currentUser;
-  const isFav = (isFavorite && isLoggedIn) ? isFavorite(station._id || station.id) : false;
-  const safeApiUrl = `__IRADIOS_SITE_ORIGIN__/api`;
-
-  const stopAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.removeAttribute('src'); 
-      audioRef.current.load(); 
-    }
-    setIsPlaying(false);
-    setIsLoading(false);
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
-  };
-
-  // 1. Fetch Metadata & Cover Art
-  useEffect(() => {
-    let interval;
-    if (!isActive || !station || !isLoggedIn) { 
-      setAiTeaser(false);
-      setNowPlaying(''); 
-      setCoverArt(null); 
-      return; 
-    }
-    
-    const fetchMeta = async () => {
-      try {
-        const token=localStorage.getItem('iluma_token');
-        if(!token)return;
-        const res = await fetch(`${safeApiUrl}/metadata?stream=${encodeURIComponent(station.stream)}`,{
-          headers:{Authorization:'Bearer '+token},cache:'no-store'
-        });
-        if(!res.ok)throw new Error('Metadata unavailable');
-        const data = await res.json();
-        setAiTeaser(data?.premiumOnly===true);
-        
-        if (data && data.title) {
-          const cleanTitle = cleanMetadata(data.title);
-          setNowPlaying(cleanTitle || data.title);
-
-          // 🟢 Ψάχνουμε Cover Art αν έχουμε καθαρό τίτλο
-          if (cleanTitle) {
-            try {
-              const coverRes = await fetch(`${safeApiUrl}/cover-art?term=${encodeURIComponent(cleanTitle)}`);
-              if (coverRes.ok) {
-                const coverData = await coverRes.json();
-                if (coverData && coverData.artworkUrl) {
-                  setCoverArt(coverData.artworkUrl);
-                } else {
-                  setCoverArt(null);
-                }
-              }
-            } catch (e) {
-              console.error("Discovery Cover Fetch Error:", e);
-              setCoverArt(null);
-            }
-          } else {
-            setCoverArt(null);
-          }
-        } else {
-          setNowPlaying('');
-          setCoverArt(null);
-        }
-      } catch (e) { 
-        setAiTeaser(false);
-        setNowPlaying(''); 
-        setCoverArt(null);
-      }
-    };
-    
-    fetchMeta(); 
-    interval = setInterval(fetchMeta, 15000);
-    return () => { if (interval) clearInterval(interval); };
-  }, [isActive, station, safeApiUrl, isLoggedIn]);
-
-  // 2. Play Audio & Initialize Real-Time Visualizer
-  useEffect(() => {
-    const audioEl = audioRef.current;
-    if (!audioEl || !isActive) {
-      stopAudio();
-      return;
-    }
-
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const rawUrl = station.streamUrl || station.stream;
-    
-    // Χρησιμοποιούμε το Proxy για να έχουμε CORS (απαραίτητο για το Visualizer)
-    const streamSrc = isIOS ? rawUrl : `${safeApiUrl}/proxy-stream?url=${encodeURIComponent(rawUrl)}`;
-    
-    audioEl.crossOrigin = "anonymous";
-    audioEl.src = streamSrc;
-    setIsLoading(true);
-
-    const playPromise = audioEl.play();
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => {
-          setIsPlaying(true);
-          setIsLoading(false);
-          
-          if (!isIOS) {
-            if (!audioCtxRef.current) {
-              try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                audioCtxRef.current = new AudioContext();
-                analyserRef.current = audioCtxRef.current.createAnalyser();
-                analyserRef.current.fftSize = 128; 
-                
-                sourceRef.current = audioCtxRef.current.createMediaElementSource(audioEl);
-                sourceRef.current.connect(analyserRef.current);
-                analyserRef.current.connect(audioCtxRef.current.destination);
-              } catch (e) {
-                console.warn("Visualizer CORS / Context error:", e);
-              }
-            }
-
-            if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-              audioCtxRef.current.resume();
-            }
-
-            const canvas = canvasRef.current;
-            const ctx = canvas?.getContext('2d');
-            
-            if (canvas && ctx && analyserRef.current) {
-              const bufferLength = analyserRef.current.frequencyBinCount;
-              const dataArray = new Uint8Array(bufferLength);
-
-              const draw = () => {
-                canvas.width = canvas.offsetWidth;
-                canvas.height = canvas.offsetHeight;
-                
-                animationRef.current = requestAnimationFrame(draw);
-                analyserRef.current.getByteFrequencyData(dataArray);
-                
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                const barWidth = (canvas.width / bufferLength) * 1.2;
-                let x = 0;
-
-                for (let i = 0; i < bufferLength / 1.2; i++) { 
-                  const value = dataArray[i];
-                  const percent = value / 255;
-                  const height = Math.max(percent * canvas.height * 0.5, 2); 
-                  
-                  const y = (canvas.height - height) / 2;
-                  
-                  ctx.fillStyle = `rgba(204, 255, 0, ${percent * 0.8 + 0.1})`; 
-                  
-                  ctx.fillRect(canvas.width / 2 + x, y, barWidth - 1, height);
-                  if (x > 0) {
-                     ctx.fillRect(canvas.width / 2 - x, y, barWidth - 1, height);
-                  }
-                  
-                  x += barWidth;
-                }
-              };
-              draw();
-            }
-          }
-        })
-        .catch((err) => {
-          if (err.name !== 'AbortError') console.warn("Discovery play blocked:", err);
-          setIsPlaying(false);
-          setIsLoading(false);
-        });
-    }
-
-    return () => stopAudio();
-  }, [isActive, station, safeApiUrl]);
-
-  const handleLike = (e) => {
-    e.stopPropagation();
-    if (toggleFavorite && isLoggedIn) {
-      toggleFavorite(station._id || station.id);
-      if (!isFav) {
-        setShowBigHeart(true);
-        setTimeout(() => setShowBigHeart(false), 1000);
-      }
-    }
-  };
-
-  const handleShare = (e) => {
-    e.stopPropagation();
-    const url = `${window.location.origin}/station/${station.slug || station._id || station.id}`;
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  // 🟢 Επιλογή της εικόνας: Cover Art (αν υπάρχει) ή Logo
-  const displayImage = coverArt || station.logo;
-
-  return (
-    <div className="w-full h-full relative flex items-center justify-center bg-black overflow-hidden group/slide">
-      
-      {showBigHeart && (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none animate-in zoom-in duration-300 fade-out delay-500">
-          <Heart size={150} className="text-red-500 fill-red-500 drop-shadow-[0_0_50px_rgba(239,68,68,0.8)]" />
-        </div>
-      )}
-
-      {/* BACKGROUND BLUR με την ενεργή εικόνα */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center opacity-30 blur-[60px] scale-125 transition-all duration-1000"
-        style={{ backgroundImage: `url(${displayImage})` }}
-      ></div>
-      <div className="absolute inset-0 bg-black/60"></div>
-
-      <audio ref={audioRef} preload="none" />
-
-      {/* REAL-TIME AUDIO VISUALIZER CANVAS */}
-      <canvas ref={canvasRef} className="absolute top-1/2 -translate-y-1/2 w-full h-[40%] z-0 opacity-50 mix-blend-screen pointer-events-none" />
-
-      {/* ΚΕΝΤΡΙΚΟ ΠΕΡΙΕΧΟΜΕΝΟ */}
-      <div className="relative z-10 flex flex-col items-center w-full px-4">
-        
-        {/* 🟢 LOGO / COVER ART (12px Radius, bg-white) */}
-        <button 
-          onClick={(e) => { e.stopPropagation(); stopAudio(); onPlayLive(station); }}
-          className="relative rounded-[12px] border border-white/10 hover:border-[#ccff00] transition-colors cursor-pointer group/logo mb-6 shadow-2xl bg-white overflow-hidden"
-        >
-          <img 
-            src={displayImage} 
-            alt={station.name} 
-            className={`w-48 h-48 md:w-56 md:h-56 bg-white group-hover/logo:scale-105 transition-transform duration-500 ${coverArt?'object-cover':'object-contain p-3'}`}
-          />
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity">
-             <Play size={48} className="text-[#ccff00]" fill="currentColor" />
-          </div>
-          {isLoading && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-               <Loader2 size={32} className="text-[#ccff00] animate-spin" />
-            </div>
-          )}
-        </button>
-
-        {/* STATION NAME */}
-        <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight text-center drop-shadow-lg mb-2 px-4 line-clamp-2">
-          {station.name}
-        </h2>
-
-        {/* NOW PLAYING METADATA */}
-        <div className="h-8 flex items-center justify-center mb-4">
-          {aiTeaser ? (
-             <a href="/premium" onClick={event=>event.stopPropagation()}
-               className="text-center text-xs font-black text-[#ccff00] hover:underline">✦ AI ανακάλυψη από Premium μέλος · Δες το με Premium</a>
-           ) : nowPlaying ? (
-            <p className="text-[#ccff00] text-sm md:text-base font-bold text-center px-4 line-clamp-1 max-w-[300px] md:max-w-md drop-shadow-md">
-              {nowPlaying}
-            </p>
-          ) : (
-            <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-               <RadioIcon size={12} className="text-red-500 animate-pulse" /> Live Broadcast
-            </p>
-          )}
-        </div>
-
-        {/* HASHTAGS (GENRE / REGION) */}
-        <div className="flex items-center justify-center gap-2 flex-wrap">
-           {station.genre && (
-             <a href={`/genre/${station.genre}`} onClick={(e) => { e.stopPropagation(); }} className="text-[10px] font-black tracking-widest text-zinc-300 hover:text-black bg-white/10 hover:bg-[#ccff00] px-3 py-1.5 rounded-lg backdrop-blur-md transition-all shadow-md">
-               #{station.genre}
-             </a>
-           )}
-           {station.region && (
-             <a href={`/region/${station.region}`} onClick={(e) => { e.stopPropagation(); }} className="text-[10px] font-black tracking-widest text-zinc-300 hover:text-black bg-white/10 hover:bg-[#ccff00] px-3 py-1.5 rounded-lg backdrop-blur-md transition-all shadow-md">
-               #{station.region}
-             </a>
-           )}
-        </div>
-      </div>
-
-      {/* ΑΚΟΥ LIVE BUTTON */}
-      {isActive && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 w-[85%] max-w-[320px]">
-          <button 
-            onClick={(e) => { e.stopPropagation(); stopAudio(); onPlayLive(station); }}
-            className="w-full h-14 bg-[#ccff00] text-black font-black uppercase tracking-[0.15em] rounded-2xl flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-transform shadow-[0_15px_40px_rgba(204,255,0,0.25)]"
-          >
-            <Play fill="currentColor" size={18} /> ΑΚΟΥ LIVE
-          </button>
-        </div>
-      )}
-
-      {/* ACTION BUTTONS (LIKE / SHARE) */}
-      {isActive && (
-        <div className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-20">
-          {isLoggedIn && (
-            <button 
-              onClick={handleLike}
-              className={`w-12 h-12 backdrop-blur-md rounded-full flex items-center justify-center border transition-all duration-300 group ${isFav ? 'bg-red-500 border-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-black/50 border-white/20 text-white hover:bg-white/10'}`}
-            >
-              <Heart size={20} className={`group-hover:scale-110 transition-transform ${isFav ? 'fill-white' : ''}`} />
-            </button>
-          )}
-          <button 
-            onClick={handleShare}
-            className="w-12 h-12 bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 hover:bg-white hover:text-black transition-colors group relative"
-          >
-            {copied ? <Check size={20} className="text-green-400" /> : <Share2 size={20} className="group-hover:scale-110 transition-transform" />}
-          </button>
-        </div>
-      )}
-      
-      {/* SWIPE UP HINT */}
-      {isActive && (
-        <div className="md:hidden absolute top-24 right-4 flex flex-col items-center opacity-40 animate-pulse pointer-events-none">
-          <ChevronUp size={20} className="text-white" />
-          <span className="text-[8px] font-black uppercase tracking-widest text-white mt-1">Swipe</span>
-        </div>
-      )}
-    </div>
-  );
+const stationId = station => String(station?._id || station?.id || '');
+const stationUrl = station => '/station/' + encodeURIComponent(station?.slug || stationId(station));
+const nextScheduledShow = (station, clock) => {
+  const entries = Array.isArray(station?.schedule) ? station.schedule : [];
+  if (!entries.length) return null;
+  const canonical = toCanonical(entries, scheduleDayBase(entries, station.scheduleDayBase));
+  const future = canonical.map(show => {
+    const day = Number(show.day);
+    const start = minutes(show.startTime);
+    if (day < 1 || day > 7 || !Number.isFinite(start)) return null;
+    const delay = ((day - clock.day + 7) % 7) * 1440 + start - clock.minute;
+    return delay > 0 ? { ...show, delay } : null;
+  }).filter(Boolean).sort((a, b) => a.delay - b.delay);
+  return future[0] || null;
 };
 
-// --- MAIN DISCOVERY COMPONENT ---
-export default function RadioDiscovery({ API_URL, onClose, onSelectStation, currentUser, toggleFavorite, isFavorite }) {
-  const [stations, setStations] = useState([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [hasStarted, setHasStarted] = useState(false);
-  const containerRef = useRef(null);
+/** Draw from the shared WebDSP analyser only. Never make a second audio source. */
+function DiscoverySpectrum({ analyser, playing }) {
+  const barsRef = useRef(null);
+  useEffect(() => {
+    if (!playing || !analyser || typeof analyser.getByteFrequencyData !== 'function' ||
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const bars = barsRef.current?.children;
+    if (!bars?.length) return undefined;
+    const samples = new Uint8Array(analyser.frequencyBinCount || 0);
+    if (!samples.length) return undefined;
+    let frame = 0;
+    let lastFrame = 0;
+    let running = true;
+    const tick = timestamp => {
+      if (!running) return;
+      if (!document.hidden && timestamp - lastFrame > 45) {
+        lastFrame = timestamp;
+        try {
+          analyser.getByteFrequencyData(samples);
+          for (let i = 0; i < bars.length; i++) {
+            const bin = Math.min(samples.length - 1, Math.floor((i / bars.length) * samples.length * .6));
+            bars[i].style.transform = 'scaleY(' + Math.max(.16, samples[bin] / 255) + ')';
+          }
+        } catch { running = false; return; }
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => {
+      running = false;
+      cancelAnimationFrame(frame);
+    };
+  }, [analyser, playing]);
+  return <div className="ir-reel-spectrum" ref={barsRef} aria-hidden="true">
+    {Array.from({ length: 25 }, (_, i) => <span key={i}/>)}
+  </div>;
+}
 
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+function DiscoveryReel({
+  station, currentStation, currentUser, isPlaying, isBuffering,
+  isPlayingAd, currentAdInfo, nowPlaying, nowPlayingInfo, coverArt,
+  analyser, isFavorite, toggleFavorite, onTogglePlayPause, onSelectStation,
+  onViewProfile, onShare, shareCopied, onLikeBurst
+}) {
+  const [clock, setClock] = useState(() => getAthensClock());
+  const id = stationId(station);
+  const sameStation = id && stationId(currentStation) === id;
+  const tuning = sameStation && isBuffering && !isPlayingAd;
+  const live = sameStation && isPlaying && !isPlayingAd;
+  const adBreak = isPlayingAd;
+  const track = live && !nowPlayingInfo?.premiumOnly
+    ? parseMusicMetadata(nowPlaying, station.name) : null;
+  const broadcast = live && !track && !nowPlayingInfo?.premiumOnly
+    ? String(nowPlayingInfo?.broadcastHint || '').trim() : '';
+  const displayedArt = track && coverArt ? coverArt : station.logo;
+  const ambientRgb = useStationAmbient(station.logo);
+  const favorite = Boolean(isFavorite?.(station._id || station.id));
+  const activeShow = useMemo(() => activeStationShow(station, clock), [station, clock]);
+  const nextShow = useMemo(() => nextScheduledShow(station, clock), [station, clock]);
 
   useEffect(() => {
-    const handleResize = () => setIsDesktop(window.innerWidth >= 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const update = () => setClock(getAthensClock());
+    const timer = setInterval(update, 30000);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
   }, []);
 
+  const toggleLike = () => {
+    if (!favorite && currentUser) onLikeBurst();
+    toggleFavorite?.(station._id || station.id);
+  };
+  const togglePlayback = () => {
+    if (adBreak) return;
+    if (sameStation) onTogglePlayPause?.();
+    else onSelectStation?.(station);
+  };
+  const songText = adBreak ? 'Διαφημιστικό διάλειμμα · συνεχίζεις αμέσως μετά'
+    : !sameStation ? 'Συντονισμός στον σταθμό…'
+    : nowPlayingInfo?.premiumOnly ? '✦ Αναγνώριση AI διαθέσιμη με Premium'
+    : track ? track.title
+    : broadcast || (live ? 'Ζωντανή μετάδοση' : 'Έτοιμος για ακρόαση');
+  const artistText = track?.artist || '';
+  const heroName = station?.name || 'iRadiosGR';
+
+  return <div className="ir-reel-content" style={{ '--ir-reel-rgb': ambientRgb }}>
+    <div className="ir-reel-bg" aria-hidden="true">
+      {displayedArt && <img src={displayedArt} alt="" className="ir-reel-bg-image"/>}
+      <div className="ir-reel-bg-tint"/>
+      <div className="ir-reel-bg-vignette"/>
+    </div>
+    <DiscoverySpectrum analyser={analyser} playing={live}/>
+
+    <div className="ir-reel-visual" aria-hidden="true">
+      <div className={'ir-reel-art-halo' + (live ? ' is-live' : '')}/>
+      <div className="ir-reel-art-card">
+        {displayedArt
+          ? <img src={displayedArt} alt="" key={displayedArt}
+              className={'ir-reel-art-image ' + (track && coverArt ? 'is-cover' : 'is-logo')}
+              onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = station.logo || '/icon-tr.svg'; }}/>
+          : <RadioTower size={68} color="#ccff00"/>}
+        <span className="ir-reel-art-glint" aria-hidden="true"/>
+      </div>
+      <div className="ir-reel-art-caption"><span className="ir-reel-live-dot"/> LIVE RADIO</div>
+    </div>
+
+    <aside className="ir-reel-actions" aria-label="Ενέργειες σταθμού">
+      <div className="ir-reel-action">
+        <button type="button" onClick={toggleLike} aria-label={favorite ? 'Αφαίρεση από αγαπημένα' : 'Προσθήκη στα αγαπημένα'}
+          aria-pressed={favorite} className={'ir-reel-action-button' + (favorite ? ' is-favorite' : '')}>
+          <Heart size={25} fill={favorite ? 'currentColor' : 'none'}/>
+        </button><span>Like</span>
+      </div>
+      <div className="ir-reel-action">
+        <button type="button" onClick={onViewProfile} aria-label={'Προφίλ σταθμού ' + heroName}
+          className="ir-reel-action-button">
+          <Radio size={25}/><ArrowUpRight size={11} className="ir-reel-profile-arrow"/>
+        </button><span>Profile</span>
+      </div>
+      <div className="ir-reel-action">
+        <button type="button" onClick={onShare} aria-label={'Κοινοποίηση ' + heroName}
+          className="ir-reel-action-button">
+          {shareCopied ? <Check size={25}/> : <Share2 size={24}/>}
+        </button><span>{shareCopied ? 'Copied' : 'Share'}</span>
+      </div>
+    </aside>
+
+    <div className="ir-reel-bottom">
+      <div className="ir-reel-tags">
+        <span className="ir-reel-live-pill"><span className="ir-reel-live-dot"/> LIVE</span>
+        {station.genre && <span className="ir-reel-tag">{station.genre}</span>}
+        {(station.city || station.region) && <span className="ir-reel-tag">{station.city || station.region}</span>}
+      </div>
+      <h2 className="ir-reel-station-name">{heroName}</h2>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div key={id + ':' + songText + ':' + artistText}
+          initial={{ opacity: 0, y: 9 }} animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -7 }} transition={{ duration: .23 }} className="ir-reel-metadata">
+          <div className="ir-reel-meta-label"><Music2 size={13}/> {adBreak ? 'SPONSORED' : 'DYNAMIC RDS · NOW PLAYING'}</div>
+          <strong title={songText}>{songText}</strong>
+          {artistText && <span>{artistText}</span>}
+        </motion.div>
+      </AnimatePresence>
+      <div className="ir-reel-program">
+        {activeShow ? <div className="ir-reel-program-line">
+          <span className="ir-reel-program-dot"/> <strong>ΣΤΟΝ ΑΕΡΑ</strong>
+          <span className="ir-reel-program-text">{activeShow.title}{activeShow.host ? ' · ' + activeShow.host : ''}</span>
+        </div> : <div className="ir-reel-program-line">
+          <span className="ir-reel-program-dot is-muted"/> <strong>ΠΡΟΓΡΑΜΜΑ</strong>
+          <span className="ir-reel-program-text">Δεν υπάρχει τρέχουσα καταχώριση</span>
+        </div>}
+        {nextShow && <div className="ir-reel-program-line">
+          <span className="ir-reel-program-dot is-muted"/> <strong>ΑΚΟΛΟΥΘΕΙ</strong>
+          <span className="ir-reel-program-text">{nextShow.startTime} · {nextShow.title}</span>
+        </div>}
+      </div>
+      <div className="ir-reel-transport">
+        <button type="button" onClick={togglePlayback} disabled={adBreak} aria-label={live ? 'Παύση σταθμού' : 'Αναπαραγωγή σταθμού'}
+          className="ir-reel-play">
+          {tuning ? <Loader2 size={17} className="ir-reel-spin"/> : live ? <Pause size={16} fill="currentColor"/> : <Play size={16} fill="currentColor"/>}
+          <span>{adBreak ? 'Διαφημιστικό διάλειμμα' : tuning ? 'Σύνδεση…' : live ? 'Ακούς ζωντανά' : 'Άκου LIVE'}</span>
+        </button>
+        <span className="ir-reel-swipe-label"><ChevronUp size={15}/> SWIPE</span>
+      </div>
+      {adBreak && <div className="ir-reel-ad-hint" role="status">
+        {currentAdInfo?.title ? 'Παίζει: ' + currentAdInfo.title + ' · ' : ''}
+        Η επιλογή σου θα παίξει μετά τη διαφήμιση.
+      </div>}
+    </div>
+  </div>;
+}
+
+const slideVariants = {
+  enter: dir => ({ y: dir > 0 ? '105%' : '-105%', opacity: .8, scale: .97 }),
+  active: { y: '0%', opacity: 1, scale: 1 },
+  exit: dir => ({ y: dir > 0 ? '-95%' : '95%', opacity: .55, scale: .98 })
+};
+
+export default function RadioDiscovery({
+  API_URL, onClose, onSelectStation, catalogStations = [], currentStation,
+  currentUser, isPlaying, isBuffering, isPlayingAd, currentAdInfo,
+  nowPlaying, nowPlayingInfo, globalCoverArt, analyser, toggleFavorite,
+  isFavorite, onTogglePlayPause
+}) {
+  const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
+  const [feed, setFeed] = useState([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [started, setStarted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState('');
+  const [direction, setDirection] = useState(1);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [heartBurst, setHeartBurst] = useState(false);
+  const seenRef = useRef(new Set());
+  const inFlightRef = useRef(false);
+  const abortRef = useRef(null);
+  const gestureAtRef = useRef(0);
+  const shareTimeoutRef = useRef(null);
+  const heartTimeoutRef = useRef(null);
+
+  const catalog = useMemo(() =>
+    new Map(catalogStations.map(station => [stationId(station), station])),
+  [catalogStations]);
+  const stations = useMemo(() => feed.map(item => {
+    const full = catalog.get(stationId(item));
+    return full ? { ...item, ...full } : item;
+  }), [feed, catalog]);
+  const selected = stations[activeIndex];
+  const activeId = stationId(selected);
+
+  const loadMore = useCallback(async () => {
+    if (inFlightRef.current || abortRef.current?.signal.aborted || !hasMore) return;
+    inFlightRef.current = true;
+    setLoading(true);
+    setError('');
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      const response = await fetch(API_URL + '/stations/discovery', { signal: controller.signal, cache: 'no-store' });
+      if (!response.ok) throw new Error('Discovery unavailable');
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error('Invalid discovery feed');
+      const fresh = data.filter(station => {
+        const id = stationId(station);
+        if (!id || seenRef.current.has(id) || station.isOffline === true) return false;
+        seenRef.current.add(id);
+        return true;
+      });
+      if (!controller.signal.aborted) {
+        if (fresh.length) setFeed(previous => previous.concat(fresh));
+        if (!fresh.length || seenRef.current.size >= 90 || data.length === 0) setHasMore(false);
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) setError('Δεν φορτώθηκαν οι νέοι σταθμοί. Δοκίμασε ξανά.');
+    } finally {
+      inFlightRef.current = false;
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  }, [API_URL, hasMore]);
+
   useEffect(() => {
-    const fetchDiscovery = async () => {
-      try {
-        const url = currentUser 
-          ? `${API_URL}/stations/discovery?userId=${currentUser._id || currentUser.id}`
-          : `${API_URL}/stations/discovery`;
-          
-        const res = await fetch(url); 
-        const data = await res.json();
-        setStations(data.length > 0 ? data : []);
-      } catch (err) {
-        console.error("Discovery fetch error:", err);
+    void loadMore();
+    return () => {
+      abortRef.current?.abort();
+      clearTimeout(shareTimeoutRef.current);
+      clearTimeout(heartTimeoutRef.current);
+    };
+  }, []); // One initial request per opened Discovery session.
+
+  useEffect(() => {
+    if (started && activeIndex >= stations.length - 3 && hasMore && !error) void loadMore();
+  }, [started, activeIndex, stations.length, hasMore, error, loadMore]);
+
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, []);
+
+  const activate = useCallback((station) => {
+    if (!station) return;
+    if (stationId(currentStation) === stationId(station)) {
+      if (!isPlaying && !isPlayingAd) onTogglePlayPause?.();
+    } else onSelectStation?.(station);
+  }, [currentStation, isPlaying, isPlayingAd, onSelectStation, onTogglePlayPause]);
+
+  const start = () => {
+    if (!selected) return;
+    setStarted(true);
+    activate(selected); // Synchronous in the click gesture for iOS audio unlock.
+  };
+
+  const changeStation = useCallback(offset => {
+    if (!started || !stations.length) return;
+    const now = Date.now();
+    if (now - gestureAtRef.current < 440) return;
+    const next = activeIndex + offset;
+    if (next < 0 || next >= stations.length) {
+      if (offset > 0 && hasMore) void loadMore();
+      return;
+    }
+    gestureAtRef.current = now;
+    setDirection(offset > 0 ? 1 : -1);
+    setActiveIndex(next);
+    setShareCopied(false);
+    activate(stations[next]); // Route every swipe through central ads/DSP/device engine.
+    if (navigator.vibrate && !reduceMotion) navigator.vibrate(7);
+  }, [started, stations, activeIndex, activate, hasMore, loadMore, reduceMotion]);
+
+  useEffect(() => {
+    if (!started) return undefined;
+    const keydown = event => {
+      if (event.key === 'Escape') { event.preventDefault(); onClose?.(); }
+      else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        changeStation(event.key === 'ArrowDown' ? 1 : -1);
       }
     };
-    fetchDiscovery();
-  }, [API_URL, currentUser]);
+    document.addEventListener('keydown', keydown);
+    return () => document.removeEventListener('keydown', keydown);
+  }, [started, changeStation, onClose]);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !hasStarted || isDesktop) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const index = Number(entry.target.getAttribute('data-index'));
-            setActiveIndex(index);
-          }
-        });
-      },
-      { root: container, threshold: 0.6 }
-    );
-
-    const slideElements = container.querySelectorAll('.mobile-slide');
-    slideElements.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, [stations, hasStarted, isDesktop]);
-
-  const handlePrevDesktop = () => {
-    if (activeIndex > 0) setActiveIndex(activeIndex - 1);
+  const share = async () => {
+    if (!selected) return;
+    const url = window.location.origin + stationUrl(selected);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: selected.name, url });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setShareCopied(true);
+      } else {
+        window.prompt('Αντέγραψε τον σύνδεσμο', url);
+      }
+      clearTimeout(shareTimeoutRef.current);
+      shareTimeoutRef.current = setTimeout(() => setShareCopied(false), 2000);
+    } catch (error) {
+      if (error?.name !== 'AbortError') setError('Η κοινοποίηση δεν ολοκληρώθηκε.');
+    }
   };
 
-  const handleNextDesktop = () => {
-    if (activeIndex < stations.length - 1) setActiveIndex(activeIndex + 1);
+  const burstHeart = () => {
+    setHeartBurst(true);
+    clearTimeout(heartTimeoutRef.current);
+    heartTimeoutRef.current = setTimeout(() => setHeartBurst(false), 780);
   };
 
-  if (!hasStarted) {
-    return (
-      <div className="fixed inset-0 z-[300] bg-black flex flex-col items-center justify-center p-8 text-center backdrop-blur-3xl animate-in fade-in duration-500">
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#ccff00]/10 via-black to-purple-500/10 opacity-50"></div>
-        <div className="w-24 h-24 bg-[#ccff00]/10 rounded-full flex items-center justify-center mb-8 border border-[#ccff00]/30 animate-pulse relative z-10">
-          <Disc3 size={48} className="text-[#ccff00]" />
-        </div>
-        <h1 className="text-4xl md:text-6xl font-black text-white uppercase italic tracking-tighter mb-4 leading-tight relative z-10">
-          Discovery Mode
-        </h1>
-        <p className="text-zinc-400 mb-12 text-sm md:text-lg max-w-md relative z-10">
-          <span className="md:hidden">Κάνε Swipe Up</span><span className="hidden md:inline">Πάτα Next</span> για να ανακαλύψεις νέους σταθμούς. 10 δευτερόλεπτα αρκούν για να βρεις το νέο σου κόλλημα.
-        </p>
-        <button 
-          onClick={() => setHasStarted(true)}
-          className="relative z-10 w-full max-w-xs bg-[#ccff00] text-black h-16 rounded-2xl font-black uppercase tracking-widest text-sm hover:scale-105 transition-transform shadow-[0_20px_50px_rgba(204,255,0,0.2)]"
-        >
-          ΕΝΑΡΞΗ ΑΝΑΚΑΛΥΨΗΣ
-        </button>
+  const openProfile = () => {
+    if (!selected) return;
+    onClose?.();
+    navigate(stationUrl(selected));
+  };
+
+  return <div className="ir-discovery-reels" role="dialog" aria-modal="true" aria-label="iRadios Discovery Radio Reels"
+    onWheel={event => { if (started && Math.abs(event.deltaY) > 25) changeStation(event.deltaY > 0 ? 1 : -1); }}>
+    <header className="ir-reels-header">
+      <div className="ir-reels-brand"><span className="ir-reels-brand-icon"><RadioTower size={18}/></span>
+        <span>iRADIOS <b>DISCOVERY</b></span>
       </div>
-    );
-  }
+      {started && <div className="ir-reels-count">{String(activeIndex + 1).padStart(2, '0')} <span>/</span> {String(stations.length).padStart(2, '0')}</div>}
+      <button type="button" onClick={onClose} className="ir-reels-close" aria-label="Κλείσιμο Discovery"><X size={21}/></button>
+    </header>
 
-  return (
-    <div className="fixed inset-0 z-[300] bg-black flex flex-col overflow-hidden">
-      {/* HEADER */}
-      <div className="absolute top-0 left-0 w-full p-6 z-50 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
-        <div className="flex items-center gap-2">
-          <RadioIcon size={20} className="text-[#ccff00]" />
-          <span className="font-black text-white tracking-widest uppercase text-[10px] md:text-xs drop-shadow-md">iRadios Discovery</span>
-        </div>
-        <button onClick={onClose} className="w-10 h-10 bg-black/50 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-colors shadow-lg">
-          <X size={20} />
-        </button>
+    {!started ? <div className="ir-reels-intro">
+      <div className="ir-reels-intro-halo" aria-hidden="true"/>
+      <div className="ir-reels-intro-mark"><Disc3 size={60}/></div>
+      <span className="ir-reels-intro-kicker">RADIO, REINVENTED.</span>
+      <h1>Άκου. Σύρε.<br/><em>Ανακάλυψε.</em></h1>
+      <p>Το δικό σου radio feed. Live σταθμοί, μουσική και εκπομπές, με ένα swipe.</p>
+      {error && <p role="alert" className="ir-reels-intro-error">{error}</p>}
+      <button type="button" onClick={start} disabled={!selected} className="ir-reels-enter">
+        {loading && !selected ? <Loader2 size={19} className="ir-reel-spin"/> : <Play size={19} fill="currentColor"/>}
+        {loading && !selected ? 'Φόρτωση σταθμών…' : selected ? 'ΞΕΚΙΝΑ ΤΟ DISCOVERY' : 'Δεν βρέθηκαν σταθμοί'}
+      </button>
+      {!selected && error && <button type="button" onClick={() => { setHasMore(true); void loadMore(); }}
+        className="ir-reels-retry"><RefreshCw size={16}/> Επανάληψη</button>}
+      <div className="ir-reels-intro-hint"><ChevronUp size={16}/> Swipe up για τον επόμενο σταθμό</div>
+    </div> : <>
+      <div className="ir-reels-stage">
+        <AnimatePresence initial={false} custom={direction}>
+          {selected && <motion.article key={activeId} className="ir-reels-slide"
+            custom={direction} variants={slideVariants}
+            initial={reduceMotion ? false : 'enter'} animate="active" exit={reduceMotion ? undefined : 'exit'}
+            transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 34, mass: .86 }}
+            drag={reduceMotion ? false : 'y'} dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={.2} dragMomentum={false}
+            onDragEnd={(_event, info) => {
+              if (Math.abs(info.offset.y) > 65 || Math.abs(info.velocity.y) > 600)
+                changeStation(info.offset.y < 0 || info.velocity.y < -600 ? 1 : -1);
+            }}>
+            <DiscoveryReel station={selected} currentStation={currentStation}
+              currentUser={currentUser} isPlaying={isPlaying} isBuffering={isBuffering}
+              isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo}
+              nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo}
+              coverArt={globalCoverArt} analyser={analyser} isFavorite={isFavorite}
+              toggleFavorite={toggleFavorite} onTogglePlayPause={onTogglePlayPause}
+              onSelectStation={onSelectStation} onViewProfile={openProfile}
+              onShare={share} shareCopied={shareCopied} onLikeBurst={burstHeart}/>
+          </motion.article>}
+        </AnimatePresence>
+        <AnimatePresence>{heartBurst && <motion.div className="ir-reel-heart-burst"
+          initial={{ opacity: 0, scale: .5 }} animate={{ opacity: 1, scale: 1.15 }}
+          exit={{ opacity: 0, scale: 1.5 }} transition={{ duration: .45 }}>
+          <Heart size={140} fill="currentColor"/>
+        </motion.div>}</AnimatePresence>
       </div>
-
-      {!isDesktop ? (
-        <div 
-          ref={containerRef}
-          className="w-full h-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar bg-black"
-          style={{ scrollBehavior: 'smooth' }}
-        >
-          {stations.map((station, index) => (
-            <div key={station._id || index} data-index={index} className="mobile-slide w-full h-full snap-start shrink-0 relative">
-              <DiscoverySlide 
-                station={station} 
-                isActive={index === activeIndex}
-                toggleFavorite={toggleFavorite}
-                isFavorite={isFavorite}
-                currentUser={currentUser} 
-                onPlayLive={(st) => { onClose(); onSelectStation(st); }}
-              />
-            </div>
-          ))}
-          <div data-index={stations.length} className="mobile-slide w-full h-full snap-start shrink-0 flex flex-col items-center justify-center bg-zinc-950 p-8 text-center relative">
-            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6 border border-white/5"><Music size={32} className="text-zinc-500" /></div>
-            <h3 className="text-2xl font-black text-white uppercase italic mb-2">Τέλος λίστας!</h3>
-            <p className="text-zinc-500 text-sm mb-8 font-medium">Επιστρέψτε αργότερα για νέες ανακαλύψεις.</p>
-            <button onClick={onClose} className="px-8 py-4 bg-white/10 text-white rounded-full font-bold uppercase text-[10px] tracking-widest hover:bg-white/20 border border-white/10 transition-colors">ΕΞΟΔΟΣ</button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-1 items-center justify-center relative perspective-container h-full">
-          {stations[activeIndex] && (
-            <div 
-              className="absolute inset-0 bg-cover bg-center opacity-20 blur-[100px] scale-150 transition-all duration-1000"
-              style={{ backgroundImage: `url(${stations[activeIndex].logo})` }}
-            ></div>
-          )}
-          <div className="absolute inset-0 bg-black/40 z-0"></div>
-
-          <div className="relative w-full max-w-6xl h-[600px] flex items-center justify-center z-10 perspective-[1200px]">
-            <button 
-              onClick={handlePrevDesktop} 
-              disabled={activeIndex === 0}
-              className="absolute left-8 z-50 w-14 h-14 bg-white/5 hover:bg-white/10 backdrop-blur-xl border border-white/10 rounded-full flex items-center justify-center text-white disabled:opacity-30 disabled:hover:bg-white/5 transition-all shadow-2xl"
-            >
-              <ChevronLeft size={28} />
-            </button>
-
-            {activeIndex > 0 && (
-              <div 
-                className="absolute left-[15%] w-[320px] h-[480px] z-10 transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer carousel-side-left rounded-[40px] overflow-hidden"
-                onClick={handlePrevDesktop}
-              >
-                <DiscoverySlide station={stations[activeIndex - 1]} isActive={false} />
-              </div>
-            )}
-
-            {stations[activeIndex] && (
-              <div className="absolute w-[400px] h-[540px] z-30 transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] shadow-[0_0_100px_rgba(0,0,0,0.8)] rounded-[40px] overflow-hidden border border-white/20 carousel-center">
-                <DiscoverySlide 
-                  station={stations[activeIndex]} 
-                  isActive={true} 
-                  toggleFavorite={toggleFavorite}
-                  isFavorite={isFavorite}
-                  currentUser={currentUser} 
-                  onPlayLive={(st) => { onClose(); onSelectStation(st); }}
-                />
-              </div>
-            )}
-
-            {activeIndex < stations.length - 1 && (
-              <div 
-                className="absolute right-[15%] w-[320px] h-[480px] z-10 transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer carousel-side-right rounded-[40px] overflow-hidden"
-                onClick={handleNextDesktop}
-              >
-                <DiscoverySlide station={stations[activeIndex + 1]} isActive={false} />
-              </div>
-            )}
-
-            {activeIndex === stations.length - 1 && (
-              <div className="absolute right-[15%] w-[320px] h-[480px] z-10 carousel-side-right flex flex-col items-center justify-center bg-white/5 border border-white/10 rounded-[40px] backdrop-blur-md opacity-50">
-                <Music size={40} className="text-zinc-600 mb-4" />
-                <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Τέλος Λίστας</p>
-              </div>
-            )}
-
-            <button 
-              onClick={handleNextDesktop} 
-              disabled={activeIndex === stations.length - 1}
-              className="absolute right-8 z-50 w-14 h-14 bg-[#ccff00]/10 hover:bg-[#ccff00]/20 backdrop-blur-xl border border-[#ccff00]/30 rounded-full flex items-center justify-center text-[#ccff00] disabled:opacity-0 transition-all shadow-[0_0_30px_rgba(204,255,0,0.2)]"
-            >
-              <ChevronRight size={28} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      <style dangerouslySetInnerHTML={{__html: `
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* 3D CAROUSEL CSS */
-        .carousel-side-left {
-          transform: translateX(-30%) scale(0.8) rotateY(25deg);
-          opacity: 0.4;
-          filter: blur(4px);
-        }
-        .carousel-side-left:hover { opacity: 0.7; filter: blur(2px); }
-        
-        .carousel-center {
-          transform: translateX(0) scale(1) rotateY(0deg);
-          opacity: 1;
-        }
-        
-        .carousel-side-right {
-          transform: translateX(30%) scale(0.8) rotateY(-25deg);
-          opacity: 0.4;
-          filter: blur(4px);
-        }
-        .carousel-side-right:hover { opacity: 0.7; filter: blur(2px); }
-      `}} />
-    </div>
-  );
+      {error && <div className="ir-reels-feed-warning" role="status">
+        {error} <button type="button" onClick={() => { setError(''); void loadMore(); }}>Ανανέωση</button>
+      </div>}
+      {activeIndex === stations.length - 1 && !hasMore && <div className="ir-reels-feed-end">
+        Είδες όλες τις ανακαλύψεις.
+        <button type="button" onClick={() => { setActiveIndex(0); setDirection(-1); activate(stations[0]); }}>Από την αρχή</button>
+      </div>}
+      <div className="ir-reels-pager" aria-label="Πλοήγηση Discovery">
+        <button type="button" aria-label="Προηγούμενος σταθμός" disabled={activeIndex === 0}
+          onClick={() => changeStation(-1)}><ChevronUp size={21}/></button>
+        <button type="button" aria-label="Επόμενος σταθμός"
+          disabled={activeIndex >= stations.length - 1 && !hasMore}
+          onClick={() => changeStation(1)}><ChevronDown size={21}/></button>
+      </div>
+    </>}
+  </div>;
 }
