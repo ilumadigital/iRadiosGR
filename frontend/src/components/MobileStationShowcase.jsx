@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock3, Disc3, Heart, Loader2, MoreHorizontal, Pause, Play, Radio, ScanSearch, Share2, Check, SignalHigh } from 'lucide-react';
+import { ArrowLeft, Clock3, Disc3, Heart, Loader2, MoreHorizontal, MonitorSpeaker, Pause, Play, Radio, ScanSearch, Share2, Check, SignalHigh } from 'lucide-react';
+import BrandLogo from './BrandLogo';
+import {remoteLocationLabel} from '../utils/playbackPresentation.mjs';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import FoundWithAI from './FoundWithAI';
 import MusicServiceLinks from './MusicServiceLinks';
@@ -13,7 +15,7 @@ import ShareStory from './ShareStory';
 export default function MobileStationShowcase({
   station, ambient, playing, onPlay, favorite, onFavorite, onShare, copied,
   currentUser, song, songText, foundWithAI, loadingMetadata, artwork,
-  show, recognizing, onRecognize
+  show, recognizing, onRecognize, remoteDevice, onTransferHere
 }) {
   const navigate = useNavigate();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -57,8 +59,7 @@ export default function MobileStationShowcase({
         <button type="button" className="ir-mobile-station-nav-button" aria-label="Πίσω"
           onClick={() => navigate(-1)}><ArrowLeft size={21} /></button>
         <Link to="/" className="ir-mobile-station-brand" aria-label="iRadiosGR - Αρχική">
-          <Radio size={18} strokeWidth={2.5} aria-hidden="true" />
-          <span>iRadios<strong>GR</strong></span>
+          <BrandLogo variant="full" className="ir-mobile-station-brand-logo" />
         </Link>
         <div className="ir-mobile-station-more-wrap" ref={menuRef}>
           <button type="button" className="ir-mobile-station-nav-button" aria-label="Περισσότερες ενέργειες"
@@ -73,6 +74,17 @@ export default function MobileStationShowcase({
           </div>}
         </div>
       </div>
+
+      {remoteDevice && (
+        <button type="button" className="ir-mobile-station-remote" onClick={onTransferHere}
+          aria-label={remoteLocationLabel(remoteDevice.playbackState) + ' ' + remoteDevice.deviceName + '. Μεταφορά εδώ'}>
+          <MonitorSpeaker size={18} aria-hidden="true" />
+          <span className="ir-mobile-station-remote-copy">
+            <small>{remoteLocationLabel(remoteDevice.playbackState)}</small>
+            <strong>{remoteDevice.deviceName} · Μεταφορά εδώ</strong>
+          </span>
+        </button>
+      )}
 
       <div className="ir-mobile-station-identity">
         <div className="ir-mobile-station-logo-frame">

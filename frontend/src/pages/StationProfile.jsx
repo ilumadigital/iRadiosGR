@@ -34,7 +34,8 @@ export default function StationProfile({
   stations, currentStation, isPlaying, onPlayPause, setCurrentStation, 
   toggleFavorite, isFavorite, nowPlaying: globalNowPlaying, nowPlayingInfo: globalNowPlayingInfo, analyser,
   currentUser, userOverrides, onUserDSPChange, API_URL,
-  isRecognizing, handleRecognizeTrack, globalCoverArt, liveBroadcast, rdsShowProducer, userLocation, checkGeoMatch
+  isRecognizing, handleRecognizeTrack, globalCoverArt, liveBroadcast, rdsShowProducer, userLocation, checkGeoMatch,
+  remoteDevice, onTransferHere
 }) {
   const { showAlert } = useAlert();
   const { id } = useParams();
@@ -361,6 +362,7 @@ export default function StationProfile({
 
       <div className="ir-station-responsive-shell relative z-10 flex-1 mx-auto w-full">
         <MobileStationShowcase
+          remoteDevice={remoteDevice} onTransferHere={onTransferHere}
           station={station} ambient={stationAmbient}
           playing={Boolean(isThisPlaying && isPlaying)} onPlay={handlePlayClick}
           favorite={isFav} onFavorite={() => toggleFavorite?.(station._id)}

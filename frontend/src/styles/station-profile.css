@@ -758,3 +758,39 @@
   .ir-station-contact-cta-icon {width:47px;height:47px;border-radius:16px}
   .ir-station-contact-cta-copy small {font-size:11px}
 }
+
+
+/* The genuine brand logo and non-overlapping transfer pill on station phones. */
+@media (max-width:767px) {
+  .ir-mobile-station-brand {min-width:0;}
+  .ir-mobile-station-brand-logo {
+    display:block;width:142px;max-width:100%;height:32px;object-fit:contain;
+  }
+  /* The previous floating overlay stays on other screens and on desktop. */
+  .ir-remote-playback-banner--station {display:none;}
+  .ir-mobile-station-remote {
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    max-width:min(100%,340px);min-width:0;min-height:42px;
+    margin:10px auto 0;padding:7px 14px;
+    border:1px solid rgba(204,255,0,.8);border-radius:999px;
+    background:#ccff00;color:#131b05;
+    box-shadow:0 8px 28px rgba(204,255,0,.22);
+    text-align:left;transition:transform .18s ease;
+  }
+  .ir-mobile-station-remote:active {transform:scale(.97);}
+  .ir-mobile-station-remote svg {flex:none;}
+  .ir-mobile-station-remote-copy {
+    display:flex;flex-direction:column;gap:2px;min-width:0;
+    line-height:1.1;
+  }
+  .ir-mobile-station-remote-copy small {
+    font-size:9px;font-weight:850;letter-spacing:.04em;
+  }
+  .ir-mobile-station-remote-copy strong {
+    display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:11px;font-weight:850;
+  }
+}
+@media (max-width:767px) and (prefers-reduced-motion:reduce) {
+  .ir-mobile-station-remote {transition:none;}
+}
