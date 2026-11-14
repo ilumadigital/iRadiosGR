@@ -20,7 +20,7 @@
         });
         // Replay a valid existing choice synchronously, before loading any tags.
         try {
-          var pair = document.cookie.split('; ').find(function (v) {
+          var pair = document.cookie.split(';').map(function (v) { return v.trim(); }).find(function (v) {
             return v.indexOf('iradios_consent_v2=') === 0;
           });
           if (!pair) return;
@@ -31,7 +31,8 @@
             analytics_storage: saved.analytics ? 'granted' : 'denied',
             ad_storage: saved.ads ? 'granted' : 'denied',
             ad_user_data: saved.ads ? 'granted' : 'denied',
-            ad_personalization: saved.ads && saved.personalization ? 'granted' : 'denied'
+            ad_personalization: saved.ads && saved.personalization ? 'granted' : 'denied',
+            personalization_storage: saved.ads && saved.personalization ? 'granted' : 'denied'
           });
         } catch (_) { /* Invalid/expired consent stays denied and asks again. */ }
       }());
