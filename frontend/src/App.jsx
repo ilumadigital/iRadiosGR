@@ -601,7 +601,9 @@ function MainApp() {
     }
   }, [isPlaying]);
   
-  const audioRef = useRef(null); 
+  const audioRef = useRef(null);
+  // Actual radio source on this device (never the remote UI selection).
+  const playbackStationIdRef=useRef(''); 
   const lastMetaFetch = useRef(0);
   const metadataRequest = useRef(0);
   const lastStationRefresh=useRef(0);
@@ -681,10 +683,14 @@ function MainApp() {
   const deviceCallbacksRef=useRef({});
   const {availableDevices,localDeviceId,connected:devicesConnected,
     requestDevices,acquirePlayback,startedPlayback,releasePlayback,
-    transferPlayback,renameDevice,forgetDevice}=usePlayDevices({
+    transferPlayback,renameDevice,forgetDevice,controlPlayback,
+    reportPlaybackBlocked}=usePlayDevices({
       currentUser,
       onRemotePlay:stationId=>deviceCallbacksRef.current.play?.(stationId),
-      onRemoteStop:()=>deviceCallbacksRef.current.stop?.()
+      onRemoteStop:()=>deviceCallbacksRef.current.stop?.(),
+      onRemotePause:()=>deviceCallbacksRef.current.pause?.(),
+      onRemoteResume:stationId=>deviceCallbacksRef.current.resume?.(stationId),
+      onRemoteStation:(stationId,shouldPlay)=>deviceCallbacksRef.current.station?.(stationId,shouldPlay)
     });
   const localDeviceName = useMemo(() => getLocalDeviceName(isCarModeActive), [isCarModeActive]);
 
@@ -878,9 +884,46 @@ function MainApp() {
   // iRadios Connect: persistent devices + JWT-authenticated playback leases.
   // The legacy public-stage Socket.IO endpoint is intentionally never used.
   const handleRequestDevices=()=>requestDevices();
-  const activeRemoteDevice=useMemo(()=>
-    availableDevices.find(d=>d.isPlaying&&d.deviceId!==localDeviceId),
-    [availableDevices,localDeviceId]);
+  const premiumSync=Boolean(currentUser?.role==='user'&&currentUser?.isPremium===true);
+  const playbackOwner=useMemo(()=>
+    premiumSync?availableDevices.find(d=>d.online&&d.playbackState&&d.stationId):null,
+    [premiumSync,availableDevices]);
+  const activeRemoteDevice=playbackOwner?.deviceId!==localDeviceId?playbackOwner:null;
+  const displayIsPlaying=Boolean(isPlaying || (activeRemoteDevice &&
+    ['playing','pending'].includes(activeRemoteDevice.playbackState)));
+  const remotePlayback=activeRemoteDevice?{
+    deviceName:activeRemoteDevice.deviceName,
+    state:activeRemoteDevice.playbackState,
+    stationId:activeRemoteDevice.stationId
+  }:null;
+  const handlePlaybackControl=async(action,stationId)=>{
+    const result=await controlPlayback(action,stationId);
+    if(!result.ok)showAlert('Ο συγχρονισμός αναπαραγωγής απέτυχε. Άνοιξε τις Συσκευές για έλεγχο.');
+    return result;
+  };
+  // Every Premium controller shows the owner's station. This updates artwork,
+  // labels and playback buttons without starting audio on the viewer.
+  useEffect(()=>{
+    const remoteId=String(activeRemoteDevice?.stationId||'');
+    if(!remoteId||remoteId===String(currentStation?._id||''))return;
+    let cancelled=false;
+    const load=async()=>{
+      let station=stationsRef.current.find(s=>String(s._id)===remoteId);
+      if(!station){
+        try{
+          const response=await fetch(`${API_URL}/stations/${encodeURIComponent(remoteId)}`);
+          if(response.ok)station=await response.json();
+        }catch{/* The station list may still be loading. */}
+      }
+      if(cancelled||!station||String(station._id)!==remoteId)return;
+      setCurrentStation(station);
+      setNowPlaying('');
+      setNowPlayingInfo({source:'none',foundWithAI:false});
+      setCoverArtState(null);
+    };
+    void load();
+    return()=>{cancelled=true;};
+  },[activeRemoteDevice?.stationId,currentStation?._id,stations,API_URL]);
   const handleTransferPlayback=async targetDeviceId=>{
     const stationId=String(currentStation?._id||activeRemoteDevice?.stationId||'');
     if(!stationId){showAlert('Επίλεξε πρώτα έναν σταθμό.');return {ok:false,error:'NO_STATION'};}
@@ -1074,6 +1117,7 @@ function MainApp() {
     setSpotifyMatch(null);
     intendedPlayState.current = true;
 
+    playbackStationIdRef.current=String(station._id);
     audioRef.current.src = finalStreamUrl;
     
     try {
@@ -1084,6 +1128,7 @@ function MainApp() {
       
       if (playPromise !== undefined) {
         playPromise.then(() => {
+          if(playbackIntentRef.current!==intent)return;
           setIsPlaying(true);
           if (!disableDSP && typeof resumeDSP === 'function') resumeDSP();
           
@@ -1095,9 +1140,12 @@ function MainApp() {
             });
           }
         }).catch(e => {
-          // Το Safari μπλόκαρε τον ήχο επειδή η εντολή ήρθε από το Socket και όχι από το δάχτυλο.
+          if(playbackIntentRef.current!==intent)return;
+          // A remote-controlled Safari/iOS target may require a local Play tap.
           console.warn("Autoplay blocked by Safari:", e);
-          setIsPlaying(false); // Το αφήνουμε paused, απλά πατάει ο χρήστης το κουμπί play στο UI!
+          reportPlaybackBlocked();
+          setIsPlaying(false);
+          setIsBuffering(false);
         });
       } else {
         setIsPlaying(true);
@@ -1115,6 +1163,44 @@ function MainApp() {
     if(audioRef.current&&!audioRef.current.paused)audioRef.current.pause();
     if(silentAudioRef.current)silentAudioRef.current.pause();
     setIsPlaying(false);setIsBuffering(false);
+  };
+  deviceCallbacksRef.current.pause=()=>{
+    // A pause is NOT a transfer and must retain the Premium lease.
+    playbackIntentRef.current++;
+    premiumAuthorizationPendingRef.current=false;
+    intendedPlayState.current=false;
+    if(audioRef.current&&!audioRef.current.paused)audioRef.current.pause();
+    if(silentAudioRef.current)silentAudioRef.current.pause();
+    setIsPlaying(false);setIsBuffering(false);
+  };
+  deviceCallbacksRef.current.resume=stationId=>{
+    const media=audioRef.current;
+    if(!media)return;
+    if(String(playbackStationIdRef.current)!==String(stationId)||!media.currentSrc||
+      String(media.currentSrc).startsWith('data:')){
+      deviceCallbacksRef.current.play?.(stationId);
+      return;
+    }
+    intendedPlayState.current=true;
+    try{
+      const result=media.play();
+      if(result)void result.then(()=>setIsPlaying(true)).catch(()=>{
+        reportPlaybackBlocked();
+        setIsPlaying(false);setIsBuffering(false);
+      });
+      else setIsPlaying(true);
+    }catch{
+      reportPlaybackBlocked();setIsPlaying(false);setIsBuffering(false);
+    }
+  };
+  deviceCallbacksRef.current.station=async(stationId,shouldPlay)=>{
+    if(shouldPlay){
+      deviceCallbacksRef.current.play?.(stationId);
+    }else{
+      deviceCallbacksRef.current.pause?.();
+      const station=stationsRef.current.find(s=>String(s._id)===String(stationId));
+      if(station)setCurrentStation(station);
+    }
   };
   deviceCallbacksRef.current.play=async stationId=>{
     let station=stationsRef.current.find(s=>String(s._id)===String(stationId));
@@ -1138,7 +1224,12 @@ function MainApp() {
     // During a spot retain the latest listener selection for the end of break.
     if (isPlayingAd || activeAdRef.current) { pendingStation.current = station; return; }
     if (currentStation && currentStation._id === station._id && isPlaying) return;
-    
+
+    // A remote controller changes the owner's station; it must not play locally.
+    if(premiumSync&&activeRemoteDevice){
+      void handlePlaybackControl('station',String(station._id));
+      return;
+    }
     if (currentUser?.isPremium) return handleActualStationPlay(station);
 
     stationSwitches.current += 1;
@@ -1322,15 +1413,22 @@ function MainApp() {
   const togglePlayPause = () => {
     if (isPlayingAd || !currentStation || !audioRef.current) return;
     if(!isPlaying && (currentStation.isOffline === true || stationsRef.current.find(s=>String(s._id)===String(currentStation._id))?.isOffline === true))return;
-    
+
+    // Play/Pause acts on the actual Premium playback owner, even when this
+    // screen has no audio. An explicit Transfer is the ONLY way to move audio.
+    if(premiumSync&&playbackOwner){
+      const action=playbackOwner.playbackState==='paused'?'resume':'pause';
+      void handlePlaybackControl(action);
+      return;
+    }
     if (isPlaying) {
-      intendedPlayState.current = false; 
+      intendedPlayState.current = false;
       audioRef.current.pause();
       releasePlayback();
       setIsPlaying(false);
     } else {
-      intendedPlayState.current = true; 
-      handleActualStationPlay(currentStation);
+      intendedPlayState.current = true;
+      void handleActualStationPlay(currentStation);
     }
   };
 
@@ -1847,7 +1945,7 @@ function MainApp() {
           }
           clearAdWatchdog();
           if(!ad&&!premiumAuthorizationPendingRef.current)
-            void startedPlayback(String(currentStation?._id||''));
+            void startedPlayback(String(playbackStationIdRef.current||''));
         }}
         
         onPause={() => {
@@ -1940,7 +2038,7 @@ function MainApp() {
                     setCurrentStation={handleStationSelectWithAds} 
                     userLocation={userLocation} 
                     checkGeoMatch={checkGeoMatch} 
-                    isPlaying={isPlaying} 
+                    isPlaying={displayIsPlaying} 
                     onPlayPause={togglePlayPause} 
                     currentUser={currentUser} 
                     analyser={analyserRef.current} 
@@ -1960,26 +2058,26 @@ function MainApp() {
             <Route path="/profile" element={currentUser ? <Profile API_URL={API_URL} currentUser={currentUser} onLogout={handleLogout} onUserUpdated={setCurrentUser} onOpenDevices={()=>setDevicesOpen(true)} /> : <Navigate to="/login" />} />
             <Route path="/settings" element={<Navigate to="/profile?tab=details" replace />} />
             <Route path="/press-kit" element={<PressKit />} />
-            <Route path="/newsfeed" element={<NewsFeed stations={stations} userLocation={userLocation} checkGeoMatch={checkGeoMatch} currentUser={currentUser} currentStation={currentStation} isPlaying={isPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
+            <Route path="/newsfeed" element={<NewsFeed stations={stations} userLocation={userLocation} checkGeoMatch={checkGeoMatch} currentUser={currentUser} currentStation={currentStation} isPlaying={displayIsPlaying} onPlayStation={handleStationSelectWithAds} onPlayPause={togglePlayPause} />} />
             <Route path="/newsfeed/:key" element={<NewsArticle />} />
-            <Route path="/map" element={<MapMode stations={stations} currentUser={currentUser} currentStation={currentStation} onPlayStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} />} />
+            <Route path="/map" element={<MapMode stations={stations} currentUser={currentUser} currentStation={currentStation} onPlayStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} />} />
 
             <Route path="/studio" element={
               <RequireTerms currentUser={currentUser}>
                 {currentUser?.role === 'producer' 
-                  ? <ProducerStudio currentUser={currentUser} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} analyser={analyserRef.current} /> 
-                  : <BroadcasterStudio currentUser={currentUser} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} analyser={analyserRef.current} />
+                  ? <ProducerStudio currentUser={currentUser} API_URL={API_URL} currentStation={currentStation} isPlaying={displayIsPlaying} analyser={analyserRef.current} /> 
+                  : <BroadcasterStudio currentUser={currentUser} API_URL={API_URL} currentStation={currentStation} isPlaying={displayIsPlaying} analyser={analyserRef.current} />
                 }
               </RequireTerms>
             } />
 
-            <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/without-ads" element={<Genre noCommercialAds stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={isPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} userLocation={userLocation} checkGeoMatch={checkGeoMatch} />} />
+            <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
+            <Route path="/without-ads" element={<Genre noCommercialAds stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
+            <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} userLocation={userLocation} checkGeoMatch={checkGeoMatch} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
-            <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={isPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
+            <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
             <Route path="/premium" element={window.location.hostname==='stage.iradios.gr'
   ? <SandboxPremium API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />
   : <GoPremium API_URL={API_URL} currentUser={currentUser} />} />
@@ -2078,7 +2176,7 @@ function MainApp() {
           currentStation={currentStation} isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo}
           adTimeRemaining={adTimeRemaining} adWarning={adWarning}
           adSkipCountdown={adSkipCountdown} onSkipAd={skipCurrentAd} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo}
-          isPlaying={isPlaying} togglePlayPause={togglePlayPause} isBuffering={isBuffering}
+          isPlaying={displayIsPlaying} togglePlayPause={togglePlayPause} isBuffering={isBuffering}
           toggleFavorite={handleToggleFavorite} isFavorite={isFavorite}
           currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP}
           handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}
@@ -2094,13 +2192,14 @@ function MainApp() {
           onTransferPlayback={handleTransferPlayback}
           onRequestDevices={handleRequestDevices}
           onOpenDevices={()=>setDevicesOpen(true)}
+          remotePlayback={remotePlayback}
         />
       </main>
 
       <Footer 
         currentStation={currentStation} isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo} isBuffering={isBuffering}    
         adTimeRemaining={adTimeRemaining} adWarning={adWarning}
-        adSkipCountdown={adSkipCountdown} onSkipAd={skipCurrentAd} isPlaying={isPlaying} 
+        adSkipCountdown={adSkipCountdown} onSkipAd={skipCurrentAd} isPlaying={displayIsPlaying} 
         nowPlaying={isPlayingAd ? `Sponsored: ${currentAdInfo?.title}` : nowPlaying} nowPlayingInfo={nowPlayingInfo} 
         volume={volume} setVolume={setVolume} togglePlayPause={togglePlayPause} 
         toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} 
@@ -2115,6 +2214,7 @@ function MainApp() {
         onTransferPlayback={handleTransferPlayback}
         onRequestDevices={handleRequestDevices}
         onOpenDevices={()=>setDevicesOpen(true)}
+        remotePlayback={remotePlayback}
       />
       <DevicePicker open={devicesOpen} onClose={()=>setDevicesOpen(false)}
         devices={availableDevices} localDeviceId={localDeviceId}
@@ -2127,7 +2227,7 @@ function MainApp() {
       {isCarModeActive && currentStation && (
         <CarMode 
           station={currentStation}
-          isPlaying={isPlaying}
+          isPlaying={displayIsPlaying}
           isPlayingAd={isPlayingAd} currentAdInfo={currentAdInfo}
           adSkipCountdown={adSkipCountdown} onSkipAd={skipCurrentAd}
           onPlayPause={togglePlayPause}
