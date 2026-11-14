@@ -47,15 +47,18 @@ function createDeviceService(io){
       .sort({lastSeenAt:-1}).limit(MAX_DEVICES).lean();
     const now=new Date();
     const lease=await PlaybackLease.findOne({accountId:account,expiresAt:{$gt:now}}).lean();
-    return devices.map(d=>({
+    return devices.map(d=>{
+      const freeStation=sockets(account,d.deviceId).map(sid=>io.sockets.sockets.get(sid))
+        .find(sock=>sock?.data?.freePlayingStationId)?.data?.freePlayingStationId||null;
+      return ({
       deviceId:d.deviceId,deviceType:d.deviceType,brand:d.brand,model:d.model,
       os:d.os,browser:d.browser,clientType:d.clientType,deviceName:d.displayName,
-      online:online(account,d.deviceId),isPlaying:Boolean(lease?.state==='playing' &&
-        lease?.deviceId===d.deviceId&&online(account,d.deviceId)),
+      online:online(account,d.deviceId),isPlaying:Boolean(freeStation||(lease?.state==='playing' &&
+        lease?.deviceId===d.deviceId&&online(account,d.deviceId))),
       isPending:Boolean(lease?.state==='pending' && lease?.deviceId===d.deviceId),
-      stationId:lease?.deviceId===d.deviceId?String(lease.stationId):null,
+      stationId:lease?.deviceId===d.deviceId?String(lease.stationId):freeStation,
       firstSeenAt:d.firstSeenAt,lastSeenAt:d.lastSeenAt
-    }));
+    });});
   }
   async function publish(account){
     io.to(room(account)).emit('connect:devices',await list(account));
@@ -212,15 +215,22 @@ function createDeviceService(io){
       try{
         const id=socket.data.deviceId;
         if(!id)return answer(ack,{ok:false,error:'NOT_REGISTERED'});
-        if(raw?.transferId){
-          const pending=pendingFreeTransfers.get(raw.transferId);
-          if(pending?.target===socket.id && pending.expiresAt>Date.now()){
-            pendingFreeTransfers.delete(raw.transferId);
-            io.to(pending.source).emit('connect:stop',{reason:'TRANSFER_COMPLETE',free:true});
+        if(!await premiumFor(socket)){
+          if(!OBJECT_ID.test(raw?.stationId||''))
+            return answer(ack,{ok:false,error:'INVALID_STATION'});
+          socket.data.freePlayingStationId=raw.stationId;
+          if(raw?.transferId){
+            const pending=pendingFreeTransfers.get(raw.transferId);
+            if(pending?.target===socket.id && pending.expiresAt>Date.now()){
+              pendingFreeTransfers.delete(raw.transferId);
+              const source=io.sockets.sockets.get(pending.source);
+              if(source)source.data.freePlayingStationId=null;
+              io.to(pending.source).emit('connect:stop',{reason:'TRANSFER_COMPLETE',free:true});
+            }
           }
+          await publish(account);
           return answer(ack,{ok:true});
         }
-        if(!await premiumFor(socket))return answer(ack,{ok:true});
         const updated=await PlaybackLease.findOneAndUpdate({
           accountId:account,deviceId:id,socketId:socket.id,token:raw?.token,
           expiresAt:{$gt:new Date()}
@@ -254,11 +264,13 @@ function createDeviceService(io){
     });
     socket.on('connect:release',async(raw,ack)=>{
       try{
+        const wasFreePlaying=Boolean(socket.data.freePlayingStationId);
+        socket.data.freePlayingStationId=null;
         const deleted=raw?.token?await PlaybackLease.deleteOne({
           accountId:account,deviceId:socket.data.deviceId,socketId:socket.id,
           token:raw.token
         }):null;
-        if(deleted?.deletedCount)await publish(account);
+        if(deleted?.deletedCount||wasFreePlaying)await publish(account);
         answer(ack,{ok:true});
       }catch{answer(ack,{ok:false,error:'RELEASE_FAILED'});}
     });

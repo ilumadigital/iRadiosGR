@@ -189,12 +189,12 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
     transferRef.current=null;
     return true;
   },[ack]);
-  const startedPlayback=useCallback(async()=>{
+  const startedPlayback=useCallback(async(stationId)=>{
     const transferId=transferRef.current;
     if(transferId)transferRef.current=null;
     const token=leaseRef.current?.token;
-    if(!token&&!transferId)return;
-    const result=await ack('connect:started',token?{token}:{transferId});
+    if(!token&&!transferId&&!stationId)return;
+    const result=await ack('connect:started',token?{token,stationId}:{transferId,stationId});
     if(token&&leaseRef.current?.token===token){
       if(result.ok)leaseRef.current={...leaseRef.current,started:true};
       else{leaseRef.current=null;callbacksRef.current.onRemoteStop?.();}
@@ -203,7 +203,7 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
   const releasePlayback=useCallback(()=>{
     const token=leaseRef.current?.token;
     leaseRef.current=null;transferRef.current=null;
-    if(token)void ack('connect:release',{token});
+    void ack('connect:release',token?{token}:{});
   },[ack]);
   const transferPlayback=useCallback(async(targetDeviceId,stationId)=>
     ack('connect:transfer',{targetDeviceId,stationId}),[ack]);

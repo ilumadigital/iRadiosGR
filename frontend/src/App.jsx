@@ -992,7 +992,7 @@ function MainApp() {
     previousPremiumRef.current=premium;
     if(!wasPremium&&premium&&isPlaying&&!isPlayingAd&&currentStation?._id){
       void acquirePlayback(String(currentStation._id)).then(ok=>{
-        if(ok)void startedPlayback();
+        if(ok)void startedPlayback(String(currentStation._id));
         else deviceCallbacksRef.current.stop?.();
       });
     }else if(wasPremium&&!premium)releasePlayback();
@@ -1107,7 +1107,7 @@ function MainApp() {
     if(station?.stream){
       if(currentUser?.role==='user'&&currentUser?.isPremium===true)
         void handleActualStationPlay(station);
-      else if(currentStation?._id===station._id&&isPlaying)void startedPlayback();
+      else if(currentStation?._id===station._id&&isPlaying)void startedPlayback(String(station._id));
       else handleStationSelectWithAds(station);
     }
   };
@@ -1826,7 +1826,7 @@ function MainApp() {
             fetch(`${API_URL}/ads/${ad.id}/impression`, { method: 'POST' }).catch(() => {});
           }
           clearAdWatchdog();
-          if(!ad)void startedPlayback();
+          if(!ad)void startedPlayback(String(currentStation?._id||''));
         }}
         
         onPause={() => {
