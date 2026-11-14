@@ -1,6 +1,7 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import {Link} from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import { 
   Search, Grid, List, Edit, Trash2, X, Shield, Radio, 
   User as UserIcon, Star, CheckCircle2, KeyRound, Settings, Crown,
@@ -10,6 +11,7 @@ import {
 
 export default function AdminUsers({ API_URL, currentUser }) {
   const [users, setUsers] = useState([]);
+  const liveBackofficeRevision=useLiveRevision(['backoffice','stations']);
   const [stations, setStations] = useState([]); 
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all'); 
@@ -45,7 +47,7 @@ export default function AdminUsers({ API_URL, currentUser }) {
   useEffect(() => { 
     fetchUsers(); 
     fetchStations();
-  }, []);
+  }, [liveBackofficeRevision]);
 
   const fetchUsers = async () => {
     try {

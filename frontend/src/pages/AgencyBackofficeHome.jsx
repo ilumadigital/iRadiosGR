@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import {Link} from 'react-router-dom';
 import {Activity,ArrowRight,BarChart3,CheckCircle2,Clock3,FileCheck2,
  LayoutGrid,Mic2,Plus,RefreshCw,ShieldCheck,Wallet} from 'lucide-react';
@@ -17,6 +18,7 @@ function Metric({icon:Icon,title,value,detail}){
 }
 export default function AgencyBackofficeHome({user}){
  const [campaigns,setCampaigns]=useState([]);
+ const liveAdsRevision=useLiveRevision('ads');
  const [status,setStatus]=useState('loading');
  const [error,setError]=useState('');
  const load=useCallback(async(signal)=>{
@@ -33,7 +35,7 @@ export default function AgencyBackofficeHome({user}){
    if(!signal?.aborted){setError(e.message||'Αποτυχία φόρτωσης.');setStatus('error');}
   }
  },[]);
- useEffect(()=>{const controller=new AbortController();void load(controller.signal);return()=>controller.abort();},[load]);
+ useEffect(()=>{const controller=new AbortController();void load(controller.signal);return()=>controller.abort();},[load,liveAdsRevision]);
  const metrics=useMemo(()=>({
   total:campaigns.length,
   pending:campaigns.filter(c=>c.approvalStatus==='pending').length,

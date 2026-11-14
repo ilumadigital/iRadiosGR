@@ -1,5 +1,6 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import {useNavigate} from 'react-router-dom';
 import '../styles/ad-campaign-console.css';
 import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
@@ -116,6 +117,7 @@ export default function AdminBanners() {
     targetCountry: 'All', targetRegion: 'All', targetLocations: ['All']
   });
 
+  const liveAdsRevision=useLiveRevision('ads');
   const fetchBanners = async () => {
     try {
       setLoading(true);setLoadError('');
@@ -133,7 +135,7 @@ export default function AdminBanners() {
 
   useEffect(() => {
     fetchBanners();
-  }, []);
+  }, [liveAdsRevision]);
 
   const handleOpenModal = (banner = null) => {
     if (banner) {

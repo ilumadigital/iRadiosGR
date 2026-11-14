@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useState} from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import AdvertisingCampaignWizard from './AdvertisingCampaignWizard';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
@@ -28,6 +29,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
  const [deleteTarget,setDeleteTarget]=useState(null);
  const [deleteTitle,setDeleteTitle]=useState(''),[deleteReason,setDeleteReason]=useState('');
  const [deleteError,setDeleteError]=useState('');
+ const liveAdsRevision=useLiveRevision('ads');
  const reload=useCallback(async()=>{
   setLoading(true);setNotice('');
   try{
@@ -39,7 +41,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
    if(mode==='pricing')setPricing(data);else setCampaigns(data);
   }catch(e){setNotice(e.message);}finally{setLoading(false);}
  },[mode,showDeleted]);
- useEffect(()=>{reload();},[reload]);
+ useEffect(()=>{reload();},[reload,liveAdsRevision]);
  const update=(key,v)=>setPricing(p=>({...p,[key]:v}));
  const updateRate=(key,v)=>setPricing(p=>({...p,cpmMicros:{
   ...p.cpmMicros,[key]:Math.round(v*1000000)}}));

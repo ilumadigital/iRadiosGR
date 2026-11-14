@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import {subscribeLiveUpdates} from '../utils/liveUpdates';
 
 export default function useAdEngine(API_URL) {
   const [ads, setAds] = useState([]);
@@ -33,7 +34,8 @@ export default function useAdEngine(API_URL) {
           console.log("Ads refreshed from server...");
       }, 120000); 
 
-      return () => clearInterval(interval);
+      const unsubscribe = subscribeLiveUpdates('ads',loadGlobalAds);
+      return () => {clearInterval(interval);unsubscribe();};
   }, [API_URL]);
 
   return {

@@ -5,6 +5,7 @@ import {Helmet} from 'react-helmet-async';
 import {Link,useLocation,useSearchParams} from 'react-router-dom';
 import {Newspaper,LayoutGrid,List,ExternalLink,RefreshCw,Clock3,Megaphone} from 'lucide-react';
 import EditorialPlacement from '../components/EditorialPlacement';
+import {subscribeLiveUpdates,useLiveRevision} from '../utils/liveUpdates';
 
 export function newsAge(value,now=Date.now()){
   const date=new Date(value);
@@ -68,9 +69,10 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
   const [items,setItems]=useState([]),[source,setSource]=useState('');
   const [categories,setCategories]=useState([]);
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[now,setNow]=useState(Date.now()),[banners,setBanners]=useState([]);
+  const liveAdsRevision=useLiveRevision('ads');
   const premium=Boolean(currentUser&&(currentUser.role==='admin'||currentUser.role==='agency'||currentUser.isPremium===true||currentUser.broadcasterProfile?.tier==='premium'));
   const refresh=useCallback(async signal=>{
-    const r=await fetch('/api/newsfeed',{signal});if(!r.ok)throw Error('Δεν είναι διαθέσιμες οι ειδήσεις αυτή τη στιγμή.');
+    const r=await fetch('/api/newsfeed',{signal,cache:'no-store'});if(!r.ok)throw Error('Δεν είναι διαθέσιμες οι ειδήσεις αυτή τη στιγμή.');
     const data=await r.json();setItems(Array.isArray(data.articles)?data.articles:[]);
     setCategories(Array.isArray(data.categories)?data.categories.filter(c=>typeof c==='string'&&c.trim()):[]);
     setSource(data.feedTitle||'');setError('');
@@ -84,22 +86,23 @@ export default function NewsFeed({stations=[],currentUser,userLocation,checkGeoM
     const interval=setInterval(poll,120000);
     const onVisibility=()=>{if(!document.hidden)poll();};
     document.addEventListener('visibilitychange',onVisibility);
+    const unsubscribe=subscribeLiveUpdates('news',()=>refresh(controller.signal).catch(()=>{}));
     const clock=setInterval(()=>setNow(Date.now()),30000);
     return()=>{
-      live=false;controller.abort();clearInterval(interval);clearInterval(clock);
+      live=false;unsubscribe();controller.abort();clearInterval(interval);clearInterval(clock);
       document.removeEventListener('visibilitychange',onVisibility);
     };
   },[refresh]);
   useEffect(()=>{
     if(premium)return;
     const controller=new AbortController();
-    fetch('/api/banners/active',{signal:controller.signal}).then(r=>r.ok?r.json():[])
+    fetch('/api/banners/active',{signal:controller.signal,cache:'no-store'}).then(r=>r.ok?r.json():[])
       .then(data=>{if(!controller.signal.aborted)setBanners((Array.isArray(data)?data:[]).filter(b=>
         b.status==='active'&&Array.isArray(b.placement)&&b.placement.includes('news_feed')&&
         (!b.expiresAt||new Date(b.expiresAt)>new Date())&&
         geoAllowsAd(b.targetLocations,userLocation,checkGeoMatch,b.serverGeoEligible===true)));}).catch(()=>{});
     return()=>controller.abort();
-  },[premium,userLocation,checkGeoMatch]);
+  },[premium,userLocation,checkGeoMatch,liveAdsRevision]);
   const ordered=useMemo(()=>[...items].sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)),[items]);
   const categoryOptions=useMemo(()=>{
     const all=new Set(categories);

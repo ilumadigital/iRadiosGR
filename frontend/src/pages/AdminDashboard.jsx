@@ -1,5 +1,6 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import {Link} from 'react-router-dom';
 import {ResponsiveContainer,BarChart,Bar,XAxis,YAxis,CartesianGrid,Tooltip as ChartTooltip,PieChart,Pie,Cell} from 'recharts';
 import {Activity,ArrowRight,BarChart3,Briefcase,CheckCircle2,Clock3,Crown,Euro,Headphones,
@@ -49,6 +50,7 @@ export default function AdminDashboard({API_URL='/api',globalSocket}){
   const [refreshing,setRefreshing]=useState(false);
   const [error,setError]=useState('');
   const [lastUpdated,setLastUpdated]=useState(null);
+  const liveBackofficeRevision=useLiveRevision('backoffice');
   const refresh=useCallback(async({silent=false,signal}={})=>{
     if(!silent)setRefreshing(true);
     try{
@@ -77,7 +79,7 @@ export default function AdminDashboard({API_URL='/api',globalSocket}){
     refresh({signal:ctl.signal});refreshLive(ctl.signal);
     const interval=setInterval(()=>refreshLive(ctl.signal),30000);
     return ()=>{clearInterval(interval);ctl.abort();};
-  },[refresh,refreshLive]);
+  },[refresh,refreshLive,liveBackofficeRevision]);
   useEffect(()=>{
     if(!globalSocket)return;
     const update=count=>{if(Number.isFinite(Number(count)))setLive(Number(count));};

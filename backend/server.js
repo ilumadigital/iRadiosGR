@@ -76,6 +76,10 @@ app.post('/api/gateway/webhook',express.raw({type:'application/json',limit:'64kb
 app.use(cors());
 app.use(express.json());
 
+// Catalog/editorial changes use a separate read-only SSE channel. Keep the
+// legacy Socket.IO playback/device gateway disabled on public staging.
+const liveUpdates = require('./services/liveUpdates');
+
 // The public Turnstile site key must be reachable before stage's JWT guard.
 // This route exposes no secret and fails closed if runtime keys are missing.
 app.get('/api/auth/turnstile-config',require('./utils/turnstile').publicConfig);
@@ -92,6 +96,12 @@ if (process.env.APP_ENV === 'staging') {
   require('./utils/stageNativeScanner').start();
 }
 
+
+// Public invalidations include no private IDs, content or account data.
+// Emit only once the authorized write endpoint has returned success.
+app.get('/api/live/updates', liveUpdates.stream);
+app.get('/api/live/revision', liveUpdates.version);
+app.use('/api', liveUpdates.captureSuccessfulMutation);
 
 // ==============================================================
 // 🎨 ΔΥΝΑΜΙΚΗ ΠΑΡΑΓΩΓΗ OG IMAGE ΓΙΑ ΤΑ SOCIAL MEDIA BOTS

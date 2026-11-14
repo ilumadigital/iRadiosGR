@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import {PrimaryCategorySelect,SecondaryCategoriesSelect,CommercialAdsDisclosure} from '../components/StationCategorySelect';
 import {LOCATION_DATA, stationCityOptions, canonicalStationLocation, inferStationPrefecture} from '../utils/stationLocations';
 import {isPrimaryCategory,isValidSecondarySelection,normalizePrimaryCategory,normalizeSelectedSecondaries,PRIMARY_CATEGORIES} from '../utils/stationCategories';
@@ -25,6 +26,7 @@ const INITIAL_STATION_STATE = {
 
 export default function Admin({ API_URL, refreshStations }) {
   const [adminStations, setAdminStations] = useState([]);
+  const liveStationsRevision=useLiveRevision('stations');
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -58,7 +60,7 @@ export default function Admin({ API_URL, refreshStations }) {
     } catch (err) { console.error("Error loading stations:", err); }
   };
 
-  useEffect(() => { loadAdminStations(); }, []);
+  useEffect(() => { loadAdminStations(); }, [liveStationsRevision]);
 
   useEffect(() => {
     if (!showAddModal && !editingStation) {

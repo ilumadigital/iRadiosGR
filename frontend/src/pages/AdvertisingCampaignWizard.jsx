@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {subscribeLiveUpdates} from '../utils/liveUpdates';
 import {Link,useSearchParams} from 'react-router-dom';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import {LOCATION_DATA} from '../utils/stationLocations';
@@ -203,6 +204,9 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
   else setStep(data.campaign.plannedBudgetCents>0?3:data.creatives.banners.length+data.creatives.audios.length>0?2:1);
   return data;
  },[base,admin]);
+ // Campaign list is live, but never overwrite an unsaved wizard draft or
+ // active payment intent when another admin updates campaigns.
+ useEffect(()=>subscribeLiveUpdates('ads',()=>{loadList().catch(()=>{});}),[loadList]);
  const requestedId=searchParams.get('campaignId');
  useEffect(()=>{
   let live=true;setLoading(true);setError('');

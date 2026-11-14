@@ -2,6 +2,7 @@
 const crypto=require('crypto');
 const NewsFeed=require('../models/NewsFeed');
 const NewsFeedArchive=require('../models/NewsFeedArchive');
+const {publish: publishLiveUpdate}=require('../services/liveUpdates');
 const {keyFor,publicArticle,relatedArticles}=require('../utils/newsFeedArticle');
 const {DEFAULT_FEED_URL,normalizeSource,download}=require('../utils/rssNews');
 const newsbeast=require('../utils/newsbeastSources');
@@ -126,6 +127,9 @@ async function sync(doc,force=false){
       {new:true,runValidators:true});
     if(!committed)return await NewsFeed.findById('primary')||current;
     current=committed;
+    // The remote feed sync completes after the manual refresh HTTP 202.
+    // Tell open clients only after the atomic database commit.
+    publishLiveUpdate(['news']);
     // Preserve evicted RSS previews for up to fourteen days so copied links
     // continue to work after newer articles displace them from the live list.
     const currentKeys=new Set(current.articles.map(a=>keyFor(a.url)));

@@ -5,6 +5,7 @@ import StationListenButton from './StationListenButton';
 import {activeStationShow,validShowImage} from '../utils/liveBroadcast';
 import {getAthensClock} from '../utils/schedule';
 import {useStationAmbient} from '../hooks/useStationAmbient';
+import {useLiveRevision} from '../utils/liveUpdates';
 
 // A distinct Admin-controlled Promoted placement. The public endpoint returns
 // no song metadata: guest listings may show only the scheduled programme.
@@ -13,6 +14,7 @@ export default function PromotedStationCard({
   onAvailabilityChange
 }){
   const [feature,setFeature]=useState(null);
+  const livePromoRevision=useLiveRevision(['ads','stations']);
   const [clock,setClock]=useState(()=>getAthensClock());
   useEffect(()=>{
     if(!['genre','region','news'].includes(placement) || (placement!=='news'&&!value)){setFeature(null);return;}
@@ -24,7 +26,7 @@ export default function PromotedStationCard({
       inFlight=true;
       try{
         const query=new URLSearchParams({placement,value});
-        const response=await fetch('/api/promoted-station?'+query.toString(),{signal:controller.signal});
+        const response=await fetch('/api/promoted-station?'+query.toString(),{signal:controller.signal,cache:'no-store'});
         if(!response.ok)throw new Error('Promoted station unavailable');
         const data=await response.json();
         if(live)setFeature(data?.stationId?{...data,placement,value}:null);
@@ -35,7 +37,7 @@ export default function PromotedStationCard({
     load();
     const timer=setInterval(load,30000);
     return()=>{live=false;controller.abort();clearInterval(timer);};
-  },[placement,value]);
+  },[placement,value,livePromoRevision]);
   useEffect(()=>{
     const timer=setInterval(()=>setClock(getAthensClock()),60000);
     return()=>clearInterval(timer);

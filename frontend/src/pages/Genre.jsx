@@ -1,3 +1,4 @@
+import {useLiveRevision} from '../utils/liveUpdates';
 import React, { useState, useMemo, useEffect } from 'react';
 import DynamicAdCreative from '../components/DynamicAdCreative';
 import {sparseAdMap} from '../utils/sparseAdSlots';
@@ -55,11 +56,12 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
   );
   
   const isFreeOrGuest = !isPremiumUser;
+  const liveAdsRevision=useLiveRevision('ads');
 
   // Φορτώνουμε τα banners ΜΟΝΟ αν είναι Free/Guest
   useEffect(() => {
     if (isFreeOrGuest) {
-      fetch(`/api/banners/active`)
+      fetch(`/api/banners/active`,{cache:'no-store'})
         .then(res => res.ok ? res.json() : [])
         .then(data => setActiveBanners((Array.isArray(data)?data:[]).filter(banner =>
           banner.status==='active'&&
@@ -69,7 +71,7 @@ export default function Genre({ stations, currentStation, setCurrentStation, isP
     } else {
       setActiveBanners([]);
     }
-  }, [isFreeOrGuest, userLocation, checkGeoMatch]);
+  }, [isFreeOrGuest, userLocation, checkGeoMatch,liveAdsRevision]);
 
   // 🟢 SQUARE BANNERS (Κάθε 5 σταθμούς)
   const radioFeedBanners = useMemo(() => {

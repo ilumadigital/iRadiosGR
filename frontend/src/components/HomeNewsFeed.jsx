@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
+import {subscribeLiveUpdates} from '../utils/liveUpdates';
 import {Link, useNavigate} from 'react-router-dom';
 import {ArrowRight, Headphones, Newspaper, Pause, Play, Radio, RefreshCw} from 'lucide-react';
 import HomeNewsSlider from './HomeNewsSlider';
@@ -71,7 +72,7 @@ export default function HomeNewsFeed({
       if (inFlight || controller.signal.aborted) return;
       inFlight = true;
       try {
-        const response = await fetch('/api/newsfeed', {signal: controller.signal});
+        const response = await fetch('/api/newsfeed', {signal: controller.signal,cache:'no-store'});
         if (!response.ok) throw new Error('Οι ειδήσεις δεν είναι προσωρινά διαθέσιμες.');
         const data = await response.json();
         if (!controller.signal.aborted) {
@@ -93,7 +94,9 @@ export default function HomeNewsFeed({
     const clock = setInterval(() => setNow(Date.now()), 30000);
     const onVisible = () => { if (!document.hidden) refresh(); };
     document.addEventListener('visibilitychange', onVisible);
+    const unsubscribe=subscribeLiveUpdates('news',refresh);
     return () => {
+      unsubscribe();
       controller.abort();
       clearInterval(timer);
       clearInterval(clock);

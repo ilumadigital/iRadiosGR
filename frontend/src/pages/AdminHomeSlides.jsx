@@ -1,3 +1,4 @@
+import {subscribeLiveUpdates} from '../utils/liveUpdates';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useEffect, useState } from 'react';
 import { Image, Plus, Save, Trash2, Pencil, ArrowUp, ArrowDown, Upload, ExternalLink, EyeOff, Eye } from 'lucide-react';
@@ -69,6 +70,11 @@ export default function AdminHomeSlides() {
     }).catch(e=>{if(live)setError(e.message);});
     return ()=>{live=false;};
   },[]);
+  useEffect(()=>subscribeLiveUpdates(['slides','stations'],()=>{
+    refresh().catch(()=>{});
+    fetch('/api/stations',{cache:'no-store'}).then(r=>r.ok?r.json():[])
+      .then(items=>setStations(Array.isArray(items)?items:[])).catch(()=>{});
+  }),[]);
 
   const edit=item=>{
     setEditingId(item._id);

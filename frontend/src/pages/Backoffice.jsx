@@ -1,5 +1,6 @@
 import React, {useCallback,useEffect,useMemo,useState,Suspense,lazy} from 'react';
 import BrandLogo from '../components/BrandLogo';
+import {subscribeLiveUpdates,useLiveRevision} from '../utils/liveUpdates';
 import {Link,NavLink,Routes,Route,Navigate,useLocation,useNavigate,useParams} from 'react-router-dom';
 import {Helmet} from 'react-helmet-async';
 import '../styles/backoffice-admin.css';
@@ -1115,6 +1116,7 @@ function Review({data,reload,notify,requestDelete}){
   const [searchInput,setSearchInput]=useState('');
   const [search,setSearch]=useState('');
   const [refreshKey,setRefreshKey]=useState(0);
+  const liveStationsRevision=useLiveRevision('stations');
   const [queueLoading,setQueueLoading]=useState(true);
   const [queueError,setQueueError]=useState('');
   const [busy,setBusy]=useState('');
@@ -1132,7 +1134,7 @@ function Review({data,reload,notify,requestDelete}){
       .catch(error=>{if(active)setQueueError(error.message);})
       .finally(()=>{if(active)setQueueLoading(false);});
     return ()=>{active=false;};
-  },[data.user.role,pendingPage,editsPage,search,refreshKey]);
+  },[data.user.role,pendingPage,editsPage,search,refreshKey,liveStationsRevision]);
   if(data.user.role!=='admin')return <Navigate to="/backoffice" replace/>;
   const changed=queue.edits.items||[];
   const newStations=queue.pending.items||[];
@@ -1554,6 +1556,11 @@ export default function Backoffice(){
       .finally(()=>{if(alive)setLoading(false);});
     return ()=>{alive=false;};
   },[reload]);
+  // A remote admin's accepted mutation refreshes Backoffice data in place.
+  // Keep the current route, editing form and listener player untouched.
+  useEffect(()=>subscribeLiveUpdates('backoffice',()=>{
+    reload().catch(()=>{});
+  }),[reload]);
   useEffect(()=>{
     setSidebarOpen(false);setNotice(null);setNavFilter('');setExpandedSection('');
   },[location.pathname]);

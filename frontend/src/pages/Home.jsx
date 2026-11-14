@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Play, Pause, ChevronRight, Star, Heart, History, 
@@ -113,6 +114,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
   },[location.search]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [activeBanners, setActiveBanners] = useState([]);
+  const liveAdsRevision=useLiveRevision('ads');
   
   // 📍 ΜΟΝΟ Συντεταγμένες πλέον, OXI καιρός (τον παίρνουμε από το App.jsx)
   const [userCoords, setUserCoords] = useState(null);
@@ -131,7 +133,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
   // --- 0. ΦΟΡΤΩΣΗ ΚΑΙ ΦΙΛΤΡΑΡΙΣΜΑ BANNERS ---
   useEffect(() => {
     if (isFreeOrGuest) {
-      fetch(`/api/banners/active`)
+      fetch(`/api/banners/active`,{cache:'no-store'})
         .then(res => {
           if (!res.ok) throw new Error('Network response was not ok');
           return res.json();
@@ -142,7 +144,7 @@ export default function Home({ stations, weather, currentStation, setCurrentStat
           geoAllowsAd(banner.targetLocations,userLocation,checkGeoMatch,banner.serverGeoEligible===true))))
         .catch(err => console.error("Error fetching banners:", err));
     }
-  }, [isFreeOrGuest, userLocation, checkGeoMatch]); 
+  }, [isFreeOrGuest, userLocation, checkGeoMatch,liveAdsRevision]); 
 
   const homeBanners = activeBanners.filter(b => b.placement?.includes('home'));
   const heroBanners = activeBanners.filter(b => b.placement?.includes('hero'));

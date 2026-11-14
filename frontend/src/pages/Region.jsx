@@ -1,3 +1,4 @@
+import {useLiveRevision} from '../utils/liveUpdates';
 import React, { useState, useMemo, useEffect } from 'react';
 import DynamicAdCreative from '../components/DynamicAdCreative';
 import {sparseAdMap} from '../utils/sparseAdSlots';
@@ -52,10 +53,11 @@ export default function Region({ stations, currentStation, setCurrentStation, is
   );
   
   const isFreeOrGuest = !isPremiumUser;
+  const liveAdsRevision=useLiveRevision('ads');
 
   useEffect(() => {
     if (isFreeOrGuest) {
-      fetch(`/api/banners/active`)
+      fetch(`/api/banners/active`,{cache:'no-store'})
         .then(res => res.ok ? res.json() : [])
         .then(data => setActiveBanners((Array.isArray(data)?data:[]).filter(banner =>
           banner.status==='active'&&
@@ -65,7 +67,7 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     } else {
       setActiveBanners([]);
     }
-  }, [isFreeOrGuest, userLocation, checkGeoMatch]);
+  }, [isFreeOrGuest, userLocation, checkGeoMatch,liveAdsRevision]);
 
   // SQUARE BANNERS (Για τα μικρά slots του grid)
   const radioFeedBanners = useMemo(() => {

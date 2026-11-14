@@ -1,5 +1,6 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import { 
   Search, Radio, UserPlus, X, Save, Mic2, ShieldAlert, CheckCircle2, AlertTriangle, Loader2,
   Mail, Send, RefreshCw, Ban
@@ -7,6 +8,7 @@ import {
 
 export default function AdminRadioSet({ API_URL }) {
   const [stations, setStations] = useState([]);
+  const liveStationsRevision=useLiveRevision(['stations','backoffice']);
   const [broadcasters, setBroadcasters] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,7 +31,7 @@ export default function AdminRadioSet({ API_URL }) {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [liveStationsRevision]);
 
   const fetchData = async () => {
     setLoading(true);

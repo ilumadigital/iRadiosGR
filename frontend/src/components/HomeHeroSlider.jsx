@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import { ChevronLeft, ChevronRight, Radio, Sparkles, ArrowUpRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StationListenButton from './StationListenButton';
@@ -49,20 +50,25 @@ export default function HomeHeroSlider({
     document.addEventListener('visibilitychange',refreshClock);
     return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',refreshClock);};
   },[]);
+  const liveSlidesRevision = useLiveRevision('slides');
+  // Preserve the visible slide while remote Admin saves propagate.
+  // Only a genuine placement change resets this slider's scope.
   useEffect(()=>{
-    const controller=new AbortController();
     setIndex(0);
     setSlides([]);
     setLoadedScope(null);
+  },[placement,value]);
+  useEffect(()=>{
+    const controller=new AbortController();
     if(!['home','news'].includes(placement)&&!value)return()=>controller.abort();
     const query=placement==='home'?'':'?'+new URLSearchParams({placement,value}).toString();
     const scopeKey=placement+':'+value;
-    fetch('/api/home-slides'+query,{signal:controller.signal})
+    fetch('/api/home-slides'+query,{signal:controller.signal,cache:'no-store'})
       .then(r=>r.ok?r.json():[])
       .then(data=>{if(!controller.signal.aborted){setSlides(Array.isArray(data)?data:[]);setLoadedScope(scopeKey);}})
       .catch(()=>{if(!controller.signal.aborted){setSlides([]);setLoadedScope(scopeKey);}});
     return ()=>controller.abort();
-  },[placement,value]);
+  },[placement,value,liveSlidesRevision]);
   // Only an explicitly featured station may fill the unconfigured Home hero.
   // Catalog pages never fall back to the current, first or random station.
   const stationFallback=useMemo(()=>{

@@ -1,6 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {Newspaper,Save,RefreshCw,ExternalLink,Clock3,CheckCircle2,AlertTriangle,Image as ImageIcon,Plus,Trash2,Link2,Globe2} from 'lucide-react';
 import {adminFetch} from '../utils/adminFetch';
+import {subscribeLiveUpdates} from '../utils/liveUpdates';
 
 const EXAMPLE='https://www.newsbeast.gr/feed';
 const fmt=value=>value&&Number.isFinite(new Date(value).getTime())?
@@ -41,6 +42,11 @@ export default function AdminNewsFeed(){
     }).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[]);
+  // Update the saved view without overwriting any unsaved source edits.
+  useEffect(()=>subscribeLiveUpdates('news',()=>{
+    adminFetch('/api/admin/newsfeed').then(r=>r.ok?r.json():null)
+      .then(next=>{if(next)setData(next);}).catch(()=>{});
+  }),[]);
   const read=async (url,options={})=>{
     const controller=new AbortController();
     const timeout=setTimeout(()=>controller.abort(),15000);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import '../styles/ad-campaign-console.css';
 import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
@@ -152,6 +153,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
     { id: 'audio', label: 'Audio Spot', desc: 'Pre-roll ή Mid-roll ήχος.', icon: <Mic2 size={24} />, type: 'audio' },
   ];
 
+  const liveAdsRevision=useLiveRevision('ads');
   const loadDashboardData = async () => {
     if (!currentUser) return;
     setLoading(true);
@@ -190,7 +192,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
     fetchNetworkStats(); 
     const interval = setInterval(fetchNetworkStats, 15000);
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser,liveAdsRevision]);
 
   useEffect(() => {
     if (!globalSocket) return;

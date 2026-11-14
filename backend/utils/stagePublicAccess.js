@@ -55,6 +55,8 @@ function loginRateLimit(req,res) {
 
 const publicReads = new Set([
   '/api/health',
+  '/api/live/updates',
+  '/api/live/revision',
   '/api/billing/catalog',
   '/api/stations',
   '/api/stations/discovery',

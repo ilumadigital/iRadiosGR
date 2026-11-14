@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {useLocation} from 'react-router-dom';
 import {Radio,Save,Trash2,Pencil,Star,Plus,X} from 'lucide-react';
 import {adminFetch} from '../utils/adminFetch';
+import {useLiveRevision} from '../utils/liveUpdates';
 
 const field='w-full min-w-0 rounded-xl border border-white/15 bg-zinc-950 px-3 py-3 text-sm text-white outline-none focus:border-[#ccff00]/70';
 const label='mb-1 block text-xs font-bold text-zinc-300';
@@ -11,6 +12,7 @@ const namePlace=p=>p.placement==='news'?'Newsfeed':(p.placement==='region'?'Πε
 export default function AdminPromotedStations({stations=[]}){
   const location=useLocation();
   const [items,setItems]=useState([]),[scopes,setScopes]=useState(initial());
+  const livePromoRevision=useLiveRevision(['ads','stations']);
   const [stationId,setStationId]=useState(''),[campaignId,setCampaignId]=useState('');
   const [enabled,setEnabled]=useState(true),[busy,setBusy]=useState(false);
   const [message,setMessage]=useState(''),[error,setError]=useState('');
@@ -52,7 +54,7 @@ export default function AdminPromotedStations({stations=[]}){
     }).then(data=>{if(live)setItems(Array.isArray(data)?data:[]);})
       .catch(e=>{if(live)setError(e.message);});
     return()=>{live=false;};
-  },[]);
+  },[livePromoRevision]);
   const reset=()=>{setScopes(initial());setStationId('');setCampaignId('');setEnabled(true);setError('');setMessage('');};
   const modify=(index,key,value)=>setScopes(old=>old.map((s,i)=>index===i?{...s,[key]:value,...(key==='placement'?{placementValue:''}:{})}:s));
   const edit=group=>{

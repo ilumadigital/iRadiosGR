@@ -7,6 +7,7 @@ const dns=require('node:dns/promises');
 const net=require('node:net');
 const crypto=require('node:crypto');
 const Station=require('../models/Station');
+const {publish:publishLiveUpdate}=require('./liveUpdates');
 const {normalize}=require('../utils/scheduleNormalization');
 
 const FEED_LIMIT=1024*1024;
@@ -373,6 +374,7 @@ async function syncOne(stationId){
     config.lastHash=parsed.hash;config.lastCount=parsed.schedule.length;
     config.lastError='';config.failures=0;config.lockUntil=null;
     await station.save();
+    if(changed)publishLiveUpdate(['stations']);
     return {changed,count:parsed.schedule.length};
   }catch(e){
     const message=(e.message||'Αποτυχία XML sync').slice(0,400);

@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import {Link} from 'react-router-dom';
 import {Activity,ArrowRight,BarChart3,CheckCircle2,Clock3,ExternalLink,
   Gauge,Headphones,LockKeyhole,Radio,RefreshCw,ShieldAlert,SlidersHorizontal,
@@ -158,6 +159,7 @@ function StreamPanel({stations=[],loading=false}){
 
 export default function BroadcasterHome({data}){
  const [metrics,setMetrics]=useState(null);
+ const liveStationRevision=useLiveRevision(['stations','backoffice']);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
  const fetchMetrics=useCallback(async signal=>{
@@ -177,7 +179,7 @@ export default function BroadcasterHome({data}){
   const controller=new AbortController();
   void fetchMetrics(controller.signal);
   return()=>controller.abort();
- },[fetchMetrics]);
+ },[fetchMetrics,liveStationRevision]);
  const counts=data.counts||{};
  const pending=(Number(counts.pendingApproval)||0)+(Number(counts.pendingEdits)||0);
  const dsp=metrics?.dsp;

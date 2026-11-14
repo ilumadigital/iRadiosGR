@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {compareCatalogPopularity} from '../utils/catalogLive';
+import {subscribeLiveUpdates} from '../utils/liveUpdates';
 
 // ⚠️ Helper function για εύκολο ανακάτεμα πινάκων
 const shuffleArray = (array) => {
@@ -8,14 +9,18 @@ const shuffleArray = (array) => {
 
 export default function useStations(API_URL, currentUser, currentStation, setCurrentStation) {
   const [stations, setStations] = useState([]);
+  const latestStationRequest = useRef(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   const fetchGlobalStations = async () => {
+    const requestId = ++latestStationRequest.current;
     try {
-      const response = await fetch(`${API_URL}/stations`);
+      const response = await fetch(`${API_URL}/stations`, {cache:'no-store'});
+      if (!response.ok) throw new Error('Station catalog unavailable');
       const data = await response.json();
-      if (Array.isArray(data)) setStations(prev=>JSON.stringify(prev)===JSON.stringify(data)?prev:data);
+      if (requestId === latestStationRequest.current && Array.isArray(data))
+        setStations(prev=>JSON.stringify(prev)===JSON.stringify(data)?prev:data);
     } catch (error) { 
       console.error(error); 
     }
@@ -28,7 +33,8 @@ export default function useStations(API_URL, currentUser, currentStation, setCur
     const refresh=()=>{if(!document.hidden)fetchGlobalStations();};
     const timer=setInterval(refresh,5*60*1000);
     document.addEventListener('visibilitychange',refresh);
-    return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};
+    const unsubscribe = subscribeLiveUpdates('stations', fetchGlobalStations);
+    return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',refresh);unsubscribe();};
   }, [API_URL]);
 
   // ==============================================================

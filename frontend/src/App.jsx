@@ -28,6 +28,8 @@ import { parseMusicMetadata } from './utils/musicMetadata';
 
 // --- COMPONENTS ---
 import Preloader from './components/Preloader';
+import LiveUpdatesBridge from './components/LiveUpdatesBridge';
+import {subscribeLiveUpdates} from './utils/liveUpdates';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import InstallPrompt from './components/InstallPrompt';
@@ -692,6 +694,24 @@ function MainApp() {
     setCurrentStation(updated);
   }, [stations,currentStation?._id,currentStation?.isOffline]);
 
+  // Keep the active player's displayed station name, logo and schedule in
+  // sync with admin edits. No stream src/load/play change is made here.
+  useEffect(()=>{
+    if(!currentStation?._id || !stations.length)return;
+    const updated=stations.find(station=>String(station._id)===String(currentStation._id));
+    if(!updated)return;
+    const visibleFields=['name','logo','slogan','description','genre','secondaryGenre',
+      'secondaryGenres','city','region','position','rankings','schedule',
+      'scheduleDayBase','isFeatured','status','isOffline'];
+    setCurrentStation(previous=>{
+      if(!previous||String(previous._id)!==String(updated._id))return previous;
+      if(!visibleFields.some(field=>
+        JSON.stringify(previous[field])!==JSON.stringify(updated[field])))return previous;
+      const patch=Object.fromEntries(visibleFields.map(field=>[field,updated[field]]));
+      return {...previous,...patch};
+    });
+  },[stations,currentStation?._id]);
+
   // Radio show artwork follows the latest station schedule, not an outdated
   // station object persisted before the last daily XML sync.
   const metadataStation=useMemo(()=>stations.find(item=>
@@ -1058,7 +1078,8 @@ function MainApp() {
     };
     const interval=setInterval(refresh,60000);
     window.addEventListener('focus',refresh);
-    return()=>{stopped=true;clearInterval(interval);window.removeEventListener('focus',refresh);};
+    const unsubscribe=subscribeLiveUpdates('backoffice',refresh);
+    return()=>{stopped=true;clearInterval(interval);window.removeEventListener('focus',refresh);unsubscribe();};
   },[authReady,currentUser?._id,currentUser?.role]);
 
   const handleToggleFavorite = async (stationId) => {
@@ -2270,6 +2291,7 @@ export default function App() {
     <HelmetProvider>
       <Router>
         <AlertProvider>
+          <LiveUpdatesBridge />
           <AppContent />
         </AlertProvider>
       </Router>

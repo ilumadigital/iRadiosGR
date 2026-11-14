@@ -1,5 +1,6 @@
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
 import {useNavigate} from 'react-router-dom';
 import '../styles/ad-campaign-console.css';
 import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
@@ -120,6 +121,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
     };
   };
 
+  const liveAdsRevision=useLiveRevision('ads');
   const loadAds = async () => {
     setLoading(true);setLoadError('');
     try {
@@ -133,7 +135,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
     }finally{setLoading(false);}
   };
 
-  useEffect(() => { loadAds(); }, []);
+  useEffect(() => { loadAds(); }, [liveAdsRevision]);
 
   // 🟢 UPLOAD HELPER (Audio + Logo)
   const uploadFile = async (file, endpoint, fieldName) => {
