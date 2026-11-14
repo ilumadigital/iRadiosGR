@@ -77,7 +77,7 @@ exports.checkMyDevice = async(req,res)=>{
 exports.getStats = async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    const subs = await Subscription.find({}).populate('userId', 'role isPremium broadcasterProfile');
+    const subs = await DeviceSubscription.find({}).populate('userId', 'role isPremium broadcasterProfile');
     let all = subs.length;
     let premium = 0; let broadcasters = 0;
 
