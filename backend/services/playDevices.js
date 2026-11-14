@@ -1,0 +1,279 @@
+'use strict';
+// Private authenticated playback control. Intentionally separate from legacy /api/socket.io.
+// This module never accepts a userId/accountId from a browser event.
+const jwt=require('jsonwebtoken');
+const crypto=require('node:crypto');
+const User=require('../models/User');
+const UserDevice=require('../models/UserDevice');
+const PlaybackLease=require('../models/PlaybackLease');
+const Station=require('../models/Station');
+const {hasAccountRight}=require('./billingEntitlements');
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const OBJECT_ID=/^[a-f0-9]{24}$/i;
+const LEASE_MS=30000;
+const MAX_DEVICES=100;
+const clean=(input,max=80)=>typeof input==='string'?input.replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,max):'';
+function safeDescriptor(raw){
+  const types=['mobile','tablet','desktop','tv','console','unknown'];
+  return {
+    deviceType:types.includes(raw?.deviceType)?raw.deviceType:'unknown',
+    brand:clean(raw?.brand,48),model:clean(raw?.model,90),
+    os:clean(raw?.os,64),browser:clean(raw?.browser,64),
+    clientType:raw?.clientType==='app'?'app':'browser',
+    displayName:clean(raw?.displayName,120)||'Άγνωστη συσκευή'
+  };
+}
+function createDeviceService(io){
+  // Runtime presence is ephemeral; saved devices are *never* deleted on disconnect.
+  const presence=new Map(); // accountId -> deviceId -> Set(socket IDs)
+  const pendingFreeTransfers=new Map();
+  const room=id=>'account:'+id;
+  const online=(account,id)=>Boolean(presence.get(account)?.get(id)?.size);
+  const sockets=(account,id)=>[...(presence.get(account)?.get(id)||[])];
+  async function premiumFor(socket){
+    return socket.data.account?.role==='user' &&
+      await hasAccountRight(socket.data.account,'listener.premium');
+  }
+  async function list(account){
+    const devices=await UserDevice.find({accountId:account,revokedAt:null})
+      .sort({lastSeenAt:-1}).limit(MAX_DEVICES).lean();
+    const now=new Date();
+    const lease=await PlaybackLease.findOne({accountId:account,expiresAt:{$gt:now}}).lean();
+    return devices.map(d=>({
+      deviceId:d.deviceId,deviceType:d.deviceType,brand:d.brand,model:d.model,
+      os:d.os,browser:d.browser,clientType:d.clientType,deviceName:d.displayName,
+      online:online(account,d.deviceId),isPlaying:Boolean(lease?.state==='playing' &&
+        lease?.deviceId===d.deviceId&&online(account,d.deviceId)),
+      isPending:Boolean(lease?.state==='pending' && lease?.deviceId===d.deviceId),
+      stationId:lease?.deviceId===d.deviceId?String(lease.stationId):null,
+      firstSeenAt:d.firstSeenAt,lastSeenAt:d.lastSeenAt
+    }));
+  }
+  async function publish(account){
+    io.to(room(account)).emit('connect:devices',await list(account));
+  }
+  async function leaseTo(socket,deviceId,targetSocketId,stationId){
+    const account=socket.data.accountId;
+    const token=crypto.randomUUID();
+    const previous=await PlaybackLease.findOne({accountId:account,expiresAt:{$gt:new Date()}}).lean();
+    // Unique account index + atomic single-document replacement guarantees a single
+    // authoritative owner even with simultaneous acquire requests.
+    const update={$set:{deviceId,socketId:targetSocketId,stationId,token,
+      state:'pending',expiresAt:new Date(Date.now()+LEASE_MS)}};
+    let lease;
+    try{
+      lease=await PlaybackLease.findOneAndUpdate({accountId:account},update,{
+        upsert:true,new:true,setDefaultsOnInsert:true,runValidators:true
+      });
+    }catch(error){
+      if(error.code!==11000)throw error;
+      lease=await PlaybackLease.findOneAndUpdate({accountId:account},update,{
+        new:true,runValidators:true
+      });
+    }
+    if(!lease||lease.token!==token)throw Error('Lease conflict');
+    if(previous && (previous.socketId!==targetSocketId || previous.token!==token)){
+      io.to(previous.socketId).emit('connect:stop',{reason:'PLAYBACK_MOVED'});
+    }
+    await publish(account);
+    return token;
+  }
+  async function stopOwned(socket,{token,reason='PLAYBACK_MOVED'}={}){
+    if(!token)return false;
+    const account=socket.data.accountId;
+    const result=await PlaybackLease.findOneAndDelete({
+      accountId:account,socketId:socket.id,token
+    });
+    if(result){
+      socket.emit('connect:stop',{reason});
+      await publish(account);
+      return true;
+    }
+    return false;
+  }
+  io.use(async(socket,next)=>{
+    try{
+      const raw=socket.handshake.auth?.token;
+      if(typeof raw!=='string'||raw.length>4096||!process.env.JWT_SECRET)
+        return next(Error('UNAUTHORIZED'));
+      const payload=jwt.verify(raw,process.env.JWT_SECRET);
+      const user=await User.findById(payload.id||payload._id).select('-password');
+      if(!user || (user.role==='admin'&&(payload.role!=='admin'||payload.admin2fa!==true)))
+        return next(Error('UNAUTHORIZED'));
+      socket.data.account=user;
+      socket.data.accountId=String(user._id);
+      next();
+    }catch{next(Error('UNAUTHORIZED'));}
+  });
+  io.on('connection',socket=>{
+    const account=socket.data.accountId;
+    socket.join(room(account));
+    const answer=(ack,payload)=>{if(typeof ack==='function')ack(payload);};
+    socket.on('connect:register',async(raw,ack)=>{
+      try{
+        const id=raw?.deviceId;
+        if(typeof id!=='string'||!UUID.test(id))return answer(ack,{ok:false,error:'INVALID_DEVICE'});
+        const details=safeDescriptor(raw);
+        const existing=await UserDevice.findOne({accountId:account,deviceId:id}).lean();
+        if(!existing){
+          const count=await UserDevice.countDocuments({accountId:account,revokedAt:null});
+          if(count>=MAX_DEVICES)return answer(ack,{ok:false,error:'DEVICE_LIMIT'});
+        }
+        // A revoked device must explicitly be re-registered via a fresh identifier.
+        if(existing?.revokedAt)return answer(ack,{ok:false,error:'DEVICE_REVOKED'});
+        await UserDevice.findOneAndUpdate({accountId:account,deviceId:id},{
+          $set:{...details,lastSeenAt:new Date(),revokedAt:null},
+          $setOnInsert:{accountId:account,deviceId:id,firstSeenAt:new Date()}
+        },{upsert:true,runValidators:true});
+        if(socket.data.deviceId){
+          const set=presence.get(account)?.get(socket.data.deviceId);
+          set?.delete(socket.id);
+          if(set && !set.size)presence.get(account).delete(socket.data.deviceId);
+        }
+        socket.data.deviceId=id;
+        if(!presence.has(account))presence.set(account,new Map());
+        if(!presence.get(account).has(id))presence.get(account).set(id,new Set());
+        presence.get(account).get(id).add(socket.id);
+        answer(ack,{ok:true,deviceId:id});
+        await publish(account);
+      }catch(error){console.error('[CONNECT] register',error.message);answer(ack,{ok:false,error:'REGISTER_FAILED'});}
+    });
+    socket.on('connect:list',async(_payload,ack)=>{
+      try{answer(ack,{ok:true,devices:await list(account)});}
+      catch{answer(ack,{ok:false,error:'LIST_FAILED'});}
+    });
+    socket.on('connect:ping',async(_payload,ack)=>{
+      try{
+        if(!socket.data.deviceId)return answer(ack,{ok:false,error:'NOT_REGISTERED'});
+        await UserDevice.updateOne({accountId:account,deviceId:socket.data.deviceId,revokedAt:null},
+          {$set:{lastSeenAt:new Date()}});
+        answer(ack,{ok:true});
+      }catch{answer(ack,{ok:false,error:'PING_FAILED'});}
+    });
+    socket.on('connect:rename',async(raw,ack)=>{
+      try{
+        const id=raw?.deviceId, name=clean(raw?.displayName,120);
+        if(!UUID.test(id||'')||!name)return answer(ack,{ok:false,error:'INVALID_INPUT'});
+        const updated=await UserDevice.updateOne({accountId:account,deviceId:id,revokedAt:null},
+          {$set:{displayName:name}});
+        if(!updated.matchedCount)return answer(ack,{ok:false,error:'NOT_FOUND'});
+        await publish(account);answer(ack,{ok:true});
+      }catch{answer(ack,{ok:false,error:'RENAME_FAILED'});}
+    });
+    socket.on('connect:forget',async(raw,ack)=>{
+      try{
+        const id=raw?.deviceId;
+        if(!UUID.test(id||''))return answer(ack,{ok:false,error:'INVALID_DEVICE'});
+        const updated=await UserDevice.updateOne({accountId:account,deviceId:id,revokedAt:null},
+          {$set:{revokedAt:new Date()}});
+        if(!updated.matchedCount)return answer(ack,{ok:false,error:'NOT_FOUND'});
+        for(const sid of sockets(account,id))io.to(sid).emit('connect:forget',{});
+        await PlaybackLease.deleteOne({accountId:account,deviceId:id});
+        await publish(account);answer(ack,{ok:true});
+      }catch{answer(ack,{ok:false,error:'FORGET_FAILED'});}
+    });
+    socket.on('connect:acquire',async(raw,ack)=>{
+      try{
+        const id=socket.data.deviceId,stationId=raw?.stationId;
+        if(!id)return answer(ack,{ok:false,error:'NOT_REGISTERED'});
+        if(!OBJECT_ID.test(stationId||''))return answer(ack,{ok:false,error:'INVALID_STATION'});
+        if(!await premiumFor(socket))return answer(ack,{ok:true,premium:false});
+        if(!await Station.exists({_id:stationId,status:'approved',isOffline:{$ne:true}}))
+          return answer(ack,{ok:false,error:'STATION_UNAVAILABLE'});
+        const token=await leaseTo(socket,id,socket.id,stationId);
+        answer(ack,{ok:true,premium:true,token});
+      }catch{answer(ack,{ok:false,error:'ACQUIRE_FAILED'});}
+    });
+    socket.on('connect:transfer',async(raw,ack)=>{
+      try{
+        if(!socket.data.deviceId)return answer(ack,{ok:false,error:'NOT_REGISTERED'});
+        const target=raw?.targetDeviceId,stationId=raw?.stationId;
+        if(!UUID.test(target||'')||!OBJECT_ID.test(stationId||''))
+          return answer(ack,{ok:false,error:'INVALID_INPUT'});
+        if(target===socket.data.deviceId)return answer(ack,{ok:false,error:'SAME_DEVICE'});
+        const registered=await UserDevice.exists({accountId:account,deviceId:target,revokedAt:null});
+        const destination=sockets(account,target)[0];
+        if(!registered||!destination)return answer(ack,{ok:false,error:'DEVICE_OFFLINE'});
+        if(!await Station.exists({_id:stationId,status:'approved',isOffline:{$ne:true}}))
+          return answer(ack,{ok:false,error:'STATION_UNAVAILABLE'});
+        if(await premiumFor(socket)){
+          const token=await leaseTo(socket,target,destination,stationId);
+          io.to(destination).emit('connect:play',{stationId,token});
+        }else{
+          const transferId=crypto.randomUUID();
+          pendingFreeTransfers.set(transferId,{source:socket.id,target:destination,
+            expiresAt:Date.now()+90000});
+          io.to(destination).emit('connect:play',{stationId,transferId});
+        }
+        answer(ack,{ok:true});
+      }catch{answer(ack,{ok:false,error:'TRANSFER_FAILED'});}
+    });
+    socket.on('connect:started',async(raw,ack)=>{
+      try{
+        const id=socket.data.deviceId;
+        if(!id)return answer(ack,{ok:false,error:'NOT_REGISTERED'});
+        if(raw?.transferId){
+          const pending=pendingFreeTransfers.get(raw.transferId);
+          if(pending?.target===socket.id && pending.expiresAt>Date.now()){
+            pendingFreeTransfers.delete(raw.transferId);
+            io.to(pending.source).emit('connect:stop',{reason:'TRANSFER_COMPLETE',free:true});
+          }
+          return answer(ack,{ok:true});
+        }
+        if(!await premiumFor(socket))return answer(ack,{ok:true});
+        const updated=await PlaybackLease.findOneAndUpdate({
+          accountId:account,deviceId:id,socketId:socket.id,token:raw?.token,
+          expiresAt:{$gt:new Date()}
+        },{$set:{state:'playing',expiresAt:new Date(Date.now()+LEASE_MS)}},{new:true});
+        if(!updated){
+          socket.emit('connect:stop',{reason:'LEASE_REVOKED'});
+          return answer(ack,{ok:false,error:'LEASE_REVOKED'});
+        }
+        await publish(account);answer(ack,{ok:true});
+      }catch{answer(ack,{ok:false,error:'START_FAILED'});}
+    });
+    socket.on('connect:renew',async(raw,ack)=>{
+      try{
+        if(!socket.data.deviceId || !raw?.token)return answer(ack,{ok:false,error:'NO_LEASE'});
+        const lease=await PlaybackLease.findOneAndUpdate({
+          accountId:account,deviceId:socket.data.deviceId,socketId:socket.id,
+          token:raw.token,expiresAt:{$gt:new Date()},state:'playing'
+        },{$set:{expiresAt:new Date(Date.now()+LEASE_MS)}},{new:true});
+        if(!lease){
+          socket.emit('connect:stop',{reason:'LEASE_EXPIRED'});
+          return answer(ack,{ok:false,error:'LEASE_EXPIRED'});
+        }
+        answer(ack,{ok:true});
+      }catch{answer(ack,{ok:false,error:'RENEW_FAILED'});}
+    });
+    socket.on('connect:release',async(raw,ack)=>{
+      try{
+        const deleted=raw?.token?await PlaybackLease.deleteOne({
+          accountId:account,deviceId:socket.data.deviceId,socketId:socket.id,
+          token:raw.token
+        }):null;
+        if(deleted?.deletedCount)await publish(account);
+        answer(ack,{ok:true});
+      }catch{answer(ack,{ok:false,error:'RELEASE_FAILED'});}
+    });
+    socket.on('disconnect',async()=>{
+      try{
+        const id=socket.data.deviceId;
+        if(id){
+          const set=presence.get(account)?.get(id);
+          set?.delete(socket.id);
+          if(set && !set.size)presence.get(account).delete(id);
+          if(presence.get(account)&&!presence.get(account).size)presence.delete(account);
+        }
+        const deleted=await PlaybackLease.deleteOne({accountId:account,socketId:socket.id});
+        for(const [id,t] of pendingFreeTransfers){
+          if(t.target===socket.id||t.source===socket.id||t.expiresAt<Date.now())
+            pendingFreeTransfers.delete(id);
+        }
+        await publish(account);
+      }catch(error){console.warn('[CONNECT] disconnect',error.message);}
+    });
+  });
+  return {list};
+}
+module.exports={createDeviceService,safeDescriptor};

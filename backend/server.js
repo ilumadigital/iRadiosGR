@@ -316,6 +316,15 @@ if (process.env.APP_ENV !== 'staging') {
 // 5. SERVER & SOCKET.IO SETUP
 // ==============================================================
 const server = http.createServer(app);
+// Authenticated device presence and playback transport, deliberately isolated from
+// the unauthenticated legacy Socket.IO gateway (still disabled on staging).
+const connectIo = new Server(server, {
+  path: '/api/connect.io',
+  cors: { origin: false },
+  maxHttpBufferSize: 16384
+});
+require('./services/playDevices').createDeviceService(connectIo);
+
 const io = new Server(server, {
   cors: { origin: '*', methods: ["GET", "POST"] },
   path: '/api/socket.io',
