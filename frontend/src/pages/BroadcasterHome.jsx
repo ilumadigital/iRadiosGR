@@ -50,14 +50,13 @@ function StreamPanel({stations=[],loading=false}){
   if(!selected?.stream){setState({status:'idle',result:null,error:'',checkedAt:null});return;}
   const controller=new AbortController();
   setState({status:'loading',result:null,error:'',checkedAt:null});
-  fetch('/api/backoffice/stream-diagnostics',{
-   method:'POST',headers:{...authHeaders(),'Content-Type':'application/json'},
-   body:JSON.stringify({stream:selected.stream}),cache:'no-store',signal:controller.signal
+  fetch('/api/backoffice/broadcaster-stream-status/'+encodeURIComponent(selected.id),{
+   headers:authHeaders(),cache:'no-store',signal:controller.signal
   }).then(async response=>{
    const body=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(body.error||'Ο έλεγχος του stream απέτυχε.');
    if(!body.stream)throw new Error('Μη έγκυρη απάντηση ελέγχου stream.');
-   if(!controller.signal.aborted)setState({status:'ready',result:body.stream,error:'',checkedAt:new Date()});
+   if(!controller.signal.aborted)setState({status:'ready',result:body.stream,error:'',checkedAt:new Date(body.checkedAt||Date.now())});
   }).catch(error=>{
    if(!controller.signal.aborted)setState({status:'error',result:null,error:error.message,checkedAt:null});
   });
