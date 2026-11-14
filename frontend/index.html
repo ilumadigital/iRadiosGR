@@ -3,6 +3,39 @@
   <head>
     <meta name="robots" content="noindex,nofollow,noarchive" />
     <meta charset="UTF-8" />
+    <!-- Initialize Google Consent Mode v2 before Google tags (including GTM/GA4). -->
+    <script>
+      (function () {
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+        window.gtag('consent', 'default', {
+          analytics_storage: 'denied',
+          ad_storage: 'denied',
+          ad_user_data: 'denied',
+          ad_personalization: 'denied',
+          personalization_storage: 'denied',
+          functionality_storage: 'granted',
+          security_storage: 'granted',
+          wait_for_update: 500
+        });
+        // Replay a valid existing choice synchronously, before loading any tags.
+        try {
+          var pair = document.cookie.split('; ').find(function (v) {
+            return v.indexOf('iradios_consent_v2=') === 0;
+          });
+          if (!pair) return;
+          var saved = JSON.parse(decodeURIComponent(pair.slice('iradios_consent_v2='.length)));
+          if (saved.version !== 2 || typeof saved.analytics !== 'boolean' ||
+              typeof saved.ads !== 'boolean' || typeof saved.personalization !== 'boolean') return;
+          window.gtag('consent', 'update', {
+            analytics_storage: saved.analytics ? 'granted' : 'denied',
+            ad_storage: saved.ads ? 'granted' : 'denied',
+            ad_user_data: saved.ads ? 'granted' : 'denied',
+            ad_personalization: saved.ads && saved.personalization ? 'granted' : 'denied'
+          });
+        } catch (_) { /* Invalid/expired consent stays denied and asks again. */ }
+      }());
+    </script>
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.17.0/dist/maplibre-gl.css" />
         <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
