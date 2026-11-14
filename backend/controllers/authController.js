@@ -426,7 +426,8 @@ exports.getNotificationPreferences = async (req, res) => {
   const {notificationPreferencesOf} = require('../utils/notificationPreferences');
   res.set('Cache-Control', 'no-store');
   res.json({preferences: notificationPreferencesOf(req.user),
-    pushDeliveryAvailable: process.env.APP_ENV !== 'staging'});
+    pushDeliveryAvailable: process.env.APP_ENV !== 'staging',
+     pushRegistrationAvailable: true});
 };
 
 exports.updateNotificationPreferences = async (req, res) => {
@@ -444,7 +445,8 @@ exports.updateNotificationPreferences = async (req, res) => {
     if (!updated) return res.status(404).json({error:'Ο λογαριασμός δεν βρέθηκε.'});
     res.set('Cache-Control','no-store');
     return res.json({preferences:notificationPreferencesOf(updated),
-      pushDeliveryAvailable:process.env.APP_ENV !== 'staging'});
+      pushDeliveryAvailable:process.env.APP_ENV !== 'staging',
+       pushRegistrationAvailable:true});
   } catch (error) {
     console.error('[NOTIFICATIONS] Preference update failed:', error.message);
     return res.status(500).json({error:'Οι ρυθμίσεις δεν αποθηκεύτηκαν. Δοκίμασε ξανά.'});
