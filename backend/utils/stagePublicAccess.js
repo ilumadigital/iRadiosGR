@@ -166,6 +166,29 @@ function stagePublicAccess(req, res, next) {
     return next();
   }
 
+  // Password recovery is public, but constrained to validated requests.
+  // The recovery token is checked by authController before changing a password.
+  if (req.method === 'POST' && path === '/api/auth/forgot-password') {
+    if (!loginRateLimit(req, res)) return;
+    const email = req.body?.email;
+    const normalized = typeof email === 'string' ? email.trim() : '';
+    if (!normalized || normalized.length > 254 ||
+        !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalized)) {
+      return res.status(400).json({ error: 'Συμπλήρωσε έγκυρη διεύθυνση email.' });
+    }
+    return next();
+  }
+  if (req.method === 'POST' && path === '/api/auth/reset-password') {
+    if (!loginRateLimit(req, res)) return;
+    const token = req.body?.token;
+    const password = req.body?.newPassword;
+    if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token) ||
+        typeof password !== 'string' || password.length < 6 || password.length > 128) {
+      return res.status(400).json({ error: 'Μη έγκυρος σύνδεσμος ή κωδικός επαναφοράς.' });
+    }
+    return next();
+  }
+
   // A producer invitation is proven by a signed one-time JWT in the body.
   // The existing guest-facing invite page must remain accessible without
   // granting anonymous access to any other producer management operation.

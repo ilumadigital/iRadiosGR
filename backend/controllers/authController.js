@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const BroadcasterInvitation = require('../models/BroadcasterInvitation'); // 🟢 ΝΕΟ: Για τη δημιουργία του token ανάκτησης
 const { sendEmail } = require('../utils/myMailer');
+const { RECOVERY_ACKNOWLEDGEMENT, normalizeRecoveryEmail, recoveryEmailQuery } = require('../utils/passwordRecovery');
 const { otpVerificationEmail, verificationLinkEmail, welcomeEmail, verifiedListenerWelcomeEmail, passwordResetEmail } = require('../utils/mailTemp');
 const {canNotify}=require('../utils/notificationPreferences');
 const {tokenFor}=require('../utils/notificationUnsubscribe');
@@ -470,39 +471,36 @@ exports.toggleFavorite = async (req, res) => {
 // =========================================================
 
 exports.forgotPassword = async (req, res) => {
+  const email = normalizeRecoveryEmail(req.body?.email);
+  if (!email) return res.status(400).json({ error: 'Συμπλήρωσε έγκυρη διεύθυνση email.' });
+
   try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    
-    if (!user) {
-      // Καλό είναι να επιστρέφουμε γενικό μήνυμα για security (να μη φαίνεται ποια email υπάρχουν), 
-      // αλλά εφόσον ζητάμε error στο frontend, το αφήνουμε έτσι:
-      return res.status(404).json({ error: "Δεν βρέθηκε λογαριασμός με αυτό το Email." });
+    // A legacy account may store mixed-case email or surrounding whitespace.
+    // The lookup is role-agnostic: listeners, broadcasters, agencies and admins.
+    const user = await User.findOne(recoveryEmailQuery(email));
+    res.set('Cache-Control', 'no-store');
+
+    if (user) {
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      user.resetPasswordToken = resetToken;
+      user.resetPasswordExpires = new Date(Date.now() + 3600000);
+      await user.save();
+
+      const resetLink = `${FRONTEND_URL}/reset-password/${resetToken}`;
+      const emailData = passwordResetEmail(user.fname, resetLink);
+      const delivery = await sendEmail({
+        to: user.email,
+        subject: emailData.subject,
+        html: emailData.html
+      });
+      // Avoid disclosing whether a mailbox is registered through response status.
+      if (!delivery?.success) console.warn('[AUTH] Password recovery email dispatch failed.');
     }
 
-    // 1. Φτιάχνουμε το Token (Τυχαίο String 64 χαρακτήρων)
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    
-    // 2. Αποθήκευση στη Βάση με λήξη σε 1 ώρα
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = new Date(Date.now() + 3600000); 
-    await user.save();
-
-    // 3. Δημιουργία του URL (Που θα "προσγειωθεί" στο React)
-    const resetLink = `${FRONTEND_URL}/reset-password/${resetToken}`;
-
-    // 4. Αποστολή Email
-    const emailData = passwordResetEmail(user.fname, resetLink);
-    await sendEmail({
-      to: user.email,
-      subject: emailData.subject,
-      html: emailData.html
-    });
-
-    res.status(200).json({ message: "Το email επαναφοράς εστάλη!" });
+    return res.status(200).json({ message: RECOVERY_ACKNOWLEDGEMENT });
   } catch (error) {
-    console.error("Forgot Password Error:", error);
-    res.status(500).json({ error: "Σφάλμα κατά την αποστολή του email." });
+    console.error('Forgot Password Error:', error);
+    return res.status(500).json({ error: 'Η υπηρεσία ανάκτησης δεν είναι διαθέσιμη αυτή τη στιγμή.' });
   }
 };
 

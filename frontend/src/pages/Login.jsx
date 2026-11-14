@@ -167,16 +167,22 @@ export default function Login({ API_URL, setCurrentUser }) {
       const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail })
+        body: JSON.stringify({ email: forgotEmail.trim() })
       });
       
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        setForgotMessage({ type: 'success', text: 'Το email ανάκτησης εστάλη! Ελέγξτε τα εισερχόμενά σας (και τα Spam).' });
-        setForgotEmail(''); 
+        setForgotMessage({
+          type: 'success',
+          text: data?.message || 'Αν υπάρχει λογαριασμός με αυτό το email, θα λάβετε σύνδεσμο ανάκτησης. Ελέγξτε και τα Spam.'
+        });
+        setForgotEmail('');
       } else {
-        setForgotMessage({ type: 'error', text: data.error || 'Το email δεν βρέθηκε στο σύστημά μας.' });
+        const fallback = res.status === 429
+          ? 'Πάρα πολλές προσπάθειες. Δοκιμάστε ξανά αργότερα.'
+          : 'Η υπηρεσία ανάκτησης δεν είναι διαθέσιμη αυτή τη στιγμή.';
+        setForgotMessage({ type: 'error', text: data?.error || fallback });
       }
     } catch (err) {
       setForgotMessage({ type: 'error', text: 'Σφάλμα σύνδεσης με τον server.' });
