@@ -108,6 +108,12 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
       const payload={deviceId:localDeviceId,...detectDevice()};
       const data=await ack('connect:register',payload);
       if(!live)return;
+      if(data.error==='DEVICE_REVOKED'){
+        localStorage.removeItem(payload.clientType==='app'?
+          'iradios_connect_app_v1':'iradios_connect_browser_v1');
+        window.location.reload();
+        return;
+      }
       if(data.ok){
         setConnected(true);
         void requestDevices();

@@ -121,9 +121,11 @@ function createDeviceService(io){
         }
         // A revoked device must explicitly be re-registered via a fresh identifier.
         if(existing?.revokedAt)return answer(ack,{ok:false,error:'DEVICE_REVOKED'});
+        // Keep user-renamed displayName intact across reconnects and UA-CH refreshes.
+        const {displayName,...hardware}=details;
         await UserDevice.findOneAndUpdate({accountId:account,deviceId:id},{
-          $set:{...details,lastSeenAt:new Date(),revokedAt:null},
-          $setOnInsert:{accountId:account,deviceId:id,firstSeenAt:new Date()}
+          $set:{...hardware,lastSeenAt:new Date(),revokedAt:null},
+          $setOnInsert:{accountId:account,deviceId:id,displayName,firstSeenAt:new Date()}
         },{upsert:true,runValidators:true});
         if(socket.data.deviceId){
           const set=presence.get(account)?.get(socket.data.deviceId);

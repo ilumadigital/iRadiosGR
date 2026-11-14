@@ -606,6 +606,8 @@ function MainApp() {
   const metadataRequest = useRef(0);
   const lastStationRefresh=useRef(0);
   const intendedPlayState = useRef(false);
+  const premiumAuthorizationPendingRef=useRef(false);
+  const playbackIntentRef=useRef(0);
 
   // Admin's independent DSP audition must not be mixed with the global
   // listener player's audio when entering the full-page editor.
@@ -1001,6 +1003,8 @@ function MainApp() {
   const handleLogout = () => {
     localStorage.removeItem('iluma_token');
     setCurrentUser(null);
+    playbackIntentRef.current++;
+    premiumAuthorizationPendingRef.current=false;
     if (audioRef.current) audioRef.current.pause();
     releasePlayback();
     setIsPlaying(false);
@@ -1033,14 +1037,28 @@ function MainApp() {
       if (silentPromise !== undefined) silentPromise.catch(() => {});
     }
 
-    // A Premium radio stream may start only after the account's authoritative
-    // playback lease is acquired. Free/guest playback remains unlimited.
+    // User-activated playback must unlock the SAME audio element synchronously
+    // on Safari/iOS before the asynchronous Premium entitlement round-trip.
+    // Only silent PCM is played before the account grants a station lease.
+    const intent=++playbackIntentRef.current;
+    const premiumClaim=Boolean(currentUser?.role==='user'&&currentUser?.isPremium===true);
+    premiumAuthorizationPendingRef.current=premiumClaim;
+    if(premiumClaim && audioRef.current.paused){
+      audioRef.current.src='data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A/w==';
+      try{audioRef.current.play()?.catch(()=>{});}catch{/* Remote autoplay can be blocked. */}
+    }
     if(!await acquirePlayback(String(station._id))){
-      intendedPlayState.current=false;
-      setIsPlaying(false);
-      showAlert('Η συσκευή δεν μπόρεσε να αποκτήσει δικαίωμα αναπαραγωγής. Έλεγξε τη σύνδεση iRadios Connect.');
+      if(playbackIntentRef.current===intent){
+        premiumAuthorizationPendingRef.current=false;
+        audioRef.current.pause();
+        intendedPlayState.current=false;
+        setIsPlaying(false);
+        showAlert('Η συσκευή δεν μπόρεσε να αποκτήσει δικαίωμα αναπαραγωγής. Έλεγξε τη σύνδεση iRadios Connect.');
+      }
       return;
     }
+    if(playbackIntentRef.current!==intent)return;
+    premiumAuthorizationPendingRef.current=false;
     const rawStreamUrl = station.streamUrl || station.stream;
     const finalStreamUrl = getSmartStreamUrl(rawStreamUrl);
 
@@ -1091,6 +1109,8 @@ function MainApp() {
 
   // These callbacks deliberately share the *same* audio element as all players.
   deviceCallbacksRef.current.stop=()=>{
+    playbackIntentRef.current++;
+    premiumAuthorizationPendingRef.current=false;
     intendedPlayState.current=false;
     if(audioRef.current&&!audioRef.current.paused)audioRef.current.pause();
     if(silentAudioRef.current)silentAudioRef.current.pause();
@@ -1826,7 +1846,8 @@ function MainApp() {
             fetch(`${API_URL}/ads/${ad.id}/impression`, { method: 'POST' }).catch(() => {});
           }
           clearAdWatchdog();
-          if(!ad)void startedPlayback(String(currentStation?._id||''));
+          if(!ad&&!premiumAuthorizationPendingRef.current)
+            void startedPlayback(String(currentStation?._id||''));
         }}
         
         onPause={() => {
