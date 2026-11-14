@@ -14,7 +14,8 @@ const {deleteStationRecord}=require('../services/stationDeletion');
 const {validateStationCategories,normalizePrimaryCategory}=require('../utils/stationCategories');
 const {validateStationLocation}=require('../utils/stationLocations');
 const User=require('../models/User');
-const {hasAccountRight}=require('../services/billingEntitlements');
+const {hasAccountRight,activeGrantsFor,activeBroadcasterOrders,effectiveRights}=require('../services/billingEntitlements');
+const {paidRights}=require('../services/broadcasterPurchaseRules');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {hasAcceptedCurrentBroadcasterTerms}=require('../utils/broadcasterTerms');
@@ -123,6 +124,9 @@ function safeStation(station,role){
   const s=station.toObject?station.toObject():station;
   const result={};
   for(const key of fields.split(' '))if(s[key]!==undefined&&
+    // Broadcaster play counts require a current Audience Radar entitlement.
+    // They are served only from /backoffice/broadcaster-dashboard after rights resolution.
+    (key!=='plays'||role!=='broadcaster')&&
     (key!=='broadcasterId'||role==='admin')&&
     (key!=='pendingEdits'||role!=='producer')&&
     (key!=='scheduleFeed'||role!=='producer'))result[key]=s[key];
@@ -241,6 +245,47 @@ router.get('/backoffice/overview',async(req,res)=>{
     });
   }catch(error){return fail(res,error);}
 });
+// Only current, server-verified station rights may unlock the two premium KPI cards.
+// Never send DSP settings or App Plays for a station without the respective add-on.
+router.get('/backoffice/broadcaster-dashboard',authorizeRoles('broadcaster'),async(req,res)=>{
+  try{
+    const now=new Date();
+    const [stations,grants,orders]=await Promise.all([
+      Station.find({broadcasterId:req.user._id})
+        .select('_id name status stream dspPreset plays')
+        .sort({name:1,_id:1}).lean(),
+      activeGrantsFor(req.user,now),
+      activeBroadcasterOrders(req.user,now)
+    ]);
+    const projected=stations.map(station=>{
+      const stationId=String(station._id);
+      const rights=new Set([
+        ...effectiveRights(req.user,grants,{stationId,now}),
+        ...paidRights(orders,stationId,now)
+      ]);
+      const webdsp=rights.has('broadcaster.webdsp');
+      const radar=rights.has('broadcaster.analytics');
+      return {
+        id:stationId,name:station.name,status:station.status,stream:station.stream,
+        ...(webdsp?{dspMode:station.dspPreset||'AUTO_MODE'}:{}),
+        ...(radar?{appPlays:Math.max(0,Number(station.plays)||0)}:{})
+      };
+    });
+    const dspStation=projected.find(s=>s.status==='approved'&&s.dspMode!==undefined)
+      ||projected.find(s=>s.dspMode!==undefined);
+    const radarStations=projected.filter(s=>s.appPlays!==undefined);
+    return res.json({
+      stations:projected.map(({id,name,status,stream})=>({id,name,status,stream})),
+      dsp: dspStation?{enabled:true,stationId:dspStation.id,
+        stationName:dspStation.name,mode:dspStation.dspMode}:{enabled:false},
+      appPlays:radarStations.length?{
+        enabled:true,total:radarStations.reduce((n,s)=>n+s.appPlays,0),
+        stationCount:radarStations.length
+      }:{enabled:false}
+    });
+  }catch(error){return fail(res,error);}
+});
+
 // Ranking Studio reads the COMPLETE approved catalog, not the overview's
 // 1000-record dashboard preview. Keep this endpoint admin-only and read-only.
 router.get('/backoffice/admin/station-ranking',authorizeRoles('admin'),async(req,res)=>{
