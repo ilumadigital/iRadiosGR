@@ -434,6 +434,7 @@ export default function Sidebar({
               <div className={`px-4 pt-3 mt-2 border-t border-white/5 shrink-0 flex flex-col gap-1.5 transition-all duration-300 ${isCollapsed ? 'lg:opacity-0 lg:h-0 lg:overflow-hidden lg:pt-0 lg:mt-0 lg:border-0' : 'opacity-100 h-auto'}`}>
                 <Link to="/terms" onClick={() => setIsMobileMenuOpen(false)} className="text-[10px] text-zinc-500 hover:text-white uppercase tracking-widest font-black transition-colors">Οροι Χρησης</Link>
                 <Link to="/privacy" onClick={() => setIsMobileMenuOpen(false)} className="text-[10px] text-zinc-500 hover:text-white uppercase tracking-widest font-black transition-colors">Πολιτικη Απορρητου</Link>
+                <button type="button" onClick={() => { setIsMobileMenuOpen(false); window.dispatchEvent(new Event("iradios:open-cookie-settings")); }} className="w-fit text-left text-[10px] text-zinc-500 hover:text-[#ccff00] uppercase tracking-widest font-black transition-colors">Ρυθμισεις Cookies</button>
                 
                 {(isBroadcaster || isAdmin) && (
                   <Link to="/broadcaster-terms" onClick={() => setIsMobileMenuOpen(false)} className="text-[10px] text-blue-500/70 hover:text-blue-400 uppercase tracking-widest font-black transition-colors">Συμφωνητικο Broadcasters</Link>
