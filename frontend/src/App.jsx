@@ -920,7 +920,10 @@ function MainApp() {
     return()=>{cancelled=true;};
   },[activeRemoteDevice?.stationId,currentStation?._id,stations,API_URL]);
   const handleTransferPlayback=async targetDeviceId=>{
-    const stationId=String(currentStation?._id||activeRemoteDevice?.stationId||'');
+    // A handoff must carry the station actually playing on the owner, not
+    // a potentially stale station selection cached on this controller.
+    const stationId=String((premiumSync&&playbackOwner?.stationId)||
+      currentStation?._id||activeRemoteDevice?.stationId||'');
     if(!stationId){showAlert('Επίλεξε πρώτα έναν σταθμό.');return {ok:false,error:'NO_STATION'};}
     const result=await transferPlayback(targetDeviceId,stationId);
     if(!result.ok)showAlert('Δεν ολοκληρώθηκε η μεταφορά αναπαραγωγής.');
