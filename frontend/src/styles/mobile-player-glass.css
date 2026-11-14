@@ -454,32 +454,38 @@
 }
 
 
-/* A detached, same-width RDS strip above the compact mobile transport. */
+/* Keep station identity fixed while Now Playing flows within its own viewport. */
 @media (max-width:1023px) {
   .ir-mini-player-stack {min-width:0;}
   .ir-mini-rds {
     display:flex;align-items:center;width:100%;height:27px;margin-bottom:5px;
-    overflow:hidden;border:1px solid rgba(204,255,0,.34);border-radius:999px;
+    min-width:0;overflow:hidden;border:1px solid rgba(204,255,0,.34);border-radius:999px;
     background:rgba(15,24,28,.96);
     -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
     box-shadow:0 3px 16px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.065);
+    font-size:11px;line-height:24px;color:#e9eef0;
   }
+  .ir-mini-rds-station {
+    flex:0 1 auto;min-width:0;max-width:55%;padding-left:11px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    color:#ccff00;font-size:12px;font-weight:850;
+  }
+  .ir-mini-rds-separator {flex:none;padding:0 8px;color:#c9d0d2;}
   .ir-mini-rds-viewport {
-    width:100%;min-width:0;overflow:hidden;
-    -webkit-mask-image:linear-gradient(to right,transparent,black 2%,black 96%,transparent);
-    mask-image:linear-gradient(to right,transparent,black 2%,black 96%,transparent);
+    flex:1;min-width:0;margin-right:10px;overflow:hidden;
+    -webkit-mask-image:linear-gradient(to right,black 94%,transparent);
+    mask-image:linear-gradient(to right,black 94%,transparent);
   }
   .ir-mini-rds-track {
     display:flex;align-items:center;width:max-content;
-    white-space:nowrap;will-change:transform;
-    font-size:11px;line-height:24px;font-weight:550;color:#e9eef0;
+    white-space:nowrap;will-change:transform;font-weight:550;
   }
   .ir-mini-rds-segment {display:inline-flex;align-items:center;flex:none;white-space:nowrap;}
-  .ir-mini-rds-segment strong {color:#ccff00;font-weight:850;}
-  .ir-mini-rds-separator {padding:0 7px;color:#c9d0d2;}
-  .ir-mini-rds-track.is-scrolling {animation:ir-mini-rds-scroll 22s linear infinite;}
-  .ir-mini-rds-track.is-scrolling .ir-mini-rds-segment {padding-right:38px;}
-  @keyframes ir-mini-rds-scroll {to{transform:translateX(-50%)}}
+  .ir-mini-rds-track.is-scrolling {
+    gap:32px;
+    animation:ir-mini-rds-detail-scroll var(--ir-mini-rds-duration,22s) linear infinite;
+  }
+  @keyframes ir-mini-rds-detail-scroll {to{transform:translateX(calc(-50% - 16px))}}
   .ir-mini-player--compact {
     display:flex;align-items:center;gap:clamp(4px,1.5vw,9px);
     min-width:0;padding:0 8px;

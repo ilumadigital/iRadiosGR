@@ -180,7 +180,7 @@ export default function HomeHeroSlider({
               </span>
             </div>}
           </div>
-          {displayLogo&&<div className="ir-hero-station-logo relative hidden h-24 w-24 shrink-0 items-center justify-center rounded-[22px] border border-white/25 bg-white/95 p-3 shadow-[0_18px_55px_rgba(0,0,0,.5)] sm:flex lg:h-32 lg:w-32 xl:h-36 xl:w-36">
+          {displayLogo&&<div className="ir-hero-station-logo relative flex h-24 w-24 shrink-0 items-center justify-center rounded-[22px] border border-white/25 bg-white/95 p-3 shadow-[0_18px_55px_rgba(0,0,0,.5)] lg:h-32 lg:w-32 xl:h-36 xl:w-36">
             <img src={displayLogo} alt={featuredStation?.name||'Λογότυπο σταθμού'} className="h-full w-full object-contain"/>
           </div>}
         </div>

@@ -17,7 +17,7 @@ import {remoteLocationLabel} from '../utils/playbackPresentation.mjs';
 import { useAlert } from '../context/AlertContext';
 import '../styles/mobile-player-glass.css';
 
-/** Full-width, motion-aware RDS bar independent of mini-player controls. */
+/** Keep the station name visible; scroll only the changing Now Playing detail. */
 function MiniPlayerRdsTicker({stationName, detail}) {
   const viewportRef = useRef(null);
   const segmentRef = useRef(null);
@@ -39,14 +39,18 @@ function MiniPlayerRdsTicker({stationName, detail}) {
     };
   }, [stationName, detail]);
 
-  const content = <><strong>{stationName}</strong><span className="ir-mini-rds-separator"> • </span><span>{detail}</span></>;
+  const label = stationName + ' • ' + detail;
+  const duration = Math.max(15, Math.min(44, Math.ceil(detail.length * 0.38)));
   return (
     <div className="ir-mini-rds" role="status" aria-live="off"
-      aria-label={stationName + ' • ' + detail} title={stationName + ' • ' + detail}>
+      aria-label={label} title={label}>
+      <strong className="ir-mini-rds-station" title={stationName}>{stationName}</strong>
+      <span className="ir-mini-rds-separator" aria-hidden="true">•</span>
       <div className="ir-mini-rds-viewport" ref={viewportRef}>
-        <div className={'ir-mini-rds-track' + (scrolling ? ' is-scrolling' : '')}>
-          <span className="ir-mini-rds-segment" ref={segmentRef} aria-hidden="true">{content}</span>
-          {scrolling && <span className="ir-mini-rds-segment" aria-hidden="true">{content}</span>}
+        <div className={'ir-mini-rds-track' + (scrolling ? ' is-scrolling' : '')}
+          style={{'--ir-mini-rds-duration': duration + 's'}}>
+          <span className="ir-mini-rds-segment" ref={segmentRef} aria-hidden="true">{detail}</span>
+          {scrolling && <span className="ir-mini-rds-segment" aria-hidden="true">{detail}</span>}
         </div>
       </div>
     </div>
