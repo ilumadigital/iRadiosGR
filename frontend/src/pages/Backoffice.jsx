@@ -1571,7 +1571,6 @@ export default function Backoffice(){
       {to:'/backoffice/stations',label:admin?'Σταθμοί δικτύου':'Οι σταθμοί μου',icon:Radio},
       ...(admin?[{to:'/backoffice/admin/promoted',label:'Promoted Stations',icon:Sparkles}]:[]),
       {to:'/backoffice/schedules',label:'Πρόγραμμα εκπομπών',icon:CalendarDays},
-      ...(!admin&&!producer?[{to:'/backoffice/radar',label:'Στατιστικά σταθμών',icon:BarChart3,entitlement:BROADCASTER_ADDON_RIGHTS['/backoffice/radar']}]:[]),
       ...(producer?[{to:'/backoffice/insights',label:'Στατιστικά σταθμών',icon:BarChart3}]:[]),
       ...(data?.user.role==='broadcaster'?[{to:'/backoffice/team',label:'Παραγωγοί & ομάδα',icon:Users}]:[]),
       ...(!producer?[{to:'/backoffice/stations/new',label:'Προσθήκη σταθμού',icon:Plus}]:[])
