@@ -17,6 +17,7 @@ const User=require('../models/User');
 const {hasAccountRight,activeGrantsFor,activeBroadcasterOrders,effectiveRights}=require('../services/billingEntitlements');
 const {paidRights}=require('../services/broadcasterPurchaseRules');
 const {projectBroadcasterDashboard}=require('../services/broadcasterDashboardProjection');
+const {checkBroadcasterStream}=require('../services/broadcasterStreamHealth');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {hasAcceptedCurrentBroadcasterTerms}=require('../utils/broadcasterTerms');
@@ -265,6 +266,34 @@ router.get('/backoffice/broadcaster-dashboard',authorizeRoles('broadcaster'),asy
         ...paidRights(orders,stationId,now)
       ]);
     }));
+  }catch(error){return fail(res,error);}
+});
+
+// Startup-health probe uses the owned, approved station's saved URL only.
+// The pinned public-IP fetcher rejects private targets, including redirects.
+const broadcasterStreamRate=new Map();
+router.get('/backoffice/broadcaster-stream-status/:stationId',
+  authorizeRoles('broadcaster'),async(req,res)=>{
+  try{
+    if(!mongoose.isValidObjectId(req.params.stationId))
+      return res.status(400).json({error:'Μη έγκυρο αναγνωριστικό σταθμού.'});
+    const station=await Station.findOne({
+      _id:req.params.stationId,broadcasterId:req.user._id,status:'approved'
+    }).select('_id stream').lean();
+    if(!station||!station.stream)
+      return res.status(404).json({error:'Δεν βρέθηκε εγκεκριμένος σταθμός με stream.'});
+    const now=Date.now(),key=String(req.user._id);
+    let rate=broadcasterStreamRate.get(key);
+    if(!rate||now-rate.start>60000)rate={start:now,count:0};
+    rate.count++;broadcasterStreamRate.set(key,rate);
+    if(broadcasterStreamRate.size>4096)broadcasterStreamRate.clear();
+    if(rate.count>12){
+      res.set('Retry-After','60');
+      return res.status(429).json({error:'Έγιναν πολλοί διαδοχικοί έλεγχοι stream. Δοκίμασε αργότερα.'});
+    }
+    const result=await checkBroadcasterStream(station.stream);
+    return res.json({stationId:String(station._id),
+      checkedAt:new Date().toISOString(),stream:result});
   }catch(error){return fail(res,error);}
 });
 
