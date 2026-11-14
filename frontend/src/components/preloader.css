@@ -1,3 +1,4 @@
+/* One actual vector logo; the glow, waves and sound meter are decoration only. */
 .ir-splash {
   position: fixed;
   inset: 0;
@@ -5,104 +6,196 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: #050707;
-  color: #f5f8f5;
   isolation: isolate;
+  background: #050707;
+  color: #f6f8f4;
   opacity: 1;
-  transition: opacity .42s ease, visibility .42s ease;
+  transition: opacity .25s ease-out, visibility .25s ease-out;
 }
-.ir-splash--exit { opacity: 0; visibility: hidden; pointer-events: none; }
-.ir-splash__aura {
-  position: absolute;
-  inset: -30%;
+
+.ir-splash--exit {
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  background: radial-gradient(ellipse 34% 26% at 50% 49%, rgba(196, 255, 0, .10), transparent 75%),
-              radial-gradient(ellipse 40% 32% at 54% 48%, rgba(85, 126, 34, .09), transparent 78%);
-  animation: ir-splash-aura 2.5s ease-in-out infinite alternate;
 }
+
+.ir-splash__ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 36% 31% at 50% 49%, rgba(125, 184, 0, .15), transparent 76%),
+    radial-gradient(ellipse 54% 40% at 51% 53%, rgba(73, 114, 12, .065), transparent 79%);
+}
+
+.ir-splash__waves {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(110vw, 850px);
+  height: clamp(195px, 38vh, 330px);
+  transform: translate(-50%, -48%);
+  overflow: visible;
+  pointer-events: none;
+  opacity: .65;
+  animation: ir-splash-waves-in .5s ease-out both;
+}
+
+.ir-splash__wave {
+  fill: none;
+  stroke: #caff00;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ir-splash__wave--primary {
+  opacity: .58;
+  filter: drop-shadow(0 0 6px rgba(204, 255, 0, .48));
+}
+
+.ir-splash__wave--secondary {
+  opacity: .21;
+}
+
 .ir-splash__content {
   position: relative;
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  justify-content: center;
-  width: min(88vw, 430px);
-  padding: 35px 20px 45px;
-  animation: ir-splash-arrive .5s both cubic-bezier(.2, .8, .2, 1);
-}
-.ir-splash__symbol {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 80px;
-  height: 80px;
-  margin-bottom: 12px;
-}
-.ir-splash__symbol svg {
-  position: relative;
   z-index: 1;
-  display: block;
-  width: 62px;
-  height: 62px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 20px rgba(204,255,0,.18));
+  display: flex;
+  width: min(90vw, 440px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
 }
-.ir-splash__orbit {
-  position: absolute;
-  inset: -4px;
-  border: 1px solid rgba(204,255,0,.18);
-  border-radius: 50%;
-  box-shadow: 0 0 30px rgba(204,255,0,.055), inset 0 0 24px rgba(204,255,0,.035);
-  animation: ir-splash-orbit 1.2s ease-in-out infinite;
-}
-.ir-splash__brand {
-  display: block;
-  width: min(79vw, 305px);
-  height: auto;
-  max-height: 100px;
-  object-fit: contain;
-  filter: drop-shadow(0 12px 30px rgba(0,0,0,.4));
-}
-.ir-splash__tagline {
-  margin-top: 14px;
-  color: rgba(238,247,229,.58);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .32em;
-  white-space: nowrap;
-}
-.ir-splash__track {
-  width: min(54vw, 180px);
-  height: 2px;
-  margin-top: 32px;
+
+.ir-splash__logo-wrap {
+  position: relative;
+  width: min(78vw, 340px);
+  max-width: 100%;
+  line-height: 0;
   overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255,255,255,.1);
 }
-.ir-splash__track span {
+
+.ir-splash__logo {
   display: block;
   width: 100%;
-  height: 100%;
-  transform-origin: left;
-  background: linear-gradient(90deg, #73a400, #ccff00 68%, #f1ffb2);
-  box-shadow: 0 0 12px rgba(204,255,0,.5);
-  animation: ir-splash-progress .82s ease-out both;
+  height: auto;
+  max-width: 100%;
+  max-height: none;
+  shape-rendering: geometricPrecision;
+  filter: drop-shadow(0 0 9px rgba(204, 255, 0, .075));
+  animation: ir-splash-logo-in .34s ease-out both;
 }
-@keyframes ir-splash-arrive {
-  from { opacity: 0; transform: translateY(9px) scale(.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+
+/* A brief light glint above the mark, never a loading/progress bar. */
+.ir-splash__beam {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  z-index: 2;
+  width: 76%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(204,255,0,.12) 20%, #eaff9c 51%, rgba(204,255,0,.12) 80%, transparent);
+  box-shadow: 0 0 13px rgba(204, 255, 0, .32);
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: ir-splash-beam .66s ease-out .08s both;
 }
-@keyframes ir-splash-progress { from { transform: scaleX(.05); } to { transform: scaleX(1); } }
-@keyframes ir-splash-aura { from { opacity: .6; transform: scale(.95); } to { opacity: 1; transform: scale(1.08); } }
-@keyframes ir-splash-orbit { 0%, 100% { opacity: .35; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.06); } }
-@media (max-width: 420px) {
-  .ir-splash__symbol { width: 68px; height: 68px; }
-  .ir-splash__symbol svg { width: 54px; height: 54px; }
-  .ir-splash__brand { width: min(80vw, 270px); }
-  .ir-splash__tagline { font-size: 8px; letter-spacing: .22em; }
+
+.ir-splash__glint {
+  position: absolute;
+  top: 17%;
+  bottom: 17%;
+  left: -25%;
+  width: 18%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(244,255,222,.24), transparent);
+  transform: skewX(-20deg);
+  opacity: 0;
+  animation: ir-splash-glint .65s ease-out .06s both;
 }
+
+.ir-splash__tagline {
+  display: block;
+  margin-top: 8px;
+  color: rgba(238, 247, 229, .65);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .27em;
+  line-height: 1.6;
+  white-space: nowrap;
+  animation: ir-splash-text-in .36s ease-out .12s both;
+}
+
+.ir-splash__equalizer {
+  display: flex;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 24px;
+  opacity: .86;
+}
+
+.ir-splash__equalizer span {
+  display: block;
+  flex: 0 0 3px;
+  width: 3px;
+  height: var(--bar-height);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ddff3f, #9dcc00);
+  box-shadow: 0 0 8px rgba(204, 255, 0, .25);
+  transform-origin: 50% 50%;
+  animation: ir-splash-equalize .42s ease-in-out var(--bar-delay) infinite alternate;
+}
+
+@keyframes ir-splash-logo-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ir-splash-waves-in {
+  from { opacity: 0; }
+  to { opacity: .65; }
+}
+
+@keyframes ir-splash-text-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ir-splash-beam {
+  0% { opacity: 0; }
+  35% { opacity: .75; }
+  62% { opacity: 1; }
+  100% { opacity: .12; }
+}
+
+@keyframes ir-splash-glint {
+  0% { left: -25%; opacity: 0; }
+  25% { opacity: .55; }
+  65% { opacity: .35; }
+  100% { left: 110%; opacity: 0; }
+}
+
+@keyframes ir-splash-equalize {
+  from { transform: scaleY(.48); opacity: .65; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@media (max-width: 480px) {
+  .ir-splash__logo-wrap { width: min(76vw, 270px); }
+  .ir-splash__tagline { font-size: 8px; letter-spacing: .2em; margin-top: 7px; }
+  .ir-splash__equalizer { gap: 3px; margin-top: 20px; }
+  .ir-splash__waves { opacity: .42; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ir-splash, .ir-splash__content, .ir-splash__aura, .ir-splash__orbit, .ir-splash__track span { animation: none !important; }
+  .ir-splash, .ir-splash__waves, .ir-splash__logo,
+  .ir-splash__tagline, .ir-splash__beam, .ir-splash__glint,
+  .ir-splash__equalizer span { animation: none !important; }
   .ir-splash { transition-duration: .01ms; }
-  .ir-splash__track span { transform: scaleX(1); }
+  .ir-splash__beam, .ir-splash__glint { display: none; }
+  .ir-splash__equalizer span { transform: none; }
 }

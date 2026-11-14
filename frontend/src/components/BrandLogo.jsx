@@ -17,8 +17,9 @@ export default function BrandLogo({ variant = 'full', className = '', title = 'i
       xmlns="http://www.w3.org/2000/svg"
       viewBox={VIEW_BOX[variant] || VIEW_BOX.full}
       width={icon ? 48 : 200}
-      height={icon ? 48 : 60}
+      height={icon ? 46 : variant === 'wordmark' ? 37 : 56}
       preserveAspectRatio="xMidYMid meet"
+      shapeRendering="geometricPrecision"
       role="img"
       aria-label={title}
       focusable="false"
