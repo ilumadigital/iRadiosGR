@@ -247,7 +247,7 @@ export default function WidgetNow({ API_URL = '/api' }) {
           rel="noopener noreferrer"
           className="w-[18vw] max-w-[100px] bg-black p-[2.5vw] rounded-[20%] shadow-xl border border-white/10 transition-transform hover:scale-105 duration-300 flex items-center justify-center pointer-events-auto"
         >
-          <img src="__IRADIOS_SITE_ORIGIN__/noicon-iradios-app-logo.svg" alt="iRadios" className="w-full h-auto object-contain" />
+          <img src="__IRADIOS_SITE_ORIGIN__/noicon-iradios-app-logo.png" alt="iRadios" className="w-full h-auto object-contain" />
         </a>
       </div>
     </div>

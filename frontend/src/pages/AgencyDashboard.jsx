@@ -237,7 +237,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
       if(selectedType==='audio'){
         if(!audioFile)throw Error('Επίλεξε αρχείο MP3 ή WAV.');
         const audioUrl=await uploadFile(audioFile,'upload-ad','audioFile');
-        const logoUrl=logoFile?await uploadFile(logoFile,'upload-logo','logoFile'):'/icon-tr.svg';
+        const logoUrl=logoFile?await uploadFile(logoFile,'upload-logo','logoFile'):'/icon-tr.png';
         endpoint='audio-ads';payload={...audioForm,audioUrl,logoUrl,frequency:audioForm.frequency||'entry'};
       }else{
         if(!bannerFile)throw Error('Επίλεξε οριζόντιο banner.');

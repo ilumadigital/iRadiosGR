@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Generate browser, Apple and PWA icons from the single source-of-truth favicon.
+// Generate Apple and PWA icons from the official designer-supplied icon-tr.png.
 // No third-party image-processing dependency is required by the build.
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
 
 const PUBLIC_DIR = path.resolve(__dirname, '../public');
-const SOURCE = path.join(PUBLIC_DIR, 'favicon.png');
+const SOURCE = path.join(PUBLIC_DIR, 'icon-tr.png');
 const OUTPUT_DIR = path.join(PUBLIC_DIR, 'icons');
 const ICON_SIZES = [16, 32, 180, 192, 512];
 const PNG_SIGNATURE = Buffer.from('89504e470d0a1a0a', 'hex');
@@ -40,7 +40,7 @@ function decodePng(buffer) {
     offset += length + 12;
   }
   if (!width || !height || bitDepth !== 8 || ![0,2,3,4,6].includes(colorType) || interlace !== 0) {
-    throw new Error('favicon.png must be a non-interlaced 8-bit PNG');
+    throw new Error('icon-tr.png must be a non-interlaced 8-bit PNG');
   }
   const channels={0:1,2:3,3:1,4:2,6:4}[colorType];
   const raw = zlib.inflateSync(Buffer.concat(idat));
@@ -171,5 +171,5 @@ fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 for (const size of ICON_SIZES) {
   const destination = path.join(OUTPUT_DIR, `icon-${size}.png`);
   fs.writeFileSync(destination, encodePng(size, resizeSquare(original, size)));
-  console.log(`Generated ${path.relative(PUBLIC_DIR, destination)} from favicon.png`);
+  console.log(`Generated ${path.relative(PUBLIC_DIR, destination)} from icon-tr.png`);
 }

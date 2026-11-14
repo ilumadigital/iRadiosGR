@@ -78,7 +78,7 @@ export default function AcceptInvite({ API_URL }) {
 
       <div className="bg-zinc-900 border border-white/10 p-8 md:p-12 rounded-[40px] max-w-md w-full relative z-10 shadow-2xl">
         <div className="text-center mb-10">
-          <img src="/noicon-iradios-app-logo.svg" alt="iRadios" className="h-8 mx-auto mb-6" />
+          <img src="/noicon-iradios-app-logo.png" alt="iRadios" className="h-8 mx-auto mb-6" />
           <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">Ορισμος Κωδικου</h2>
           <p className="text-zinc-500 text-sm mt-2 font-medium">Δημιουργήστε έναν κωδικό πρόσβασης για τον λογαριασμό Producer σας.</p>
         </div>

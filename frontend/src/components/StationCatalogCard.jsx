@@ -29,7 +29,7 @@ export default function StationCatalogCard({
         className="grid w-full min-w-0 flex-1 grid-cols-1 items-center gap-3 text-left min-[540px]:grid-cols-2 lg:grid-cols-[minmax(190px,1.35fr)_minmax(115px,.7fr)_minmax(180px,1.25fr)_minmax(140px,1fr)] lg:gap-5"
         aria-label={'Προφίλ '+station.name}>
         <span className="flex min-w-0 items-center gap-3">
-          <img src={station.logo||'/icon-tr.svg'} alt="" loading="lazy"
+          <img src={station.logo||'/icon-tr.png'} alt="" loading="lazy"
             className="size-14 shrink-0 rounded-xl border border-white/10 bg-white object-contain p-1 sm:size-16"/>
           <span className="min-w-0">
             <span className="block truncate text-sm font-black text-white sm:text-base">{station.name}</span>
@@ -79,7 +79,7 @@ export default function StationCatalogCard({
       (sponsored?'border-[#ccff00]/65 bg-[#ccff00]/[.08] shadow-[inset_0_1px_0_rgba(204,255,0,.13)]':active?'border-[#ccff00]/50 bg-[#ccff00]/[.065]':'border-white/10 bg-[#141a20] hover:border-[#ccff00]/45')}>
       <button type="button" onClick={profile} className="block w-full text-left" aria-label={'Προφίλ '+station.name}>
         <div className="relative aspect-square overflow-hidden rounded-[17px] border border-white/10 bg-white">
-          <img src={station.logo||'/icon-tr.svg'} alt="" loading="lazy"
+          <img src={station.logo||'/icon-tr.png'} alt="" loading="lazy"
             className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.035]"/>
           <span className={'absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black '+
             (offline?'bg-red-600 text-white':active?'bg-[#ccff00] text-black':'bg-black/80 text-white')}>

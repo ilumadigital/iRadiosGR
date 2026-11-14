@@ -160,7 +160,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
       const finalAudioUrl = await uploadFile(audioFile, 'upload-ad', 'audioFile');
       
       // 2. UPLOAD LOGO (Αν υπάρχει)
-      let finalLogoUrl = newAd.logoUrl.trim() === '' ? '/icon-tr.svg' : newAd.logoUrl;
+      let finalLogoUrl = newAd.logoUrl.trim() === '' ? '/icon-tr.png' : newAd.logoUrl;
       if (logoFile) {
         finalLogoUrl = await uploadFile(logoFile, 'upload-logo', 'logoFile');
       }
@@ -194,7 +194,7 @@ export default function AdminAds({ API_URL, refreshGlobalAds }) {
     setUploading(true);
     try {
       let finalAudioUrl = editingAd.audioUrl;
-      let finalLogoUrl = editingAd.logoUrl.trim() === '' ? '/icon-tr.svg' : editingAd.logoUrl;
+      let finalLogoUrl = editingAd.logoUrl.trim() === '' ? '/icon-tr.png' : editingAd.logoUrl;
 
       // 1. UPLOAD AUDIO (Αν ανέβασε νέο)
       if (audioFile) {

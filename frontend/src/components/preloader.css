@@ -1,4 +1,4 @@
-/* One actual vector logo; the glow, waves and sound meter are decoration only. */
+/* One official PNG logo, at its native aspect ratio; motion is decoration only. */
 .ir-splash {
   position: fixed;
   inset: 0;
@@ -83,7 +83,7 @@
   height: auto;
   max-width: 100%;
   max-height: none;
-  shape-rendering: geometricPrecision;
+  object-fit: contain;
   filter: drop-shadow(0 0 9px rgba(204, 255, 0, .075));
   animation: ir-splash-logo-in .34s ease-out both;
 }

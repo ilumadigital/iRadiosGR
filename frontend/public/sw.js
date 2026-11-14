@@ -70,7 +70,7 @@ self.addEventListener('push', function(event) {
     
     const options = {
       body: data.body,
-      icon: '/icons/icon-192.png', // Same source artwork as the browser/PWA favicon
+      icon: '/icons/icon-192.png', // Generated from the official icon-tr.png, not from the favicon
       badge: '/favicon.png', 
       vibrate: [200, 100, 200], 
       data: {

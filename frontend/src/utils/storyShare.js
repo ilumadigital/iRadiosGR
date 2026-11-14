@@ -192,7 +192,7 @@ export async function generateStationStory({ station, nowPlaying, artworkUrl, sh
   const [mainImage, stationLogo, brandLogo] = await Promise.all([
     firstAvailable(data.imageCandidates),
     loadImage(data.stationLogo),
-    loadImage('/noicon-iradios-app-logo.svg')
+    loadImage('/noicon-iradios-app-logo.png')
   ]);
   const background = ctx.createLinearGradient(0, 0, 1080, 1920);
   background.addColorStop(0, '#122027');

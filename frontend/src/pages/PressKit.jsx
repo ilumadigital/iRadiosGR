@@ -5,11 +5,11 @@ import { FileText, Download, X } from 'lucide-react'; // Πρόσθεσα μερ
 const PressKit = () => {
   const [selectedImage, setSelectedImage] = useState(null);
 
-  // Public, existing SVG master assets (no legacy /presskit/*.png 404s).
+  // Official PNG masters uploaded to frontend/public (not SVG-derived copies).
   const pressImages = [
-    '/noicon-iradios-app-logo.svg',
-    '/iradios-app-logo.svg',
-    '/icon-tr.svg',
+    '/iradios-app-logo.png',
+    '/noicon-iradios-app-logo.png',
+    '/icon-tr.png',
     '/favicon.svg',
     '/iradios-app-broadcaster-guide.png',
     '/iradios-app-agency-guide.png'
@@ -101,7 +101,7 @@ const PressKit = () => {
                 <textarea 
                   readOnly 
                   className="w-full flex-1 min-h-[100px] bg-black/50 text-zinc-400 font-mono text-[10px] p-5 rounded-xl border border-white/10 focus:outline-none focus:border-[#ccff00]/50 transition-colors resize-none custom-scrollbar"
-                  value={generateHtmlCode('/noicon-iradios-app-logo.svg', 'Listen on iRadios App')}
+                  value={generateHtmlCode('/iradios-app-logo.png', 'Listen on iRadios App')}
                   onClick={(e) => e.target.select()}
                   title="Κάντε κλικ για επιλογή κειμένου"
                 />
@@ -120,7 +120,7 @@ const PressKit = () => {
                 <textarea 
                   readOnly 
                   className="w-full flex-1 min-h-[100px] bg-black/50 text-zinc-400 font-mono text-[10px] p-5 rounded-xl border border-white/10 focus:outline-none focus:border-[#ccff00]/50 transition-colors resize-none custom-scrollbar"
-                  value={generateHtmlCode('/iradios-app-logo.svg', 'Powered by iRadios')}
+                  value={generateHtmlCode('/noicon-iradios-app-logo.png', 'Powered by iRadios')}
                   onClick={(e) => e.target.select()}
                   title="Κάντε κλικ για επιλογή κειμένου"
                 />

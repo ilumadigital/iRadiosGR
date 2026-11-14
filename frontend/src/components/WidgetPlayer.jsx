@@ -275,7 +275,7 @@ export default function WidgetPlayer({ API_URL = '/api' }) {
         album: 'iRadios Player',            
         artwork: [
           {
-            src: coverArt || station.logo || '__IRADIOS_SITE_ORIGIN__/icon-tr.svg',
+            src: coverArt || station.logo || '__IRADIOS_SITE_ORIGIN__/icon-tr.png',
             sizes: '512x512',
             type: 'image/png'
           }
@@ -432,7 +432,7 @@ export default function WidgetPlayer({ API_URL = '/api' }) {
           rel="noopener noreferrer"
           className="w-[18vw] max-w-[100px] shrink-0 bg-black p-[2.5vw] rounded-[20%] shadow-xl border border-white/10 transition-transform hover:scale-105 duration-300 flex items-center justify-center pointer-events-auto"
         >
-          <img src="__IRADIOS_SITE_ORIGIN__/noicon-iradios-app-logo.svg" alt="iRadios" className="w-full h-auto object-contain" />
+          <img src="__IRADIOS_SITE_ORIGIN__/noicon-iradios-app-logo.png" alt="iRadios" className="w-full h-auto object-contain" />
         </a>
 
         {/* 🟢 No Sound Button (ΑΠΟΛΥΤΩΣ ΛΕΙΤΟΥΡΓΙΚΟ) */}
