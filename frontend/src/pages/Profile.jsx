@@ -88,6 +88,7 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null,onUser
   const [preferences,setPreferences]=useState(INITIAL_PREFS);
   const [newsCategories,setNewsCategories]=useState([]);
   const [pushAvailable,setPushAvailable]=useState(false);
+  const [pushSendingEnabled,setPushSendingEnabled]=useState(false);
   const [pushSupported,setPushSupported]=useState(false);
   const [deviceRegistered,setDeviceRegistered]=useState(false);
   const [pushPermission,setPushPermission]=useState('default');
@@ -115,7 +116,8 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null,onUser
       const settings=await prefsResponse.json();
       if(signal.aborted)return;
       setPreferences(settings.preferences||INITIAL_PREFS);
-      setPushAvailable(Boolean(settings.pushDeliveryAvailable));
+      setPushAvailable(Boolean(settings.pushRegistrationAvailable ?? settings.pushDeliveryAvailable));
+      setPushSendingEnabled(Boolean(settings.pushDeliveryAvailable));
     }catch(error){
       if(!signal.aborted)setNotice({type:'error',text:error.message||'Δεν φορτώθηκαν οι προτιμήσεις.'});
     }
@@ -393,6 +395,7 @@ export default function Profile({API_URL='/api',onLogout,currentUser=null,onUser
         </section>
         <section className="ir-profile-panel p-5 sm:p-6">
           <SectionHeading icon={Bell} title="Αυτή η συσκευή" description="Οι διακόπτες δεν δίνουν αυτόματα άδεια στον browser."/>
+          {pushAvailable && !pushSendingEnabled && <div className="ir-profile-device-note mb-3"><ShieldCheck size={18} className="shrink-0 text-[#ccff00]"/><p>Στο staging επιτρέπεται η δοκιμαστική εγγραφή συσκευής, αλλά δεν αποστέλλονται πραγματικές Push ειδοποιήσεις.</p></div>}
           {!pushAvailable?<div className="ir-profile-device-note">
             <ShieldCheck size={18} className="shrink-0 text-[#ccff00]"/>
             <p>Στο staging η αποστολή push είναι απενεργοποιημένη για ασφάλεια. Οι προτιμήσεις σου αποθηκεύονται κανονικά.</p>
