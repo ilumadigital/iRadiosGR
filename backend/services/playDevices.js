@@ -27,6 +27,14 @@ function createDeviceService(io){
   // Runtime presence is ephemeral; saved devices are *never* deleted on disconnect.
   const presence=new Map(); // accountId -> deviceId -> Set(socket IDs)
   const pendingFreeTransfers=new Map();
+  const perAccountLocks=new Map();
+  async function serializeGrant(account,work){
+    const previous=perAccountLocks.get(account)||Promise.resolve();
+    const next=previous.catch(()=>{}).then(work);
+    perAccountLocks.set(account,next);
+    try{return await next;}
+    finally{if(perAccountLocks.get(account)===next)perAccountLocks.delete(account);}
+  }
   const room=id=>'account:'+id;
   const online=(account,id)=>Boolean(presence.get(account)?.get(id)?.size);
   const sockets=(account,id)=>[...(presence.get(account)?.get(id)||[])];
@@ -54,6 +62,7 @@ function createDeviceService(io){
   }
   async function leaseTo(socket,deviceId,targetSocketId,stationId){
     const account=socket.data.accountId;
+    return serializeGrant(account,async()=>{
     const token=crypto.randomUUID();
     const previous=await PlaybackLease.findOne({accountId:account,expiresAt:{$gt:new Date()}}).lean();
     // Unique account index + atomic single-document replacement guarantees a single
@@ -72,24 +81,12 @@ function createDeviceService(io){
       });
     }
     if(!lease||lease.token!==token)throw Error('Lease conflict');
-    if(previous && (previous.socketId!==targetSocketId || previous.token!==token)){
+    if(previous && previous.socketId!==targetSocketId){
       io.to(previous.socketId).emit('connect:stop',{reason:'PLAYBACK_MOVED'});
     }
     await publish(account);
     return token;
-  }
-  async function stopOwned(socket,{token,reason='PLAYBACK_MOVED'}={}){
-    if(!token)return false;
-    const account=socket.data.accountId;
-    const result=await PlaybackLease.findOneAndDelete({
-      accountId:account,socketId:socket.id,token
     });
-    if(result){
-      socket.emit('connect:stop',{reason});
-      await publish(account);
-      return true;
-    }
-    return false;
   }
   io.use(async(socket,next)=>{
     try{
@@ -167,8 +164,11 @@ function createDeviceService(io){
         const updated=await UserDevice.updateOne({accountId:account,deviceId:id,revokedAt:null},
           {$set:{revokedAt:new Date()}});
         if(!updated.matchedCount)return answer(ack,{ok:false,error:'NOT_FOUND'});
-        for(const sid of sockets(account,id))io.to(sid).emit('connect:forget',{});
         await PlaybackLease.deleteOne({accountId:account,deviceId:id});
+        for(const sid of sockets(account,id)){
+          io.to(sid).emit('connect:forget',{});
+          io.sockets.sockets.get(sid)?.disconnect(true);
+        }
         await publish(account);answer(ack,{ok:true});
       }catch{answer(ack,{ok:false,error:'FORGET_FAILED'});}
     });
@@ -235,6 +235,12 @@ function createDeviceService(io){
     socket.on('connect:renew',async(raw,ack)=>{
       try{
         if(!socket.data.deviceId || !raw?.token)return answer(ack,{ok:false,error:'NO_LEASE'});
+        if(!await premiumFor(socket)){
+          await PlaybackLease.deleteOne({accountId:account,socketId:socket.id});
+          socket.emit('connect:stop',{reason:'PREMIUM_EXPIRED'});
+          await publish(account);
+          return answer(ack,{ok:false,error:'PREMIUM_EXPIRED'});
+        }
         const lease=await PlaybackLease.findOneAndUpdate({
           accountId:account,deviceId:socket.data.deviceId,socketId:socket.id,
           token:raw.token,expiresAt:{$gt:new Date()},state:'playing'

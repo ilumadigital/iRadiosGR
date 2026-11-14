@@ -134,7 +134,7 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
     const onPlay=payload=>{
       const stationId=payload?.stationId;
       if(typeof stationId!=='string')return;
-      leaseRef.current=payload.token?{token:payload.token,stationId,issuedAt:Date.now()}:null;
+      leaseRef.current=payload.token?{token:payload.token,stationId,issuedAt:Date.now(),started:false}:null;
       transferRef.current=payload.transferId||null;
       callbacksRef.current.onRemotePlay?.(stationId);
     };
@@ -154,13 +154,14 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
         window.matchMedia?.('(display-mode: standalone)')?.matches||navigator.standalone
           ?'iradios_connect_app_v1':'iradios_connect_browser_v1');
       stop();socket.disconnect();setConnected(false);
+      window.location.reload();
     });
     socket.on('disconnect',onDisconnect);
     const heartbeat=setInterval(()=>{
       if(!socket.connected)return;
       void ack('connect:ping');
       const lease=leaseRef.current;
-      if(premiumRef.current&&lease?.token){
+      if(premiumRef.current&&lease?.token&&lease.started){
         void ack('connect:renew',{token:lease.token}).then(result=>{
           if(!result.ok && leaseRef.current?.token===lease.token)stop();
         });
@@ -184,7 +185,7 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
     const result=await ack('connect:acquire',{stationId});
     if(!result.ok)return false;
     leaseRef.current=result.premium&&result.token?
-      {token:result.token,stationId,issuedAt:Date.now()}:null;
+      {token:result.token,stationId,issuedAt:Date.now(),started:false}:null;
     transferRef.current=null;
     return true;
   },[ack]);
@@ -194,8 +195,9 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop}){
     const token=leaseRef.current?.token;
     if(!token&&!transferId)return;
     const result=await ack('connect:started',token?{token}:{transferId});
-    if(!result.ok&&token&&leaseRef.current?.token===token){
-      leaseRef.current=null;callbacksRef.current.onRemoteStop?.();
+    if(token&&leaseRef.current?.token===token){
+      if(result.ok)leaseRef.current={...leaseRef.current,started:true};
+      else{leaseRef.current=null;callbacksRef.current.onRemoteStop?.();}
     }
   },[ack]);
   const releasePlayback=useCallback(()=>{
