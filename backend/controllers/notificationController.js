@@ -1,4 +1,6 @@
 const Subscription = require('../models/Subscription');
+const DeviceSubscription = process.env.APP_ENV === 'staging'
+  ? require('../models/StagingPushSubscription') : Subscription;
 const webpush = require('web-push');
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -37,7 +39,7 @@ const verifyEndpoint = value => typeof value === 'string' && value.length < 2048
 
 // Authenticated per-user subscription lifecycle. Never trust userId from the browser.
 exports.registerMyDevice = async(req,res)=>{
-  if(process.env.APP_ENV==='staging')return res.status(503).json({error:'Οι πραγματικές push εγγραφές είναι απενεργοποιημένες στο staging.'});
+  // On staging, save ONLY to an isolated QA collection; never dispatch real pushes.
   const sub=req.body?.subscription;
   if(!verifyEndpoint(sub?.endpoint)||!sub?.keys?.p256dh||!sub?.keys?.auth)
     return res.status(400).json({error:'Μη έγκυρη εγγραφή συσκευής.'});
@@ -46,7 +48,7 @@ exports.registerMyDevice = async(req,res)=>{
      !canNotify(req.user,'push','promotions'))
     return res.status(409).json({error:'Ενεργοποίησε πρώτα μία κατηγορία push ειδοποιήσεων.'});
   try {
-    await Subscription.findOneAndUpdate({endpoint:sub.endpoint},
+    await DeviceSubscription.findOneAndUpdate({endpoint:sub.endpoint},
       {$set:{endpoint:sub.endpoint,expirationTime:sub.expirationTime||null,keys:{p256dh:sub.keys.p256dh,auth:sub.keys.auth},userId:req.user._id}},
       {upsert:true,new:true,runValidators:true});
     res.status(201).json({success:true});
@@ -60,7 +62,7 @@ exports.removeMyDevice = async(req,res)=>{
   const endpoint=req.body?.endpoint;
   if(!verifyEndpoint(endpoint))return res.status(400).json({error:'Μη έγκυρο αναγνωριστικό συσκευής.'});
   try{
-    await Subscription.deleteOne({endpoint,userId:req.user._id});
+    await DeviceSubscription.deleteOne({endpoint,userId:req.user._id});
     return res.json({success:true});
   }catch(e){return res.status(500).json({error:'Δεν ήταν δυνατή η αφαίρεση της συσκευής.'});}
 };
@@ -68,7 +70,7 @@ exports.removeMyDevice = async(req,res)=>{
 exports.checkMyDevice = async(req,res)=>{
   const endpoint=req.body?.endpoint;
   if(!verifyEndpoint(endpoint))return res.status(400).json({error:'Μη έγκυρο αναγνωριστικό συσκευής.'});
-  const enabled=Boolean(await Subscription.exists({endpoint,userId:req.user._id}));
+  const enabled=Boolean(await DeviceSubscription.exists({endpoint,userId:req.user._id}));
   return res.json({registered:enabled});
 };
 
