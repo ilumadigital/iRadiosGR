@@ -16,6 +16,7 @@ const {validateStationLocation}=require('../utils/stationLocations');
 const User=require('../models/User');
 const {hasAccountRight,activeGrantsFor,activeBroadcasterOrders,effectiveRights}=require('../services/billingEntitlements');
 const {paidRights}=require('../services/broadcasterPurchaseRules');
+const {projectBroadcasterDashboard}=require('../services/broadcasterDashboardProjection');
 const {protect}=require('../utils/authMiddleware');
 const {authorizeRoles}=require('../utils/roleMiddleware');
 const {hasAcceptedCurrentBroadcasterTerms}=require('../utils/broadcasterTerms');
@@ -257,32 +258,13 @@ router.get('/backoffice/broadcaster-dashboard',authorizeRoles('broadcaster'),asy
       activeGrantsFor(req.user,now),
       activeBroadcasterOrders(req.user,now)
     ]);
-    const projected=stations.map(station=>{
+    return res.json(projectBroadcasterDashboard(stations,station=>{
       const stationId=String(station._id);
-      const rights=new Set([
+      return new Set([
         ...effectiveRights(req.user,grants,{stationId,now}),
         ...paidRights(orders,stationId,now)
       ]);
-      const webdsp=rights.has('broadcaster.webdsp');
-      const radar=rights.has('broadcaster.analytics');
-      return {
-        id:stationId,name:station.name,status:station.status,stream:station.stream,
-        ...(webdsp?{dspMode:station.dspPreset||'AUTO_MODE'}:{}),
-        ...(radar?{appPlays:Math.max(0,Number(station.plays)||0)}:{})
-      };
-    });
-    const dspStation=projected.find(s=>s.status==='approved'&&s.dspMode!==undefined)
-      ||projected.find(s=>s.dspMode!==undefined);
-    const radarStations=projected.filter(s=>s.appPlays!==undefined);
-    return res.json({
-      stations:projected.map(({id,name,status,stream})=>({id,name,status,stream})),
-      dsp: dspStation?{enabled:true,stationId:dspStation.id,
-        stationName:dspStation.name,mode:dspStation.dspMode}:{enabled:false},
-      appPlays:radarStations.length?{
-        enabled:true,total:radarStations.reduce((n,s)=>n+s.appPlays,0),
-        stationCount:radarStations.length
-      }:{enabled:false}
-    });
+    }));
   }catch(error){return fail(res,error);}
 });
 
