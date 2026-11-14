@@ -405,8 +405,6 @@ export default function MobileMiniPlayer({
           </div>
         </div>
 
-}
-
       </div>
 
       {/* --- 2. MINIFIED PLAYER (ΚΑΤΩ ΜΠΑΡΑ) --- */}

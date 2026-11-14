@@ -983,6 +983,21 @@ function MainApp() {
 
   const isFavorite = (stationId) => currentUser?.favorites?.includes(stationId);
 
+  // A plan upgrade while a guest/Free stream is already playing must
+  // immediately claim the single Premium slot (no unleased playback).
+  const previousPremiumRef=useRef(false);
+  useEffect(()=>{
+    const premium=Boolean(currentUser?.role==='user'&&currentUser?.isPremium===true);
+    const wasPremium=previousPremiumRef.current;
+    previousPremiumRef.current=premium;
+    if(!wasPremium&&premium&&isPlaying&&!isPlayingAd&&currentStation?._id){
+      void acquirePlayback(String(currentStation._id)).then(ok=>{
+        if(ok)void startedPlayback();
+        else deviceCallbacksRef.current.stop?.();
+      });
+    }else if(wasPremium&&!premium)releasePlayback();
+  },[currentUser?.role,currentUser?.isPremium]);
+
   const handleLogout = () => {
     localStorage.removeItem('iluma_token');
     setCurrentUser(null);
