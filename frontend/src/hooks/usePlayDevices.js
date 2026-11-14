@@ -153,8 +153,12 @@ export default function usePlayDevices({currentUser,onRemotePlay,onRemoteStop,
       const active=leaseRef.current;
       if(!active?.token||payload?.token!==active.token)return;
       if(payload.action==='pause'){
+        // Paused ownership must remain renewable, even when a user paused
+        // before the initial stream finished buffering.
+        leaseRef.current={...active,started:true};
         callbacksRef.current.onRemotePause?.();
       }else if(payload.action==='resume'){
+        leaseRef.current={...active,issuedAt:Date.now(),started:false};
         callbacksRef.current.onRemoteResume?.(payload.stationId);
       }else if(payload.action==='station'&&typeof payload.stationId==='string'){
         // Preserve ownership on the receiving device when a different device
