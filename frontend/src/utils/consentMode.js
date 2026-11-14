@@ -5,7 +5,7 @@ const AGE_SECONDS = 60 * 60 * 24 * 180;
 
 export function readConsent() {
   if (typeof document === 'undefined') return null;
-  const raw = document.cookie.split('; ').find(value => value.startsWith(CONSENT_COOKIE + '='));
+  const raw = document.cookie.split(';').map(value => value.trim()).find(value => value.startsWith(CONSENT_COOKIE + '='));
   if (!raw) return null;
   try {
     const value = JSON.parse(decodeURIComponent(raw.slice(CONSENT_COOKIE.length + 1)));
@@ -26,7 +26,8 @@ export function updateConsent(settings) {
     analytics_storage: settings.analytics ? 'granted' : 'denied',
     ad_storage: settings.ads ? 'granted' : 'denied',
     ad_user_data: settings.ads ? 'granted' : 'denied',
-    ad_personalization: settings.ads && settings.personalization ? 'granted' : 'denied'
+    ad_personalization: settings.ads && settings.personalization ? 'granted' : 'denied',
+    personalization_storage: settings.ads && settings.personalization ? 'granted' : 'denied'
   };
   if (typeof window !== 'undefined') {
     if (typeof window.gtag === 'function') window.gtag('consent', 'update', payload);
