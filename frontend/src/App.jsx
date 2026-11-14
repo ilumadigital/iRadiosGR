@@ -34,7 +34,7 @@ import InstallPrompt from './components/InstallPrompt';
 import TopBar from './components/TopBar';
 import MobileNav from './components/MobileNav';
 import MobileMiniPlayer from './components/MobileMiniPlayer';
-import NotificationModal from './components/NotificationModal';
+import NotificationTicker from './components/NotificationTicker';
 import MapMode from './components/MapMode';
 import RadioDiscovery from './components/RadioDiscovery'; 
 import CarMode from './components/CarMode';
@@ -2166,7 +2166,7 @@ function MainApp() {
         onRequestDevices={handleRequestDevices}
       />
       <InstallPrompt />
-      <NotificationModal />
+      <NotificationTicker API_URL={API_URL} currentUser={currentUser} />
 
       {isCarModeActive && currentStation && (
         <CarMode 
