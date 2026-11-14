@@ -489,7 +489,7 @@ exports.forgotPassword = async (req, res) => {
       const resetLink = `${FRONTEND_URL}/reset-password/${resetToken}`;
       const emailData = passwordResetEmail(user.fname, resetLink);
       const delivery = await sendEmail({
-        to: user.email,
+        to: user.email.trim(),
         subject: emailData.subject,
         html: emailData.html
       });
@@ -506,7 +506,11 @@ exports.forgotPassword = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { token, newPassword } = req.body || {};
+    if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token) ||
+        typeof newPassword !== 'string' || newPassword.length < 6 || newPassword.length > 128) {
+      return res.status(400).json({ error: 'Μη έγκυρος σύνδεσμος ή κωδικός επαναφοράς.' });
+    }
 
     // Ψάχνουμε τον χρήστη με αυτό το token ΚΑΙ το token να μην έχει λήξει ($gt: greater than now)
     const user = await User.findOne({
