@@ -452,3 +452,65 @@
   .ir-full-player--glass .ir-glass-transport { min-height: 61px; }
   .ir-glass-primary-tile svg { width: 20px; height: 20px; }
 }
+
+
+/* A detached, same-width RDS strip above the compact mobile transport. */
+@media (max-width:1023px) {
+  .ir-mini-player-stack {min-width:0;}
+  .ir-mini-rds {
+    display:flex;align-items:center;width:100%;height:27px;margin-bottom:5px;
+    overflow:hidden;border:1px solid rgba(204,255,0,.34);border-radius:999px;
+    background:rgba(15,24,28,.96);
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    box-shadow:0 3px 16px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.065);
+  }
+  .ir-mini-rds-viewport {
+    width:100%;min-width:0;overflow:hidden;
+    -webkit-mask-image:linear-gradient(to right,transparent,black 2%,black 96%,transparent);
+    mask-image:linear-gradient(to right,transparent,black 2%,black 96%,transparent);
+  }
+  .ir-mini-rds-track {
+    display:flex;align-items:center;width:max-content;
+    white-space:nowrap;will-change:transform;
+    font-size:11px;line-height:24px;font-weight:550;color:#e9eef0;
+  }
+  .ir-mini-rds-segment {display:inline-flex;align-items:center;flex:none;white-space:nowrap;}
+  .ir-mini-rds-segment strong {color:#ccff00;font-weight:850;}
+  .ir-mini-rds-separator {padding:0 7px;color:#c9d0d2;}
+  .ir-mini-rds-track.is-scrolling {animation:ir-mini-rds-scroll 22s linear infinite;}
+  .ir-mini-rds-track.is-scrolling .ir-mini-rds-segment {padding-right:38px;}
+  @keyframes ir-mini-rds-scroll {to{transform:translateX(-50%)}}
+  .ir-mini-player--compact {
+    display:flex;align-items:center;gap:clamp(4px,1.5vw,9px);
+    min-width:0;padding:0 8px;
+  }
+  .ir-mini-player--compact .ir-mini-player-logo {
+    width:clamp(38px,11.5vw,48px);height:clamp(38px,11.5vw,48px);
+  }
+  .ir-mini-player--compact .ir-mini-player-controls {gap:0;overflow:visible;}
+  .ir-mini-player--compact .ir-mini-player-controls>button {
+    display:flex;align-items:center;justify-content:center;flex:0 1 auto;
+    min-width:0;width:clamp(28px,8.4vw,36px);height:40px;
+    padding:4px;margin:0;
+  }
+  .ir-mini-player--compact .ir-mini-player-controls>.ir-player-transport {
+    flex:0 0 auto;width:clamp(38px,10vw,44px);
+    height:clamp(38px,10vw,44px);padding:0;border-radius:50%;
+  }
+  .ir-mini-player--compact .ir-mini-player-controls>.ir-mini-ad-skip {
+    width:auto;max-width:82px;height:auto;padding:4px 5px;
+    font-size:10px;white-space:nowrap;
+  }
+  .ir-mini-player--compact .ir-mini-player-chevron {
+    flex:0 0 22px;width:22px;margin:0 0 0 2px;padding:0;
+  }
+  .ir-mini-player--compact .ir-mini-story-button {min-width:0;}
+}
+@media (max-width:360px) {
+  .ir-mini-player--compact {padding:0 6px;gap:4px;}
+  .ir-mini-player--compact .ir-mini-player-controls>button {padding:3px;}
+  .ir-mini-player--compact .ir-mini-player-controls>button svg {width:18px;height:18px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .ir-mini-rds-track.is-scrolling {animation:none;will-change:auto;}
+}

@@ -9,7 +9,6 @@ import {
 import ShareStory from './ShareStory';
 import FoundWithAI from './FoundWithAI';
 import MusicServiceLinks from './MusicServiceLinks';
-import RdsCrossfade from './RdsCrossfade';
 import FullscreenArtwork from './FullscreenArtwork';
 import AdSkipControl from './AdSkipControl';
 import OnAirShowCard from './OnAirShowCard';
@@ -17,6 +16,42 @@ import {parseMusicMetadata} from '../utils/musicMetadata';
 import {remoteLocationLabel} from '../utils/playbackPresentation.mjs';
 import { useAlert } from '../context/AlertContext';
 import '../styles/mobile-player-glass.css';
+
+/** Full-width, motion-aware RDS bar independent of mini-player controls. */
+function MiniPlayerRdsTicker({stationName, detail}) {
+  const viewportRef = useRef(null);
+  const segmentRef = useRef(null);
+  const [scrolling, setScrolling] = useState(false);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    const segment = segmentRef.current;
+    if (!viewport || !segment) return undefined;
+    const measure = () => setScrolling(segment.scrollWidth > viewport.clientWidth + 2);
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(viewport);
+    observer?.observe(segment);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [stationName, detail]);
+
+  const content = <><strong>{stationName}</strong><span className="ir-mini-rds-separator"> • </span><span>{detail}</span></>;
+  return (
+    <div className="ir-mini-rds" role="status" aria-live="off"
+      aria-label={stationName + ' • ' + detail} title={stationName + ' • ' + detail}>
+      <div className="ir-mini-rds-viewport" ref={viewportRef}>
+        <div className={'ir-mini-rds-track' + (scrolling ? ' is-scrolling' : '')}>
+          <span className="ir-mini-rds-segment" ref={segmentRef} aria-hidden="true">{content}</span>
+          {scrolling && <span className="ir-mini-rds-segment" aria-hidden="true">{content}</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function MobileMiniPlayer({
   currentStation,
@@ -102,6 +137,17 @@ export default function MobileMiniPlayer({
   const showProducerArt=Boolean(currentUser&&!isPlayingAd&&!isRecognizing&&
     liveBroadcast?.imageUrl&&rdsShowProducer);
   const visibleSong=isActualSong;
+
+  const miniTickerDetail = isPlayingAd
+    ? 'Διαφήμιση: ' + (currentAdInfo?.title || 'Διαφημιστικό διάλειμμα') +
+      (Number.isFinite(adTimeRemaining) ? ' · ' + adTimeRemaining + '″' : '')
+    : isRecognizing ? 'Αναγνώριση…'
+    : isActualSong ? 'Παίζει τώρα: ' + currentTrack.title +
+      (currentTrack.artist ? ' — ' + currentTrack.artist : '') +
+      (nowPlayingInfo?.foundWithAI ? ' · ✦ Found with AI' : '')
+    : showProducerArt && liveBroadcast?.title ? 'Στον αέρα: ' + liveBroadcast.title
+    : remotePlayback ? remoteLocationLabel(remotePlayback.state) + ' ' + remotePlayback.deviceName
+    : (currentUser ? 'Συντονίσου στο iRadiosGR' : 'Συνδέσου για NowPlaying');
 
   const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
   const showCoverArt = Boolean(isActualSong && globalCoverArt && !isPlayingAd);
@@ -411,55 +457,29 @@ export default function MobileMiniPlayer({
 
       </div>
 
-      {/* --- 2. MINIFIED PLAYER (ΚΑΤΩ ΜΠΑΡΑ) --- */}
-      <div 
+      {/* --- 2. MOBILE MINI PLAYER: RDS above transport --- */}
+      <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMoveMinified}
         onTouchEnd={handleTouchEndMinified}
-        onClick={() => setIsMaximized(true)} 
-        role="button" tabIndex={0} aria-label={`Άνοιγμα player: ${currentStation.name}`}
+        onClick={() => setIsMaximized(true)}
+        role="button" tabIndex={0} aria-label={'Άνοιγμα player: ' + currentStation.name}
         onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setIsMaximized(true); } }}
-        className={`ir-mini-player ${location.pathname.startsWith('/station/') ? 'ir-mini-player--station-page' : ''} fixed bottom-[84px] left-2 right-2 h-[68px] flex items-center justify-between px-3 lg:hidden z-[90] cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${
-          isMaximized ? 'translate-y-[150%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
-        }`}
+        className={'ir-mini-player-stack ' + (location.pathname.startsWith('/station/') ? 'ir-mini-player--station-page ' : '') +
+          'fixed bottom-[84px] left-2 right-2 lg:hidden z-[90] cursor-pointer transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ' +
+          (isMaximized ? 'translate-y-[150%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100')}
       >
-        <div className="flex items-center gap-3 flex-1 min-w-0 pointer-events-none">
-          <div className="relative shrink-0">
-            <img 
-               src={minifiedImage} 
-               className={`ir-mini-player-logo w-12 h-12 shadow-lg bg-white object-contain p-1 transition-all duration-500 ${!isPlaying && !isBuffering ? 'scale-95 grayscale-[30%]' : ''}`} 
-               alt="" 
-            />
+        <MiniPlayerRdsTicker stationName={currentStation.name} detail={miniTickerDetail}/>
+        <div className="ir-mini-player ir-mini-player--compact h-[68px] flex items-center justify-between">
+          <div className="ir-mini-player-art relative shrink-0 pointer-events-none">
+            <img src={minifiedImage}
+              className={'ir-mini-player-logo w-12 h-12 shadow-lg bg-white object-contain p-1 transition-all duration-500 ' +
+                (!isPlaying && !isBuffering ? 'scale-95 grayscale-[30%]' : '')}
+              alt=""/>
           </div>
-          <div className="min-w-0 flex flex-col justify-center">
-            {isPlayingAd ? (
-              <div onClick={handleAdClick} className="cursor-pointer group pointer-events-auto">
-                <div className="text-[10px] font-black text-[#ccff00] uppercase tracking-[0.15em]">Ad • {adTimeRemaining}s</div>
-                <div className="text-sm font-bold text-white truncate">{currentAdInfo?.title || 'Διαφήμιση'}</div>
-              </div>
-            ) : (
-              <>
-                <div className="text-sm font-bold text-white truncate tracking-tight">{currentStation.name}</div>
-                <div className={`text-[11px] font-medium truncate max-w-[140px] mt-0.5 ${isRecognizing ? 'text-blue-400 animate-pulse' : 'text-zinc-400'}`}>
-                  {remotePlayback ? <span className="block truncate font-bold text-[#ccff00]">
-                    {remoteLocationLabel(remotePlayback.state)} {remotePlayback.deviceName}
-                  </span> : isRecognizing ? "Αναγνώριση..." : (
-                    <RdsCrossfade showSecondary={showProducerArt}
-                      secondary={canShowDj?<span className="block truncate">{liveBroadcast.title}</span>:null}>
-                      <span className="block truncate">{isActualSong?nowPlaying:
-                        (currentUser?'στο iRadiosGR':'Συνδέσου στο iRadios για NowPlaying')}</span>
-                    </RdsCrossfade>
-                  )}
-                </div>
-                {visibleSong&&nowPlayingInfo?.foundWithAI&&<span className="text-[9px] font-bold text-[#ccff00]">✦ Found with AI</span>}
-              </>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex items-center shrink-0">
+        <div className="ir-mini-player-controls flex items-center min-w-0 flex-1 justify-between">
           <AdSkipControl isPlayingAd={isPlayingAd} secondsUntilSkip={adSkipCountdown} onSkip={onSkipAd} compact
-            className="mr-1"/>
+            className="ir-mini-ad-skip"/>
           {!isPlayingAd && <ShareStory currentStation={currentStation} nowPlaying={isActualSong ? nowPlaying : null}
             artworkUrl={showCoverArt ? globalCoverArt : null} show={liveBroadcast?.show} showImageUrl={liveBroadcast?.imageUrl}
             className="ir-mini-story-button" iconSize={20}/>}
@@ -497,9 +517,10 @@ export default function MobileMiniPlayer({
             <SkipForward size={20} fill="currentColor" />
           </button>
 
-          <div className="pl-2 ml-1 border-l border-white/10 text-zinc-500">
+          <div className="ir-mini-player-chevron flex items-center justify-center border-l border-white/10 text-zinc-500">
             <ChevronUp size={22} />
           </div>
+        </div>
         </div>
       </div>
     </>
