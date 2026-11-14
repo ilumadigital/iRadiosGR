@@ -264,7 +264,8 @@ function createDeviceService(io){
           {new:true});
           if(!updated)return {ok:false,error:'PLAYBACK_CHANGED'};
           // Server-side metadata is authoritative; no arbitrary stream URLs.
-          if(action!=='resume'||lease.state!=='playing')
+          if((action!=='resume'||lease.state!=='playing') &&
+             !(action==='station' && ownerSocket.id===socket.id))
             ownerSocket.emit('connect:command',{
               action,token:updated.token,stationId:String(updated.stationId),
               shouldPlay:nextState!=='paused'
@@ -313,6 +314,13 @@ function createDeviceService(io){
           expiresAt:{$gt:new Date()}
         },{$set:{state:'playing',expiresAt:new Date(Date.now()+LEASE_MS)}},{new:true});
         if(!updated){
+          const current=await PlaybackLease.findOne({
+            accountId:account,socketId:socket.id,token:raw?.token,
+            expiresAt:{$gt:new Date()}
+          }).lean();
+          // A stale onPlaying event for a previous station must not stop the
+          // owner after a concurrent remote station-change command.
+          if(current)return answer(ack,{ok:false,error:'STALE_PLAYBACK_EVENT'});
           socket.emit('connect:stop',{reason:'LEASE_REVOKED'});
           return answer(ack,{ok:false,error:'LEASE_REVOKED'});
         }
