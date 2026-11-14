@@ -40,7 +40,7 @@ function SummaryCard({icon:Icon,title,value,note,tone='lime',to,locked=false,loa
  </section>;
 }
 
-function StreamPanel({stations=[]}){
+function StreamPanel({stations=[],loading=false}){
  const eligible=useMemo(()=>stations.filter(s=>s.status==='approved'&&s.stream),[stations]);
  const [selectedId,setSelectedId]=useState('');
  const [refreshKey,setRefreshKey]=useState(0);
@@ -94,7 +94,8 @@ function StreamPanel({stations=[]}){
      </button>}
    </div>
   </div>
-  {!eligible.length?<p className="relative rounded-2xl border border-white/10 bg-black/20 p-6 text-sm text-zinc-300">
+  {loading?<p role="status" className="relative rounded-2xl border border-white/10 bg-black/20 p-6 text-sm text-zinc-300">Ανακτούμε τους σταθμούς για έλεγχο stream…</p>:
+  !eligible.length?<p className="relative rounded-2xl border border-white/10 bg-black/20 p-6 text-sm text-zinc-300">
    Δεν υπάρχει ακόμη εγκεκριμένος σταθμός με καταχωρημένο stream για έλεγχο.</p>:
   <div className="relative grid gap-4 xl:grid-cols-[1.35fr_1fr]">
    <div className={'rounded-[22px] border p-5 md:p-6 '+(offline||slow?'border-rose-500/30 bg-rose-500/[.07]':
@@ -183,7 +184,7 @@ export default function BroadcasterHome({data}){
  const dsp=metrics?.dsp;
  const plays=metrics?.appPlays;
  return <div className="space-y-7 pb-8 text-white">
-  <StreamPanel stations={metrics?.stations||[]}/>
+  <StreamPanel stations={metrics?.stations||[]} loading={loading}/>
   {error&&<div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-400/25 bg-rose-500/10 px-5 py-4 text-xs text-rose-200">
    <span>{error}</span><button type="button" className="font-bold underline" onClick={()=>void fetchMetrics()}>Επανάληψη</button>
   </div>}
@@ -193,13 +194,13 @@ export default function BroadcasterHome({data}){
    <SummaryCard icon={Clock3} title="Εκκρεμότητες" value={fmt(pending)}
     note="Καταχωρήσεις και αλλαγές σε αναμονή" tone="pink" to="/backoffice/stations"/>
    <SummaryCard icon={SlidersHorizontal} title="DSP Mode" tone="violet"
-    loading={loading||Boolean(error)}
+    loading={loading}
     locked={!loading&&!error&&!dsp?.enabled}
     value={dsp?.enabled?(modeNames[dsp.mode]||'—'):null}
     note={dsp?.enabled?'Σταθμός: '+dsp.stationName:''}
     to={dsp?.enabled?'/backoffice/audio':'/backoffice/pro-features'}/>
    <SummaryCard icon={Headphones} title="Συνολικές ακροάσεις στο App" tone="sky"
-    loading={loading||Boolean(error)}
+    loading={loading}
     locked={!loading&&!error&&!plays?.enabled}
     value={plays?.enabled?fmt(plays.total):null}
     note={plays?.enabled?'Καταγεγραμμένα plays · '+fmt(plays.stationCount)+' σταθμός/οί με Audience Radar':''}
