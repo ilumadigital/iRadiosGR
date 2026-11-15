@@ -56,12 +56,15 @@ async function main(){
   let lot=await FundingLot.findOne({campaignId:f.campaign._id}).lean();
   assert.equal(lot.reservedNanos,1_810_000_000);
   assert.equal(lot.remainingNanos,1_000_000_000_000);
-  const access=await Ticket.findById(first.id);
-  access.lastHeartbeatAt=new Date(Date.now()-11000);
-  access.positionMs=0;
-  await access.save();
-  const ten=await observe(first.capability,{positionMs:11000,
-   playing:true,foreground:true,seeking:false,muted:false});
+  // Simulate independently verified 1-second heartbeat intervals. A single
+  // 11-second jump is rejected by the anti-fraud heartbeat-gap policy.
+  let ten;
+  for(let second=1;second<=11;second++){
+   await Ticket.updateOne({_id:first.id},{$set:{
+    lastHeartbeatAt:new Date(Date.now()-1100)}});
+   ten=await observe(first.capability,{positionMs:second*1000,
+    playing:true,foreground:true,seeking:false,muted:false});
+  }
   assert.equal(ten.qualified,true);
   const duplicate=await observe(first.capability,{positionMs:11000,
    playing:true,foreground:true,seeking:false,muted:false});
@@ -70,10 +73,13 @@ async function main(){
   assert.equal(cta.charged,true);
   const ctaDuplicate=await ledger.click({value:first.capability,key});
   assert.equal(ctaDuplicate.duplicate,true);
-  await Ticket.updateOne({_id:first.id},{$set:{
-   lastHeartbeatAt:new Date(Date.now()-36000)}});
-  const complete=await observe(first.capability,{positionMs:46000,
-   playing:true,foreground:true,seeking:false,muted:false});
+  let complete;
+  for(let second=12;second<=46;second++){
+   await Ticket.updateOne({_id:first.id},{$set:{
+    lastHeartbeatAt:new Date(Date.now()-1100)}});
+   complete=await observe(first.capability,{positionMs:second*1000,
+    playing:true,foreground:true,seeking:false,muted:false});
+  }
   assert.equal(complete.completed,true);
   await ledger.release({value:first.capability,key});
   await ledger.release({value:first.capability,key}).catch(()=>{});
