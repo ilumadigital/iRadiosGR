@@ -800,18 +800,27 @@ function MainApp() {
      playing:!audio.paused||force,foreground:document.visibilityState==='visible',
      seeking:audio.seeking,muted:audio.muted||audio.volume<=0};
     ad.lastHeartbeatMs=now;
-    const request=fetch('/api/advertising/v2/heartbeat',{
-      method:'POST',headers:paidAdHeaders(),body:JSON.stringify({
-        capability:ad.ticketCapability,report})
-    }).catch(()=>null);
+    // Server-side CAS requires chronological evidence. Serialize network
+    // heartbeats so late responses cannot reorder progress/qualify a seek.
+    const previous=ad.heartbeatPromise||Promise.resolve();
+    const request=previous.catch(()=>null).then(()=>
+      fetch('/api/advertising/v2/heartbeat',{
+        method:'POST',headers:paidAdHeaders(),body:JSON.stringify({
+          capability:ad.ticketCapability,report})
+      }).catch(()=>null));
     ad.heartbeatPromise=request;
     return request;
   };
   const releasePaidAudio=(ad,reason='finished')=>{
-    if(!ad?.ticketCapability)return;
-    void fetch('/api/advertising/v2/release',{method:'POST',
-      headers:paidAdHeaders(),keepalive:true,
-      body:JSON.stringify({capability:ad.ticketCapability,reason})}).catch(()=>{});
+    if(!ad?.ticketCapability||ad.releaseRequested)return;
+    ad.releaseRequested=true;
+    // Do not race wallet release ahead of the last heard 10s/completion
+    // heartbeat. Failed requests still release; expiry also sweeps holds.
+    void (ad.heartbeatPromise||Promise.resolve()).catch(()=>null).then(()=>
+      fetch('/api/advertising/v2/release',{method:'POST',
+        headers:paidAdHeaders(),keepalive:true,
+        body:JSON.stringify({capability:ad.ticketCapability,reason})})
+    ).catch(()=>{});
   };
   const activeAdRef = useRef(null);
   const adListenClockRef = useRef(newAdListenClock());
