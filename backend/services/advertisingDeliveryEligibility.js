@@ -25,7 +25,7 @@ async function liveEligibleCreatives(creatives,now){
   validDailyBudget(c.dailyBudgetCents,c.plannedBudgetCents)).map(c=>c._id);
  const [lots,dailies]=await Promise.all([
   FundingLot.find({campaignId:{$in:idsOk},source:'nexi_verified',
-   budgetNanos:{$ne:null},remainingNanos:{$gt:0}})
+   budgetNanos:{$ne:null},remainingNanos:{$gt:0},rateModel:'v2_event'})
    .select('campaignId remainingNanos reservedNanos').lean(),
   Daily.find({campaignId:{$in:idsOk},day:athensDay(now)})
    .select('campaignId spentNanos reservedNanos limitNanos').lean()
