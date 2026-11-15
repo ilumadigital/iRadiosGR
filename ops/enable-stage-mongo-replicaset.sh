@@ -64,10 +64,14 @@ done
 [[ "$ready" -eq 1 ]] || { echo 'STOP: stage MongoDB did not start. Do not deploy finance.' >&2; exit 1; }
 docker exec -i "$CONTAINER" sh -c \
  'exec mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin' <<'JS'
-const status=db.adminCommand({hello:1});
-if (status.setName==='rs0') {
+let existing=null;
+try{existing=rs.conf();}catch(e){
+ if(e.codeName!=='NotYetInitialized'&&e.code!==94)throw e;
+}
+if(existing){
+ if(existing._id!=='rs0')throw Error('Unexpected existing replica-set name');
  print('Replica set already configured.');
-} else {
+}else{
  const result=rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]});
  if(!result.ok)throw Error('Replica-set initialization failed');
  print('Stage replica set initialized.');
