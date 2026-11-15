@@ -58,6 +58,10 @@ router.get('/advertising/v2/status',noCache,(_req,res)=>res.json({
 }));
 router.post('/advertising/v2/tickets',noCache,requirePaid,optionalListener,async(req,res)=>{
  try{
+  // Never charge a regional/national placement from a fixture IP location.
+  // Only the reverse proxy's authenticated geo can enable billable tickets.
+  if(req.adGeoTrusted!==true)return res.status(503).json({
+   error:'Verified visitor geography is required for billable advertising'});
   const {creativeId,kind,placement,stationId}=req.body||{};
   if(!ID.test(String(creativeId||''))||
     !((kind==='audio'&&AUDIO_PLACEMENTS.has(placement))||
