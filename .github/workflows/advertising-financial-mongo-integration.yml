@@ -10,6 +10,9 @@ on:
       - backend/tests/advertisingQualificationMongoDisposable.cjs
       - backend/tests/advertisingV2LedgerMongoDisposable.cjs
       - backend/routes/advertisingV2Routes.js
+      - backend/routes/advertisingCampaignRoutes.js
+      - backend/controllers/adController.js
+      - backend/tests/advertisingV2PaidDeliveryReadiness.test.cjs
       - .github/workflows/advertising-financial-mongo-integration.yml
   workflow_dispatch:
 
