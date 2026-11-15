@@ -4,6 +4,7 @@ import {ArrowLeft, Check, Image as ImageIcon, Music2, RefreshCw, ShieldAlert} fr
 import {LOCATION_DATA} from '../utils/stationLocations';
 import DynamicAdCreative from '../components/DynamicAdCreative';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
+import {assertAudioSpotDuration} from '../utils/audioSpotValidation';
 import {deriveCreativeAccent} from '../utils/creativePalette';
 import {adDesignFor} from '../utils/adVisualDesign';
 import VisualAdStudioControls from '../components/VisualAdStudioControls';
@@ -171,6 +172,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
   },[files.imageFile,autoColor]);
   const editable=true; // Active agency campaigns submit revisions; public version stays unchanged.
   const upload=async(file,endpoint,field)=>{
+    if(field==='audioFile')await assertAudioSpotDuration(file);
     const body=new FormData();body.append(field,file);
     const response=await fetch('/api/uploads/'+endpoint,{method:'POST',headers:auth(),body});
     const data=await response.json().catch(()=>({}));
@@ -262,7 +264,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
         <section className={box+' space-y-4'}>
           <h2 className="text-base font-black text-white">02 · Creative assets</h2>
           {banner?<Field label="Cover 16:9 *"><input type="file" accept="image/jpeg,image/png,image/webp" className={input} onChange={e=>setFile('imageFile',e.target.files?.[0])}/>{form.imageUrl&&<span className="mt-1 block break-all text-[10px] text-zinc-500">{form.imageUrl}</span>}</Field>:
-            <Field label="Audio MP3/WAV *"><input type="file" accept="audio/mpeg,audio/wav,audio/mp3" className={input} onChange={e=>setFile('audioFile',e.target.files?.[0])}/>{form.audioUrl&&<span className="mt-1 block break-all text-[10px] text-zinc-500">{form.audioUrl}</span>}</Field>}
+            <Field label="Audio MP3/WAV * (μέγιστο 46″)"><input type="file" accept="audio/mpeg,audio/wav,audio/mp3" className={input} onChange={e=>setFile('audioFile',e.target.files?.[0])}/>{form.audioUrl&&<span className="mt-1 block break-all text-[10px] text-zinc-500">{form.audioUrl}</span>}</Field>}
           {banner&&<Field label="Square crop (προαιρετικό)" help="Αν δεν υπάρχει, το grid χρησιμοποιεί αυτόματα την κεντρική εικόνα."><input type="file" accept="image/jpeg,image/png,image/webp" className={input} onChange={e=>setFile('squareImageFile',e.target.files?.[0])}/></Field>}
           <Field label="Λογότυπο brand (προαιρετικό)"><input type="file" accept="image/jpeg,image/png,image/webp" className={input} onChange={e=>setFile('logoFile',e.target.files?.[0])}/>{form.logoUrl&&<img alt="Τρέχον λογότυπο" src={form.logoUrl} className="mt-3 h-16 max-w-40 rounded-lg bg-white p-1 object-contain"/>}</Field>
           {banner&&<div className="grid gap-4 sm:grid-cols-2">
