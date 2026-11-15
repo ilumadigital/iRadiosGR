@@ -52,6 +52,7 @@ function testEnvironment(){
   '../services/advertisingAutoSubmission':{start(){}},
   '../utils/authMiddleware':{protect(){}},
   '../services/advertisingPricingRules':{DEFAULTS:{},validatePricing(){},quotedAmounts(){}},
+  '../services/advertisingV2Policy':{validDailyBudget(){return true;},AUDIO_RATE_CARD:{},VISUAL_IMPRESSION_NANOS:{}},
   '../services/advertisingPricingStore':{getAdvertisingPricing:async()=>({})},
   '../services/agencyAdGeo':{},'../services/ilumaGatewayClient':{},
   '../services/advertisingFinancialIndexes':{},
