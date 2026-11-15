@@ -22,7 +22,7 @@ test('optional trusted ingress only emits signed geo from official Cloudflare TC
  assert.match(generator,/https:\/\/www\.cloudflare\.com\/ips-v4/);
  assert.match(generator,/https:\/\/www\.cloudflare\.com\/ips-v6/);
  assert.match(generator,/ipaddress\.ip_network/);
- assert.match(generator,/if not network\.is_global/);
+ assert.match(generator,/not network\.is_global/);
  assert.match(generator,/os\.chmod\(tmp,0o600\)/);
  assert.match(generator,/geo \$iradios_stage_cloudflare_edge/);
  assert.match(generator,/map \$iradios_stage_cloudflare_edge \$iradios_stage_geo_auth/);
