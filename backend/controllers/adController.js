@@ -53,8 +53,10 @@ exports.getPublicAds=async(req,res)=>{
     const campaignIds=[...new Set(playable.map(x=>x.campaignId).filter(Boolean).map(String))];
     const campaigns=campaignIds.length?
       await Campaign.find({_id:{$in:campaignIds}})
-       .select('_id dailyBudgetCents').lean():[];
+       .select('_id dailyBudgetCents createdByRole').lean():[];
     const budgets=new Map(campaigns.map(c=>[String(c._id),c.dailyBudgetCents||0]));
+    const paidCampaigns=new Set(campaigns.filter(c=>c.createdByRole==='agency')
+      .map(c=>String(c._id)));
     // Paid priority applies only AFTER approval, geo, affordability and media
     // validation. Stable tie-break prevents arbitrary shuffle/favoritism.
     const sorted=[...playable].sort((a,b)=>
@@ -65,8 +67,8 @@ exports.getPublicAds=async(req,res)=>{
      audioUrl:'/api/ads/'+ad._id+'/media',
      dailyBudgetCents:budgets.get(String(ad.campaignId))||0,
      nonSkippable:(budgets.get(String(ad.campaignId))||0)>4500,
-     paidDeliveryRequired:paidLedger.enabled()&&Boolean(ad.campaignId)&&Boolean(ad.agencyId),
-     serverGeoEligible:paidLedger.enabled()&&Boolean(ad.campaignId)})));
+     paidDeliveryRequired:paidLedger.enabled()&&paidCampaigns.has(String(ad.campaignId)),
+     serverGeoEligible:paidLedger.enabled()&&paidCampaigns.has(String(ad.campaignId))})));
   }catch(error){
     console.error('[ADS] Public delivery failed',error.message);
     res.status(500).json({error:'Σφάλμα λήψης.'});
@@ -82,7 +84,8 @@ exports.streamPublicAudio=async(req,res)=>{
     const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations campaignId agencyId');
     if(!live(ad)||!matchesDeliveryGeo(ad,req)||!(await isFundedCreative(ad)))
       return res.status(404).json({error:'Not found'});
-    if(paidLedger.enabled()&&ad.campaignId){
+    if(paidLedger.enabled()&&ad.campaignId&&
+      (await Campaign.findById(ad.campaignId).select('createdByRole').lean())?.createdByRole==='agency'){
       const raw=String(req.query?.ticket||'');
       const id=raw.split('.')[0];
       const ticket=/^[a-f0-9]{32}$/.test(id)?
