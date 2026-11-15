@@ -159,18 +159,12 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
   // Historical Nexi-funded/legacy-CPM lots may display prepaid money, but
   // they cannot silently fund the newer per-event rate card. Surface this
   // distinction explicitly in the Agency's audited metrics.
-  const matchingSnapshot=lot=>{
-   const snapshot=lot.rateCardSnapshot;
-   return snapshot&&Object.entries(policy.AUDIO_RATE_CARD).every(([p,events])=>
-    Object.entries(events).every(([event,n])=>snapshot.audio?.[p]?.[event]===n))&&
-    Object.entries(policy.VISUAL_IMPRESSION_NANOS).every(([p,n])=>
-     snapshot.visual?.[p]===n);
-  };
   const eligibleLotCount=lots.filter(lot=>
    lot.rateModel==='v2_event'&&
    lot.settlementMode==='mongo_transaction_v2'&&
    Number.isSafeInteger(lot.remainingNanos)&&
-   lot.remainingNanos>(lot.reservedNanos||0)&&matchingSnapshot(lot)).length;
+   lot.remainingNanos>(lot.reservedNanos||0)&&
+   policy.matchesRateCardSnapshot(lot.rateCardSnapshot)).length;
   const today=daily.find(d=>d.day===policy.athensDay())||null;
   return res.json({campaignId:campaign._id,dailyBudgetCents:campaign.dailyBudgetCents,
    today:today?{day:today.day,spentNanos:today.spentNanos,
