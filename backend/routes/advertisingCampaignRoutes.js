@@ -18,6 +18,7 @@ const {paidPlacementPreviewEnabled,affordablePaidPreview}=
  require('../services/advertisingStagePaidPreview');
 const {localAudioFile}=require('../services/adAudioDelivery');
 const {DEFAULTS,validatePricing,quotedAmounts}=require('../services/advertisingPricingRules');
+const V2_RATE_CARD=require('../services/advertisingV2Policy');
 const {getAdvertisingPricing}=require('../services/advertisingPricingStore');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const gateway=require('../services/ilumaGatewayClient');
