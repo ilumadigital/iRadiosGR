@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {BarChart3,Check,ChevronRight,Crown,Infinity as InfinityIcon,Info,Minus,Plus,SlidersHorizontal,Target,X} from 'lucide-react';
+import {BarChart3,Check,ChevronRight,Crown,Info,Minus,Plus,SlidersHorizontal,Target} from 'lucide-react';
 
 const money=cents=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'}).format(cents/100);
 const ADDONS=[
