@@ -9,6 +9,7 @@ cd "$APP"
 # Existing staging databases remain standalone unless the operator explicitly
 # opts into an authenticated, initialized replica set after a verified backup.
 compose_files=(-f compose.stage.yml)
+replica_set_enabled=0
 if grep -qx 'STAGE_MONGO_RS_ENABLED=1' "$ENV"; then
   [[ -s /etc/iradios/staging/mongo-replset.key ]] || {
     echo 'STOP: missing private stage Mongo replica-set keyfile.' >&2; exit 1;
@@ -17,12 +18,13 @@ if grep -qx 'STAGE_MONGO_RS_ENABLED=1' "$ENV"; then
     echo 'STOP: missing replica-set Compose override.' >&2; exit 1;
   }
   compose_files+=(-f compose.stage.replicaset.yml)
+  replica_set_enabled=1
   echo 'Stage MongoDB replica-set override enabled.'
 fi
 # Never enable paid event settlement on standalone MongoDB. This preflight is
 # necessary but NOT sufficient: a signed trusted geo ingress is also required.
 if grep -qx 'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1' /etc/iradios/staging/backend.env &&
-   [[ ${#compose_files[@]} -ne 2 ]]; then
+   [[ "$replica_set_enabled" != 1 ]]; then
   echo 'STOP: Advertising v2 paid delivery requires a stage Mongo replica set.' >&2
   exit 1
 fi
