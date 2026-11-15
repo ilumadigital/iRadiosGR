@@ -1,0 +1,98 @@
+import React,{useEffect,useMemo,useState} from 'react';
+import {adminFetch as fetch} from '../utils/adminFetch';
+const eurNano=n=>new Intl.NumberFormat('el-GR',{
+ style:'currency',currency:'EUR',minimumFractionDigits:3,
+ maximumFractionDigits:3}).format(Number(n||0)/1e9);
+const eurCent=n=>new Intl.NumberFormat('el-GR',{
+ style:'currency',currency:'EUR'}).format(Number(n||0)/100);
+const names={
+ entry:'Πρώτο Play',every_5_stations:'Ανά 5 σταθμούς',
+ every_10_stations:'Ανά 10 σταθμούς',every_20_stations:'Ανά 20 σταθμούς',
+ every_30_stations:'Ανά 30 σταθμούς',twice_a_day:'2 φορές / ημέρα',
+ four_times_a_day:'4 φορές / ημέρα',six_times_a_day:'6 φορές / ημέρα',
+ hero:'Homepage Hero',home:'Home Feed',radio_feed:'Radio Grid',
+ news_feed:'News Feed',station_profile:'Station Profile'
+};
+const label='text-xs text-zinc-400';
+const cell='rounded-2xl border border-white/10 bg-black/25 p-4';
+export default function AdvertisingV2CampaignStats({campaign}){
+ const [state,setState]=useState({loading:true,data:null,error:null});
+ useEffect(()=>{
+  if(!campaign?._id)return;
+  let alive=true;
+  const load=async()=>{
+   try{
+    const res=await fetch('/api/advertising/v2/campaigns/'+campaign._id+'/analytics',
+     {cache:'no-store'});
+    const result=await res.json();
+    if(!res.ok)throw Error(result.error||'Analytics unavailable');
+    if(alive)setState({loading:false,data:result,error:null});
+   }catch(e){if(alive)setState({loading:false,data:null,error:e.message});}
+  };
+  void load();
+  const timer=setInterval(load,30000);
+  return ()=>{alive=false;clearInterval(timer)};
+ },[campaign?._id]);
+ const data=state.data;
+ const rows=useMemo(()=>{
+  const groups=new Map();
+  for(const e of data?.events||[]){
+   const key=e.kind+':'+e.placement;
+   if(!groups.has(key))groups.set(key,{kind:e.kind,placement:e.placement,
+    listen10:0,cta:0,complete:0,impression:0,click:0,costNanos:0});
+   const row=groups.get(key);
+   row[e.event]=(row[e.event]||0)+e.count;
+   row.costNanos+=e.costNanos;
+  }
+  for(const s of data?.skips||[]){
+   const key='audio:'+s.placement;
+   if(!groups.has(key))groups.set(key,{kind:'audio',placement:s.placement,
+    listen10:0,cta:0,complete:0,impression:0,click:0,costNanos:0});
+   groups.get(key).skips=s.count;
+  }
+  return [...groups.values()];
+ },[data]);
+ if(state.loading)return <div className={cell+' text-xs text-zinc-400'}>Φόρτωση Advertising Analytics…</div>;
+ if(state.error)return <div className={cell+' text-xs text-amber-200'}>Analytics: {state.error}</div>;
+ if(!data)return null;
+ const daily=data.today||{},balance=data.balance||{};
+ const status=campaign.adminSuspended?'Παύση από Admin':
+  !campaign.agencyEnabled?'Απενεργοποιημένη από Agency':
+  campaign.approvalStatus!=='approved'?'Σε αναμονή έγκρισης':
+  Number(balance.remainingNanos||0)<=0?'Απαιτείται Top-up':
+  daily.availableNanos<=0?'Εξαντλήθηκε το ημερήσιο όριο':
+  'Επιλέξιμη για διανομή (υπό τον έλεγχο QA)';
+ return <section className="space-y-4 rounded-[24px] border border-purple-400/20 bg-[#16131e] p-5 sm:p-7">
+  <div className="flex flex-wrap items-center justify-between gap-3">
+   <div><p className="text-[10px] font-black uppercase tracking-widest text-purple-300">Advertising v2 · Audited metrics</p>
+    <h3 className="mt-2 text-lg font-black text-white">Αποτελέσματα καμπάνιας</h3></div>
+   <span className="text-xs font-bold text-zinc-300">{status}</span>
+  </div>
+  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+   <div className={cell}><div className={label}>Προπληρωμένο</div><strong className="mt-2 block text-lg text-white">{eurNano(balance.fundedNanos)}</strong></div>
+   <div className={cell}><div className={label}>Συνολικά διαθέσιμο</div><strong className="mt-2 block text-lg text-white">{eurNano(balance.remainingNanos)}</strong></div>
+   <div className={cell}><div className={label}>Σήμερα δαπανήθηκαν</div><strong className="mt-2 block text-lg text-white">{eurNano(daily.spentNanos)}</strong></div>
+   <div className={cell}><div className={label}>Ημερήσιο υπόλοιπο</div><strong className="mt-2 block text-lg text-white">{eurNano(daily.availableNanos)}</strong></div>
+  </div>
+  <p className="text-xs text-zinc-400">Όριο ανά ημέρα {eurCent(data.dailyBudgetCents)} · Reset 00:00 ώρα Ελλάδας · Ενεργές κρατήσεις {data.activeReservations||0}. Μόνο επιβεβαιωμένα server-side γεγονότα χρεώνονται.</p>
+  <div className="overflow-x-auto">
+   <table className="w-full min-w-[620px] text-left text-xs">
+    <thead><tr className="border-b border-white/10 text-zinc-400">
+     <th className="py-3 pr-3">Placement</th><th className="pr-3">10″ / Views</th>
+     <th className="pr-3">CTA</th><th className="pr-3">Completion / CTR</th>
+     <th className="pr-3">Skips</th><th>Χρέωση</th></tr></thead>
+    <tbody>{rows.map(row=><tr key={row.kind+row.placement} className="border-b border-white/5">
+     <td className="py-3 pr-3 font-semibold text-white">{names[row.placement]||row.placement}</td>
+     <td className="pr-3">{row.kind==='audio'?row.listen10:row.impression}</td>
+     <td className="pr-3">{row.kind==='audio'?row.cta:row.click}</td>
+     <td className="pr-3">{row.kind==='audio'?row.complete:
+      row.impression?(row.click/row.impression*100).toFixed(2)+'%':'0%'}</td>
+     <td className="pr-3">{row.kind==='audio'?(row.skips||0):'—'}</td>
+     <td className="font-semibold text-white">{eurNano(row.costNanos)}</td>
+    </tr>)}</tbody>
+   </table>
+   {!rows.length&&<p className="py-5 text-xs text-zinc-500">Δεν έχουν καταγραφεί ακόμη χρεώσιμα γεγονότα.</p>}
+  </div>
+  <p className="text-[11px] text-zinc-500">Visual: χρεώσιμη ορατότητα ≥50% επί 300 συνεχόμενα ms. Audio: πραγματική ακρόαση 10″ + ανεξάρτητο CTA + ολοκλήρωση. Τα Visual CTA δεν χρεώνονται.</p>
+ </section>;
+}
