@@ -76,16 +76,7 @@ fi
 # Keep the switch explicit and reject incomplete activation before a build.
 if grep -q '^ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=' "$ENV_FILE"; then
   if [[ "$(count_key ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED)" != "1" ]] ||
-     ! grep -Eq '^ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=[01]# Gateway setting. Omitted means zero days (no unapproved free extension).
-if grep -q '^IRADIOS_BILLING_GRACE_DAYS=' "$ENV_FILE"; then
-  if [[ "$(count_key IRADIOS_BILLING_GRACE_DAYS)" != "1" ]] ||
-     ! grep -Eq '^IRADIOS_BILLING_GRACE_DAYS=([0-9]|1[0-4])$' "$ENV_FILE"; then
-    echo 'STOP: IRADIOS_BILLING_GRACE_DAYS must be a single integer 0..14.' >&2
-    exit 1
-  fi
-fi
-echo 'Staging backend env safety checks passed (no values printed).'
- "$ENV_FILE"; then
+     ! grep -Eq '^ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=[01]$' "$ENV_FILE"; then
     echo 'STOP: Advertising v2 financial switch must occur once as 0 or 1.' >&2
     exit 1
   fi
