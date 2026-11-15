@@ -32,7 +32,7 @@ fi
 nginx -t >/dev/null
 # Any real-ip rewrite could make a visitor-supplied Forwarded header control
 # $remote_addr. Confirm the *whole* loaded Nginx config, not just this site.
-if nginx -T 2>/dev/null | grep -Eq '^[[:space:]]*(real_ip_header|set_real_ip_from)[[:space:]]'; then
+if nginx -T 2>/dev/null | awk '/^[[:space:]]*(real_ip_header|set_real_ip_from)[[:space:]]/{found=1} END{exit !found}'; then
  echo "STOP: real_ip rewriting configured; audit the upstream trust chain first." >&2; exit 1;
 fi
 if ! grep -Fq 'geoip2 /var/lib/GeoIP/GeoLite2-City.mmdb' "$GEO"; then
@@ -51,7 +51,7 @@ restore_on_error() {
   cp -a "$BACKUP/stage-site.conf" "$SITE"
   cp -a "$BACKUP/geoip2.conf" "$GEO"
   rm -f "$TRUST"
-  nginx -t || true
+  if nginx -t; then systemctl reload nginx || true; fi
  fi
  exit "$result"
 }
