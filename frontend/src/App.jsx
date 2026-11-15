@@ -1355,7 +1355,7 @@ function MainApp() {
             'ticket='+encodeURIComponent(result.capability);
         }
         if(activeAdRef.current?.token!==token){
-          releasePaidAudio(record,'skipped');return;
+          releasePaidAudio(record,'canceled');return;
         }
         const audio=audioRef.current;
         audio.src=mediaUrl;
@@ -1363,7 +1363,7 @@ function MainApp() {
         audio.load();
         adWatchdogRef.current=setTimeout(()=>{
           if(activeAdRef.current?.token===token){
-            releasePaidAudio(record,'skipped');playNextAdOrStation();
+            releasePaidAudio(record,'failed');playNextAdOrStation();
           }
         },20000);
         try{
@@ -1372,12 +1372,12 @@ function MainApp() {
             attempt.catch(error=>{
               console.warn('[ADS] Spot playback failed; restoring station',error);
               if(activeAdRef.current?.token===token){
-                releasePaidAudio(record,'skipped');playNextAdOrStation();
+                releasePaidAudio(record,'failed');playNextAdOrStation();
               }
             });
         }catch{
           if(activeAdRef.current?.token===token){
-            releasePaidAudio(record,'skipped');playNextAdOrStation();
+            releasePaidAudio(record,'failed');playNextAdOrStation();
           }
         }
       };
@@ -2102,7 +2102,7 @@ function MainApp() {
               adId:ad.id,code,networkState:media.networkState,
               readyState:media.readyState,source:media.currentSrc
             });
-            releasePaidAudio(ad,'skipped');
+            releasePaidAudio(ad,'failed');
             playNextAdOrStation();
           } else {
             console.warn('[RADIO] Station stream failed', {code,source:media.currentSrc});
