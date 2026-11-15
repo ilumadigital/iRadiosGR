@@ -15,7 +15,7 @@ const names={
 };
 const label='text-xs text-zinc-400';
 const cell='rounded-2xl border border-white/10 bg-black/25 p-4';
-export default function AdvertisingV2CampaignStats({campaign}){
+export default function AdvertisingV2CampaignStats({campaign,onBudgetClick}){
  const [state,setState]=useState({loading:true,data:null,error:null});
  useEffect(()=>{
   if(!campaign?._id)return;
@@ -66,13 +66,21 @@ export default function AdvertisingV2CampaignStats({campaign}){
   !delivery.configured?'Η χρέωση Advertising v2 δεν έχει ενεργοποιηθεί.':null,
   delivery.configured&&!delivery.mongoReplicaSetReady?'Η ασφαλής MongoDB transaction processing δεν είναι διαθέσιμη.':null,
   delivery.configured&&!delivery.trustedGeoReady?'Απουσιάζει επαληθευμένη γεωγραφική πληροφορία από το reverse proxy.':null,
-  !delivery.compatibleFunding?'Δεν υπάρχει συμβατό διαθέσιμο υπόλοιπο για τις χρεώσεις Advertising v2.':null
+  !delivery.compatibleFunding?'Δεν υπάρχει συμβατό διαθέσιμο υπόλοιπο για τις χρεώσεις Advertising v2.':null,
+  delivery.compatibleFunding&&!delivery.hasEligibleCreative?'Δεν υπάρχει διαθέσιμο ενεργό δημιουργικό για νέο ticket.':null,
+  delivery.hasEligibleCreative&&delivery.walletCapable===false?'Το συμβατό υπόλοιπο δεν επαρκεί για ολόκληρο νέο ticket.':null,
+  delivery.hasEligibleCreative&&delivery.dayCapable===false?
+   'Το υπόλοιπο ημέρας δεν καλύπτει ολόκληρη την απαιτούμενη κράτηση. Ελάχιστη κράτηση '+eurNano(delivery.minimumReservationNanos)+
+   ', λείπουν '+eurNano(delivery.dayShortfallNanos)+'.':null
  ].filter(Boolean);
  const status=campaign.adminSuspended?'Παύση από Admin':
   !campaign.agencyEnabled?'Απενεργοποιημένη από Agency':
   campaign.approvalStatus!=='approved'?'Σε αναμονή έγκρισης':
   !delivery.campaignRunning?'Εκτός ενεργού χρονικού διαστήματος':
   Number(data.compatibleAvailableNanos||0)<=0?'Απαιτείται διαθέσιμη πίστωση v2':
+  delivery.hasEligibleCreative===false?'Δεν υπάρχει έτοιμο δημιουργικό':
+  delivery.dayCapable===false?'Ανεπαρκές ημερήσιο budget για νέο ticket':
+  delivery.walletCapable===false?'Ανεπαρκής πίστωση για νέο ticket':
   daily.availableNanos<=0?'Εξαντλήθηκε το ημερήσιο όριο':
   delivery.payable?'Ενεργή οικονομική διανομή':
   'Η οικονομική διανομή δεν είναι διαθέσιμη';
@@ -86,6 +94,11 @@ export default function AdvertisingV2CampaignStats({campaign}){
     className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
     <strong className="block font-black">Η καμπάνια δεν πραγματοποιεί χρεώσιμη προβολή αυτή τη στιγμή.</strong>
     {missingPaidRequirements.map(reason=><p key={reason} className="mt-1">{reason}</p>)}
+    {onBudgetClick&&!delivery.dayCapable&&delivery.hasEligibleCreative&&
+     <button type="button" onClick={onBudgetClick}
+      className="mt-3 inline-flex items-center rounded-lg border border-amber-300/30 px-3 py-2 text-xs font-black transition hover:bg-amber-400/10">
+      Αλλαγή ημερήσιου budget
+     </button>}
    </div>}
   <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
    <div className={cell}><div className={label}>Επιβεβαιωμένη πίστωση</div><strong className="mt-2 block text-lg text-white">{eurNano(balance.fundedNanos)}</strong></div>
@@ -95,6 +108,10 @@ export default function AdvertisingV2CampaignStats({campaign}){
   </div>
   <p className="text-xs text-zinc-300"><strong>Διαθέσιμο για Advertising v2: {eurNano(data.compatibleAvailableNanos)}</strong> · Η ιστορική πίστωση διαφορετικού τιμοκαταλόγου δεν χρεώνεται ως v2.</p>
   <p className="text-xs text-zinc-400">Όριο ανά ημέρα {eurCent(data.dailyBudgetCents)} · Reset 00:00 ώρα Ελλάδας · Ενεργές κρατήσεις {data.activeReservations||0}. Μόνο επιβεβαιωμένα server-side γεγονότα χρεώνονται.</p>
+  {delivery.minimumReservationNanos>0&&<div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-xs text-zinc-300">
+   <strong className="text-white">Ελάχιστη κράτηση για νέο ticket: {eurNano(delivery.minimumReservationNanos)}</strong>
+   <span>Απαιτείται πλήρης κάλυψη πριν την έναρξη. Το αχρησιμοποίητο ποσό αποδεσμεύεται.</span>
+  </div>}
   <div className="overflow-x-auto">
    <table className="w-full min-w-[620px] text-left text-xs">
     <thead><tr className="border-b border-white/10 text-zinc-400">
