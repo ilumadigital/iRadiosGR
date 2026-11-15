@@ -46,7 +46,12 @@ test('Agency cannot use broadcaster/admin station API and has no station project
  // Previously fixed production-impacting regression: public radio remains public.
  assert.match(access,/'\/api\/proxy-stream'/);
  const campaign=read('backend/routes/advertisingCampaignRoutes.js');
- assert.match(campaign,/router\.use\(\['\/advertising','\/admin\/advertising'\],protect,stage\)/);
+ // Public v2 listener tickets must not be intercepted by the private
+ // campaign router, but every Agency finance/checkout path stays JWT-scoped.
+ assert.doesNotMatch(campaign,/router\.use\(\s*\[\s*'\/advertising'\s*,/);
+ for(const prefix of ['/advertising/pricing','/advertising/campaigns',
+   '/advertising/quotes','/advertising/payments','/admin/advertising'])
+   assert.ok(campaign.includes("'"+prefix+"'"),'Protected: '+prefix);
 });
 
 test('public Ad Network landing is nonfinancial, with account onboarding retained',()=>{
