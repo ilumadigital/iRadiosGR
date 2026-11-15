@@ -43,6 +43,8 @@ jobs:
         run: |
           node --check backend/routes/uploadRoutes.js
           node --test frontend/src/utils/adSkipPolicy.test.mjs backend/tests/adAudioDurationRules.test.cjs
+      - name: Verify ad-only First Play CTA and fullscreen without a station
+        run: node --test ops/check-first-play-ad-player.cjs
       - name: Build the frontend before the static UI contract checks
         # Mirrors the Docker/Vite compilation and exposes the root error promptly.
         run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
