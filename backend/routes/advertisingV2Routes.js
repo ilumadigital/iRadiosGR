@@ -47,21 +47,32 @@ function requirePaid(_req,res,next){
   enabled:false});
  return next();
 }
-router.get('/advertising/v2/status',noCache,(_req,res)=>res.json({
- enabled:ledger.enabled(),maxBreakSpots:policy.MAX_BREAK_SPOTS,
+router.get('/advertising/v2/status',noCache,async(req,res)=>{
+ const readiness=await ledger.financialReadiness();
+ return res.json({
+ enabled:readiness.acceptingTickets&&req.adGeoTrusted===true,
+ configured:readiness.configured,
+ mongoReplicaSetReady:readiness.mongoReplicaSetReady,
+ mongoReason:readiness.mongoReason,
+ trustedGeoReady:req.adGeoTrusted===true,
+ maxBreakSpots:policy.MAX_BREAK_SPOTS,
  audioRateCard:policy.AUDIO_RATE_CARD,
  visualCpmNanos:policy.VISUAL_CPM_NANOS,
  visualMinimumMs:policy.MIN_VISUAL_VIEW_MS,
  audioMinSeconds:policy.MIN_AUDIO_BILLABLE_SECONDS,
  audioMaxSeconds:policy.MAX_AUDIO_DURATION_SECONDS,
  skipSeconds:[15,40,55],nonSkippableDailyCents:4500
-}));
+ });
+});
 router.post('/advertising/v2/tickets',noCache,requirePaid,optionalListener,async(req,res)=>{
  try{
   // Never charge a regional/national placement from a fixture IP location.
   // Only the reverse proxy's authenticated geo can enable billable tickets.
   if(req.adGeoTrusted!==true)return res.status(503).json({
    error:'Verified visitor geography is required for billable advertising'});
+  const readiness=await ledger.financialReadiness();
+  if(!readiness.acceptingTickets)return res.status(503).json({
+   error:'MongoDB replica-set transactions must be ready before paid delivery'});
   const {creativeId,kind,placement,stationId}=req.body||{};
   if(!ID.test(String(creativeId||''))||
     !((kind==='audio'&&AUDIO_PLACEMENTS.has(placement))||
