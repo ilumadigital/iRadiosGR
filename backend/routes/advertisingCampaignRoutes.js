@@ -19,6 +19,7 @@ const {paidPlacementPreviewEnabled,affordablePaidPreview}=
 const {localAudioFile}=require('../services/adAudioDelivery');
 const {DEFAULTS,validatePricing,quotedAmounts}=require('../services/advertisingPricingRules');
 const V2_RATE_CARD=require('../services/advertisingV2Policy');
+const dailyBudgetManager=require('../services/advertisingDailyBudgetManager');
 const {getAdvertisingPricing}=require('../services/advertisingPricingStore');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const gateway=require('../services/ilumaGatewayClient');
@@ -150,6 +151,29 @@ router.patch('/advertising/campaigns/:id/enabled',async(req,res)=>{
   if(!saved)return res.status(404).json({error:'Campaign not found'});
   res.json(saved);
  }catch(error){return errorResponse(res,error,500);}
+});
+
+// Paid Campaign Manager: an Agency adjusts only its DAILY ceiling, never
+// creates funding, edits historic settlements or changes an approved quote.
+router.get('/advertising/campaigns/:id/daily-budget',async(req,res)=>{
+ if(!isAgency(req)||!objectId(req.params.id))
+  return res.status(403).json({error:'Agency required'});
+ res.set('Cache-Control','private, no-store');
+ try{
+  return res.json(await dailyBudgetManager.getDailyBudget({
+   campaignId:req.params.id,agencyId:req.user._id}));
+ }catch(e){return errorResponse(res,e,e.status||500);}
+});
+router.patch('/advertising/campaigns/:id/daily-budget',async(req,res)=>{
+ if(!isAgency(req)||!objectId(req.params.id))
+  return res.status(403).json({error:'Agency required'});
+ res.set('Cache-Control','private, no-store');
+ try{
+  return res.json(await dailyBudgetManager.changeDailyBudget({
+   campaignId:req.params.id,agencyId:req.user._id,
+   dailyBudgetCents:req.body?.dailyBudgetCents,
+   expectedDailyBudgetCents:req.body?.expectedDailyBudgetCents}));
+ }catch(e){return errorResponse(res,e,e.status||500);}
 });
 
 router.post('/advertising/campaigns/:id/quotes',async(req,res)=>{
