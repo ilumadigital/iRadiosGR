@@ -12,7 +12,7 @@ import useStations from './hooks/useStations';
 import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
 import {geoAllowsAd} from './utils/adPlacements';
-import {selectStationBreak,dueOnClock,canServeAudioAd} from './utils/audioAdRules';
+import {selectStationBreak,selectTimedBreak,MAX_AD_BREAK_SPOTS} from './utils/audioAdRules';
 import {newAdListenClock,resumeAdListenClock,suspendAdListenClock,sampleAdListenClock,canSkipAd,secondsUntilAdSkip} from './utils/adSkipPolicy';
 import useMediaSession from './hooks/useMediaSession';
 import usePlayDevices from './hooks/usePlayDevices';
@@ -788,6 +788,31 @@ function MainApp() {
   });
 
   const lastPlayedTimeAds = useRef({});
+  const paidAdHeaders=()=>{const token=localStorage.getItem('iluma_token');return token?
+    {'Content-Type':'application/json',Authorization:'Bearer '+token}:
+    {'Content-Type':'application/json'};};
+  const reportPaidAudio=(ad,audio,force=false)=>{
+    if(!ad?.ticketCapability||!audio)return Promise.resolve(null);
+    const now=performance.now();
+    if(!force&&ad.lastHeartbeatMs&&now-ad.lastHeartbeatMs<800)
+      return ad.heartbeatPromise||Promise.resolve(null);
+    const report={positionMs:Math.max(0,Math.round(audio.currentTime*1000)),
+     playing:!audio.paused||force,foreground:document.visibilityState==='visible',
+     seeking:audio.seeking,muted:audio.muted||audio.volume<=0};
+    ad.lastHeartbeatMs=now;
+    const request=fetch('/api/advertising/v2/heartbeat',{
+      method:'POST',headers:paidAdHeaders(),body:JSON.stringify({
+        capability:ad.ticketCapability,report})
+    }).catch(()=>null);
+    ad.heartbeatPromise=request;
+    return request;
+  };
+  const releasePaidAudio=(ad,reason='finished')=>{
+    if(!ad?.ticketCapability)return;
+    void fetch('/api/advertising/v2/release',{method:'POST',
+      headers:paidAdHeaders(),keepalive:true,
+      body:JSON.stringify({capability:ad.ticketCapability,reason})}).catch(()=>{});
+  };
   const activeAdRef = useRef(null);
   const adListenClockRef = useRef(newAdListenClock());
   const adBreakSpotCountRef = useRef(0);
@@ -1266,64 +1291,97 @@ function MainApp() {
   const skipCurrentAd=()=>{
     const ad=activeAdRef.current;
     const audio=audioRef.current;
-    // Once 15 audible seconds have been earned, the remaining break is
-    // skippable even while the next spot is loading (before onPlaying fires).
-    if(!ad||!audio||!canSkipAd(
-      adListenClockRef.current,audio.duration,adBreakSpotCountRef.current))return;
-    // Skip the remaining scheduled break and return directly to the listener's
-    // latest station selection, never starting another spot in the same break.
-    logAdOutcome('skipped',ad);
-    adQueue.current=[];
+    if(!ad||!audio||!canSkipAd(adListenClockRef.current,
+      audio.duration,adBreakSpotCountRef.current,ad.nonSkippable))return;
+    // Only skippable inventory is discarded. Higher-budget protected spots
+    // retain their scheduled position and can never be bypassed by Skip.
+    adQueue.current=adQueue.current.filter(item=>item.nonSkippable);
+    if(ad.ticketCapability)releasePaidAudio(ad,'skipped');
+    else logAdOutcome('skipped',ad);
     playNextAdOrStation();
   };
 
-  // The same audio element handles ads and radio. Every rejected/invalid MP3
-  // MUST return to the pending station; never trap listeners in an ad break.
-  const playNextAdOrStation = () => {
-    if (!audioRef.current) return;
-    // Keep the verified audible seconds from earlier spots of the same break.
-    // Suspension prevents source switches/buffering from advancing the clock.
+  const playNextAdOrStation=()=>{
+    if(!audioRef.current)return;
     adListenClockRef.current=suspendAdListenClock(adListenClockRef.current);
     setAdSkipCountdown(null);
     clearAdWatchdog();
-    activeAdRef.current = null;
-    if (adQueue.current.length > 0) {
-      const nextAd = adQueue.current.shift();
-      if (!nextAd?.audioUrl) return playNextAdOrStation();
-      const token = Symbol('ad-play');
-      activeAdRef.current = { token, id: nextAd._id, started: false };
+    activeAdRef.current=null;
+    if(adQueue.current.length>0){
+      const nextAd=adQueue.current.shift();
+      if(!nextAd?.audioUrl)return playNextAdOrStation();
+      const token=Symbol('ad-play');
+      const record={token,id:nextAd._id,started:false,
+        nonSkippable:nextAd.nonSkippable===true};
+      activeAdRef.current=record;
       setCurrentAdInfo(nextAd);
       setIsPlayingAd(true);
       setIsPlaying(true);
       setAdTimeRemaining(0);
-      intendedPlayState.current = true;
-      const audio = audioRef.current;
-      audio.src = nextAd.audioUrl;
-      audio.volume = parseFloat(volume);
-      audio.load();
-      adWatchdogRef.current = setTimeout(() => {
-        if (activeAdRef.current?.token === token) playNextAdOrStation();
-      }, 20000);
-      const attempt = audio.play();
-      if (attempt && typeof attempt.catch === 'function') {
-        attempt.catch(error => {
-          console.warn('[ADS] Audio playback failed, restoring radio', error);
-          if (activeAdRef.current?.token === token) playNextAdOrStation();
-        });
-      }
+      intendedPlayState.current=true;
+      const prepare=async()=>{
+        let mediaUrl=nextAd.audioUrl;
+        if(nextAd.paidDeliveryRequired){
+          let result=null;
+          try{
+            const stationId=String(pendingStation.current?._id||
+              currentStation?._id||'');
+            const response=await fetch('/api/advertising/v2/tickets',{
+              method:'POST',headers:paidAdHeaders(),
+              body:JSON.stringify({creativeId:nextAd._id,kind:'audio',
+                placement:nextAd.selectedPlacement||nextAd.frequency,
+                stationId})
+            });
+            if(response.ok)result=await response.json();
+          }catch{/* Unfunded or unavailable spots must never trap playback. */}
+          if(!result?.capability){
+            if(activeAdRef.current?.token===token)playNextAdOrStation();
+            return;
+          }
+          record.ticketCapability=result.capability;
+          record.nonSkippable=result.nonSkippable===true;
+          mediaUrl+=((mediaUrl.includes('?'))?'&':'?')+
+            'ticket='+encodeURIComponent(result.capability);
+        }
+        if(activeAdRef.current?.token!==token){
+          releasePaidAudio(record,'skipped');return;
+        }
+        const audio=audioRef.current;
+        audio.src=mediaUrl;
+        audio.volume=parseFloat(volume);
+        audio.load();
+        adWatchdogRef.current=setTimeout(()=>{
+          if(activeAdRef.current?.token===token){
+            releasePaidAudio(record,'skipped');playNextAdOrStation();
+          }
+        },20000);
+        try{
+          const attempt=audio.play();
+          if(attempt&&typeof attempt.catch==='function')
+            attempt.catch(error=>{
+              console.warn('[ADS] Spot playback failed; restoring station',error);
+              if(activeAdRef.current?.token===token){
+                releasePaidAudio(record,'skipped');playNextAdOrStation();
+              }
+            });
+        }catch{
+          if(activeAdRef.current?.token===token){
+            releasePaidAudio(record,'skipped');playNextAdOrStation();
+          }
+        }
+      };
+      void prepare();
       return;
     }
     resetAdSkipClock();
     setIsPlayingAd(false);
     setCurrentAdInfo(null);
     setAdTimeRemaining(0);
-    if (pendingStation.current) {
-      const station = pendingStation.current;
-      pendingStation.current = null;
+    if(pendingStation.current){
+      const station=pendingStation.current;
+      pendingStation.current=null;
       handleActualStationPlay(station);
-    } else if (currentStation) {
-      handleActualStationPlay(currentStation);
-    }
+    }else if(currentStation)handleActualStationPlay(currentStation);
   };
 
   // ==============================================================
@@ -1340,37 +1398,15 @@ function MainApp() {
       // Παίζουμε μόνο στο και 15 ακριβώς ή στο και 45 ακριβώς
       if (minutes !== 15 && minutes !== 45) return;
 
-      // 1. Βρίσκουμε όλα τα Time-Based Ads που ταιριάζουν Γεωγραφικά
-      const timeBasedAds = ads.filter(ad =>
-        canServeAudioAd(ad,currentStation,userLocation,checkGeoMatch) &&
-        dueOnClock(ad.frequency, lastPlayedTimeAds.current[ad._id]||0, now.getTime())
-      );
-
-      if (timeBasedAds.length === 0) return;
-
-      // Due time was checked by the pure rules above, once per campaign.
-      const currentTime = now.getTime();
-      const adsEligibleToPlay = timeBasedAds;
-
-      // 3. Shuffle (για να μην παίζουν πάντα τα ίδια με την ίδια σειρά)
-      const shuffledAds = [...adsEligibleToPlay].sort(() => 0.5 - Math.random());
-      
-      // 4. Επιλέγουμε MAX 2 σποτ (Ad Break)
-      const selectedAds = shuffledAds.slice(0, 2);
-
-      // 5. Ενημερώνουμε το ιστορικό ότι παίχτηκαν ΤΩΡΑ
-      selectedAds.forEach(ad => {
-        lastPlayedTimeAds.current[ad._id] = currentTime;
-      });
-
-      // 6. ΠΡΟΕΤΟΙΜΑΣΙΑ ΚΑΙ ΕΚΤΕΛΕΣΗ!
-      console.log("⏰ Ήρθε η ώρα για διαφημίσεις! Επιλέχθηκαν:", selectedAds.map(a => a.title));
-      
+      const selectedAds=selectTimedBreak(ads,currentStation,userLocation,
+        checkGeoMatch,lastPlayedTimeAds.current,now.getTime(),MAX_AD_BREAK_SPOTS);
+      if(!selectedAds.length)return;
+      for(const ad of selectedAds)
+        lastPlayedTimeAds.current[ad._id+':'+ad.selectedPlacement]=now.getTime();
       resetAdSkipClock();
       adBreakSpotCountRef.current=selectedAds.length;
-      pendingStation.current = currentStation; // Θυμόμαστε ποιον σταθμό ακούγαμε
-      adQueue.current = [...selectedAds];      // Βάζουμε τα 2 σποτ στην ουρά
-      
+      pendingStation.current=currentStation;
+      adQueue.current=[...selectedAds];
       // Σταματάμε το live stream προσωρινά
       if (audioRef.current) audioRef.current.pause(); 
       
@@ -1975,9 +2011,11 @@ function MainApp() {
           const ad = activeAdRef.current;
           if(ad)adListenClockRef.current=resumeAdListenClock(
             adListenClockRef.current,audioRef.current?.currentTime||0,performance.now());
-          if (ad && !ad.started) {
-            ad.started = true;
-            fetch(`${API_URL}/ads/${ad.id}/impression`, { method: 'POST' }).catch(() => {});
+          if(ad&&!ad.started){
+            ad.started=true;
+            if(ad.ticketCapability)void reportPaidAudio(ad,audioRef.current,true);
+            else fetch(`${API_URL}/ads/${ad.id}/impression`,
+              {method:'POST'}).catch(()=>{});
           }
           clearAdWatchdog();
           if(!ad&&!premiumAuthorizationPendingRef.current)
@@ -1998,15 +2036,24 @@ function MainApp() {
         onDurationChange={event=>{
           if(activeAdRef.current)setAdSkipCountdown(
             secondsUntilAdSkip(adListenClockRef.current,event.currentTarget.duration,
-              adBreakSpotCountRef.current));
+              adBreakSpotCountRef.current,activeAdRef.current?.nonSkippable));
         }}
         onEnded={(event) => {
           // Safari prewarm is silent PCM, not a radio stream or ad break.
           if(premiumAuthorizationPendingRef.current||
              String(event.currentTarget.currentSrc||'').startsWith('data:audio/'))return;
           const ad=activeAdRef.current;
-          if(ad){logAdOutcome('completed',ad);playNextAdOrStation();}
-          else handleActualStationPlay(currentStation);
+          if(ad){
+            if(ad.ticketCapability){
+              const media=event.currentTarget;
+              void reportPaidAudio(ad,media,true).finally(()=>{
+                releasePaidAudio(ad,'finished');
+                if(activeAdRef.current?.token===ad.token)playNextAdOrStation();
+              });
+            }else{
+              logAdOutcome('completed',ad);playNextAdOrStation();
+            }
+          }else handleActualStationPlay(currentStation);
         }} 
 
         onTimeUpdate={(e) => {
@@ -2016,8 +2063,10 @@ function MainApp() {
               position:audio.currentTime,now:performance.now(),paused:audio.paused,
               seeking:audio.seeking,readyState:audio.readyState
             });
-            const seconds=secondsUntilAdSkip(
-              adListenClockRef.current,audio.duration,adBreakSpotCountRef.current);
+            const ad=activeAdRef.current;
+            if(ad?.ticketCapability)void reportPaidAudio(ad,audio);
+            const seconds=secondsUntilAdSkip(adListenClockRef.current,
+              audio.duration,adBreakSpotCountRef.current,ad?.nonSkippable);
             setAdSkipCountdown(old=>old===seconds?old:seconds);
             setAdTimeRemaining(Number.isFinite(e.target.duration)
               ? Math.max(0, Math.ceil(e.target.duration - e.target.currentTime)) : 0);
@@ -2042,6 +2091,7 @@ function MainApp() {
               adId:ad.id,code,networkState:media.networkState,
               readyState:media.readyState,source:media.currentSrc
             });
+            releasePaidAudio(ad,'skipped');
             playNextAdOrStation();
           } else {
             console.warn('[RADIO] Station stream failed', {code,source:media.currentSrc});
