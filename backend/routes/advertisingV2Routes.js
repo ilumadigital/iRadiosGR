@@ -55,6 +55,8 @@ router.get('/advertising/v2/status',noCache,async(req,res)=>{
  mongoReplicaSetReady:readiness.mongoReplicaSetReady,
  mongoReason:readiness.mongoReason,
  trustedGeoReady:req.adGeoTrusted===true,
+ geoPrecision:req.adGeoTrusted===true?
+  (req.geo?.prefecture?'prefecture':req.geo?.region?'region':'country'):'untrusted',
  maxBreakSpots:policy.MAX_BREAK_SPOTS,
  audioRateCard:policy.AUDIO_RATE_CARD,
  visualCpmNanos:policy.VISUAL_CPM_NANOS,
