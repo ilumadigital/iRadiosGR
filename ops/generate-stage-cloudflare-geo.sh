@@ -17,6 +17,8 @@ command -v python3 >/dev/null
 install -d -o root -g root -m 755 /etc/nginx/conf.d
 tmp=$(mktemp -d)
 trap 'rm -rf -- "$tmp"' EXIT
+# Retain the original root-only map until the candidate passes Nginx syntax.
+if [[ -f "$OUT" ]]; then cp --preserve=mode,ownership -- "$OUT" "$tmp/previous"; fi
 curl --fail --silent --show-error --location --max-time 20 \
   https://www.cloudflare.com/ips-v4 -o "$tmp/ips-v4"
 curl --fail --silent --show-error --location --max-time 20 \
@@ -80,6 +82,14 @@ except BaseException:
     if os.path.exists(tmp): os.remove(tmp)
     raise
 PY
-nginx -t
+if ! nginx -t; then
+  if [[ -f "$tmp/previous" ]]; then
+    cp --preserve=mode,ownership -- "$tmp/previous" "$OUT"
+  else
+    rm -f -- "$OUT"
+  fi
+  echo 'STOP: Nginx rejected geo maps; prior configuration restored.' >&2
+  exit 1
+fi
 echo 'Cloudflare edge Geo/Map configuration generated and Nginx syntax tested.'
 echo 'NOT activated: review Cloudflare Managed Transform, origin path and site geo template before enabling.'
