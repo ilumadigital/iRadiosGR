@@ -11,6 +11,7 @@ import FoundWithAI from './FoundWithAI';
 import MusicServiceLinks from './MusicServiceLinks';
 import FullscreenArtwork from './FullscreenArtwork';
 import AdSkipControl from './AdSkipControl';
+import {AdOnlyMobilePlayer} from './AdOnlyPlayback';
 import OnAirShowCard from './OnAirShowCard';
 import {parseMusicMetadata} from '../utils/musicMetadata';
 import {remoteLocationLabel} from '../utils/playbackPresentation.mjs';
@@ -130,9 +131,28 @@ export default function MobileMiniPlayer({
 
   // Playback metrics are emitted by the shared audio element only.
 
-  if (!currentStation) return null;
-
   const utmParams = "ref=iradiosapp&utm_campaign=mb_player_ir&utm_content=mb_player_ir&utm_medium=ilumadigitalagencyiradios&utm_source=iradios";
+
+  const handleAdClick = (e) => {
+    if (isPlayingAd && currentAdInfo?.linkUrl) {
+      e.stopPropagation(); 
+      fetch(currentAdInfo.ticketCapability?'/api/advertising/v2/click':`/api/ads/${currentAdInfo._id}/click`, {
+        method:'POST',headers:currentAdInfo.ticketCapability?{'Content-Type':'application/json',
+         ...(localStorage.getItem('iluma_token')?{Authorization:'Bearer '+localStorage.getItem('iluma_token')}:{})}:undefined,
+        body:currentAdInfo.ticketCapability?JSON.stringify({capability:currentAdInfo.ticketCapability}):undefined
+      }).catch(()=>{});
+      const separator = currentAdInfo.linkUrl.includes('?') ? '&' : '?';
+      window.open(`${currentAdInfo.linkUrl}${separator}${utmParams}`, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  // An audio ad may precede the first station selection in a new app launch.
+  // Show its own player without fabricating station data or changing playback.
+  if (!currentStation) return isPlayingAd && currentAdInfo ? (
+    <AdOnlyMobilePlayer ad={currentAdInfo} adTimeRemaining={adTimeRemaining}
+      adSkipCountdown={adSkipCountdown} onSkipAd={onSkipAd}
+      onAdClick={handleAdClick}/>
+  ) : null;
   const isCurrentlyFavorite = isFavorite(currentStation._id);
   const isPremium = currentUser?.isPremium || currentUser?.broadcasterProfile?.tier === 'premium';
 
@@ -159,19 +179,6 @@ export default function MobileMiniPlayer({
   const maximizedImage = isPlayingAd && currentAdInfo?.logoUrl 
     ? currentAdInfo.logoUrl 
     : (showCoverArt ? globalCoverArt : (showProducerArt?liveBroadcast.imageUrl:(currentStation?.logo || '')));
-
-  const handleAdClick = (e) => {
-    if (isPlayingAd && currentAdInfo?.linkUrl) {
-      e.stopPropagation(); 
-      fetch(currentAdInfo.ticketCapability?'/api/advertising/v2/click':`/api/ads/${currentAdInfo._id}/click`, {
-        method:'POST',headers:currentAdInfo.ticketCapability?{'Content-Type':'application/json',
-         ...(localStorage.getItem('iluma_token')?{Authorization:'Bearer '+localStorage.getItem('iluma_token')}:{})}:undefined,
-        body:currentAdInfo.ticketCapability?JSON.stringify({capability:currentAdInfo.ticketCapability}):undefined
-      }).catch(()=>{});
-      const separator = currentAdInfo.linkUrl.includes('?') ? '&' : '?';
-      window.open(`${currentAdInfo.linkUrl}${separator}${utmParams}`, '_blank', 'noopener,noreferrer');
-    }
-  };
 
   const handleRadarClick = (e) => {
     e.stopPropagation();
