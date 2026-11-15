@@ -611,6 +611,9 @@ function MainApp() {
   const intendedPlayState = useRef(false);
   const premiumAuthorizationPendingRef=useRef(false);
   const playbackIntentRef=useRef(0);
+  // A full app launch is one listening session. Persisted stations do not
+  // consume First Play; background/foreground navigation does not reset it.
+  const firstPlayStartedRef=useRef(false);
 
   // Admin's independent DSP audition must not be mixed with the global
   // listener player's audio when entering the full-page editor.
@@ -1063,6 +1066,14 @@ function MainApp() {
     const station = stationsRef.current.find(s => s._id === rawStation._id) || rawStation;
     if (!station.stream || station.isOffline === true) return;
 
+    // Also cover restored-station Play, Car Mode and any other direct call.
+    // First Play must pass through the ad gate before starting the stream.
+    if (!firstPlayStartedRef.current && !currentUser?.isPremium) {
+      handleStationSelectWithAds(station);
+      return;
+    }
+    firstPlayStartedRef.current=true;
+
     const ua = navigator.userAgent;
     const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const isXboxOrTV = /Xbox|SMART-TV|Tizen|Web0S|WebOS|TV/.test(ua);
@@ -1228,8 +1239,14 @@ function MainApp() {
       void handlePlaybackControl('station',String(station._id));
       return;
     }
-    if (currentUser?.isPremium) return handleActualStationPlay(station);
+    if (currentUser?.isPremium) {
+      firstPlayStartedRef.current=true;
+      return handleActualStationPlay(station);
+    }
 
+    // One First Play opportunity per app launch, even without listening history.
+    // The original station-switch counter still triggers 'entry' on count 1.
+    firstPlayStartedRef.current=true;
     stationSwitches.current += 1;
     const clicks = stationSwitches.current;
     
@@ -1252,7 +1269,7 @@ function MainApp() {
     // Once 15 audible seconds have been earned, the remaining break is
     // skippable even while the next spot is loading (before onPlaying fires).
     if(!ad||!audio||!canSkipAd(
-      adListenClockRef.current,audio.duration,adBreakSpotCountRef.current>1))return;
+      adListenClockRef.current,audio.duration,adBreakSpotCountRef.current))return;
     // Skip the remaining scheduled break and return directly to the listener's
     // latest station selection, never starting another spot in the same break.
     logAdOutcome('skipped',ad);
@@ -1430,7 +1447,11 @@ function MainApp() {
       setIsPlaying(false);
     } else {
       intendedPlayState.current = true;
-      void handleActualStationPlay(currentStation);
+      // A saved station must NOT bypass First Play when a new session begins.
+      if (!firstPlayStartedRef.current && !currentUser?.isPremium)
+        handleStationSelectWithAds(currentStation);
+      else
+        void handleActualStationPlay(currentStation);
     }
   };
 
@@ -1977,7 +1998,7 @@ function MainApp() {
         onDurationChange={event=>{
           if(activeAdRef.current)setAdSkipCountdown(
             secondsUntilAdSkip(adListenClockRef.current,event.currentTarget.duration,
-              adBreakSpotCountRef.current>1));
+              adBreakSpotCountRef.current));
         }}
         onEnded={(event) => {
           // Safari prewarm is silent PCM, not a radio stream or ad break.
@@ -1996,7 +2017,7 @@ function MainApp() {
               seeking:audio.seeking,readyState:audio.readyState
             });
             const seconds=secondsUntilAdSkip(
-              adListenClockRef.current,audio.duration,adBreakSpotCountRef.current>1);
+              adListenClockRef.current,audio.duration,adBreakSpotCountRef.current);
             setAdSkipCountdown(old=>old===seconds?old:seconds);
             setAdTimeRemaining(Number.isFinite(e.target.duration)
               ? Math.max(0, Math.ceil(e.target.duration - e.target.currentTime)) : 0);
