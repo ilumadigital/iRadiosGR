@@ -6,6 +6,9 @@ const User = require('../models/User');
 const Station=require('../models/Station');
 const {hasStationRight}=require('../services/billingEntitlements');
 const mongoose=require('mongoose');
+const Campaign=require('../models/AdvertisingCampaign');
+const Ticket=require('../models/AdvertisingV2Reservation');
+const paidLedger=require('../services/advertisingV2Ledger');
 const {sendAdAudio,localAudioFile}=require('../services/adAudioDelivery');
 const {isStage,activeCampaignQuery,live,publicAd,fields,permitMetric} =
   require('../services/adDeliveryRules');
@@ -46,8 +49,23 @@ exports.getPublicAds=async(req,res)=>{
     // Never offer listeners an unplayable spot (e.g. imported missing files).
     const approvedAds=await filterFundedCreatives(ads);
     const media=await Promise.all(approvedAds.map(ad=>localAudioFile(ad.audioUrl)));
-    return res.json(approvedAds.filter((ad,index)=>Boolean(media[index]))
-      .map(ad=>({...publicAd(ad),audioUrl:'/api/ads/'+ad._id+'/media'})));
+    const playable=approvedAds.filter((ad,index)=>Boolean(media[index]));
+    const campaignIds=[...new Set(playable.map(x=>x.campaignId).filter(Boolean).map(String))];
+    const campaigns=campaignIds.length?
+      await Campaign.find({_id:{$in:campaignIds}})
+       .select('_id dailyBudgetCents').lean():[];
+    const budgets=new Map(campaigns.map(c=>[String(c._id),c.dailyBudgetCents||0]));
+    // Paid priority applies only AFTER approval, geo, affordability and media
+    // validation. Stable tie-break prevents arbitrary shuffle/favoritism.
+    const sorted=[...playable].sort((a,b)=>
+      (budgets.get(String(b.campaignId))||0)-
+      (budgets.get(String(a.campaignId))||0)||
+      String(a._id).localeCompare(String(b._id)));
+    return res.json(sorted.map(ad=>({...publicAd(ad),
+     audioUrl:'/api/ads/'+ad._id+'/media',
+     dailyBudgetCents:budgets.get(String(ad.campaignId))||0,
+     nonSkippable:(budgets.get(String(ad.campaignId))||0)>4500,
+     serverGeoEligible:paidLedger.enabled()&&Boolean(ad.campaignId)})));
   }catch(error){
     console.error('[ADS] Public delivery failed',error.message);
     res.status(500).json({error:'Σφάλμα λήψης.'});
@@ -63,6 +81,16 @@ exports.streamPublicAudio=async(req,res)=>{
     const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations campaignId agencyId');
     if(!live(ad)||!matchesDeliveryGeo(ad,req)||!(await isFundedCreative(ad)))
       return res.status(404).json({error:'Not found'});
+    if(paidLedger.enabled()&&ad.campaignId){
+      const raw=String(req.query?.ticket||'');
+      const id=raw.split('.')[0];
+      const ticket=/^[a-f0-9]{32}$/.test(id)?
+       await Ticket.findById(id).lean():null;
+      if(!paidLedger.verifyCapability(raw,ticket,paidLedger.clientKey(req))||
+        String(ticket.creativeId)!==String(ad._id)||ticket.kind!=='audio'||
+        ticket.status!=='active')
+       return res.status(403).json({error:'Valid paid delivery ticket required'});
+    }
     await sendAdAudio(res,ad.audioUrl);
   }catch(error){
     console.error('[ADS] Playback media failed',error.message);
