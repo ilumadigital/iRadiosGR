@@ -88,7 +88,7 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
   }).session(session).lean();
   if(!fresh)throw fail('Campaign no longer eligible');
   const lots=await Lot.find({campaignId:campaign._id,source:'nexi_verified',
-   remainingNanos:{$gte:amount},budgetNanos:{$ne:null}})
+   remainingNanos:{$gte:amount},budgetNanos:{$ne:null},rateModel:'v2_event'})
    .sort({paidAt:1,_id:1}).session(session).lean();
   const lot=lots.find(l=>Number.isSafeInteger(l.remainingNanos)&&
    l.remainingNanos-(l.reservedNanos||0)>=amount);
