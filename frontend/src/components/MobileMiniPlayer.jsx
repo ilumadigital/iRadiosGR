@@ -163,7 +163,11 @@ export default function MobileMiniPlayer({
   const handleAdClick = (e) => {
     if (isPlayingAd && currentAdInfo?.linkUrl) {
       e.stopPropagation(); 
-      fetch(`/api/ads/${currentAdInfo._id}/click`, { method: 'POST' }).catch(() => {});
+      fetch(currentAdInfo.ticketCapability?'/api/advertising/v2/click':`/api/ads/${currentAdInfo._id}/click`, {
+        method:'POST',headers:currentAdInfo.ticketCapability?{'Content-Type':'application/json',
+         ...(localStorage.getItem('iluma_token')?{Authorization:'Bearer '+localStorage.getItem('iluma_token')}:{})}:undefined,
+        body:currentAdInfo.ticketCapability?JSON.stringify({capability:currentAdInfo.ticketCapability}):undefined
+      }).catch(()=>{});
       const separator = currentAdInfo.linkUrl.includes('?') ? '&' : '?';
       window.open(`${currentAdInfo.linkUrl}${separator}${utmParams}`, '_blank', 'noopener,noreferrer');
     }
@@ -299,6 +303,7 @@ export default function MobileMiniPlayer({
 
   const openDevices = () => {
     if(!currentUser){navigate('/login');return;}
+    onRequestDevices?.();
     onOpenDevices?.();
   };
 

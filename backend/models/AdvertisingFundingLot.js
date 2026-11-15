@@ -12,6 +12,8 @@ const schema=new mongoose.Schema({
  // Legacy micros are a rounded read-model and never authorize a debit.
  budgetNanos:{type:Number,min:0},
  remainingNanos:{type:Number,min:0},
+ // Funds held for authenticated delivery tickets, never spent until qualified.
+ reservedNanos:{type:Number,default:0,min:0},
  // Legacy atomic embedded receipts remain the default. High-volume wallet
  // debits use full MongoDB transactions only after staged replica-set UAT.
  settlementMode:{type:String,enum:['embedded_receipts','mongo_transaction_v2'],
@@ -25,6 +27,8 @@ const schema=new mongoose.Schema({
  },{_id:false})],default:[]},
  priceVersion:{type:Number,required:true},
  ratesMicros:{type:mongoose.Schema.Types.Mixed,required:true},
+ rateModel:{type:String,enum:['legacy_cpm','v2_event'],default:'legacy_cpm'},
+ rateCardSnapshot:{type:mongoose.Schema.Types.Mixed,default:null},
  currency:{type:String,enum:['EUR'],default:'EUR'},
  source:{type:String,enum:['nexi_verified','admin_complimentary'],default:'nexi_verified'},
  paidAt:{type:Date,required:true}

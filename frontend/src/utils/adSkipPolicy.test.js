@@ -25,56 +25,49 @@ test('a single spot becomes skippable after 15 audible seconds only when longer 
     assert.equal(secondsUntilAdSkip(after,duration),0);
   }
 });
-test('a multi-spot break unlocks skip after 15 audible seconds total, even with short spots',()=>{
-  // First ad finishes after 8 seconds. Source changes do not reset accrued time.
-  let clock=play(8,8).clock;
-  assert.equal(canSkipAd(clock,8,true),false);
-  clock=suspendAdListenClock(clock);
-  clock=resumeAdListenClock(clock,0,8000);
-  for(let i=1;i<=6;i++){
-    clock=sampleAdListenClock(clock,{position:i,now:8000+i*1000});
-  }
-  assert.equal(secondsUntilAdSkip(clock,8,true),1);
-  assert.equal(canSkipAd(clock,8,true),false);
-  clock=sampleAdListenClock(clock,{position:7,now:15000});
-  assert.equal(secondsUntilAdSkip(clock,8,true),0);
-  assert.equal(canSkipAd(clock,8,true),true);
-  // Standalone short spots must not become skippable.
-  assert.equal(canSkipAd(clock,8),false);
-  assert.equal(secondsUntilAdSkip(clock,8),null);
+test('two-spot break requires forty cumulative audible seconds',()=>{
+ let clock=play(20,20).clock;
+ assert.equal(canSkipAd(clock,20,2),false);
+ clock=resumeAdListenClock(suspendAdListenClock(clock),0,20000);
+ for(let second=1;second<=19;second++)
+  clock=sampleAdListenClock(clock,{position:second,now:20000+second*1000});
+ assert.equal(secondsUntilAdSkip(clock,20,2),1);
+ assert.equal(canSkipAd(clock,20,2),false);
+ clock=sampleAdListenClock(clock,{position:20,now:40000});
+ assert.equal(canSkipAd(clock,20,2),true);
+ assert.equal(secondsUntilAdSkip(clock,20,2),0);
 });
-test('three consecutive spots share the same 15-second listening threshold',()=>{
-  let clock=newAdListenClock();
-  let now=0;
-  for(const duration of [5,6]){
-    clock=resumeAdListenClock(clock,0,now);
-    for(let second=1;second<=duration;second++)
-      clock=sampleAdListenClock(clock,{position:second,now:now+second*1000});
-    now+=duration*1000;
-    clock=suspendAdListenClock(clock);
-    assert.equal(canSkipAd(clock,duration,true),false);
-  }
+test('three consecutive spots share the 55-second listening threshold',()=>{
+ let clock=newAdListenClock(),now=0;
+ for(const duration of [20,20]){
   clock=resumeAdListenClock(clock,0,now);
-  for(let second=1;second<=4;second++)
-    clock=sampleAdListenClock(clock,{position:second,now:now+second*1000});
-  assert.equal(clock.seconds,15);
-  assert.equal(canSkipAd(clock,20,true),true);
-  assert.equal(secondsUntilAdSkip(clock,20,true),0);
+  for(let second=1;second<=duration;second++)
+   clock=sampleAdListenClock(clock,{position:second,now:now+second*1000});
+  now+=duration*1000;
+  clock=suspendAdListenClock(clock);
+  assert.equal(canSkipAd(clock,duration,3),false);
+ }
+ clock=resumeAdListenClock(clock,0,now);
+ for(let second=1;second<=15;second++)
+  clock=sampleAdListenClock(clock,{position:second,now:now+second*1000});
+ assert.equal(clock.seconds,55);
+ assert.equal(canSkipAd(clock,20,3),true);
+ assert.equal(secondsUntilAdSkip(clock,20,3),0);
+ assert.equal(canSkipAd(clock,20,3,true),false);
 });
-test('skipped media, stalls, and pauses do not inflate a multi-spot break clock',()=>{
-  let clock=play(10,10).clock;
-  clock=suspendAdListenClock(clock);
-  clock=resumeAdListenClock(clock,0,20000);
-  clock=sampleAdListenClock(clock,{position:0,now:50000,readyState:1});
-  assert.equal(secondsUntilAdSkip(clock,20,true),5);
-  clock=sampleAdListenClock(clock,{position:12,now:50100,seeking:true});
-  assert.equal(secondsUntilAdSkip(clock,20,true),5);
-  clock=suspendAdListenClock(clock);
-  clock=resumeAdListenClock(clock,12,51000);
-  for(let i=1;i<=5;i++){
-    clock=sampleAdListenClock(clock,{position:12+i,now:51000+i*1000});
-  }
-  assert.equal(canSkipAd(clock,20,true),true);
+test('skipped media, stalls and pauses cannot inflate a multi-spot clock',()=>{
+ let clock=play(10,10).clock;
+ clock=suspendAdListenClock(clock);
+ clock=resumeAdListenClock(clock,0,20000);
+ clock=sampleAdListenClock(clock,{position:0,now:50000,readyState:1});
+ assert.equal(secondsUntilAdSkip(clock,20,2),30);
+ clock=sampleAdListenClock(clock,{position:12,now:50100,seeking:true});
+ assert.equal(secondsUntilAdSkip(clock,20,2),30);
+ clock=suspendAdListenClock(clock);
+ clock=resumeAdListenClock(clock,12,51000);
+ for(let i=1;i<=5;i++)
+  clock=sampleAdListenClock(clock,{position:12+i,now:51000+i*1000});
+ assert.equal(canSkipAd(clock,20,2),false);
 });
 test('buffering or paused playback never advances skip time',()=>{
   let state=play(10).clock;

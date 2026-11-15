@@ -12,6 +12,7 @@ const factory=vm.runInNewContext('(function(require,module,exports){\n'+script+'
 factory(name=>{
   if(name==='../models/Station')return {};
   if(name==='../utils/scheduleNormalization')return {normalize};
+  if(name==='./liveUpdates')return {publish:()=>{}};
   return require(name);
 },sandbox.module,sandbox.exports);
 const {parseXml,rowsFromXml,rowsFromJson,mapRows,previewRows,dayNumber,timeString,

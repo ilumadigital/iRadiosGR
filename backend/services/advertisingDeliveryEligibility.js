@@ -8,6 +8,52 @@ const User=require('../models/User');
 const {paidPlacementPreviewEnabled,affordablePaidPreview}=
  require('./advertisingStagePaidPreview');
 const ATOMIC_SETTLEMENT_IMPLEMENTED=false;
+// The new paid ledger is isolated behind its own staging+secret gate.
+const ledger=require('./advertisingV2Ledger');
+const Daily=require('../models/AdvertisingDailyBudget');
+const {athensDay,validDailyBudget,eventReserveNanos,NANOS_PER_CENT}=
+ require('./advertisingV2Policy');
+async function liveEligibleCreatives(creatives,now){
+ const ids=[...new Set(creatives.map(c=>c.campaignId).filter(Boolean).map(String))];
+ if(!ids.length)return creatives.filter(c=>!c.campaignId);
+ const campaigns=await Campaign.find({_id:{$in:ids},workflowVersion:2,
+  approvalStatus:'approved',agencyEnabled:true,adminSuspended:false,
+  isStageCampaign:true,deletedAt:null,startsAt:{$lte:now},endsAt:{$gt:now}})
+  .select('_id agencyId plannedBudgetCents dailyBudgetCents createdByRole').lean();
+ const map=new Map(campaigns.map(c=>[String(c._id),c]));
+ const idsOk=campaigns.filter(c=>c.createdByRole==='agency'&&
+  validDailyBudget(c.dailyBudgetCents,c.plannedBudgetCents)).map(c=>c._id);
+ const [lots,dailies]=await Promise.all([
+  FundingLot.find({campaignId:{$in:idsOk},source:'nexi_verified',
+   budgetNanos:{$ne:null},remainingNanos:{$gt:0},rateModel:'v2_event'})
+   .select('campaignId remainingNanos reservedNanos').lean(),
+  Daily.find({campaignId:{$in:idsOk},day:athensDay(now)})
+   .select('campaignId spentNanos reservedNanos limitNanos').lean()
+ ]);
+ const byLot=new Map(),byDay=new Map();
+ for(const lot of lots){const key=String(lot.campaignId);
+  byLot.set(key,(byLot.get(key)||0)+Math.max(0,lot.remainingNanos-(lot.reservedNanos||0)));
+ }
+ for(const day of dailies)byDay.set(String(day.campaignId),
+  Math.max(0,day.limitNanos-day.spentNanos-day.reservedNanos));
+ return creatives.filter(creative=>{
+  if(!creative.campaignId)return true;
+  const id=String(creative.campaignId),c=map.get(id);
+  if(!c||String(creative.agencyId)!==String(c.agencyId))return false;
+  if(c.createdByRole==='admin')return true;
+  if(!validDailyBudget(c.dailyBudgetCents,c.plannedBudgetCents))return false;
+  const available=Math.min(byLot.get(id)||0,byDay.has(id)?
+   byDay.get(id):c.dailyBudgetCents*NANOS_PER_CENT);
+  const places=Array.isArray(creative.placement)?creative.placement:
+   Array.isArray(creative.frequencies)&&creative.frequencies.length?
+    creative.frequencies:[creative.frequency];
+  return places.some(p=>{
+   try{return available>=eventReserveNanos(
+    Array.isArray(creative.placement)?'visual':'audio',p);}
+   catch{return false;}
+  });
+ });
+}
 
 // Return exact eligible creative ids; a banner with hero and standard
 // placements must afford BOTH, not just some other creative in its campaign.
@@ -83,6 +129,7 @@ async function eligibleCampaignIds(creatives,now=new Date()){
 }
 async function filterFundedCreatives(creatives,now=new Date()){
  if(!creatives.length)return [];
+ if(ledger.enabled())return liveEligibleCreatives(creatives,now);
  if(!ATOMIC_SETTLEMENT_IMPLEMENTED&&process.env.APP_ENV==='staging'){
   const permitted=await stageEligibleCreativeIds(creatives,now);
   return creatives.filter(ad=>!ad.campaignId||permitted.has(String(ad._id)));

@@ -110,7 +110,7 @@ async function main(){
     const source=read('frontend/src/pages/'+page+'.jsx');
     assert.ok(source.includes('buildSponsoredCatalog')&&source.includes('sponsored={sponsored}'),
       page+' must inject and label scoped paid placements');
-    assert.ok(source.includes('allStations:stations,'),
+    assert.ok(/allStations:(?:noCommercialAds\?baseStations:stations|stations),/.test(source),
       page+' must not exclude Promoted stations from paid Sponsored inventory');
   }
   const admin=read('frontend/src/pages/Boost.jsx');

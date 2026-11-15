@@ -106,6 +106,9 @@ Module._load=function(name,parent,isMain){
     };
     if(name==='multer')return multer;
     if(name==='../models/Station')return Station;
+    if(name==='../services/broadcasterStreamHealth')return {
+      checkBroadcasterStream:async()=>({ok:true})
+    };
     // The Admin ranking projection is a read-only dependency, mocked here
     // so role isolation tests cannot open a real MongoDB billing connection.
     if(name==='../models/PromotedStation')return {
@@ -219,7 +222,7 @@ async function main(){
   ]});
   assert.equal(schedule.code,200,'assigned producer manages weekly programming');
   assert.equal(all[0].schedule[0].title,'Breakfast');
-  const greekLocation={country:'Ελλάδα',region:'Αττική',prefecture:'Αττική',city:'Αθήνα'};
+  const greekLocation={country:'Ελλάδα',region:'Αττική',prefecture:'Αττική',city:'Αθήνα',hasCommercialAds:false};
   const invalidCategories=await call('POST','/backoffice/stations',owner,
     {...greekLocation,name:'Invalid',genre:'House',stream:'https://radio.example/other'});
   assert.equal(invalidCategories.code,400,'legacy-only categories are not valid for new stations');

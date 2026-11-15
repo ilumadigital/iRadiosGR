@@ -66,6 +66,6 @@ test('audio player honors latest selection and only logs actually playing spots'
   assert.match(app,/selectStationBreak\(ads,clicks,station/);
   assert.match(app,/pendingStation\.current = station; return;/);
   assert.match(app,/onPlaying=\{\(\) => \{/);
-  assert.match(app,/ad\.started = true/);
+  assert.match(app,/ad\.started\s*=\s*true/);
   assert.match(app,/playNextAdOrStation\(\)/);
 });

@@ -12,6 +12,9 @@ const execFileAsync=promisify(execFile);
 const Station=require('../models/Station');
 const mongoose=require('mongoose');
 const {hasStationRight}=require('../services/billingEntitlements');
+const {TOO_LONG_MESSAGE,TOO_SHORT_MESSAGE,isAudioSpotTooLong,
+  isAudioSpotTooShort,isPlayableAudioDuration}=
+  require('../services/adAudioDurationRules');
 
 // ==========================================
 // 1. STORAGE ΓΙΑ ΗΧΗΤΙΚΑ ΣΠΟΤ (AUDIO)
@@ -100,8 +103,8 @@ async function validatePlayableAdAudio(file) {
   const info=JSON.parse(stdout);
   const codec=info.streams?.[0]?.codec_name;
   const duration=Number(info.format?.duration);
-  return Boolean(codecs[extension]?.has(codec) &&
-    Number.isFinite(duration) && duration>=0.5 && duration<=600);
+  return {duration,valid:Boolean(codecs[extension]?.has(codec)&&
+    isPlayableAudioDuration(duration))};
 }
 
 // ==========================================
@@ -166,16 +169,31 @@ router.post('/upload-ad',protect,requireAdUploadEntitlement,
   uploadAudio.single('audioFile'),async(req,res)=>{
     if(!req.file)return res.status(400).json({error:'Δεν βρέθηκε αρχείο.'});
     try {
-      if(!mediaSignatureMatches(req.file) ||
-        (process.env.APP_ENV==='staging'&&!await validatePlayableAdAudio(req.file)))
-        throw new Error('Invalid or unsupported audio codec/duration');
+      if(!mediaSignatureMatches(req.file))
+        throw new Error('Invalid audio signature');
+      // Real ffprobe inspection (never browser-supplied metadata). Broadcaster
+      // Ad Control retains its existing duration policy; iRadios Agency/Admin
+      // spots are capped at 46 seconds in all environments.
+      const isNetworkSpot=['agency','admin'].includes(req.user.role);
+      if(isNetworkSpot||process.env.APP_ENV==='staging'){
+        const audio=await validatePlayableAdAudio(req.file);
+        if(isNetworkSpot&&isAudioSpotTooLong(audio.duration))
+          throw new Error('AD_AUDIO_TOO_LONG');
+        if(isNetworkSpot&&isAudioSpotTooShort(audio.duration))
+          throw new Error('AD_AUDIO_TOO_SHORT');
+        if(!audio.valid)throw new Error('Invalid or unsupported audio codec/duration');
+      }
       const safeUserId=String(req.user._id);
       return res.json({success:true,
         url:`__IRADIOS_SITE_ORIGIN__/media/audio/${safeUserId}/${req.file.filename}`});
     }catch(error){
       try{fs.unlinkSync(req.file.path);}catch{}
       console.warn('[ADS] Rejected audio upload:',error.message);
-      return res.status(415).json({error:'Το αρχείο δεν αναπαράγεται σωστά. Ανέβασε MP3 ή WAV με έγκυρο codec και διάρκεια έως 10 λεπτά.'});
+      const tooLong=error.message==='AD_AUDIO_TOO_LONG';
+      const tooShort=error.message==='AD_AUDIO_TOO_SHORT';
+      return res.status(tooLong||tooShort?422:415).json({error:tooLong?TOO_LONG_MESSAGE:
+        tooShort?TOO_SHORT_MESSAGE:
+        'Το αρχείο δεν αναπαράγεται σωστά. Ανέβασε MP3, WAV ή OGG με έγκυρο codec.'});
     }
   });
 

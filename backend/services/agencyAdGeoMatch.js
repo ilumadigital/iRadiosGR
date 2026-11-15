@@ -28,7 +28,8 @@ function matchesAgencyGeo(campaign,geo) {
 function matchesDeliveryGeo(creative,req){
  if(matchesAgencyGeo(creative,req?.geo))return true;
  const {paidPlacementPreviewEnabled}=require('./advertisingStagePaidPreview');
- return paidPlacementPreviewEnabled()&&req?.adGeoTrusted===false&&
+ return !require('./advertisingV2Ledger').enabled()&&
+  paidPlacementPreviewEnabled()&&req?.adGeoTrusted===false&&
   Boolean(creative?.campaignId);
 }
 module.exports={matchesAgencyGeo,matchesDeliveryGeo};

@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const player = read('frontend/src/components/MobileMiniPlayer.jsx');
+const devicePicker = read('frontend/src/components/DevicePicker.jsx');
 const artwork = read('frontend/src/components/FullscreenArtwork.jsx');
 const onAirShow = read('frontend/src/components/OnAirShowCard.jsx');
 const sharedCss = read('frontend/src/styles/fullscreen-player.css');
@@ -17,6 +18,8 @@ const stationPage = read('frontend/src/pages/StationProfile.jsx');
 const mobileStation = read('frontend/src/components/MobileStationShowcase.jsx');
 const storyUtility = read('frontend/src/utils/storyShare.js');
 const mobileStationCss = read('frontend/src/styles/station-profile.css');
+assert.ok(devicePicker.includes('onTransfer(device.deviceId)'),
+  'shared DevicePicker must support transferring playback');
 
 for(const text of [
   'showCoverArt ? globalCoverArt : null',
@@ -28,8 +31,7 @@ for(const text of [
   'handlePrevStation()', 'handleNextStation()',
   'togglePlayPause', 'ir-glass-transport',
   'openCarMode', 'openDevices', 'onRequestDevices?.()',
-  'onTransferPlayback?.(device.deviceId)',
-  'ir-glass-sheet-layer', 'ir-glass-primary-actions',
+  'ir-glass-layout', 'ir-glass-primary-actions',
   'onClick={openStationProfile}',
   'ir-glass-primary-actions', 'onShuffleToggle', 'handleRadarClick',
   'MusicServiceLinks song={nowPlaying}', 'ir-mini-player'
@@ -76,7 +78,7 @@ assert.match(glass, /\.ir-glass-header__close\s*\{[^}]*border:0;border-radius:0;
 assert.ok(mobileStation.includes("'στο iRadiosGR'") && player.includes("'στο iRadiosGR'"),
   'mobile fallback copy uses iRadiosGR');
 assert.ok(stationPage.includes('<ShareStory') && mobileStation.includes('<ShareStory'), 'Story must work on desktop/mobile station profiles');
-for(const value of ['width: 1080', 'height: 1920', 'Powered by ILUMA Digital Agency', "loadImage('/noicon-iradios-app-logo.svg')", 'downloadStory(file)', 'navigator.share']) {
+for(const value of ['width: 1080', 'height: 1920', 'Powered by ILUMA Digital Agency', "loadImage('/noicon-iradios-app-logo.png')", 'downloadStory(file)', 'navigator.share']) {
   assert.ok(storyUtility.includes(value), 'missing branded 9:16 story contract: '+value);
 }
 

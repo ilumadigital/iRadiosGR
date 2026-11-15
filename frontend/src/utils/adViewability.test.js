@@ -105,10 +105,12 @@ test('missing observer APIs fail closed instead of treating loading as a view',(
  stop();
  assert.equal(count,0);
 });
-test('listener banner metric integration remains legacy-only and uses tracker',()=>{
+test('listener banner metric integration uses 300ms and never bills legacy counters for v2',()=>{
  const src=fs.readFileSync(new URL('../components/AdPlacementLink.jsx',import.meta.url),'utf8');
  assert.match(src,/startVisualViewabilityTracking\(node\.current/);
- assert.match(src,/minimumMs:\(placement\|\|banner\.placement\?\.\[0\]\)==='hero'\?2000:1000/);
+ assert.match(src,/minimumMs:300,threshold:0\.5/);
+ assert.match(src,/if\(paid\)/);
+ assert.match(src,/postPaid\('heartbeat'/);
  assert.doesNotMatch(src,/typeof IntersectionObserver==='undefined'\)\{track\(\)/);
  const controller=fs.readFileSync(new URL('../../../backend/controllers/bannerController.js',import.meta.url),'utf8');
  assert.match(controller,/if\(!live\(banner\)\|\|banner\.campaignId\)/);

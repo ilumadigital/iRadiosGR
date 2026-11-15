@@ -36,7 +36,8 @@ function trustedAdGeo(req,res,next){
  // switch is explicitly enabled. This is FIXTURE geo, NOT a visitor location.
  // Do not use this fallback in production or for any real paid accounting.
  const {paidPlacementPreviewEnabled}=require('../services/advertisingStagePaidPreview');
- req.geo=trusted||(paidPlacementPreviewEnabled()?{
+ const {enabled:paidV2Enabled}=require('../services/advertisingV2Ledger');
+ req.geo=trusted||(!paidV2Enabled()&&paidPlacementPreviewEnabled()?{
   country:'Ελλάδα',region:'Αττική',prefecture:'Αττική'
  }:null);
  next();

@@ -6,6 +6,8 @@ const adSchema = new mongoose.Schema({
   audioUrl: { type: String, required: true },
   logoUrl: { type: String },
   linkUrl: { type: String, default: '' },
+  // A single audio creative may participate in multiple priced placements.
+  frequencies:{type:[String],default:[]},
   frequency: { 
     type: String, 
     required: true, 
@@ -13,7 +15,7 @@ const adSchema = new mongoose.Schema({
       // Zapping (Event-based)
       'entry', 'every_2_stations', 'every_4_stations', 'every_5_stations', 'every_10_stations', 'every_15_stations', 'every_20_stations', 'every_30_stations', 
       // Time-based
-      'every_1_hour', 'every_2_hours', 'every_6_hours', 'once_a_day', 'twice_a_day', 'four_times_a_day', 'once_a_week'
+      'every_1_hour', 'every_2_hours', 'every_6_hours', 'once_a_day', 'twice_a_day', 'four_times_a_day', 'six_times_a_day', 'once_a_week'
     ] 
   },
   dspPreset: { type: String, default: 'OFF' },

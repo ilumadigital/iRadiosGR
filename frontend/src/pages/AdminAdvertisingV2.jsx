@@ -162,9 +162,27 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
      <h2 className="text-xl font-black text-white">Τιμολόγηση διαφημίσεων</h2>
      <span className="rounded-full bg-purple-500/15 px-3 py-1 text-sm text-purple-100">Έκδοση {pricing.version}</span>
     </div>
-    <p className="text-sm text-zinc-400">Αλλαγές τιμών εφαρμόζονται μόνο σε νέες αγορές και top-ups. Τα παλαιά funding lots κρατούν τις αρχικές CPM τιμές τους.</p>
+    <p className="text-sm text-zinc-400">Advertising v2: Audio χρέωση ανά έγκυρο γεγονός, όχι CPM. Visual CPM: Hero 8€, υπόλοιπες θέσεις 4€. Οι τιμές των παλαιών CPM καμπανιών παραμένουν ιστορικές· δεν μετατρέπονται αυτόματα.</p>
+    <div className="overflow-x-auto rounded-2xl border border-white/10 bg-black/20 p-4">
+     <h3 className="mb-3 text-sm font-black text-white">Audio v2 · ανά γεγονός (σταθερός τιμοκατάλογος)</h3>
+     <table className="w-full min-w-[560px] text-xs text-zinc-200">
+      <thead><tr className="text-left text-zinc-400"><th className="py-2">Placement</th><th>Ακρόαση 10″</th><th>CTA επιπλέον</th><th>Ολοκλήρωση επιπλέον</th></tr></thead>
+      <tbody>{[
+       ['First Play','0,360€','1,360€','0,090€'],
+       ['Ανά 5 σταθμούς','0,190€','0,850€','0,070€'],
+       ['Ανά 10 σταθμούς','0,122€','0,850€','0,070€'],
+       ['Ανά 20 σταθμούς','0,092€','0,850€','0,070€'],
+       ['Ανά 30 σταθμούς','0,068€','0,850€','0,070€'],
+       ['2 φορές ημερησίως','0,042€','0,850€','0,070€'],
+       ['4 φορές ημερησίως','0,218€','0,850€','0,070€'],
+       ['6 φορές ημερησίως','0,431€','0,850€','0,070€']
+      ].map(row=><tr key={row[0]} className="border-t border-white/10">
+       {row.map((v,i)=><td key={i} className="py-2 pr-3">{v}</td>)}</tr>)}</tbody>
+     </table>
+     <p className="mt-3 text-xs text-zinc-400">Ακριβές κόστος υπολογίζεται από το πραγματικό placement και τα ξεχωριστά server-qualified γεγονότα.</p>
+    </div>
     <div className="grid gap-4 sm:grid-cols-3">
-     {['standard','hero','audio'].map(key=><TextField key={key} label={{standard:'Standard Banner CPM (€)',hero:'Homepage Hero CPM (€)',audio:'Audio CPM (€)'}[key]}
+     {['standard','hero','audio'].map(key=><TextField key={key} label={{standard:'Ιστορικό Standard CPM (€)',hero:'Ιστορικό Hero CPM (€)',audio:'Ιστορικό Audio CPM (€) · μόνο legacy'}[key]}
       value={rate(pricing.cpmMicros?.[key])} onChange={v=>updateRate(key,v)} step="0.001"/>)}
     </div>
     <div className="grid gap-4 sm:grid-cols-3">

@@ -14,6 +14,7 @@ const schema=new mongoose.Schema({
  workflowVersion:{type:Number,default:1},
  createdByRole:{type:String,enum:['agency','admin'],default:'agency'},
  plannedBudgetCents:{type:Number,default:0,min:0,max:100000000},
+ dailyBudgetCents:{type:Number,default:0,min:0,max:100000000},
  submittedAt:{type:Date,default:null},
  agencyEnabled:{type:Boolean,default:true},
  adminSuspended:{type:Boolean,default:false},
