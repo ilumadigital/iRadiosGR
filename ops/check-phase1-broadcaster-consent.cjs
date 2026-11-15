@@ -49,8 +49,13 @@ assert.ok(terms.includes("window.location.assign(destination)")&&terms.includes(
  'Accepted agreement routes directly to the isolated Backoffice');
 assert.ok(terms.includes("requiredBroadcasterTermsVersion")&&terms.includes("'/auth/me'"),
  'Accepting terms requires a signed account and current legal version');
-assert.ok(terms.includes('id="term-11"')&&terms.includes('type="checkbox"'),
- 'All 11 legal sections and explicit consent control remain visible');
+const legal=fs.readFileSync(path.join(__dirname,'../frontend/src/pages/legalDocuments.js'),'utf8');
+assert.ok(terms.includes('document={broadcasters}')&&terms.includes('type="checkbox"')&&
+  legal.includes("title:'Όροι Χρήσης Broadcasters'")&&
+  ['Add-ons ανά σταθμό','Broadcaster Premium σε επίπεδο λογαριασμού',
+   'Boost και πρόσθετη προβολή','Ακύρωση, λήξη και παραστατικά',
+   'Stream, άδειες και πνευματικά δικαιώματα'].every(label=>legal.includes(label)),
+ 'Shared full legal agreement retains all core disclosures and explicit consent control');
 
 assert.ok(app.includes("if(location.pathname==='/broadcaster-invite')return <StandaloneBroadcasterInvitation/>;"),
  'Invitation completion after consent cannot mount the listener player');

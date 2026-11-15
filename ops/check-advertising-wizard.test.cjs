@@ -12,7 +12,7 @@ const webhook=read('backend/services/advertisingPaymentEvents.js');
 const agency=read('backend/routes/agencyRoutes.js');
 const auto=read('backend/services/advertisingAutoSubmission.js');
 
-test('Agency wizard ends at Nexi payment and queues Admin review automatically',()=>{
+test('Agency wizard ends at hosted payment and queues Admin review automatically',()=>{
  for(const label of ['Καμπάνια','Visual / Audio','Budget','Overview','Πληρωμή'])
   assert.ok(ui.includes("title:'"+label+"'"),label);
  assert.ok(ui.includes("admin?[...stages.slice(0,4)"));
@@ -23,10 +23,10 @@ test('Agency wizard ends at Nexi payment and queues Admin review automatically',
  assert.match(webhook,/await submitPaidCampaign\(campaign\._id\)/);
  assert.ok(ui.includes('estimatedImpressions'));
  assert.ok(ui.includes('quote.paymentCents'));
- assert.ok(ui.includes('Μόνο το υπογεγραμμένο webhook της Nexi πιστώνει το budget.'));
+ assert.ok(ui.includes('Μόνο η επαληθευμένη επιβεβαίωση πληρωμής από το Gateway πιστώνει το budget.'));
  assert.ok(ui.includes('window.setInterval(refresh,6000)'));
  assert.ok(ui.includes("await request('/api/advertising/payments/'+intent._id)"));
- assert.ok(ui.includes('Μόνο το υπογεγραμμένο webhook') || ui.includes('μόνο το υπογεγραμμένο webhook'));
+ assert.ok(ui.includes('Μόνο η επαληθευμένη επιβεβαίωση πληρωμής') || ui.includes('μόνο το υπογεγραμμένο webhook'));
  assert.ok(!ui.includes('server-side sandbox payment flag'));
  assert.ok(read('frontend/src/pages/AgencyAdvertisingV2.jsx').includes('<AdvertisingCampaignWizard role="agency"/>'));
  assert.ok(read('frontend/src/pages/AdminAdvertisingV2.jsx').includes('<AdvertisingCampaignWizard role="admin"'));
