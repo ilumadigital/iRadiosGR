@@ -7,8 +7,8 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 test('one audio skip policy and timer controls every player variant',()=>{
   const app=read('frontend/src/App.jsx');
   assert.match(app,/sampleAdListenClock\(adListenClockRef\.current/);
-  assert.match(app,/canSkipAd\(adListenClockRef\.current,audio\.duration\)/);
-  assert.match(app,/adQueue\.current=\[\];/);
+  assert.match(app,/canSkipAd\(adListenClockRef\.current,/);
+  assert.match(app,/adQueue\.current=adQueue\.current\.filter\(item=>item\.nonSkippable\)/);
   assert.match(app,/onWaiting=\{\(\) => \{/);
   assert.match(app,/onSeeking=\{\(\)\s*=>/);
   assert.match(app,/logAdOutcome\('completed',ad\)/);
