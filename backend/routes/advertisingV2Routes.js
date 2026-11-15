@@ -17,6 +17,8 @@ const {matchesAgencyGeo}=require('../services/agencyAdGeoMatch');
 const ledger=require('../services/advertisingV2Ledger');
 const {durationForAudio}=require('../services/advertisingQualificationEngine');
 const policy=require('../services/advertisingV2Policy');
+const {analyzeAvailability}=require('../services/advertisingV2CampaignAvailability');
+const {localAudioFile}=require('../services/adAudioDelivery');
 const {aggregateBalances}=require('../services/advertisingBalances');
 const {protect}=require('../utils/authMiddleware');
 const ID=/^[a-f0-9]{24}$/i;
@@ -177,6 +179,24 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
   const dayAvailableNanos=today?
    Math.max(0,today.limitNanos-today.spentNanos-today.reservedNanos):
    campaign.dailyBudgetCents*policy.NANOS_PER_CENT;
+  // A single ticket reserves the COMPLETE potential event cost. Do not
+  // report active distribution merely because 0.01 EUR remains in the day.
+  // Compare every active placement against the day AND one indivisible lot.
+  const now=new Date();
+  const [liveAudio,liveBanners]=await Promise.all([
+   Audio.find({campaignId:campaign._id,agencyId:campaign.agencyId,
+    isStageCreative:true,status:'active',expiresAt:{$not:{$lte:now}}})
+    .select('status isStageCreative audioUrl frequency frequencies').lean(),
+   Banner.find({campaignId:campaign._id,agencyId:campaign.agencyId,
+    isStageCreative:true,status:'active',isActive:true,
+    expiresAt:{$not:{$lte:now}}})
+    .select('status isStageCreative isActive imageUrl placement').lean()
+  ]);
+  const checkedAudio=await Promise.all(liveAudio.map(async ad=>({
+   ...ad,mediaReady:Boolean(await localAudioFile(ad.audioUrl))
+  })));
+  const capacity=analyzeAvailability({audios:checkedAudio,banners:liveBanners,
+   eligibleLots,dayAvailableNanos:dayAvailableNanos});
   const time=Date.now();
   const campaignRunning=campaign.approvalStatus==='approved'&&
    campaign.agencyEnabled===true&&campaign.adminSuspended!==true&&
@@ -195,8 +215,14 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
     trustedGeoReady:req.adGeoTrusted===true,
     compatibleFunding:eligibleLotCount>0,
     campaignRunning,
+    hasEligibleCreative:capacity.hasEligibleCreative,
+    minimumReservationNanos:capacity.minimumReservationNanos,
+    dayShortfallNanos:capacity.dayShortfallNanos,
+    nextTicketAffordable:capacity.nextTicketAffordable,
+    dayCapable:capacity.dayCapable,walletCapable:capacity.walletCapable,
+    placements:capacity.slots,
     payable:readiness.acceptingTickets&&req.adGeoTrusted===true&&
-     campaignRunning&&compatibleAvailableNanos>0&&dayAvailableNanos>0},
+     campaignRunning&&capacity.nextTicketAffordable},
    activeReservations:reservations,skips:skips.map(x=>({placement:x._id,count:x.count})),
    daily:daily.map(x=>({
     day:x.day,spentNanos:x.spentNanos,reservedNanos:x.reservedNanos})),

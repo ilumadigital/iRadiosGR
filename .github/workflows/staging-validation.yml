@@ -114,6 +114,8 @@ jobs:
         run: node --test backend/tests/advertisingPaidPlacementPreview.test.cjs
       - name: Guard guest Advertising v2 tickets, transactional Mongo readiness and honest Agency balances
         run: node --test backend/tests/advertisingV2PaidDeliveryReadiness.test.cjs
+      - name: Guard editable Agency daily caps, trustworthy availability and Campaign Manager
+        run: node --test backend/tests/advertisingV2CampaignAvailability.test.cjs backend/tests/agencyDailyBudgetContracts.test.cjs
       - name: Verify exact CPM nanos and fail-closed advertising financial/legacy metrics guards
         run: node --test backend/tests/advertisingV2FinancialGuards.test.cjs
       - name: Simulate concurrent atomic CPM claims, funded balance depletion and recovery

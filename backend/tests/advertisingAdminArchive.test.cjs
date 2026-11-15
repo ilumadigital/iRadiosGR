@@ -59,6 +59,7 @@ function testEnvironment(){
   '../services/advertisingBalances':{aggregateBalances:()=>({fundedMicros:0,remainingMicros:0})},
   '../services/advertisingBudgetAffordability':{},
   '../services/advertisingStageQa':{},
+  '../services/advertisingDailyBudgetManager':{},
   '../services/advertisingCampaignMailScheduler':{start(){}}
  };
  const module={exports:{}};

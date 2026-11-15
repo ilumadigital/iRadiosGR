@@ -9,6 +9,7 @@ import VisualAdStudioControls from '../components/VisualAdStudioControls';
 import {adDesignFor} from '../utils/adVisualDesign';
 import AgencyCampaignTopUp from './AgencyCampaignTopUp';
 import AdvertisingV2CampaignStats from '../components/AdvertisingV2CampaignStats';
+import AgencyCampaignControl from '../components/AgencyCampaignControl';
 import {ArrowLeft,ArrowRight,AudioLines,BadgeCheck,BarChart3,Check,CheckCircle2,
  ChevronRight,CircleAlert,Clock3,CreditCard,FileCheck2,Image as ImageIcon,
  LayoutGrid,Loader2,MapPin,Mic2,Plus,RefreshCw,ShieldCheck,Trash2,
@@ -21,6 +22,7 @@ const primary='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl
 const secondary='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[.035] px-5 py-3 text-sm font-bold text-zinc-200 transition hover:border-purple-300/35 hover:bg-white/[.065] disabled:opacity-40';
 const card='rounded-2xl border border-white/10 bg-black/25 p-4';
 const euro=value=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'}).format(Number(value||0));
+const moneyCentsSafe=value=>euro(Number(value||0)/100);
 const num=value=>new Intl.NumberFormat('el-GR',{maximumFractionDigits:0}).format(Number(value||0));
 const toLocal=millis=>{
  const d=new Date(millis);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
@@ -189,8 +191,20 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const [uploading,setUploading]=useState(false),[loading,setLoading]=useState(true);
  const [error,setError]=useState(''),[notice,setNotice]=useState('');
  const [checkoutAttempt,setCheckoutAttempt]=useState(null);
+ const [searchCampaigns,setSearchCampaigns]=useState('');
+ const [campaignFilter,setCampaignFilter]=useState('all');
  const allSteps=admin?[...stages.slice(0,4),{title:'Δημοσίευση',desc:'Χωρίς πληρωμή',icon:CheckCircle2}]:stages;
  const current=detail?.campaign,creatives=detail?.creatives;
+ const managingPaidCampaign=!admin&&Boolean(current)&&current.approvalStatus!=='draft';
+ const filteredCampaigns=useMemo(()=>campaigns.filter(c=>{
+  const search=searchCampaigns.trim().toLocaleLowerCase('el-GR');
+  if(search&&![c.title,c.brand,c.prefecture].some(v=>
+    String(v||'').toLocaleLowerCase('el-GR').includes(search)))return false;
+  if(campaignFilter==='approved')return c.approvalStatus==='approved';
+  if(campaignFilter==='pending')return c.approvalStatus==='pending';
+  if(campaignFilter==='draft')return c.approvalStatus==='draft';
+  return true;
+ }),[campaigns,searchCampaigns,campaignFilter]);
  const creativeCount=(creatives?.banners?.length||0)+(creatives?.audios?.length||0);
  const confirmed=Number(detail?.finance?.fundedMicros||0)>=Number(current?.plannedBudgetCents||0)*10000&&
    Number(current?.plannedBudgetCents||0)>0;
@@ -373,8 +387,11 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
    <div className="pointer-events-none absolute -right-20 -top-32 size-80 rounded-full bg-purple-500/20 blur-[90px]"/>
    <div className="relative flex flex-wrap items-end justify-between gap-5">
     <div><span className="text-[11px] font-black uppercase tracking-[.24em] text-purple-300">iRadios · Ad Campaign Studio</span>
-     <h2 className="mt-3 text-3xl font-black tracking-[-.055em] sm:text-4xl">{admin?'Admin Campaign Studio':'Φτιάξε την καμπάνια σου.'}</h2>
-     <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">Ένα οργανωμένο setup, από το πρώτο δημιουργικό έως την τελική έγκριση.{admin?' Χωρίς χρέωση ή checkout.':' Ο Admin ενημερώνεται μόνο μετά την επιβεβαιωμένη πληρωμή.'}</p>
+     <h2 className="mt-3 text-3xl font-black tracking-[-.055em] sm:text-4xl">{admin?'Admin Campaign Studio':managingPaidCampaign?'Διαχείριση καμπάνιας':'Φτιάξε την καμπάνια σου.'}</h2>
+     <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">{managingPaidCampaign?
+     'Άλλαξε budget, δες τις πραγματικές χρεώσεις και διαχειρίσου τα δημιουργικά από ένα σημείο.':
+     'Ένα οργανωμένο setup, από το πρώτο δημιουργικό έως την τελική έγκριση.'}
+     {!managingPaidCampaign&&(admin?' Χωρίς χρέωση ή checkout.':' Ο Admin ενημερώνεται μόνο μετά την επιβεβαιωμένη πληρωμή.')}</p>
     </div>
     {current&&<button type="button" className={secondary} onClick={()=>selectCampaign('')}><ArrowLeft size={16}/> Οι καμπάνιες μου</button>}
    </div>
@@ -385,16 +402,35 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
    <div className="flex flex-wrap items-end justify-between gap-4"><div><h3 className="text-2xl font-black">Οι καμπάνιες μου</h3><p className="mt-2 text-xs text-zinc-400">Συνέχισε ένα προσχέδιο ή ξεκίνα καινούργια καμπάνια.</p></div>
     <button className={primary} onClick={()=>{setDetail(null);setCampaignId('new');setDraft(initialCampaign());setStep(0);}}><Plus size={17}/> Νέα καμπάνια</button></div>
    {campaigns.length===0&&<div className={panel+' py-12 text-center'}><LayoutGrid size={40} className="mx-auto text-purple-300"/><h4 className="mt-5 text-xl font-black">Ξεκίνα την πρώτη καμπάνια σου.</h4><p className="mt-2 text-sm text-zinc-400">Visual ή Audio, με στόχευση και έλεγχο budget σε έξι βήματα.</p></div>}
-   <div className="grid gap-3 lg:grid-cols-2">{campaigns.map(c=><button key={c._id} type="button"
+   {campaigns.length>0&&<div className="flex flex-wrap gap-3">
+    <input aria-label="Αναζήτηση καμπάνιας" placeholder="Αναζήτηση καμπάνιας ή brand…"
+     className="min-h-12 min-w-[220px] flex-1 rounded-xl border border-white/15 bg-[#17141e] px-4 text-sm text-white outline-none focus:border-purple-400"
+     value={searchCampaigns} onChange={e=>setSearchCampaigns(e.target.value)}/>
+    <div className="flex flex-wrap gap-2">
+     {[['all','Όλες'],['approved','Εγκεκριμένες'],['pending','Σε έγκριση'],['draft','Drafts']].map(([value,title])=>
+      <button key={value} type="button" onClick={()=>setCampaignFilter(value)}
+       className={'rounded-xl px-3 py-2 text-xs font-bold transition '+(
+        campaignFilter===value?'bg-purple-500 text-white':'border border-white/10 bg-white/[.035] text-zinc-400 hover:text-white')}>{title}</button>)}
+    </div>
+   </div>}
+   {campaigns.length>0&&filteredCampaigns.length===0&&<p className="rounded-2xl border border-white/10 bg-black/20 p-5 text-sm text-zinc-400">Δεν υπάρχουν καμπάνιες με αυτά τα κριτήρια.</p>}
+   <div className="grid gap-3 lg:grid-cols-2">{filteredCampaigns.map(c=><button key={c._id} type="button"
     onClick={()=>c.workflowVersion===2?selectCampaign(c._id):setError('Η παλαιότερη καμπάνια χρησιμοποιεί προηγούμενη ροή. Παραμένει προσβάσιμη από τα δημιουργικά και το ιστορικό της.')}
-    className={panel+' flex items-center justify-between gap-4 text-left transition hover:border-purple-400/35'}>
-    <div className="min-w-0"><h4 className="truncate text-lg font-black">{c.title}</h4>
-     <p className="mt-2 text-xs text-zinc-400">{c.brand} · {c.prefecture||c.region}</p>
-     <p className="mt-3 text-sm text-purple-200">Budget: {euro(Number(c.budget?.fundedMicros||0)/1e6)} πληρωμένο · {euro(Number(c.budget?.remainingMicros||0)/1e6)} διαθέσιμο</p>
-    </div><div className="flex shrink-0 flex-col items-end gap-3"><Status status={c.approvalStatus}/><ChevronRight size={18} className="text-purple-300"/></div>
+    className={panel+' group flex items-start justify-between gap-4 text-left transition hover:-translate-y-0.5 hover:border-purple-400/45'}>
+    <div className="min-w-0 space-y-3"><div><p className="text-[10px] font-black uppercase tracking-widest text-purple-300">{c.brand}</p>
+     <h4 className="mt-2 truncate text-lg font-black">{c.title}</h4>
+     <p className="mt-1 text-xs text-zinc-400">{c.prefecture||c.region} · Ημερήσιο όριο {moneyCentsSafe(c.dailyBudgetCents)}</p></div>
+     <div className="flex flex-wrap gap-3 text-xs">
+      <span className="rounded-xl bg-black/30 px-3 py-2"><span className="block text-zinc-500">Πίστωση</span><strong className="mt-1 block text-white">{euro(Number(c.budget?.fundedMicros||0)/1e6)}</strong></span>
+      <span className="rounded-xl bg-black/30 px-3 py-2"><span className="block text-zinc-500">Υπόλοιπο</span><strong className="mt-1 block text-white">{euro(Number(c.budget?.remainingMicros||0)/1e6)}</strong></span>
+     </div>
+     <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-300">Άνοιγμα διαχείρισης <ChevronRight size={14}/></span>
+    </div><div className="flex shrink-0 flex-col items-end gap-3"><Status status={c.approvalStatus}/><ChevronRight size={18} className="text-purple-300 transition group-hover:translate-x-1"/></div>
    </button>)}</div>
   </section>}
-  {campaignId==='new'||current?<div className="space-y-6">
+  {managingPaidCampaign&&<AgencyCampaignControl campaign={current} creatives={creatives}
+   pricing={pricing} onRefresh={async()=>{await loadDetails(campaignId);await loadList();}}/>}
+  {(campaignId==='new'||current)&&!managingPaidCampaign?<div className="space-y-6">
    <nav aria-label="Βήματα νέας διαφημιστικής καμπάνιας" className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
     {allSteps.map((item,index)=>{
      const Icon=item.icon;const canGo=topStep(index);

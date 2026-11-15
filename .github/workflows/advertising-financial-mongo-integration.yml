@@ -9,6 +9,7 @@ on:
       - backend/tests/advertising*Cpm*.cjs
       - backend/tests/advertisingQualificationMongoDisposable.cjs
       - backend/tests/advertisingV2LedgerMongoDisposable.cjs
+      - backend/tests/advertisingDailyBudgetMongoDisposable.cjs
       - backend/routes/advertisingV2Routes.js
       - backend/routes/advertisingCampaignRoutes.js
       - backend/controllers/adController.js
@@ -84,6 +85,14 @@ jobs:
           IRADIOS_BILLING_SANDBOX_ENABLED: '1'
           ADVERTISING_V2_DELIVERY_SECRET: CI_TEST_ONLY_NOT_A_REAL_ADVERTISING_SECRET_1234567890
         run: node backend/tests/advertisingV2LedgerMongoDisposable.cjs
+      - name: Prove paid Agency daily limit changes stay atomic with real ticket reservations
+        env:
+          AD_V2_DISPOSABLE_APPROVAL: I_CONFIRMED_TEST_ONLY_DATABASE
+          AD_V2_DISPOSABLE_MONGODB_URI: mongodb://127.0.0.1:27017/ad_v2_disposable_ci_20261115?replicaSet=rs0&directConnection=true
+          ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED: '1'
+          IRADIOS_BILLING_SANDBOX_ENABLED: '1'
+          ADVERTISING_V2_DELIVERY_SECRET: CI_TEST_ONLY_NOT_A_REAL_ADVERTISING_SECRET_1234567890
+        run: node backend/tests/advertisingDailyBudgetMongoDisposable.cjs
       - name: Ensure unaudited legacy CPM public delivery remains disabled
         run: node --test backend/tests/advertisingV2FinancialGuards.test.cjs
       - name: Destroy throwaway MongoDB
