@@ -106,6 +106,9 @@ Module._load=function(name,parent,isMain){
     };
     if(name==='multer')return multer;
     if(name==='../models/Station')return Station;
+    if(name==='../services/broadcasterStreamHealth')return {
+      checkBroadcasterStream:async()=>({ok:true})
+    };
     // The Admin ranking projection is a read-only dependency, mocked here
     // so role isolation tests cannot open a real MongoDB billing connection.
     if(name==='../models/PromotedStation')return {
