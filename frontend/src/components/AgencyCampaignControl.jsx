@@ -185,7 +185,7 @@ export default function AgencyCampaignControl({campaign,creatives,pricing,onRefr
     <button type="button" onClick={()=>void load().catch(e=>setError(e.message))} className={button}>
      <RefreshCw size={16}/> Ανανέωση</button>
    </div>
-   <AdvertisingV2CampaignStats campaign={campaign}/>
+   <AdvertisingV2CampaignStats campaign={campaign} onBudgetClick={()=>setTab('budget')}/>
    <div className="grid gap-3 md:grid-cols-2">
     <button type="button" onClick={()=>setTab('budget')} className={card+' flex items-center justify-between gap-4 text-left transition hover:border-purple-400/30'}>
      <div><p className="text-xs text-purple-300">Budget Control</p><strong className="mt-2 block text-lg">{moneyCents(info?.dailyBudgetCents)}</strong>
