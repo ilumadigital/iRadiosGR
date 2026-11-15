@@ -32,7 +32,17 @@ const initialCampaign=()=>({title:'',brand:'',description:'',country:'Ελλάδ
 const initialCreative=kind=>({kind,title:'',description:'',imageUrl:'',squareImageUrl:'',
  logoUrl:'',targetUrl:'',linkUrl:'',audioUrl:'',brandColor:'#a855f7',
  ctaLabel:'Μάθε περισσότερα',focalX:50,focalY:50,placement:['home'],
- frequency:'entry',designConfig:{}});
+ frequency:'entry',frequencies:['entry'],designConfig:{}});
+const audioOptions=[
+ ['entry','Πρώτο Play','0,360€ / 10″'],
+ ['every_5_stations','Ανά 5 σταθμούς','0,190€ / 10″'],
+ ['every_10_stations','Ανά 10 σταθμούς','0,122€ / 10″'],
+ ['every_20_stations','Ανά 20 σταθμούς','0,092€ / 10″'],
+ ['every_30_stations','Ανά 30 σταθμούς','0,068€ / 10″'],
+ ['twice_a_day','2 φορές την ημέρα','0,042€ / 10″'],
+ ['four_times_a_day','4 φορές την ημέρα','0,218€ / 10″'],
+ ['six_times_a_day','6 φορές την ημέρα','0,431€ / 10″']
+];
 const formats=[
  {id:'hero',title:'Homepage Hero'},
  {id:'home',title:'Home Feed'},
@@ -138,11 +148,19 @@ function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy}){
      onChange={e=>onUpload(e.target.files?.[0],'audioUrl','upload-ad','audioFile')}
      className={field+' file:mr-4 file:rounded-lg file:border-0 file:bg-purple-500/20 file:p-2 file:text-purple-100'}/></label>
    {draft.audioUrl&&<p className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-xs text-emerald-200"><Check size={14} className="mr-2 inline"/>Audio spot έχει ανέβει. Η προεπισκόπηση είναι διαθέσιμη μετά την αποθήκευση.</p>}
-   <label className={label}>Συχνότητα αναπαραγωγής
-    <select className={field} value={draft.frequency} onChange={e=>update('frequency',e.target.value)}>
-     {[['entry','Στην πρώτη ακρόαση'],['every_5_stations','Κάθε 5 αλλαγές σταθμού'],
-       ['every_10_stations','Κάθε 10 αλλαγές'],['every_1_hour','Κάθε ώρα'],['once_a_day','Μία φορά την ημέρα']].map(([v,t])=><option key={v} value={v}>{t}</option>)}
-    </select></label>
+   <div><span className={label}>Audio Placements (επιτρέπονται πολλαπλές θέσεις)</span>
+    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+     {audioOptions.map(([v,title,rate])=><label key={v}
+       className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs text-white">
+       <input type="checkbox" checked={(draft.frequencies?.length?draft.frequencies:[draft.frequency]).includes(v)}
+        onChange={e=>{
+         const current=draft.frequencies?.length?draft.frequencies:[draft.frequency];
+         const next=e.target.checked?[...new Set([...current,v])]:current.filter(x=>x!==v);
+         setDraft(d=>({...d,frequencies:next,frequency:next[0]||d.frequency}));
+        }}/>
+       <span><strong>{title}</strong><small className="block mt-1 text-zinc-400">{rate} + CTA + ολοκλήρωση</small></span>
+      </label>)}
+    </div></div>
    <label className={label}>URL του brand (προαιρετικό)
     <input type="url" className={field} value={draft.linkUrl} onChange={e=>update('linkUrl',e.target.value)} placeholder="https://brand.gr"/></label>
   </div>}
@@ -165,6 +183,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const [detail,setDetail]=useState(null),[campaignId,setCampaignId]=useState('');
  const [step,setStep]=useState(0),[draft,setDraft]=useState(initialCampaign);
  const [creativeDraft,setCreativeDraft]=useState(null),[budget,setBudget]=useState('100');
+ const [dailyBudget,setDailyBudget]=useState('20');
  const [quote,setQuote]=useState(null),[busy,setBusy]=useState(false);
  const [uploading,setUploading]=useState(false),[loading,setLoading]=useState(true);
  const [error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -198,6 +217,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
    startsAt:toLocal(new Date(data.campaign.startsAt)),
    endsAt:toLocal(new Date(data.campaign.endsAt))});
   setBudget(String(Number(data.campaign.plannedBudgetCents||10000)/100));
+  setDailyBudget(String(Number(data.campaign.dailyBudgetCents||2000)/100));
   if(data.campaign.approvalStatus!=='draft')setStep(4);
   else if(admin)setStep(data.campaign.plannedBudgetCents>0?3:data.creatives.banners.length+data.creatives.audios.length>0?2:1);
   else if(data.finance.fundedMicros>=data.campaign.plannedBudgetCents*10000&&data.campaign.plannedBudgetCents>0)setStep(4);
@@ -295,9 +315,12 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  });};
  const saveBudget=()=>{void work(async()=>{
   const budgetCents=Math.round(Number(budget)*100);
-  if(!Number.isSafeInteger(budgetCents))throw Error('Μη έγκυρο budget.');
+  const dailyBudgetCents=Math.round(Number(dailyBudget)*100);
+  if(!Number.isSafeInteger(budgetCents)||!Number.isSafeInteger(dailyBudgetCents)||
+     dailyBudgetCents<=0||dailyBudgetCents>budgetCents)
+    throw Error('Το ημερήσιο budget πρέπει να είναι θετικό και έως το συνολικό budget.');
   await request(base+'/campaigns/'+campaignId,{method:'PATCH',
-   body:JSON.stringify({step:'budget',budgetCents})});
+   body:JSON.stringify({step:'budget',budgetCents,dailyBudgetCents})});
   await loadDetails(campaignId);setStep(3);
  });};
  const makeQuote=()=>{void work(async()=>{
@@ -446,6 +469,12 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
     <label className={label}>Αρχικό budget (€)
      <div className="relative max-w-sm"><input type="number" required min="1" step="0.01" disabled={editingLocked} className={field+' pr-14 text-xl font-black'} value={budget} onChange={e=>setBudget(e.target.value)}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
     </label>
+    <label className={label}>Ημερήσιο spending limit (€)
+     <div className="relative max-w-sm"><input type="number" required min="0.01" step="0.01" disabled={editingLocked}
+      className={field+' pr-14 text-xl font-black'} value={dailyBudget}
+      onChange={e=>setDailyBudget(e.target.value)}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
+     <span className="mt-2 block text-xs font-normal text-zinc-400">Όριο ανά ημέρα (ώρα Ελλάδας). Χρεώνονται μόνο έγκυρα γεγονότα. Το αχρησιμοποίητο ημερήσιο όριο δεν μεταφέρεται.</span>
+    </label>
     <div className="flex flex-wrap justify-between gap-3"><button className={secondary} onClick={()=>setStep(1)}><ArrowLeft size={17}/> Πίσω</button>
      <button className={primary} onClick={saveBudget} disabled={busy||editingLocked}>Αποθήκευση budget & Overview <ArrowRight size={17}/></button></div>
    </section>}
@@ -457,7 +486,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
       {[['Καμπάνια',current.title],['Brand',current.brand],['Στόχευση',[current.country,current.region==='All'?null:current.region,current.prefecture].filter(Boolean).join(' • ')],
        ['Περίοδος',new Date(current.startsAt).toLocaleDateString('el-GR')+' – '+new Date(current.endsAt).toLocaleDateString('el-GR')],
        ['Δημιουργικά',creativeCount+' • '+(creatives.banners.length?'Visual '+creatives.banners.length:'')+' '+(creatives.audios.length?'Audio '+creatives.audios.length:'')],
-       ['Αρχικό budget',euro(totalBudget)]].map(([name,value])=><div key={name} className={card}><p className="text-xs text-zinc-500">{name}</p><p className="mt-2 break-words text-sm font-black text-white">{value}</p></div>)}
+       ['Αρχικό budget',euro(totalBudget)],['Ημερήσιο όριο',euro(Number(current.dailyBudgetCents||0)/100)]].map(([name,value])=><div key={name} className={card}><p className="text-xs text-zinc-500">{name}</p><p className="mt-2 break-words text-sm font-black text-white">{value}</p></div>)}
      </div>
      <div className="rounded-2xl border border-purple-300/20 bg-purple-500/[.07] p-5">
       <div className="flex items-center gap-3"><BarChart3 size={21} className="text-purple-300"/><h4 className="font-black">Ενδεικτικό εύρος προβολών</h4></div>
