@@ -16,5 +16,13 @@ assert.match(css, /\.ir-splash__logo\s*\{[^}]*height:\s*auto/s, 'Logo must prese
 assert.match(css, /\.ir-splash__logo-wrap\s*\{[^}]*340px/s, 'Logo needs a controlled desktop width');
 assert.doesNotMatch(css, /@keyframes\s+ir-splash-logo-in\s*\{[^}]*scale\(/s, 'Never scale the logo animation');
 assert.match(css, /prefers-reduced-motion:\s*reduce/, 'Respect reduced-motion accessibility');
-assert.match(brand, /shapeRendering="geometricPrecision"/, 'Use precision rendering for all brand SVG variants');
-console.log('OK: single-logo premium preloader, responsive vector sizing and reduced motion');
+// The official brand master changed from hand-traced SVG to designer PNG.
+const publicDir=path.resolve(__dirname,'../frontend/public');
+for(const asset of ['iradios-app-logo.png','noicon-iradios-app-logo.png','icon-tr.png']){
+  assert.ok(fs.existsSync(path.join(publicDir,asset)),asset+' must exist');
+}
+assert.match(brand, /full:\\s*'\\/iradios-app-logo\\.png'/, 'Use the approved full PNG master');
+assert.match(brand, /<img\\b/, 'Render the supplied logo as an image');
+assert.match(brand, /objectFit:\\s*'contain'/, 'Preserve original artwork proportions');
+assert.doesNotMatch(brand, /<svg\\b|shapeRendering=/, 'Do not trace the supplied PNG masters');
+console.log('OK: single-logo premium preloader, supplied artwork proportions and reduced motion');
