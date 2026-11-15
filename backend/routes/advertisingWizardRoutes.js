@@ -18,6 +18,7 @@ const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const {sanitizeAdDesign}=require('../services/adDesignRules');
 const mailer=require('../services/advertisingCampaignMailScheduler');
 const noticeOutbox=require('../services/agencyAdNoticeOutbox');
+const {AUDIO_RATE_CARD,validDailyBudget}=require('../services/advertisingV2Policy');
 
 const routes=[
  {prefix:'/advertising/wizard',role:'agency'},
@@ -35,7 +36,7 @@ const placements=new Set(['hero','home','radio_feed','news_feed','station_profil
 const frequencies=new Set(['entry','every_2_stations','every_4_stations','every_5_stations',
  'every_10_stations','every_15_stations','every_20_stations','every_30_stations',
  'every_1_hour','every_2_hours','every_6_hours','once_a_day','twice_a_day',
- 'four_times_a_day','once_a_week']);
+ 'four_times_a_day','six_times_a_day','once_a_week']);
 const validBudget=(value,settings)=>{
  if(!Number.isSafeInteger(value)||value<settings.minBudgetCents||
    value>settings.maxBudgetCents)throw issue('Το budget πρέπει να είναι εντός των ορίων τιμολόγησης.');
@@ -114,10 +115,14 @@ function creativeFields(kind,body,campaign){
   if(!mediaLink(audioUrl)||(logoUrl&&!mediaLink(logoUrl))||
      (linkUrl&&!mediaLink(linkUrl)))
    throw issue('Ανέβασε έγκυρο Audio και προαιρετικά εικόνα/σύνδεσμο.');
-  const frequency=String(body.frequency||'entry');
-  if(!frequencies.has(frequency))throw issue('Μη έγκυρη συχνότητα Audio.');
-  return {title,client:campaign.brand,audioUrl,logoUrl,linkUrl,frequency,
-   dspPreset:'OFF',...geoOf(campaign)};
+  const frequenciesRaw=Array.isArray(body.frequencies)&&body.frequencies.length?
+   body.frequencies:[String(body.frequency||'entry')];
+  const selected=[...new Set(frequenciesRaw)];
+  if(selected.length<1||selected.length>8||
+   selected.some(f=>!Object.hasOwn(AUDIO_RATE_CARD,f)))
+   throw issue('Επίλεξε 1 έως 8 έγκυρα Audio Placements.');
+  return {title,client:campaign.brand,audioUrl,logoUrl,linkUrl,
+   frequency:selected[0],frequencies:selected,dspPreset:'OFF',...geoOf(campaign)};
  }
  throw issue('Μη έγκυρος τύπος δημιουργικού.');
 }
@@ -175,9 +180,14 @@ for(const {prefix,role} of routes){
    const campaign=await owned(req,req.params.id,role);
    await mutable(campaign);
    const pricing=await settings();
-   const update=req.body?.step==='budget'?
-    {plannedBudgetCents:validBudget(req.body?.budgetCents,pricing)}:
-    campaignFields(req.body,pricing);
+   let update;
+   if(req.body?.step==='budget'){
+    const plannedBudgetCents=validBudget(req.body?.budgetCents,pricing);
+    const dailyBudgetCents=req.body?.dailyBudgetCents;
+    if(!validDailyBudget(dailyBudgetCents,plannedBudgetCents))
+     throw issue('Το ημερήσιο budget πρέπει να είναι θετικό και όχι μεγαλύτερο από το συνολικό.');
+    update={plannedBudgetCents,dailyBudgetCents};
+   }else update=campaignFields(req.body,pricing);
    const changed=await Campaign.findOneAndUpdate({_id:campaign._id,approvalStatus:'draft'},
     {$set:update},{new:true,runValidators:true});
    if(!changed)throw issue('Η καμπάνια έχει υποβληθεί.',409);
