@@ -1,5 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {adminFetch as fetch} from '../utils/adminFetch';
+import {Link} from 'react-router-dom';
 import AdvertisingV2CampaignStats from './AdvertisingV2CampaignStats';
 import ProtectedAudioPreview from './ProtectedAudioPreview';
 import AgencyCampaignTopUp from '../pages/AgencyCampaignTopUp';
@@ -282,6 +283,8 @@ export default function AgencyCampaignControl({campaign,creatives,pricing,onRefr
      (ad.placement||[]).map(x=>PLACE[x]||x).join(' · ')}</p>
     {ad.kind==='audio'?<div className="mt-4"><ProtectedAudioPreview adId={ad._id} scope="agency" sourceUrl={ad.audioUrl}/></div>:
      ad.imageUrl?<img src={ad.imageUrl} alt={ad.title} className="mt-4 h-36 w-full rounded-xl object-cover"/>:null}
+    <Link to={'/backoffice/agency/creatives/'+(ad.kind==='audio'?'audio':'banners')+'/'+ad._id+'/edit'}
+     className={button+' mt-4 w-full'}>Επεξεργασία δημιουργικού</Link>
    </article>)}</div>
   </section>}
   {tab==='settings'&&<section className={card+' space-y-5'}>
