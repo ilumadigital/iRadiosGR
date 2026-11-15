@@ -26,6 +26,8 @@ const schema=new mongoose.Schema({
  cleanupAt:{type:Date,required:true}
 },{timestamps:true});
 schema.index({status:1,expiresAt:1});
-schema.index({cleanupAt:1},{expireAfterSeconds:0});
+// Never TTL-delete an active hold: sweeper must release reserved funds first.
+schema.index({cleanupAt:1},{expireAfterSeconds:0,
+ partialFilterExpression:{status:'closed'}});
 schema.index({campaignId:1,day:1,issuedAt:-1});
 module.exports=mongoose.model('AdvertisingV2Reservation',schema);
