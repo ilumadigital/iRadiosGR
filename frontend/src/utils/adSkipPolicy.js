@@ -39,13 +39,15 @@ export function sampleAdListenClock(clock,{position,now,paused=false,seeking=fal
 // Short single spots finish normally instead of exposing an impossible Skip.
 // Multi-spot breaks remain skippable after the threshold even while a later
 // spot is buffering and its duration metadata is not yet available.
-export function canSkipAd(clock,duration,spotCount=1){
+export function canSkipAd(clock,duration,spotCount=1,protectedSpot=false){
+  if(protectedSpot)return false;
   const spots=breakSpotCount(spotCount);
   const threshold=skipThresholdForBreak(spots);
   if(!Number.isFinite(clock?.seconds)||clock.seconds<threshold)return false;
   return spots>1||(Number.isFinite(duration)&&duration>threshold);
 }
-export function secondsUntilAdSkip(clock,duration,spotCount=1){
+export function secondsUntilAdSkip(clock,duration,spotCount=1,protectedSpot=false){
+  if(protectedSpot)return null;
   const spots=breakSpotCount(spotCount);
   const threshold=skipThresholdForBreak(spots);
   if(spots===1&&(!Number.isFinite(duration)||duration<=threshold))return null;
