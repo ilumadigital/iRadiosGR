@@ -10,6 +10,7 @@ import {
 import ShareStory from './ShareStory';
 import DesktopFullPlayer from './DesktopFullPlayer';
 import AdSkipControl from './AdSkipControl';
+import {AdOnlyDesktopIdentity,AdOnlyFullscreen} from './AdOnlyPlayback';
 import FoundWithAI from './FoundWithAI';
 import RdsCrossfade from './RdsCrossfade';
 import {remoteLocationLabel} from '../utils/playbackPresentation.mjs';
@@ -193,6 +194,13 @@ export default function Footer({
         />
       )}
 
+      {isMaximized && !currentStation && isPlayingAd && currentAdInfo && (
+        <AdOnlyFullscreen ad={currentAdInfo} onClose={()=>setIsMaximized(false)}
+          onAdClick={handleLogoTitleClick} adTimeRemaining={adTimeRemaining}
+          adSkipCountdown={adSkipCountdown} onSkipAd={onSkipAd}
+          volume={volume} setVolume={setVolume}/>
+      )}
+
       {/* 🟢 FOOTER BAR (MINIFIED) - ΠΑΝΤΑ STATION LOGO */}
       <footer className="hidden lg:flex z-[100] fixed bottom-0 left-0 right-0 h-24 bg-black/80 backdrop-blur-3xl border-t border-white/5 px-8 items-center justify-between">
         
@@ -262,7 +270,9 @@ export default function Footer({
                 <ShareStory currentStation={currentStation} nowPlaying={nowPlaying} />
               </div>
             </>
-          ) : ( 
+          ) : isPlayingAd && currentAdInfo ? (
+            <AdOnlyDesktopIdentity ad={currentAdInfo} onAdClick={handleLogoTitleClick}/>
+          ) : (
             <div className="text-xs font-bold text-zinc-600 uppercase tracking-widest italic flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-zinc-900 border border-white/5 animate-pulse"></div> Επιλέξτε Σταθμό
             </div> 
@@ -291,7 +301,7 @@ export default function Footer({
             <AdSkipControl isPlayingAd={isPlayingAd} secondsUntilSkip={adSkipCountdown} onSkip={onSkipAd} compact/>
           </div>
 
-          {currentStation && (
+          {(currentStation || isPlayingAd) && (
             <div className="h-5 w-full min-w-0 flex items-center justify-center">
               {adWarning ? (
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00] animate-bounce">ΔΙΑΦΗΜΙΣΗ ΣΕ {adWarning}...</span>
