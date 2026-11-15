@@ -22,7 +22,7 @@ fi
 # Never enable paid event settlement on standalone MongoDB. This preflight is
 # necessary but NOT sufficient: a signed trusted geo ingress is also required.
 if grep -qx 'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1' /etc/iradios/staging/backend.env &&
-   [[ ${#compose_files[@]} -eq 2 ]]; then
+   [[ ${#compose_files[@]} -ne 2 ]]; then
   echo 'STOP: Advertising v2 paid delivery requires a stage Mongo replica set.' >&2
   exit 1
 fi

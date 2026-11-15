@@ -18,6 +18,12 @@ let ready=null;
 function enabled(){
  return process.env.APP_ENV==='staging'&&
   process.env.ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED==='1'&&
+  // Financial tickets are staging-only and require the signed Sandbox
+  // checkout; no legacy QA preview or parallel CPM engine can coexist.
+  process.env.IRADIOS_BILLING_SANDBOX_ENABLED==='1'&&
+  process.env.AD_STAGE_QA_APPROVAL_ENABLED!=='1'&&
+  process.env.AD_STAGE_PAID_PLACEMENT_PREVIEW!=='1'&&
+  process.env.AD_DELIVERY_BILLING_ENABLED!=='1'&&
   typeof process.env.ADVERTISING_V2_DELIVERY_SECRET==='string'&&
   Buffer.byteLength(process.env.ADVERTISING_V2_DELIVERY_SECRET)>=SECRET_MIN;
 }

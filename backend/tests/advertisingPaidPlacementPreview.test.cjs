@@ -17,11 +17,12 @@ test('staging paid preview is explicit and never enables billable delivery',()=>
  for(const override of [
   {APP_ENV:'production'},{APP_ENV:'development'},
   {AD_STAGE_PAID_PLACEMENT_PREVIEW:'0'},
-  {AD_DELIVERY_BILLING_ENABLED:'1'}
+  {AD_DELIVERY_BILLING_ENABLED:'1'},
+  {ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED:'1'}
  ])assert.equal(paidPlacementPreviewEnabled({...env,...override}),false);
  assert.equal(paidPlacementPreviewEnabled({}),false);
  const compose=fs.readFileSync(path.join(__dirname,'../../compose.stage.yml'),'utf8');
- assert.match(compose,/AD_STAGE_PAID_PLACEMENT_PREVIEW: '1'/);
+ assert.match(compose,/AD_STAGE_PAID_PLACEMENT_PREVIEW: '0'/);
  assert.match(compose,/AD_DELIVERY_BILLING_ENABLED: '0'/);
 });
 test('funded preview only accepts ledger-backed, affordable tiers',()=>{
