@@ -4,6 +4,20 @@ const CATALOG=require('./stationLocationData.json');
 const normal=v=>String(v||'').trim().normalize('NFD')
  .replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('el-GR');
 const eq=(a,b)=>normal(a)===normal(b);
+// Cloudflare's official cf-region headers use English region names. Only
+// explicit, one-to-one administrative translations are accepted; unknown
+// values retain country-only scope (never an assumed region/prefecture).
+const REGION_ALIASES=Object.freeze({
+ attica:'Αττική','central macedonia':'Κεντρική Μακεδονία',
+ thessaly:'Θεσσαλία','western greece':'Δυτική Ελλάδα',
+ peloponnese:'Πελοπόννησος',epirus:'Ήπειρος',
+ 'central greece':'Στερεά Ελλάδα',
+ 'eastern macedonia and thrace':'Ανατολική Μακεδονία & Θράκη',
+ 'east macedonia and thrace':'Ανατολική Μακεδονία & Θράκη',
+ 'western macedonia':'Δυτική Μακεδονία',
+ 'ionian islands':'Ιόνια Νησιά','north aegean':'Βόρειο Αιγαίο',
+ 'south aegean':'Νότιο Αιγαίο',crete:'Κρήτη',cyprus:'Κύπρος'
+});
 function authorizedToken(expected,supplied){
  if(typeof expected!=='string'||expected.length<32||
     typeof supplied!=='string'||supplied.length!==expected.length)return false;
@@ -16,11 +30,23 @@ function resolveGeo(headers,secret){
  if(country==='CY')country='Κύπρος';
  const regions=CATALOG[country];
  if(!regions)return null;
- const requestedRegion=headers['x-iradios-geo-region'];
+ const regionHint=headers['x-iradios-geo-region'];
+ const requestedRegion=REGION_ALIASES[normal(regionHint)]||regionHint;
  const region=Object.keys(regions).find(k=>eq(k,requestedRegion));
  if(!region)return {country}; // Trusted country-only hint; not a local match.
+ const prefectures=regions[region];
  const requestedPrefecture=headers['x-iradios-geo-prefecture'];
- const prefecture=Object.keys(regions[region]).find(k=>eq(k,requestedPrefecture));
+ let prefecture=Object.keys(prefectures).find(k=>eq(k,requestedPrefecture));
+ if(!prefecture){
+  // City-to-prefecture is allowed only for a unique exact catalog match.
+  // Never infer prefecture from IP country or a general region with many.
+  const city=headers['x-iradios-geo-city'];
+  const matches=city?Object.entries(prefectures).filter(([,cities])=>
+   Array.isArray(cities)&&cities.some(item=>eq(item,city))):[];
+  if(matches.length===1)prefecture=matches[0][0];
+ }
+ if(!prefecture&&Object.keys(prefectures).length===1)
+  prefecture=Object.keys(prefectures)[0];
  return prefecture?{country,region,prefecture}:{country,region};
 }
 function trustedAdGeo(req,res,next){
