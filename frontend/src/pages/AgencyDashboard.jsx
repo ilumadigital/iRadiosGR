@@ -3,6 +3,7 @@ import {useLiveRevision} from '../utils/liveUpdates';
 import '../styles/ad-campaign-console.css';
 import CampaignDeliveryStatus from '../components/CampaignDeliveryStatus';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
+import {assertAudioSpotDuration} from '../utils/audioSpotValidation';
 import { useNavigate } from 'react-router-dom';
 import { 
   Megaphone, Plus, LayoutPanelTop, Rows3, LayoutGrid, Activity, X, Eye, ShieldCheck, 
@@ -215,6 +216,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
 
   // 🟢 UNIVERSAL FILE UPLOAD HELPER
   const uploadFile = async (file, endpoint, fieldName) => {
+    if(fieldName==='audioFile')await assertAudioSpotDuration(file);
     const fileData = new FormData();
     fileData.append(fieldName, file);
     const res = await fetch(`${BASE_URL}/uploads/${endpoint}`, {
