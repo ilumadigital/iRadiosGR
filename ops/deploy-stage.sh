@@ -6,18 +6,38 @@ ENV=/etc/iradios/staging/compose.env
 [[ -f "$ENV" ]] || { echo "Missing $ENV. Run ops/init-stage-secrets.sh"; exit 1; }
 cd "$APP"
 [[ -f compose.stage.yml ]] || { echo 'Missing compose.stage.yml'; exit 1; }
+# Existing staging databases remain standalone unless the operator explicitly
+# opts into an authenticated, initialized replica set after a verified backup.
+compose_files=(-f compose.stage.yml)
+if grep -qx 'STAGE_MONGO_RS_ENABLED=1' "$ENV"; then
+  [[ -s /etc/iradios/staging/mongo-replset.key ]] || {
+    echo 'STOP: missing private stage Mongo replica-set keyfile.' >&2; exit 1;
+  }
+  [[ -f compose.stage.replicaset.yml ]] || {
+    echo 'STOP: missing replica-set Compose override.' >&2; exit 1;
+  }
+  compose_files+=(-f compose.stage.replicaset.yml)
+  echo 'Stage MongoDB replica-set override enabled.'
+fi
+# Never enable paid event settlement on standalone MongoDB. This preflight is
+# necessary but NOT sufficient: a signed trusted geo ingress is also required.
+if grep -qx 'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1' /etc/iradios/staging/backend.env &&
+   [[ ${#compose_files[@]} -eq 2 ]]; then
+  echo 'STOP: Advertising v2 paid delivery requires a stage Mongo replica set.' >&2
+  exit 1
+fi
 # No live URLs, keys or Stage->Prod accident in tracked code.
 ./ops/check-stage-source.sh
-docker compose --env-file "$ENV" -f compose.stage.yml config --quiet
+docker compose --env-file "$ENV" "${compose_files[@]}" config --quiet
 build_args=(--pull)
 # An opt-in full rebuild, used by ./ilumadev.sh --fresh. Default remains
 # incremental, preserving shared Docker build cache and avoiding host-wide prune.
 if [[ "${IRADIOS_STAGE_NO_CACHE:-0}" == "1" ]]; then
   build_args+=(--no-cache)
 fi
-docker compose --env-file "$ENV" -f compose.stage.yml build "${build_args[@]}"
-docker compose --env-file "$ENV" -f compose.stage.yml up -d --remove-orphans
-docker compose --env-file "$ENV" -f compose.stage.yml ps
+docker compose --env-file "$ENV" "${compose_files[@]}" build "${build_args[@]}"
+docker compose --env-file "$ENV" "${compose_files[@]}" up -d --remove-orphans
+docker compose --env-file "$ENV" "${compose_files[@]}" ps
 for i in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:5511/api/health >/dev/null && curl -fsS http://127.0.0.1:5510/ >/dev/null; then
     # A green build is not enough if public sign-in has no Turnstile site key.
