@@ -95,6 +95,8 @@ async function handleVerifiedAdvertisingEvent(event,res){
     // Do not switch to transactional ledger without Mongo replica-set UAT.
     settlementMode:'embedded_receipts',
     priceVersion:quote.priceVersion,ratesMicros:quote.ratesMicros,
+    rateModel:quote.rateModel||'legacy_cpm',
+    rateCardSnapshot:quote.rateCardSnapshot||null,
     currency:'EUR',source:'nexi_verified',paidAt
    });
    newlyCredited=true;
@@ -113,7 +115,8 @@ async function handleVerifiedAdvertisingEvent(event,res){
     lot.budgetMicros!==expected.budgetMicros||
     (lot.budgetNanos!==undefined&&
       lot.budgetNanos!==budgetCentsToNanos(quote.budgetCents))||
-    lot.priceVersion!==expected.priceVersion)
+    lot.priceVersion!==expected.priceVersion||
+    (lot.rateModel||'legacy_cpm')!==(quote.rateModel||'legacy_cpm'))
   return res.status(409).json({error:'Advertising funding collision'});
  await Intent.updateOne({_id:intent._id},{$set:{status:'paid',paidAt},
   $unset:{activeLockKey:''},$addToSet:{eventIds:event.event_id}});
