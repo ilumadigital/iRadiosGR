@@ -6,7 +6,7 @@
  * browser APIs fail closed instead of counting a page load as an impression.
  */
 export function startVisualViewabilityTracking(target,{
-  minimumMs=1000,threshold=0.5,onQualified,
+  minimumMs=300,threshold=0.5,onQualified,onVisibleStart,
   Observer=typeof IntersectionObserver==='undefined'?null:IntersectionObserver,
   visibility=typeof document==='undefined'?null:document,
   now=()=>performance.now(),
@@ -39,7 +39,7 @@ export function startVisualViewabilityTracking(target,{
     }
     const current=now();
     if(!Number.isFinite(current)){reset();return;}
-    if(startedAt===null)startedAt=current;
+    if(startedAt===null){startedAt=current;onVisibleStart?.();}
     const elapsed=Math.max(0,current-startedAt);
     if(elapsed>=minimumMs){
       qualified=true;stop();onQualified();return;
