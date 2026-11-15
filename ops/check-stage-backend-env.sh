@@ -72,6 +72,51 @@ if grep -q '^IRADIOS_BILLING_SANDBOX_ENABLED=' "$ENV_FILE"; then
     fi
   fi
 fi
+# Production-like event accounting is separate from live Nexi merchant mode.
+# Keep the switch explicit and reject incomplete activation before a build.
+if grep -q '^ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=' "$ENV_FILE"; then
+  if [[ "$(count_key ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED)" != "1" ]] ||
+     ! grep -Eq '^ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=[01]# Gateway setting. Omitted means zero days (no unapproved free extension).
+if grep -q '^IRADIOS_BILLING_GRACE_DAYS=' "$ENV_FILE"; then
+  if [[ "$(count_key IRADIOS_BILLING_GRACE_DAYS)" != "1" ]] ||
+     ! grep -Eq '^IRADIOS_BILLING_GRACE_DAYS=([0-9]|1[0-4])$' "$ENV_FILE"; then
+    echo 'STOP: IRADIOS_BILLING_GRACE_DAYS must be a single integer 0..14.' >&2
+    exit 1
+  fi
+fi
+echo 'Staging backend env safety checks passed (no values printed).'
+ "$ENV_FILE"; then
+    echo 'STOP: Advertising v2 financial switch must occur once as 0 or 1.' >&2
+    exit 1
+  fi
+fi
+check_private_secret() {
+  local key="$1" value
+  if [[ "$(count_key "$key")" != "1" ]]; then
+    echo "STOP: configure $key exactly once in private backend.env." >&2
+    exit 1
+  fi
+  value=$(sed -n "s/^$key=//p" "$ENV_FILE")
+  if [[ ${#value} -lt 32 || "$value" =~ [[:space:]] ]]; then
+    echo "STOP: $key must be a nonempty, single-line secret of 32+ characters." >&2
+    exit 1
+  fi
+}
+if grep -qx 'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1' "$ENV_FILE"; then
+  if ! grep -qx 'IRADIOS_BILLING_SANDBOX_ENABLED=1' "$ENV_FILE"; then
+    echo 'STOP: paid event delivery needs verified sandbox Gateway funding enabled.' >&2
+    exit 1
+  fi
+  check_private_secret ADVERTISING_V2_DELIVERY_SECRET
+  check_private_secret IRADIOS_TRUSTED_GEO_SECRET
+  # Do not let historical QA compatibility flags override paid behavior.
+  for key in AD_STAGE_QA_APPROVAL_ENABLED AD_STAGE_PAID_PLACEMENT_PREVIEW; do
+    if grep -qx "$key=1" "$ENV_FILE"; then
+      echo "STOP: $key cannot coexist with v2 financial delivery." >&2
+      exit 1
+    fi
+  done
+fi
 # Days of grace are a deliberate iRadios subscription policy, not a
 # Gateway setting. Omitted means zero days (no unapproved free extension).
 if grep -q '^IRADIOS_BILLING_GRACE_DAYS=' "$ENV_FILE"; then
