@@ -9,6 +9,7 @@ const Lot=require('../models/AdvertisingFundingLot');
 const Daily=require('../models/AdvertisingDailyBudget');
 const Ticket=require('../models/AdvertisingV2Reservation');
 const Event=require('../models/AdvertisingV2Event');
+const Counter=require('../models/AdvertisingDeliveryCounter');
 const {NANOS_PER_CENT,feeNanos,eventReserveNanos,athensDay,validDailyBudget}=
  require('./advertisingV2Policy');
 const TICKET=/^[a-f0-9]{32}$/;
@@ -51,7 +52,7 @@ function verifyCapability(value,ticket,requestKey,now=Date.now()){
 function fail(message,code=409){return Object.assign(new Error(message),{status:code});}
 async function indexes(){
  if(!ready)ready=Promise.all([Daily.createIndexes(),Ticket.createIndexes(),
-   Event.createIndexes()]).catch(e=>{ready=null;throw e;});
+   Event.createIndexes(),Counter.createIndexes()]).catch(e=>{ready=null;throw e;});
  return ready;
 }
 async function transaction(fn){
@@ -80,6 +81,24 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
  const id=crypto.randomBytes(16).toString('hex');
  let ticket=null;
  await transaction(async session=>{
+  // Atomic visitor frequency caps are part of the same financial
+  // transaction: a rejected/rolled-back ticket never consumes frequency.
+  const scopedLimit=placement==='twice_a_day'?2:
+   placement==='four_times_a_day'?4:placement==='six_times_a_day'?6:20;
+  const quotas=[
+   {id:'paid-v2:global:'+visitor+':'+Math.floor(now/3600000),
+    max:100,expiresAt:new Date(now+2*3600000)},
+   {id:'paid-v2:freq:'+String(campaign._id)+':'+visitor+':'+day+':'+placement,
+    max:scopedLimit,expiresAt:new Date(now+48*3600000)}
+  ];
+  for(const quota of quotas){
+   await Counter.findOneAndUpdate({_id:quota.id},
+    {$setOnInsert:{count:0,expiresAt:quota.expiresAt}},
+    {upsert:true,new:true,session});
+   const count=await Counter.updateOne({_id:quota.id,count:{$lt:quota.max}},
+    {$inc:{count:1}},{session});
+   if(count.modifiedCount!==1)throw fail('Frequency or pacing cap reached');
+  }
   const fresh=await Campaign.findOne({
    _id:campaign._id,approvalStatus:'approved',agencyEnabled:true,
    adminSuspended:false,deletedAt:null,
