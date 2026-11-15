@@ -169,11 +169,19 @@ router.post('/advertising/campaigns/:id/quotes',async(req,res)=>{
    ]);
    if(!exists.some(Boolean))return res.status(409).json({error:'Απαιτείται δημιουργικό πριν από την πληρωμή.'});
   }
+  if(campaign.workflowVersion===2&&
+     !V2_RATE_CARD.validDailyBudget(campaign.dailyBudgetCents,
+       campaign.plannedBudgetCents))
+    throw Error('Πριν από την πληρωμή απαιτείται έγκυρο ημερήσιο budget.');
   const amounts=quotedAmounts(req.body?.budgetCents,current,kind);
   const quote=await Quote.create({
    agencyId:req.user._id,campaignId:campaign._id,...amounts,
    currency:'EUR',taxMode:current.taxMode,taxBps:current.taxBps,
    priceVersion:current.version,ratesMicros:current.cpmMicros,
+   rateModel:campaign.workflowVersion===2?'v2_event':'legacy_cpm',
+   rateCardSnapshot:campaign.workflowVersion===2?{
+     audio:V2_RATE_CARD.AUDIO_RATE_CARD,
+     visual:V2_RATE_CARD.VISUAL_IMPRESSION_NANOS}:null,
    kind,expiresAt:new Date(Date.now()+20*60000)
   });
   res.status(201).json(quote);
