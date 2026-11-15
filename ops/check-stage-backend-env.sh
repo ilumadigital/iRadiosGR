@@ -33,9 +33,13 @@ for key in SMTP_USER SMTP_PASS ADMIN_2FA_SMTP_HOST ADMIN_2FA_SMTP_PORT ADMIN_2FA
   fi
 done
 # SonoVault remains opt-in and must be a single binary value.
-if grep -Eq '^STAGE_ENABLE_SONOVAULT=' "$ENV_FILE"; then
+if grep -q '^STAGE_ENABLE_SONOVAULT=' "$ENV_FILE"; then
   if [[ "$(count_key STAGE_ENABLE_SONOVAULT)" != "1" ]] ||
-     ! grep -Eq '^STAGE_ENABLE_SONOVAULT=[01]
+     ! grep -Eq '^STAGE_ENABLE_SONOVAULT=[01]$' "$ENV_FILE"; then
+    echo 'STOP: STAGE_ENABLE_SONOVAULT must be declared once as 0 or 1.' >&2
+    exit 1
+  fi
+fi
 for key in TURNSTILE_SITE_KEY TURNSTILE_SECRET_KEY; do
   if [[ "$(count_key "$key")" != "1" ]] ||
      ! grep -Eq "^${key}=[^[:space:]]+$" "$ENV_FILE"; then
