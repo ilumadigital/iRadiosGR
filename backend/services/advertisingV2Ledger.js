@@ -10,8 +10,8 @@ const Daily=require('../models/AdvertisingDailyBudget');
 const Ticket=require('../models/AdvertisingV2Reservation');
 const Event=require('../models/AdvertisingV2Event');
 const Counter=require('../models/AdvertisingDeliveryCounter');
-const {NANOS_PER_CENT,feeNanos,eventReserveNanos,athensDay,validDailyBudget}=
- require('./advertisingV2Policy');
+const {NANOS_PER_CENT,feeNanos,eventReserveNanos,athensDay,validDailyBudget,
+ matchesRateCardSnapshot}=require('./advertisingV2Policy');
 const TICKET=/^[a-f0-9]{32}$/;
 const SECRET_MIN=32;
 let ready=null;
@@ -149,19 +149,12 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
   }).session(session).lean();
   if(!fresh)throw fail('Campaign no longer eligible');
   const lots=await Lot.find({campaignId:campaign._id,source:'nexi_verified',
-   remainingNanos:{$gte:amount},budgetNanos:{$ne:null},rateModel:'v2_event'})
+   remainingNanos:{$gte:amount},budgetNanos:{$ne:null},rateModel:'v2_event',
+   settlementMode:'mongo_transaction_v2'})
    .sort({paidAt:1,_id:1}).session(session).lean();
   // A campaign bought under a different historical rate card must not
   // silently inherit future, more expensive pricing.
-  const {AUDIO_RATE_CARD,VISUAL_IMPRESSION_NANOS}=require('./advertisingV2Policy');
-  const matchesSnapshot=l=>{
-   const stored=l.rateCardSnapshot;
-   return stored&&Object.entries(AUDIO_RATE_CARD).every(([p,events])=>
-    Object.entries(events).every(([e,cost])=>stored.audio?.[p]?.[e]===cost))&&
-    Object.entries(VISUAL_IMPRESSION_NANOS).every(([p,cost])=>
-      stored.visual?.[p]===cost);
-  };
-  const lot=lots.find(l=>matchesSnapshot(l)&&
+  const lot=lots.find(l=>matchesRateCardSnapshot(l.rateCardSnapshot)&&
    Number.isSafeInteger(l.remainingNanos)&&
    l.remainingNanos-(l.reservedNanos||0)>=amount);
   if(!lot)throw fail('Insufficient verified prepaid balance');
@@ -174,7 +167,7 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
    {$inc:{reservedNanos:amount}},{session});
   if(d.modifiedCount!==1)throw fail('Daily budget exhausted');
   const hold=await Lot.updateOne({_id:lot._id,campaignId:campaign._id,
-   source:'nexi_verified',
+   source:'nexi_verified',settlementMode:'mongo_transaction_v2',
    $expr:{$gte:[{$subtract:['$remainingNanos',
     {$ifNull:['$reservedNanos',0]}]},amount]}},
    {$inc:{reservedNanos:amount}},{session});
