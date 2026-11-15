@@ -1,5 +1,6 @@
 // Frontend convenience check; the API always re-probes the uploaded bytes.
 export const MAX_AUDIO_SPOT_SECONDS=46;
+export const MIN_AUDIO_SPOT_SECONDS=10;
 export const AUDIO_SPOT_TOO_LONG_MESSAGE=
   'Το Audio Spot υπερβαίνει τη μέγιστη επιτρεπόμενη διάρκεια των 46 δευτερολέπτων. Παρακαλούμε ανεβάστε νέο αρχείο μικρότερης διάρκειας.';
 
@@ -26,6 +27,8 @@ export function assertAudioSpotDuration(file){
       const duration=media.duration;
       if(!Number.isFinite(duration)||duration<0.5)
         return finish(new Error('Μη έγκυρη διάρκεια Audio Spot.'));
+      if(duration<MIN_AUDIO_SPOT_SECONDS)
+        return finish(new Error('Το Audio Spot πρέπει να έχει διάρκεια τουλάχιστον 10 δευτερολέπτων.'));
       if(duration>MAX_AUDIO_SPOT_SECONDS)
         return finish(new Error(AUDIO_SPOT_TOO_LONG_MESSAGE));
       return finish(null,duration);
