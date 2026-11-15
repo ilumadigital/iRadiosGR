@@ -6,7 +6,7 @@ const {gatewayPurchase,broadcasterEventValid,safeBroadcasterOrder}=
 const base={
  event_id:'a'.repeat(32),event_type:'payment.paid',payment_id:'b'.repeat(32),
  order_id:'IL'+'C'.repeat(24),customer_id:'d'.repeat(32),
- environment:'staging',product_sku:'ADD-DSP',amount_cents:4990,currency:'EUR',
+ environment:'staging',product_sku:'ADD-DSP',amount_cents:2790,currency:'EUR',
  resource_id:'507f1f77bcf86cd799439011',occurred_at:'2026-11-11T12:00:00.000Z'
 };
 const now=new Date('2026-11-11T12:01:00Z');
@@ -20,7 +20,7 @@ test('signed station addon price and resource must match SKU',()=>{
  }
 });
 test('account premium forbids station resource and boost forbids MIT origin',()=>{
- const premium={...base,product_sku:'B-PREM',amount_cents:11900,resource_id:null};
+ const premium={...base,product_sku:'B-PREM',amount_cents:9900,resource_id:null};
  assert.equal(broadcasterEventValid(premium,base.event_id,now),true);
  assert.equal(broadcasterEventValid({...premium,resource_id:base.resource_id},base.event_id,now),false);
  const boost={...base,product_sku:'BOOST-G-MONTH',amount_cents:79900};
@@ -44,9 +44,19 @@ test('automated monthly event requires signed user reference and cycle due',()=>
  assert.equal(broadcasterEventValid({...event,cycle_due_at:'2026-12-11T12:00:00Z',
   period_ends_at:'2027-01-11T12:00:00Z'},base.event_id,now),false);
 });
+test('only existing signed, anchored MIT renewals may retain previous broadcaster prices',()=>{
+ const legacy={...base,amount_cents:4990,billing_origin:'automatic_renewal',
+  external_user_id:'iradios-stage-'+base.resource_id,
+  cycle_due_at:'2026-11-11T12:00:00Z',
+  period_ends_at:'2026-12-11T12:00:00Z',anchor_day:11};
+ assert.equal(broadcasterEventValid(legacy,base.event_id,now),true);
+ assert.equal(broadcasterEventValid({...legacy,billing_origin:undefined},base.event_id,now),false);
+ assert.equal(broadcasterEventValid({...legacy,amount_cents:4890},base.event_id,now),false);
+ assert.equal(broadcasterEventValid({...legacy,external_user_id:'invalid'},base.event_id,now),false);
+});
 test('gateway response never activates paid entitlement, even if provider says paid',()=>{
  const payment={payment_id:base.payment_id,order_id:base.order_id,
-  status:'paid',amount_cents:11900,currency:'EUR'};
+  status:'paid',amount_cents:9900,currency:'EUR'};
  assert.equal(gatewayPurchase(payment,{sku:'B-PREM'}).status,'paid');
  assert.throws(()=>gatewayPurchase({...payment,amount_cents:399},{sku:'B-PREM'}),
   /gateway_catalog_price_mismatch/);
@@ -55,13 +65,13 @@ test('gateway response never activates paid entitlement, even if provider says p
 });
 test('only Nexi hosted checkout domains can be redirected',()=>{
  const payment={payment_id:base.payment_id,order_id:base.order_id,
-  status:'redirect',amount_cents:790,currency:'EUR',
+  status:'redirect',amount_cents:690,currency:'EUR',
   checkout_url:'https://not-nexi.example/pay'};
  assert.throws(()=>gatewayPurchase(payment,{sku:'ADD-AN'}),/checkout_url_invalid/);
 });
 test('UI status may be active only for locally paid signed periods',()=>{
  const row={_id:base.resource_id,sku:'B-PREM',scopeType:'account',
-  status:'paid',amountCents:11900,periodStartsAt:'2026-11-01T00:00:00Z',
+  status:'paid',amountCents:9900,periodStartsAt:'2026-11-01T00:00:00Z',
   periodEndsAt:'2026-12-01T00:00:00Z'};
  assert.equal(safeBroadcasterOrder(row,now).status,'active');
  assert.equal(safeBroadcasterOrder({...row,status:'redirect'},now).status,'redirect');
