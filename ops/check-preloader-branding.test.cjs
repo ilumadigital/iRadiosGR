@@ -21,8 +21,8 @@ const publicDir=path.resolve(__dirname,'../frontend/public');
 for(const asset of ['iradios-app-logo.png','noicon-iradios-app-logo.png','icon-tr.png']){
   assert.ok(fs.existsSync(path.join(publicDir,asset)),asset+' must exist');
 }
-assert.match(brand, /full:\\s*'\\/iradios-app-logo\\.png'/, 'Use the approved full PNG master');
-assert.match(brand, /<img\\b/, 'Render the supplied logo as an image');
-assert.match(brand, /objectFit:\\s*'contain'/, 'Preserve original artwork proportions');
-assert.doesNotMatch(brand, /<svg\\b|shapeRendering=/, 'Do not trace the supplied PNG masters');
+assert.ok(brand.includes("full: '/iradios-app-logo.png'"), 'Use the approved full PNG master');
+assert.ok(brand.includes('<img'), 'Render the supplied logo as an image');
+assert.ok(brand.includes("objectFit: 'contain'"), 'Preserve original artwork proportions');
+assert.ok(!brand.includes('<svg')&&!brand.includes('shapeRendering='), 'Do not trace the supplied PNG masters');
 console.log('OK: single-logo premium preloader, supplied artwork proportions and reduced motion');
