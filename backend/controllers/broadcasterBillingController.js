@@ -348,6 +348,9 @@ async function handleVerifiedEvent(event,res){
    $or:[{autoRenewRequested:true},{billingOrigin:'automatic_renewal'}]
   }).sort({periodEndsAt:-1}).lean();
   if(!prior)return res.status(503).json({error:'Signed MIT cycle predecessor pending'});
+  // Never let a signed renewal change the price of an existing contract.
+  if(prior.amountCents!==event.amount_cents)
+   return res.status(409).json({error:'MIT price differs from the signed predecessor'});
   if(event.event_type!=='payment.paid'){
    if(event.event_type==='payment.failed'){
     try{
@@ -362,7 +365,7 @@ async function handleVerifiedEvent(event,res){
    gatewayPaymentId:event.payment_id
   },{$setOnInsert:{
    accountId:user._id,resourceId,scopeType:product.scopeType,sku,
-   environment:'staging',amountCents:product.priceCents,currency:'EUR',
+   environment:'staging',amountCents:event.amount_cents,currency:'EUR',
    requestKey:'iradios-bstage-'+userId+'-mit-'+event.payment_id,
    billingOrigin:'automatic_renewal',autoRenewRequested:true,
    renewalOfOrderId:prior._id,gatewayPaymentId:event.payment_id,
