@@ -4,6 +4,7 @@ const {excludeArchivedCampaignCreatives}=require('../services/advertisingArchive
 // controllers/bannerController.js
 const BannerAd = require('../models/BannerAd');
 const mongoose=require('mongoose');
+const Campaign=require('../models/AdvertisingCampaign');
 const {sanitizeAdDesign}=require('../services/adDesignRules');
 const {isStage,activeCampaignQuery,live,fields,permitMetric} =
   require('../services/adDeliveryRules');
@@ -52,11 +53,16 @@ exports.getActiveBanners=async(req,res)=>{
     // test marker is ONLY emitted in non-billable staging preview mode.
     const {paidPlacementPreviewEnabled}=require('../services/advertisingStagePaidPreview');
     const {enabled}=require('../services/advertisingV2Ledger');
+    const campaignIds=[...new Set(eligible.map(b=>b.campaignId).filter(Boolean).map(String))];
+    const campaigns=campaignIds.length?await Campaign.find({_id:{$in:campaignIds}})
+      .select('_id createdByRole').lean():[];
+    const paidIds=new Set(campaigns.filter(c=>c.createdByRole==='agency')
+      .map(c=>String(c._id)));
     res.json(eligible.map(b=>({
       ...b,
       serverGeoEligible:Boolean(b.campaignId)&&
-        (paidPlacementPreviewEnabled()||enabled()),
-      paidDeliveryRequired:enabled()&&Boolean(b.campaignId)&&Boolean(b.agencyId)
+        (paidPlacementPreviewEnabled()||enabled()&&paidIds.has(String(b.campaignId))),
+      paidDeliveryRequired:enabled()&&paidIds.has(String(b.campaignId))
     })));
   }catch(error){
     console.error('[BANNERS] Public delivery failed',error.message);
