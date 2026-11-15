@@ -4,6 +4,7 @@ import {Link,useSearchParams} from 'react-router-dom';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
+import {assertAudioSpotDuration} from '../utils/audioSpotValidation';
 import VisualAdStudioControls from '../components/VisualAdStudioControls';
 import {adDesignFor} from '../utils/adVisualDesign';
 import AgencyCampaignTopUp from './AgencyCampaignTopUp';
@@ -132,7 +133,7 @@ function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy}){
      <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-[#0b0a11] px-3 py-2"><input type="color" value={draft.brandColor} onChange={e=>update('brandColor',e.target.value)} className="size-8 rounded-lg"/><span className="text-xs text-zinc-400">{draft.brandColor}</span></div></label>
    </div>
   </div>:<div className="space-y-5">
-   <label className={label}>Ηχητικό spot (MP3, WAV ή OGG, έως 10 λεπτά)
+   <label className={label}>Ηχητικό spot (MP3, WAV ή OGG, έως 46 δευτερόλεπτα)
     <input type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" disabled={uploading}
      onChange={e=>onUpload(e.target.files?.[0],'audioUrl','upload-ad','audioFile')}
      className={field+' file:mr-4 file:rounded-lg file:border-0 file:bg-purple-500/20 file:p-2 file:text-purple-100'}/></label>
@@ -274,6 +275,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
   if(!file)return;
   setUploading(true);setError('');
   try{
+   if(fileName==='audioFile')await assertAudioSpotDuration(file);
    const form=new FormData();form.append(fileName,file);
    const data=await request('/api/uploads/'+endpoint,{method:'POST',body:form});
    if(!data.url)throw Error('Το αρχείο δεν ανέβηκε σωστά.');
