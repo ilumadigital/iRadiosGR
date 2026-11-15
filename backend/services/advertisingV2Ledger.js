@@ -90,7 +90,18 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
   const lots=await Lot.find({campaignId:campaign._id,source:'nexi_verified',
    remainingNanos:{$gte:amount},budgetNanos:{$ne:null},rateModel:'v2_event'})
    .sort({paidAt:1,_id:1}).session(session).lean();
-  const lot=lots.find(l=>Number.isSafeInteger(l.remainingNanos)&&
+  // A campaign bought under a different historical rate card must not
+  // silently inherit future, more expensive pricing.
+  const {AUDIO_RATE_CARD,VISUAL_IMPRESSION_NANOS}=require('./advertisingV2Policy');
+  const matchesSnapshot=l=>{
+   const stored=l.rateCardSnapshot;
+   return stored&&Object.entries(AUDIO_RATE_CARD).every(([p,events])=>
+    Object.entries(events).every(([e,cost])=>stored.audio?.[p]?.[e]===cost))&&
+    Object.entries(VISUAL_IMPRESSION_NANOS).every(([p,cost])=>
+      stored.visual?.[p]===cost);
+  };
+  const lot=lots.find(l=>matchesSnapshot(l)&&
+   Number.isSafeInteger(l.remainingNanos)&&
    l.remainingNanos-(l.reservedNanos||0)>=amount);
   if(!lot)throw fail('Insufficient verified prepaid balance');
   await Daily.findOneAndUpdate({campaignId:campaign._id,day},
