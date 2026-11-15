@@ -129,13 +129,15 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
    ...(req.user.role==='admin'?{}:{agencyId:req.user._id})}).lean();
   if(!campaign||!['admin','agency'].includes(req.user.role))
    return res.status(404).json({error:'Not found'});
-  const [lots,daily,events,reservations]=await Promise.all([
+  const [lots,daily,events,reservations,skips]=await Promise.all([
    Lot.find({campaignId:campaign._id,source:'nexi_verified'}).lean(),
    Daily.find({campaignId:campaign._id}).sort({day:-1}).limit(31).lean(),
    Event.aggregate([{$match:{campaignId:campaign._id}},
     {$group:{_id:{kind:'$kind',placement:'$placement',name:'$name'},
      count:{$sum:1},costNanos:{$sum:'$costNanos'}}}]),
-   Ticket.countDocuments({campaignId:campaign._id,status:'active'})
+   Ticket.countDocuments({campaignId:campaign._id,status:'active'}),
+   Ticket.aggregate([{$match:{campaignId:campaign._id,closeReason:'skipped'}},
+     {$group:{_id:'$placement',count:{$sum:1}}}])
   ]);
   const balance=aggregateBalances(lots);
   const today=daily.find(d=>d.day===policy.athensDay())||null;
@@ -145,7 +147,8 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
      availableNanos:Math.max(0,today.limitNanos-today.spentNanos-today.reservedNanos)}:
     {day:policy.athensDay(),spentNanos:0,reservedNanos:0,
      availableNanos:campaign.dailyBudgetCents*policy.NANOS_PER_CENT},
-   balance,activeReservations:reservations,daily:daily.map(x=>({
+   balance,activeReservations:reservations,skips:skips.map(x=>({placement:x._id,count:x.count})),
+   daily:daily.map(x=>({
     day:x.day,spentNanos:x.spentNanos,reservedNanos:x.reservedNanos})),
    events:events.map(x=>({kind:x._id.kind,placement:x._id.placement,
     event:x._id.name,count:x.count,costNanos:x.costNanos}))});
