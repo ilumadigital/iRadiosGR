@@ -3,18 +3,22 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {listProducts,getProduct}=require('../config/billingCatalog');
 const {validateComplimentaryScope,resolveComplimentaryEntitlements,isActiveGrant,compareBoostPriority}=require('../services/billingPolicy');
-test('Final Excel catalog: all 21 fixed SKUs and VAT-inclusive cents',()=>{
+test('Broadcaster 2026-11-15 catalog: all 21 SKUs and VAT-inclusive cents',()=>{
  const all=listProducts();assert.equal(all.length,21);
  for(const p of all){assert.equal(p.currency,'EUR');assert.equal(p.vatRate,24);assert.equal(Number.isInteger(p.priceCents),true);assert.equal(p.renewalOperational,false);}
  assert.equal(getProduct('L-PREM').priceCents,399);
- assert.equal(getProduct('B-PREM').priceCents,11900);
+ assert.equal(getProduct('B-PREM').priceCents,9900);
+  assert.equal(getProduct('ADD-DSP').priceCents,2790);
+  assert.equal(getProduct('ADD-AN').priceCents,690);
+  assert.equal(getProduct('ADD-ADS').priceCents,890);
+  assert.equal(['ADD-DSP','ADD-AN','ADD-ADS'].reduce((sum,sku)=>sum+getProduct(sku).priceCents,0),4370);
  assert.equal(getProduct('AG-NEWS').priceCents,14900);
  assert.equal(getProduct('BOOST-G-YEAR').priceCents,848900);
 });
-test('Broadcaster add-ons are station-scoped with unconfirmed billing cycle',()=>{
+test('Broadcaster add-ons are monthly, station-scoped subscriptions',()=>{
  for(const sku of ['ADD-DSP','ADD-AN','ADD-ADS']) {
   assert.equal(getProduct(sku).scopeType,'station');
-  assert.equal(getProduct(sku).cycle,null);
+  assert.equal(getProduct(sku).cycle,'month');
   assert.equal(validateComplimentaryScope(sku,'account',null), 'Λανθασμένο scope για το προϊόν.');
   assert.equal(validateComplimentaryScope(sku,'station','station-1'),null);
  }
