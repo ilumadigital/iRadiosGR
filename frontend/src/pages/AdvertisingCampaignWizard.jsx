@@ -8,6 +8,7 @@ import {assertAudioSpotDuration} from '../utils/audioSpotValidation';
 import VisualAdStudioControls from '../components/VisualAdStudioControls';
 import {adDesignFor} from '../utils/adVisualDesign';
 import AgencyCampaignTopUp from './AgencyCampaignTopUp';
+import AdvertisingV2CampaignStats from '../components/AdvertisingV2CampaignStats';
 import {ArrowLeft,ArrowRight,AudioLines,BadgeCheck,BarChart3,Check,CheckCircle2,
  ChevronRight,CircleAlert,Clock3,CreditCard,FileCheck2,Image as ImageIcon,
  LayoutGrid,Loader2,MapPin,Mic2,Plus,RefreshCw,ShieldCheck,Trash2,
@@ -82,7 +83,7 @@ function estimatedImpressions({amount,campaign,pricing,creatives}){
  creatives?.banners?.forEach(c=>{
   (c.placement||[]).forEach(p=>tiers.add(p==='hero'?'hero':'standard'));
  });
- if(creatives?.audios?.length)tiers.add('audio');
+ // Audio v2 is billed per validated event and must not be estimated as CPM.
  const cpm=[...tiers].map(t=>Number(pricing?.cpmMicros?.[t]||0)/1000000)
   .filter(x=>x>0);
  if(!cpm.length||!amount)return null;
@@ -407,6 +408,8 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
    {current&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/20 px-5 py-4">
     <div><p className="text-sm font-black">{current.title}</p><p className="mt-1 text-xs text-zinc-500">{current.brand} · {current.prefecture}</p></div><Status status={current.approvalStatus}/></div>}
 
+   {current&&current.approvalStatus==='approved'&&
+    <AdvertisingV2CampaignStats campaign={current}/>}
    {step===0&&<form className={panel+' space-y-6'} onSubmit={saveCampaign}>
     <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">01 · Καμπάνια</p><h3 className="mt-2 text-2xl font-black">Πες μας για το brand σου.</h3><p className="mt-2 text-sm text-zinc-400">Στοιχεία και γεωγραφική στόχευση μέχρι επίπεδο νομού — όχι πόλη.</p></div>
     <div className="grid gap-5 md:grid-cols-2">
