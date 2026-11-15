@@ -8,9 +8,9 @@ const schema=new mongoose.Schema({
  lotId:{type:mongoose.Schema.Types.ObjectId,required:true},
  kind:{type:String,enum:['audio','visual'],required:true},
  placement:{type:String,required:true},
- name:{type:String,enum:['listen10','cta','complete','impression'],required:true},
+ name:{type:String,enum:['listen10','cta','complete','impression','click'],required:true},
  day:{type:String,required:true},
- costNanos:{type:Number,required:true,min:1},
+ costNanos:{type:Number,required:true,min:0},
  createdAt:{type:Date,default:Date.now}
 },{versionKey:false});
 schema.index({reservationId:1,name:1},{unique:true});
