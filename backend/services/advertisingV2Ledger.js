@@ -273,7 +273,7 @@ async function release({value,key,reason='finished'}){
  if(!TICKET.test(id))throw fail('Invalid ticket',400);
  const ticket=await Ticket.findById(id).lean();
  if(!ticket||!verifyCapability(value,ticket,key))throw fail('Invalid ticket');
- await closeTicket(id,reason==='skipped'?'skipped':'finished');
+ await closeTicket(id,['skipped','finished','failed','canceled'].includes(reason)?reason:'finished');
  return {status:'released'};
 }
 async function sweepExpired(){
