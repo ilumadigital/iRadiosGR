@@ -1,5 +1,6 @@
 import React, {useEffect,useMemo,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
+import BroadcasterPlanComparison from '../components/BroadcasterPlanComparison';
 import {Activity,ArrowRight,BarChart3,Check,CheckCircle2,Clock3,Crown,
   Globe2,LockKeyhole,Radio,Rocket,ShieldCheck,SlidersHorizontal,Sparkles,
   Target,Zap} from 'lucide-react';
@@ -7,20 +8,18 @@ import {Activity,ArrowRight,BarChart3,Check,CheckCircle2,Clock3,Crown,
 // Catalog is authoritative for pricing. Entitlements come from the server,
 // never from a localStorage flag, a checkout redirect, or a client assertion.
 const MODULES=[
-  {sku:'ADD-AN',right:'broadcaster.analytics',name:'Audience Radar',
-   subtitle:'Κάθε ακροατής μετράει',icon:BarChart3,accent:'sky',
-   benefits:['Live Listeners Tracker','Χάρτης ακροατών και περιοχές',
-    'Μέση διάρκεια ακρόασης','Ιστορικές περιοχές ακροατών','Στατιστικά διαφημίσεων']},
-,
   {sku:'ADD-DSP',right:'broadcaster.webdsp',name:'WebDSP Audio Engine',
-   subtitle:'Το δικό σου επαγγελματικό sound',icon:SlidersHorizontal,accent:'violet',
-   benefits:['Audio Engine με επαγγελματικά presets','Dynamic range & προσαρμογή ήχου',
-    'Premium Player Widget με DSP','Metadata, εξώφυλλα και Spotify 1Click',
-    'Metadata Widget για το site του σταθμού']},
-  {sku:'ADD-ADS',right:'broadcaster.ad_control',name:'iRadios Ad Control',
-   subtitle:'Εσύ ορίζεις τις διαφημίσεις σου',icon:Target,accent:'emerald',
-   benefits:['Διαχείριση διαφημίσεων του σταθμού','Custom ad spots',
-    'Frequency targeting','Δυνατότητα opt-out από network ads']}
+    subtitle:'Προσαρμόζεις τον ήχο του σταθμού σου',icon:SlidersHorizontal,
+    benefits:['Επαγγελματικά presets ήχου','Ρυθμίσεις έντασης και δυναμικού εύρους',
+      'Premium Player Widget με DSP','Metadata και εξώφυλλα τραγουδιών','Metadata Widget για το site σου']},
+  {sku:'ADD-ADS',right:'broadcaster.ad_control',name:'Ad Control',
+    subtitle:'Ελέγχεις τις διαφημίσεις στον σταθμό σου',icon:Target,
+    benefits:['Διαχείριση διαφημίσεων του σταθμού','Δικά σου διαφημιστικά σποτ',
+      'Ρύθμιση συχνότητας διαφημίσεων','Επιλογή απενεργοποίησης network ads']},
+  {sku:'ADD-AN',right:'broadcaster.analytics',name:'Audience Radar',
+    subtitle:'Βλέπεις πώς σε ακούει το κοινό σου',icon:BarChart3,
+    benefits:['Παρακολούθηση ακροατών σε πραγματικό χρόνο','Χάρτης ακροατών και περιοχές',
+      'Μέση διάρκεια ακρόασης','Ιστορικά στοιχεία ακροατών','Στατιστικά διαφημίσεων']}
 ];
 const PERIODS=[
   {code:'day',name:'1 ημέρα'},
@@ -268,14 +267,14 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
           {view==='boost'?<Rocket size={14}/>:<Crown size={14}/>} iRadiosGR Broadcaster
         </span>
         <h1 className="mt-6 max-w-3xl text-4xl font-black tracking-[-.055em] md:text-6xl">
-          {view==='boost'?'Δώσε στον σταθμό σου την προβολή που αξίζει.':'Ξεκλείδωσε ολόκληρη τη δύναμη του σταθμού σου.'}
+          {view==='boost'?'Δώσε στον σταθμό σου την προβολή που αξίζει.':'Τα εργαλεία που χρειάζεσαι, σε τιμές που καταλαβαίνεις.'}
         </h1>
         <p className="mt-5 max-w-2xl text-sm leading-7 text-zinc-300 md:text-base">
           {view==='boost'?'Αγόρασε επιπλέον προβολή για συγκεκριμένο χρονικό διάστημα, χωρίς αυτόματη ανανέωση.':
-            'Επαγγελματικός ήχος, πραγματικά δεδομένα και έλεγχος διαφημίσεων. Επίλεξε ένα εργαλείο ανά σταθμό ή το ολοκληρωμένο Premium πακέτο.'}
+            'Επίλεξε WebDSP, Ad Control ή Audience Radar για κάθε σταθμό ξεχωριστά. Ή ενεργοποίησε ένα Broadcaster Premium για όλους τους σταθμούς του λογαριασμού σου, με μία μηνιαία χρέωση.'}
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
-          <Link to="/backoffice/pro-features" className={'rounded-xl px-5 py-3 text-xs font-black '+(view==='features'?'bg-[#ccff00] text-black':'border border-white/20 text-white hover:bg-white/10')}>Pro Features</Link>
+          <Link to="/backoffice/pro-features" className={'rounded-xl px-5 py-3 text-xs font-black '+(view==='features'?'bg-[#ccff00] text-black':'border border-white/20 text-white hover:bg-white/10')}>Εργαλεία & Premium</Link>
           <Link to="/backoffice/boost" className={'rounded-xl px-5 py-3 text-xs font-black '+(view==='boost'?'bg-[#ccff00] text-black':'border border-white/20 text-white hover:bg-white/10')}>Boost My Radio</Link>
           <Link to="/backoffice/billing" className="rounded-xl border border-white/20 px-5 py-3 text-xs font-black text-white hover:bg-white/10">Οι συνδρομές μου</Link>
         </div>
@@ -297,7 +296,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
         <div><p className="text-[10px] font-black uppercase tracking-[.2em] text-[#ccff00]">Ο σταθμός σου</p>
           <h2 className="mt-2 text-xl font-black">Διάλεξε τον σταθμό που διαχειρίζεσαι</h2>
           <p className="mt-2 max-w-lg text-xs leading-5 text-zinc-400">
-            Τα add-ons και τα αγορασμένα Boost ισχύουν ανά σταθμό. Το Broadcaster Premium καλύπτει τους σταθμούς του λογαριασμού σύμφωνα με το τρέχον πρόγραμμα.</p></div>
+            Τα add-ons αγοράζονται για τον σταθμό που επιλέγεις. Το Broadcaster Premium είναι μία συνδρομή για όλους τους σταθμούς σου, ακόμη κι αν προσθέσεις καινούργιους.</p></div>
         <label className="min-w-[230px] flex-1 md:max-w-sm">
           <span className="mb-2 block text-[11px] font-bold text-zinc-400">Εγκεκριμένος σταθμός</span>
           <select value={selectedStation} onChange={e=>setSelectedStation(e.target.value)}
@@ -308,15 +307,16 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
         </label>
       </section>
       {view==='features'?<>
-        <section id="premium-offer" className="relative overflow-hidden rounded-[32px] border-2 border-[#ccff00]/60 bg-[#171e12] p-7 shadow-[0_20px_80px_rgba(204,255,0,.06)] md:p-10">
+        <BroadcasterPlanComparison catalog={catalog} initialStations={approved.length||5}/>
+        <section id="premium-offer" className="scroll-mt-24 relative overflow-hidden rounded-[32px] border-2 border-[#ccff00]/60 bg-[#171e12] p-7 shadow-[0_20px_80px_rgba(204,255,0,.06)] md:p-10">
           <div className="pointer-events-none absolute -right-12 -top-12 size-64 rounded-full bg-[#ccff00]/10 blur-[70px]"/>
           <div className="relative grid items-start gap-8 lg:grid-cols-[1.15fr_.85fr]">
             <div>
               <StateTag active={fullPremium}/>
-              <div className="mt-5 flex items-center gap-3 text-[#ccff00]"><Crown size={33}/><span className="text-[11px] font-black uppercase tracking-[.2em]">THE PRO PACK</span></div>
+              <div className="mt-5 flex items-center gap-3 text-[#ccff00]"><Crown size={33}/><span className="text-[11px] font-black uppercase tracking-[.2em]">ΟΛΑ ΣΕ ΜΙΑ ΣΥΝΔΡΟΜΗ</span></div>
               <h2 className="mt-3 text-4xl font-black tracking-[-.05em] md:text-5xl">Broadcaster Premium</h2>
-              <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-300">Τα εργαλεία που χρειάζεται ένας σύγχρονος ραδιοφωνικός σταθμός, σε ένα πακέτο. Περιλαμβάνει WebDSP, Audience Radar, Ad Control και Premium Boost.</p>
-              <div className="mt-6 flex items-end gap-2"><span className="text-5xl font-black tracking-tighter text-[#ccff00]">{price('B-PREM')}</span><span className="pb-1 text-sm text-zinc-400">/ μήνα</span></div>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-300">Με μία συνδρομή έχεις WebDSP, Ad Control και Audience Radar σε κάθε σταθμό του λογαριασμού σου. Δεν πληρώνεις ξανά για κάθε σταθμό, ακόμη κι αν προσθέσεις περισσότερους. Περιλαμβάνονται επίσης απεριόριστοι σταθμοί και το υφιστάμενο Premium Boost.</p>
+              <div className="mt-6 flex items-end gap-2"><span className="text-5xl font-black tracking-tighter text-[#ccff00]">{price('B-PREM')}</span><span className="pb-1 text-sm text-zinc-400" >/ μήνα / account</span></div>
               <p className="mt-2 text-[11px] text-zinc-400">Τελική τιμή με ΦΠΑ 24% · Μηνιαία συνδρομή μέχρι ακύρωσης</p>
               <p className="mt-2 text-xs leading-6 text-zinc-300">Με την «Έναρξη συνδρομής» συμφωνείς σε επαναλαμβανόμενη χρέωση <strong>{price('B-PREM')}/μήνα</strong> μέσω Nexi, μέχρι να την ακυρώσεις από το Backoffice. Η ακύρωση σταματά τις μελλοντικές χρεώσεις.</p>
               {!fullPremium&&<p className="mt-3 rounded-xl border border-sky-400/20 bg-sky-400/10 p-3 text-xs leading-6 text-sky-100">
@@ -338,10 +338,10 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
             <div className="rounded-3xl border border-white/10 bg-black/25 p-6">
               <p className="mb-5 text-xs font-black uppercase tracking-[.13em] text-[#ccff00]">Όλα μέσα στο Premium</p>
               <ul className="space-y-3">
-                {['Απεριόριστη διαχείριση σταθμών','WebDSP Audio Engine & προσαρμογή ήχου',
+                {['Απεριόριστοι σταθμοί σε ένα account','WebDSP Audio Engine & προσαρμογή ήχου',
                   'Audience Radar & προηγμένα Analytics','iRadios Ad Control',
                   'Premium Player & Metadata Widgets με Spotify 1Click',
-                  'Premium Boost στους επιλέξιμους σταθμούς',
+                  'Premium Boost στους σταθμούς που επιλέγεις',
                   'Προτεραιότητα στην υποστήριξη','Πρόσβαση σε νέες Beta λειτουργίες'].map(v=><Bullet key={v} bright>{v}</Bullet>)}
               </ul>
               <div className="mt-6 rounded-xl border border-[#ccff00]/15 bg-[#ccff00]/[.06] p-3 text-xs leading-5 text-zinc-300">
@@ -372,8 +372,8 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
           </div>
         </section>
         <div>
-          <h2 className="text-2xl font-black tracking-tight">Πάρε μόνο ό,τι χρειάζεσαι</h2>
-          <p className="mt-2 text-sm text-zinc-400">Τα ανεξάρτητα modules χρεώνονται ανά σταθμό. Η ενεργοποίησή τους δεν κλειδώνει την πρόσβαση στο υπόλοιπο Pro Pack.</p>
+          <h2 className="text-2xl font-black tracking-tight">Διάλεξε τα εργαλεία που χρειάζεται ο σταθμός σου</h2>
+          <p className="mt-2 text-sm text-zinc-400">Κάθε add-on έχει δική του μηνιαία τιμή και ενεργοποιείται μόνο στον σταθμό που επιλέγεις. Αν θέλεις και τα τρία σε πολλούς σταθμούς, σύγκρινε το συνολικό κόστος με το Premium παραπάνω.</p>
         </div>
         <section className="grid gap-5 lg:grid-cols-3">
           {MODULES.map(module=>{
@@ -387,7 +387,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <h3 className="mt-5 text-2xl font-black tracking-tight">{module.name}</h3>
               <p className="mt-1 text-xs text-zinc-400">{module.subtitle}</p>
               <div className="mt-5 flex items-baseline gap-1"><span className="text-3xl font-black">{price(module.sku)}</span><span className="text-xs text-zinc-500">/ μήνα / σταθμό</span></div>
-              <p className="mt-2 text-[11px] leading-5 text-zinc-400">Μηνιαία επαναλαμβανόμενη χρέωση μέσω Nexi μέχρι ακύρωσης. Περιλαμβάνεται ΦΠΑ 24%.</p>
+              <p className="mt-2 text-[11px] leading-5 text-zinc-400">Τελική τιμή με ΦΠΑ 24%. Η συνδρομή ανανεώνεται μηνιαία μέχρι να την ακυρώσεις.</p>
               <ul className="my-7 flex-1 space-y-3">{module.benefits.map(f=><Bullet key={f}>{f}</Bullet>)}</ul>
               {active?<Link to={{'ADD-AN':'/backoffice/radar','ADD-DSP':'/backoffice/audio','ADD-ADS':'/backoffice/ad-control'}[module.sku]}
                 className="flex items-center justify-center gap-2 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/10 px-4 py-3.5 text-xs font-black text-[#ccff00] transition hover:bg-[#ccff00]/20">
