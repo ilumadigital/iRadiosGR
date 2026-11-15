@@ -85,7 +85,10 @@ test('staging paid mode refuses unticketed preview, missing Sandbox and standalo
  assert.match(compose,/AD_STAGE_QA_APPROVAL_ENABLED: '0'/);
  assert.match(compose,/AD_STAGE_PAID_PLACEMENT_PREVIEW: '0'/);
  assert.match(compose,/AD_DELIVERY_BILLING_ENABLED: '0'/);
- assert.match(deploy,/\[\[ \$\{#compose_files\[@\]\} -ne 2 \]\]/);
+ assert.match(deploy,/replica_set_enabled=0/);
+ assert.match(deploy,/replica_set_enabled=1/);
+ assert.match(deploy,/\[\[ "\$replica_set_enabled" != 1 \]\]/);
+ assert.doesNotMatch(deploy,/\$\{#compose_files\[@\]\}/);
  assert.match(ledger,/process\.env\.IRADIOS_BILLING_SANDBOX_ENABLED==='1'/);
  assert.match(ledger,/process\.env\.AD_STAGE_QA_APPROVAL_ENABLED!=='1'/);
  assert.match(ledger,/process\.env\.AD_STAGE_PAID_PLACEMENT_PREVIEW!=='1'/);
