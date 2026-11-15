@@ -1340,6 +1340,8 @@ function MainApp() {
           }
           record.ticketCapability=result.capability;
           record.nonSkippable=result.nonSkippable===true;
+          setCurrentAdInfo({...nextAd,ticketCapability:result.capability,
+            nonSkippable:record.nonSkippable});
           mediaUrl+=((mediaUrl.includes('?'))?'&':'?')+
             'ticket='+encodeURIComponent(result.capability);
         }
