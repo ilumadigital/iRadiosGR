@@ -1,7 +1,24 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {checkBroadcasterStream}=require('../services/broadcasterStreamHealth');
+// This is an offline unit test: use injected stream bytes and isolate the
+// default network fetcher so its transitive MongoDB model is not loaded.
+const Module=require('node:module');
+const originalLoad=Module._load;
+let checkBroadcasterStream;
+try{
+ Module._load=function(request,parent,isMain){
+  const filename=parent?.filename||'';
+  const health=filename.endsWith('/backend/services/broadcasterStreamHealth.js');
+  const diagnostics=filename.endsWith('/backend/services/streamDiagnostics.js');
+  if((health||diagnostics)&&request==='../utils/stageSafeRadioFetch')
+   return {readPublicUrl:async()=>{throw Error('Network disabled in unit test');}};
+  if(diagnostics&&request==='../utils/stageStreamProxy')
+   return {parseRadioUrl:url=>new URL(url)};
+  return originalLoad.call(this,request,parent,isMain);
+ };
+ ({checkBroadcasterStream}=require('../services/broadcasterStreamHealth'));
+}finally{Module._load=originalLoad;}
 
 test('uses safe bounded 1KiB startup probe, not 64KiB of continuous audio',async()=>{
  let options;
