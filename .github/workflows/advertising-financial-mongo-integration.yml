@@ -81,6 +81,7 @@ jobs:
           AD_V2_DISPOSABLE_APPROVAL: I_CONFIRMED_TEST_ONLY_DATABASE
           AD_V2_DISPOSABLE_MONGODB_URI: mongodb://127.0.0.1:27017/ad_v2_disposable_ci_20261115?replicaSet=rs0&directConnection=true
           ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED: '1'
+          IRADIOS_BILLING_SANDBOX_ENABLED: '1'
           ADVERTISING_V2_DELIVERY_SECRET: CI_TEST_ONLY_NOT_A_REAL_ADVERTISING_SECRET_1234567890
         run: node backend/tests/advertisingV2LedgerMongoDisposable.cjs
       - name: Ensure unaudited legacy CPM public delivery remains disabled
