@@ -45,19 +45,21 @@ export function AdOnlyFullscreen({
   volume,setVolume,mobile=false
 }) {
   const closeRef=useRef(null);
+  const onCloseRef=useRef(onClose);
+  onCloseRef.current=onClose;
   useEffect(()=>{
     const previous=document.activeElement;
     const previousOverflow=document.body.style.overflow;
     if(mobile)document.body.style.overflow='hidden';
     closeRef.current?.focus();
-    const onKey=event=>{if(event.key==='Escape'){event.preventDefault();onClose();}};
+    const onKey=event=>{if(event.key==='Escape'){event.preventDefault();onCloseRef.current?.();}};
     document.addEventListener('keydown',onKey);
     return ()=>{
       document.removeEventListener('keydown',onKey);
       if(mobile)document.body.style.overflow=previousOverflow;
       if(previous?.isConnected)previous.focus();
     };
-  },[mobile,onClose]);
+  },[mobile]);
   if(!ad)return null;
   return (
     <div role="dialog" aria-modal="true" aria-label="Αναπαραγωγή διαφήμισης"
