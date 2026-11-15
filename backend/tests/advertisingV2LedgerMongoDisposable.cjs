@@ -25,7 +25,7 @@ async function createFixture(dailyBudgetCents=2000){
  const campaign=await Campaign.create({
   _id:id,agencyId:new mongoose.Types.ObjectId(),title:'Disposable campaign',
   brand:'Test brand',startsAt:new Date(now-86400000),endsAt:new Date(now+86400000),
-  plannedBudgetCents:10000,dailyBudgetCents,workflowVersion:2,
+  plannedBudgetCents:100000,dailyBudgetCents,workflowVersion:2,
   createdByRole:'agency',approvalStatus:'approved',isStageCampaign:true
  });
  await FundingLot.create({
