@@ -51,8 +51,13 @@ exports.getActiveBanners=async(req,res)=>{
     // Server-authorized geo is authoritative for v2 stage placements. This
     // test marker is ONLY emitted in non-billable staging preview mode.
     const {paidPlacementPreviewEnabled}=require('../services/advertisingStagePaidPreview');
-    res.json(eligible.map(b=>paidPlacementPreviewEnabled()&&b.campaignId?
-      {...b,serverGeoEligible:true}:b));
+    const {enabled}=require('../services/advertisingV2Ledger');
+    res.json(eligible.map(b=>({
+      ...b,
+      serverGeoEligible:Boolean(b.campaignId)&&
+        (paidPlacementPreviewEnabled()||enabled()),
+      paidDeliveryRequired:enabled()&&Boolean(b.campaignId)&&Boolean(b.agencyId)
+    })));
   }catch(error){
     console.error('[BANNERS] Public delivery failed',error.message);
     res.status(500).json({error:'Σφάλμα ανάκτησης Banners.'});
