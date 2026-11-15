@@ -28,6 +28,14 @@ const isNonSkippable=dailyBudgetCents=>Number.isSafeInteger(dailyBudgetCents)&&
  dailyBudgetCents>NON_SKIPPABLE_DAILY_CENTS;
 const validDailyBudget=(daily,total)=>Number.isSafeInteger(daily)&&
  Number.isSafeInteger(total)&&total>0&&daily>0&&daily<=total;
+// A prepaid funding lot authorizes event billing ONLY at the exact immutable
+// rate card accepted on checkout. Never reprice historical legacy CPM funds.
+const matchesRateCardSnapshot=snapshot=>Boolean(snapshot&&
+ Object.entries(AUDIO_RATE_CARD).every(([place,events])=>
+  Object.entries(events).every(([event,price])=>
+   snapshot.audio?.[place]?.[event]===price))&&
+ Object.entries(VISUAL_IMPRESSION_NANOS).every(([place,price])=>
+  snapshot.visual?.[place]===price));
 const feeNanos=(kind,placement,event)=>{
  if(kind==='audio'){
   const rates=AUDIO_RATE_CARD[placement];
@@ -53,4 +61,5 @@ function athensDay(at=Date.now()){
 module.exports={NANOS_PER_CENT,AUDIO_RATE_CARD,VISUAL_CPM_NANOS,
  VISUAL_IMPRESSION_NANOS,MAX_BREAK_SPOTS,MAX_AUDIO_DURATION_SECONDS,
  MIN_AUDIO_BILLABLE_SECONDS,MIN_VISUAL_VIEW_MS,NON_SKIPPABLE_DAILY_CENTS,
- skipAtSeconds,isNonSkippable,validDailyBudget,feeNanos,eventReserveNanos,athensDay};
+ skipAtSeconds,isNonSkippable,validDailyBudget,matchesRateCardSnapshot,
+ feeNanos,eventReserveNanos,athensDay};
