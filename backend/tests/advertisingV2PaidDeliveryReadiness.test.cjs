@@ -72,7 +72,23 @@ test('Agency dashboard distinguishes non-billable preview from verified event le
  const panel=fs.readFileSync(path.join(__dirname,'../../frontend/src/components/AdvertisingV2CampaignStats.jsx'),'utf8');
  assert.match(route,/compatibleFunding:eligibleLotCount>0/);
  assert.match(route,/payable:readiness\.acceptingTickets&&req\.adGeoTrusted===true/);
- assert.match(panel,/Το real-time billing είναι απενεργοποιημένο/);
- assert.match(panel,/Το εμφανιζόμενο προπληρωμένο ποσό/);
+ assert.match(panel,/Η χρέωση Advertising v2 δεν έχει ενεργοποιηθεί/);
+ assert.match(panel,/Δεν υπάρχει συμβατό διαθέσιμο υπόλοιπο/);
  assert.match(panel,/setInterval\(\(\)=>\{if\(document\.visibilityState==='visible'\)void load\(\);\},5000\)/);
+});
+
+test('staging paid mode refuses unticketed preview, missing Sandbox and standalone Mongo',()=>{
+ const compose=read('../compose.stage.yml');
+ const deploy=read('../ops/deploy-stage.sh');
+ const ledger=read('services/advertisingV2Ledger.js');
+ const guard=read('../ops/check-stage-backend-env.sh');
+ assert.match(compose,/AD_STAGE_QA_APPROVAL_ENABLED: '0'/);
+ assert.match(compose,/AD_STAGE_PAID_PLACEMENT_PREVIEW: '0'/);
+ assert.match(compose,/AD_DELIVERY_BILLING_ENABLED: '0'/);
+ assert.match(deploy,/\[\[ \$\{#compose_files\[@\]\} -ne 2 \]\]/);
+ assert.match(ledger,/process\.env\.IRADIOS_BILLING_SANDBOX_ENABLED==='1'/);
+ assert.match(ledger,/process\.env\.AD_STAGE_QA_APPROVAL_ENABLED!=='1'/);
+ assert.match(ledger,/process\.env\.AD_STAGE_PAID_PLACEMENT_PREVIEW!=='1'/);
+ assert.match(guard,/IRADIOS_BILLING_SANDBOX_ENABLED=1/);
+ assert.match(guard,/ADVERTISING_V2_DELIVERY_SECRET IRADIOS_TRUSTED_GEO_SECRET/);
 });
