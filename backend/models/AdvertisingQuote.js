@@ -11,6 +11,8 @@ const schema=new mongoose.Schema({
  taxBps:{type:Number,required:true},
  priceVersion:{type:Number,required:true},
  ratesMicros:{type:mongoose.Schema.Types.Mixed,required:true},
+ rateModel:{type:String,enum:['legacy_cpm','v2_event'],default:'legacy_cpm'},
+ rateCardSnapshot:{type:mongoose.Schema.Types.Mixed,default:null},
  kind:{type:String,enum:['initial','topup'],required:true},
  status:{type:String,enum:['quoted','checkout','paid','canceled'],default:'quoted'},
  expiresAt:{type:Date,required:true},
