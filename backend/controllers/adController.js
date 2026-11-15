@@ -57,9 +57,16 @@ exports.getPublicAds=async(req,res)=>{
     const budgets=new Map(campaigns.map(c=>[String(c._id),c.dailyBudgetCents||0]));
     const paidCampaigns=new Set(campaigns.filter(c=>c.createdByRole==='agency')
       .map(c=>String(c._id)));
+    // Never advertise a payable creative when the listener cannot obtain a
+    // signed ticket. In particular, standalone MongoDB or untrusted ingress
+    // must not produce a silently free impression in paid-delivery mode.
+    const paidReady=paidLedger.enabled()?
+      (await paidLedger.financialReadiness()).acceptingTickets&&req.adGeoTrusted===true:false;
+    const deliverable=paidLedger.enabled()?
+      playable.filter(ad=>!paidCampaigns.has(String(ad.campaignId))||paidReady):playable;
     // Paid priority applies only AFTER approval, geo, affordability and media
     // validation. Stable tie-break prevents arbitrary shuffle/favoritism.
-    const sorted=[...playable].sort((a,b)=>
+    const sorted=[...deliverable].sort((a,b)=>
       (budgets.get(String(b.campaignId))||0)-
       (budgets.get(String(a.campaignId))||0)||
       String(a._id).localeCompare(String(b._id)));
@@ -68,7 +75,7 @@ exports.getPublicAds=async(req,res)=>{
      dailyBudgetCents:budgets.get(String(ad.campaignId))||0,
      nonSkippable:(budgets.get(String(ad.campaignId))||0)>4500,
      paidDeliveryRequired:paidLedger.enabled()&&paidCampaigns.has(String(ad.campaignId)),
-     serverGeoEligible:paidLedger.enabled()&&paidCampaigns.has(String(ad.campaignId))})));
+     serverGeoEligible:paidReady&&paidCampaigns.has(String(ad.campaignId))})));
   }catch(error){
     console.error('[ADS] Public delivery failed',error.message);
     res.status(500).json({error:'Σφάλμα λήψης.'});
