@@ -12,7 +12,8 @@ const execFileAsync=promisify(execFile);
 const Station=require('../models/Station');
 const mongoose=require('mongoose');
 const {hasStationRight}=require('../services/billingEntitlements');
-const {TOO_LONG_MESSAGE,isAudioSpotTooLong,isPlayableAudioDuration}=
+const {TOO_LONG_MESSAGE,TOO_SHORT_MESSAGE,isAudioSpotTooLong,
+  isAudioSpotTooShort,isPlayableAudioDuration}=
   require('../services/adAudioDurationRules');
 
 // ==========================================
@@ -178,6 +179,8 @@ router.post('/upload-ad',protect,requireAdUploadEntitlement,
         const audio=await validatePlayableAdAudio(req.file);
         if(isNetworkSpot&&isAudioSpotTooLong(audio.duration))
           throw new Error('AD_AUDIO_TOO_LONG');
+        if(isNetworkSpot&&isAudioSpotTooShort(audio.duration))
+          throw new Error('AD_AUDIO_TOO_SHORT');
         if(!audio.valid)throw new Error('Invalid or unsupported audio codec/duration');
       }
       const safeUserId=String(req.user._id);
@@ -187,7 +190,9 @@ router.post('/upload-ad',protect,requireAdUploadEntitlement,
       try{fs.unlinkSync(req.file.path);}catch{}
       console.warn('[ADS] Rejected audio upload:',error.message);
       const tooLong=error.message==='AD_AUDIO_TOO_LONG';
-      return res.status(tooLong?422:415).json({error:tooLong?TOO_LONG_MESSAGE:
+      const tooShort=error.message==='AD_AUDIO_TOO_SHORT';
+      return res.status(tooLong||tooShort?422:415).json({error:tooLong?TOO_LONG_MESSAGE:
+        tooShort?TOO_SHORT_MESSAGE:
         'Το αρχείο δεν αναπαράγεται σωστά. Ανέβασε MP3, WAV ή OGG με έγκυρο codec.'});
     }
   });
