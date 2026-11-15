@@ -63,35 +63,37 @@ export default function AdvertisingV2CampaignStats({campaign}){
  if(!data)return null;
  const daily=data.today||{},balance=data.balance||{},delivery=data.delivery||{};
  const missingPaidRequirements=[
-  !delivery.configured?'Το real-time billing είναι απενεργοποιημένο (QA Preview).':null,
-  delivery.configured&&!delivery.mongoReplicaSetReady?'Η MongoDB δεν είναι έτοιμη για ασφαλείς συναλλαγές.':null,
-  delivery.configured&&!delivery.trustedGeoReady?'Απουσιάζει επαληθευμένη γεωγραφική ταυτοποίηση από το reverse proxy.':null,
-  delivery.configured&&!delivery.compatibleFunding?'Το εμφανιζόμενο προπληρωμένο ποσό δεν διαθέτει συμβατό v2 event-based χρηματοδοτικό υπόλοιπο.':null
+  !delivery.configured?'Η χρέωση Advertising v2 δεν έχει ενεργοποιηθεί.':null,
+  delivery.configured&&!delivery.mongoReplicaSetReady?'Η ασφαλής MongoDB transaction processing δεν είναι διαθέσιμη.':null,
+  delivery.configured&&!delivery.trustedGeoReady?'Απουσιάζει επαληθευμένη γεωγραφική πληροφορία από το reverse proxy.':null,
+  !delivery.compatibleFunding?'Δεν υπάρχει συμβατό διαθέσιμο υπόλοιπο για τις χρεώσεις Advertising v2.':null
  ].filter(Boolean);
  const status=campaign.adminSuspended?'Παύση από Admin':
   !campaign.agencyEnabled?'Απενεργοποιημένη από Agency':
   campaign.approvalStatus!=='approved'?'Σε αναμονή έγκρισης':
-  Number(balance.remainingNanos||0)<=0?'Απαιτείται Top-up':
+  !delivery.campaignRunning?'Εκτός ενεργού χρονικού διαστήματος':
+  Number(data.compatibleAvailableNanos||0)<=0?'Απαιτείται διαθέσιμη πίστωση v2':
   daily.availableNanos<=0?'Εξαντλήθηκε το ημερήσιο όριο':
   delivery.payable?'Ενεργή οικονομική διανομή':
-  'Προεπισκόπηση / εκκρεμεί ενεργοποίηση χρέωσης';
+  'Η οικονομική διανομή δεν είναι διαθέσιμη';
  return <section className="space-y-4 rounded-[24px] border border-purple-400/20 bg-[#16131e] p-5 sm:p-7">
   <div className="flex flex-wrap items-center justify-between gap-3">
-   <div><p className="text-[10px] font-black uppercase tracking-widest text-purple-300">Advertising v2 · Audited metrics</p>
+   <div><p className="text-[10px] font-black uppercase tracking-widest text-purple-300">Advertising v2 · Live οικονομικά στοιχεία</p>
     <h3 className="mt-2 text-lg font-black text-white">Αποτελέσματα καμπάνιας</h3></div>
-   <span className="text-xs font-bold text-zinc-300">{status}</span>
+   <span role="status" aria-live="polite" className={'rounded-full border px-3 py-1.5 text-xs font-bold '+(delivery.payable?'border-emerald-400/30 bg-emerald-400/10 text-emerald-200':'border-amber-400/30 bg-amber-400/10 text-amber-200')}>{status}</span>
   </div>
-  {missingPaidRequirements.length>0&&<div role="status"
+  {!delivery.payable&&missingPaidRequirements.length>0&&<div role="status"
     className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
-    <strong className="block font-black">Η προβολή των spots δεν σημαίνει ότι χρεώνεται η καμπάνια.</strong>
+    <strong className="block font-black">Η καμπάνια δεν πραγματοποιεί χρεώσιμη προβολή αυτή τη στιγμή.</strong>
     {missingPaidRequirements.map(reason=><p key={reason} className="mt-1">{reason}</p>)}
    </div>}
   <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-   <div className={cell}><div className={label}>Προπληρωμένο</div><strong className="mt-2 block text-lg text-white">{eurNano(balance.fundedNanos)}</strong></div>
-   <div className={cell}><div className={label}>Συνολικά διαθέσιμο</div><strong className="mt-2 block text-lg text-white">{eurNano(balance.remainingNanos)}</strong></div>
-   <div className={cell}><div className={label}>Σήμερα δαπανήθηκαν</div><strong className="mt-2 block text-lg text-white">{eurNano(daily.spentNanos)}</strong></div>
+   <div className={cell}><div className={label}>Επιβεβαιωμένη πίστωση</div><strong className="mt-2 block text-lg text-white">{eurNano(balance.fundedNanos)}</strong></div>
+   <div className={cell}><div className={label}>Εσωτερικό υπόλοιπο</div><strong className="mt-2 block text-lg text-white">{eurNano(balance.remainingNanos)}</strong></div>
+   <div className={cell}><div className={label}>Σήμερα χρεώθηκαν</div><strong className="mt-2 block text-lg text-white">{eurNano(daily.spentNanos)}</strong></div>
    <div className={cell}><div className={label}>Ημερήσιο υπόλοιπο</div><strong className="mt-2 block text-lg text-white">{eurNano(daily.availableNanos)}</strong></div>
   </div>
+  <p className="text-xs text-zinc-300"><strong>Διαθέσιμο για Advertising v2: {eurNano(data.compatibleAvailableNanos)}</strong> · Η ιστορική πίστωση διαφορετικού τιμοκαταλόγου δεν χρεώνεται ως v2.</p>
   <p className="text-xs text-zinc-400">Όριο ανά ημέρα {eurCent(data.dailyBudgetCents)} · Reset 00:00 ώρα Ελλάδας · Ενεργές κρατήσεις {data.activeReservations||0}. Μόνο επιβεβαιωμένα server-side γεγονότα χρεώνονται.</p>
   <div className="overflow-x-auto">
    <table className="w-full min-w-[620px] text-left text-xs">

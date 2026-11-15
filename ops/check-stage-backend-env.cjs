@@ -14,11 +14,6 @@ const safe = [
   'APP_ENV=staging',
   'SMTP_HOST=mailpit',
   'SMTP_PORT=1025',
-  'ADMIN_2FA_SMTP_HOST=smtp.example.test',
-  'ADMIN_2FA_SMTP_PORT=465',
-  'ADMIN_2FA_SMTP_USER=security@example.invalid',
-  'ADMIN_2FA_SMTP_PASS=test-only-secret',
-  'ADMIN_2FA_SMTP_FROM=no-reply@example.invalid',
   'TURNSTILE_SITE_KEY=0x4AAAAAAAAAAAAAAAAAAAAAAAA',
   'TURNSTILE_SECRET_KEY=0x4BBBBBBBBBBBBBBBBBBBBBBBB',
   'STAGE_ENABLE_SONOVAULT=0'
@@ -31,13 +26,17 @@ function verify(content, success, label) {
 }
 try {
   verify(safe,true,'safe staging backend env');
-  verify(safe.replace('ADMIN_2FA_SMTP_HOST=smtp.example.test','ADMIN_2FA_SMTP_HOST=mailpit'),
-    false,'Admin 2FA cannot use Mailpit');
-  verify(safe.replace('ADMIN_2FA_SMTP_PASS=test-only-secret','ADMIN_2FA_SMTP_PASS='),
-    false,'missing Admin 2FA password blocks deployment');
-  verify(safe.replace('ADMIN_2FA_SMTP_HOST=smtp.example.test\n',''),
-    false,'missing Admin 2FA host blocks deployment');
-  verify(safe.replace('SMTP_HOST=mailpit','SMTP_HOST=smtp.hostinger.com').replace('SMTP_PORT=1025','SMTP_PORT=587')+'SMTP_USER=test@example.invalid\nSMTP_PASS=fake-only\n',true,'staging SMTP environment accepted; Mailpit enforced in app');
+  verify(safe.replace('SMTP_HOST=mailpit','SMTP_HOST=smtp.example.test'),
+    false,'external SMTP host blocked');
+  verify(safe.replace('SMTP_PORT=1025','SMTP_PORT=587'),
+    false,'external SMTP port blocked');
+  verify(safe+'SMTP_USER=external\n',false,'SMTP account blocked');
+  verify(safe+'SMTP_PASS=external\n',false,'SMTP password blocked');
+  verify(safe+'ADMIN_2FA_SMTP_HOST=smtp.example.test\n',
+    false,'Admin SMTP bypass blocked');
+  verify(safe+'ADMIN_2FA_SMTP_PASS=external\n',
+    false,'Admin SMTP password blocked');
+  verify(safe+'ADMIN_2FA_SMTP_HOST=\n',true,'empty legacy Admin SMTP harmless');
   verify(safe.replace('TURNSTILE_SITE_KEY=0x4AAAAAAAAAAAAAAAAAAAAAAAA',''),false,'missing Turnstile site key');
   verify(safe+'TURNSTILE_SECRET_KEY=0x4CCCCCCCCCCCCCCCCCCCCCCCC\n',false,'duplicate Turnstile secret');
   verify(safe.replace('0x4AAAAAAAAAAAAAAAAAAAAAAAA','1x00000000000000000000AA'),false,'public stage rejects Turnstile test site key');
@@ -56,6 +55,24 @@ try {
     false,'production Gateway credentials forbidden on staging');
   verify(safe+'IRADIOS_BILLING_SANDBOX_ENABLED=maybe\n',false,'invalid Sandbox flag rejected');
   verify(sandbox+'IRADIOS_BILLING_SANDBOX_ENABLED=0\n',false,'duplicate Sandbox mode rejected');
+  const paid=sandbox+
+    'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1\n'+
+    'ADVERTISING_V2_DELIVERY_SECRET='+('d'.repeat(64))+'\n'+
+    'IRADIOS_TRUSTED_GEO_SECRET='+('e'.repeat(64))+'\n';
+  verify(paid,true,'paid v2 sandbox activation with both private secrets');
+  verify(paid.replace('ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1',
+    'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=maybe'),
+    false,'paid v2 flag must be boolean');
+  verify(safe+'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1\n',
+    false,'paid v2 cannot start without verified Gateway funding');
+  verify(paid.replace('ADVERTISING_V2_DELIVERY_SECRET='+('d'.repeat(64)),
+    'ADVERTISING_V2_DELIVERY_SECRET=short'),false,'short ticket secret rejected');
+  verify(paid.replace('IRADIOS_TRUSTED_GEO_SECRET='+('e'.repeat(64)),
+    'IRADIOS_TRUSTED_GEO_SECRET=short'),false,'short geo secret rejected');
+  verify(paid+'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1\n',
+    false,'duplicate paid financial switch rejected');
+  verify(paid+'AD_STAGE_PAID_PLACEMENT_PREVIEW=1\n',
+    false,'paid delivery cannot coexist with nonbillable preview env override');
   // Legacy checkout routes were removed; only the signed Gateway billing path remains.
   const server=readFile('backend/server.js');
   assert.ok(!server.includes("require('./controllers/paymentController')"));

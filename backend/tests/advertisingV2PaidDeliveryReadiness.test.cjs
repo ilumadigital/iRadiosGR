@@ -71,8 +71,11 @@ test('Agency dashboard distinguishes non-billable preview from verified event le
  const route=read('routes/advertisingV2Routes.js');
  const panel=fs.readFileSync(path.join(__dirname,'../../frontend/src/components/AdvertisingV2CampaignStats.jsx'),'utf8');
  assert.match(route,/compatibleFunding:eligibleLotCount>0/);
+ assert.match(route,/compatibleAvailableNanos/);
+ assert.match(route,/campaignRunning&&compatibleAvailableNanos>0&&dayAvailableNanos>0/);
+ assert.match(panel,/Διαθέσιμο για Advertising v2/);
  assert.match(route,/payable:readiness\.acceptingTickets&&req\.adGeoTrusted===true/);
- assert.match(panel,/Το real-time billing είναι απενεργοποιημένο/);
- assert.match(panel,/Το εμφανιζόμενο προπληρωμένο ποσό/);
+ assert.match(panel,/Η χρέωση Advertising v2 δεν έχει ενεργοποιηθεί/);
+ assert.match(panel,/Δεν υπάρχει συμβατό διαθέσιμο υπόλοιπο/);
  assert.match(panel,/setInterval\(\(\)=>\{if\(document\.visibilityState==='visible'\)void load\(\);\},5000\)/);
 });

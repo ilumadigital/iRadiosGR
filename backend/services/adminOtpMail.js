@@ -2,19 +2,25 @@
 const nodemailer=require('nodemailer');
 const {renderBrandedEmail,escapeHtml}=require('../utils/emailDesign');
 const RECIPIENT='sales@iluma.gr';
-// Separate delivery: staging's generic mailer intentionally uses Mailpit.
-// Admin login must reach the real fixed mailbox, or fail closed.
+// Staging-only Admin OTP stays inside the private Mailpit sink.
 async function sendAdminOtpEmail({code,username}){
- const host=String(process.env.ADMIN_2FA_SMTP_HOST||'').trim();
+ const stage=process.env.APP_ENV==='staging';
+ // Mailpit captures even privileged Admin OTPs on the public staging app.
+ const host=stage?'mailpit':String(process.env.ADMIN_2FA_SMTP_HOST||'').trim();
  const user=String(process.env.ADMIN_2FA_SMTP_USER||'').trim();
  const pass=process.env.ADMIN_2FA_SMTP_PASS;
- const from=String(process.env.ADMIN_2FA_SMTP_FROM||'').trim();
- const port=Number(process.env.ADMIN_2FA_SMTP_PORT||465);
- if(!host||!user||!pass||!from||!Number.isInteger(port)||port<1||port>65535||
-   /^(?:localhost|mailpit|127(?:\.\d{1,3}){3}|::1)$/i.test(host))
+ const from=stage?String(process.env.MAIL_FROM||'staging@invalid.example').trim():
+  String(process.env.ADMIN_2FA_SMTP_FROM||'').trim();
+ const port=stage?1025:Number(process.env.ADMIN_2FA_SMTP_PORT||465);
+ if(!stage&&(!host||!user||!pass||!from||!Number.isInteger(port)||
+  port<1||port>65535||
+  /^(?:localhost|mailpit|127(?:\.\d{1,3}){3}|::1)$/i.test(host)))
   throw Error('Admin 2FA real SMTP is not configured');
- const transporter=nodemailer.createTransport({host,port,secure:port===465,
-  auth:{user,pass},connectionTimeout:8000,greetingTimeout:8000,socketTimeout:10000});
+ const transporter=nodemailer.createTransport(stage?{
+  host:'mailpit',port:1025,secure:false,ignoreTLS:true,
+  connectionTimeout:8000,greetingTimeout:8000,socketTimeout:10000
+ }:{host,port,secure:port===465,auth:{user,pass},
+  connectionTimeout:8000,greetingTimeout:8000,socketTimeout:10000});
  try{
   const info=await transporter.sendMail({
    from,to:RECIPIENT,subject:'iRadiosGR Admin — Κωδικός σύνδεσης',

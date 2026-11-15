@@ -159,25 +159,42 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
   // Historical Nexi-funded/legacy-CPM lots may display prepaid money, but
   // they cannot silently fund the newer per-event rate card. Surface this
   // distinction explicitly in the Agency's audited metrics.
-  const eligibleLotCount=lots.filter(lot=>
+  const eligibleLots=lots.filter(lot=>
    lot.rateModel==='v2_event'&&
    lot.settlementMode==='mongo_transaction_v2'&&
    Number.isSafeInteger(lot.remainingNanos)&&
+   Number.isSafeInteger(lot.reservedNanos||0)&&
    lot.remainingNanos>(lot.reservedNanos||0)&&
-   policy.matchesRateCardSnapshot(lot.rateCardSnapshot)).length;
+   policy.matchesRateCardSnapshot(lot.rateCardSnapshot));
+  const eligibleLotCount=eligibleLots.length;
+  // Never label historical CPM money as spendable under the immutable v2 card.
+  const compatibleAvailableNanos=Math.min(Number.MAX_SAFE_INTEGER,
+   eligibleLots.reduce((total,lot)=>total+
+    Math.max(0,lot.remainingNanos-(lot.reservedNanos||0)),0));
   const today=daily.find(d=>d.day===policy.athensDay())||null;
+  const dayAvailableNanos=today?
+   Math.max(0,today.limitNanos-today.spentNanos-today.reservedNanos):
+   campaign.dailyBudgetCents*policy.NANOS_PER_CENT;
+  const time=Date.now();
+  const campaignRunning=campaign.approvalStatus==='approved'&&
+   campaign.agencyEnabled===true&&campaign.adminSuspended!==true&&
+   !campaign.deletedAt&&new Date(campaign.startsAt).getTime()<=time&&
+   new Date(campaign.endsAt).getTime()>time;
   return res.json({campaignId:campaign._id,dailyBudgetCents:campaign.dailyBudgetCents,
    today:today?{day:today.day,spentNanos:today.spentNanos,
      reservedNanos:today.reservedNanos,
-     availableNanos:Math.max(0,today.limitNanos-today.spentNanos-today.reservedNanos)}:
+     availableNanos:dayAvailableNanos}:
     {day:policy.athensDay(),spentNanos:0,reservedNanos:0,
-     availableNanos:campaign.dailyBudgetCents*policy.NANOS_PER_CENT},
+     availableNanos:dayAvailableNanos},
    balance,
+   compatibleAvailableNanos,
    delivery:{configured:readiness.configured,
     mongoReplicaSetReady:readiness.mongoReplicaSetReady,
     trustedGeoReady:req.adGeoTrusted===true,
     compatibleFunding:eligibleLotCount>0,
-    payable:readiness.acceptingTickets&&req.adGeoTrusted===true&&eligibleLotCount>0},
+    campaignRunning,
+    payable:readiness.acceptingTickets&&req.adGeoTrusted===true&&
+     campaignRunning&&compatibleAvailableNanos>0&&dayAvailableNanos>0},
    activeReservations:reservations,skips:skips.map(x=>({placement:x._id,count:x.count})),
    daily:daily.map(x=>({
     day:x.day,spentNanos:x.spentNanos,reservedNanos:x.reservedNanos})),

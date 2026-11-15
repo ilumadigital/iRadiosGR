@@ -5,7 +5,10 @@ const {evaluateBudgetAffordability}=require('./advertisingBudgetAffordability');
 function paidPlacementPreviewEnabled(env=process.env){
  return env.APP_ENV==='staging' &&
   env.AD_STAGE_PAID_PLACEMENT_PREVIEW==='1' &&
-  env.AD_DELIVERY_BILLING_ENABLED!=='1';
+  env.AD_DELIVERY_BILLING_ENABLED!=='1' &&
+  // Never serve funded Agency inventory as free preview when paid v2 is opted in.
+  // Fail closed even if the required paid-delivery secret is not configured yet.
+  env.ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED!=='1';
 }
 function creativeTiers(creative){
  if(creative?.audioUrl)return ['audio'];

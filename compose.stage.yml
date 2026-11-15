@@ -44,13 +44,14 @@ services:
       MONGO_URI: 'mongodb://iradios_stage_app:${STAGE_MONGO_APP_PASSWORD:?run prepare-stage-mongo-user.sh}@mongo:27017/iradios_stage?authSource=iradios_stage'
       APP_ENV: staging
       FRONTEND_URL: https://stage.iradios.gr
-      # Admin QA approvals are separate from real Nexi checkout.
-      # This preview mode does NOT charge or grant any campaign budget.
-      AD_STAGE_QA_APPROVAL_ENABLED: '1'
+      # Commercial-like staging defaults to genuine billing, not free QA.
+      # Temporary legacy QA may be opted in via the private compose.env ONLY
+      # while the paid v2 financial switch remains OFF.
+      AD_STAGE_QA_APPROVAL_ENABLED: '${STAGE_AD_QA_APPROVAL_ENABLED:-0}'
       AD_DELIVERY_BILLING_ENABLED: '0'
-      # Staging-only, NON-BILLABLE listener placement preview for verified paid
-      # Agency campaigns. The sandbox wallet is never debited by this mode.
-      AD_STAGE_PAID_PLACEMENT_PREVIEW: '1'
+      # Never quietly play paid Agency creatives without charging. The paid
+      # v2 gate independently disables preview if accidentally left enabled.
+      AD_STAGE_PAID_PLACEMENT_PREVIEW: '${STAGE_AD_PAID_PLACEMENT_PREVIEW:-0}'
       # AD_PAYMENTS_SANDBOX_ENABLED comes ONLY from the private staging
       # backend.env (default absent/off), not a hard-coded Compose override.
       # Do not opt in until the Gateway staging tenant is reviewed and migrated.
