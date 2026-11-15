@@ -77,6 +77,40 @@ if grep -q '^IRADIOS_BILLING_SANDBOX_ENABLED=' "$ENV_FILE"; then
     fi
   fi
 fi
+
+# Paid event delivery is an explicit choice: it must never coexist with
+# unticketed QA/legacy previews, production Gateway keys or missing secrets.
+if grep -q '^ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=' "$ENV_FILE"; then
+  if [[ "$(count_key ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED)" != "1" ]] ||
+     ! grep -Eq '^ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=[01]$' "$ENV_FILE"; then
+    echo 'STOP: Advertising v2 financial switch must be 0 or 1 exactly once.' >&2
+    exit 1
+  fi
+fi
+if grep -qx 'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1' "$ENV_FILE"; then
+  if ! grep -qx 'IRADIOS_BILLING_SANDBOX_ENABLED=1' "$ENV_FILE"; then
+    echo 'STOP: v2 billing needs signed Gateway Sandbox checkout.' >&2
+    exit 1
+  fi
+  for key in AD_STAGE_QA_APPROVAL_ENABLED AD_STAGE_PAID_PLACEMENT_PREVIEW AD_DELIVERY_BILLING_ENABLED AD_PAYMENTS_SANDBOX_ENABLED; do
+    if grep -qx "$key=1" "$ENV_FILE"; then
+      echo "STOP: $key cannot coexist with v2 financial delivery." >&2
+      exit 1
+    fi
+  done
+  for key in ADVERTISING_V2_DELIVERY_SECRET IRADIOS_TRUSTED_GEO_SECRET; do
+    if [[ "$(count_key "$key")" != "1" ]]; then
+      echo "STOP: missing private $key." >&2
+      exit 1
+    fi
+    value=$(sed -n "s/^$key=//p" "$ENV_FILE")
+    if [[ ${#value} -lt 32 || "$value" =~ [[:space:]] ]]; then
+      echo "STOP: invalid $key (minimum 32 non-whitespace characters)." >&2
+      exit 1
+    fi
+  done
+fi
+
 # Days of grace are a deliberate iRadios subscription policy, not a
 # Gateway setting. Omitted means zero days (no unapproved free extension).
 if grep -q '^IRADIOS_BILLING_GRACE_DAYS=' "$ENV_FILE"; then

@@ -5,6 +5,7 @@ const {evaluateBudgetAffordability}=require('./advertisingBudgetAffordability');
 function paidPlacementPreviewEnabled(env=process.env){
  return env.APP_ENV==='staging' &&
   env.AD_STAGE_PAID_PLACEMENT_PREVIEW==='1' &&
+  env.ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED!=='1' &&
   env.AD_DELIVERY_BILLING_ENABLED!=='1';
 }
 function creativeTiers(creative){

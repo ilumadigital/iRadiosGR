@@ -44,7 +44,23 @@ async function handleVerifiedAdvertisingEvent(event,res){
    paymentCents:event.amount_cents,currency:'EUR'}),
   Campaign.findOne({_id:intent.campaignId,agencyId:accountId,isStageCampaign:true})
  ]);
- if(!quote||!campaign)return res.status(409).json({error:'Quote/owner mismatch'});
+ if(!quote)return res.status(409).json({error:'Quote/owner mismatch'});
+ // Older staging campaigns may have been physically removed after receiving a
+ // signed Sandbox payment. Preserve the receipt and ACK only an exact replay:
+ // do not reconstruct the campaign or mutate any funding.
+ if(!campaign){
+  if(event.event_type==='payment.paid'&&intent.status==='paid'){
+   const lot=await FundingLot.findOne({gatewayPaymentId:event.payment_id});
+   if(lot&&String(lot.agencyId)===String(accountId)&&
+      String(lot.campaignId)===String(intent.campaignId)&&
+      String(lot.quoteId)===String(quote._id)&&
+      lot.gatewayOrderId===event.order_id&&
+      lot.budgetMicros===budgetMicros(quote.budgetCents)&&
+      lot.priceVersion===quote.priceVersion)
+    return res.json({received:true,credited:false,duplicate:true,archived:true});
+  }
+  return res.status(409).json({error:'Deleted campaign; financial audit required'});
+ }
  if(campaign.deletedAt){
   // A deleted campaign never accepts NEW money. An already reconciled paid
   // event may be replayed by the durable Gateway outbox after archival;

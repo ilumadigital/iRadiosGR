@@ -6,6 +6,8 @@ function allowUnfundedReview(env=process.env){
  return env.APP_ENV==='staging' &&
   env.AD_STAGE_QA_APPROVAL_ENABLED==='1' &&
   env.AD_DELIVERY_BILLING_ENABLED!=='1' &&
+  env.ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED!=='1' &&
+  env.IRADIOS_BILLING_SANDBOX_ENABLED!=='1' &&
   env.AD_PAYMENTS_SANDBOX_ENABLED!=='1';
 }
 module.exports={allowUnfundedReview};
