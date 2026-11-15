@@ -160,7 +160,7 @@ export default function Register({ API_URL, setCurrentUser }) {
             </button>
             
             <p className="text-center text-[11px] text-zinc-500 mt-3 font-medium">
-              Με την εγγραφή αποδέχεστε τους <Link to="/terms" className="text-white hover:text-[#ccff00] underline decoration-white/30 underline-offset-2">Όρους Χρήσης</Link> του iRadios.
+              Με την εγγραφή αποδέχεσαι τους <Link to="/terms" className="text-white hover:text-[#ccff00] underline decoration-white/30 underline-offset-2">Όρους Χρήσης</Link> και ενημερώνεσαι για την <Link to="/privacy" className="text-white hover:text-[#ccff00] underline decoration-white/30 underline-offset-2">Πολιτική Απορρήτου</Link> του iRadiosGR.
             </p>
           </form>
 

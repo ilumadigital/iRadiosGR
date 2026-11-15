@@ -64,7 +64,7 @@ export default function CookieConsent() {
               Χρησιμοποιούμε απαραίτητα cookies για τη λειτουργία του iRadios. Με την άδειά σου,
               ενεργοποιούμε στατιστικά και τεχνολογίες διαφήμισης. Μπορείς να αρνηθείς ή να προσαρμόσεις
               τις επιλογές σου χωρίς να επηρεαστεί η ακρόαση.
-              {' '}<Link to="/privacy" className="font-semibold text-zinc-200 underline underline-offset-2 hover:text-[#ccff00]">Πολιτική απορρήτου</Link>
+              {' '}<Link to="/privacy" className="font-semibold text-zinc-200 underline underline-offset-2 hover:text-[#ccff00]">Πολιτική απορρήτου</Link> · <Link to="/cookies" className="font-semibold text-zinc-200 underline underline-offset-2 hover:text-[#ccff00]">Πολιτική Cookies</Link>
             </p>
           </div>
         </div>

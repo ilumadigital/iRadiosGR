@@ -147,7 +147,7 @@ export default function BroadcasterBillingDashboard({stations=[]}){
         Αυτόματη ανανέωση: {mandate.state==='active'?'Ενεργή':
           mandate.state==='cancelled'?'Ακυρωμένη':
           mandate.state==='past_due'?'Αποτυχημένη τελευταία χρέωση':
-          mandate.state==='verification_pending'?'Αναμονή επιβεβαίωσης Nexi':mandate.state}</span>}
+          mandate.state==='verification_pending'?'Αναμονή επιβεβαίωσης πληρωμής':mandate.state}</span>}
       {mandate?.state==='past_due'&&<p role="alert"
         className="w-full text-xs leading-6 text-amber-200">
         Δεν επιβεβαιώθηκε η τελευταία αυτόματη χρέωση. Δεν έγινε νέα αυτόματη προσπάθεια.

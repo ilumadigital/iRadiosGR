@@ -89,6 +89,6 @@ export default function AgencyBackofficeHome({user}){
     <div className="flex items-center gap-3"><span className="text-xs font-bold text-purple-200">{approvalText[c.approvalStatus]||c.approvalStatus}</span><ArrowRight size={17} className="text-zinc-500"/></div>
    </Link>)}</div>
   </section>
-  <p className="flex items-start gap-2 text-xs leading-6 text-zinc-500"><ShieldCheck size={16} className="mt-1 shrink-0 text-purple-300"/> Οι πληρωμές Nexi και η πληρωμένη προβολή Advertising v2 δεν είναι ακόμη ενεργές στο staging. Η δημιουργία draft δεν δημιουργεί χρέωση.</p>
+  <p className="flex items-start gap-2 text-xs leading-6 text-zinc-500"><ShieldCheck size={16} className="mt-1 shrink-0 text-purple-300"/> Οι πληρωμές και η πληρωμένη προβολή Advertising v2 δεν είναι ακόμη ενεργές στο staging. Η δημιουργία draft δεν δημιουργεί χρέωση.</p>
  </div>;
 }

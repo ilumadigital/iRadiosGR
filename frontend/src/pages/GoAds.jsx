@@ -174,7 +174,7 @@ export default function GoAds({ currentUser }) {
             )}
 
             <div className="space-y-3 mb-10 flex-1">
-                {['Pre-roll Audio Spot', 'Companion Display Ad', 'Unskippable Format', 'Direct Link Action'].map((f, i) => (
+                {['Pre-roll Audio Spot', 'Companion Display Ad', 'Skip βάσει ουράς και ημερήσιου budget', 'Direct Link Action'].map((f, i) => (
                 <div key={i} className="flex items-center gap-2 text-[11px] font-bold text-zinc-300">
                     <Check size={14} className="text-orange-500" /> {f}
                 </div>

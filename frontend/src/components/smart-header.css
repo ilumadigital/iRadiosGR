@@ -289,6 +289,21 @@
 .ir-header__login { background: #ccff00; color: #0d1400; }
 .ir-header__register { background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.09); color: #fff; }
 .ir-header__logout { color: #fda4af; background: rgba(244,63,94,.06); }
+.ir-header__register-wrap { position: relative; display: inline-flex; z-index: 51; }
+.ir-header__register { gap: 8px; cursor: pointer; white-space: nowrap; }
+.ir-header__register:focus-visible { outline: 2px solid #ccff00; outline-offset: 3px; }
+.ir-header__register-menu {
+  position: absolute; right: 0; top: calc(100% + 12px); z-index: 60;
+  width: 246px; padding: 8px; border-radius: 19px;
+  border: 1px solid rgba(204,255,0,.18);
+  background: #151d1e; box-shadow: 0 22px 65px rgba(0,0,0,.58);
+  backdrop-filter: blur(24px);
+}
+.ir-header__register-option { display:flex; align-items:center; gap:12px; padding:13px 11px; border-radius:12px; color:white; }
+.ir-header__register-option:hover, .ir-header__register-option:focus-visible { background: rgba(204,255,0,.08); outline: none; }
+.ir-header__register-option > span { display:flex; flex:1; min-width:0; flex-direction:column; gap:3px; font-size:12px; }
+.ir-header__register-option strong { font-size:12px; font-weight:800; }
+.ir-header__register-option small { font-size:10px; color:#9da9ad; }
 
 @media (max-width: 1023px) {
   /* Mobile: brand/menu first, compact weather and clock second, search at the far right. */
@@ -345,7 +360,7 @@
 @media (max-width: 1199px) and (min-width: 1024px) {
   .ir-header__weather { display: none; }
   .ir-header__clock-date { display: none; }
-  .ir-header__register { display: none; }
+  .ir-header__register-wrap { display: inline-flex; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ir-header__brand-wordmark, .ir-header__brand-icon, .ir-smart-search__mic--listening { animation: none; }

@@ -1832,7 +1832,15 @@ export default function Backoffice(){
           onDeleted={async()=>{await reload();navigate('/backoffice/stations');}} notify={notify}/>}
       </main>
       <footer className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 border-t border-white/10 px-6 py-6 text-[10px] text-zinc-600 md:px-9">
-        <span>© 2026 iRadiosGR · Powered by ILUMA</span><span>PRIVATE BUSINESS CONSOLE · SECURE ROLE ACCESS</span>
+        <span>© {new Date().getFullYear()} iRadiosGR · ILUMA Digital Agency</span>
+        <nav aria-label="Νομικές πληροφορίες" className="flex flex-wrap gap-x-4 gap-y-2">
+          <Link to="/terms" className="hover:text-zinc-200">Όροι Χρήσης</Link>
+          <Link to="/broadcaster-terms" className="hover:text-zinc-200">Broadcasters</Link>
+          <Link to="/agency-terms" className="hover:text-zinc-200">Agencies</Link>
+          <Link to="/privacy" className="hover:text-zinc-200">Απόρρητο</Link>
+          <Link to="/cookies" className="hover:text-zinc-200">Cookies</Link>
+          <Link to="/payment-methods" className="hover:text-zinc-200">Τρόποι Πληρωμής</Link>
+        </nav>
       </footer>
     </div>
   </div>;

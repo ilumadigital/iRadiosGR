@@ -351,7 +351,7 @@ export default function GoAgency({ API_URL, setCurrentUser, currentUser }) {
               </button>
               
               <p className="text-center text-[11px] text-zinc-500 mt-3 font-medium">
-                Με την εγγραφή αποδέχεστε τους <Link to="/agency-terms" className="text-white hover:text-purple-400 underline decoration-white/30 underline-offset-2">Όρους Συνεργασίας (Agencies)</Link> του iRadios.
+                Με την εγγραφή αποδέχεσαι τους <Link to="/agency-terms" className="text-white hover:text-purple-400 underline decoration-white/30 underline-offset-2">Όρους Συνεργασίας (Agencies)</Link> και ενημερώνεσαι για την <Link to="/privacy" className="text-white hover:text-purple-400 underline decoration-white/30 underline-offset-2">Πολιτική Απορρήτου</Link> του iRadiosGR.
               </p>
             </form>
           </div>

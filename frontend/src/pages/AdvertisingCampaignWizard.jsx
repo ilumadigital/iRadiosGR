@@ -354,7 +354,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
   }
  });};
  const submit=()=>{void work(async()=>{
-  if(!admin)throw Error('Η υποβολή στον Admin γίνεται αυτόματα μετά τη Nexi πληρωμή.');
+  if(!admin)throw Error('Η υποβολή στον Admin γίνεται αυτόματα μετά την επιβεβαίωση της πληρωμής.');
   const result=await request(base+'/campaigns/'+campaignId+'/submit',{method:'POST'});
   await loadDetails(campaignId);setStep(4);await loadList();
   setNotice(result?.note||'Η Admin καμπάνια δημοσιεύτηκε χωρίς πληρωμή.');
@@ -374,7 +374,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
    <div className="relative flex flex-wrap items-end justify-between gap-5">
     <div><span className="text-[11px] font-black uppercase tracking-[.24em] text-purple-300">iRadios · Ad Campaign Studio</span>
      <h2 className="mt-3 text-3xl font-black tracking-[-.055em] sm:text-4xl">{admin?'Admin Campaign Studio':'Φτιάξε την καμπάνια σου.'}</h2>
-     <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">Ένα οργανωμένο setup, από το πρώτο δημιουργικό έως την τελική έγκριση.{admin?' Χωρίς χρέωση ή Nexi checkout.':' Ο Admin ενημερώνεται μόνο μετά την επιβεβαιωμένη πληρωμή.'}</p>
+     <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-300">Ένα οργανωμένο setup, από το πρώτο δημιουργικό έως την τελική έγκριση.{admin?' Χωρίς χρέωση ή checkout.':' Ο Admin ενημερώνεται μόνο μετά την επιβεβαιωμένη πληρωμή.'}</p>
     </div>
     {current&&<button type="button" className={secondary} onClick={()=>selectCampaign('')}><ArrowLeft size={16}/> Οι καμπάνιες μου</button>}
    </div>
@@ -463,7 +463,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
 
    {step===2&&<section className={panel+' space-y-6'}>
     <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">03 · Budget</p><h3 className="mt-2 text-2xl font-black">Όρισε τον προϋπολογισμό.</h3>
-     <p className="mt-2 text-sm leading-6 text-zinc-400">{admin?'Σχεδιαστικό budget Admin, χωρίς χρέωση Nexi.':'Το αρχικό ποσό που θα προπληρωθεί. Δεν δημιουργείται χρέωση με την αποθήκευση.'}</p></div>
+     <p className="mt-2 text-sm leading-6 text-zinc-400">{admin?'Σχεδιαστικό budget Admin, χωρίς χρέωση.':'Το αρχικό ποσό που θα προπληρωθεί. Δεν δημιουργείται χρέωση με την αποθήκευση.'}</p></div>
     <div className="grid gap-4 sm:grid-cols-3">
      <Stat title="Ελάχιστο" value={euro((pricing?.minBudgetCents||2000)/100)} desc="Όριο τιμοκαταλόγου" icon={Wallet}/>
      <Stat title="Διάρκεια" value={Math.ceil((new Date(current.endsAt)-new Date(current.startsAt))/86400000)+' ημέρες'} desc="Προγραμματισμένη περίοδος" icon={Clock3}/>
@@ -516,8 +516,8 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
    </section>}
 
    {!admin&&step===4&&<section className={panel+' space-y-6'}>
-    <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">05 · Nexi Sandbox Payment</p><h3 className="mt-2 text-2xl font-black">Ολοκλήρωση πληρωμής.</h3>
-     <p className="mt-2 text-sm leading-6 text-zinc-400">Μόνο το υπογεγραμμένο webhook της Nexi πιστώνει το budget. Μετά την επαλήθευση, η καμπάνια υποβάλλεται αυτόματα στον Admin για έγκριση, χωρίς επιπλέον κουμπί.</p></div>
+    <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">05 · Ασφαλής online πληρωμή</p><h3 className="mt-2 text-2xl font-black">Ολοκλήρωση πληρωμής.</h3>
+     <p className="mt-2 text-sm leading-6 text-zinc-400">Μόνο η επαληθευμένη επιβεβαίωση πληρωμής από το Gateway πιστώνει το budget. Μετά την επαλήθευση, η καμπάνια υποβάλλεται αυτόματα στον Admin για έγκριση, χωρίς επιπλέον κουμπί.</p></div>
     <div className="grid gap-3 sm:grid-cols-3">
      <Stat icon={Wallet} title="Budget" value={euro(totalBudget)} desc="Αρχικό budget"/>
      <Stat icon={CreditCard} title="Πληρωτέο quote" value={quote?euro(quote.paymentCents/100):'—'} desc={quote?'Quote v'+quote.priceVersion:'Αναμονή έκδοσης'}/>
@@ -531,7 +531,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
       {inProgress&&<p className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-xs text-purple-100">Αναμονή επιβεβαίωσης από ILUMA Gateway. Η κατάσταση ελέγχεται αυτόματα κάθε 6 δευτερόλεπτα. Μην ξεκινήσεις δεύτερη πληρωμή· μόνο το υπογεγραμμένο webhook πιστώνει το budget.</p>}
       <div className="flex flex-wrap gap-3">{!quote?<button className={primary} disabled={busy||!pricing?.enabled||paymentPending} onClick={makeQuote}>Δημιουργία quote</button>:
        <button className={primary} onClick={checkout} disabled={busy||!pricing?.sandboxCheckoutReady||Boolean(inProgress)||new Date(quote.expiresAt)<=new Date()}>
-        <CreditCard size={17}/> Ασφαλής πληρωμή Nexi</button>}
+        <CreditCard size={17}/> Πληρωμή Τώρα</button>}
        {quote&&new Date(quote.expiresAt)<=new Date()&&!inProgress&&
         <button className={secondary} disabled={busy} onClick={makeQuote}>Ανανέωση ληγμένου quote</button>}
        <button className={secondary} disabled={busy} onClick={checkPayment}><RefreshCw size={16}/> Έλεγχος επιβεβαίωσης</button></div>

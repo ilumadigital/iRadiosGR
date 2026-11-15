@@ -1,205 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
-import { 
-  Shield, Headphones, Zap, CreditCard, 
-  Car, SlidersHorizontal, Radar, Heart, Activity, AlertTriangle, Lock, CheckSquare, Loader2
-} from 'lucide-react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
+import LegalLayout from '../components/legal/LegalLayout';
+import { generalTerms } from './legalDocuments';
 
-export default function TermsListeners({ API_URL, currentUser }) {
-  const navigate = useNavigate();
-  const [isChecked, setIsChecked] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const hasAlreadyAccepted = currentUser?.hasAcceptedTerms;
+export default function TermsListeners({ API_URL='/api', currentUser }) {
+  const [checked,setChecked]=useState(false);
+  const [submitting,setSubmitting]=useState(false);
+  const [error,setError]=useState('');
+  const accepted=currentUser?.hasAcceptedTerms===true;
+  const eligible=currentUser&&['user','listener','producer','admin'].includes(currentUser.role);
 
-  const handleAcceptTerms = async () => {
-    setIsSubmitting(true);
-    try {
-      const res = await fetch(`${API_URL}/users/me/accept-terms`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('iluma_token')}`
-        }
+  const accept=async event=>{
+    event.preventDefault();
+    if(!checked||!eligible||submitting)return;
+    const token=localStorage.getItem('iluma_token');
+    if(!token){setError('Απαιτείται σύνδεση για να αποθηκευτεί η αποδοχή.');return;}
+    setSubmitting(true);setError('');
+    try{
+      const response=await fetch(API_URL+'/users/me/accept-terms',{
+        method:'PUT',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}
       });
-      if (res.ok) {
-        window.location.href = '/'; // Reloads and redirects to settings
-      } else {
-        alert("Σφάλμα κατά την αποθήκευση της συγκατάθεσης.");
-      }
-    } catch (error) {
-      alert("Σφάλμα δικτύου.");
-    }
-    setIsSubmitting(false);
+      if(!response.ok)throw new Error('Δεν ήταν δυνατή η αποθήκευση της αποδοχής.');
+      window.location.assign('/');
+    }catch(problem){setError(problem.message);}
+    finally{setSubmitting(false);}
   };
 
-  return (
-    <div className="min-h-screen bg-black text-zinc-300 p-6 md:p-12 font-sans selection:bg-[#ccff00] selection:text-black">
-      <Helmet><title>Όροι Χρήσης Ακροατών | iRadios</title></Helmet>
-
-      <div className="max-w-4xl mx-auto space-y-12 pb-40">
-        
-        {/* HEADER SECTION */}
-        <div className="text-center space-y-4 animate-fade-in">
-          <Shield className="w-16 h-16 text-[#ccff00] mx-auto mb-6" />
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">Όροι Χρήσης Υπηρεσιών</h1>
-          <p className="text-zinc-500 text-sm tracking-widest uppercase">Τελευταια ενημερωση: {new Date().toLocaleDateString('el-GR')}</p>
-        </div>
-
-        <div className="space-y-6 text-sm md:text-base leading-relaxed">
-          
-          {/* 1. ΕΙΣΑΓΩΓΗ */}
-          <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <span className="w-2 h-2 bg-[#ccff00] rounded-full shadow-[0_0_10px_#ccff00]"></span>
-              1. Εισαγωγή & Φορέας Λειτουργίας
-            </h2>
-            <p className="text-zinc-400">
-              Η πλατφόρμα iRadios αποτελεί ψηφιακή υπηρεσία της <strong>ILUMA Digital Agency</strong>, η οποία εδρεύει στη διεύθυνση Μοσχονησίων 1, Αιγάλεω. Με την πρόσβαση, εγγραφή, περιήγηση ή οιαδήποτε χρήση της πλατφόρμας (ανεξαρτήτως τερματικής συσκευής ή περιβάλλοντος web/mobile), δηλώνετε ότι έχετε αναγνώσει, κατανοήσει και αποδεχθεί πλήρως και ανεπιφύλακτα τους παρόντες όρους. Η πλατφόρμα λειτουργεί αποκλειστικά ως διαδικτυακός κατάλογος, aggregator και μέσο αναπαραγωγής (player) ραδιοφωνικών σταθμών ιδιοκτησίας τρίτων.
-            </p>
-          </section>
-
-          {/* 2. ΕΓΓΡΑΦΗ & ΑΣΦΑΛΕΙΑ */}
-          <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <Lock className="w-5 h-5 text-[#ccff00]" />
-              2. Εγγραφή, Σύνδεση & Ασφάλεια Δεδομένων
-            </h2>
-            <div className="space-y-4 text-zinc-400">
-              <p>Για την πλήρη αξιοποίηση των υπηρεσιών του iRadios, απαιτείται η εγγραφή και η δημιουργία προσωπικού λογαριασμού. Ο χρήστης δεσμεύεται να παρέχει αληθή και ακριβή στοιχεία και φέρει την αποκλειστική νομική ευθύνη για τη διαφύλαξη της μυστικότητας των διαπιστευτηρίων πρόσβασης (username/password).</p>
-              <p><strong>Τεχνικά Μέτρα Ασφαλείας:</strong> Αναγνωρίζοντας την κρισιμότητα της προστασίας των δεδομένων σας, το iRadios εφαρμόζει αυστηρά πρωτόκολλα κυβερνοασφάλειας:</p>
-              <ul className="list-disc list-inside space-y-2 ml-2">
-                <li><strong>Double Token Authentication:</strong> Η διαδικασία ταυτοποίησης θωρακίζεται μέσω προηγμένης αρχιτεκτονικής διπλού κρυπτογραφικού token.</li>
-                <li><strong>Cloudflare Turnstile:</strong> Όλες οι φόρμες εγγραφής, σύνδεσης και επαλήθευσης προστατεύονται από την τεχνολογία Cloudflare Turnstile.</li>
-              </ul>
-            </div>
-          </section>
-
-          {/* 3. ΠΝΕΥΜΑΤΙΚΑ ΔΙΚΑΙΩΜΑΤΑ */}
-          <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <Headphones className="w-5 h-5 text-[#ccff00]" />
-              3. Πνευματικά Δικαιώματα & Αποποίηση Ευθύνης Περιεχομένου
-            </h2>
-            <p className="text-zinc-400">
-              Το iRadios δεν φιλοξενεί (host), δεν εκπέμπει και δεν αναμεταδίδει πρωτογενώς ηχητικό περιεχόμενο. Οι ραδιοφωνικές ροές (audio streams) παρέχονται απευθείας από τους αντίστοιχους ραδιοφωνικούς σταθμούς μέσω δημόσια διαθέσιμων URL. Η ILUMA Digital Agency δεν φέρει ουδεμία νομική ή οικονομική ευθύνη για τα μεταδιδόμενα έργα.
-            </p>
-          </section>
-
-          {/* 4. FREE VS PREMIUM */}
-          <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <Zap className="w-5 h-5 text-[#ccff00]" />
-              4. Επίπεδα Πρόσβασης: Free & Premium Συνδρομές
-            </h2>
-            <div className="space-y-4 text-zinc-400">
-              <p>Η πλατφόρμα διαθέτει δύο βαθμίδες χρήσης, οι οποίες διέπονται από τους κάτωθι όρους:</p>
-              <ul className="list-disc list-inside space-y-2 ml-2">
-                <li><strong>Free Χρήστες (Βασική Πρόσβαση):</strong> Παρέχεται δωρεάν πρόσβαση στο ευρετήριο των σταθμών, υποστηριζόμενη από διαφημιστικά μηνύματα.</li>
-                <li><strong>Premium Χρήστες (Ενισχυμένη Πρόσβαση):</strong> Απολαμβάνουν μια απρόσκοπτη εμπειρία χρήσης, απαλλαγμένη από παρεμβάσεις διαφημίσεων του iRadios, και πρόσβαση σε αποκλειστικές premium λειτουργίες.</li>
-              </ul>
-            </div>
-          </section>
-
-          {/* 5. ΠΛΗΡΩΜΕΣ ΜΕΣΩ GATEWAY */}
-          <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <CreditCard className="w-5 h-5 text-[#ccff00]" />
-              5. Όροι Συναλλαγών & Πολιτική Ακυρώσεων
-            </h2>
-            <div className="space-y-4 text-zinc-400">
-              <p>Για τις επί πληρωμή υπηρεσίες ισχύουν ρητά τα εξής:</p>
-              <ul className="list-disc list-inside space-y-2 ml-2">
-                <li><strong>Ασφάλεια Συναλλαγών:</strong> Οι νέες πληρωμές, όταν ενεργοποιηθούν εμπορικά, διεκπεραιώνονται μέσω ILUMA Gateway και Nexi. Δεν αποθηκεύουμε στοιχεία κάρτας.</li>
-                <li><strong>Αυτόματη Ανανέωση:</strong> Στην τρέχουσα δοκιμαστική φάση η αγορά αφορά μόνο την πρώτη περίοδο και δεν γίνεται αυτόματη ανανέωση. Μελλοντική επαναλαμβανόμενη χρέωση απαιτεί νέα ενημέρωση και συγκατάθεση.</li>
-                <li><strong>Πολιτική Ακύρωσης & Επιστροφών:</strong> Δεν παρέχονται αναλογικές επιστροφές χρημάτων (pro-rata refunds) για περιόδους μη χρήσης. Η πρόσβασή σας στα premium προνόμια θα διατηρηθεί έως τη λήξη.</li>
-              </ul>
-            </div>
-          </section>
-
-          {/* 6. ΕΙΔΙΚΑ FEATURES */}
-          <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <SlidersHorizontal className="w-5 h-5 text-[#ccff00]" />
-              6. Ειδικές Λειτουργίες Πλατφόρμας & Περιορισμός Ευθύνης
-            </h2>
-            <div className="space-y-6 text-zinc-400">
-              <div>
-                <h3 className="text-white font-bold flex items-center gap-2 mb-1"><Car size={16} className="text-orange-500"/> Car Mode (Οδική Ασφάλεια)</h3>
-                <p>Ο χρήστης φέρει την πλήρη ευθύνη για την ασφαλή οδήγηση. Το iRadios αποποιείται ρητά κάθε ευθύνη για ατυχήματα.</p>
-              </div>
-              <div>
-                <h3 className="text-white font-bold flex items-center gap-2 mb-1"><SlidersHorizontal size={16} className="text-blue-400"/> Custom DSP (Επεξεργασία Ήχου)</h3>
-                <p>Το iRadios δεν φέρει νομική ευθύνη για ενδεχόμενη βλάβη σε hardware του χρήστη από ακραίες ρυθμίσεις.</p>
-              </div>
-              <div>
-                <h3 className="text-white font-bold flex items-center gap-2 mb-1"><Radar size={16} className="text-purple-400"/> AI Music Radar</h3>
-                <p>Το iRadios δεν δύναται να εγγυηθεί το αλάνθαστο (100% ακρίβεια) των επιστρεφόμενων μεταδεδομένων.</p>
-              </div>
-            </div>
-          </section>
-
-          {/* 7. ANALYTICS */}
-          <section className="bg-zinc-900/50 p-6 md:p-8 rounded-3xl border border-white/5 hover:border-white/10 transition-colors">
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
-              <Activity className="w-5 h-5 text-[#ccff00]" />
-              7. Προστασία Προσωπικών Δεδομένων
-            </h2>
-            <p className="text-zinc-400">
-              Σε καμία περίπτωση δεν παραχωρούνται ή πωλούνται προσωπικά αναγνωρίσιμα στοιχεία σε τρίτους, σε πλήρη εναρμόνιση με τον Γενικό Κανονισμό Προστασίας Δεδομένων (GDPR).
-            </p>
-          </section>
-
-        </div>
-
-        {/* 🟢 ACTION BAR (Sticky Bottom) */}
-        {currentUser && currentUser.role !== 'admin' && (
-          <div className="fixed bottom-20 md:bottom-24 left-0 w-full bg-zinc-950/90 backdrop-blur-xl border-t-2 border-[#ccff00]/30 p-6 z-[9999] shadow-[0_-10px_40px_rgba(0,0,0,0.8)]">
-            <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-              
-              {hasAlreadyAccepted ? (
-                <div className="flex w-full items-center justify-between">
-                  <div className="flex items-center gap-3 text-green-500">
-                    <CheckSquare size={24} />
-                    <span className="font-bold text-sm uppercase tracking-widest">Έχετε αποδεχτεί τους όρους</span>
-                  </div>
-                  <button 
-                    onClick={() => navigate('/settings')}
-                    className="px-8 py-4 bg-[#ccff00] text-black font-black uppercase text-xs tracking-widest rounded-xl transition-all"
-                  >
-                    Συνεχεια στο Προφιλ
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div 
-                    className="flex items-center gap-4 cursor-pointer group flex-1"
-                    onClick={() => setIsChecked(!isChecked)}
-                  >
-                    <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors shrink-0 ${isChecked ? 'bg-[#ccff00] border-[#ccff00]' : 'bg-black border-zinc-600 group-hover:border-[#ccff00]'}`}>
-                      {isChecked && <CheckSquare size={16} className="text-black" />}
-                    </div>
-                    <span className="text-xs md:text-sm text-zinc-400 font-medium select-none">
-                      Διάβασα, κατανοώ πλήρως και <strong className="text-white">αποδέχομαι ανεπιφύλακτα</strong> τους παρόντες όρους χρήσης.
-                    </span>
-                  </div>
-
-                  <button 
-                    onClick={handleAcceptTerms}
-                    disabled={!isChecked || isSubmitting}
-                    className="w-full md:w-auto px-8 py-4 bg-[#ccff00] text-black font-black uppercase text-xs tracking-widest rounded-xl transition-all disabled:opacity-30 flex items-center justify-center gap-2"
-                  >
-                    {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : null}
-                    Αποδοχη & Συνεχεια
-                  </button>
-                </>
-              )}
-
-            </div>
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
+  return <LegalLayout document={generalTerms}>
+    <section id="acceptance" className="mt-8 scroll-mt-8 rounded-[26px] border border-[#ccff00]/25 bg-[#18231a] p-6 sm:p-8">
+      <h2 className="flex items-center gap-3 text-lg font-black sm:text-xl"><ShieldCheck className="text-[#ccff00]" size={24}/> Αποδοχή όρων</h2>
+      {!currentUser?<p className="mt-4 text-sm leading-7 text-zinc-300">Μπορείς να διαβάσεις τους όρους ελεύθερα. <Link to="/login" className="font-bold text-[#ccff00] underline">Συνδέσου</Link> για να αποδεχτείς τους όρους του λογαριασμού σου.</p>:
+      !eligible?<p className="mt-4 text-sm leading-7 text-zinc-300">Για τον λογαριασμό σου ισχύουν και οι αντίστοιχοι ειδικοί όροι Broadcaster ή Agency.</p>:
+      accepted?<div className="mt-5 flex flex-wrap items-center justify-between gap-4 text-sm"><span className="inline-flex items-center gap-2 font-bold text-[#ccff00]"><CheckCircle2 size={20}/> Οι όροι έχουν γίνει αποδεκτοί.</span><Link to="/" className="rounded-xl bg-[#ccff00] px-5 py-3 font-black text-black">Συνέχεια στην εφαρμογή</Link></div>:
+      <form className="mt-5 space-y-4" onSubmit={accept}>
+        <label className="flex items-start gap-3 text-sm leading-7 text-zinc-200"><input type="checkbox" required checked={checked} onChange={event=>setChecked(event.target.checked)} className="mt-1.5 size-5 accent-[#ccff00]"/><span>Διάβασα και αποδέχομαι τους παρόντες Όρους Χρήσης.</span></label>
+        {error&&<p role="alert" className="text-sm text-red-300">{error}</p>}
+        <button type="submit" disabled={!checked||submitting} className="inline-flex items-center gap-2 rounded-xl bg-[#ccff00] px-6 py-3.5 text-sm font-black text-black disabled:opacity-40">{submitting&&<Loader2 size={16} className="animate-spin"/>}Αποδοχή & συνέχεια</button>
+      </form>}
+    </section>
+  </LegalLayout>;
 }

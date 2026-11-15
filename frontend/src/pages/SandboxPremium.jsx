@@ -423,7 +423,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
            Διαχείριση συνδρομής <ArrowRight size={17}/>
           </Link>:
           <button type="button" onClick={beginCheckout} disabled={!canCheckout||busy||!catalogOk} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ccff00] px-5 py-4 text-sm font-black text-black shadow-[0_10px_40px_rgba(204,255,0,.13)] transition hover:bg-[#dfff62] disabled:cursor-not-allowed disabled:opacity-45 sm:text-base">
-           {busy?'Προετοιμασία πληρωμής…':'Έναρξη συνδρομής'} <ArrowRight size={19}/>
+           {busy?'Προετοιμασία πληρωμής…':'Πληρωμή Τώρα'} <ArrowRight size={19}/>
           </button>}
          <p className="text-center text-xs leading-5 text-zinc-500">Η έναρξη γίνεται μόνο με δικό σου πάτημα. Η επόμενη μηνιαία χρέωση σταματά μόλις ακυρώσεις.</p>
         </div>}
@@ -449,7 +449,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
     <div className="flex items-start gap-3"><ShieldCheck size={21} className="mt-1 shrink-0 text-[#ccff00]"/><div><h2 className="font-black">Ακύρωση όποτε θέλεις</h2><p className="mt-1 text-sm leading-6 text-zinc-400">Σταματάς τις επόμενες χρεώσεις από το Billing.</p></div></div>
     <div className="flex items-start gap-3"><LockKeyhole size={21} className="mt-1 shrink-0 text-[#ccff00]"/><div><h2 className="font-black">Ασφαλής πληρωμή</h2><p className="mt-1 text-sm leading-6 text-zinc-400">Χωρίς αποθήκευση στοιχείων κάρτας από την εφαρμογή.</p></div></div>
    </section>
-   <p className="px-2 text-xs leading-6 text-zinc-500">Δες τους <Link to="/terms" className="underline hover:text-white">όρους χρήσης</Link> και την <Link to="/privacy" className="underline hover:text-white">πολιτική απορρήτου</Link> για περισσότερες πληροφορίες.</p>
+   <p className="px-2 text-xs leading-6 text-zinc-500">Δες τους <Link to="/terms" className="underline hover:text-white">όρους χρήσης</Link> και την <Link to="/privacy" className="underline hover:text-white">πολιτική απορρήτου</Link> και τους <Link to="/payment-methods" className="underline hover:text-white">τρόπους πληρωμής</Link> για περισσότερες πληροφορίες.</p>
   </div>
  </main>;
 }

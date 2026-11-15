@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bell, Check, ChevronRight, Clock3, Cloud, CloudRain, CloudSun,
-  MapPin, Menu, Mic, MicOff, Music2, Newspaper, Radio, Search, Snowflake,
+  Bell, Check, ChevronDown, ChevronRight, Clock3, Cloud, CloudRain, CloudSun,
+  Headphones, MapPin, Menu, Mic, MicOff, Music2, Newspaper, Radio, Search, Snowflake,
   Sparkles, Sun, UserRound, X
 } from 'lucide-react';
 import { createSearchIndex, directVoiceMatch, groupedSearch, SEARCH_TYPES, spokenQuery } from '../utils/smartSearch';
@@ -28,12 +28,24 @@ export default function TopBar({
   const [speechMessage, setSpeechMessage] = useState('');
   const [clock, setClock] = useState(() => new Date());
   const [unreadCount,setUnreadCount]=useState(0);
+  const [registrationOpen,setRegistrationOpen]=useState(false);
+  const registrationRef=useRef(null);
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
   const triggerRef = useRef(null);
   const speechRef = useRef(null);
   const indexRef = useRef([]);
   const newsFetchAt = useRef(0);
+
+  useEffect(()=>{setRegistrationOpen(false);},[location.pathname]);
+  useEffect(()=>{
+    if(!registrationOpen)return undefined;
+    const onPointerDown=event=>{if(!registrationRef.current?.contains(event.target))setRegistrationOpen(false);};
+    const onKeyDown=event=>{if(event.key==='Escape')setRegistrationOpen(false);};
+    document.addEventListener('pointerdown',onPointerDown);
+    document.addEventListener('keydown',onKeyDown);
+    return ()=>{document.removeEventListener('pointerdown',onPointerDown);document.removeEventListener('keydown',onKeyDown);};
+  },[registrationOpen]);
 
   const index = useMemo(() => createSearchIndex(stations, articles), [stations, articles]);
   indexRef.current = index;
@@ -367,7 +379,14 @@ export default function TopBar({
           ) : (
             <>
               <Link to="/login" className="ir-header__login">Σύνδεση</Link>
-              <Link to="/register" className="ir-header__register">Εγγραφή</Link>
+              <div className="ir-header__register-wrap" ref={registrationRef}>
+                <button type="button" className="ir-header__register" aria-expanded={registrationOpen} aria-haspopup="menu" aria-controls="ir-header-register-menu"
+                  onClick={()=>setRegistrationOpen(open=>!open)}>Εγγραφή <ChevronDown size={15} className={registrationOpen?'rotate-180 transition-transform':'transition-transform'}/></button>
+                {registrationOpen&&<div id="ir-header-register-menu" role="menu" aria-label="Τύπος εγγραφής" className="ir-header__register-menu">
+                  <Link to="/register" role="menuitem" onClick={()=>setRegistrationOpen(false)} className="ir-header__register-option"><Headphones size={19} className="text-[#ccff00]"/><span><strong>Ως Ακροατής</strong><small>Δωρεάν λογαριασμός</small></span><ChevronRight size={15}/></Link>
+                  <Link to="/broadcast" role="menuitem" onClick={()=>setRegistrationOpen(false)} className="ir-header__register-option"><Radio size={19} className="text-[#ccff00]"/><span><strong>Ως Σταθμός</strong><small>Broadcaster Network</small></span><ChevronRight size={15}/></Link>
+                </div>}
+              </div>
             </>
           )}
         </div>

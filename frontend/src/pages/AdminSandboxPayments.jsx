@@ -32,7 +32,7 @@ export default function AdminSandboxPayments({API_URL='/api'}){
   <Link to="/backoffice/admin/billing" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
    <ArrowLeft size={16}/> Πίσω στις πληρωμές</Link>
   <div className="mt-6 flex flex-col sm:flex-row justify-between gap-4 sm:items-center">
-   <div><h1 className="text-2xl sm:text-3xl font-black flex items-center gap-3"><ReceiptText className="text-[#ccff00]"/> Nexi Sandbox Payments</h1>
+   <div><h1 className="text-2xl sm:text-3xl font-black flex items-center gap-3"><ReceiptText className="text-[#ccff00]"/> Sandbox Payments</h1>
     <p className="text-sm text-zinc-400 mt-2">Αρχικές χρεώσεις Listener Premium 3,99 €, webhook status και ιστορικό γεγονότων.</p>
    </div>
    <button onClick={load} disabled={busy}

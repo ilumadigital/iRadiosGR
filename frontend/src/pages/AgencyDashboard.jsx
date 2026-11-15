@@ -232,7 +232,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
   // Stage-only: draft creative and submit for Admin approval; no financial action.
   const handleProceedToPayment=async event=>{
     event.preventDefault();
-    if(!isStaging){showAlert('Agency','Οι αγορές μέσω Nexi δεν έχουν ενεργοποιηθεί.','info');return;}
+    if(!isStaging){showAlert('Agency','Οι online αγορές δεν έχουν ενεργοποιηθεί.','info');return;}
     setUploading(true);
     try{
       const jwt=localStorage.getItem('iluma_token');

@@ -106,6 +106,8 @@ import VerifyEmail from './pages/VerifyEmail';
 // Settings is unified into Profile; /settings remains a safe legacy redirect.
 import PressKit from './pages/PressKit';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import CookiePolicy from './pages/CookiePolicy';
+import PaymentMethods from './pages/PaymentMethods';
 
 const SmartHomeRoute = ({ currentUser, children }) => {
   const location = useLocation();
@@ -483,7 +485,7 @@ function MainApp() {
       JSON.stringify({path:full,at:Date.now()}));}catch{}
   },[location.pathname,location.search]);
 
-  // Confirmation stays attached to the same-tab navigation after the Nexi round trip.
+  // Confirmation stays attached to the same-tab navigation after the hosted payment round trip.
   useEffect(() => {
     if(location.state?.billingCompleted===true){
       showAlert('Η πληρωμή επιβεβαιώθηκε και το Premium ενεργοποιήθηκε.');
@@ -2261,6 +2263,10 @@ function MainApp() {
 
             <Route path="/terms" element={<TermsListeners API_URL={API_URL} currentUser={currentUser} />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/cookies" element={<CookiePolicy />} />
+            <Route path="/cookie-policy" element={<Navigate to="/cookies" replace />} />
+            <Route path="/payment-methods" element={<PaymentMethods />} />
+            <Route path="/payments" element={<Navigate to="/payment-methods" replace />} />
             
             <Route path="/broadcaster-terms" element={!authReady ? <div className="min-h-screen bg-black flex items-center justify-center text-zinc-400">Έλεγχος σύνδεσης…</div> : (currentUser?.role === 'broadcaster' || currentUser?.role === 'admin') ? <TermsBroadcasters API_URL={API_URL} currentUser={currentUser} /> : <Navigate to="/terms" />} />
             <Route path="/agency-terms" element={<TermsAgency API_URL={API_URL} currentUser={currentUser} />} />

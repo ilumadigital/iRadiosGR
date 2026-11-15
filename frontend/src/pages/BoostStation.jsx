@@ -58,7 +58,7 @@ export default function BoostStation({ API_URL, currentUser }) {
             BREAK THE <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#ccff00] via-green-400 to-emerald-500">ALGORITHM.</span>
           </h1>
           <p className="text-zinc-400 text-lg md:text-2xl max-w-2xl mx-auto font-medium leading-relaxed">
-            Προβολή για τον σταθμό σου με επιλογή διάρκειας. Οι πληρωμές μέσω Nexi θα ενεργοποιηθούν μετά τις δοκιμές. 
+            Προβολή για τον σταθμό σου με επιλογή διάρκειας. Η αγορά Boost γίνεται από το Broadcaster Backoffice, εφόσον είναι διαθέσιμη. 
           </p>
         </div>
 
@@ -142,8 +142,8 @@ export default function BoostStation({ API_URL, currentUser }) {
                 </div>
               ))}
             </div>
-            <button type="button" disabled title="Το Boost checkout θα ανοίξει μετά τις δοκιμές Nexi" className="w-full py-6 bg-white text-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-[#ccff00] transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-2 relative z-10">
-              <TrendingUp size={16} /> ΑΓΟΡΑ ΣΥΝΤΟΜΑ ΜΕ NEXI
+            <button type="button" disabled title="Για αγορά Boost άνοιξε το Broadcaster Backoffice" className="w-full py-6 bg-white text-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-[#ccff00] transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-2 relative z-10">
+              <TrendingUp size={16} /> ΔΙΑΘΕΣΙΜΟ ΣΤΟ BACKOFFICE
             </button>
           </div>
 
@@ -175,8 +175,8 @@ export default function BoostStation({ API_URL, currentUser }) {
                 </div>
               ))}
             </div>
-            <button type="button" disabled title="Το Boost checkout θα ανοίξει μετά τις δοκιμές Nexi" className="w-full py-6 bg-[#ccff00] text-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-white transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-2 relative z-10">
-                <Crown size={16} /> ΑΓΟΡΑ ΣΥΝΤΟΜΑ ΜΕ NEXI
+            <button type="button" disabled title="Για αγορά Boost άνοιξε το Broadcaster Backoffice" className="w-full py-6 bg-[#ccff00] text-black rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-white transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-2 relative z-10">
+                <Crown size={16} /> ΔΙΑΘΕΣΙΜΟ ΣΤΟ BACKOFFICE
             </button>
           </div>
         </div>

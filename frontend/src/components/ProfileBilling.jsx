@@ -25,7 +25,7 @@ const labels={
 };
 const stages={
  active:'Ενεργή αυτόματη ανανέωση',pending:'Αναμονή πρώτης πληρωμής',
- verification_pending:'Επιβεβαίωση εξουσιοδότησης Nexi',
+ verification_pending:'Επιβεβαίωση εξουσιοδότησης πληρωμής',
  past_due:'Αποτυχία αυτόματης πληρωμής',
  cancelled:'Η αυτόματη ανανέωση ακυρώθηκε',
  unavailable:'Η υπηρεσία ανανεώσεων δεν είναι διαθέσιμη',
@@ -132,8 +132,8 @@ export default function ProfileBilling({API_URL='/api',user}){
      <p className="text-sm font-bold text-white">{stages[recurring.state]||'Άγνωστη κατάσταση συνδρομής'}</p>
      <p className="text-xs leading-6 text-zinc-400">
       {recurring.state==='active'
-       ?'Η Nexi διατηρεί την εξουσιοδότηση MIT. Η επόμενη χρέωση θα γίνει μόνο αν επιβεβαιωθεί η ενεργοποίηση του Sandbox recurring worker.'
-       :'Δεν πραγματοποιούνται αυτόματες χρεώσεις χωρίς επαληθευμένη εξουσιοδότηση Nexi. Η απλή αποθήκευση OneClick δεν δημιουργεί συνδρομή.'}
+       ?'Η εξουσιοδότηση περιοδικής πληρωμής είναι ενεργή. Η επόμενη χρέωση εξαρτάται από την ενεργοποίηση του ασφαλούς μηχανισμού ανανέωσης.'
+       :'Δεν πραγματοποιούνται αυτόματες χρεώσεις χωρίς επαληθευμένη εξουσιοδότηση. Η αποθήκευση τρόπου πληρωμής από μόνη της δεν δημιουργεί συνδρομή.'}
      </p>
      {recurring.state==='active'&&!recurring.execution_enabled&&
       <p className="text-xs font-semibold text-amber-200">Η αυτόματη εκτέλεση βρίσκεται ακόμη σε έλεγχο Sandbox.</p>}
@@ -149,21 +149,21 @@ export default function ProfileBilling({API_URL='/api',user}){
     <Surface>
      <h4 className="flex items-center gap-2 font-black text-white"><CreditCard size={19} className="text-[#ccff00]"/> Τρόπος πληρωμής</h4>
      <p className="mt-3 text-sm text-zinc-300">{['active','pending','verification_pending','past_due'].includes(recurring.state)
-      ?'Nexi recurring MIT — εξουσιοδότηση συνδρομής'
-      :card.state==='active'?'Nexi OneClick — επαληθευμένο':'Δεν υπάρχει αποθηκευμένη κάρτα'}</p>
-     <p className="mt-2 text-xs leading-5 text-zinc-500">Τα πλήρη στοιχεία κάρτας αποθηκεύονται μόνο στη Nexi, ποτέ στο iRadios.</p>
+      ?'Εξουσιοδότηση αυτόματης ανανέωσης'
+      :card.state==='active'?'Ασφαλής τρόπος πληρωμής — επαληθευμένος':'Δεν υπάρχει αποθηκευμένη κάρτα'}</p>
+     <p className="mt-2 text-xs leading-5 text-zinc-500">Τα πλήρη στοιχεία της κάρτας διαχειρίζεται ο εξωτερικός πάροχος πληρωμών, όχι η εφαρμογή iRadiosGR.</p>
      <Link to="/premium" className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-[#ccff00]">Διαχείριση κάρτας <ChevronRight size={14}/></Link>
     </Surface>
     <Surface>
      <h4 className="flex items-center gap-2 font-black text-white"><ShieldCheck size={19} className="text-[#ccff00]"/> Έλεγχος & ασφάλεια</h4>
-     <p className="mt-3 text-xs leading-6 text-zinc-400">Κάθε πληρωμή επιβεβαιώνεται από το ILUMA Gateway μέσω Nexi. Η ακύρωση αποτρέπει μελλοντικές ανανεώσεις και διατηρεί την τρέχουσα πληρωμένη πρόσβαση.</p>
+     <p className="mt-3 text-xs leading-6 text-zinc-400">Κάθε πληρωμή επιβεβαιώνεται από το ασφαλές σύστημα συναλλαγών. Η ακύρωση αποτρέπει μελλοντικές ανανεώσεις και διατηρεί την τρέχουσα πληρωμένη πρόσβαση.</p>
     </Surface>
    </div>
   </div>}
   {!loading&&view==='payments'&&<Surface>
    <div className="flex items-center justify-between gap-3">
     <div><h3 className="text-lg font-black text-white">Ιστορικό πληρωμών</h3>
-     <p className="mt-1 text-xs text-zinc-400">Αυθεντικές εγγραφές από το ILUMA Gateway · Nexi Sandbox</p></div>
+     <p className="mt-1 text-xs text-zinc-400">Εγγραφές από το σύστημα πληρωμών · Δοκιμαστικό περιβάλλον</p></div>
     <History size={23} className="text-[#ccff00]"/>
    </div>
    {payments.length===0?<p className="mt-6 rounded-xl bg-white/[.03] p-5 text-sm text-zinc-400">Δεν υπάρχουν καταχωρημένες πληρωμές ακόμη.</p>:

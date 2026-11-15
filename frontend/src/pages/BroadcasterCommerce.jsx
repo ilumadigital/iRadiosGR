@@ -216,7 +216,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
    }catch(e){setPaymentNotice(e.message);}
    finally{setCancelBusy(false);}
   };
-  // The Preview CTA deep-links to the existing signed Nexi checkout UI.
+  // The Preview CTA deep-links to the existing signed hosted checkout UI.
   // Preserve the station from the preview and scroll exactly once to its offer.
   useEffect(()=>{
     if(loading||view!=='features'||offerFocusRef.current)return;
@@ -258,7 +258,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
   const isPreview=role==='admin';
   const duration=PERIODS.find(p=>p.code===period)?.name||'';
   const available=Boolean(selectedStation)&&!isPreview;
-  const gateNote='Οι αγορές πραγματοποιούνται αποκλειστικά μέσω ασφαλούς Nexi Sandbox checkout. Η ενεργοποίηση γίνεται μόνο μετά από υπογεγραμμένη επιβεβαίωση του Gateway. Σε άγνωστη κατάσταση μην ξεκινήσεις δεύτερη πληρωμή.';
+  const gateNote='Οι online πληρωμές πραγματοποιούνται μέσω ασφαλούς περιβάλλοντος checkout. Η ενεργοποίηση ολοκληρώνεται μόνο μετά από αξιόπιστη επιβεβαίωση του Gateway. Αν η κατάσταση παραμένει άγνωστη, έλεγξε την υπάρχουσα συναλλαγή πριν ξεκινήσεις άλλη.';
   return <div className="mx-auto max-w-[1300px] space-y-8 pb-16 text-white">
     <header className="relative overflow-hidden rounded-[32px] border border-[#ccff00]/20 bg-gradient-to-br from-[#202920] via-[#151a19] to-[#0a0d0d] p-7 md:p-12">
       <div className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-[#ccff00]/10 blur-[85px]"/>
@@ -318,7 +318,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-300">Με μία συνδρομή έχεις WebDSP, Ad Control και Audience Radar σε κάθε σταθμό του λογαριασμού σου. Δεν πληρώνεις ξανά για κάθε σταθμό, ακόμη κι αν προσθέσεις περισσότερους. Περιλαμβάνονται επίσης απεριόριστοι σταθμοί και το υφιστάμενο Premium Boost.</p>
               <div className="mt-6 flex items-end gap-2"><span className="text-5xl font-black tracking-tighter text-[#ccff00]">{price('B-PREM')}</span><span className="pb-1 text-sm text-zinc-400" >/ μήνα / account</span></div>
               <p className="mt-2 text-[11px] text-zinc-400">Τελική τιμή με ΦΠΑ 24% · Μηνιαία συνδρομή μέχρι ακύρωσης</p>
-              <p className="mt-2 text-xs leading-6 text-zinc-300">Με την «Έναρξη συνδρομής» συμφωνείς σε επαναλαμβανόμενη χρέωση <strong>{price('B-PREM')}/μήνα</strong> μέσω Nexi, μέχρι να την ακυρώσεις από το Backoffice. Η ακύρωση σταματά τις μελλοντικές χρεώσεις.</p>
+              <p className="mt-2 text-xs leading-6 text-zinc-300">Με την επιλογή «Πληρωμή Τώρα» συμφωνείς σε επαναλαμβανόμενη χρέωση <strong>{price('B-PREM')}/μήνα</strong> μέσω ασφαλούς online πληρωμής, μέχρι να την ακυρώσεις από το Backoffice. Η ακύρωση σταματά τις μελλοντικές χρεώσεις.</p>
               {!fullPremium&&<p className="mt-3 rounded-xl border border-sky-400/20 bg-sky-400/10 p-3 text-xs leading-6 text-sky-100">
                 Έχεις ήδη συνδρομητικά add-ons; Για να αποφύγεις διπλές μηνιαίες χρεώσεις μετά την αναβάθμιση, ακύρωσε πρώτα τις <strong>μελλοντικές ανανεώσεις</strong> τους από τις <Link to="/backoffice/billing" className="font-black underline">Συνδρομές μου</Link>. Η πληρωμένη πρόσβαση των add-ons διατηρείται μέχρι τη λήξη της.
               </p>}
@@ -330,7 +330,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
                   <button type="button" disabled={Boolean(busySku)}
                     onClick={()=>void beginCheckout('B-PREM',null,true)}
                     className="rounded-xl bg-[#ccff00] px-6 py-3.5 text-xs font-black text-black transition hover:bg-[#e2ff83] disabled:opacity-50">
-                    {busySku==='B-PREM'?'Δημιουργία ασφαλούς πληρωμής…':'Έναρξη συνδρομής με Nexi'}
+                    {busySku==='B-PREM'?'Δημιουργία ασφαλούς πληρωμής…':'Πληρωμή Τώρα'}
                   </button>}
                 <Link to="/backoffice/boost" className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-5 py-3.5 text-xs font-black text-white">Πρόσθετη προβολή <ArrowRight size={15}/></Link>
               </div>
@@ -395,7 +395,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <button type="button" disabled={!available||Boolean(busySku)}
                 onClick={()=>void beginCheckout(module.sku,selectedStation,true)}
                 className="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-xs font-black text-black hover:bg-[#ccff00] disabled:opacity-40">
-                <Zap size={15}/>{busySku===module.sku?'Δημιουργία πληρωμής…':'Ενεργοποίηση με Nexi'}</button>}
+                <Zap size={15}/>{busySku===module.sku?'Δημιουργία πληρωμής…':'Πληρωμή Τώρα'}</button>}
               {active&&recurring[recurringKey(module.sku,selectedStation)]?.state==='active'&&
                 <button type="button" onClick={()=>setCancelTarget({sku:module.sku,stationId:selectedStation})}
                   className="mt-3 text-xs font-bold text-rose-300 underline">Διακοπή αυτόματης ανανέωσης</button>}
@@ -420,7 +420,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <button type="button" disabled={!available||Boolean(busySku)}
                 onClick={()=>void beginCheckout(pack.prefix+'-'+period.toUpperCase().replace('TWO_WEEKS','2W'),selectedStation,false)}
                 className="mt-8 rounded-xl bg-[#ccff00] px-5 py-3.5 text-xs font-black text-black transition hover:bg-white disabled:opacity-40">
-                {busySku.startsWith(pack.prefix)?'Δημιουργία πληρωμής…':'Αγορά Boost με Nexi · μία φορά'}</button>
+                {busySku.startsWith(pack.prefix)?'Δημιουργία πληρωμής…':'Πληρωμή Τώρα'}</button>
             </article>;
           })}
         </section>
@@ -448,7 +448,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
       </div>}
       <div role="note" className="flex items-start gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/[.06] p-5 text-xs leading-6 text-amber-100">
         <ShieldCheck className="mt-1 shrink-0" size={18}/>
-        <span>{gateNote}{!available&&!isPreview?' Για αγορές ανά σταθμό απαιτείται πρώτα εγκεκριμένος σταθμός.':''}</span>
+        <span>{gateNote} <Link to="/payment-methods" className="font-black text-[#ccff00] underline">Τρόποι Πληρωμής</Link> · <Link to="/broadcaster-terms" className="font-black text-[#ccff00] underline">Όροι Broadcasters</Link>. {!available&&!isPreview?' Για αγορές ανά σταθμό απαιτείται πρώτα εγκεκριμένος σταθμός.':''}</span>
       </div>
     </>}
   </div>;

@@ -74,10 +74,10 @@ export default function GoPremium() {
             </div>
             <button 
                 type="button"
-                disabled title="Η αγορά θα ενεργοποιηθεί μέσω Nexi μετά την ολοκλήρωση των ελέγχων"
+                disabled title="Η online αγορά δεν είναι διαθέσιμη σε αυτή τη φάση"
                 className="w-full bg-black text-[#ccff00] font-black py-6 rounded-3xl uppercase tracking-[0.2em] italic text-sm hover:scale-[1.03] transition-all active:scale-95 shadow-2xl flex items-center justify-center gap-3"
             >
-                <><CreditCard /> ΑΓΟΡΕΣ ΣΥΝΤΟΜΑ ΜΕ NEXI</>
+                <><CreditCard /> ΠΛΗΡΩΜΗ ΤΩΡΑ</>
             </button>
         </div>
 
@@ -155,7 +155,7 @@ export default function GoPremium() {
 
       {/* --- FOOTER INFO --- */}
       <div className="mt-20 text-center relative z-10">
-        <p className="text-[10px] text-zinc-600 font-black uppercase tracking-[0.4em] mb-4">Payments by ILUMA Gateway & Nexi</p>
+        <p className="text-[10px] text-zinc-600 font-black uppercase tracking-[0.4em] mb-4">Ασφαλείς online πληρωμές</p>
         <div className="flex justify-center gap-8 opacity-20">
             <Shield size={24} className="text-white" />
             <CreditCard size={24} className="text-white" />

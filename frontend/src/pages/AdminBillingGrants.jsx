@@ -120,7 +120,7 @@ export default function AdminBillingGrants({API_URL='/api'}){
     <div className="flex items-start gap-4">
       <div className="p-3 rounded-2xl bg-[#ccff00]/10 text-[#ccff00]"><Gift/></div>
       <div><h1 className="text-2xl lg:text-3xl font-black">Δωρεάν συνδρομές</h1>
-        <p className="mt-2 text-sm text-zinc-400">Διαχειριστική παραχώρηση ανά ακροατή, broadcaster, σταθμό ή agency campaign. Χωρίς Nexi checkout και χωρίς καταχώριση ως πληρωμένη συναλλαγή.</p>
+        <p className="mt-2 text-sm text-zinc-400">Διαχειριστική παραχώρηση ανά ακροατή, broadcaster, σταθμό ή agency campaign. Χωρίς online checkout και χωρίς καταχώριση ως πληρωμένη συναλλαγή.</p>
       </div>
     </div>
     <div className="rounded-2xl border border-amber-600/30 p-4 bg-amber-950/10 text-amber-200 text-xs flex gap-2">
