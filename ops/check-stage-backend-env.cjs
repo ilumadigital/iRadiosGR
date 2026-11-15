@@ -55,6 +55,24 @@ try {
     false,'production Gateway credentials forbidden on staging');
   verify(safe+'IRADIOS_BILLING_SANDBOX_ENABLED=maybe\n',false,'invalid Sandbox flag rejected');
   verify(sandbox+'IRADIOS_BILLING_SANDBOX_ENABLED=0\n',false,'duplicate Sandbox mode rejected');
+  const paid=sandbox+
+    'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1\n'+
+    'ADVERTISING_V2_DELIVERY_SECRET='+('d'.repeat(64))+'\n'+
+    'IRADIOS_TRUSTED_GEO_SECRET='+('e'.repeat(64))+'\n';
+  verify(paid,true,'paid v2 sandbox activation with both private secrets');
+  verify(paid.replace('ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1',
+    'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=maybe'),
+    false,'paid v2 flag must be boolean');
+  verify(safe+'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1\n',
+    false,'paid v2 cannot start without verified Gateway funding');
+  verify(paid.replace('ADVERTISING_V2_DELIVERY_SECRET='+('d'.repeat(64)),
+    'ADVERTISING_V2_DELIVERY_SECRET=short'),false,'short ticket secret rejected');
+  verify(paid.replace('IRADIOS_TRUSTED_GEO_SECRET='+('e'.repeat(64)),
+    'IRADIOS_TRUSTED_GEO_SECRET=short'),false,'short geo secret rejected');
+  verify(paid+'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1\n',
+    false,'duplicate paid financial switch rejected');
+  verify(paid+'AD_STAGE_PAID_PLACEMENT_PREVIEW=1\n',
+    false,'paid delivery cannot coexist with nonbillable preview env override');
   // Legacy checkout routes were removed; only the signed Gateway billing path remains.
   const server=readFile('backend/server.js');
   assert.ok(!server.includes("require('./controllers/paymentController')"));
