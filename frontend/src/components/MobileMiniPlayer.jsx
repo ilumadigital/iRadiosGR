@@ -303,6 +303,7 @@ export default function MobileMiniPlayer({
 
   const openDevices = () => {
     if(!currentUser){navigate('/login');return;}
+    onRequestDevices?.();
     onOpenDevices?.();
   };
 
