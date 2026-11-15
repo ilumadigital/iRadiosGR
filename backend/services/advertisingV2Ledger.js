@@ -10,8 +10,8 @@ const Daily=require('../models/AdvertisingDailyBudget');
 const Ticket=require('../models/AdvertisingV2Reservation');
 const Event=require('../models/AdvertisingV2Event');
 const Counter=require('../models/AdvertisingDeliveryCounter');
-const {NANOS_PER_CENT,feeNanos,eventReserveNanos,athensDay,validDailyBudget}=
- require('./advertisingV2Policy');
+const {NANOS_PER_CENT,feeNanos,eventReserveNanos,athensDay,validDailyBudget,
+ matchesRateCardSnapshot}=require('./advertisingV2Policy');
 const TICKET=/^[a-f0-9]{32}$/;
 const SECRET_MIN=32;
 let ready=null;
@@ -24,6 +24,48 @@ function enabled(){
 function secret(){
  if(!enabled())throw Error('Advertising v2 paid delivery is not enabled');
  return process.env.ADVERTISING_V2_DELIVERY_SECRET;
+}
+// Configuration alone does NOT imply the live MongoDB is transaction-capable.
+// Check the running topology before accepting paid reservations; cache only
+// briefly so operators can finish an explicit replica-set migration safely.
+let mongoCheck={at:0,connected:false,ready:false,reason:'not_checked'};
+let pendingMongoCheck=null;
+async function mongoTransactionReadiness(){
+ const now=Date.now();
+ if(now-mongoCheck.at<10000)return mongoCheck;
+ if(pendingMongoCheck)return pendingMongoCheck;
+ pendingMongoCheck=(async()=>{
+  let result={at:Date.now(),connected:mongoose.connection.readyState===1,
+   ready:false,reason:'mongodb_disconnected'};
+  if(result.connected){
+   try{
+    const hello=await mongoose.connection.db.admin().command({hello:1});
+    result={
+     at:Date.now(),connected:true,
+     ready:Boolean(hello.setName&&hello.isWritablePrimary===true&&
+      Number(hello.logicalSessionTimeoutMinutes)>0),
+     reason:!hello.setName?'mongodb_standalone':
+      !hello.isWritablePrimary?'mongodb_not_primary':
+      !Number(hello.logicalSessionTimeoutMinutes)?'mongo_sessions_unavailable':'ok'
+    };
+   }catch{
+    result={at:Date.now(),connected:true,ready:false,reason:'mongodb_topology_unavailable'};
+   }
+  }
+  mongoCheck=result;
+  return result;
+ })().finally(()=>{pendingMongoCheck=null;});
+ return pendingMongoCheck;
+}
+async function financialReadiness(){
+ const mongo=await mongoTransactionReadiness();
+ return {configured:enabled(),mongoReplicaSetReady:mongo.ready,
+  mongoReason:mongo.reason,acceptingTickets:enabled()&&mongo.ready};
+}
+async function requireTransactions(){
+ if(!enabled())throw fail('Paid delivery disabled',503);
+ if(!(await mongoTransactionReadiness()).ready)
+  throw fail('Paid delivery requires an initialized MongoDB replica-set primary',503);
 }
 function clientKey(req){
  return crypto.createHmac('sha256',secret())
@@ -65,8 +107,8 @@ async function transaction(fn){
  }finally{await session.endSession();}
 }
 async function reserve({campaign,creative,kind,placement,clientKey:visitor,durationMs=0}){
+ await requireTransactions();
  await indexes();
- if(!enabled())throw fail('Paid delivery disabled',503);
  const total=campaign.plannedBudgetCents,daily=campaign.dailyBudgetCents;
  if(!validDailyBudget(daily,total)||!(/^[a-f0-9]{64}$/.test(visitor)))
   throw fail('Campaign daily limit unavailable');
@@ -107,19 +149,12 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
   }).session(session).lean();
   if(!fresh)throw fail('Campaign no longer eligible');
   const lots=await Lot.find({campaignId:campaign._id,source:'nexi_verified',
-   remainingNanos:{$gte:amount},budgetNanos:{$ne:null},rateModel:'v2_event'})
+   remainingNanos:{$gte:amount},budgetNanos:{$ne:null},rateModel:'v2_event',
+   settlementMode:'mongo_transaction_v2'})
    .sort({paidAt:1,_id:1}).session(session).lean();
   // A campaign bought under a different historical rate card must not
   // silently inherit future, more expensive pricing.
-  const {AUDIO_RATE_CARD,VISUAL_IMPRESSION_NANOS}=require('./advertisingV2Policy');
-  const matchesSnapshot=l=>{
-   const stored=l.rateCardSnapshot;
-   return stored&&Object.entries(AUDIO_RATE_CARD).every(([p,events])=>
-    Object.entries(events).every(([e,cost])=>stored.audio?.[p]?.[e]===cost))&&
-    Object.entries(VISUAL_IMPRESSION_NANOS).every(([p,cost])=>
-      stored.visual?.[p]===cost);
-  };
-  const lot=lots.find(l=>matchesSnapshot(l)&&
+  const lot=lots.find(l=>matchesRateCardSnapshot(l.rateCardSnapshot)&&
    Number.isSafeInteger(l.remainingNanos)&&
    l.remainingNanos-(l.reservedNanos||0)>=amount);
   if(!lot)throw fail('Insufficient verified prepaid balance');
@@ -132,7 +167,7 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
    {$inc:{reservedNanos:amount}},{session});
   if(d.modifiedCount!==1)throw fail('Daily budget exhausted');
   const hold=await Lot.updateOne({_id:lot._id,campaignId:campaign._id,
-   source:'nexi_verified',
+   source:'nexi_verified',settlementMode:'mongo_transaction_v2',
    $expr:{$gte:[{$subtract:['$remainingNanos',
     {$ifNull:['$reservedNanos',0]}]},amount]}},
    {$inc:{reservedNanos:amount}},{session});
@@ -173,7 +208,7 @@ function checkTicket(capabilityValue,key,now,session){
  return Ticket.findById(capabilityValue.split('.')[0]).session(session);
 }
 async function withTicket(value,key,action){
- if(!enabled())throw fail('Paid delivery disabled',503);
+ await requireTransactions();
  return transaction(async session=>{
   const ticket=await checkTicket(value,key,Date.now(),session);
   if(!verifyCapability(value,ticket,key)||ticket.status!=='active')
@@ -289,5 +324,6 @@ function startSweeper(){
   console.warn('[AD V2] Sweep failed:',e.message)),30000);
  interval.unref?.();
 }
-module.exports={enabled,clientKey,capability,verifyCapability,reserve,
+module.exports={enabled,financialReadiness,mongoTransactionReadiness,
+ clientKey,capability,verifyCapability,reserve,
  observe,click,release,closeTicket,sweepExpired,startSweeper};

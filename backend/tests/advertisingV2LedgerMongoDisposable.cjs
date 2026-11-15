@@ -51,6 +51,10 @@ async function main(){
  await mongoose.connect(uri,{serverSelectionTimeoutMS:5000});
  try{
   assert.equal(ledger.enabled(),true);
+  const readiness=await ledger.financialReadiness();
+  assert.equal(readiness.configured,true);
+  assert.equal(readiness.mongoReplicaSetReady,true);
+  assert.equal(readiness.acceptingTickets,true);
   const f=await createFixture(2000);
   const first=await ticket(f);
   let lot=await FundingLot.findOne({campaignId:f.campaign._id}).lean();

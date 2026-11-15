@@ -30,8 +30,14 @@ export default function AdvertisingV2CampaignStats({campaign}){
    }catch(e){if(alive)setState({loading:false,data:null,error:e.message});}
   };
   void load();
-  const timer=setInterval(load,30000);
-  return ()=>{alive=false;clearInterval(timer)};
+  // Qualified server-side settlements update immediately in MongoDB. Refresh
+  // the read-only projection every 5s while visible rather than showing a
+  // seemingly frozen balance for half a minute after an actual ad plays.
+  const timer=setInterval(()=>{if(document.visibilityState==='visible')void load();},5000);
+  const onVisible=()=>{if(document.visibilityState==='visible')void load();};
+  document.addEventListener('visibilitychange',onVisible);
+  return ()=>{alive=false;clearInterval(timer);
+   document.removeEventListener('visibilitychange',onVisible);};
  },[campaign?._id]);
  const data=state.data;
  const rows=useMemo(()=>{
@@ -55,19 +61,31 @@ export default function AdvertisingV2CampaignStats({campaign}){
  if(state.loading)return <div className={cell+' text-xs text-zinc-400'}>Φόρτωση Advertising Analytics…</div>;
  if(state.error)return <div className={cell+' text-xs text-amber-200'}>Analytics: {state.error}</div>;
  if(!data)return null;
- const daily=data.today||{},balance=data.balance||{};
+ const daily=data.today||{},balance=data.balance||{},delivery=data.delivery||{};
+ const missingPaidRequirements=[
+  !delivery.configured?'Το real-time billing είναι απενεργοποιημένο (QA Preview).':null,
+  delivery.configured&&!delivery.mongoReplicaSetReady?'Η MongoDB δεν είναι έτοιμη για ασφαλείς συναλλαγές.':null,
+  delivery.configured&&!delivery.trustedGeoReady?'Απουσιάζει επαληθευμένη γεωγραφική ταυτοποίηση από το reverse proxy.':null,
+  delivery.configured&&!delivery.compatibleFunding?'Το εμφανιζόμενο προπληρωμένο ποσό δεν διαθέτει συμβατό v2 event-based χρηματοδοτικό υπόλοιπο.':null
+ ].filter(Boolean);
  const status=campaign.adminSuspended?'Παύση από Admin':
   !campaign.agencyEnabled?'Απενεργοποιημένη από Agency':
   campaign.approvalStatus!=='approved'?'Σε αναμονή έγκρισης':
   Number(balance.remainingNanos||0)<=0?'Απαιτείται Top-up':
   daily.availableNanos<=0?'Εξαντλήθηκε το ημερήσιο όριο':
-  'Επιλέξιμη για διανομή (υπό τον έλεγχο QA)';
+  delivery.payable?'Ενεργή οικονομική διανομή':
+  'Προεπισκόπηση / εκκρεμεί ενεργοποίηση χρέωσης';
  return <section className="space-y-4 rounded-[24px] border border-purple-400/20 bg-[#16131e] p-5 sm:p-7">
   <div className="flex flex-wrap items-center justify-between gap-3">
    <div><p className="text-[10px] font-black uppercase tracking-widest text-purple-300">Advertising v2 · Audited metrics</p>
     <h3 className="mt-2 text-lg font-black text-white">Αποτελέσματα καμπάνιας</h3></div>
    <span className="text-xs font-bold text-zinc-300">{status}</span>
   </div>
+  {missingPaidRequirements.length>0&&<div role="status"
+    className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-xs leading-relaxed text-amber-200">
+    <strong className="block font-black">Η προβολή των spots δεν σημαίνει ότι χρεώνεται η καμπάνια.</strong>
+    {missingPaidRequirements.map(reason=><p key={reason} className="mt-1">{reason}</p>)}
+   </div>}
   <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
    <div className={cell}><div className={label}>Προπληρωμένο</div><strong className="mt-2 block text-lg text-white">{eurNano(balance.fundedNanos)}</strong></div>
    <div className={cell}><div className={label}>Συνολικά διαθέσιμο</div><strong className="mt-2 block text-lg text-white">{eurNano(balance.remainingNanos)}</strong></div>

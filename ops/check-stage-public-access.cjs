@@ -30,6 +30,13 @@ for(const p of ['/stations','/stations/discovery','/proxy-stream','/health','/co
  const result=call('GET',p);
  assert.equal(result.reached,true,'allow public '+p);
 }
+// Public ad calls must reach the capability, geo and debit guards even for a
+// Guest with no JWT. Metrics for a particular Agency remain authenticated.
+assert.equal(call('GET','/advertising/v2/status').reached,true,'Public paid-delivery readiness');
+for(const p of ['tickets','heartbeat','click','release'])
+ assert.equal(call('POST','/advertising/v2/'+p).reached,true,'Guest v2 capability '+p);
+assert.equal(call('GET','/advertising/v2/campaigns/0123456789abcdef01234567/analytics').res.code,
+ 401,'Agency financial metrics remain private');
 const verifyPreview=call('POST','/widget-previews/verify',{token:'invalid'});
 assert.equal(verifyPreview.reached,true,'public verifier must receive tokens for server-side validation');
 const previewGet=call('GET','/widget-previews/verify');

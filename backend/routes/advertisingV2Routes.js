@@ -47,21 +47,32 @@ function requirePaid(_req,res,next){
   enabled:false});
  return next();
 }
-router.get('/advertising/v2/status',noCache,(_req,res)=>res.json({
- enabled:ledger.enabled(),maxBreakSpots:policy.MAX_BREAK_SPOTS,
+router.get('/advertising/v2/status',noCache,async(req,res)=>{
+ const readiness=await ledger.financialReadiness();
+ return res.json({
+ enabled:readiness.acceptingTickets&&req.adGeoTrusted===true,
+ configured:readiness.configured,
+ mongoReplicaSetReady:readiness.mongoReplicaSetReady,
+ mongoReason:readiness.mongoReason,
+ trustedGeoReady:req.adGeoTrusted===true,
+ maxBreakSpots:policy.MAX_BREAK_SPOTS,
  audioRateCard:policy.AUDIO_RATE_CARD,
  visualCpmNanos:policy.VISUAL_CPM_NANOS,
  visualMinimumMs:policy.MIN_VISUAL_VIEW_MS,
  audioMinSeconds:policy.MIN_AUDIO_BILLABLE_SECONDS,
  audioMaxSeconds:policy.MAX_AUDIO_DURATION_SECONDS,
  skipSeconds:[15,40,55],nonSkippableDailyCents:4500
-}));
+ });
+});
 router.post('/advertising/v2/tickets',noCache,requirePaid,optionalListener,async(req,res)=>{
  try{
   // Never charge a regional/national placement from a fixture IP location.
   // Only the reverse proxy's authenticated geo can enable billable tickets.
   if(req.adGeoTrusted!==true)return res.status(503).json({
    error:'Verified visitor geography is required for billable advertising'});
+  const readiness=await ledger.financialReadiness();
+  if(!readiness.acceptingTickets)return res.status(503).json({
+   error:'MongoDB replica-set transactions must be ready before paid delivery'});
   const {creativeId,kind,placement,stationId}=req.body||{};
   if(!ID.test(String(creativeId||''))||
     !((kind==='audio'&&AUDIO_PLACEMENTS.has(placement))||
@@ -144,6 +155,16 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
      {$group:{_id:'$placement',count:{$sum:1}}}])
   ]);
   const balance=aggregateBalances(lots);
+  const readiness=await ledger.financialReadiness();
+  // Historical Nexi-funded/legacy-CPM lots may display prepaid money, but
+  // they cannot silently fund the newer per-event rate card. Surface this
+  // distinction explicitly in the Agency's audited metrics.
+  const eligibleLotCount=lots.filter(lot=>
+   lot.rateModel==='v2_event'&&
+   lot.settlementMode==='mongo_transaction_v2'&&
+   Number.isSafeInteger(lot.remainingNanos)&&
+   lot.remainingNanos>(lot.reservedNanos||0)&&
+   policy.matchesRateCardSnapshot(lot.rateCardSnapshot)).length;
   const today=daily.find(d=>d.day===policy.athensDay())||null;
   return res.json({campaignId:campaign._id,dailyBudgetCents:campaign.dailyBudgetCents,
    today:today?{day:today.day,spentNanos:today.spentNanos,
@@ -151,7 +172,13 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
      availableNanos:Math.max(0,today.limitNanos-today.spentNanos-today.reservedNanos)}:
     {day:policy.athensDay(),spentNanos:0,reservedNanos:0,
      availableNanos:campaign.dailyBudgetCents*policy.NANOS_PER_CENT},
-   balance,activeReservations:reservations,skips:skips.map(x=>({placement:x._id,count:x.count})),
+   balance,
+   delivery:{configured:readiness.configured,
+    mongoReplicaSetReady:readiness.mongoReplicaSetReady,
+    trustedGeoReady:req.adGeoTrusted===true,
+    compatibleFunding:eligibleLotCount>0,
+    payable:readiness.acceptingTickets&&req.adGeoTrusted===true&&eligibleLotCount>0},
+   activeReservations:reservations,skips:skips.map(x=>({placement:x._id,count:x.count})),
    daily:daily.map(x=>({
     day:x.day,spentNanos:x.spentNanos,reservedNanos:x.reservedNanos})),
    events:events.map(x=>({kind:x._id.kind,placement:x._id.placement,

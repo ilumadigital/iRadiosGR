@@ -29,10 +29,16 @@ const {activeCreativeTiers,evaluateBudgetAffordability}=
 const {allowUnfundedReview}=require('../services/advertisingStageQa');
 const stage=(req,res,next)=>process.env.APP_ENV==='staging'?next():
  res.status(503).json({error:'Advertising v2 is staging only'});
-// Scope Agency/Admin JWT checks ONLY to advertising routes. This router is
-// mounted at /api before /api/proxy-stream; a bare router.use(protect) blocks
-// anonymous radio playback and every later public API endpoint with HTTP 401.
-router.use(['/advertising','/admin/advertising'],protect,stage);
+// Protect ONLY this router's private campaign/pricing/payment paths. The
+// listener v2 status/ticket/heartbeat/CTA/release handlers are mounted later
+// at /api and must remain available to guests under their own capability,
+// trusted-geo and atomic-ledger checks. Never match the broad /advertising
+// prefix here: it swallowed /advertising/v2/* before those handlers ran.
+router.use([
+ '/advertising/pricing','/advertising/campaigns',
+ '/advertising/quotes','/advertising/payments',
+ '/admin/advertising'
+],protect,stage);
 const isAgency=req=>req.user?.role==='agency';
 const isAdmin=req=>req.user?.role==='admin';
 const objectId=value=>mongoose.isValidObjectId(value);

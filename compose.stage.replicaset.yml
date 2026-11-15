@@ -1,0 +1,14 @@
+# Opt-in override for an explicitly migrated staging MongoDB replica set.
+# Never use this file without a verified backup, the private keyfile and
+# ops/enable-stage-mongo-replicaset.sh. Normal staging remains unchanged.
+services:
+  mongo:
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongo-replset.key"]
+    volumes:
+      # Preserve the exact existing staging data volume even if Compose list
+      # merging changes; a replica-set migration MUST NOT get a fresh DB.
+      - mongo_data:/data/db
+      - /etc/iradios/staging/mongo-replset.key:/etc/mongo-replset.key:ro
+  backend:
+    environment:
+      MONGO_URI: 'mongodb://iradios_stage_app:${STAGE_MONGO_APP_PASSWORD:?run prepare-stage-mongo-user.sh}@mongo:27017/iradios_stage?authSource=iradios_stage&replicaSet=rs0'

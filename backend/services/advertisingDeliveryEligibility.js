@@ -11,8 +11,8 @@ const ATOMIC_SETTLEMENT_IMPLEMENTED=false;
 // The new paid ledger is isolated behind its own staging+secret gate.
 const ledger=require('./advertisingV2Ledger');
 const Daily=require('../models/AdvertisingDailyBudget');
-const {athensDay,validDailyBudget,eventReserveNanos,NANOS_PER_CENT}=
- require('./advertisingV2Policy');
+const {athensDay,validDailyBudget,eventReserveNanos,NANOS_PER_CENT,
+ matchesRateCardSnapshot}=require('./advertisingV2Policy');
 async function liveEligibleCreatives(creatives,now){
  const ids=[...new Set(creatives.map(c=>c.campaignId).filter(Boolean).map(String))];
  if(!ids.length)return creatives.filter(c=>!c.campaignId);
@@ -25,13 +25,16 @@ async function liveEligibleCreatives(creatives,now){
   validDailyBudget(c.dailyBudgetCents,c.plannedBudgetCents)).map(c=>c._id);
  const [lots,dailies]=await Promise.all([
   FundingLot.find({campaignId:{$in:idsOk},source:'nexi_verified',
-   budgetNanos:{$ne:null},remainingNanos:{$gt:0},rateModel:'v2_event'})
-   .select('campaignId remainingNanos reservedNanos').lean(),
+   budgetNanos:{$ne:null},remainingNanos:{$gt:0},rateModel:'v2_event',
+   settlementMode:'mongo_transaction_v2'})
+   .select('campaignId remainingNanos reservedNanos rateCardSnapshot').lean(),
   Daily.find({campaignId:{$in:idsOk},day:athensDay(now)})
    .select('campaignId spentNanos reservedNanos limitNanos').lean()
  ]);
  const byLot=new Map(),byDay=new Map();
- for(const lot of lots){const key=String(lot.campaignId);
+ for(const lot of lots){
+  if(!matchesRateCardSnapshot(lot.rateCardSnapshot))continue;
+  const key=String(lot.campaignId);
   byLot.set(key,(byLot.get(key)||0)+Math.max(0,lot.remainingNanos-(lot.reservedNanos||0)));
  }
  for(const day of dailies)byDay.set(String(day.campaignId),
