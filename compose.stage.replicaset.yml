@@ -5,6 +5,9 @@ services:
   mongo:
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongo-replset.key"]
     volumes:
+      # Preserve the exact existing staging data volume even if Compose list
+      # merging changes; a replica-set migration MUST NOT get a fresh DB.
+      - mongo_data:/data/db
       - /etc/iradios/staging/mongo-replset.key:/etc/mongo-replset.key:ro
   backend:
     environment:
