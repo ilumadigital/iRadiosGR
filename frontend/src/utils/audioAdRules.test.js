@@ -32,8 +32,8 @@ test('delivery excludes missing media, expired status, geo mismatch and disabled
   assert.equal(canServeAudioAd(ad('entry'),{...station,disableNetworkAds:true},null,geo),false);
   assert.equal(canServeAudioAd(ad('entry',{isGlobal:false,stationId:'a'}),station,null,geo),true);
 });
-test('a burst of matching campaigns results in at most two spots, preserving order',()=>{
+test('a burst of matching campaigns results in at most three spots ordered by daily budget',()=>{
   const list=[ad('entry',{_id:'1'}),ad('entry',{_id:'2'}),ad('entry',{_id:'3'}),ad('every_5_stations',{_id:'4'})];
-  assert.deepEqual(selectStationBreak(list,1,station,null,null).map(x=>x._id),['1','2']);
+  assert.deepEqual(selectStationBreak(list,1,station,null,null).map(x=>x._id),['1','2','3']);
   assert.deepEqual(selectStationBreak(list,5,station,null,null).map(x=>x._id),['4']);
 });
