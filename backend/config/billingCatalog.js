@@ -1,16 +1,16 @@
 'use strict';
 
-// Price source: iRadiosGR_Telikos_Timokatalogos_Syndromes(1).xlsx
+// Broadcaster prices approved 2026-11-15. All amounts include VAT 24%.
 // VAT 24% is INCLUDED in all integer-cent amounts.
-// Renewal execution is intentionally NOT enabled in this phase.
+// Subscription cycle is monthly; execution/entitlements remain Gateway-controlled.
 const rows = [
   ['L-FREE','Listener Free',0,'account','free',null],
   ['L-PREM','Listener Premium',399,'account','subscription','month'],
   ['B-FREE','Broadcaster Free',0,'account','free',null],
-  ['B-PREM','Broadcaster Premium',11900,'account','subscription','month'],
-  ['ADD-DSP','WebDSP Audio Engine',4990,'station','subscription',null],
-  ['ADD-AN','Analytics',790,'station','subscription',null],
-  ['ADD-ADS','iRadios Ad Control',2990,'station','subscription',null],
+  ['B-PREM','Broadcaster Premium',9900,'account','subscription','month'],
+  ['ADD-DSP','WebDSP Audio Engine',2790,'station','subscription','month'],
+  ['ADD-AN','Audience Radar',690,'station','subscription','month'],
+  ['ADD-ADS','iRadios Ad Control',890,'station','subscription','month'],
   ['BOOST-T-DAY','Station Boost — Category / Region',490,'station','boost','day'],
   ['BOOST-T-WEEK','Station Boost — Category / Region',2990,'station','boost','week'],
   ['BOOST-T-2W','Station Boost — Category / Region',5490,'station','boost','two_weeks'],
