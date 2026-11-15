@@ -65,6 +65,7 @@ exports.getPublicAds=async(req,res)=>{
      audioUrl:'/api/ads/'+ad._id+'/media',
      dailyBudgetCents:budgets.get(String(ad.campaignId))||0,
      nonSkippable:(budgets.get(String(ad.campaignId))||0)>4500,
+     paidDeliveryRequired:paidLedger.enabled()&&Boolean(ad.campaignId)&&Boolean(ad.agencyId),
      serverGeoEligible:paidLedger.enabled()&&Boolean(ad.campaignId)})));
   }catch(error){
     console.error('[ADS] Public delivery failed',error.message);
