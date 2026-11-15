@@ -226,12 +226,11 @@ async function closeTicket(id,reason='closed'){
    {session});
   if(updated.modifiedCount!==1)throw fail('Concurrent close conflict');
   if(amount>0){
-   const [a,b]=await Promise.all([
-    Lot.updateOne({_id:ticket.lotId,reservedNanos:{$gte:amount}},
-     {$inc:{reservedNanos:-amount}},{session}),
-    Daily.updateOne({campaignId:ticket.campaignId,day:ticket.day,
-     reservedNanos:{$gte:amount}},{$inc:{reservedNanos:-amount}},{session})
-   ]);
+   // MongoDB driver forbids parallel operations on one transaction session.
+   const a=await Lot.updateOne({_id:ticket.lotId,reservedNanos:{$gte:amount}},
+    {$inc:{reservedNanos:-amount}},{session});
+   const b=await Daily.updateOne({campaignId:ticket.campaignId,day:ticket.day,
+    reservedNanos:{$gte:amount}},{$inc:{reservedNanos:-amount}},{session});
    if(a.modifiedCount!==1||b.modifiedCount!==1)
     throw fail('Reservation release inconsistent');
   }
