@@ -792,9 +792,29 @@ function MainApp() {
   const lastPlayedTimeAds = useRef({});
   const adFallbackRef=useRef([]);
   const timedBreakBucketRef=useRef('');
+  const stationTransitionTokenRef=useRef(null);
+  const stationTransitionRef=useRef(Promise.resolve(null));
   const paidAdHeaders=()=>{const token=localStorage.getItem('iluma_token');return token?
     {'Content-Type':'application/json',Authorization:'Bearer '+token}:
     {'Content-Type':'application/json'};};
+  const registerStationTransition=station=>{
+    // Serialize transitions: the server, never the React ref, owns the
+    // billable switch count and signs a short-lived proof for this station.
+    const previous=stationTransitionRef.current;
+    const request=previous.catch(()=>null).then(async()=>{
+      const response=await fetch('/api/advertising/v2/transition',{
+        method:'POST',headers:paidAdHeaders(),
+        body:JSON.stringify({stationId:station._id,
+          sessionToken:stationTransitionTokenRef.current})
+      });
+      if(!response.ok)throw Error('No verified station transition');
+      const result=await response.json();
+      stationTransitionTokenRef.current=result.sessionToken;
+      return result;
+    });
+    stationTransitionRef.current=request;
+    return request;
+  };
   const reportPaidAudio=(ad,audio,force=false)=>{
     if(!ad?.ticketCapability||!audio)return Promise.resolve(null);
     const now=performance.now();
@@ -1290,6 +1310,7 @@ function MainApp() {
     // One First Play opportunity per app launch, even without listening history.
     // The original station-switch counter still triggers 'entry' on count 1.
     firstPlayStartedRef.current=true;
+    void registerStationTransition(station).catch(()=>{});
     stationSwitches.current += 1;
     const clicks = stationSwitches.current;
     
@@ -1348,11 +1369,17 @@ function MainApp() {
           try{
             const stationId=String(pendingStation.current?._id||
               currentStation?._id||'');
+            const selectedPlacement=nextAd.selectedPlacement||nextAd.frequency;
+            const switching=['entry','every_5_stations','every_10_stations',
+              'every_20_stations','every_30_stations'].includes(selectedPlacement);
+            const transition=switching?await stationTransitionRef.current.catch(()=>null):null;
+            const transitionProof=switching&&String(transition?.stationId)===stationId?
+              transition.proof:null;
+            if(switching&&!transitionProof)throw Error('Verified station switch is unavailable');
             const response=await fetch('/api/advertising/v2/tickets',{
               method:'POST',headers:paidAdHeaders(),
               body:JSON.stringify({creativeId:nextAd._id,kind:'audio',
-                placement:nextAd.selectedPlacement||nextAd.frequency,
-                stationId})
+                placement:selectedPlacement,stationId,transitionProof})
             });
             if(response.ok)result=await response.json();
           }catch{/* Unfunded or unavailable spots must never trap playback. */}
