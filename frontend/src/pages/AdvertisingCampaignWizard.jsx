@@ -5,6 +5,7 @@ import {adminFetch as fetch} from '../utils/adminFetch';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 import {assertAudioSpotDuration} from '../utils/audioSpotValidation';
+import {calendarCampaignDays,budgetSuggestion,BUDGET_LEVELS,audioReservationPlacements,maximumAudioReservationNanos} from '../utils/advertisingBudgetRecommendations';
 import VisualAdStudioControls from '../components/VisualAdStudioControls';
 import {adDesignFor} from '../utils/adVisualDesign';
 import AgencyCampaignTopUp from './AgencyCampaignTopUp';
@@ -93,7 +94,22 @@ function estimatedImpressions({amount,campaign,pricing,creatives}){
  const high=Math.floor((amount/Math.min(...cpm))*1000);
  return {low,high,tiers:[...tiers]};
 }
-function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy}){
+function spotHelpMailto(campaign,agency){
+ const subject='Δημιουργία Spot για το iRadios - '+(campaign?.title||'Νέα καμπάνια')+' - '+(campaign?.brand||'Πελάτης');
+ const message=[
+  'Καλησπέρα ομάδα ILUMA,','',
+  'Θα θέλαμε προσφορά για δημιουργία συμβατού Audio Ad στο iRadiosGR.','',
+  'Καμπάνια: '+(campaign?.title||'Δεν έχει οριστεί'),
+  'Πελάτης / brand: '+(campaign?.brand||'Δεν έχει οριστεί'),
+  'Agency: '+(agency?.companyName||agency?.name||agency?.email||'Δεν έχει οριστεί'),
+  'Διάρκεια: έως 46 δευτερόλεπτα',
+  'Μορφές αρχείων: MP3, WAV ή OGG',
+  'Σκοπός: επαγγελματικό Audio Spot για μετάδοση στο iRadiosGR.','',
+  'Παρακαλούμε ενημερώστε μας για κόστος, χρόνο παράδοσης και απαιτούμενο υλικό.'
+ ].join('\n');
+ return 'mailto:sales@iluma.gr?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message);
+}
+function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy,campaign,agency}){
  const banner=draft.kind==='banner';
  const [designPlacement,setDesignPlacement]=useState('home');
  const update=(key,value)=>setDraft(d=>({...d,[key]:value}));
@@ -146,10 +162,17 @@ function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy}){
      <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-[#0b0a11] px-3 py-2"><input type="color" value={draft.brandColor} onChange={e=>update('brandColor',e.target.value)} className="size-8 rounded-lg"/><span className="text-xs text-zinc-400">{draft.brandColor}</span></div></label>
    </div>
   </div>:<div className="space-y-5">
-   <label className={label}>Ηχητικό spot (MP3, WAV ή OGG, έως 46 δευτερόλεπτα)
-    <input type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" disabled={uploading}
-     onChange={e=>onUpload(e.target.files?.[0],'audioUrl','upload-ad','audioFile')}
-     className={field+' file:mr-4 file:rounded-lg file:border-0 file:bg-purple-500/20 file:p-2 file:text-purple-100'}/></label>
+   <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+    <label className={label+' rounded-2xl border border-white/10 bg-black/20 p-5'}>Ηχητικό spot (MP3, WAV ή OGG, έως 46 δευτερόλεπτα)
+     <input type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" disabled={uploading}
+      onChange={e=>onUpload(e.target.files?.[0],'audioUrl','upload-ad','audioFile')}
+      className={field+' file:mr-4 file:rounded-lg file:border-0 file:bg-purple-500/20 file:p-2 file:text-purple-100'}/></label>
+    <aside className="flex flex-col justify-between gap-4 rounded-2xl border border-purple-300/25 bg-gradient-to-br from-purple-500/15 to-black/30 p-5">
+     <div><p className="font-black text-white">Δεν έχετε έτοιμο ή συμβατό Audio Ad;</p>
+      <p className="mt-2 text-xs leading-6 text-zinc-300">Η ομάδα της ILUMA μπορεί να σας βοηθήσει να δημιουργήσετε ένα επαγγελματικό διαφημιστικό spot, κατάλληλο για προβολή στο iRadiosGR.</p></div>
+     <a href={spotHelpMailto(campaign,agency)} className={secondary+' self-start'}>Ρωτήστε μας <ArrowRight size={16}/></a>
+    </aside>
+   </div>
    {draft.audioUrl&&<p className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-xs text-emerald-200"><Check size={14} className="mr-2 inline"/>Audio spot έχει ανέβει. Η προεπισκόπηση είναι διαθέσιμη μετά την αποθήκευση.</p>}
    <div><span className={label}>Audio Placements (επιτρέπονται πολλαπλές θέσεις)</span>
     <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -187,6 +210,8 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const [step,setStep]=useState(0),[draft,setDraft]=useState(initialCampaign);
  const [creativeDraft,setCreativeDraft]=useState(null),[budget,setBudget]=useState('100');
  const [dailyBudget,setDailyBudget]=useState('20');
+ const [budgetLevel,setBudgetLevel]=useState('balanced');
+ const [budgetTouchedFor,setBudgetTouchedFor]=useState('');
  const [quote,setQuote]=useState(null),[busy,setBusy]=useState(false);
  const [uploading,setUploading]=useState(false),[loading,setLoading]=useState(true);
  const [error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -212,6 +237,24 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const paymentPending=Boolean(inProgress);
  const editingLocked=current?.approvalStatus!=='draft'||confirmed||Boolean(inProgress);
  const totalBudget=Number(current?.plannedBudgetCents||0)/100;
+ const durationDays=current?calendarCampaignDays(current.startsAt,current.endsAt):0;
+ const audioReserveRows=audioReservationPlacements(creatives?.audios||[]);
+ const fullAudioReserve=maximumAudioReservationNanos(creatives?.audios||[]);
+ const dailyDraftCents=Math.round(Number(dailyBudget)*100);
+ const proposedBudget=durationDays?budgetSuggestion(durationDays,budgetLevel):null;
+ useEffect(()=>{
+  if(!current||current.plannedBudgetCents>0||budgetTouchedFor===current._id||!proposedBudget)return;
+  setBudget((Math.max(proposedBudget.budgetCents,pricing?.minBudgetCents||0)/100).toFixed(2));
+  setDailyBudget((proposedBudget.dailyCents/100).toFixed(2));
+ },[current?._id,current?.startsAt,current?.endsAt,current?.plannedBudgetCents,budgetTouchedFor,budgetLevel,pricing?.minBudgetCents]);
+ const applySuggestion=(level)=>{
+  if(!durationDays)return;
+  const proposal=budgetSuggestion(durationDays,level);
+  setBudgetLevel(level);
+  setBudget((Math.max(proposal.budgetCents,pricing?.minBudgetCents||0)/100).toFixed(2));
+  setDailyBudget((proposal.dailyCents/100).toFixed(2));
+  setBudgetTouchedFor(current?._id||'');
+ };
  const estimate=useMemo(()=>estimatedImpressions({
   amount:totalBudget,campaign:current,pricing,creatives}),[totalBudget,current,pricing,creatives]);
  const countries=Object.keys(LOCATION_DATA);
@@ -457,7 +500,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
      <label className={label}>Έναρξη<input type="datetime-local" required disabled={editingLocked&&Boolean(current)} className={field} value={draft.startsAt} onChange={e=>setDraft(d=>({...d,startsAt:e.target.value}))}/></label>
      <label className={label}>Λήξη<input type="datetime-local" required disabled={editingLocked&&Boolean(current)} className={field} value={draft.endsAt} onChange={e=>setDraft(d=>({...d,endsAt:e.target.value}))}/></label>
     </div>
-    <p className="text-xs text-zinc-400">Επιτρεπόμενη διάρκεια: {(pricing?.durationDays||[7,10,14,30]).join(', ')} ημέρες. Το διάστημα ορίζεται από τον Admin.</p>
+    <p className="text-xs text-zinc-400">Ελεύθερη διάρκεια καμπάνιας με ημερομηνία έναρξης και λήξης, ακόμη και εξάμηνη, ετήσια ή πολυετής. Οι οικονομικοί έλεγχοι παραμένουν ενεργοί.</p>
     <div className="grid gap-4 sm:grid-cols-3">
      <label className={label}>Χώρα<select disabled={editingLocked&&Boolean(current)} className={field} value={draft.country} onChange={e=>setDraft(d=>({...d,country:e.target.value,region:'All',prefecture:e.target.value}))}>
       {countries.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
@@ -494,7 +537,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
     </section>}
     {creativeDraft&&<CreativeEditor draft={creativeDraft} setDraft={setCreativeDraft}
      uploading={uploading} onUpload={onUpload} submit={saveCreative} busy={busy}
-     cancel={()=>setCreativeDraft(null)}/>}
+     campaign={current} agency={currentUser} cancel={()=>setCreativeDraft(null)}/>}
    </div>}
 
    {step===2&&<section className={panel+' space-y-6'}>
@@ -502,18 +545,37 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
      <p className="mt-2 text-sm leading-6 text-zinc-400">{admin?'Σχεδιαστικό budget Admin, χωρίς χρέωση.':'Το αρχικό ποσό που θα προπληρωθεί. Δεν δημιουργείται χρέωση με την αποθήκευση.'}</p></div>
     <div className="grid gap-4 sm:grid-cols-3">
      <Stat title="Ελάχιστο" value={euro((pricing?.minBudgetCents||2000)/100)} desc="Όριο τιμοκαταλόγου" icon={Wallet}/>
-     <Stat title="Διάρκεια" value={Math.ceil((new Date(current.endsAt)-new Date(current.startsAt))/86400000)+' ημέρες'} desc="Προγραμματισμένη περίοδος" icon={Clock3}/>
+     <Stat title="Διάρκεια" value={durationDays+' ημέρες'} desc="Ημερολογιακές ημέρες Ελλάδας" icon={Clock3}/>
      <Stat title="Δημιουργικά" value={num(creativeCount)} desc="Visual / Audio μαζί" icon={ImageIcon}/>
     </div>
+    {!admin&&proposedBudget&&<section className="rounded-2xl border border-purple-400/20 bg-purple-500/[.055] p-4 sm:p-5">
+     <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h4 className="text-sm font-black text-white">Έξυπνη πρόταση επένδυσης</h4>
+       <p className="mt-1 text-xs leading-5 text-zinc-400">Ενδεικτικά ποσά για {durationDays} ημέρες, όχι νέα τιμολόγηση ούτε εγγυημένες προβολές.</p></div>
+      <span className="text-sm font-black text-purple-200">{euro(proposedBudget.budgetCents/100)}</span>
+     </div>
+     <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      {BUDGET_LEVELS.map(level=><button type="button" key={level.id} disabled={editingLocked}
+       onClick={()=>applySuggestion(level.id)} className={'rounded-xl border px-3 py-3 text-left text-xs font-bold transition '+(budgetLevel===level.id?'border-purple-300/60 bg-purple-500/20 text-white':'border-white/10 bg-black/25 text-zinc-300 hover:border-purple-400/40')}>
+       <span className="block">{level.title}</span>
+       <span className="mt-1 block text-purple-200">{euro(budgetSuggestion(durationDays,level.id).budgetCents/100)}</span></button>)}
+     </div>
+     <p className="mt-3 text-xs text-zinc-400">Ενδεικτικό ημερήσιο όριο: {euro(proposedBudget.dailyCents/100)}. Μπορείτε να τροποποιήσετε ελεύθερα και τα δύο ποσά.</p>
+    </section>}
     <label className={label}>Αρχικό budget (€)
-     <div className="relative max-w-sm"><input type="number" required min="1" step="0.01" disabled={editingLocked} className={field+' pr-14 text-xl font-black'} value={budget} onChange={e=>setBudget(e.target.value)}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
+     <div className="relative max-w-sm"><input type="number" required min="1" step="0.01" disabled={editingLocked} className={field+' pr-14 text-xl font-black'} value={budget} onChange={e=>{setBudget(e.target.value);setBudgetTouchedFor(current?._id||'');}}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
     </label>
     <label className={label}>Ημερήσιο spending limit (€)
      <div className="relative max-w-sm"><input type="number" required min="0.01" step="0.01" disabled={editingLocked}
       className={field+' pr-14 text-xl font-black'} value={dailyBudget}
-      onChange={e=>setDailyBudget(e.target.value)}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
+      onChange={e=>{setDailyBudget(e.target.value);setBudgetTouchedFor(current?._id||'');}}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
      <span className="mt-2 block text-xs font-normal text-zinc-400">Όριο ανά ημέρα (ώρα Ελλάδας). Χρεώνονται μόνο έγκυρα γεγονότα. Το αχρησιμοποίητο ημερήσιο όριο δεν μεταφέρεται.</span>
     </label>
+    {fullAudioReserve>0&&<section className={'rounded-xl border p-4 text-xs leading-6 '+(dailyDraftCents*10000000<fullAudioReserve?'border-amber-400/30 bg-amber-400/10 text-amber-100':'border-white/10 bg-black/20 text-zinc-300')}>
+     <h4 className="font-black">Πλήρης κράτηση ανά Audio Placement (10″ + CTA + Completion)</h4>
+     <div className="mt-2 grid gap-1 sm:grid-cols-2">{audioReserveRows.map(row=><div key={row.placement} className="flex items-center justify-between gap-3 border-b border-white/10 py-1.5"><span>{row.placement.replaceAll('_',' ')}</span><strong className="tabular-nums">{euro(row.reserveNanos/1e9)}</strong></div>)}</div>
+     {dailyDraftCents*10000000<fullAudioReserve?' Το ημερήσιο budget δεν καλύπτει όλα τα επιλεγμένα placements. Αυξήστε το όριο ή περιορίστε τις συχνότητες.':' Η πραγματική διαθεσιμότητα ελέγχεται εκ νέου από το backend.'}
+    </section>}
     <div className="flex flex-wrap justify-between gap-3"><button className={secondary} onClick={()=>setStep(1)}><ArrowLeft size={17}/> Πίσω</button>
      <button className={primary} onClick={saveBudget} disabled={busy||editingLocked}>Αποθήκευση budget & Overview <ArrowRight size={17}/></button></div>
    </section>}

@@ -163,8 +163,7 @@ export default function MobileMiniPlayer({
   const visibleSong=isActualSong;
 
   const miniTickerDetail = isPlayingAd
-    ? 'Διαφήμιση: ' + (currentAdInfo?.title || 'Διαφημιστικό διάλειμμα') +
-      (Number.isFinite(adTimeRemaining) ? ' · ' + adTimeRemaining + '″' : '')
+    ? 'Διαφήμιση: ' + (currentAdInfo?.title || 'Διαφημιστικό διάλειμμα')
     : isRecognizing ? 'Αναγνώριση…'
     : isActualSong ? 'Παίζει τώρα: ' + currentTrack.title +
       (currentTrack.artist ? ' — ' + currentTrack.artist : '') +

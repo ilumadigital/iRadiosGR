@@ -135,10 +135,15 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
   }catch(e){setNotice(e.message);}
  };
  const reviewCreative=async(kind,id,approval)=>{
+  const reason=approval==='rejected'?window.prompt('Υποχρεωτική αιτιολογία απόρριψης:',''):'';
+  if(approval==='rejected'&&(!reason?.trim()||reason.trim().length>1000)){
+   setNotice('Απαιτείται αιτιολογία έως 1000 χαρακτήρες.');
+   return;
+  }
   setBusy(true);setNotice('');
   try{
    const r=await fetch('/api/admin/advertising/wizard/campaigns/'+reviewId+'/creatives-review/'+kind+'/'+id,{
-    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({approval})});
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({approval,reason:reason?.trim()||''})});
    const result=await r.json();if(!r.ok)throw Error(result.error||'Η αξιολόγηση απέτυχε.');
    await loadReview(reviewId);await reload();
    setNotice('Η απόφαση για το δημιουργικό αποθηκεύτηκε.');
@@ -190,7 +195,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
       label={{minBudgetCents:'Ελάχιστο budget (€)',maxBudgetCents:'Μέγιστο budget (€)',minTopupCents:'Ελάχιστο top-up (€)'}[key]}
       value={euros(pricing[key])} onChange={v=>update(key,Math.round(v*100))} step="0.01"/>)}
     </div>
-    <label className="block text-xs font-bold text-zinc-300">Επιτρεπόμενες διάρκειες (ημέρες, χωρισμένες με κόμμα)
+    <label className="block text-xs font-bold text-zinc-300">Προτεινόμενες διάρκειες παλαιών καμπανιών (όχι υποχρεωτικές)
      <input className={input} value={(pricing.durationDays||[]).join(',')}
       onChange={e=>update('durationDays',e.target.value.split(',').map(v=>Number(v.trim())))}/>
     </label>

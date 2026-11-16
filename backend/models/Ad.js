@@ -34,6 +34,9 @@ const adSchema = new mongoose.Schema({
   // needed to recover a crash before the revision decision is finalized.
   lastApprovedRevisionId: {type: mongoose.Schema.Types.ObjectId, ref: 'AgencyAdRevision', default:null},
   status: { type: String, enum: ['draft', 'pending', 'active', 'expired', 'rejected'], default: 'active' },
+  rejectedReason:{type:String,default:'',maxlength:1000},
+  reviewedAt:{type:Date,default:null},
+  reviewedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User',default:null},
   duration: { type: String, enum: ['day', 'month', 'year'] },
   expiresAt: { type: Date, default: null },
   

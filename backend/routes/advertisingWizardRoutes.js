@@ -67,11 +67,8 @@ function campaignFields(body,pricing){
  const startsAt=new Date(body?.startsAt),endsAt=new Date(body?.endsAt);
  const now=Date.now();
  if(!Number.isFinite(startsAt.getTime())||!Number.isFinite(endsAt.getTime())||
-   startsAt.getTime()<now-86400000||endsAt<=startsAt||
-   endsAt.getTime()>now+366*86400000)
+   startsAt.getTime()<now-86400000||endsAt<=startsAt)
   throw issue('Η ημερομηνία έναρξης ή λήξης δεν είναι έγκυρη.');
- if(!pricing.durationDays.includes(Math.ceil((endsAt-startsAt)/86400000)))
-  throw issue('Η διάρκεια δεν είναι επιτρεπτή στον ισχύοντα τιμοκατάλογο.');
  const geo=validateAgencyGeo({targetCountry:body?.country||'Ελλάδα',
   targetRegion:body?.region||'All',
   targetLocations:[body?.prefecture||(body?.region&&body.region!=='All'?body.region:'Ελλάδα')]});
@@ -295,8 +292,13 @@ router.put('/admin/advertising/wizard/campaigns/:id/creatives-review/:kind/:crea
   if(!Model)throw issue('Invalid creative kind');
   const decision=req.body?.approval;
   if(!['approved','rejected'].includes(decision))throw issue('Invalid review decision');
-  const set=decision==='approved'?{status:'active',...(Model===Banner?{isActive:true}:{})}:
-   {status:'rejected',...(Model===Banner?{isActive:false}:{})};
+  const reason=String(req.body?.reason||'').trim();
+  if(decision==='rejected'&&(!reason||reason.length>1000))
+   throw issue('Απαιτείται αιτιολογία απόρριψης έως 1000 χαρακτήρες.');
+  const reviewMeta={reviewedBy:req.user._id,reviewedAt:new Date(),
+   rejectedReason:decision==='rejected'?reason:''};
+  const set=decision==='approved'?{status:'active',...reviewMeta,...(Model===Banner?{isActive:true}:{})}:
+   {status:'rejected',...reviewMeta,...(Model===Banner?{isActive:false}:{})};
   const row=await Model.findOneAndUpdate({_id:req.params.creativeId,
    campaignId:campaign._id,agencyId:campaign.agencyId,status:'pending',
    isStageCreative:true},{$set:set},{new:true});

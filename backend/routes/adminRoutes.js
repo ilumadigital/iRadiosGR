@@ -30,6 +30,52 @@ router.get('/admin/agency-ad-revisions',...admin,async(req,res)=>{
     res.json(revisions);
   }catch{return res.status(500).json({error:'Δεν φορτώθηκαν οι αλλαγές.'});}
 });
+// Read-only unified inbox; each approval still uses its original guarded route.
+router.get('/admin/advertising/approval-center',...admin,async(req,res)=>{
+ if(process.env.APP_ENV!=='staging')return res.status(503).json({error:'Staging only'});
+ try{
+  const Campaign=require('../models/AdvertisingCampaign');
+  const [campaigns,audios,banners,revisions]=await Promise.all([
+   Campaign.find({isStageCampaign:true,deletedAt:null})
+    .select('_id title brand agencyId approvalStatus startsAt endsAt plannedBudgetCents dailyBudgetCents approvedAt rejectedReason createdAt updatedAt')
+    .populate('agencyId','username email fname lname').sort({createdAt:-1}).limit(200).lean(),
+   Ad.find({isStageCreative:true,isGlobal:true,status:{$in:['pending','rejected','active']}})
+    .select('_id title client audioUrl status campaignId agencyId frequency frequencies rejectedReason reviewedAt updatedAt createdAt')
+    .populate('agencyId','username email fname lname').sort({createdAt:-1}).limit(200).lean(),
+   BannerAd.find({isStageCreative:true,status:{$in:['pending','rejected','active']}})
+    .select('_id title imageUrl placement status campaignId agencyId rejectedReason reviewedAt updatedAt createdAt')
+    .populate('agencyId','username email fname lname').sort({createdAt:-1}).limit(200).lean(),
+   AgencyAdRevision.find({}).sort({createdAt:-1}).limit(200)
+    .populate('agencyId','username email fname lname').lean()
+  ]);
+  res.setHeader('Cache-Control','private, no-store');
+  return res.json({campaigns,audios,banners,revisions});
+ }catch(error){
+  console.error('[ADMIN] Approval inbox failed',error.message);
+  return res.status(500).json({error:'Δεν φορτώθηκε το Κέντρο Εγκρίσεων.'});
+ }
+});
+// Standalone creative rejection is fail-closed and cannot activate unpaid ads.
+router.put('/admin/advertising/creatives/:kind/:id/reject',...admin,async(req,res)=>{
+ if(process.env.APP_ENV!=='staging')return res.status(503).json({error:'Staging only'});
+ const mongoose=require('mongoose');
+ const reason=String(req.body?.reason||'').trim();
+ const kind=req.params.kind;
+ if(!mongoose.isValidObjectId(req.params.id)||!['audio','banner'].includes(kind)||
+    reason.length<3||reason.length>1000)
+  return res.status(400).json({error:'Απαιτείται έγκυρη αιτιολογία απόρριψης (3–1000 χαρακτήρες).'});
+ const Model=kind==='audio'?Ad:BannerAd;
+ try{
+  const row=await Model.findOneAndUpdate({_id:req.params.id,isStageCreative:true,
+   status:'pending'},{$set:{status:'rejected',rejectedReason:reason,
+    reviewedAt:new Date(),reviewedBy:req.user._id,...(kind==='banner'?{isActive:false}:{})}},
+   {new:true,runValidators:true});
+  if(!row)return res.status(409).json({error:'Το δημιουργικό δεν εκκρεμεί πλέον.'});
+  return res.json({status:row.status,rejectedReason:row.rejectedReason,reviewedAt:row.reviewedAt});
+ }catch(error){
+  return res.status(500).json({error:'Η απόρριψη δεν αποθηκεύτηκε.'});
+ }
+});
 // A revision remains pending throughout the creative write. If an Admin
 // request crashes, retrying the SAME approval safely recovers its marker.
 const {reviewAgencyRevision}=require('../services/agencyRevisionApprovalCore');

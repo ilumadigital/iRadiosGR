@@ -257,7 +257,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
       setShowCreationModal(false);setCreationStep(1);setSelectedType(null);
       setAudioFile(null);setLogoFile(null);setBannerFile(null);setSquareBannerFile(null);
       await loadDashboardData();
-      showAlert('Αποθηκεύτηκε','Το δοκιμαστικό draft περιμένει έγκριση. Καμία χρέωση.','success');
+      showAlert('Αποθηκεύτηκε','Το δημιουργικό καταχωρίστηκε και θα εμφανιστεί στην αναμονή έγκρισης.','success');
     }catch(error){showAlert('Σφάλμα καμπάνιας',error.message,'error');}
     finally{setUploading(false);}
   };
@@ -354,7 +354,6 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
             <option value="all">Όλες</option><option value="active">LIVE</option><option value="pending">Σε έλεγχο</option>
             <option value="expired">Ληγμένες</option><option value="rejected">Απορριφθείσες</option>
           </select>
-          {isStaging&&<span className="ad-console-label ad-console-demo">Sandbox · Χωρίς χρεώσεις</span>}
         </div>
         <div className="flex items-center gap-2 mb-8 bg-zinc-900/50 p-1.5 rounded-2xl w-fit border border-white/5">
           <button 

@@ -12,7 +12,7 @@ import useStations from './hooks/useStations';
 import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
 import {geoAllowsAd} from './utils/adPlacements';
-import {selectStationBreak,selectTimedBreak,MAX_AD_BREAK_SPOTS} from './utils/audioAdRules';
+import {stationBreakCandidates,timedBreakCandidates,MAX_AD_BREAK_SPOTS} from './utils/audioAdRules';
 import {newAdListenClock,resumeAdListenClock,suspendAdListenClock,sampleAdListenClock,canSkipAd,secondsUntilAdSkip} from './utils/adSkipPolicy';
 import useMediaSession from './hooks/useMediaSession';
 import usePlayDevices from './hooks/usePlayDevices';
@@ -790,9 +790,31 @@ function MainApp() {
   });
 
   const lastPlayedTimeAds = useRef({});
+  const adFallbackRef=useRef([]);
+  const timedBreakBucketRef=useRef('');
+  const stationTransitionTokenRef=useRef(null);
+  const stationTransitionRef=useRef(Promise.resolve(null));
   const paidAdHeaders=()=>{const token=localStorage.getItem('iluma_token');return token?
     {'Content-Type':'application/json',Authorization:'Bearer '+token}:
     {'Content-Type':'application/json'};};
+  const registerStationTransition=station=>{
+    // Serialize transitions: the server, never the React ref, owns the
+    // billable switch count and signs a short-lived proof for this station.
+    const previous=stationTransitionRef.current;
+    const request=previous.catch(()=>null).then(async()=>{
+      const response=await fetch('/api/advertising/v2/transition',{
+        method:'POST',headers:paidAdHeaders(),
+        body:JSON.stringify({stationId:station._id,
+          sessionToken:stationTransitionTokenRef.current})
+      });
+      if(!response.ok)throw Error('No verified station transition');
+      const result=await response.json();
+      stationTransitionTokenRef.current=result.sessionToken;
+      return result;
+    });
+    stationTransitionRef.current=request;
+    return request;
+  };
   const reportPaidAudio=(ad,audio,force=false)=>{
     if(!ad?.ticketCapability||!audio)return Promise.resolve(null);
     const now=performance.now();
@@ -832,6 +854,11 @@ function MainApp() {
     adListenClockRef.current=newAdListenClock();
     adBreakSpotCountRef.current=0;
     setAdSkipCountdown(null);
+  };
+  const recoverUnplayedSlot=()=>{
+    const replacement=adFallbackRef.current.shift();
+    if(replacement)adQueue.current.push(replacement);
+    else adBreakSpotCountRef.current=Math.max(1,adBreakSpotCountRef.current-1);
   };
   const logAdOutcome=(event,ad)=>{
     if(!ad?.id||!ad.started||ad.outcomeLogged)return;
@@ -1283,10 +1310,13 @@ function MainApp() {
     // One First Play opportunity per app launch, even without listening history.
     // The original station-switch counter still triggers 'entry' on count 1.
     firstPlayStartedRef.current=true;
+    void registerStationTransition(station).catch(()=>{});
     stationSwitches.current += 1;
     const clicks = stationSwitches.current;
     
-    const zappingAdsToPlay = selectStationBreak(ads,clicks,station,userLocation,checkGeoMatch);
+    const pool=stationBreakCandidates(ads,clicks,station,userLocation,checkGeoMatch);
+    const zappingAdsToPlay=pool.slice(0,MAX_AD_BREAK_SPOTS);
+    adFallbackRef.current=pool.slice(MAX_AD_BREAK_SPOTS);
 
     if (zappingAdsToPlay.length > 0) {
       resetAdSkipClock();
@@ -1307,6 +1337,7 @@ function MainApp() {
     // Only skippable inventory is discarded. Higher-budget protected spots
     // retain their scheduled position and can never be bypassed by Skip.
     adQueue.current=adQueue.current.filter(item=>item.nonSkippable);
+    adFallbackRef.current=[];
     if(ad.ticketCapability)releasePaidAudio(ad,'skipped');
     else logAdOutcome('skipped',ad);
     playNextAdOrStation();
@@ -1323,6 +1354,7 @@ function MainApp() {
       if(!nextAd?.audioUrl)return playNextAdOrStation();
       const token=Symbol('ad-play');
       const record={token,id:nextAd._id,started:false,
+        selectedPlacement:nextAd.selectedPlacement,timed:nextAd.timed===true,
         nonSkippable:nextAd.nonSkippable===true};
       activeAdRef.current=record;
       setCurrentAdInfo(nextAd);
@@ -1337,16 +1369,22 @@ function MainApp() {
           try{
             const stationId=String(pendingStation.current?._id||
               currentStation?._id||'');
+            const selectedPlacement=nextAd.selectedPlacement||nextAd.frequency;
+            const switching=['entry','every_5_stations','every_10_stations',
+              'every_20_stations','every_30_stations'].includes(selectedPlacement);
+            const transition=switching?await stationTransitionRef.current.catch(()=>null):null;
+            const transitionProof=switching&&String(transition?.stationId)===stationId?
+              transition.proof:null;
+            if(switching&&!transitionProof)throw Error('Verified station switch is unavailable');
             const response=await fetch('/api/advertising/v2/tickets',{
               method:'POST',headers:paidAdHeaders(),
               body:JSON.stringify({creativeId:nextAd._id,kind:'audio',
-                placement:nextAd.selectedPlacement||nextAd.frequency,
-                stationId})
+                placement:selectedPlacement,stationId,transitionProof})
             });
             if(response.ok)result=await response.json();
           }catch{/* Unfunded or unavailable spots must never trap playback. */}
           if(!result?.capability){
-            if(activeAdRef.current?.token===token)playNextAdOrStation();
+            if(activeAdRef.current?.token===token){recoverUnplayedSlot();playNextAdOrStation();}
             return;
           }
           record.ticketCapability=result.capability;
@@ -1365,7 +1403,7 @@ function MainApp() {
         audio.load();
         adWatchdogRef.current=setTimeout(()=>{
           if(activeAdRef.current?.token===token){
-            releasePaidAudio(record,'failed');playNextAdOrStation();
+            releasePaidAudio(record,'failed');recoverUnplayedSlot();playNextAdOrStation();
           }
         },20000);
         try{
@@ -1374,12 +1412,12 @@ function MainApp() {
             attempt.catch(error=>{
               console.warn('[ADS] Spot playback failed; restoring station',error);
               if(activeAdRef.current?.token===token){
-                releasePaidAudio(record,'failed');playNextAdOrStation();
+                releasePaidAudio(record,'failed');recoverUnplayedSlot();playNextAdOrStation();
               }
             });
         }catch{
           if(activeAdRef.current?.token===token){
-            releasePaidAudio(record,'failed');playNextAdOrStation();
+            releasePaidAudio(record,'failed');recoverUnplayedSlot();playNextAdOrStation();
           }
         }
       };
@@ -1387,6 +1425,7 @@ function MainApp() {
       return;
     }
     resetAdSkipClock();
+    adFallbackRef.current=[];
     setIsPlayingAd(false);
     setCurrentAdInfo(null);
     setAdTimeRemaining(0);
@@ -1411,11 +1450,14 @@ function MainApp() {
       // Παίζουμε μόνο στο και 15 ακριβώς ή στο και 45 ακριβώς
       if (minutes !== 15 && minutes !== 45) return;
 
-      const selectedAds=selectTimedBreak(ads,currentStation,userLocation,
-        checkGeoMatch,lastPlayedTimeAds.current,now.getTime(),MAX_AD_BREAK_SPOTS);
+      const bucket=now.toISOString().slice(0,16);
+      if(timedBreakBucketRef.current===bucket)return;
+      const pool=timedBreakCandidates(ads,currentStation,userLocation,
+        checkGeoMatch,lastPlayedTimeAds.current,now.getTime()).map(ad=>({...ad,timed:true}));
+      const selectedAds=pool.slice(0,MAX_AD_BREAK_SPOTS);
       if(!selectedAds.length)return;
-      for(const ad of selectedAds)
-        lastPlayedTimeAds.current[ad._id+':'+ad.selectedPlacement]=now.getTime();
+      timedBreakBucketRef.current=bucket;
+      adFallbackRef.current=pool.slice(MAX_AD_BREAK_SPOTS);
       resetAdSkipClock();
       adBreakSpotCountRef.current=selectedAds.length;
       pendingStation.current=currentStation;
@@ -2026,6 +2068,8 @@ function MainApp() {
             adListenClockRef.current,audioRef.current?.currentTime||0,performance.now());
           if(ad&&!ad.started){
             ad.started=true;
+            if(ad.timed&&ad.selectedPlacement)
+              lastPlayedTimeAds.current[ad.id+':'+ad.selectedPlacement]=Date.now();
             if(ad.ticketCapability)void reportPaidAudio(ad,audioRef.current,true);
             else fetch(`${API_URL}/ads/${ad.id}/impression`,
               {method:'POST'}).catch(()=>{});
@@ -2081,8 +2125,10 @@ function MainApp() {
             const seconds=secondsUntilAdSkip(adListenClockRef.current,
               audio.duration,adBreakSpotCountRef.current,ad?.nonSkippable);
             setAdSkipCountdown(old=>old===seconds?old:seconds);
-            setAdTimeRemaining(Number.isFinite(e.target.duration)
-              ? Math.max(0, Math.ceil(e.target.duration - e.target.currentTime)) : 0);
+            setAdTimeRemaining(old=>{
+              const next=Number.isFinite(audio.duration)?Math.max(0,Math.ceil(audio.duration-audio.currentTime)):0;
+              return old===next?old:next;
+            });
           } else if (isPlaying && !isRecognizing && !recognitionLock.current && Date.now() - lastMetaFetch.current > 10000) {
             lastMetaFetch.current = Date.now(); 
             fetchMetadata();
@@ -2105,6 +2151,7 @@ function MainApp() {
               readyState:media.readyState,source:media.currentSrc
             });
             releasePaidAudio(ad,'failed');
+            if(!ad.started)recoverUnplayedSlot();
             playNextAdOrStation();
           } else {
             console.warn('[RADIO] Station stream failed', {code,source:media.currentSrc});

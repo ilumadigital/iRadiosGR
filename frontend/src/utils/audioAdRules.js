@@ -16,7 +16,7 @@ const PRIORITY=Object.freeze(['entry','every_5_stations','every_10_stations',
 export function placementsForAd(ad){
  const all=Array.isArray(ad?.frequencies)&&ad.frequencies.length?
   ad.frequencies:[ad?.frequency];
- return [...new Set(all.filter(Boolean))];
+ return [...new Set(all.filter(p=>PRIORITY.includes(p)))];
 }
 export function dueOnStationChange(frequency,count){
  if(!Number.isSafeInteger(count)||count<1)return false;
@@ -42,7 +42,7 @@ export function orderAudioCandidates(candidates){
   String(a.campaignId||a._id).localeCompare(String(b.campaignId||b._id))||
   String(a._id).localeCompare(String(b._id)));
 }
-export function selectStationBreak(ads,count,station,location,geoMatch,maxSpots=MAX_AD_BREAK_SPOTS){
+export function stationBreakCandidates(ads,count,station,location,geoMatch){
  if(!Array.isArray(ads))return [];
  const candidates=ads.map(ad=>{
   const placements=placementsForAd(ad);
@@ -58,9 +58,13 @@ export function selectStationBreak(ads,count,station,location,geoMatch,maxSpots=
   const key=String(ad.campaignId||ad._id);
   if(used.has(key))return false;
   used.add(key);return true;
- }).slice(0,Math.min(MAX_AD_BREAK_SPOTS,Math.max(1,maxSpots)));
+ });
 }
-export function selectTimedBreak(ads,station,location,geoMatch,lastPlayed,now=Date.now(),maxSpots=MAX_AD_BREAK_SPOTS){
+export function selectStationBreak(ads,count,station,location,geoMatch,maxSpots=MAX_AD_BREAK_SPOTS){
+ return stationBreakCandidates(ads,count,station,location,geoMatch)
+  .slice(0,Math.min(MAX_AD_BREAK_SPOTS,Math.max(1,maxSpots)));
+}
+export function timedBreakCandidates(ads,station,location,geoMatch,lastPlayed,now=Date.now()){ 
  if(!Array.isArray(ads))return [];
  const candidates=ads.map(ad=>{
   if(!canServeAudioAd(ad,station,location,geoMatch,now))return null;
@@ -75,5 +79,9 @@ export function selectTimedBreak(ads,station,location,geoMatch,lastPlayed,now=Da
   const key=String(ad.campaignId||ad._id);
   if(used.has(key))return false;
   used.add(key);return true;
- }).slice(0,Math.min(MAX_AD_BREAK_SPOTS,Math.max(1,maxSpots)));
+ });
+}
+export function selectTimedBreak(ads,station,location,geoMatch,lastPlayed,now=Date.now(),maxSpots=MAX_AD_BREAK_SPOTS){
+ return timedBreakCandidates(ads,station,location,geoMatch,lastPlayed,now)
+  .slice(0,Math.min(MAX_AD_BREAK_SPOTS,Math.max(1,maxSpots)));
 }
