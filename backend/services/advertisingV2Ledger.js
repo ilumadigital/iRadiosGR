@@ -199,7 +199,7 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
   if(hold.modifiedCount!==1)throw fail('Balance reservation conflict');
   ticket={_id:id,campaignId:campaign._id,creativeId:creative._id,lotId:lot._id,
    clientKey:visitor,kind,placement,day,reservedNanos:amount,spentNanos:0,
-   durationMs,issuedAt:new Date(now),expiresAt:new Date(now+120000),
+   durationMs,quotaKeys:quotas.map(q=>q.id),issuedAt:new Date(now),expiresAt:new Date(now+120000),
    cleanupAt:new Date(now+7*86400000)};
   await Ticket.create([ticket],{session});
  });
@@ -323,6 +323,22 @@ async function closeTicket(id,reason='closed'){
     reservedNanos:{$gte:amount}},{$inc:{reservedNanos:-amount}},{session});
    if(a.modifiedCount!==1||b.modifiedCount!==1)
     throw fail('Reservation release inconsistent');
+  }
+  // An unsuccessful spot/failed ticket must not consume frequency or
+  // pacing allowances. This compensates the shadow quota increments in
+  // the SAME transaction as the ticket closure and wallet hold release.
+  // Any financial event (CTA, completion, listen10 or visual impression)
+  // makes the delivery billable and retains the corresponding cap.
+  if(ticket.spentNanos===0&&Array.isArray(ticket.quotaKeys)){
+   for(const quotaKey of new Set(ticket.quotaKeys)){
+    const result=await Counter.updateOne({_id:quotaKey,count:{$gte:1}},
+     {$inc:{count:-1}},{session});
+    if(result.modifiedCount!==1){
+     const exists=await Counter.exists({_id:quotaKey}).session(session);
+     if(exists)throw fail('Failed ticket quota compensation inconsistent');
+     // TTL may already have removed an old expired quota.
+    }
+   }
   }
   return true;
  });
