@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {ArrowRight,CheckCircle2,Clock3,CreditCard,FileText,RefreshCcw,
@@ -13,8 +14,7 @@ async function call(path,options={}){
  return data;
 }
 const money=cents=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'}).format((Number(cents)||0)/100);
-const date=value=>value?new Intl.DateTimeFormat('el-GR',{dateStyle:'medium',timeStyle:'short',
- timeZone:'Europe/Athens'}).format(new Date(value)):'—';
+const date=value=>formatDateTime(value);
 const ongoing=status=>['creating','pending','redirect','unknown'].includes(status);
 const recurringStates=['active','pending','verification_pending','past_due'];
 const labels={active:'Ενεργή',expired:'Έληξε',scheduled:'Προγραμματισμένη',

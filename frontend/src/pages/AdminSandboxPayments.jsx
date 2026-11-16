@@ -1,10 +1,10 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {ArrowLeft,RefreshCw,ShieldCheck,ReceiptText} from 'lucide-react';
 
 const money=n=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'}).format((n||0)/100);
-const date=s=>s?new Intl.DateTimeFormat('el-GR',{timeZone:'Europe/Athens',
- dateStyle:'short',timeStyle:'short'}).format(new Date(s)):'—';
+const date=s=>formatDateTime(s);
 const tone={
  active:'text-lime-300',grace:'text-amber-300',expired:'text-zinc-400',
  redirect:'text-amber-300',unknown:'text-orange-300',creating:'text-amber-300',

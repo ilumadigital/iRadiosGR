@@ -43,6 +43,8 @@ services:
     environment:
       MONGO_URI: 'mongodb://iradios_stage_app:${STAGE_MONGO_APP_PASSWORD:?run prepare-stage-mongo-user.sh}@mongo:27017/iradios_stage?authSource=iradios_stage'
       APP_ENV: staging
+      # User-facing server time, cron defaults and local diagnostics (DB stays UTC).
+      TZ: Europe/Athens
       FRONTEND_URL: https://stage.iradios.gr
       # Staging uses normal paid Agency review, not free approval shortcuts.
       AD_STAGE_QA_APPROVAL_ENABLED: '0'
