@@ -38,13 +38,16 @@ jobs:
       - name: Check known live references and .env files
         run: bash ops/check-stage-source.sh
       - name: Test SEO 2.0 truthful metadata, schema, date and privacy contracts
-        run: node --test backend/tests/seo2Core.test.js backend/tests/seo2Render.test.js frontend/src/utils/seoPreview.test.js frontend/src/utils/publicStationFaq.test.js
+        run: node --test backend/tests/seo2Core.test.js backend/tests/seo2Render.test.js backend/tests/seo2Llms.test.js frontend/src/utils/seoPreview.test.js frontend/src/utils/publicStationFaq.test.js
       - name: Validate SEO server modules and Nginx source routing
         run: |
           node --check backend/services/seo2Core.js
           node --check backend/services/seo2Render.js
           node --check backend/services/seo2Routes.js
           node --check backend/services/seo2Image.js
+          node --check backend/services/seo2Llms.js
+          grep -Fq 'location ^~ /llms/' ops/nginx-stage.conf
+          grep -Fq 'location = /llms-full.txt' ops/nginx-stage.conf
           grep -Fq '/api/public/stations/:slug/faq' backend/services/seo2Routes.js
           grep -Fq 'id="ir-seo-bootstrap"' backend/services/seo2Render.js
           grep -Fq 'seo2Routes' backend/server.js
