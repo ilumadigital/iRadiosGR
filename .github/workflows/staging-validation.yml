@@ -55,8 +55,10 @@ jobs:
       - name: Check Advertising v2 official placements, fallback queue and budget guidance
         run: |
           node --test frontend/src/utils/audioAdRules.test.js frontend/src/utils/advertisingBudgetRecommendations.test.js ops/check-advertising-v2-upgrade.test.cjs
-      - name: Verify fast single-logo preloader, vector proportions and reduced motion
+      - name: Verify 1.4-second single-logo preloader, proportions and reduced motion
         run: node ops/check-preloader-branding.test.cjs
+      - name: Verify desktop-only Premium DSP across every station switch
+        run: node ops/check-premium-desktop-dsp.test.cjs
       - name: Verify mini widget artwork tiles, color backgrounds and dark-only configurator
         run: node ops/check-widget-mini-background.cjs
       - name: Verify station producer photos in external embeds, approved-only image proxy and payload safety
