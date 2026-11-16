@@ -292,8 +292,13 @@ router.put('/admin/advertising/wizard/campaigns/:id/creatives-review/:kind/:crea
   if(!Model)throw issue('Invalid creative kind');
   const decision=req.body?.approval;
   if(!['approved','rejected'].includes(decision))throw issue('Invalid review decision');
-  const set=decision==='approved'?{status:'active',...(Model===Banner?{isActive:true}:{})}:
-   {status:'rejected',...(Model===Banner?{isActive:false}:{})};
+  const reason=String(req.body?.reason||'').trim();
+  if(decision==='rejected'&&(!reason||reason.length>1000))
+   throw issue('Απαιτείται αιτιολογία απόρριψης έως 1000 χαρακτήρες.');
+  const reviewMeta={reviewedBy:req.user._id,reviewedAt:new Date(),
+   rejectedReason:decision==='rejected'?reason:''};
+  const set=decision==='approved'?{status:'active',...reviewMeta,...(Model===Banner?{isActive:true}:{})}:
+   {status:'rejected',...reviewMeta,...(Model===Banner?{isActive:false}:{})};
   const row=await Model.findOneAndUpdate({_id:req.params.creativeId,
    campaignId:campaign._id,agencyId:campaign.agencyId,status:'pending',
    isStageCreative:true},{$set:set},{new:true});
