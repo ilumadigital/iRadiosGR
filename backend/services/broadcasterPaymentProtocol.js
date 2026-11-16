@@ -1,4 +1,5 @@
 'use strict';
+const gatewayEnvironment=require('./gatewayEnvironment');
 const {getProduct}=require('../config/billingCatalog');
 const {BILLING_SKUS,isSubscription,validatedAnchoredCycle}=require('./broadcasterPurchaseRules');
 const {hostedCheckoutUrl}=require('./gatewayBillingProtocol');
@@ -27,7 +28,7 @@ function broadcasterEventValid(event,eventId,now=new Date()){
   !EVENT_ID.test(eventId||'')||event.event_id!==eventId||
   !PAYMENT_ID.test(event.payment_id||'')||!ORDER_ID.test(event.order_id||'')||
   !['payment.paid','payment.failed','payment.canceled'].includes(event.event_type)||
-  event.environment!=='staging'||event.currency!=='EUR'||
+  event.environment!==gatewayEnvironment.mode()||event.currency!=='EUR'||
   typeof event.customer_id!=='string'||event.customer_id.length<1||event.customer_id.length>190)
   return false;
  const p=getProduct(event.product_sku);
@@ -56,7 +57,7 @@ function safeBroadcasterOrder(order,now=new Date()){
   order.status==='paid'?'expired':order.status;
  return {id:String(order._id),sku:order.sku,stationId:order.resourceId||null,
   scopeType:order.scopeType,status:s,currency:'EUR',amountCents:order.amountCents,
-  environment:'staging',gatewayOrderId:order.gatewayOrderId||null,
+  environment:gatewayEnvironment.mode(),gatewayOrderId:order.gatewayOrderId||null,
   checkoutUrl:s==='redirect'?hostedCheckoutUrl(order.checkoutUrl):null,
   autoRenewRequested:order.autoRenewRequested===true,
   paidAt:order.paidAt||null,periodStartsAt:order.periodStartsAt||null,

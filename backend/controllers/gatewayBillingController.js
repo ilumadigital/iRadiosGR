@@ -250,7 +250,7 @@ async function billingOverview(req,res){
   gateway.savedCardStatus(req.user)
  ]);
  return res.json({
-  environment:'staging',sku:'L-PREM',currency:'EUR',priceCents:399,
+  environment:require('../services/gatewayEnvironment').mode(),sku:'L-PREM',currency:'EUR',priceCents:399,
   recurring,orders:orders.map(display),payments,paymentMethod,
   invoices:[],invoicesAvailable:false
  });
@@ -356,7 +356,7 @@ async function webhook(req,res){
   return res.status(503).json({error:'Staging webhook only'});
  const raw=req.body;
  const verified=verifyWebhookHeaders({
-  secret:process.env.ILUMA_GATEWAY_STAGING_SECRET,headers:req.headers,rawBody:raw
+  secret:gateway.configured()?require('../services/gatewayEnvironment').credentials().secret:null,headers:req.headers,rawBody:raw
  });
  if(!verified.valid)return res.status(401).json({error:'Invalid webhook signature'});
  let event;
