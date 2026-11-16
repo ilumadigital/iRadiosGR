@@ -2,7 +2,7 @@ import React from 'react';
 import {LISTENER_MODES,normalizeListenerMode} from '../utils/dspEngine';
 
 // Single source of truth across the station page and the global player.
-// These changes affect only the current authenticated Premium listener.
+// The selected mode persists across all stations for this Premium listener.
 export default function PremiumSoundModes({value='DEFAULT',onChange}){
   const selected=normalizeListenerMode(value);
   return <div role="group" aria-label="Premium προσωπική ρύθμιση ήχου"
@@ -19,6 +19,7 @@ export default function PremiumSoundModes({value='DEFAULT',onChange}){
         <span className="text-[10px] leading-4 text-zinc-400">{item.description}</span>
       </button>)}
     <p className="border-t border-white/10 px-3 pt-2 text-[10px] leading-4 text-zinc-500">
+      Η επιλογή εφαρμόζεται αυτόματα σε κάθε αλλαγή σταθμού.
       Dolby Style: stereo virtual surround, όχι αυθεντική Dolby 5.1 κωδικοποίηση.
       Το OFF ακούει το αρχικό stream χωρίς WebDSP.
     </p>
