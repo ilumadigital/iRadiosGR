@@ -129,16 +129,27 @@ router.post('/advertising/v2/tickets',noCache,requirePaid,optionalListener,async
   const visitor=ledger.clientKey(req);
   let breakId=null;
   if(kind==='audio'){
+   const places=Array.isArray(creative.frequencies)&&creative.frequencies.length?
+    creative.frequencies:[creative.frequency];
    if(listenerSessions.isDue(placement,1)||/^(every_(5|10|20|30)_stations)$/.test(placement)){
     const proof=await listenerSessions.verify({visitor,stationId,placement,proof:transitionProof});
     if(!proof)return res.status(403).json({error:'Verified station transition required for paid placement'});
+    // At count 10, a creative placed at both 5 and 10 stations can only
+    // be billed for the highest-priority eligible match, exactly like player.
+    const official=['entry','every_5_stations','every_10_stations',
+     'every_20_stations','every_30_stations'];
+    const selected=official.find(p=>places.includes(p)&&listenerSessions.isDue(p,proof.count));
+    if(placement!==selected)return res.status(409).json({error:'Ambiguous station placement'});
     breakId='switch:'+proof.breakId;
    }else{
-    const minute=new Date().getUTCMinutes();
-    const hourBucket=Math.floor(Date.now()/1800000);
-    // A single server-side bucket spans the entire 3-spot timed break.
-    // Daily and per-placement frequency caps are still enforced atomically.
-    breakId='timed:'+hourBucket;
+    // Clock breaks open at :15 and :45; three 46-second creatives may span
+    // several minutes. Never issue a billable timed ticket outside its slot.
+    const minute=now.getUTCMinutes();
+    const allowedWindow=(minute>=15&&minute<=19)||(minute>=45&&minute<=49);
+    if(!allowedWindow)return res.status(409).json({error:'No scheduled time break'});
+    const halfHourBucket=Math.floor(now.getTime()/1800000);
+    // The server—not a client-supplied break ID—owns each slot's quotas.
+    breakId='timed:'+halfHourBucket;
    }
   }
   const issued=await ledger.reserve({campaign,creative,kind,placement,
