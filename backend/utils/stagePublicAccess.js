@@ -84,7 +84,7 @@ function stagePublicAccess(req, res, next) {
   // Narrow HMAC-scoped billing qualification: the v2 route rechecks the
   // actual signed-in account, server geo, funding and every spend condition.
   if(req.method==='GET'&&path==='/api/advertising/v2/status')return next();
-  if(req.method==='POST'&&/^\/api\/advertising\/v2\/(tickets|heartbeat|click|release)$/.test(path))return next();
+  if(req.method==='POST'&&/^\/api\/advertising\/v2\/(tickets|transition|heartbeat|click|release)$/.test(path))return next();
   // A preview capability is checked by its own HMAC verifier, never issued here.
   if (req.method === 'POST' && path === '/api/widget-previews/verify') return next();
   // Approved station widgets read native-only RDS; the controller excludes
