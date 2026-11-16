@@ -106,7 +106,7 @@ function spotHelpMailto(campaign,agency){
   'Μορφές αρχείων: MP3, WAV ή OGG',
   'Σκοπός: επαγγελματικό Audio Spot για μετάδοση στο iRadiosGR.','',
   'Παρακαλούμε ενημερώστε μας για κόστος, χρόνο παράδοσης και απαιτούμενο υλικό.'
- ].join('\\n');
+ ].join('\n');
  return 'mailto:sales@iluma.gr?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message);
 }
 function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy,campaign,agency}){
