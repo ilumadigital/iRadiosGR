@@ -1,3 +1,5 @@
+import {formatDate, toAthensDateKey} from '../utils/dateTime';
+import GreekDateInput from '../components/GreekDateInput';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Link,useNavigate,useLocation} from 'react-router-dom';
 import {
@@ -27,11 +29,7 @@ const PLAN_NAMES={
   listener_premium:'iRadios Premium',full_premium:'Broadcaster Premium',
   ad_control_solo:'Ad Control',dsp_solo:'DSP Studio',analytics_solo:'Analytics Pro'
 };
-const fmtDate=value=>{
-  if(!value)return 'Δεν έχει οριστεί';
-  const date=new Date(value);
-  return Number.isFinite(date.getTime())?new Intl.DateTimeFormat('el-GR',{dateStyle:'medium'}).format(date):'Δεν έχει οριστεί';
-};
+const fmtDate=value=>formatDate(value,'Δεν έχει οριστεί');
 const authHeaders=()=>({
   'Content-Type':'application/json',
   Authorization:'Bearer '+(localStorage.getItem('iluma_token')||'')
@@ -39,7 +37,7 @@ const authHeaders=()=>({
 const toFields=user=>({
   username:user.username||'',email:user.email||'',fname:user.fname||'',
   lname:user.lname||'',phone:user.phone||'',
-  birthdate:user.birthdate&&Number.isFinite(new Date(user.birthdate).getTime())?new Date(user.birthdate).toISOString().slice(0,10):''
+  birthdate:user.birthdate&&Number.isFinite(new Date(user.birthdate).getTime())?toAthensDateKey(user.birthdate):''
 });
 function Toggle({checked,onChange,label,disabled=false}){
   return <button type="button" role="switch" aria-checked={Boolean(checked)} aria-label={label}
@@ -51,8 +49,11 @@ function Toggle({checked,onChange,label,disabled=false}){
 function ProfileField({label,name,type='text',value,onChange,required=false}){
   return <label className="flex min-w-0 flex-col gap-2">
     <span className="text-xs font-bold text-zinc-400">{label}</span>
-    <input className="ir-profile-input" type={type} lang="el-GR" value={value} required={required}
-      onChange={e=>onChange(name,e.target.value)} maxLength={name==='phone'?30:120}/>
+    {type==='date'
+      ? <GreekDateInput className="ir-profile-input" type="date" value={value} required={required}
+          onChange={e=>onChange(name,e.target.value)}/>
+      : <input className="ir-profile-input" type={type} lang="el-GR" value={value} required={required}
+          onChange={e=>onChange(name,e.target.value)} maxLength={name==='phone'?30:120}/>}
   </label>;
 }
 function SectionHeading({icon:Icon,title,description}){
