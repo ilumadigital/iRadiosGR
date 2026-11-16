@@ -50,7 +50,7 @@ jobs:
         run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
       - name: Check Advertising v2 official placements, fallback queue and budget guidance
         run: |
-          node --test frontend/src/utils/audioAdRules.test.js frontend/src/utils/advertisingBudgetRecommendations.test.js
+          node --test frontend/src/utils/audioAdRules.test.js frontend/src/utils/advertisingBudgetRecommendations.test.js ops/check-advertising-v2-upgrade.test.cjs
       - name: Verify fast single-logo preloader, vector proportions and reduced motion
         run: node ops/check-preloader-branding.test.cjs
       - name: Verify mini widget artwork tiles, color backgrounds and dark-only configurator
