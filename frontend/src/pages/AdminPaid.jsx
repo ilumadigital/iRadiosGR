@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -217,7 +218,7 @@ export default function AdminPaid({ API_URL }) {
                 <div className="text-white font-bold text-sm mb-2">{tx.planName || 'Custom Plan'}</div>
                 <div className="flex items-center gap-2 text-xs font-bold text-[#ccff00]">
                   <Calendar size={14} /> 
-                  {new Date(tx.createdAt).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  {formatDateTime(tx.createdAt)}
                 </div>
                 <div className="text-2xl font-black text-white mt-2">
                   {tx.amount}€

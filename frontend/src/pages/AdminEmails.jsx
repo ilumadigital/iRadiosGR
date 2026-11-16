@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
@@ -351,7 +352,7 @@ export default function AdminEmails({ API_URL }) {
                   </div>
                 </div>
                 <div className="text-left md:text-right text-xs font-mono text-zinc-500">
-                  {new Date(email.createdAt).toLocaleString('el-GR')}
+                  {formatDateTime(email.createdAt)}
                   <div className="mt-2 flex justify-start md:justify-end">
                     <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-1 rounded text-[10px] uppercase font-black tracking-wider">Εσταλη</span>
                   </div>

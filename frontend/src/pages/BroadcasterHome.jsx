@@ -1,3 +1,4 @@
+import {formatTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {useLiveRevision} from '../utils/liveUpdates';
 import {Link} from 'react-router-dom';
@@ -128,7 +129,7 @@ function StreamPanel({stations=[],loading=false}){
     </div>
     {state.status==='error'&&<p role="alert" className="mt-4 text-xs text-rose-300">{state.error}</p>}
     {state.checkedAt&&<p className="mt-4 text-[10px] text-zinc-500">
-      Τελευταίος έλεγχος: {state.checkedAt.toLocaleTimeString('el-GR')} · Ο έλεγχος HTTP δεν εγγυάται αναπαραγωγή ή διαθεσιμότητα 24/7.
+      Τελευταίος έλεγχος: {formatTime(state.checkedAt)} · Ο έλεγχος HTTP δεν εγγυάται αναπαραγωγή ή διαθεσιμότητα 24/7.
      </p>}
    </div>
    <div className={'flex flex-col justify-center rounded-[22px] border p-5 md:p-6 '+(alert?

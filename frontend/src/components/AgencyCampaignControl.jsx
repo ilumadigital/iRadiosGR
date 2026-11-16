@@ -1,3 +1,4 @@
+import {formatDate, formatDateTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import {Link} from 'react-router-dom';
@@ -258,7 +259,7 @@ export default function AgencyCampaignControl({campaign,creatives,pricing,onRefr
      {!info?.history?.length?<p className="text-xs text-zinc-500">Δεν έχουν γίνει αλλαγές ημερήσιου budget.</p>:
       info.history.map(row=><div key={row._id} className="border-b border-white/[.07] pb-2 text-xs last:border-0">
        <p className="font-semibold">{moneyCents(row.oldDailyBudgetCents)} → {moneyCents(row.newDailyBudgetCents)}</p>
-       <p className="mt-1 text-zinc-500">{new Date(row.createdAt).toLocaleString('el-GR')}</p></div>)}
+       <p className="mt-1 text-zinc-500">{formatDateTime(row.createdAt)}</p></div>)}
     </section>
    </div>
    {pricing&&<div className="xl:col-span-2"><AgencyCampaignTopUp campaign={campaign} pricing={pricing} onRefresh={async()=>{await onRefresh?.();await load();}}/></div>}
@@ -294,7 +295,7 @@ export default function AgencyCampaignControl({campaign,creatives,pricing,onRefr
     <div className="flex gap-3 rounded-2xl border border-white/10 bg-black/20 p-4"><MapPin className="shrink-0 text-purple-300"/><div>
      <p className="text-xs text-zinc-400">Γεωγραφική στόχευση</p><strong className="mt-2 block text-sm">{[campaign.country,campaign.region==='All'?null:campaign.region,campaign.prefecture].filter(Boolean).join(' · ')}</strong></div></div>
     <div className="flex gap-3 rounded-2xl border border-white/10 bg-black/20 p-4"><CalendarDays className="shrink-0 text-purple-300"/><div>
-     <p className="text-xs text-zinc-400">Περίοδος προβολής</p><strong className="mt-2 block text-sm">{new Date(campaign.startsAt).toLocaleDateString('el-GR')} – {new Date(campaign.endsAt).toLocaleDateString('el-GR')}</strong></div></div>
+     <p className="text-xs text-zinc-400">Περίοδος προβολής</p><strong className="mt-2 block text-sm">{formatDate(campaign.startsAt)} – {formatDate(campaign.endsAt)}</strong></div></div>
    </div>
    <div className="rounded-xl border border-purple-400/20 bg-purple-500/[.06] p-4 text-xs leading-6 text-purple-100">
     <ShieldCheck size={17} className="mr-2 inline"/>Η πληρωμή, τα δημιουργικά και οι προηγούμενες χρεώσεις παραμένουν αμετάβλητα. Το Agency μπορεί να διαχειρίζεται το ημερήσιο budget και να παύει/επαναφέρει εγκεκριμένη καμπάνια.</div>

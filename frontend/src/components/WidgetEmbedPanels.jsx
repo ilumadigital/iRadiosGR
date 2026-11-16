@@ -1,3 +1,4 @@
+import {formatTime} from '../utils/dateTime';
 import React,{useEffect,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {CalendarDays,ListMusic,Loader2,RefreshCw,X} from 'lucide-react';
@@ -88,9 +89,7 @@ export default function WidgetEmbedPanels({station,shows=[],current,clock,playli
   const today=clock?.day||getAthensClock().day;
   const visible=shows.filter(show=>Number(show.day)===day)
     .sort((a,b)=>a.startTime.localeCompare(b.startTime));
-  const dateLabel=date=>new Date(date).toLocaleTimeString('el-GR',{
-    timeZone:'Europe/Athens',hour:'2-digit',minute:'2-digit'
-  });
+  const dateLabel=date=>formatTime(date);
   return <>
     <div className={'ir-embed__panel-buttons'+(compact?' is-compact':'')}>
       <button type="button" className="ir-embed__chip" onClick={()=>open('program')}

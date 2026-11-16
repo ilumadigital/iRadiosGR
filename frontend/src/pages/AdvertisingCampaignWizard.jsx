@@ -1,3 +1,5 @@
+import GreekDateInput from '../components/GreekDateInput';
+import {formatDate, formatDateTime, toAthensLocalDateTime, athensWallTimeToIso} from '../utils/dateTime';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {subscribeLiveUpdates} from '../utils/liveUpdates';
 import {Link,useSearchParams} from 'react-router-dom';
@@ -25,9 +27,7 @@ const card='rounded-2xl border border-white/10 bg-black/25 p-4';
 const euro=value=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'}).format(Number(value||0));
 const moneyCentsSafe=value=>euro(Number(value||0)/100);
 const num=value=>new Intl.NumberFormat('el-GR',{maximumFractionDigits:0}).format(Number(value||0));
-const toLocal=millis=>{
- const d=new Date(millis);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-};
+const toLocal=toAthensLocalDateTime;
 // A newly purchased and approved campaign should be eligible TODAY by
 // default. Advertisers can still explicitly schedule a future start.
 const initialCampaign=()=>({title:'',brand:'',description:'',country:'Ελλάδα',region:'All',
@@ -340,9 +340,12 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
   finally{setBusy(false);}
  };
  const saveCampaign=e=>{e.preventDefault();void work(async()=>{
+  const startsAtIso=athensWallTimeToIso(draft.startsAt);
+  const endsAtIso=athensWallTimeToIso(draft.endsAt);
+  if(!startsAtIso||!endsAtIso)throw Error('Ελέγξτε ημερομηνία και ώρα Ελλάδας. Δεν επιτρέπεται ανύπαρκτη ώρα αλλαγής θερινού ωραρίου.');
   const data={title:draft.title,brand:draft.brand,description:draft.description,
    country:draft.country,region:draft.region,prefecture:draft.prefecture,
-   startsAt:new Date(draft.startsAt).toISOString(),endsAt:new Date(draft.endsAt).toISOString()};
+   startsAt:startsAtIso,endsAt:endsAtIso};
   const result=await request(current?base+'/campaigns/'+campaignId:base+'/campaigns',{
    method:current?'PATCH':'POST',body:JSON.stringify(data)});
   if(!current){await selectCampaign(result._id);}
@@ -497,8 +500,8 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
     </div>
     <label className={label}>Σύντομη περιγραφή<textarea rows={3} maxLength={3000} disabled={editingLocked&&Boolean(current)} className={field} value={draft.description} onChange={e=>setDraft(d=>({...d,description:e.target.value}))} placeholder="Στόχος της καμπάνιας"/></label>
     <div className="grid gap-4 md:grid-cols-2">
-     <label className={label}>Έναρξη<input type="datetime-local" required disabled={editingLocked&&Boolean(current)} className={field} value={draft.startsAt} onChange={e=>setDraft(d=>({...d,startsAt:e.target.value}))}/></label>
-     <label className={label}>Λήξη<input type="datetime-local" required disabled={editingLocked&&Boolean(current)} className={field} value={draft.endsAt} onChange={e=>setDraft(d=>({...d,endsAt:e.target.value}))}/></label>
+     <label className={label}>Έναρξη<GreekDateInput type="datetime-local" required disabled={editingLocked&&Boolean(current)} className={field} value={draft.startsAt} onChange={e=>setDraft(d=>({...d,startsAt:e.target.value}))}/></label>
+     <label className={label}>Λήξη<GreekDateInput type="datetime-local" required disabled={editingLocked&&Boolean(current)} className={field} value={draft.endsAt} onChange={e=>setDraft(d=>({...d,endsAt:e.target.value}))}/></label>
     </div>
     <p className="text-xs text-zinc-400">Ελεύθερη διάρκεια καμπάνιας με ημερομηνία έναρξης και λήξης, ακόμη και εξάμηνη, ετήσια ή πολυετής. Οι οικονομικοί έλεγχοι παραμένουν ενεργοί.</p>
     <div className="grid gap-4 sm:grid-cols-3">
@@ -585,7 +588,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
      <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">04 · Overview & Estimation</p><h3 className="mt-2 text-2xl font-black">Έλεγξε πριν προχωρήσεις.</h3><p className="mt-2 text-sm text-zinc-400">Συγκεντρωμένη εικόνα των επιλογών σου και εκτίμηση βάσει του ενεργού CPM.</p></div>
      <div className="grid gap-3 sm:grid-cols-2">
       {[['Καμπάνια',current.title],['Brand',current.brand],['Στόχευση',[current.country,current.region==='All'?null:current.region,current.prefecture].filter(Boolean).join(' • ')],
-       ['Περίοδος',new Date(current.startsAt).toLocaleDateString('el-GR')+' – '+new Date(current.endsAt).toLocaleDateString('el-GR')],
+       ['Περίοδος',formatDate(current.startsAt)+' – '+formatDate(current.endsAt)],
        ['Δημιουργικά',creativeCount+' • '+(creatives.banners.length?'Visual '+creatives.banners.length:'')+' '+(creatives.audios.length?'Audio '+creatives.audios.length:'')],
        ['Αρχικό budget',euro(totalBudget)],['Ημερήσιο όριο',euro(Number(current.dailyBudgetCents||0)/100)]].map(([name,value])=><div key={name} className={card}><p className="text-xs text-zinc-500">{name}</p><p className="mt-2 break-words text-sm font-black text-white">{value}</p></div>)}
      </div>
@@ -625,7 +628,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
      <div className="space-y-4">
       {!pricing?.sandboxCheckoutReady&&<p role="alert" className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-100">Το Advertising checkout δεν είναι ακόμη διαθέσιμο. Έλεγξε τον τιμοκατάλογο και τα υπάρχοντα credentials του ILUMA Gateway staging. Δεν υπάρχει εικονική πληρωμή.</p>}
       {quote&&<div className={card+' space-y-2 text-sm'}><p className="font-bold">Επίσημο quote · έκδοση {quote.priceVersion}</p><p className="text-zinc-400">Budget: {euro(quote.budgetCents/100)} · ΦΠΑ: {euro(quote.taxCents/100)}</p>
-       <p className="text-xs text-zinc-500">Λήξη: {new Date(quote.expiresAt).toLocaleString('el-GR')}</p></div>}
+       <p className="text-xs text-zinc-500">Λήξη: {formatDateTime(quote.expiresAt)}</p></div>}
       {inProgress&&<p className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-xs text-purple-100">Αναμονή επιβεβαίωσης από ILUMA Gateway. Η κατάσταση ελέγχεται αυτόματα κάθε 6 δευτερόλεπτα. Μην ξεκινήσεις δεύτερη πληρωμή· μόνο το υπογεγραμμένο webhook πιστώνει το budget.</p>}
       <div className="flex flex-wrap gap-3">{!quote?<button className={primary} disabled={busy||!pricing?.enabled||paymentPending} onClick={makeQuote}>Δημιουργία quote</button>:
        <button className={primary} onClick={checkout} disabled={busy||!pricing?.sandboxCheckoutReady||Boolean(inProgress)||new Date(quote.expiresAt)<=new Date()}>

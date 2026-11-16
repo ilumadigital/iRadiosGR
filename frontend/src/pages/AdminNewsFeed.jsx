@@ -1,11 +1,11 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useEffect,useState} from 'react';
 import {Newspaper,Save,RefreshCw,ExternalLink,Clock3,CheckCircle2,AlertTriangle,Image as ImageIcon,Plus,Trash2,Link2,Globe2} from 'lucide-react';
 import {adminFetch} from '../utils/adminFetch';
 import {subscribeLiveUpdates} from '../utils/liveUpdates';
 
 const EXAMPLE='https://www.newsbeast.gr/feed';
-const fmt=value=>value&&Number.isFinite(new Date(value).getTime())?
-  new Intl.DateTimeFormat('el-GR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'—';
+const fmt=value=>formatDateTime(value);
 const isGoogle=url=>{try{return new URL(url).hostname==='news.google.com';}catch{return false;}};
 const isRssnews=url=>{try{return new URL(url).hostname==='rssnews.io';}catch{return false;}};
 const isDirect=url=>{try{return !['rss.app','rssnews.io','news.google.com'].includes(new URL(url).hostname);}catch{return false;}};

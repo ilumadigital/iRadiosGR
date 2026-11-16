@@ -1,3 +1,4 @@
+import {formatTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useState} from 'react';
 import {Activity,BarChart3,Clock3,Headphones,MapPin,Radio,RefreshCw,
   ShieldCheck,Target,TrendingUp} from 'lucide-react';
@@ -80,7 +81,7 @@ export default function BroadcasterRadar({accountId}){
       <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-300">
        <span className="size-2 animate-pulse rounded-full bg-emerald-400"/> Live δεδομένα
       </span>
-      {checkedAt&&<span className="text-xs text-zinc-400">Τελευταία ενημέρωση: {checkedAt.toLocaleTimeString('el-GR')}</span>}
+      {checkedAt&&<span className="text-xs text-zinc-400">Τελευταία ενημέρωση: {formatTime(checkedAt)}</span>}
       <button type="button" disabled={refreshing} onClick={()=>void update()}
        className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2.5 text-xs font-black text-white hover:bg-white/10 disabled:opacity-50">
        <RefreshCw className={refreshing?'animate-spin':''} size={15}/> Ανανέωση

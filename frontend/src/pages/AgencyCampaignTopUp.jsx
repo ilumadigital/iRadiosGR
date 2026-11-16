@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useState} from 'react';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import {CreditCard,RefreshCw,Wallet} from 'lucide-react';
@@ -51,7 +52,7 @@ export default function AgencyCampaignTopUp({campaign,pricing,onRefresh}){
     className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm text-zinc-300"><RefreshCw size={16}/> Έλεγχος πληρωμής</button>
   </div>
   <p className="mt-3 text-xs text-zinc-400">Για χρεώσεις, αναφορές και διαθέσιμες μεθόδους δες τους <a href="/agency-terms" className="underline hover:text-white">Όρους Agencies</a> και τους <a href="/payment-methods" className="underline hover:text-white">Τρόπους Πληρωμής</a>.</p>
-  {quote&&<p className="mt-3 text-xs text-zinc-400">Quote #{quote.priceVersion} · Budget {(quote.budgetCents/100).toFixed(2)} € · ΦΠΑ {(quote.taxCents/100).toFixed(2)} € · λήξη {new Date(quote.expiresAt).toLocaleString('el-GR')}</p>}
+  {quote&&<p className="mt-3 text-xs text-zinc-400">Quote #{quote.priceVersion} · Budget {(quote.budgetCents/100).toFixed(2)} € · ΦΠΑ {(quote.taxCents/100).toFixed(2)} € · λήξη {formatDateTime(quote.expiresAt)}</p>}
   {!pricing?.sandboxCheckoutReady&&<p className="mt-3 text-xs text-amber-200">Το Nexi Sandbox checkout δεν έχει ενεργοποιηθεί. Δεν θα γίνει χρέωση.</p>}
   {error&&<p role="alert" className="mt-3 text-sm text-red-300">{error}</p>}
   {notice&&<p role="status" className="mt-3 text-xs text-purple-200">{notice}</p>}

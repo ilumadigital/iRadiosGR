@@ -1,6 +1,10 @@
 const cron = require('node-cron');
 const webpush = require('web-push');
-const User = require('../models/User'); 
+const User = require('../models/User');
+const athensClock = new Intl.DateTimeFormat('en-GB', {
+  timeZone:'Europe/Athens',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+});
+const greekWeekdays = {Mon:0,Tue:1,Wed:2,Thu:3,Fri:4,Sat:5,Sun:6}; 
 
 // ============================================================================
 // ⚙️ SETUP WEB PUSH (VAPID KEYS)
@@ -31,16 +35,11 @@ const startScheduler = () => {
       // Βρίσκουμε ποια θα είναι η ώρα σε ακριβώς 5 λεπτά από τώρα
       const future = new Date(now.getTime() + 5 * 60000);
       
-      // Υπολογισμός Ημέρας 
-      // Η JS θεωρεί 0 την Κυριακή, 1 τη Δευτέρα.
-      // Στο frontend έχουμε 0: Δευτέρα ... 6: Κυριακή, άρα κάνουμε την προσαρμογή:
-      const jsDay = future.getDay(); 
-      const targetDay = jsDay === 0 ? 6 : jsDay - 1; 
-      
-      // Υπολογισμός Ώρας σε μορφή "HH:mm" (π.χ. "14:00")
-      const h = future.getHours().toString().padStart(2, '0');
-      const m = future.getMinutes().toString().padStart(2, '0');
-      const targetTime = `${h}:${m}`;
+      // Always resolve show reminders from the Athens calendar, not host UTC.
+      const parts=Object.fromEntries(athensClock.formatToParts(future)
+        .filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
+      const targetDay=greekWeekdays[parts.weekday];
+      const targetTime=parts.hour+':'+parts.minute;
 
       // Βρίσκουμε όλους τους χρήστες που έχουν υπενθύμιση γι' αυτήν ακριβώς τη μέρα & ώρα
       const usersToNotify = await User.find({

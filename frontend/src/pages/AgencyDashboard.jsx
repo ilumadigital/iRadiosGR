@@ -1,3 +1,4 @@
+import {formatDate} from '../utils/dateTime';
 import React, { useState, useEffect } from 'react';
 import {useLiveRevision} from '../utils/liveUpdates';
 import '../styles/ad-campaign-console.css';
@@ -435,7 +436,7 @@ export default function AgencyDashboard({ API_URL, currentUser, globalSocket }) 
                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest pt-2">
                   <span className="text-zinc-600">Πακετο: <span className="text-zinc-300">{campaign.duration}</span></span>
                   {campaign.expiresAt && campaign.status === 'active' && (
-                    <span className="text-zinc-500">Ληξη: {new Date(campaign.expiresAt).toLocaleDateString('el-GR')}</span>
+                    <span className="text-zinc-500">Ληξη: {formatDate(campaign.expiresAt)}</span>
                   )}
                 </div>
                 {['pending','rejected','active','expired'].includes(campaign.status)&&

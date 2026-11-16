@@ -1,11 +1,10 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {useLocation,useNavigate} from 'react-router-dom';
 import {BellRing,Clock3,Crown,RefreshCw,X} from 'lucide-react';
 
 const HOURS_24=86400000;
-const clock=d=>d?new Intl.DateTimeFormat('el-GR',{
- dateStyle:'long',timeStyle:'short',timeZone:'Europe/Athens'
-}).format(new Date(d)):'—';
+const clock=d=>formatDateTime(d);
 
 /**
  * Listener-only staging reminder. The backend derives the cycle, dates and

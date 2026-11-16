@@ -1,3 +1,4 @@
+import {formatDate} from '../utils/dateTime';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -95,7 +96,7 @@ export default function Settings({ API_URL, currentUser }) {
         <div className="mt-4 bg-red-500/10 border border-red-500/30 px-4 py-3 rounded-xl inline-flex flex-col md:flex-row md:items-center justify-between w-full gap-4">
           <div>
             <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1 flex items-center gap-1.5"><AlertCircle size={12}/> Ακυρωθηκε</p>
-            <p className="text-sm font-medium text-white">Λήγει στις: <span className="font-black text-red-400">{subData.currentPeriodEnd ? new Date(subData.currentPeriodEnd).toLocaleDateString('el-GR') : '-'}</span></p>
+            <p className="text-sm font-medium text-white">Λήγει στις: <span className="font-black text-red-400">{subData.currentPeriodEnd ? formatDate(subData.currentPeriodEnd) : '-'}</span></p>
           </div>
         </div>
       );
@@ -105,7 +106,7 @@ export default function Settings({ API_URL, currentUser }) {
       <div className="mt-4 bg-[#ccff00]/5 border border-[#ccff00]/20 px-4 py-3 rounded-xl inline-flex flex-col md:flex-row md:items-center justify-between w-full gap-4">
         <div>
           <p className="text-[10px] font-black text-[#ccff00] uppercase tracking-widest mb-1 flex items-center gap-1.5"><Zap size={12}/> Ενεργη</p>
-          <p className="text-sm font-medium text-white">Λήγει: <span className="font-black text-[#ccff00]">{subData.currentPeriodEnd ? new Date(subData.currentPeriodEnd).toLocaleDateString('el-GR') : '-'}</span></p>
+          <p className="text-sm font-medium text-white">Λήγει: <span className="font-black text-[#ccff00]">{subData.currentPeriodEnd ? formatDate(subData.currentPeriodEnd) : '-'}</span></p>
         </div>
         <span className="text-xs text-amber-300">Δεν υπάρχει ενεργή αυτόματη ανανέωση.</span>
       </div>

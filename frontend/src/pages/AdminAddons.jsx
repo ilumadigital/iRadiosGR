@@ -1,3 +1,5 @@
+import {formatDate} from '../utils/dateTime';
+import GreekDateInput from '../components/GreekDateInput';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Link,useSearchParams} from 'react-router-dom';
 import {Activity,AlertTriangle,ArrowLeft,CheckCircle2,Gift,LockKeyhole,
@@ -10,7 +12,7 @@ const FEATURES=[
 ];
 const card='rounded-2xl border border-white/10 bg-[#141819] p-5';
 const input='w-full min-h-11 rounded-xl border border-white/15 bg-[#0b0f10] px-3 py-2.5 text-sm text-white outline-none focus:border-[#caff00]';
-const friendlyDate=value=>value?new Intl.DateTimeFormat('el-GR',{dateStyle:'medium'}).format(new Date(value)):'Χωρίς λήξη';
+const friendlyDate=value=>value?formatDate(value):'Χωρίς λήξη';
 const id=value=>String(value?._id||value||'');
 
 async function api(url,options={}){
@@ -252,7 +254,7 @@ export default function AdminAddons({API_URL='/api'}){
             </select>
           </label>
           <label className="block space-y-2 text-xs text-zinc-300">Λήξη (προαιρετική)
-            <input className={input} type="date" value={expires} onChange={e=>setExpires(e.target.value)}/>
+            <GreekDateInput className={input} type="date" value={expires} onChange={e=>setExpires(e.target.value)}/>
           </label>
           <label className="block space-y-2 text-xs text-zinc-300">Αιτιολογία Admin
             <textarea className={input+' min-h-24'} required minLength={4} maxLength={500} value={reason}

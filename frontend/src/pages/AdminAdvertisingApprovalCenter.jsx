@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Check,CheckCircle2,Clock3,FileCheck2,Image as ImageIcon,
  Loader2,Mic2,RefreshCw,Search,ShieldCheck,X,XCircle} from 'lucide-react';
@@ -163,7 +164,7 @@ export default function AdminAdvertisingApprovalCenter(){
       {!item.isPending&&item.rejectedReason&&<p className="text-xs text-rose-200">Αιτιολογία: {item.rejectedReason}</p>}
       {item.rejectionReason&&<p className="text-xs text-rose-200">Αιτιολογία: {item.rejectionReason}</p>}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3">
-       <p className="text-[11px] text-zinc-500">{timeOf(item)?new Date(timeOf(item)).toLocaleString('el-GR'):'—'}</p>
+       <p className="text-[11px] text-zinc-500">{timeOf(item)?formatDateTime(timeOf(item)):'—'}</p>
        {item.isPending&&<div className="flex flex-wrap gap-2">
         <button type="button" disabled={Boolean(busy)||blockedApproval} onClick={()=>void submitDecision(item,'approved')} title={blockedApproval?'Η καμπάνια πρέπει να βρίσκεται σε έγκριση':undefined} className={styles.primary}>
          {busy===item.key?<Loader2 size={14} className="animate-spin"/>:<Check size={14}/>} Έγκριση</button>

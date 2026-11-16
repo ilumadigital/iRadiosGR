@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown, ArrowDownToLine, ArrowUp, ArrowUpToLine, Check,
@@ -41,9 +42,7 @@ const boostSource= (station,now=Date.now()) => {
   return {manual,purchased,premium,active:manual||purchased||premium,
     manualExpired:station?.boostStatus===true&&!manual};
 };
-const exactTime=date=>date?new Intl.DateTimeFormat('el-GR',{
-  dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Athens'
-}).format(new Date(date)):'—';
+const exactTime=date=>formatDateTime(date);
 const remaining = date => {
   if (!date) return null;
   const diff = new Date(date).getTime() - Date.now();

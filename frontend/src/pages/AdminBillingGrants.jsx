@@ -1,3 +1,5 @@
+import {formatDateTime} from '../utils/dateTime';
+import GreekDateInput from '../components/GreekDateInput';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {ArrowLeft,Gift,Search,ShieldCheck,RefreshCw,AlertCircle} from 'lucide-react';
@@ -14,7 +16,7 @@ async function request(url,options={}){
   if(!res.ok)throw new Error(data.error||'Αποτυχία επικοινωνίας');
   return data;
 }
-const fmtDate=x=>x?new Intl.DateTimeFormat('el-GR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(x)):'Χωρίς λήξη';
+const fmtDate=x=>x?formatDateTime(x):'Χωρίς λήξη';
 const byRole=(p,role)=>p.complimentaryEligible && (
   (role==='user' && p.sku==='L-PREM')||
   (role==='admin' && p.sku==='L-PREM')||
@@ -161,7 +163,7 @@ export default function AdminBillingGrants({API_URL='/api'}){
           </select>
         </label>}
         <label className="text-xs text-zinc-400 space-y-2">Λήξη (προαιρετικό)
-          <input type="date" value={expiry} onChange={e=>setExpiry(e.target.value)}
+          <GreekDateInput type="date" value={expiry} onChange={e=>setExpiry(e.target.value)}
             className="block w-full rounded-xl bg-black border border-white/15 px-4 py-3 text-white text-sm"/>
         </label>
         <label className="text-xs text-zinc-400 space-y-2 md:col-span-2">Αιτιολογία / σημείωση Admin

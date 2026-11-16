@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useState} from 'react';
 import {useLiveRevision} from '../utils/liveUpdates';
 import {adminFetch as fetch} from '../utils/adminFetch';
@@ -221,7 +222,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
    <section className={panel}>
     <h3 className="mb-3 font-black text-white">Audit τιμολόγησης</h3>
     <div className="max-h-64 space-y-2 overflow-auto text-sm text-zinc-300">
-     {(pricing.history||[]).slice().reverse().map((entry,i)=><p key={i}>Έκδοση {entry.version} · {new Date(entry.at).toLocaleString('el-GR')}</p>)}
+     {(pricing.history||[]).slice().reverse().map((entry,i)=><p key={i}>Έκδοση {entry.version} · {formatDateTime(entry.at)}</p>)}
      {!pricing.history?.length&&<p>Δεν υπάρχουν προηγούμενες εκδόσεις.</p>}
     </div>
    </section>
@@ -259,7 +260,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
         <span className="font-bold text-purple-100 break-all">{row.subject}</span>
         <span className="text-zinc-300">{row.status}</span>
        </div>
-       <p className="mt-1 text-zinc-400 break-all">{row.recipientEmail} · Προσπάθειες: {row.attempts} · {new Date(row.createdAt).toLocaleString('el-GR')}</p>
+       <p className="mt-1 text-zinc-400 break-all">{row.recipientEmail} · Προσπάθειες: {row.attempts} · {formatDateTime(row.createdAt)}</p>
        {row.lastError&&<p className="mt-1 text-rose-300">{row.lastError}</p>}
       </div>)}
       {!mailRows.length&&<p className="text-sm text-zinc-500">Δεν υπάρχουν καταχωρημένες ειδοποιήσεις Agency.</p>}
@@ -280,7 +281,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
      <span>{c.adminSuspended?'Αναστολή Admin':'Χωρίς αναστολή'}</span>
     </div>
     {c.deletedAt&&<p className="rounded-xl border border-rose-400/20 bg-rose-400/[.05] p-3 text-xs leading-6 text-zinc-300">
-     Διαγράφηκε στις {new Date(c.deletedAt).toLocaleString('el-GR')} · Αιτία: {c.deletionReason||'Δεν έχει οριστεί'}.
+     Διαγράφηκε στις {formatDateTime(c.deletedAt)} · Αιτία: {c.deletionReason||'Δεν έχει οριστεί'}.
      Το οικονομικό audit παραμένει διαθέσιμο και δεν έγινε αυτόματη επιστροφή χρημάτων.
     </p>}
     <div className="flex flex-wrap gap-2">

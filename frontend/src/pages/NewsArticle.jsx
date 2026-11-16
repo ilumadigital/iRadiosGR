@@ -1,14 +1,11 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Helmet} from 'react-helmet-async';
 import {Link,useLocation,useParams} from 'react-router-dom';
 import {ArrowLeft,ArrowRight,Bookmark,BookmarkCheck,CalendarDays,Check,ChevronRight,Copy,ExternalLink,Newspaper,RefreshCw,Share2} from 'lucide-react';
 
 const validBack=path=>path==='/'?'/':typeof path==='string'&&/^\/newsfeed(?:\?.*)?$/.test(path)?path:'/newsfeed';
-const formatDate=value=>{
-  const date=new Date(value);
-  return value&&Number.isFinite(date.getTime())?
-    new Intl.DateTimeFormat('el-GR',{dateStyle:'full',timeStyle:'short'}).format(date):'Χωρίς ημερομηνία';
-};
+const formatDate=value=>formatDateTime(value,'Χωρίς ημερομηνία');
 function ArticleCover({item}){
   const [broken,setBroken]=useState(false);
   useEffect(()=>setBroken(false),[item?.imageUrl]);

@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {
@@ -9,13 +10,7 @@ const headers=()=>({
   Authorization:'Bearer '+(localStorage.getItem('iluma_token')||''),
   'Content-Type':'application/json'
 });
-const date=value=>{
- if(!value)return '—';
- const parsed=new Date(value);
- return Number.isFinite(+parsed)?new Intl.DateTimeFormat('el-GR',{
-  dateStyle:'medium',timeStyle:'short',timeZone:'Europe/Athens'
- }).format(parsed):'—';
-};
+const date=value=>formatDateTime(value);
 const amount=cents=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'})
   .format((Number(cents)||0)/100);
 const labels={

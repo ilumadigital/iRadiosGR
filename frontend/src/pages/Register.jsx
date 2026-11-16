@@ -1,3 +1,4 @@
+import GreekDateInput from '../components/GreekDateInput';
 import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
@@ -128,7 +129,7 @@ export default function Register({ API_URL, setCurrentUser }) {
               </div>
               <div>
               <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest ml-2 mb-1 block">Ημερομηνία Γέννησης</label>
-              <input type="date" aria-label="Ημερομηνία γέννησης" autoComplete="bday" required value={formData.birthdate} onChange={(e) => setFormData({...formData, birthdate: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-4 text-white focus:border-[#ccff00] transition-colors outline-none text-sm" />
+              <GreekDateInput type="date" aria-label="Ημερομηνία γέννησης" autoComplete="bday" required value={formData.birthdate} onChange={(e) => setFormData({...formData, birthdate: e.target.value})} className="w-full bg-black border border-white/10 h-14 rounded-2xl px-4 text-white focus:border-[#ccff00] transition-colors outline-none text-sm" />
               </div>
             </div>
 
