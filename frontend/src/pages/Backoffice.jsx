@@ -1,4 +1,5 @@
 import React, {useCallback,useEffect,useMemo,useState,Suspense,lazy} from 'react';
+import {stationSeoPreview} from '../utils/seoPreview';
 import BrandLogo from '../components/BrandLogo';
 import {subscribeLiveUpdates,useLiveRevision} from '../utils/liveUpdates';
 import {Link,NavLink,Routes,Route,Navigate,useLocation,useNavigate,useParams} from 'react-router-dom';
@@ -564,6 +565,7 @@ function StationEditor({data,reload,notify,requestDelete}){
   if(!isNew&&!station&&stationLookup)return <div className={panel+' p-10 text-center text-sm text-zinc-400'}><RefreshCw size={20} className="mx-auto mb-3 animate-spin text-[#caff00]"/>Φόρτωση στοιχείων σταθμού…</div>;
   if(!isNew&&!station)return <AuthGate title="Ο σταθμός δεν βρέθηκε" description="Δεν έχεις δικαίωμα πρόσβασης σε αυτόν τον σταθμό." href="/backoffice/stations" label="Πίσω στους σταθμούς"/>;
   const actionTitle=isNew?'Νέος σταθμός':'Επεξεργασία σταθμού';
+  const seoPreview=stationSeoPreview({...form,_id:station?._id});
   return <div>
     <div className="mb-6"><Link to="/backoffice/stations" className="inline-flex items-center gap-2 text-xs font-bold text-zinc-500 hover:text-white"><ArrowLeft size={15}/> Όλοι οι σταθμοί</Link></div>
     <SectionTitle eyebrow={isAdmin?'iRadios Network / Admin':'iRadios Broadcasters'}
@@ -732,6 +734,30 @@ function StationEditor({data,reload,notify,requestDelete}){
               catch{notify('Δεν ήταν δυνατή η αντιγραφή.','error');}}}>Copy link <Copy size={13}/></button>
           </div>}
         </div>
+        <section className={panel+' p-5'} aria-label="Προεπισκόπηση SEO">
+          <div className="mb-4 flex items-center gap-2">
+            <Globe size={17} className="text-[#caff00]"/>
+            <h3 className="font-black text-white">SEO & Social Preview</h3>
+          </div>
+          <p className="mb-3 text-[11px] leading-5 text-zinc-400">
+            Τα SEO στοιχεία δημιουργούνται αυτόματα από την περιγραφή, το είδος, την πόλη και το πρόγραμμα.
+            Οι αλλαγές Broadcaster εμφανίζονται δημόσια μετά την έγκριση.
+          </p>
+          <div className="rounded-xl border border-white/10 bg-[#0b0d10] p-3">
+            <p className="break-all text-[10px] text-emerald-400">{seoPreview.url||'Δημόσιο URL μετά τη δημιουργία'}</p>
+            <p className="mt-2 text-sm font-bold leading-5 text-[#b7caff]">{seoPreview.title}</p>
+            <p className="mt-1 text-xs leading-5 text-zinc-400">{seoPreview.description}</p>
+          </div>
+          {station?.status==='approved'&&
+            <div className="mt-3 overflow-hidden rounded-xl border border-white/10">
+              <img loading="lazy" src={seoPreview.image} alt={'Προεπισκόπηση εικόνας κοινοποίησης '+(form.name||'')}
+                className="aspect-[1200/630] w-full object-cover"/>
+            </div>}
+          <p className="mt-3 text-[10px] leading-4 text-zinc-500">
+            Προεπισκόπηση: {seoPreview.title.length} χαρακτήρες τίτλος · {seoPreview.description.length} περιγραφή.
+            Τα στοιχεία της ενεργής σελίδας βασίζονται μόνο στα εγκεκριμένα δεδομένα.
+          </p>
+        </section>
         {!isNew&&<div className={panel+' p-5'}>
           <h3 className="font-black text-white">Visual Identity</h3>
           <p className="mt-1 text-xs leading-5 text-zinc-500">Branding που ξεχωρίζει σε κάθε οθόνη.</p>
