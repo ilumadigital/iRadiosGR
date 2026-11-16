@@ -38,7 +38,7 @@ jobs:
       - name: Check known live references and .env files
         run: bash ops/check-stage-source.sh
       - name: Test SEO 2.0 truthful metadata, schema, date and privacy contracts
-        run: node --test backend/tests/seo2Core.test.js
+        run: node --test backend/tests/seo2Core.test.js backend/tests/seo2Render.test.js
       - name: Validate SEO server modules and Nginx source routing
         run: |
           node --check backend/services/seo2Core.js
