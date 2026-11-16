@@ -139,11 +139,15 @@ export default function Region({ stations, currentStation, setCurrentStation, is
     <div className="ir-catalog-page relative w-full animate-fade-in px-4 pb-40 pt-6 md:px-8 md:pt-9">
       
       <Helmet>
-        <title>{`Ραδιόφωνα από ${regionName} | iRadios`}</title>
-        <meta name="keywords" content={`iRadios, ραδιόφωνο, ${regionName}, online radio, web radio, ελληνικό ραδιόφωνο, eradio, ζωντανή μουσική, ιντερνετικό ραδιόφωνο, εραδιο, ραδιοφωνικοί σταθμοί, podcasts, λιωε24, live24, ILUMA Digital Agency`} />
-        <meta name="description" content={`Ραδιόφωνα ${regionName} LIVE στο iRadios App. Όλα τα ραδιόφωνα σε μία εφαρμογή. Streaming radio από Αθήνα, Θεσσαλονίκη, Κύπρο και τα κορυφαία Greek Radios είναι εδώ.`} />
-        <meta property="og:title" content={`Ραδιόφωνα ${regionName} στο iRadios App`} />
-        <meta property="og:description" content={`Ακούστε Ραδιόφωνα ${regionName} LIVE. Όλα τα ραδιόφωνα σε μία εφαρμογή. Streaming radio από Αθήνα, Θεσσαλονίκη, Κύπρο και τα κορυφαία Greek Radios είναι εδώ.`} />
+        <title>{`${regionName} — ραδιόφωνα περιοχής Live | iRadios`}</title>
+        <meta name="description" content={`Ανακάλυψε ραδιοφωνικούς σταθμούς από ${regionName} και άκου ζωντανά στο iRadios.`}/>
+        <link rel="canonical" href={window.location.origin+'/region/'+encodeURIComponent(regionName)}/>
+        <meta property="og:title" content={`${regionName} — ραδιόφωνα περιοχής Live | iRadios`}/>
+        <meta property="og:description" content={`Ανακάλυψε ραδιοφωνικούς σταθμούς από ${regionName} και άκου ζωντανά στο iRadios.`}/>
+        <meta property="og:url" content={window.location.origin+'/region/'+encodeURIComponent(regionName)}/>
+        <meta property="og:image" content={window.location.origin+'/og-image.png'}/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:image" content={window.location.origin+'/og-image.png'}/>
       </Helmet>
 
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors mb-8 md:mb-12 group">
