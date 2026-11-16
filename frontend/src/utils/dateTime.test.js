@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {formatDate, formatDateTime, formatTime, formatInputDate, parseGreekDate,
-  formatLocalDateTime, parseGreekDateTime, toAthensLocalDateTime, toAthensDateKey}
+  formatLocalDateTime, parseGreekDateTime, toAthensLocalDateTime, toAthensDateKey, athensWallTimeToIso}
   from './dateTime.js';
 
 test('Athens midnight crossing never follows the browser timezone', () => {
@@ -32,4 +32,11 @@ test('DD/MM/YYYY HH:mm form text preserves ISO local protocol values', () => {
   assert.equal(parseGreekDateTime('16/11/2026 24:01'), null);
   assert.equal(parseGreekDateTime('31/02/2026 12:00'), null);
   assert.equal(toAthensLocalDateTime(null), '');
+});
+
+test('Athens wall-clock conversions preserve UTC instants across DST', () => {
+  assert.equal(athensWallTimeToIso('2026-11-16T14:35'), '2026-11-16T12:35:00.000Z');
+  assert.equal(athensWallTimeToIso('2026-07-16T14:35'), '2026-07-16T11:35:00.000Z');
+  assert.equal(athensWallTimeToIso('2026-03-29T03:30'), null);
+  assert.equal(athensWallTimeToIso('2026-10-25T03:30'), '2026-10-25T00:30:00.000Z');
 });
