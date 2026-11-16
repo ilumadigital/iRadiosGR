@@ -15,11 +15,24 @@ export function stationSeoPreview(station={}) {
     ' '+clean(station.frequency,24):'';
   const place=clean(station.city||station.region||'',90);
   const genre=clean(station.genre,90);
-  const fallback='Άκου ζωντανά τον '+name+(genre?' με '+genre+' μουσική':'')+
-    (place?' από '+place:'')+' στο iRadios.';
+  // Keep the client preview in step with the public server-side description.
+  // Only approved public programme facts, never authenticated playlist history.
+  const validTime=/^(?:[01]\d|2[0-3]):[0-5]\d$/;
+  const schedule=(Array.isArray(station.schedule)?station.schedule:[])
+    .filter(show=>show&&clean(show.title,130)&&validTime.test(show.startTime)&&
+      (validTime.test(show.endTime)||show.endTime==='24:00'))
+    .sort((a,b)=>Number(a.day)-Number(b.day)||a.startTime.localeCompare(b.startTime));
+  const source=clean(station.description)||clean(station.slogan,400)||
+    'Άκου ζωντανά τον '+name+' στο iRadios.';
+  const existing=source.toLocaleLowerCase('el-GR'),facts=[];
+  const show=clean(schedule[0]?.title,130);
+  if(show&&!existing.includes(show.toLocaleLowerCase('el-GR')))facts.push('Εκπομπή: '+show);
+  if(genre&&!existing.includes(genre.toLocaleLowerCase('el-GR')))facts.push(genre);
+  if(place&&!existing.includes(place.toLocaleLowerCase('el-GR')))facts.push('από '+place);
+  const extra=shorten(facts.join(' · '),78);
   const title=shorten(name+frequency+' — Άκου ζωντανά | iRadios',75);
-  const description=shorten(clean(station.description)||
-    [clean(station.slogan),fallback].filter(Boolean).join('. '),158);
+  const lead=shorten(source,extra?155-extra.length:158);
+  const description=shorten(lead+(extra?' · '+extra:''),158);
   const id=encodeURIComponent(String(station.slug||station._id||''));
   const origin=window.location.origin;
   return {title,description,
