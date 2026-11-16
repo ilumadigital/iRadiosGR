@@ -5,6 +5,7 @@ import {adminFetch as fetch} from '../utils/adminFetch';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 import {assertAudioSpotDuration} from '../utils/audioSpotValidation';
+import {calendarCampaignDays,budgetSuggestion,BUDGET_LEVELS,minimumAudioReservationNanos} from '../utils/advertisingBudgetRecommendations';
 import VisualAdStudioControls from '../components/VisualAdStudioControls';
 import {adDesignFor} from '../utils/adVisualDesign';
 import AgencyCampaignTopUp from './AgencyCampaignTopUp';
@@ -93,7 +94,22 @@ function estimatedImpressions({amount,campaign,pricing,creatives}){
  const high=Math.floor((amount/Math.min(...cpm))*1000);
  return {low,high,tiers:[...tiers]};
 }
-function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy}){
+function spotHelpMailto(campaign,agency){
+ const subject='Δημιουργία Spot για το iRadios - '+(campaign?.title||'Νέα καμπάνια')+' - '+(campaign?.brand||'Πελάτης');
+ const message=[
+  'Καλησπέρα ομάδα ILUMA,','',
+  'Θα θέλαμε προσφορά για δημιουργία συμβατού Audio Ad στο iRadiosGR.','',
+  'Καμπάνια: '+(campaign?.title||'Δεν έχει οριστεί'),
+  'Πελάτης / brand: '+(campaign?.brand||'Δεν έχει οριστεί'),
+  'Agency: '+(agency?.companyName||agency?.name||agency?.email||'Δεν έχει οριστεί'),
+  'Διάρκεια: έως 46 δευτερόλεπτα',
+  'Μορφές αρχείων: MP3, WAV ή OGG',
+  'Σκοπός: επαγγελματικό Audio Spot για μετάδοση στο iRadiosGR.','',
+  'Παρακαλούμε ενημερώστε μας για κόστος, χρόνο παράδοσης και απαιτούμενο υλικό.'
+ ].join('\\n');
+ return 'mailto:sales@iluma.gr?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message);
+}
+function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy,campaign,agency}){
  const banner=draft.kind==='banner';
  const [designPlacement,setDesignPlacement]=useState('home');
  const update=(key,value)=>setDraft(d=>({...d,[key]:value}));
@@ -146,10 +162,17 @@ function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy}){
      <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-[#0b0a11] px-3 py-2"><input type="color" value={draft.brandColor} onChange={e=>update('brandColor',e.target.value)} className="size-8 rounded-lg"/><span className="text-xs text-zinc-400">{draft.brandColor}</span></div></label>
    </div>
   </div>:<div className="space-y-5">
-   <label className={label}>Ηχητικό spot (MP3, WAV ή OGG, έως 46 δευτερόλεπτα)
-    <input type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" disabled={uploading}
-     onChange={e=>onUpload(e.target.files?.[0],'audioUrl','upload-ad','audioFile')}
-     className={field+' file:mr-4 file:rounded-lg file:border-0 file:bg-purple-500/20 file:p-2 file:text-purple-100'}/></label>
+   <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+    <label className={label+' rounded-2xl border border-white/10 bg-black/20 p-5'}>Ηχητικό spot (MP3, WAV ή OGG, έως 46 δευτερόλεπτα)
+     <input type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" disabled={uploading}
+      onChange={e=>onUpload(e.target.files?.[0],'audioUrl','upload-ad','audioFile')}
+      className={field+' file:mr-4 file:rounded-lg file:border-0 file:bg-purple-500/20 file:p-2 file:text-purple-100'}/></label>
+    <aside className="flex flex-col justify-between gap-4 rounded-2xl border border-purple-300/25 bg-gradient-to-br from-purple-500/15 to-black/30 p-5">
+     <div><p className="font-black text-white">Δεν έχετε έτοιμο ή συμβατό Audio Ad;</p>
+      <p className="mt-2 text-xs leading-6 text-zinc-300">Η ομάδα της ILUMA μπορεί να σας βοηθήσει να δημιουργήσετε ένα επαγγελματικό διαφημιστικό spot, κατάλληλο για προβολή στο iRadiosGR.</p></div>
+     <a href={spotHelpMailto(campaign,agency)} className={secondary+' self-start'}>Ρωτήστε μας <ArrowRight size={16}/></a>
+    </aside>
+   </div>
    {draft.audioUrl&&<p className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-xs text-emerald-200"><Check size={14} className="mr-2 inline"/>Audio spot έχει ανέβει. Η προεπισκόπηση είναι διαθέσιμη μετά την αποθήκευση.</p>}
    <div><span className={label}>Audio Placements (επιτρέπονται πολλαπλές θέσεις)</span>
     <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -457,7 +480,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
      <label className={label}>Έναρξη<input type="datetime-local" required disabled={editingLocked&&Boolean(current)} className={field} value={draft.startsAt} onChange={e=>setDraft(d=>({...d,startsAt:e.target.value}))}/></label>
      <label className={label}>Λήξη<input type="datetime-local" required disabled={editingLocked&&Boolean(current)} className={field} value={draft.endsAt} onChange={e=>setDraft(d=>({...d,endsAt:e.target.value}))}/></label>
     </div>
-    <p className="text-xs text-zinc-400">Επιτρεπόμενη διάρκεια: {(pricing?.durationDays||[7,10,14,30]).join(', ')} ημέρες. Το διάστημα ορίζεται από τον Admin.</p>
+    <p className="text-xs text-zinc-400">Ελεύθερη διάρκεια καμπάνιας με ημερομηνία έναρξης και λήξης, ακόμη και εξάμηνη, ετήσια ή πολυετής. Οι οικονομικοί έλεγχοι παραμένουν ενεργοί.</p>
     <div className="grid gap-4 sm:grid-cols-3">
      <label className={label}>Χώρα<select disabled={editingLocked&&Boolean(current)} className={field} value={draft.country} onChange={e=>setDraft(d=>({...d,country:e.target.value,region:'All',prefecture:e.target.value}))}>
       {countries.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
@@ -494,7 +517,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
     </section>}
     {creativeDraft&&<CreativeEditor draft={creativeDraft} setDraft={setCreativeDraft}
      uploading={uploading} onUpload={onUpload} submit={saveCreative} busy={busy}
-     cancel={()=>setCreativeDraft(null)}/>}
+     campaign={current} agency={currentUser} cancel={()=>setCreativeDraft(null)}/>}
    </div>}
 
    {step===2&&<section className={panel+' space-y-6'}>
