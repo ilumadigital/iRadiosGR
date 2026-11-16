@@ -3,6 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+process.env.FRONTEND_URL=process.env.FRONTEND_URL||'https://stage.iradios.gr';
 const llms=require('../services/seo2Llms');
 const {stationSeo}=require('../services/seo2Core');
 const sample=()=>({
