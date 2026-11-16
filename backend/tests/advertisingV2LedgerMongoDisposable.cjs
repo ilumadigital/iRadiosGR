@@ -11,6 +11,7 @@ const Event=require('../models/AdvertisingV2Event');
 const ledger=require('../services/advertisingV2Ledger');
 const listenerSessions=require('../services/advertisingListenerSessions');
 const Session=require('../models/AdvertisingListenerSession');
+const Counter=require('../models/AdvertisingDeliveryCounter');
 const Station=require('../models/Station');
 const policy=require('../services/advertisingV2Policy');
 const uri=process.env.AD_V2_DISPOSABLE_MONGODB_URI;
@@ -182,13 +183,27 @@ async function main(){
    breakId:singleBreak}),/Frequency or pacing cap/);
   await ledger.release({value:once.capability,key});
   for(const issued of tickets)await ledger.release({value:issued.capability,key});
+  // Unqualified tickets restore the per-campaign and per-break quota atomically.
+  const reopened=await ledger.reserve({...repeated,kind:'audio',
+   placement:'every_5_stations',durationMs:46000,clientKey:key,breakId:singleBreak});
+  await ledger.release({value:reopened.capability,key});
   const paced=await createFixture(2000);
   const morning=await ledger.reserve({...paced,kind:'audio',placement:'twice_a_day',
    durationMs:46000,clientKey:key,breakId:'timed:2026111600'});
   await assert.rejects(()=>ledger.reserve({...paced,kind:'audio',placement:'twice_a_day',
    durationMs:46000,clientKey:key,breakId:'timed:2026111601'}),/Frequency or pacing cap/);
   await ledger.release({value:morning.capability,key});
-  console.log('V2 disposable Mongo: signed listener transitions, atomic three-spot breaks, daily time pacing passed');
+  const retried=await ledger.reserve({...paced,kind:'audio',
+   placement:'twice_a_day',durationMs:46000,clientKey:key,
+   breakId:'timed:2026111600'});
+  await ledger.release({value:retried.capability,key});
+  const timedQuota=await Counter.findById('paid-v2:freq:'+
+   String(paced.campaign._id)+':'+key+':'+policy.athensDay()+':twice_a_day');
+  assert.equal(timedQuota.count,0,'Failed/short audio tickets must not consume frequency cap');
+  const qualifiedQuota=await Counter.findById('paid-v2:freq:'+
+   String(f.campaign._id)+':'+key+':'+policy.athensDay()+':entry');
+  assert.equal(qualifiedQuota.count,1,'Qualified paid tickets retain pacing cap');
+  console.log('V2 disposable Mongo: signed listener transitions, 3-spot breaks, rollback of unqualified quotas and daily pacing passed');
  }finally{
   await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
