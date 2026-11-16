@@ -75,6 +75,10 @@ function stagePublicAccess(req, res, next) {
   // The middleware is mounted at /api, and Express req.path excludes the mount prefix.
   const path = (req.baseUrl + req.path).replace(/\/+$/,'') || '/';
   if (req.method === 'GET' && publicReads.has(path)) return next();
+  // SEO FAQ is a safe read-only projection of approved station profile facts.
+  // The target router enforces approved status; private playlist history remains gated.
+  if (req.method === 'GET' &&
+      /^\/api\/public\/stations\/[^/]{1,180}\/faq$/.test(path)) return next();
   // Media bytes are served only after the Ad controller verifies this exact
   // active campaign and resolves a local /uploads/audio file. No directory access.
   if ((req.method==='GET'||req.method==='HEAD') &&
