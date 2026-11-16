@@ -28,6 +28,7 @@ const AdminAds=lazy(()=>import('./AdminAds'));
 const CampaignEditor=lazy(()=>import('./CampaignEditor'));
 const AdminBanners=lazy(()=>import('./AdminBanners'));
 const AdminAdvertisingV2=lazy(()=>import('./AdminAdvertisingV2'));
+const AdminAdvertisingApprovalCenter=lazy(()=>import('./AdminAdvertisingApprovalCenter'));
 const AdminHomeSlides=lazy(()=>import('./AdminHomeSlides'));
 const AdminNewsFeed=lazy(()=>import('./AdminNewsFeed'));
 const AdminPromotedStations=lazy(()=>import('../components/AdminPromotedStations'));
@@ -1301,6 +1302,7 @@ const ADMIN_TOOLS=[
   {id:'radioset',name:'Αναθέσεις σταθμών',desc:'Σύνδεσε σταθμούς με broadcasters',icon:Radio,group:'Δίκτυο'},
   {id:'boost',name:'Προβολή σταθμών',desc:'Προτεραιότητες και boost σταθμών',icon:Sparkles,group:'Δίκτυο'},
   {id:'promoted',name:'Promoted Stations',desc:'Επίλεξε σταθμό δίπλα στα slides ανά Περιοχή ή Είδος',icon:Sparkles,group:'Δίκτυο'},
+  {id:'approvals',name:'Κέντρο Εγκρίσεων Διαφημίσεων',desc:'Καμπάνιες, Audio, Visual και αλλαγές δημιουργικών προς έγκριση',icon:ShieldCheck,group:'Διαφημίσεις'},
   {id:'campaigns',name:'Ενιαίες καμπάνιες',desc:'Paid unified campaigns, Admin approval και αναστολή',icon:FileCheck2,group:'Διαφημίσεις'},
   {id:'pricing',name:'Ρυθμίσεις Τιμολόγησης',desc:'Versioned CPM, budget limits και φορολογική πολιτική',icon:Settings2,group:'Διαφημίσεις'},
   {id:'ads',name:'Audio διαφημίσεις',desc:'Διαχείριση ηχητικών καμπανιών',icon:Activity,group:'Διαφημίσεις'},
@@ -1387,6 +1389,7 @@ const ADMIN_GUIDES={
     steps:['Βρες τον σταθμό','Ρύθμισε boost ή σειρά','Αποθήκευσε τη σειρά χωρίς φίλτρα']},
   promoted:{intro:'Πρόβαλε έναν εγκεκριμένο σταθμό δεξιά από το editorial slide σε κάθε Περιοχή ή Είδος.',
     steps:['Επίλεξε Περιοχή ή Είδος','Διάλεξε τον σταθμό','Ενεργοποίησε και αποθήκευσε']},
+  approvals:{intro:'Έλεγξε σε ένα ενιαίο dashboard όλες τις διαφημιστικές εκκρεμότητες.',steps:['Άνοιξε κάθε δημιουργικό και κάνε προεπισκόπηση','Έλεγξε τα στοιχεία και τον πελάτη','Ενέκρινε ή αιτιολόγησε υποχρεωτικά την απόρριψη']},
   campaigns:{intro:'Έλεγξε το πληρωμένο budget και έγκρινε ενιαίες Visual+Audio καμπάνιες.',steps:['Έλεγξε την πληρωμή','Επιβεβαίωσε δημιουργικά','Έγκρινε ή απόρριψε']},
   pricing:{intro:'Νέες τιμές CPM ισχύουν μόνο για νέες αγορές.',steps:['Ρύθμισε CPM','Όρισε ρητά φορολογική πολιτική','Αποθήκευσε νέα έκδοση']},
   ads:{intro:'Βρες, δημιούργησε και έλεγξε τις ηχητικές διαφημίσεις του δικτύου.',
@@ -1433,6 +1436,7 @@ function Operations({data,section,reload}){
   const views={
     analytics:<AdminDashboard {...common}/>,users:<AdminUsers {...common}/>,
     ads:<AdminAds {...common}/>,banners:<AdminBanners {...common}/>,
+    approvals:<AdminAdvertisingApprovalCenter/>,
     campaigns:<AdminAdvertisingV2 mode="campaigns" currentUser={data.user}/>,
     pricing:<AdminAdvertisingV2 mode="pricing"/>,
     slides:<AdminHomeSlides {...common}/>,newsfeed:<AdminNewsFeed {...common}/>,promoted:<AdminPromotedStations stations={data.stations}/>,
@@ -1603,6 +1607,7 @@ export default function Backoffice(){
         {to:'/backoffice/admin/promoted',label:'Promoted Stations',icon:Sparkles}
       ]},
       {section:'ΔΙΑΦΗΜΙΣΕΙΣ',items:[
+        {to:'/backoffice/admin/approvals',label:'Κέντρο Εγκρίσεων',icon:ShieldCheck},
         {to:'/backoffice/admin/campaigns',label:'Ενιαίες καμπάνιες',icon:FileCheck2},
         {to:'/backoffice/admin/pricing',label:'Ρυθμίσεις Τιμολόγησης',icon:Settings2},
         {to:'/backoffice/admin/ads',label:'Audio διαφημίσεις',icon:Activity},
