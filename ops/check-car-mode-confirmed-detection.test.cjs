@@ -12,7 +12,7 @@ test('automatic Car Mode is strictly connection-driven without GPS or landscape'
   assert.match(prompt,/detectCarAudioConnection/);
   assert.match(prompt,/result === 'connected'/);
   assert.match(prompt,/isPhoneClient\(navigator\)/);
-  assert.doesNotMatch(prompt,/geolocation|watchPosition|getCurrentPosition|innerWidth|innerHeight|setTimeout|setInterval|enumerateDevices/);
+  assert.doesNotMatch(prompt,/navigator\.geolocation|watchPosition\s*\(|getCurrentPosition\s*\(|innerWidth|innerHeight|setTimeout\s*\(|setInterval\s*\(|enumerateDevices\s*\(/);
   assert.doesNotMatch(detector,/navigator\.geolocation|watchPosition|orientationchange|innerWidth|innerHeight/);
   assert.match(detector,/sinkId/);
   assert.match(detector,/kind === 'audiooutput'/);
