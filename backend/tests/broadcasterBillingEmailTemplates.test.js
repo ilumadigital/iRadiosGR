@@ -42,7 +42,7 @@ test('Renewal receipt and cancellation must identify product, amount and paid-th
  assert.match(renewal.html,/Πληρωμένη περίοδος έως/);
  assert.match(cancelled.subject,/ακύρωσης/);
  assert.match(cancelled.html,/Δεν θα πραγματοποιηθούν νέες αυτόματες χρεώσεις/);
- assert.match(cancelled.html,/11 Δεκεμβρίου/);
+ assert.match(cancelled.html,/11\/12\/2026 12:30/);
 });
 test('A declined Nexi MIT charge sends a payment issue notice, never a paid receipt',()=>{
  const email=broadcasterBillingEmail({...common,sku:'ADD-ADS',
