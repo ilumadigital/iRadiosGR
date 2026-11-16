@@ -110,3 +110,70 @@ to remove harmless \`seoUpdatedAt\` or \`previousSlugs\` fields.
 4. Confirm no public GET request or source HTML includes private `/api/stations/:id/playlist` history, restricted AI songs or drafts. Without sign-in, the FAQ explains access; with a verified account, the playlist panel can show eligible recent tracks.
 5. On desktop, playlist fills the height of the description+FAQ stack; on mobile, cards stack without clipping the playlist/player.
 6. Recheck OG images, canonical, sitemap content-types, `llms.txt`, and staging `X-Robots-Tag: noindex, nofollow, noarchive`.
+
+
+### LLMS 2.0 — complete dynamic knowledge directory
+
+- The old hardcoded \`llms.txt\` selection (40 queried / 25 printed) is removed.
+  All \`status=approved\` stations are included using a **bounded-memory Mongo cursor**
+  (batch size 128, backpressure-aware HTTP streaming) in stable name/ID order.
+- \`/llms.txt\`: compact full index — EVERY approved station's real name,
+  description excerpt, genre, region/city and links to canonical HTML and Markdown.
+- \`/llms-full.txt\`: full application knowledge plus EVERY approved station's
+  detailed description, slogan, declared genres, region/city/prefecture/country,
+  transmission, terrestrial frequency where relevant, public images, validated
+  official links, weekly schedule/hosts/descriptions in Europe/Athens, and
+  exactly the same up-to-five FAQ from \`seo2Core.stationSeo()\`.
+- \`/llms/application.md\`: public application facts, listener features, broadcaster/
+  agency entry points, privacy boundaries, schema and discovery URLs.
+- \`/llms/stations/<slug>.md\`: station-specific detailed public Markdown.
+  \`/llms/categories/<category>.md\` and \`/llms/regions/<region>.md\`:
+  full collections of approved stations in that actual catalog scope.
+- \`/llms/schema/application.jsonld\`: the same \`homeSeo(...).ld\` graph used
+  on the canonical homepage (including its max-100 ItemList scope).
+  \`/llms/schema/stations/<slug>.jsonld\`: the same \`stationSeo(...).ld\`
+  graph used for the station's HTML, not an independently reconstructed schema.
+- Non-approved stations return 404, previously published station slugs redirect
+  to the current canonical Markdown/JSON-LD URL. Only explicitly projected
+  public fields are fetched from MongoDB.
+- **NEVER** publish raw audio stream URLs, broadcaster account IDs, emails,
+  phone numbers, private 30-minute playlist, ACRCloud results, pendingEdits,
+  billing or staging secrets. Do not interpret a published programme as actual
+  proof that the show aired.
+- Documents are dynamic with an HTTP public cache of 180 seconds and shared
+  proxy max age of 300 seconds; updates require no manual export or cron job.
+  Individual pages are generated from the current approved Station record.
+- The main \`llms.txt\` / \`llms-full.txt\` use \`text/plain; charset=utf-8\`;
+  individual \`.md\` documents use \`text/markdown; charset=utf-8\`; JSON-LD
+  exports use \`application/ld+json; charset=utf-8\`.
+- \`llms.txt\` is an optional AI discovery convention, **not** a Google indexing
+  requirement or a guarantee that AI platforms will consume the files.
+
+#### Host Nginx MUST be updated manually
+The new \`ops/nginx-stage.conf\` includes exact \`/llms-full.txt\` and prefix
+\`/llms/\` proxy locations targeting \`127.0.0.1:5511\`. After the application
+is deployed via \`sudo ./ilumadev.sh\`, the VPS operator must take a timestamped
+backup of the **actual running** host Nginx file, apply only the necessary LLMS
+location rules to the HTTPS \`stage.iradios.gr\` server, and run
+\`sudo nginx -t && sudo systemctl reload nginx\`. Git pushes, PR merges, and
+\`ilumadev.sh\` **do not** modify host Nginx. Do not replace the full config
+without comparing the running setup; protect API, media and Mailpit blocks.
+
+Staging stays **noindex, nofollow, noarchive** even while URLs are publicly
+fetchable for testing. Verify the active X-Robots-Tag is not \`index, follow\`.
+The previously identified exact \`/sitemap.xml\` 404 override, if still present
+in host Nginx, must be removed/replaced separately after backup.
+
+#### Verification (after manual deployment and Nginx changes)
+- \`curl -sSI https://stage.iradios.gr/llms.txt\`
+- \`curl -sSI https://stage.iradios.gr/llms-full.txt\`
+- \`curl -sSI https://stage.iradios.gr/llms/application.md\`
+- \`curl -sSI https://stage.iradios.gr/llms/schema/application.jsonld\`
+- Choose a real approved slug and test both
+  \`/llms/stations/<slug>.md\` and \`/llms/schema/stations/<slug>.jsonld\`.
+- Verify counts against \`Station.countDocuments({status:'approved'})\`
+  and make sure the last station in stable sorted order occurs in
+  \`llms.txt\` and \`llms-full.txt\`.
+- Test changing a published description, schedule, category or station approval,
+  allowing for HTTP cache expiry. Private playlists and pending/rejected
+  records must never appear.

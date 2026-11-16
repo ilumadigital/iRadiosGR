@@ -7,6 +7,8 @@ const {origin,urlFor,pick,escapeXml,escapeHtml,stationUrl,stationId,stationSeo,
   stationFaq,directorySeo,homeSeo} = require('./seo2Core');
 const {stationBody,directoryBody,homeBody,sendSeoHtml} = require('./seo2Render');
 const {generateStationOgImage} = require('./seo2Image');
+const {LLMS_STATION_FIELDS,headline,indexes,stationEntry,stationDetails,
+  applicationDocument,directoryIntro,schemaForApplication,schemaForStation} = require('./seo2Llms');
 const router = express.Router();
 const ONLY_APPROVED = {status:'approved'};
 const PAGES_PER_SITEMAP = 20000;
@@ -141,36 +143,152 @@ router.get('/robots.txt',(_req,res)=>{
     'Disallow: /checkout\nSitemap: '+urlFor('/sitemap.xml')+'\n';
   return res.type('text/plain; charset=utf-8').set('Cache-Control','public,max-age=300').send(text);
 });
+// Full dynamic LLMS 2.0: render every APPROVED station with bounded memory,
+// shared schema and public-only fields. No bot-specific content or hard 25/40 cap.
+const DOC_CACHE='public, max-age=180, s-maxage=300';
+function publicDocument(res,format='text/plain; charset=utf-8'){
+  if(process.env.APP_ENV==='staging')res.set('X-Robots-Tag','noindex, nofollow, noarchive');
+  return res.set('Content-Type',format).set('Cache-Control',DOC_CACHE)
+    .set('X-Content-Type-Options','nosniff');
+}
+function approvedBySlug(slug){
+  const isId=/^[a-f0-9]{24}$/i.test(slug);
+  return Station.findOne({...ONLY_APPROVED,$or:[{slug},...(isId?[{_id:slug}]:[])]})
+    .select(LLMS_STATION_FIELDS).lean();
+}
+function safeSegment(value){
+  return typeof value==='string'&&value.length>0&&value.length<=180&&
+    !/[/\\\u0000-\u001f]/.test(value);
+}
+// Category and city names can legitimately contain a slash (e.g. Rock/Pop).
+// They are never used as filesystem paths and are matched exactly in Mongo.
+function safeDirectoryName(value){
+  return typeof value==='string'&&value.length>0&&value.length<=120&&
+    !/[\\\u0000-\u001f]/.test(value);
+}
+async function approvedOrMoved(slug){
+  const station=await approvedBySlug(slug);
+  if(station)return station;
+  return Station.findOne({...ONLY_APPROVED,previousSlugs:slug})
+    .select(LLMS_STATION_FIELDS).lean();
+}
+function canonicalDoc(st,format){
+  return urlFor('/llms/'+(format==='jsonld'?'schema/stations/':'stations/')+
+    stationId(st)+(format==='jsonld'?'.jsonld':'.md'));
+}
+async function loadPublicNames(){
+  const [a,b,c,r,city]=await Promise.all([
+    Station.distinct('genre',ONLY_APPROVED),
+    Station.distinct('secondaryGenre',ONLY_APPROVED),
+    Station.distinct('secondaryGenres',ONLY_APPROVED),
+    Station.distinct('region',ONLY_APPROVED),
+    Station.distinct('city',ONLY_APPROVED)
+  ]);
+  const clean=list=>[...new Set(list.flat().filter(x=>typeof x==='string')
+    .map(x=>pick(x,120)).filter(Boolean))]
+    .sort((x,y)=>x.localeCompare(y,'el'));
+  return {genres:clean([a,b,c]),regions:clean([r,city])};
+}
+async function writeWithDrain(res,chunk){
+  if(res.destroyed)return false;
+  if(res.write(chunk))return true;
+  await new Promise(resolve=>{
+    const finished=()=>{
+      res.off('drain',finished);
+      res.off('close',finished);
+      resolve();
+    };
+    res.once('drain',finished);
+    res.once('close',finished);
+  });
+  return !res.destroyed;
+}
+async function streamStations(res,query,prefix,format){
+  const cursor=Station.find(query).select(LLMS_STATION_FIELDS)
+    .sort({name:1,_id:1}).lean().cursor({batchSize:128});
+  try{
+    publicDocument(res);
+    if(!await writeWithDrain(res,prefix))return;
+    for await(const station of cursor){
+      if(!await writeWithDrain(res,format(station)))break;
+    }
+    if(!res.destroyed)res.end('\n');
+  }catch(error){
+    if(res.headersSent){res.destroy(error);return;}
+    throw error;
+  }finally{await cursor.close().catch(()=>{});}
+}
 router.get('/llms.txt',async(_req,res)=>{
   try{
-    const stations=await stationList(40);
-    const byGenre=[...new Set(stations.map(x=>pick(x.genre,90)).filter(Boolean))].slice(0,15);
-    const text=[
-      '# iRadios',
-      '',
-      '> Δημόσιος κατάλογος ελληνικών και διαδικτυακών ραδιοφωνικών σταθμών. Ακρόαση ζωντανού ραδιοφώνου.',
-      '',
-      '## Βασικές σελίδες',
-      '- [Αρχική]('+urlFor('/')+')',
-      '- [Χάρτης ραδιοφωνικών σταθμών]('+urlFor('/map')+')',
-      '- [XML sitemap]('+urlFor('/sitemap.xml')+')',
-      '',
-      '## Μουσικές κατηγορίες',
-      ...byGenre.map(x=>'- ['+x.replace(/[\[\]()]/g,'')+']('+urlFor('/genre/'+encodeURIComponent(x))+')'),
-      '',
-      '## Επιλεγμένα δημόσια προφίλ',
-      ...stations.slice(0,25).map(x=>'- ['+pick(x.name,100).replace(/[\[\]()]/g,'')+']('+stationUrl(x)+')'),
-      '',
-      '## Χρήση',
-      'Οι περιγραφές, οι συχνότητες και τα προγράμματα ακολουθούν όσα έχουν δηλώσει οι σταθμοί.',
-      'Το πρόγραμμα χρησιμοποιεί ώρα Ελλάδας (Europe/Athens).',
-      'Τα now-playing δεδομένα αλλάζουν συνεχώς και δεν αποτελούν μόνιμη playlist.',
-      'Ιδιωτικές πληροφορίες λογαριασμών και προστατευμένο ιστορικό ακρόασης δεν δημοσιεύονται.',
-      ''
-    ].join('\n');
-    return res.type('text/plain; charset=utf-8').set('Cache-Control','public,max-age=3600').send(text);
+    const {genres,regions}=await loadPublicNames();
+    const count=await Station.countDocuments(ONLY_APPROVED);
+    return await streamStations(res,ONLY_APPROVED,
+      headline()+indexes(genres,regions)+'\n## Όλοι οι εγκεκριμένοι σταθμοί ('+count+')\n\n',
+      stationEntry);
   }catch(error){return fail(res,error);}
 });
+router.get('/llms-full.txt',async(_req,res)=>{
+  try{
+    const {genres,regions}=await loadPublicNames();
+    const count=await Station.countDocuments(ONLY_APPROVED);
+    return await streamStations(res,ONLY_APPROVED,
+      headline()+'\n## Αναλυτικά για την εφαρμογή\n\n'+applicationDocument()+'\n'+
+      indexes(genres,regions)+'\n## Αναλυτικά δημόσια προφίλ ('+count+')\n\n',
+      st=>stationDetails(st)+'\n---\n\n');
+  }catch(error){return fail(res,error);}
+});
+router.get('/llms/application.md',(_req,res)=>
+  publicDocument(res,'text/markdown; charset=utf-8').status(200).send(applicationDocument()));
+router.get('/llms/schema/application.jsonld',async(_req,res)=>{
+  try{
+    const stations=await stationList(100);
+    const data=schemaForApplication(stations);
+    return publicDocument(res,'application/ld+json; charset=utf-8')
+      .status(200).send(JSON.stringify(data));
+  }catch(error){return fail(res,error);}
+});
+router.get('/llms/stations/:slug.md',async(req,res)=>{
+  try{
+    const slug=String(req.params.slug||'');
+    if(!safeSegment(slug))return missing(res);
+    const st=await approvedOrMoved(slug);
+    if(!st)return missing(res);
+    if(st.slug && st.slug!==slug)
+      return res.redirect(301,canonicalDoc(st,'md'));
+    return publicDocument(res,'text/markdown; charset=utf-8')
+      .status(200).send(stationDetails(st));
+  }catch(error){return fail(res,error);}
+});
+router.get('/llms/schema/stations/:slug.jsonld',async(req,res)=>{
+  try{
+    const slug=String(req.params.slug||'');
+    if(!safeSegment(slug))return missing(res);
+    const st=await approvedOrMoved(slug);
+    if(!st)return missing(res);
+    if(st.slug && st.slug!==slug)
+      return res.redirect(301,canonicalDoc(st,'jsonld'));
+    return publicDocument(res,'application/ld+json; charset=utf-8')
+      .status(200).send(JSON.stringify(schemaForStation(st)));
+  }catch(error){return fail(res,error);}
+});
+function scopeQuery(kind,name){
+  return {...ONLY_APPROVED,$or:kind==='category'?
+    [{genre:name},{secondaryGenre:name},{secondaryGenres:name}]:
+    [{region:name},{city:name}]};
+}
+function directoryDoc(kind){
+  return async(req,res)=>{
+    try{
+      const name=pick(req.params.name,120);
+      if(!safeDirectoryName(name))return missing(res);
+      const filter=scopeQuery(kind,name);
+      if(!await Station.exists(filter))return missing(res);
+      return await streamStations(res,filter,directoryIntro(kind,name),stationEntry);
+    }catch(error){return fail(res,error);}
+  };
+}
+router.get('/llms/categories/:name.md',directoryDoc('category'));
+router.get('/llms/regions/:name.md',directoryDoc('region'));
 router.get('/sitemap.xml',async(_req,res)=>{
   try{
     const count=await Station.countDocuments(ONLY_APPROVED);
