@@ -28,7 +28,8 @@ import '../styles/station-profile.css';
 import '../styles/station-desktop-glass.css';
 import StationCatalogCard from '../components/StationCatalogCard';
 import FoundWithAI from '../components/FoundWithAI';
-import {parseMusicMetadata} from '../utils/musicMetadata'; 
+import {parseMusicMetadata} from '../utils/musicMetadata';
+import {stationSeoPreview} from '../utils/seoPreview'; 
 import { useAlert } from '../context/AlertContext';
 
 export default function StationProfile({ 
@@ -61,6 +62,7 @@ export default function StationProfile({
   // Station metadata must never update the page after the station changes.
 
   const station = stations.find(s => s.slug === id || s._id === id);
+  const seo = stationSeoPreview(station || {});
   useEffect(() => setContactOpen(false), [station?._id]);
   useEffect(() => {
     if (!station?._id || !currentUser || searchParams.get('contact') !== '1') return;
@@ -349,7 +351,17 @@ export default function StationProfile({
       <StationContactModal open={contactOpen} onClose={() => setContactOpen(false)}
         station={station} currentUser={currentUser} apiUrl={API_URL} />
       <Helmet>
-        <title>{`${station.name} στο iRadios. ${currentShow ? 'ON Air: ' + currentShow.title : ''} ${station.slogan ? ' | ' + station.slogan : ''}`}</title>
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description}/>
+        <link rel="canonical" href={seo.url}/>
+        <meta property="og:title" content={seo.title}/>
+        <meta property="og:description" content={seo.description}/>
+        <meta property="og:url" content={seo.url}/>
+        <meta property="og:image" content={seo.image}/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content={seo.title}/>
+        <meta name="twitter:description" content={seo.description}/>
+        <meta name="twitter:image" content={seo.image}/>
       </Helmet>
 
       {/* BACKGROUND BLUR */}
@@ -708,6 +720,24 @@ export default function StationProfile({
 
         </section>
         </div>
+
+        <section aria-label="Συχνές ερωτήσεις σταθμού" className="mx-auto mt-8 w-full max-w-6xl rounded-3xl border border-white/10 bg-white/[.025] p-5 md:p-8">
+          <h2 className="mb-4 text-xl font-black text-white">Συχνές ερωτήσεις για τον {station.name}</h2>
+          <div className="space-y-3 text-sm text-zinc-300">
+            <details className="rounded-xl border border-white/10 p-4">
+              <summary className="cursor-pointer font-bold">Πού μπορώ να ακούσω τον {station.name};</summary>
+              <p className="mt-3 text-zinc-400">Μπορείτε να ακούσετε τον {station.name} ζωντανά μέσα από τη σελίδα του στο iRadios.</p>
+            </details>
+            {station.city&&<details className="rounded-xl border border-white/10 p-4">
+              <summary className="cursor-pointer font-bold">Από πού εκπέμπει ο {station.name};</summary>
+              <p className="mt-3 text-zinc-400">Η δηλωμένη πόλη του σταθμού είναι {station.city}{station.region?', '+station.region:''}.</p>
+            </details>}
+            {canonicalSchedule.length>0&&<details className="rounded-xl border border-white/10 p-4">
+              <summary className="cursor-pointer font-bold">Πού θα βρω το πρόγραμμα του {station.name};</summary>
+              <p className="mt-3 text-zinc-400">Το καταχωρισμένο πρόγραμμα εκπομπών εμφανίζεται στο προφίλ του σταθμού. Οι ώρες είναι Ελλάδας.</p>
+            </details>}
+          </div>
+        </section>
 
         <div id="ir-station-program">
           <StationScheduleTimeline station={station} shows={canonicalSchedule}
