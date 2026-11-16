@@ -194,5 +194,5 @@ function homeSeo(stations) {
           '@type':'ListItem',position:i+1,name:pick(st.name,100),url:stationUrl(st)}))}}
     ]}};
 }
-module.exports = {origin,urlFor,pick,short,escapeHtml,escapeXml,stationUrl,stationId,isApproved,
+module.exports = {origin,urlFor,pick,short,escapeHtml,escapeXml,stationUrl,stationId,isApproved,links,
   normalizedSchedule,upcomingEvents,stationFaq,stationSummary,stationSeo,directorySeo,homeSeo,athensDate,hash};
