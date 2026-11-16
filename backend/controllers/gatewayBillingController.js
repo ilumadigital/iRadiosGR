@@ -356,7 +356,12 @@ async function webhook(req,res){
   return res.status(503).json({error:'Staging webhook only'});
  const raw=req.body;
  const verified=verifyWebhookHeaders({
-  secret:gateway.configured()?require('../services/gatewayEnvironment').credentials().secret:null,headers:req.headers,rawBody:raw
+  // A legacy Sandbox webhook still needs HMAC verification during offline
+  // regression even when checkout is mocked; never fall back in Production.
+  secret:require('../services/gatewayEnvironment').credentials()?.secret ||
+    (require('../services/gatewayEnvironment').mode()==='staging'
+      ?process.env.ILUMA_GATEWAY_STAGING_SECRET:null),
+  headers:req.headers,rawBody:raw
  });
  if(!verified.valid)return res.status(401).json({error:'Invalid webhook signature'});
  let event;
