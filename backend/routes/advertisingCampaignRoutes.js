@@ -101,11 +101,7 @@ router.post('/advertising/campaigns',async(req,res)=>{
   if(title.length<3||title.length>180||brand.length<2||brand.length>150||
      description.length>3000)throw Error('Invalid campaign details');
   if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())||
-     start.getTime()<Date.now()-86400000||end<=start||
-     end.getTime()>Date.now()+366*86400000)throw Error('Invalid campaign dates');
-  const days=Math.ceil((end-start)/86400000);
-  if(!(await pricing()).durationDays.includes(days))
-   throw Error('Campaign duration outside configured ranges');
+     start.getTime()<Date.now()-86400000||end<=start)throw Error('Invalid campaign dates');
   const geo=validateAgencyGeo({
    targetCountry:req.body?.country||'Ελλάδα',
    targetRegion:req.body?.region||'All',
