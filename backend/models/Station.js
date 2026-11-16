@@ -117,6 +117,8 @@ const stationSchema = new mongoose.Schema({
   },
   pendingEdits: { type: Object, default: null },
   slug: { type: String, unique: true, sparse: true },
+  previousSlugs: {type:[String],default:[]},
+  seoUpdatedAt: {type:Date,default:undefined},
   popularity: { type: Number, default: 0 },
   // 0 = legacy Monday index; 1 = ISO Monday index. Undefined means untagged legacy data.
   scheduleDayBase: { type: Number, enum: [0,1], default: undefined },
@@ -134,6 +136,42 @@ const stationSchema = new mongoose.Schema({
   boostStatus: { type: Boolean, default: false },
   boostExpiresAt: { type: Date, default: null },
   disableNetworkAds: { type: Boolean, default: false } 
+});
+
+// SEO timestamps follow substantive public profile edits, not listener plays,
+// private drafts, DSP changes or view counters. Existing records need no migration.
+const SEO_FIELDS=['name','slogan','description','genre','secondaryGenre','secondaryGenres',
+  'frequency','transmissionType','country','region','city','prefecture','logo','cover',
+  'schedule','scheduleDayBase','website','facebook','instagram','twitter','tiktok','slug','status'];
+stationSchema.pre('save',async function(){
+  if(this.isNew) {
+    this.seoUpdatedAt=new Date();
+    return;
+  }
+  if(this.isModified('slug')){
+    const original=await this.constructor.findById(this._id).select('slug').lean();
+    if(original?.slug&&original.slug!==this.slug)
+      this.previousSlugs=[...new Set([...(this.previousSlugs||[]),original.slug])].slice(-20);
+  }
+  if(SEO_FIELDS.some(field=>this.isModified(field)))this.seoUpdatedAt=new Date();
+});
+stationSchema.pre('findOneAndUpdate',async function(){
+  const update=this.getUpdate()||{},flat={...update,...(update.$set||{})};
+  if(!SEO_FIELDS.some(key=>Object.hasOwn(flat,key)))return;
+  const changedSlug=Object.hasOwn(flat,'slug')?String(flat.slug||''):null;
+  if(changedSlug){
+    const previous=await this.model.findOne(this.getQuery()).select('slug').lean();
+    if(previous?.slug&&previous.slug!==changedSlug)
+      update.$addToSet={...(update.$addToSet||{}),previousSlugs:previous.slug};
+  }
+  // Keep MongoDB operator updates valid even when a legacy endpoint supplies
+  // direct fields and the SEO hook needs to add its own update operators.
+  const direct={};
+  for(const key of Object.keys(update)){
+    if(key.charCodeAt(0)!==36){direct[key]=update[key];delete update[key];}
+  }
+  update.$set={...direct,...(update.$set||{}),seoUpdatedAt:new Date()};
+  this.setUpdate(update);
 });
 
 module.exports = mongoose.model('Station', stationSchema);

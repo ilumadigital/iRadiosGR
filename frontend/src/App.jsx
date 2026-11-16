@@ -1835,38 +1835,29 @@ function MainApp() {
 
   return (
     <div className="h-screen bg-black text-white flex overflow-hidden font-sans antialiased">
-      <Helmet>
-        {/* Βασικά Meta Tags */}
-        <title>Ραδιόφωνο στο iRadios - Το νέο κορυφαίο Radio App!</title>
-        <meta 
-          name="description" 
-          content="Ακούστε Ραδιόφωνα LIVE στο iRadios App. Όλα τα ραδιόφωνα σε μία εφαρμογή. Streaming radio από Αθήνα, Θεσσαλονίκη, Κύπρο και τα κορυφαία Greek Radios είναι εδώ." 
-        />
-        <meta 
-          name="keywords" 
-          content="iRadios, ιραδιοσ, ελληνικά ραδιόφωνα, online radio, live radio, web radio, eradio, ακούστε ζωντανά, ελληνική μουσική, έντεχνο, ραδιοφωνικοί σταθμοί, podcasts, ιντερνετικό ραδιόφωνο" 
-        />
-        <meta name="author" content="iRadios by ILUMA Digital Agency" />
-        
-        {/* Open Graph / Facebook / Viber */}
+      {location.pathname === '/' && <Helmet>
+        <title>iRadios — Ελληνικό ραδιόφωνο live online</title>
+        <meta name="description" content="Άκου ζωντανά ελληνικούς και διαδικτυακούς ραδιοφωνικούς σταθμούς. Βρες μουσική, ενημέρωση και το πρόγραμμα των αγαπημένων σου σταθμών στο iRadios." />
+        <link rel="canonical" href="__IRADIOS_SITE_ORIGIN__/" />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="__IRADIOS_SITE_ORIGIN__/" />
-        <meta property="og:title" content="Ραδιόφωνο στο iRadios - Το νέο κορυφαίο Radio App!" />
-        <meta property="og:description" content="Το κορυφαίο Ελληνικό Radio App. Όλοι οι ραδιοφωνικοί σταθμοί σε μία εφαρμογή. Ακούστε live online Ελληνική μουσική, επιτυχίες, έντεχνο και ειδήσεις." />
-        <meta property="og:image" content="__IRADIOS_SITE_ORIGIN__/iradios-wall.png" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
         <meta property="og:site_name" content="iRadios" />
-        
-        {/* Twitter Cards */}
+        <meta property="og:title" content="iRadios — Ελληνικό ραδιόφωνο live online" />
+        <meta property="og:description" content="Άκου ζωντανά ελληνικούς και διαδικτυακούς ραδιοφωνικούς σταθμούς στο iRadios." />
+        <meta property="og:image" content="__IRADIOS_SITE_ORIGIN__/og-image.png" />
+        <meta property="og:url" content="__IRADIOS_SITE_ORIGIN__/" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content="__IRADIOS_SITE_ORIGIN__/" />
-        <meta name="twitter:title" content="Ραδιόφωνο στο iRadios - Το νέο κορυφαίο Radio App!" />
-        <meta name="twitter:description" content="Όλοι οι ραδιοφωνικοί σταθμοί σε μία εφαρμογή. Ακούστε live online Ελληνική μουσική, επιτυχίες και ειδήσεις." />
-        <meta name="twitter:image" content="__IRADIOS_SITE_ORIGIN__/iradios-wall.png" />
-        
-        <link rel="canonical" href={`__IRADIOS_SITE_ORIGIN__${location.pathname}`} />
-      </Helmet>
+        <meta name="twitter:title" content="iRadios — Ελληνικό ραδιόφωνο live online" />
+        <meta name="twitter:image" content="__IRADIOS_SITE_ORIGIN__/og-image.png" />
+      </Helmet>}
+
+      {location.pathname === '/map' && <Helmet>
+        <title>Χάρτης ελληνικών ραδιοφωνικών σταθμών | iRadios</title>
+        <meta name="description" content="Εξερεύνησε ραδιοφωνικούς σταθμούς από πόλεις και περιοχές της Ελλάδας στον χάρτη του iRadios."/>
+        <link rel="canonical" href="__IRADIOS_SITE_ORIGIN__/map"/>
+        <meta property="og:title" content="Χάρτης ελληνικών ραδιοφωνικών σταθμών | iRadios"/>
+        <meta property="og:image" content="__IRADIOS_SITE_ORIGIN__/og-image.png"/>
+        <meta name="twitter:card" content="summary_large_image"/>
+      </Helmet>}
 
       {contextMenu.show && (() => {
         const isFav = currentStation && currentUser?.favorites?.includes(currentStation._id);
