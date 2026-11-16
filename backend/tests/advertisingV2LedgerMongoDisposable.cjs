@@ -9,6 +9,9 @@ const Daily=require('../models/AdvertisingDailyBudget');
 const Ticket=require('../models/AdvertisingV2Reservation');
 const Event=require('../models/AdvertisingV2Event');
 const ledger=require('../services/advertisingV2Ledger');
+const listenerSessions=require('../services/advertisingListenerSessions');
+const Session=require('../models/AdvertisingListenerSession');
+const Station=require('../models/Station');
 const policy=require('../services/advertisingV2Policy');
 const uri=process.env.AD_V2_DISPOSABLE_MONGODB_URI;
 if(process.env.APP_ENV!=='staging'||process.env.CI!=='true'||
@@ -123,7 +126,65 @@ async function main(){
   const visualEvents=await Event.find({campaignId:v.campaign._id}).lean();
   assert.equal(visualEvents.find(x=>x.name==='impression').costNanos,8_000_000);
   assert.equal(visualEvents.find(x=>x.name==='click').costNanos,0);
-  console.log('V2 disposable Mongo: signed unique events, concurrency, 300ms, prepaid/daily caps, release passed');
+  // Listener-bound signed station proofs: old events and forged counters cannot
+  // authorize a new station-switch placement.
+  const oldStationExists=Station.exists;
+  Station.exists=async()=>true; // Mongo session is real; only Station catalog check is fixture-local.
+  try{
+   let token=null,firstProof,lastProof,lastStationId;
+   const start=Date.now()-15_000;
+   for(let i=0;i<5;i++){
+    const stationId=String(new mongoose.Types.ObjectId());
+    const change=await listenerSessions.register({visitor:key,stationId,
+      token,now:start+i*1200});
+    token=change.sessionToken;lastProof=change.proof;lastStationId=stationId;
+    assert.equal(change.count,i+1);
+    if(i===0){
+     firstProof=change.proof;
+     assert.equal((await listenerSessions.verify({visitor:key,stationId,
+      placement:'entry',proof:firstProof,now:start+500})).count,1);
+    }
+   }
+   assert.equal((await listenerSessions.verify({visitor:key,stationId:lastStationId,
+    placement:'every_5_stations',proof:lastProof,now:start+5500})).count,5);
+   assert.equal(await listenerSessions.verify({visitor:key,stationId:lastStationId,
+    placement:'entry',proof:firstProof}),null);
+   assert.equal(await listenerSessions.verify({visitor:'f'.repeat(64),
+    stationId:lastStationId,placement:'every_5_stations',proof:lastProof}),null);
+   assert.equal(await listenerSessions.verify({visitor:key,stationId:lastStationId,
+    placement:'every_10_stations',proof:lastProof}),null);
+   assert.equal(listenerSessions.validSessionToken(token,'f'.repeat(64)),null);
+   const original=await Session.findOne({_id:token.split('.')[0]});
+   assert.equal(original.switchCount,5);
+  }finally{Station.exists=oldStationExists;}
+  // The entire audio break has three atomic tickets across different
+  // campaigns; a fourth issuance or repeat campaign cannot bypass cap.
+  const breakId='switch:'+crypto.randomBytes(16).toString('hex')+':5';
+  const breakFixtures=await Promise.all(Array.from({length:4},()=>createFixture(2000)));
+  const tickets=[];
+  for(let i=0;i<breakFixtures.length;i++){
+   try{
+    const issued=await ledger.reserve({...breakFixtures[i],kind:'audio',
+     placement:'every_5_stations',durationMs:46000,clientKey:key,breakId});
+    tickets.push(issued);
+   }catch(error){
+    assert.equal(i,3,'Only the fourth break ticket may be denied');
+    assert.match(error.message,/Frequency or pacing cap/);
+   }
+  }
+  assert.equal(tickets.length,3,'No fourth paid audio spot in one break');
+  await assert.rejects(()=>ledger.reserve({...breakFixtures[0],kind:'audio',
+   placement:'every_5_stations',durationMs:46000,clientKey:key,
+   breakId:'switch:'+crypto.randomBytes(16).toString('hex')+':5'}),
+   /Frequency or pacing cap|Daily budget/); // Same campaign is daily capped separately when applicable.
+  for(const issued of tickets)await ledger.release({value:issued.capability,key});
+  const paced=await createFixture(2000);
+  const morning=await ledger.reserve({...paced,kind:'audio',placement:'twice_a_day',
+   durationMs:46000,clientKey:key,breakId:'timed:2026111600'});
+  await assert.rejects(()=>ledger.reserve({...paced,kind:'audio',placement:'twice_a_day',
+   durationMs:46000,clientKey:key,breakId:'timed:2026111601'}),/Frequency or pacing cap/);
+  await ledger.release({value:morning.capability,key});
+  console.log('V2 disposable Mongo: signed listener transitions, atomic three-spot breaks, daily time pacing passed');
  }finally{
   await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
