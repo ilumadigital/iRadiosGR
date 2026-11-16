@@ -190,7 +190,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
       label={{minBudgetCents:'Ελάχιστο budget (€)',maxBudgetCents:'Μέγιστο budget (€)',minTopupCents:'Ελάχιστο top-up (€)'}[key]}
       value={euros(pricing[key])} onChange={v=>update(key,Math.round(v*100))} step="0.01"/>)}
     </div>
-    <label className="block text-xs font-bold text-zinc-300">Επιτρεπόμενες διάρκειες (ημέρες, χωρισμένες με κόμμα)
+    <label className="block text-xs font-bold text-zinc-300">Προτεινόμενες διάρκειες παλαιών καμπανιών (όχι υποχρεωτικές)
      <input className={input} value={(pricing.durationDays||[]).join(',')}
       onChange={e=>update('durationDays',e.target.value.split(',').map(v=>Number(v.trim())))}/>
     </label>
