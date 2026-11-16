@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useState, useEffect } from 'react';
 import {useLiveRevision} from '../utils/liveUpdates';
@@ -300,7 +301,7 @@ export default function AdminRadioSet({ API_URL }) {
                     </p>
                     <p className="text-xs text-zinc-500 break-all">{invitation.email}</p>
                     {invitation.status === 'pending' && <>
-                      <p className="text-xs text-zinc-500">Λήγει: {new Date(invitation.expiresAt).toLocaleString('el-GR')}</p>
+                      <p className="text-xs text-zinc-500">Λήγει: {formatDateTime(invitation.expiresAt)}</p>
                       <button type="button" disabled={actionLoading} onClick={() => handleRevokeInvite(invitation._id)}
                         className="flex gap-2 text-red-400 text-xs font-bold hover:text-red-300"><Ban size={14}/> Ανάκληση πρόσκλησης</button>
                     </>}

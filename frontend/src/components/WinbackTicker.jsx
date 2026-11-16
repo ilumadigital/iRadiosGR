@@ -1,14 +1,9 @@
+import {formatDate} from '../utils/dateTime';
 import React,{useCallback,useEffect,useState} from 'react';
 import {Link,useLocation} from 'react-router-dom';
 import {Crown,Gift,ArrowRight} from 'lucide-react';
 
-const formatDate=value=>{
- if(!value)return '';
- const date=new Date(value);
- return Number.isFinite(+date)?new Intl.DateTimeFormat('el-GR',{
-  day:'numeric',month:'long',timeZone:'Europe/Athens'
- }).format(date):'';
-};
+const winbackDate=value=>formatDate(value,'');
 
 /**
  * Staging-only post-expiry offer ticker in the same upper-page position as
@@ -51,7 +46,7 @@ export default function WinbackTicker({currentUser,API_URL='/api'}){
   <Gift size={17} className="shrink-0 text-[#ccff00]" aria-hidden="true"/>
   <span><strong>Επέστρεψε στο Premium με 1,99 € τον πρώτο μήνα!</strong>{' '}
    Αυτόματη ανανέωση 3,99 €/μήνα μετά τον πρώτο μήνα, μέχρι να ακυρώσεις.
-   {offer?.offerEndsAt&&!preview?' · Έως '+formatDate(offer.offerEndsAt):''}
+   {offer?.offerEndsAt&&!preview?' · Έως '+winbackDate(offer.offerEndsAt):''}
   </span>
   {preview&&<span className="rounded-md border border-amber-300/35 px-2 py-0.5 text-[10px] font-black text-amber-200">STAGING PREVIEW · ΧΩΡΙΣ ΧΡΕΩΣΗ</span>}
   <Link to={target} className="inline-flex items-center gap-1 font-black text-[#ccff00] underline underline-offset-2 hover:text-white">

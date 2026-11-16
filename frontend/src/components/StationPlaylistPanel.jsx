@@ -1,13 +1,11 @@
+import {formatTime} from '../utils/dateTime';
 import React, { useEffect, useRef, useState } from 'react';
 import { ListMusic, Radio, RefreshCw, Music2, Clock3, MoreHorizontal, Copy, ExternalLink, MailCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import StationListenButton from './StationListenButton';
 import FoundWithAI from './FoundWithAI';
 
-const resolveTime = date => {
-  const d=new Date(date);
-  return Number.isNaN(d.getTime())?'—':d.toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit'});
-};
+const resolveTime=date=>formatTime(date);
 function TrackCover({track,fallback}) {
   const imgRef=useRef(null);
   const [ready,setReady]=useState(false);
