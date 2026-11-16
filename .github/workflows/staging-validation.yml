@@ -45,6 +45,8 @@ jobs:
           node --test frontend/src/utils/adSkipPolicy.test.mjs backend/tests/adAudioDurationRules.test.cjs
       - name: Verify ad-only First Play CTA and fullscreen without a station
         run: node --test ops/check-first-play-ad-player.cjs
+      - name: Validate Car Mode confirmed mobile car audio and safe prompt
+        run: node --test frontend/src/utils/carAudioDetection.test.js ops/check-car-mode-confirmed-detection.test.cjs
       - name: Build the frontend before the static UI contract checks
         # Mirrors the Docker/Vite compilation and exposes the root error promptly.
         run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build

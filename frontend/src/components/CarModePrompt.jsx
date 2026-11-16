@@ -1,190 +1,134 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Car, X, ChevronRight } from 'lucide-react';
+import React, {useEffect, useRef, useState} from 'react';
+import {ArrowRight, CarFront, ShieldCheck, X} from 'lucide-react';
+import {CAR_AUDIO_CHANGE_EVENT, detectCarAudioConnection, isPhoneClient}
+  from '../utils/carAudioDetection';
 
-export default function CarModePrompt({ onAccept, isPremium }) {
+const DISMISS_KEY = 'carModeDismissed';
+const isDismissed = () => {
+  try { return sessionStorage.getItem(DISMISS_KEY) === 'true'; }
+  catch { return false; }
+};
+const dismissForSession = () => {
+  try { sessionStorage.setItem(DISMISS_KEY, 'true'); }
+  catch { /* Private browsing must not break the modal. */ }
+};
+
+/**
+ * Confirmed car route only. Mobile browsers generally cannot inspect the
+ * system's default Bluetooth route or CarPlay/Android Auto connection state.
+ * Native wrappers can implement window.iRadiosCarAudioBridge.getConnectionState()
+ * and dispatch "iradios:car-audio-change" on connect/disconnect.
+ */
+export default function CarModePrompt({onAccept, isPremium, audioRef}) {
   const [isVisible, setIsVisible] = useState(false);
-  const watchIdRef = useRef(null); // Για να κλείσουμε το GPS όταν δεν χρειάζεται
+  const primaryRef = useRef(null);
 
   useEffect(() => {
-    if (!isPremium) return;
-    if (sessionStorage.getItem('carModeDismissed')) return;
-
-    const carKeywords = [
-      // 1. Γενικοί Όροι Οχημάτων & Bluetooth
-      'car', 'bt', 'bluetooth', 'hands-free', 'handsfree', 'carkit', 'hands free', 
-      'infotainment', 'audio system', 'stereo', 'receiver', 'headunit', 'vehicle', 
-      'auto', 'automotive', 'drive', 'carmt', 'car_bt', 'bt_car', 'car-bt', 'bt-car',
-
-      // 2. Σκάφη / Marine Audio (ΝΕΟ)
-      'marine', 'boat', 'yacht', 'vessel', 'fusion', 'fusionentertainment', 'garmin', 
-      'simrad', 'lowrance', 'raymarine', 'jl audio', 'wet sounds', 'wetsounds', 
-      'kicker marine', 'boss marine', 'clarion marine', 'ms-', 'ra-', 'nmea',
-
-      // 3. Εργοστασιακά Συστήματα (OEM Infotainment)
-      'sync', 'uconnect', 'mzd', 'mmcs', 'entune', 'intellilink', 'media nav', 
-      'r-link', 'smeg', 'discover', 'columbus', 'ibeacon', 'idrive', 'mmi', 
-      'mbux', 'pcm', 'comand', 'lexus', 'acura', 'infiniti', 'genesis', 'onstar',
-
-      // 4. Premium Ηχοσυστήματα Αυτοκινήτων (Πολλές φορές είναι το όνομα του BT)
-      'bose', 'harman', 'kardon', 'jbl', 'infinity', 'bang & olufsen', 'b&o', 
-      'burmester', 'meridian', 'bowers & wilkins', 'b&w', 'mark levinson', 
-      'mcintosh', 'fender', 'canton', 'dynaudio', 'focal', 'beats',
-
-      // 5. Μάρκες Αυτοκινήτων
-      'audi', 'bmw', 'mercedes', 'benz', 'vw', 'volkswagen', 'toyota', 'ford', 
-      'mazda', 'hyundai', 'kia', 'nissan', 'peugeot', 'renault', 'fiat', 'honda', 
-      'suzuki', 'opel', 'vauxhall', 'seat', 'skoda', 'volvo', 'jeep', 'alfa romeo', 
-      'citroen', 'dacia', 'chevrolet', 'mitsubishi', 'subaru', 'land rover', 
-      'jaguar', 'porsche', 'mini', 'smart', 'chrysler', 'dodge', 'ram', 'tesla',
-      'cupra', 'abarth', 'lexus', 'byd', 'mg',
-
-      // 6. Aftermarket Ηχοσυστήματα
-      'pioneer', 'sony', 'alpine', 'kenwood', 'jvc', 'blaupunkt', 'clarion', 
-      'parrot', 'asteroid', 'nakamichi', 'boss audio', 'kicker', 'rockford', 
-
-      // 7. Μοντέλα / Σειρές Aftermarket (Prefixes)
-      'sph', 'deh', 'mvh', 'avh', 'dmh', 'avic', // Pioneer
-      'xav', 'mex', 'dsx', 'cdx',                // Sony
-      'ute', 'cde', 'ilx', 'ine', 'ida',         // Alpine
-      'kmm', 'ddx', 'dpx', 'kdc', 'dmx', 'dnx',  // Kenwood
-      'kd-', 'kw-',                              // JVC
-
-      // 8. Κινέζικες Android Οθόνες (Aftermarket / AliExpress)
-      'joying', 'xtrons', 'pumpkin', 'eonon', 'dasaita', 'seicane', 'syu', 
-      'ts10', 'ts7', 'ts9', 'rk3399', 'px5', 'px6', 'ac8227l', 'mtk', 'android-bt',
-      'carkit_bt', 'carkit', 'bt_carkit', 'goc', 'bc8'
-    ];
-
-    const showPrompt = (reason) => {
-      console.log(`iRadios: Car system detected via [${reason}]`);
-      setIsVisible(true);
-    };
-
-    // --- ΜΕΘΟΔΟΣ 1: Έλεγχος Συσκευών Ήχου ---
-    const checkIfCarDevice = async () => {
-      try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
-        
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioOutputs = devices.filter(device => device.kind === 'audiooutput' || device.kind === 'audioinput');
-
-        const isCar = audioOutputs.some(device => {
-          const label = device.label.toLowerCase();
-          // Αν το label είναι κενό, ο browser το κρύβει λόγω permissions.
-          if (!label) return false; 
-          return carKeywords.some(keyword => label.includes(keyword));
-        });
-
-        if (isCar) showPrompt('Bluetooth Audio Label');
-      } catch (err) {
-        console.error("Device detection error:", err);
-      }
-    };
-
-    // --- ΜΕΘΟΔΟΣ 2: Έλεγχος Ταχύτητας (GPS) ---
-    // Αν κινείται με πάνω από ~15km/h (4.5 m/s), τότε είναι σε όχημα.
-    const checkSpeed = () => {
-      if (!('geolocation' in navigator)) return;
-
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => {
-          const speedInMetersPerSecond = position.coords.speed;
-          // Το speed μπορεί να είναι null σε κάποιες συσκευές αν δεν υπολογίζεται
-          if (speedInMetersPerSecond && speedInMetersPerSecond > 4.5) {
-            showPrompt('GPS Speed > 15km/h');
-            navigator.geolocation.clearWatch(watchIdRef.current); // Το βρήκαμε, σταματάμε το ραντάρ
-          }
-        },
-        (error) => console.log("Speed tracking error or denied:", error.message),
-        { enableHighAccuracy: false, maximumAge: 10000, timeout: 5000 }
-      );
-    };
-
-    // --- ΜΕΘΟΔΟΣ 3: User Agent Check για ενσωματωμένα συστήματα ---
-    const checkUserAgent = () => {
-      const ua = navigator.userAgent.toLowerCase();
-      if (ua.includes('car') || ua.includes('automotive') || ua.includes('tesla')) {
-        showPrompt('Browser User-Agent');
-      }
-    };
-
-    // --- ΕΚΤΕΛΕΣΗ ΟΛΩΝ ΤΩΝ ΕΛΕΓΧΩΝ ---
-    checkUserAgent();
-    checkIfCarDevice();
-    checkSpeed();
-
-    const handleDeviceChange = () => {
-      checkIfCarDevice();
-      
-      // Όταν συνδέει κάτι, ελέγχουμε αν είναι και σε landscape το κινητό
-      const isMobile = /iPhone|Android|iPad/i.test(navigator.userAgent);
-      if (isMobile && window.innerWidth > window.innerHeight) {
-         showPrompt('Device Change + Landscape Mode');
-      }
-    };
-
-    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
-      navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+    let mounted = true;
+    let revision = 0;
+    if (!isPremium || !isPhoneClient(navigator) || isDismissed()) {
+      setIsVisible(false);
+      return undefined;
     }
 
-    // Fallback Timer
-    const timer = setTimeout(() => {
-      checkIfCarDevice();
-    }, 4000);
-
-    // --- CLEANUP ---
+    const evaluate = async () => {
+      const currentRevision = ++revision;
+      const result = await detectCarAudioConnection({
+        nav: navigator, win: window, audioElement: audioRef?.current
+      });
+      if (!mounted || currentRevision !== revision) return;
+      setIsVisible(result === 'connected' && !isDismissed());
+    };
+    const onResume = () => {
+      if (document.visibilityState !== 'hidden') void evaluate();
+    };
+    void evaluate();
+    window.addEventListener(CAR_AUDIO_CHANGE_EVENT, onResume);
+    window.addEventListener('focus', onResume);
+    document.addEventListener('visibilitychange', onResume);
+    navigator.mediaDevices?.addEventListener?.('devicechange', onResume);
+    // No geolocation watcher, orientation heuristic, broad device-name
+    // matching, device permission prompt or polling timer.
     return () => {
-      clearTimeout(timer);
-      if (navigator.mediaDevices && navigator.mediaDevices.removeEventListener) {
-        navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
-      }
-      if (watchIdRef.current) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+      mounted = false;
+      revision++;
+      window.removeEventListener(CAR_AUDIO_CHANGE_EVENT, onResume);
+      window.removeEventListener('focus', onResume);
+      document.removeEventListener('visibilitychange', onResume);
+      navigator.mediaDevices?.removeEventListener?.('devicechange', onResume);
+    };
+  }, [isPremium, audioRef]);
+
+  useEffect(() => {
+    if (!isVisible) return undefined;
+    primaryRef.current?.focus();
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') {
+        setIsVisible(false);
+        dismissForSession();
       }
     };
-  }, [isPremium]);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [isVisible]);
 
-  const handleDismiss = () => {
+  const dismiss = () => {
     setIsVisible(false);
-    sessionStorage.setItem('carModeDismissed', 'true');
+    dismissForSession();
+  };
+  const activate = () => {
+    setIsVisible(false);
+    dismissForSession();
+    onAccept?.();
   };
 
   if (!isVisible) return null;
-
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="relative w-full max-w-sm bg-zinc-900 border border-white/10 p-8 rounded-[40px] shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col items-center text-center gap-6 animate-in zoom-in-95 duration-500">
-        
-        <div className="w-20 h-20 bg-orange-500/20 text-orange-400 rounded-3xl flex items-center justify-center shrink-0 mb-2 relative overflow-hidden">
-          <div className="absolute inset-0 bg-orange-400/20 animate-pulse"></div>
-          <Car size={40} strokeWidth={2.5} className="relative z-10" />
-        </div>
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#040708]/85 p-4 backdrop-blur-xl sm:p-6">
+      <section role="dialog" aria-modal="true" aria-labelledby="ir-car-mode-title"
+        aria-describedby="ir-car-mode-description"
+        className="relative isolate w-full max-w-[430px] overflow-hidden rounded-[30px] border border-white/15 bg-[#11181c] px-6 pb-6 pt-7 text-white shadow-[0_32px_100px_rgba(0,0,0,.65)] sm:rounded-[36px] sm:px-8 sm:pb-8 sm:pt-9">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-28 -z-10 size-72 rounded-full bg-[#ccff00]/[.09] blur-[70px]" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-36 -left-24 -z-10 size-64 rounded-full bg-teal-400/[.07] blur-[80px]" />
 
-        <div className="space-y-2">
-          <h4 className="text-xl font-black text-white italic tracking-tighter">Εντοπίστηκε Όχημα</h4>
-          <p className="text-sm text-zinc-400 font-medium leading-relaxed">
-            Θέλεις να ενεργοποιήσεις το <span className="text-white font-bold">Car Mode</span> για ασφαλή οδήγηση;
+        <button type="button" onClick={dismiss} aria-label="Κλείσιμο"
+          className="absolute right-5 top-5 flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition hover:border-white/25 hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ccff00]">
+          <X size={18}/>
+        </button>
+
+        <div className="flex flex-col items-center text-center">
+          <div className="relative mb-6 flex size-24 items-center justify-center rounded-[29px] border border-[#ccff00]/20 bg-[#ccff00]/[.10] text-[#ccff00] shadow-[0_14px_45px_rgba(204,255,0,.1)]">
+            <div aria-hidden="true" className="absolute inset-2 rounded-[22px] border border-[#ccff00]/15"/>
+            <CarFront size={49} strokeWidth={1.7} aria-hidden="true"/>
+            <div className="absolute -bottom-2 -right-2 flex size-8 items-center justify-center rounded-xl border-4 border-[#11181c] bg-[#ccff00] text-[#11181c]">
+              <ShieldCheck size={19} strokeWidth={2.5} aria-hidden="true"/>
+            </div>
+          </div>
+
+          <span className="mb-3 rounded-full border border-[#ccff00]/20 bg-[#ccff00]/[.07] px-3 py-1.5 text-[10px] font-black uppercase tracking-[.2em] text-[#ccff00]">
+            iRadiosGR · Car Mode
+          </span>
+          <h2 id="ir-car-mode-title" className="max-w-[350px] text-[25px] font-black leading-[1.17] tracking-tight text-white sm:text-[29px]">
+            Οδήγηση και κινητό, δεν πάνε μαζί!
+          </h2>
+          <p id="ir-car-mode-description" className="mt-4 max-w-[340px] text-[15px] font-medium leading-7 text-zinc-300">
+            Βάλε τη λειτουργία οδήγησης και έχε τα μάτια σου στο δρόμο! Καλή Διαδρομή!
           </p>
         </div>
 
-        <div className="w-full space-y-3 mt-2">
-          <button 
-            onClick={() => { setIsVisible(false); onAccept(); }} 
-            className="w-full bg-[#ccff00] text-black h-16 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_10px_25px_rgba(204,255,0,0.2)]"
-          >
-            ΕΝΕΡΓΟΠΟΙΗΣΗ <ChevronRight size={20} strokeWidth={3} />
+        <div className="mt-8 space-y-3">
+          <button ref={primaryRef} type="button" onClick={activate}
+            className="flex min-h-[60px] w-full items-center justify-center gap-3 rounded-[18px] bg-[#ccff00] px-4 text-sm font-black text-[#0b1408] shadow-[0_12px_35px_rgba(204,255,0,.17)] transition hover:bg-[#deff54] active:scale-[.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <CarFront size={22} aria-hidden="true"/>
+            Ενεργοποίηση Car Mode
+            <ArrowRight size={19} aria-hidden="true"/>
           </button>
-          
-          <button 
-            onClick={handleDismiss} 
-            className="w-full bg-white/5 text-zinc-400 h-14 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:text-white hover:bg-white/10 transition-all"
-          >
-            <X size={18} /> ΟΧΙ ΤΩΡΑ
+          <button type="button" onClick={dismiss}
+            className="flex min-h-12 w-full items-center justify-center rounded-[16px] border border-white/10 bg-white/[.05] px-4 text-sm font-semibold text-zinc-300 transition hover:border-white/20 hover:bg-white/[.08] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ccff00]">
+            Όχι τώρα
           </button>
         </div>
-
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-1.5 bg-[#ccff00] rounded-b-full shadow-[0_0_15px_#ccff00]"></div>
-      </div>
+      </section>
     </div>
   );
 }
