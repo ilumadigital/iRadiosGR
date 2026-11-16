@@ -164,8 +164,7 @@ stationSchema.pre('findOneAndUpdate',async function(){
     if(previous?.slug&&previous.slug!==changedSlug)
       update.$addToSet={...(update.$addToSet||{}),previousSlugs:previous.slug};
   }
-  if(Object.keys(update).some(key=>key.startsWith('
-)))
+  if(Object.keys(update).some(key=>key.charCodeAt(0)===36))
     update.$set={...(update.$set||{}),seoUpdatedAt:new Date()};
   else update.seoUpdatedAt=new Date();
   this.setUpdate(update);
