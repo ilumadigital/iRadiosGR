@@ -80,6 +80,46 @@ function homeBody(seo,stations) {
     stations.map(st=>'<li><a href="'+e(stationUrl(st))+'">'+e(st.name)+'</a> — '+
       e(st.genre||'Ραδιόφωνο')+'</li>').join('')+'</ul></section></main>';
 }
+// Critical CSS makes the semantic, no-JavaScript page readable immediately;
+// the temporary branded cover prevents an unstyled crawl-list flash while
+// the Vite bundle mounts. Exactly the same document is served to all agents.
+const SEO_BOOT_CSS = `
+<style id="ir-seo-critical">
+html,body{margin:0;background:#050707;color:#f5f7f4}
+#ir-seo-bootstrap{display:none}
+html.ir-seo-js #ir-seo-bootstrap{position:fixed;inset:0;z-index:100000;
+display:grid;place-items:center;background:#050707;color:#f5f7f4}
+#ir-seo-bootstrap .ir-seo-boot-inner{display:flex;flex-direction:column;
+align-items:center;gap:20px;width:min(78vw,340px);text-align:center}
+#ir-seo-bootstrap img{display:block;width:100%;height:auto;object-fit:contain}
+#ir-seo-bootstrap small{color:#caff00;font:700 10px system-ui,sans-serif;
+letter-spacing:.22em}
+#root>.seo-prerender{box-sizing:border-box;max-width:1140px;margin:0 auto;
+padding:clamp(28px,5vw,65px);font:16px/1.75 system-ui,-apple-system,sans-serif;
+color:#e9efec}
+#root>.seo-prerender a{color:#d4ff62;text-decoration:underline;text-underline-offset:3px}
+#root>.seo-prerender h1{font-size:clamp(28px,5vw,44px);line-height:1.15;
+margin:28px 0 18px;letter-spacing:-.035em;color:#fff}
+#root>.seo-prerender h2{font-size:clamp(20px,3vw,26px);margin:0 0 12px;color:#fff}
+#root>.seo-prerender section,#root>.seo-prerender article{padding:clamp(18px,3vw,28px);
+border:1px solid #29352f;border-radius:22px;background:#101714;margin:18px 0}
+#root>.seo-prerender article section{background:#131d17}
+#root>.seo-prerender ul{padding-left:24px;margin:12px 0}
+#root>.seo-prerender li{margin:7px 0;overflow-wrap:anywhere}
+#root>.seo-prerender details{padding:13px 0;border-bottom:1px solid #29352f}
+#root>.seo-prerender summary{cursor:pointer;color:#fff;font-weight:650}
+#root>.seo-prerender nav{font-size:14px}
+@media(prefers-reduced-motion:reduce){#ir-seo-bootstrap *{animation:none!important}}
+</style>
+<script>
+document.documentElement.classList.add('ir-seo-js');
+window.setTimeout(function(){var splash=document.getElementById('ir-seo-bootstrap');
+if(splash)splash.remove();},10000);
+</script>`;
+const SEO_BOOT_BODY = '<div id="ir-seo-bootstrap" role="status" '+
+  'aria-label="Φόρτωση iRadios"><div class="ir-seo-boot-inner">'+
+  '<img src="/iradios-app-logo.png" alt="iRadios" width="340" height="110" '+
+  'fetchpriority="high"><small>YOUR SOUND. YOUR WORLD.</small></div></div>';
 async function sendSeoHtml(res, seo, content, opts={}) {
   const isStage=process.env.APP_ENV === 'staging';
   const shell=await frontendShell();
@@ -87,7 +127,8 @@ async function sendSeoHtml(res, seo, content, opts={}) {
     .replace(/<meta\b[^>]*(?:name=["'](?:description|keywords|robots|twitter:[^"']+)|property=["']og:[^"']+)["'][^>]*\/?>/gi,'')
     .replace(/<link\b[^>]*rel=["']canonical["'][^>]*\/?>/gi,'')
     .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi,'');
-  const finalHtml=headless.replace('</head>',pageHead(seo,!isStage)+'</head>')
+  const finalHtml=headless.replace('</head>',SEO_BOOT_CSS+pageHead(seo,!isStage)+'</head>')
+    .replace('<body>','<body>'+SEO_BOOT_BODY)
     .replace('<div id="root"></div>','<div id="root">'+content+'</div>'+
       '<noscript><p>Η εφαρμογή ακρόασης χρειάζεται JavaScript. Οι δημόσιες πληροφορίες '+
       'και οι σύνδεσμοι σταθμών εμφανίζονται παραπάνω.</p></noscript>');
