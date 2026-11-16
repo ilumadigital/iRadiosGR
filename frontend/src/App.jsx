@@ -8,6 +8,7 @@ import io from 'socket.io-client';
 // --- CUSTOM HOOKS ---
 import useAudioDSP from './hooks/useAudioDSP';
 import {normalizeListenerMode} from './utils/dspEngine';
+import {isDesktopDSPDevice} from './utils/dspDevice';
 import useStations from './hooks/useStations';
 import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
@@ -658,27 +659,39 @@ function MainApp() {
 
   const [isCarModeActive, setIsCarModeActive] = useState(false);
 
-  // Personal DSP is scoped per Premium account and browser. NEVER write these
-  // choices into Station docs or share them between different login accounts.
+  // Personal DSP is one listening preference across ALL stations. Keep it
+  // local to each Premium account/browser; never persist it in Station docs.
   const premiumAccountId=currentUser?.isPremium===true?
     String(currentUser?._id||currentUser?.id||''):'';
-  const [overridesByAccount,setOverridesByAccount]=useState({accountId:'',values:{}});
-  const userOverrides=overridesByAccount.accountId===premiumAccountId?
-    overridesByAccount.values:{};
+  const [listenerDSPByAccount,setListenerDSPByAccount]=useState({accountId:'',mode:'DEFAULT'});
+  const listenerDspMode=listenerDSPByAccount.accountId===premiumAccountId?
+    listenerDSPByAccount.mode:'DEFAULT';
   useEffect(()=>{
-    if(!premiumAccountId){setOverridesByAccount({accountId:'',values:{}});return;}
+    if(!premiumAccountId){setListenerDSPByAccount({accountId:'',mode:'DEFAULT'});return;}
+    let mode='DEFAULT';
     try{
-      const saved=JSON.parse(localStorage.getItem('iluma_listener_dsp_v2:'+premiumAccountId)||'{}');
-      setOverridesByAccount({accountId:premiumAccountId,
-        values:saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{}});
-    }catch{setOverridesByAccount({accountId:premiumAccountId,values:{}});}
+      const key='iluma_listener_dsp_v3:'+premiumAccountId;
+      const stored=localStorage.getItem(key);
+      if(stored!==null){
+        mode=normalizeListenerMode(stored);
+      }else{
+        // Upgrade the restored station's v2 preference once to an account-wide
+        // mode. Other station preferences remain untouched in the old key.
+        const old=JSON.parse(localStorage.getItem('iluma_listener_dsp_v2:'+premiumAccountId)||'{}');
+        const restored=JSON.parse(localStorage.getItem('iluma_last_station')||'null');
+        const stationId=String(restored?._id||restored?.id||'');
+        if(old&&typeof old==='object'&&!Array.isArray(old))
+          mode=normalizeListenerMode(old[stationId]);
+        localStorage.setItem(key,mode);
+      }
+    }catch{/* Private browsing may prevent storage; current session still works. */}
+    setListenerDSPByAccount({accountId:premiumAccountId,mode});
   },[premiumAccountId]);
-  const changeUserDSP=(stationId,mode)=>{
-    if(!premiumAccountId||!stationId)return;
+  const changeUserDSP=(_stationId,mode)=>{
+    if(!premiumAccountId)return;
     const choice=normalizeListenerMode(mode);
-    const next={...userOverrides,[String(stationId)]:choice};
-    setOverridesByAccount({accountId:premiumAccountId,values:next});
-    try{localStorage.setItem('iluma_listener_dsp_v2:'+premiumAccountId,JSON.stringify(next));}catch{}
+    setListenerDSPByAccount({accountId:premiumAccountId,mode:choice});
+    try{localStorage.setItem('iluma_listener_dsp_v3:'+premiumAccountId,choice);}catch{}
   };
 
   const isMobile = useMemo(() => {
@@ -910,7 +923,7 @@ function MainApp() {
     currentUser?._id,isPlaying,isPlayingAd]);
 
   const { analyserRef, fadeAudio, resetVolumeToZero, setVolumeToOne, resumeDSP } = useAudioDSP(
-    audioRef, currentStation, currentAdInfo, isPlayingAd, isMobile, currentUser, userOverrides, volume
+    audioRef, currentStation, currentAdInfo, isPlayingAd, currentUser, listenerDspMode
   );
 
   useEffect(() => {
@@ -1137,11 +1150,7 @@ function MainApp() {
     }
     firstPlayStartedRef.current=true;
 
-    const ua = navigator.userAgent;
-    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isXboxOrTV = /Xbox|SMART-TV|Tizen|Web0S|WebOS|TV/.test(ua);
-    
-    const disableDSP = isIOS || isXboxOrTV;
+    const disableDSP = !isDesktopDSPDevice();
 
     if (!disableDSP && typeof resumeDSP === 'function') {
       resumeDSP(); 
@@ -2220,7 +2229,7 @@ function MainApp() {
             <Route path="/genre/:genreName" element={<Genre stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/without-ads" element={<Genre noCommercialAds stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
             <Route path="/region/:regionName" element={<Region stations={stations} currentStation={currentStation} userLocation={userLocation} checkGeoMatch={checkGeoMatch} setCurrentStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} analyser={analyserRef.current} currentUser={currentUser} />} />
-            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} userLocation={userLocation} checkGeoMatch={checkGeoMatch} remoteDevice={activeRemoteDevice && !isPlaying ? activeRemoteDevice : null} onTransferHere={() => { window.dispatchEvent(new Event("minify_player")); if (currentUser?.isPremium) handleTransferPlayback(localDeviceId); else navigate("/premium"); }} />} />
+            <Route path="/station/:id" element={<StationProfile stations={stations} API_URL={API_URL} currentStation={currentStation} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} setCurrentStation={handleStationSelectWithAds} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo} analyser={analyserRef.current} currentUser={currentUser} listenerDspMode={listenerDspMode} onUserDSPChange={changeUserDSP} globalCoverArt={globalCoverArt} liveBroadcast={liveBroadcast} rdsShowProducer={rdsShowProducer} rdsAt={rdsAt} userLocation={userLocation} checkGeoMatch={checkGeoMatch} remoteDevice={activeRemoteDevice && !isPlaying ? activeRemoteDevice : null} onTransferHere={() => { window.dispatchEvent(new Event("minify_player")); if (currentUser?.isPremium) handleTransferPlayback(localDeviceId); else navigate("/premium"); }} />} />
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
@@ -2328,7 +2337,7 @@ function MainApp() {
           adSkipCountdown={adSkipCountdown} onSkipAd={skipCurrentAd} nowPlaying={nowPlaying} nowPlayingInfo={nowPlayingInfo}
           isPlaying={displayIsPlaying} togglePlayPause={togglePlayPause} isBuffering={isBuffering}
           toggleFavorite={handleToggleFavorite} isFavorite={isFavorite}
-          currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP}
+          currentUser={currentUser}
           handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}
           shuffleEnabled={stationShuffle}
           onShuffleToggle={() => { shuffleHistoryRef.current = []; setStationShuffle(value => !value); }}
@@ -2354,7 +2363,7 @@ function MainApp() {
         volume={volume} setVolume={setVolume} togglePlayPause={togglePlayPause} 
         toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} 
         handleNextStation={handleNextStation} handlePrevStation={handlePrevStation}  
-        currentUser={currentUser} userOverrides={userOverrides} onUserDSPChange={changeUserDSP}
+        currentUser={currentUser} listenerDspMode={listenerDspMode} onUserDSPChange={changeUserDSP}
         isRecognizing={isRecognizing} handleRecognizeTrack={handleRecognizeTrack} spotifyUrl={spotifyUrl}
         globalCoverArt={globalCoverArt}
         liveBroadcast={liveBroadcast}

@@ -1,11 +1,12 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {createDSPGraph,applyDSPGraph,applyListenerMode,updateAdaptiveDSP,resetAdaptiveDSP,normalizeListenerMode,DSP_DEFAULTS,DSP_COMPRESSOR_DEFAULTS} from '../utils/dspEngine';
+import {isDesktopDSPDevice} from '../utils/dspDevice';
 
 // Listener and broadcaster audition use the same processing rules. The audio
 // element is attached only once; station changes reconfigure the existing graph.
 export default function useAudioDSP(
-  audioRef,currentStation,currentAdInfo,isPlayingAd,isMobile,currentUser,
-  userOverrides={}
+  audioRef,currentStation,currentAdInfo,isPlayingAd,currentUser,
+  listenerDspMode='DEFAULT'
 ){
   const graphRef=useRef(null);
   const audioCtxRef=useRef(null);
@@ -13,21 +14,12 @@ export default function useAudioDSP(
   const lastStationScopeRef=useRef('');
   const [isDspReady,setIsDspReady]=useState(false);
 
-  const unsupportedDevice=(()=>{
-    if(typeof navigator==='undefined')return true;
-    const ua=navigator.userAgent;
-    const ios=/iPad|iPhone|iPod/.test(ua)||
-      (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-    return ios||/Xbox|SMART-TV|Tizen|Web0S|WebOS|TV/.test(ua);
-  })();
-  // Desktop detection is device-based, not viewport-based: a narrow laptop
-  // window must still receive VMax while phones and tablets stay untouched.
-  const desktopAdDevice=!unsupportedDevice&&typeof navigator!=='undefined'&&
-    !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi|Tablet/i
-      .test(navigator.userAgent||'');
+  // Keep WebAudio processing completely off phones and tablets.
+  // A narrow desktop viewport still counts as desktop.
+  const desktopDSPDevice=isDesktopDSPDevice();
 
   const initDSP=useCallback(()=>{
-    if(unsupportedDevice||graphRef.current)return;
+    if(!desktopDSPDevice||graphRef.current)return;
     const audio=audioRef.current;
     if(!audio)return;
     try{
@@ -45,9 +37,10 @@ export default function useAudioDSP(
     }catch(error){
       console.error('[DSP] Audio graph unavailable',error);
     }
-  },[audioRef,unsupportedDevice]);
+  },[audioRef,desktopDSPDevice]);
 
   useEffect(()=>{
+    if(!desktopDSPDevice)return;
     const unlock=()=>{initDSP();};
     window.addEventListener('touchstart',unlock,{once:true});
     window.addEventListener('click',unlock,{once:true});
@@ -55,7 +48,7 @@ export default function useAudioDSP(
       window.removeEventListener('touchstart',unlock);
       window.removeEventListener('click',unlock);
     };
-  },[initDSP]);
+  },[initDSP,desktopDSPDevice]);
 
   const resumeDSP=useCallback(()=>{
     initDSP();
@@ -78,7 +71,7 @@ export default function useAudioDSP(
       // Audio spots have no advertiser-configurable DSP. Apply the existing
       // local VMax listener stage on desktop only, including anonymous users.
       preset='OFF';
-      personalMode=desktopAdDevice?'VMAX':'DEFAULT';
+      personalMode=desktopDSPDevice?'VMAX':'DEFAULT';
     }else if(currentStation){
       preset=currentStation.dspPreset||'OFF';
       settings=currentStation.dspSettings||DSP_DEFAULTS;
@@ -88,12 +81,12 @@ export default function useAudioDSP(
       // Premium listener presets only touch this local WebAudio instance.
       // They neither write to Mongo nor alter what other listeners hear.
       if(currentUser?.isPremium===true){
-        personalMode=normalizeListenerMode(userOverrides[String(currentStation._id)]);
+        personalMode=normalizeListenerMode(listenerDspMode);
       }
     }
     applyDSPGraph(graph,preset,settings,compressor,false,clipper,autoBalance);
     applyListenerMode(graph,personalMode);
-  },[currentStation,isPlayingAd,currentAdInfo,currentUser,userOverrides,isDspReady,desktopAdDevice]);
+  },[currentStation,isPlayingAd,currentAdInfo,currentUser,listenerDspMode,isDspReady,desktopDSPDevice]);
 
   // Adaptation is local to this player's AudioContext and never alters the
   // broadcaster's stored settings. Silence and paused streams are ignored.

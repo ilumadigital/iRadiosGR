@@ -89,13 +89,15 @@ test('original Home and catalog colors are preserved, brand color belongs to spo
 
 test('desktop audio ads use VMax locally and Agency cannot choose normalize',()=>{
   const dsp=read('frontend/src/hooks/useAudioDSP.js');
+  const device=read('frontend/src/utils/dspDevice.js');
   const editor=read('frontend/src/pages/CampaignEditor.jsx');
   const agency=read('backend/routes/agencyRoutes.js');
   const wizard=read('backend/routes/advertisingWizardRoutes.js');
-  assert.match(dsp,/personalMode=desktopAdDevice\?'VMAX':'DEFAULT'/);
+  assert.match(dsp,/personalMode=desktopDSPDevice\?'VMAX':'DEFAULT'/);
   assert.match(dsp,/if\(isPlayingAd\)\{[\s\S]*?preset='OFF'/);
   assert.match(dsp,/if\(isPlayingAd&&graph\.listenerMode!=='VMAX'\)return/);
-  assert.match(dsp,/!\/Android\|webOS\|iPhone\|iPad\|iPod/);
+  assert.match(dsp,/if\(!desktopDSPDevice\|\|graphRef\.current\)return;/);
+  assert.match(device,/Android\|webOS\|iPhone\|iPad\|iPod/);
   assert.match(editor,/if\(!banner&&scope==='agency'\)patch\.dspPreset='OFF'/);
   assert.match(editor,/scope==='admin'\?<Field label="Audio processing"/);
   assert.doesNotMatch(agency,/const audioFields=\[[^\]]*'dspPreset'/);

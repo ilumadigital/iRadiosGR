@@ -1,5 +1,6 @@
 import PremiumSoundModes from './PremiumSoundModes';
 import {normalizeListenerMode} from '../utils/dspEngine';
+import {isDesktopDSPDevice} from '../utils/dspDevice';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -23,7 +24,7 @@ export default function Footer({
   adSkipCountdown, onSkipAd, 
   isPlaying, isBuffering, nowPlaying, nowPlayingInfo, volume, setVolume, togglePlayPause, 
   toggleFavorite, isFavorite, handleNextStation, handlePrevStation,
-  currentUser, userOverrides, onUserDSPChange,
+  currentUser, listenerDspMode, onUserDSPChange,
   isRecognizing, handleRecognizeTrack, spotifyUrl,  
   availableDevices = [],
   localDeviceId,
@@ -132,8 +133,8 @@ export default function Footer({
     }
   };
 
-  const canUseCustomEQ = Boolean(currentStation && isPremium);
-  const currentPreset = normalizeListenerMode(currentStation&&userOverrides?.[currentStation._id]);
+  const canUseCustomEQ = Boolean(currentStation && currentUser?.isPremium === true && isDesktopDSPDevice());
+  const currentPreset = normalizeListenerMode(listenerDspMode);
 
   return (
     <>

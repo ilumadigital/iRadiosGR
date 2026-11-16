@@ -164,7 +164,8 @@ test('Listener presets are Premium-only, local to an account and bypass ads',()=
  assert.match(hook,/applyListenerMode\(graph,personalMode\)/);
  assert.match(hook,/if\(isPlayingAd\)/);
  const app=read('frontend/src/App.jsx');
- assert.match(app,/iluma_listener_dsp_v2:/);
+ assert.match(app,/iluma_listener_dsp_v3:/);
+ assert.match(app,/iluma_listener_dsp_v2:/); // one-time migration
  assert.doesNotMatch(app,/iluma_user_dsp_overrides/);
  const widget=read('frontend/src/components/PremiumSoundModes.jsx');
  assert.ok(widget.includes('Object.entries(LISTENER_MODES)'));

@@ -2,6 +2,7 @@ import DynamicAdCreative from '../components/DynamicAdCreative';
 import {geoAllowsAd} from '../utils/adPlacements';
 import PremiumSoundModes from '../components/PremiumSoundModes';
 import {normalizeListenerMode} from '../utils/dspEngine';
+import {isDesktopDSPDevice} from '../utils/dspDevice';
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { formatFMFrequency } from '../utils/stationFrequency';
 import {scheduleDayBase,toCanonical,minutes,getAthensClock} from '../utils/schedule';
@@ -33,7 +34,7 @@ import { useAlert } from '../context/AlertContext';
 export default function StationProfile({ 
   stations, currentStation, isPlaying, onPlayPause, setCurrentStation, 
   toggleFavorite, isFavorite, nowPlaying: globalNowPlaying, nowPlayingInfo: globalNowPlayingInfo, analyser,
-  currentUser, userOverrides, onUserDSPChange, API_URL,
+  currentUser, listenerDspMode, onUserDSPChange, API_URL,
   isRecognizing, handleRecognizeTrack, globalCoverArt, liveBroadcast, rdsShowProducer, userLocation, checkGeoMatch,
   remoteDevice, onTransferHere
 }) {
@@ -259,8 +260,8 @@ export default function StationProfile({
   </div>;
 
   const isFav = isFavorite ? isFavorite(station._id) : false;
-  const canUseCustomEQ = currentUser?.isPremium === true;
-  const currentPreset = normalizeListenerMode(userOverrides?.[station._id]);
+  const canUseCustomEQ = currentUser?.isPremium === true && isDesktopDSPDevice();
+  const currentPreset = normalizeListenerMode(listenerDspMode);
 
   const handlePlayClick = () => {
     if(station?.isOffline === true)return;
