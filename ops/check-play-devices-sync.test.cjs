@@ -55,7 +55,8 @@ test('footer, fullscreen, mobile and device picker expose the remote state',()=>
   assert.match(picker,/Μεταφορά εδώ/);
 });
 test('Free listening and advertising remain in the independent local engine',()=>{
-  assert.match(app,/selectStationBreak\(ads,clicks,station,userLocation,checkGeoMatch\)/);
+  assert.match(app,/stationBreakCandidates\(ads,clicks,station,userLocation,checkGeoMatch\)/);
+  assert.match(app,/adFallbackRef\.current=pool\.slice\(MAX_AD_BREAK_SPOTS\)/);
   assert.match(app,/if\(premiumSync&&activeRemoteDevice\)/);
   assert.match(server,/freePlayingStationId/);
 });
