@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import BrandLogo from './BrandLogo';
 import './preloader.css';
 
@@ -9,6 +9,12 @@ const SPLASH_FADE_MS = 250;
 
 export default function Preloader() {
   const [phase, setPhase] = useState('enter');
+
+  // React's matching branded splash is committed before the temporary SEO
+  // bootstrap cover is removed. No raw HTML frame or doubled logos.
+  useLayoutEffect(() => {
+    document.getElementById('ir-seo-bootstrap')?.remove();
+  }, []);
 
   useEffect(() => {
     // The 1.4s splash includes the last 250ms fade. Reduced-motion users

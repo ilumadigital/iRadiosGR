@@ -66,12 +66,14 @@ test('summer date uses daylight saving zone and winter uses standard time',()=>{
 test('FAQ JSON-LD is grounded in visible station facts',()=>{
   const st=station(),seo=core.stationSeo(st);
   const faq=seo.ld['@graph'].find(x=>x['@type']==='FAQPage');
-  assert.equal(faq.mainEntity.length,4);
-  assert.match(faq.mainEntity[1].acceptedAnswer.text,/Αθήνα/);
-  assert.match(faq.mainEntity[3].acceptedAnswer.text,/Δοκιμαστικός Παραγωγός/);
+  assert.equal(faq.mainEntity.length,5);
+  assert.match(faq.mainEntity[0].acceptedAnswer.text,/Ελληνική μουσική/);
+  assert.match(faq.mainEntity[2].acceptedAnswer.text,/Δοκιμαστικός Παραγωγός/);
+  assert.match(faq.mainEntity[3].acceptedAnswer.text,/30 λεπτών/);
+  assert.match(faq.mainEntity[4].acceptedAnswer.text,/Αθήνα/);
   delete st.city;
   st.schedule=[];
-  assert.equal(core.stationSeo(st).faq.length,1);
+  assert.equal(core.stationSeo(st).faq.length,4);
 });
 test('escapes HTML, attributes and XML safely',()=>{
   assert.equal(core.escapeHtml('<script>" & \'test'), '&lt;script&gt;&quot; &amp; &#39;test');
@@ -120,4 +122,47 @@ test('only trusted station social URLs are linked in prerender',()=>{
   st.facebook='http://insecure.example.org/';
   st.instagram='javascript:alert(1)';
   assert.deepEqual(core.links(st),['https://example.org/']);
+});
+
+test('smart FAQ returns at most five distinct verifiable answers, including Athens schedule',()=>{
+  const st=station();
+  st.schedule=[
+    {day:1,startTime:'08:00',endTime:'10:00',title:'Πρωινό',host:'Αλέξης'},
+    {day:1,startTime:'10:00',endTime:'11:00',title:'Μουσική Ωρα',host:'Μαρία'},
+    {day:3,startTime:'11:00',endTime:'12:00',title:'Τετάρτη Live',host:'Αλέξης'}
+  ];
+  const monday=core.stationFaq(st,new Date('2026-11-16T09:00:00Z'));
+  assert.equal(monday.length,5);
+  assert.equal(new Set(monday.map(x=>x.q)).size,5);
+  assert.match(monday[1].q,/σήμερα/);
+  assert.match(monday[1].a,/Πρωινό.*08:00.*Δευτέρα|Πρωινό.*Δευτέρα 08:00/);
+  assert.match(monday[1].a,/Μουσική Ωρα/);
+  assert.match(monday[2].a,/Αλέξης/);
+  assert.match(monday[2].a,/Μαρία/);
+  assert.match(monday[3].a,/επιβεβαιωμένο email/);
+  assert.doesNotMatch(JSON.stringify(monday),/PRIVATE SONG|PREMIUM SECRET/);
+  assert.deepEqual(core.stationSeo(st).faq.map(x=>x.q),
+    core.stationSeo(st).ld['@graph'].find(x=>x['@type']==='FAQPage')
+      .mainEntity.map(x=>x.name));
+});
+test('no schedule does not generate fictional shows or presenter names',()=>{
+  const st=station();
+  st.genre='';
+  st.schedule=[];
+  delete st.city;
+  delete st.region;
+  st.website='https://example.com';
+  st.privatePlaylist=[{title:'PRIVATE SONG',artist:'PRIVATE ARTIST'}];
+  const faq=core.stationFaq(st);
+  assert.equal(faq.length,2);
+  assert.ok(faq.every(item=>item.q&&item.a));
+  assert.doesNotMatch(JSON.stringify(faq),/Ποιοι παραγωγοί|Ποιες εκπομπές|PRIVATE SONG|PRIVATE ARTIST/);
+});
+test('FAQ mentions FM only for genuine terrestrial frequency, never web stations',()=>{
+  const st=station();
+  st.frequency='99.9 FM';
+  st.transmissionType='Επίγειο';
+  assert.match(core.stationFaq(st).at(-1).a,/99.9 FM/);
+  st.transmissionType='Web Radio';
+  assert.doesNotMatch(JSON.stringify(core.stationFaq(st)),/99.9 FM/);
 });

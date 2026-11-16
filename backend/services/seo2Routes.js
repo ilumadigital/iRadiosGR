@@ -4,7 +4,7 @@
 const express = require('express');
 const Station = require('../models/Station');
 const {origin,urlFor,pick,escapeXml,escapeHtml,stationUrl,stationId,stationSeo,
-  directorySeo,homeSeo} = require('./seo2Core');
+  stationFaq,directorySeo,homeSeo} = require('./seo2Core');
 const {stationBody,directoryBody,homeBody,sendSeoHtml} = require('./seo2Render');
 const {generateStationOgImage} = require('./seo2Image');
 const router = express.Router();
@@ -38,6 +38,22 @@ async function stationList(max=60) {
     .select('_id slug name description genre secondaryGenre secondaryGenres city region country logo cover createdAt')
     .sort({position:1,createdAt:-1}).limit(max).lean();
 }
+// Public FAQ projection uses the EXACT same builder as server-rendered HTML/JSON-LD.
+// No reads from StationPlaylist or authenticated, Premium-only track history.
+router.get('/api/public/stations/:slug/faq',async(req,res)=>{
+  try {
+    const slug=String(req.params.slug||'');
+    if (!slug || slug.length>180) return res.status(404).json({error:'Not found'});
+    const isId=/^[0-9a-f]{24}$/i.test(slug);
+    const station=await Station.findOne({...ONLY_APPROVED,$or:[
+      {slug},...(isId?[{_id:slug}]:[])]})
+      .select('slug name genre secondaryGenre secondaryGenres city region transmissionType frequency schedule scheduleDayBase')
+      .lean();
+    if (!station) return res.status(404).set('Cache-Control','no-store').json({error:'Not found'});
+    return res.status(200).set('Cache-Control','public, max-age=60')
+      .json({stationId:String(station._id),faq:stationFaq(station)});
+  } catch (error) { return fail(res,error); }
+});
 router.get('/station/:slug',async(req,res)=>{
   try {
     const slug=String(req.params.slug||'');

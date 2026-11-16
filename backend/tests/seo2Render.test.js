@@ -43,7 +43,12 @@ test('SEO page merges one authoritative head with the real SPA bootstrap',async(
     assert.equal((res.body.match(/<script type="application\/ld\+json">/g)||[]).length,1);
     assert.match(res.body,/<script type="module" src="\/assets\/app.js"><\/script>/);
     assert.match(res.body,/<main class="seo-prerender"/);
-    assert.match(res.body,/FAQPage/);
+    assert.match(res.body,/id="ir-seo-critical"/);
+    assert.match(res.body,/id="ir-seo-bootstrap"/);
+    assert.match(res.body,/ir-seo-js/);
+    assert.match(res.body,/faq|FAQPage/i);
+    assert.match(res.body,/Συχνές ερωτήσεις/);
+    assert.match(res.body,/Πώς βλέπω τα πρόσφατα τραγούδια στην playlist/);
     assert.doesNotMatch(res.body,/<script>alert\("unsafe"\)<\/script>/);
     assert.match(res.body,/\\u003cscript\\u003e/);
     assert.doesNotMatch(res.body,/Generic filler|Generic Title/);
