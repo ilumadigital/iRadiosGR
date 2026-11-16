@@ -93,3 +93,20 @@ to remove harmless \`seoUpdatedAt\` or \`previousSlugs\` fields.
   advertised as an indexable track catalog.
 - Production indexing and routing remain separately gated; staging is not a
   Search Console production-indexing test.
+
+### SEO 2.1 — Flash-free loading, programme FAQ and station layout
+- Initial server-rendered SEO HTML is **real semantic content for every user agent**, with critical CSS so that a no-JavaScript visitor sees a usable, branded page.
+- A single branded startup cover is painted before React downloads. Once the React 1.4-second Preloader mounts, it removes the temporary cover in a layout effect. It is **not a bot-only copy or hidden SEO text**; the underlying SSR document is the same for people and crawlers.
+- The station desktop layout now uses a full-height, internally scrolling playlist on the left, with description and up to five FAQ cards stacked on the right. Mobile retains natural vertical flow and bounded playlist scrolling.
+- `stationFaq` generates up to five distinct answers from approved, public profile facts: genres/subgenres, today's broadcast programme in Europe/Athens, declared show hosts, published frequency/location, and how the existing last-30-minute playlist works.
+- FAQ questions/answers in initial HTML and JSON-LD use exactly one backend implementation. After React mounts, it reuses those initial schema questions and refreshes from `/api/public/stations/{slug}/faq` (approved stations only). No playlist, song titles or AI results are transmitted by this endpoint.
+- Authenticated/eligible users may additionally see up to three **real already-authorized** recent playlist entries inside the playlist FAQ's personal UI panel; they are never rendered by the public SEO server or JSON-LD.
+- Existing staging `noindex` remains intentional. The HTTPS host Nginx SEO location rules and header policies are **manual VPS operations** not applied by `ilumadev.sh`. Do not permit staging indexing during checker QA.
+
+### SEO 2.1 verification
+1. Test a page with JavaScript disabled: the SSR station facts and FAQ must be legible and visually styled, not a raw text list.
+2. Test a page with JavaScript enabled and throttled network: first paint shows the same single iRadios brand cover; then React's 1.4 s splash transitions to the UI. No raw text flash, white frame or duplicated logos.
+3. Open a station with category, today's shows, hosts, city and FM frequency: max five factual FAQs in visible UI and JSON-LD. Change a public show and verify refresh changes only the relevant answer.
+4. Confirm no public GET request or source HTML includes private `/api/stations/:id/playlist` history, restricted AI songs or drafts. Without sign-in, the FAQ explains access; with a verified account, the playlist panel can show eligible recent tracks.
+5. On desktop, playlist fills the height of the description+FAQ stack; on mobile, cards stack without clipping the playlist/player.
+6. Recheck OG images, canonical, sitemap content-types, `llms.txt`, and staging `X-Robots-Tag: noindex, nofollow, noarchive`.
