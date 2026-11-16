@@ -173,10 +173,14 @@ async function main(){
    }
   }
   assert.equal(tickets.length,3,'No fourth paid audio spot in one break');
-  await assert.rejects(()=>ledger.reserve({...breakFixtures[0],kind:'audio',
+  const repeated=await createFixture(2000);
+  const singleBreak='switch:'+crypto.randomBytes(16).toString('hex')+':5';
+  const once=await ledger.reserve({...repeated,kind:'audio',placement:'every_5_stations',
+   durationMs:46000,clientKey:key,breakId:singleBreak});
+  await assert.rejects(()=>ledger.reserve({...repeated,kind:'audio',
    placement:'every_5_stations',durationMs:46000,clientKey:key,
-   breakId:'switch:'+crypto.randomBytes(16).toString('hex')+':5'}),
-   /Frequency or pacing cap|Daily budget/); // Same campaign is daily capped separately when applicable.
+   breakId:singleBreak}),/Frequency or pacing cap/);
+  await ledger.release({value:once.capability,key});
   for(const issued of tickets)await ledger.release({value:issued.capability,key});
   const paced=await createFixture(2000);
   const morning=await ledger.reserve({...paced,kind:'audio',placement:'twice_a_day',
