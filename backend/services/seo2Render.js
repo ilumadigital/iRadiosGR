@@ -1,0 +1,95 @@
+'use strict';
+// Prerender the same real station facts for all user agents. React subsequently
+// mounts the interactive player into #root; no crawler-specific HTML or cloaking.
+const {escapeHtml: e,urlFor,stationUrl,normalizedSchedule} = require('./seo2Core');
+let cache = {html:null,until:0};
+const TEMPLATE_URL = process.env.SEO_FRONTEND_TEMPLATE_URL || 'http://frontend/index.html';
+
+async function frontendShell() {
+  if (cache.html && Date.now() < cache.until) return cache.html;
+  const response = await fetch(TEMPLATE_URL,{signal:AbortSignal.timeout(3500)});
+  if (!response.ok) throw new Error('SEO frontend template unavailable: ' + response.status);
+  const html=await response.text();
+  if(!html.includes('<div id="root"></div>') || !html.includes('</head>') || html.length>100000)
+    throw new Error('Invalid frontend template for SEO');
+  cache={html,until:Date.now()+120000};
+  return html;
+}
+function schemaScript(ld){
+  // Prevent user-provided station text from closing a JSON-LD script.
+  return JSON.stringify(ld).replace(/</g,'\\u003c').replace(/>/g,'\\u003e')
+    .replace(/&/g,'\\u0026').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+}
+function pageHead(seo,indexable) {
+  const tag=(name,value)=>'<meta name="'+e(name)+'" content="'+e(value)+'">';
+  const property=(name,value)=>'<meta property="'+e(name)+'" content="'+e(value)+'">';
+  return [
+    '<title>'+e(seo.title)+'</title>',
+    tag('description',seo.description),
+    tag('robots',indexable?'index, follow, max-image-preview:large':'noindex, nofollow, noarchive'),
+    '<link rel="canonical" href="'+e(seo.url)+'">',
+    property('og:type','website'),property('og:site_name','iRadios'),
+    property('og:title',seo.title),property('og:description',seo.description),
+    property('og:url',seo.url),property('og:image',seo.image),
+    property('og:image:width','1200'),property('og:image:height','630'),
+    tag('twitter:card','summary_large_image'),tag('twitter:title',seo.title),
+    tag('twitter:description',seo.description),tag('twitter:image',seo.image),
+    '<script type="application/ld+json">'+schemaScript(seo.ld)+'</script>'
+  ].join('\n');
+}
+function commonNav() {
+  return '<nav aria-label="Πλοήγηση"><a href="'+e(urlFor('/'))+'">iRadios</a> · '+
+    '<a href="'+e(urlFor('/map'))+'">Χάρτης ραδιοφώνων</a></nav>';
+}
+function stationBody(st,seo,similar=[]) {
+  const list=seo.schedule.map(show=>'<li><strong>'+e(
+    ['Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο','Κυριακή'][show.day-1])+
+    ' '+e(show.startTime)+'–'+e(show.endTime)+'</strong> · '+e(show.title)+
+    (show.host?' — '+e(show.host):'')+
+    (show.description?'<p>'+e(show.description)+'</p>':'')+'</li>').join('');
+  const faq=seo.faq.map(x=>'<details><summary>'+e(x.q)+'</summary><p>'+e(x.a)+'</p></details>').join('');
+  const categories=[st.genre,...(st.secondaryGenres||[])].filter(Boolean);
+  const categoryLinks=[...new Set(categories)].map(x=>'<a href="'+e(urlFor('/genre/'+encodeURIComponent(x)))+'">'+e(x)+'</a>').join(' · ');
+  const location=st.region?'<a href="'+e(urlFor('/region/'+encodeURIComponent(st.region)))+'">'+e(st.region)+'</a>':'';
+  return '<main class="seo-prerender" lang="el">'+commonNav()+
+    '<article><h1>'+e(seo.h1)+'</h1><p>'+e(seo.description)+'</p>'+
+    (st.description?'<section><h2>Σχετικά με τον σταθμό</h2><p>'+e(st.description)+'</p></section>':'')+
+    (categoryLinks?'<section><h2>Μουσικό είδος</h2><p>'+categoryLinks+'</p></section>':'')+
+    (location?'<section><h2>Περιοχή μετάδοσης</h2><p>'+location+'</p></section>':'')+
+    (list?'<section><h2>Πρόγραμμα εκπομπών (ώρα Ελλάδας)</h2><ul>'+list+'</ul></section>':'')+
+    (faq?'<section><h2>Συχνές ερωτήσεις</h2>'+faq+'</section>':'')+
+    '</article>'+
+    (similar.length?'<section><h2>Παρόμοιοι σταθμοί</h2><ul>'+
+      similar.map(x=>'<li><a href="'+e(stationUrl(x))+'">'+e(x.name)+'</a></li>').join('')+
+      '</ul></section>':'')+'</main>';
+}
+function directoryBody(seo,stations) {
+  return '<main class="seo-prerender" lang="el">'+commonNav()+'<h1>'+e(seo.h1)+'</h1>'+
+    '<p>'+e(seo.description)+'</p><section><h2>Σταθμοί</h2><ul>'+
+    stations.map(st=>'<li><a href="'+e(stationUrl(st))+'">'+e(st.name)+'</a>'+
+      (st.city?' — '+e(st.city):'')+(st.description?'<p>'+e(st.description.slice(0,260))+'</p>':'')+
+      '</li>').join('')+'</ul></section></main>';
+}
+function homeBody(seo,stations) {
+  return '<main class="seo-prerender" lang="el">'+commonNav()+'<h1>'+e(seo.h1)+'</h1><p>'+
+    e(seo.description)+'</p><section><h2>Δημοφιλείς διαθέσιμοι σταθμοί</h2><ul>'+
+    stations.map(st=>'<li><a href="'+e(stationUrl(st))+'">'+e(st.name)+'</a> — '+
+      e(st.genre||'Ραδιόφωνο')+'</li>').join('')+'</ul></section></main>';
+}
+async function sendSeoHtml(res, seo, content, opts={}) {
+  const isStage=process.env.APP_ENV === 'staging';
+  const shell=await frontendShell();
+  const headless=shell.replace(/<title\b[^>]*>[\s\S]*?<\/title>/gi,'')
+    .replace(/<meta\b[^>]*(?:name=["'](?:description|keywords|robots|twitter:[^"']+)|property=["']og:[^"']+)["'][^>]*\/?>/gi,'')
+    .replace(/<link\b[^>]*rel=["']canonical["'][^>]*\/?>/gi,'')
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi,'');
+  const finalHtml=headless.replace('</head>',pageHead(seo,!isStage)+'</head>')
+    .replace('<div id="root"></div>','<div id="root">'+content+'</div>'+
+      '<noscript><p>Η εφαρμογή ακρόασης χρειάζεται JavaScript. Οι δημόσιες πληροφορίες '+
+      'και οι σύνδεσμοι σταθμών εμφανίζονται παραπάνω.</p></noscript>');
+  res.set('Content-Type','text/html; charset=utf-8');
+  res.set('Cache-Control',isStage?'private, no-store':'public, max-age=60, s-maxage=180, stale-while-revalidate=120');
+  res.set('Vary','Accept-Encoding');
+  return res.status(200).send(finalHtml);
+}
+module.exports={frontendShell,pageHead,stationBody,directoryBody,homeBody,sendSeoHtml};
