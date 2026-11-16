@@ -32,6 +32,7 @@ test('SEO page merges one authoritative head with the real SPA bootstrap',async(
   try{
     process.env.APP_ENV='staging';
     const seo=stationSeo(st);
+    seo.ld['@graph'][0].description='<script>alert("unsafe")</script>';
     const res=fakeResponse();
     await sendSeoHtml(res,seo,stationBody(st,seo,[]));
     assert.equal(res.code,200);
