@@ -218,6 +218,10 @@ function stagePublicAccess(req, res, next) {
   // Sandbox checkout is authenticated and allowed only for the user's OWN
   // paid intent. The controller also enforces the explicit staging feature gate.
   if (req.method==='POST'&&path==='/api/billing/checkout')return protect(req,res,next);
+  // Dedicated REAL-card QA is authenticated; controller separately requires
+  // stage-only flag, exact allowlisted verified listener and explicit €3.99 consent.
+  if (req.method==='POST'&&path==='/api/billing/production-qa/checkout')return protect(req,res,next);
+  if (req.method==='GET'&&path==='/api/billing/production-qa/status')return protect(req,res,next);
   if (req.method==='POST'&&path==='/api/billing/me/renewal-notice/snooze')return protect(req,res,next);
   if(req.method==='POST'&&path==='/api/billing/me/payment-method/revoke')return protect(req,res,next);
   if(req.method==='POST'&&path==='/api/billing/me/recurring/cancel')return protect(req,res,next);
