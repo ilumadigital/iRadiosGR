@@ -66,8 +66,9 @@ test('summer date uses daylight saving zone and winter uses standard time',()=>{
 test('FAQ JSON-LD is grounded in visible station facts',()=>{
   const st=station(),seo=core.stationSeo(st);
   const faq=seo.ld['@graph'].find(x=>x['@type']==='FAQPage');
-  assert.equal(faq.mainEntity.length,3);
+  assert.equal(faq.mainEntity.length,4);
   assert.match(faq.mainEntity[1].acceptedAnswer.text,/Αθήνα/);
+  assert.match(faq.mainEntity[3].acceptedAnswer.text,/Δοκιμαστικός Παραγωγός/);
   delete st.city;
   st.schedule=[];
   assert.equal(core.stationSeo(st).faq.length,1);
@@ -87,4 +88,36 @@ test('directory item lists contain only supplied genuine stations',()=>{
   const items=seo.ld['@graph'].find(x=>x['@type']==='ItemList').itemListElement;
   assert.equal(items.length,1);
   assert.equal(items[0].name,station().name);
+});
+
+test('station snippets use published description, programme, genre and locality without invented facts',()=>{
+  const st=station();
+  const seo=core.stationSeo(st);
+  assert.match(seo.description,/Αληθινές μουσικές/);
+  assert.match(seo.description,/Πρωινή Ζώνη/);
+  assert.match(seo.description,/Ελληνική μουσική/);
+  assert.ok(seo.description.length<=158);
+  st.description='Πρωινή Ζώνη · Ελληνική μουσική · Αθήνα';
+  const repeated=core.stationSeo(st).description;
+  assert.equal((repeated.match(/Πρωινή Ζώνη/g)||[]).length,1);
+  assert.equal((repeated.match(/Ελληνική μουσική/g)||[]).length,1);
+  assert.equal((repeated.match(/Αθήνα/g)||[]).length,1);
+});
+test('schema includes only declared subgenres, frequencies and programme hosts',()=>{
+  const st=station();
+  st.transmissionType='Επίγειο';
+  st.frequency='98.7 FM';
+  const radio=core.stationSeo(st).ld['@graph'].find(x=>x['@type']==='RadioStation');
+  assert.deepEqual(radio.genre,['Ελληνική μουσική','Έντεχνα']);
+  assert.equal(radio.broadcastFrequency,'98.7 FM');
+  assert.equal(radio.slogan,'Η μουσική σου');
+  assert.equal(core.stationSeo({...st,transmissionType:'Web Radio'}).ld['@graph']
+    .find(x=>x['@type']==='RadioStation').broadcastFrequency,undefined);
+});
+test('only trusted station social URLs are linked in prerender',()=>{
+  const st=station();
+  st.website='https://example.org/';
+  st.facebook='http://insecure.example.org/';
+  st.instagram='javascript:alert(1)';
+  assert.deepEqual(core.links(st),['https://example.org/']);
 });
