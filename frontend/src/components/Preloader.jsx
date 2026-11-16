@@ -4,14 +4,17 @@ import './preloader.css';
 
 // A fast, non-blocking brand reveal. Playback, routes and APIs start independently.
 const EQUALIZER_HEIGHTS = [7, 12, 18, 11, 26, 16, 22, 12, 8];
+const SPLASH_DURATION_MS = 1400;
+const SPLASH_FADE_MS = 250;
 
 export default function Preloader() {
   const [phase, setPhase] = useState('enter');
 
   useEffect(() => {
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const fade = window.setTimeout(() => setPhase('exit'), reducedMotion ? 120 : 560);
-    const remove = window.setTimeout(() => setPhase('removed'), reducedMotion ? 150 : 830);
+    // The 1.4s splash includes the last 250ms fade. Reduced-motion users
+    // see the same duration with static artwork (CSS removes animations).
+    const fade = window.setTimeout(() => setPhase('exit'), SPLASH_DURATION_MS - SPLASH_FADE_MS);
+    const remove = window.setTimeout(() => setPhase('removed'), SPLASH_DURATION_MS);
     return () => {
       window.clearTimeout(fade);
       window.clearTimeout(remove);
