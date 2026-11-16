@@ -21,7 +21,11 @@ function enabled(){
   process.env.ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED==='1'&&
   // Financial tickets are staging-only and require the signed Sandbox
   // checkout; no legacy QA preview or parallel CPM engine can coexist.
-  process.env.IRADIOS_BILLING_SANDBOX_ENABLED==='1'&&
+  // Keep the legacy offline Mongo settlement fixture valid. Production
+  // cannot enable paid delivery without configured, selected Gateway keys.
+  (require('./gatewayEnvironment').configured() ||
+   (require('./gatewayEnvironment').mode()==='staging' &&
+    process.env.IRADIOS_BILLING_SANDBOX_ENABLED==='1'))&&
   process.env.AD_STAGE_QA_APPROVAL_ENABLED!=='1'&&
   process.env.AD_STAGE_PAID_PLACEMENT_PREVIEW!=='1'&&
   process.env.AD_DELIVERY_BILLING_ENABLED!=='1'&&

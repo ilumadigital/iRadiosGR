@@ -1,5 +1,6 @@
 'use strict';
 const crypto=require('node:crypto');
+const gatewayEnvironment=require('./gatewayEnvironment');
 const PAYMENT_ID=/^[a-f0-9]{32}$/;
 const ORDER_ID=/^IL[A-F0-9]{24}$/;
 const EVENT_ID=/^[a-f0-9]{32}$/;
@@ -79,7 +80,7 @@ function validatePaymentEvent(body,eventId,now=new Date()){
    return false;
  if(!['payment.paid','payment.failed','payment.canceled'].includes(body.event_type))
    return false;
- if(body.environment!=='staging'||![199,399].includes(body.amount_cents)||body.currency!=='EUR')
+ if(body.environment!==gatewayEnvironment.mode()||![199,399].includes(body.amount_cents)||body.currency!=='EUR')
    return false;
  if(body.product_sku!==undefined &&
     body.product_sku!==(body.amount_cents===199?'L-WINBACK-199':'L-PREM'))
@@ -166,7 +167,7 @@ function safeOrderStatus(row,now=new Date()){
    graceEndsAt:row.graceEndsAt||null,
    autoRenewRequested:row.autoRenewRequested===true,
    billingOrigin:row.billingOrigin||'checkout',
-   autoRenew:false,environment:'staging'};
+   autoRenew:false,environment:gatewayEnvironment.mode()};
 }
 module.exports={canonicalSignature,headersForRequest,verifyWebhookHeaders,
   hostedCheckoutUrl,validateGatewayPayment,validateAdvertisingGatewayPayment,localStatusFromGatewayLookup,nextMonthlyPeriod,safeOrderStatus,

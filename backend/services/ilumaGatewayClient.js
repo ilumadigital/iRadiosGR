@@ -3,22 +3,19 @@ const https=require('node:https');
 const {headersForRequest,validateGatewayPayment,validateAdvertisingGatewayPayment,GATEWAY_CHECKOUT_PATH,PAYMENT_ID}=
  require('./gatewayBillingProtocol');
 const GATEWAY_HOST='gateway.iluma.gr';
-function configured(){
- return process.env.APP_ENV==='staging' &&
-   process.env.IRADIOS_BILLING_SANDBOX_ENABLED==='1' &&
-   /^ilg_[a-f0-9]{48}$/.test(process.env.ILUMA_GATEWAY_STAGING_KEY||'') &&
-   /^[a-f0-9]{64}$/.test(process.env.ILUMA_GATEWAY_STAGING_SECRET||'');
-}
+const activeGateway=require('./gatewayEnvironment');
+const configured=activeGateway.configured;
 function unavailable(){
- const err=new Error('Nexi Sandbox checkout is not configured');
- err.code='SANDBOX_UNAVAILABLE';return err;
+ const err=new Error('Gateway checkout is not configured');
+ err.code='GATEWAY_UNAVAILABLE';return err;
 }
 function signedRequest(method,path,data=null,idempotencyKey=null){
- if(!configured())return Promise.reject(unavailable());
+ const active=activeGateway.credentials();
+ if(!active)return Promise.reject(unavailable());
  const raw=data===null?'':JSON.stringify(data);
  const signed=headersForRequest({
-   key:process.env.ILUMA_GATEWAY_STAGING_KEY,
-   secret:process.env.ILUMA_GATEWAY_STAGING_SECRET,
+   key:active.key,
+   secret:active.secret,
    method,path,rawBody:raw
  });
  const headers={...signed,Accept:'application/json',

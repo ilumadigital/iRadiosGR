@@ -217,7 +217,7 @@ router.post('/advertising/quotes/:id/checkout',async(req,res)=>{
  if(!isAgency(req)||!objectId(req.params.id))
   return res.status(403).json({error:'Forbidden'});
  if(!gateway.configured())
-  return res.status(503).json({error:'ILUMA Gateway staging credentials are unavailable.'});
+  return res.status(503).json({error:'Τα Gateway credentials για το επιλεγμένο περιβάλλον δεν είναι διαθέσιμα.'});
  try{
   // Disabling the current tax/checkout policy also blocks old unconsumed quotes.
   // Their immutable price snapshots remain readable, but cannot charge Nexi.

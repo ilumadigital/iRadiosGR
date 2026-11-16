@@ -116,7 +116,7 @@ async function snoozeRenewalNotice(req,res){
 }
 
 async function checkout(req,res){
- if(!permitted())return res.status(503).json({code:'SANDBOX_DISABLED',error:'Οι συνδρομές δεν είναι διαθέσιμες αυτή τη στιγμή.'});
+ if(!permitted())return res.status(503).json({code:'GATEWAY_BILLING_DISABLED',error:'Οι συνδρομές δεν είναι διαθέσιμες αυτή τη στιγμή.'});
  if(!req.user||req.user.role!=='user'||req.user.isVerified!==true)
   return res.status(403).json({error:'Απαιτείται επιβεβαιωμένος λογαριασμός ακροατή.'});
  const clientKey=req.get('Idempotency-Key')||'';
@@ -215,7 +215,7 @@ async function checkout(req,res){
   }
   // Gateway or network uncertainty does not mean the customer was NOT charged.
   // Keep the lock and the original Idempotency-Key. Do not retry automatically.
-  console.warn('[BILLING] Sandbox checkout requires reconciliation',error.code||error.name||'network');
+  console.warn('[BILLING] Gateway checkout requires reconciliation',error.code||error.name||'network');
   const updated=await BillingOrder.findOneAndUpdate({_id:order._id,status:'creating'},
     {$set:{status:'unknown',lastErrorCode:'CHECKOUT_UNCONFIRMED'}},{new:true});
   return res.status(202).json({order:display(updated||order),
@@ -250,7 +250,7 @@ async function billingOverview(req,res){
   gateway.savedCardStatus(req.user)
  ]);
  return res.json({
-  environment:'staging',sku:'L-PREM',currency:'EUR',priceCents:399,
+  environment:require('../services/gatewayEnvironment').mode(),sku:'L-PREM',currency:'EUR',priceCents:399,
   recurring,orders:orders.map(display),payments,paymentMethod,
   invoices:[],invoicesAvailable:false
  });
@@ -348,7 +348,7 @@ async function listAdminOrders(req,res){
   createdAt:row.createdAt,events:(row.eventLog||[]).map(e=>({
    id:e.id,type:e.type,at:e.at
   }))
- })),environment:'staging',autoRenew:false});
+ })),environment:require('../services/gatewayEnvironment').mode(),autoRenew:false});
 }
 
 async function webhook(req,res){
@@ -356,7 +356,12 @@ async function webhook(req,res){
   return res.status(503).json({error:'Staging webhook only'});
  const raw=req.body;
  const verified=verifyWebhookHeaders({
-  secret:process.env.ILUMA_GATEWAY_STAGING_SECRET,headers:req.headers,rawBody:raw
+  // A legacy Sandbox webhook still needs HMAC verification during offline
+  // regression even when checkout is mocked; never fall back in Production.
+  secret:require('../services/gatewayEnvironment').credentials()?.secret ||
+    (require('../services/gatewayEnvironment').mode()==='staging'
+      ?process.env.ILUMA_GATEWAY_STAGING_SECRET:null),
+  headers:req.headers,rawBody:raw
  });
  if(!verified.valid)return res.status(401).json({error:'Invalid webhook signature'});
  let event;

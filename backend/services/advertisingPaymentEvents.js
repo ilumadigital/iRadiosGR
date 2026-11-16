@@ -1,4 +1,5 @@
 'use strict';
+const gatewayEnvironment=require('./gatewayEnvironment');
 const mongoose=require('mongoose');
 const Campaign=require('../models/AdvertisingCampaign');
 const Quote=require('../models/AdvertisingQuote');
@@ -15,7 +16,7 @@ function validAdvertisingEvent(e,headerEventId,now=new Date()){
  if(e.event_id!==headerEventId||!PAYMENT.test(e.event_id||'')||
     !PAYMENT.test(e.payment_id||'')||!ORDER.test(e.order_id||'')||
     !USER.test(e.external_user_id||''))return false;
- if(e.product_sku!=='ADV-BUDGET'||e.environment!=='staging'||
+ if(e.product_sku!=='ADV-BUDGET'||e.environment!==gatewayEnvironment.mode()||
     !['payment.paid','payment.failed','payment.canceled'].includes(e.event_type)||
     !Number.isSafeInteger(e.amount_cents)||e.amount_cents<100||
     e.amount_cents>100000000||e.currency!=='EUR')return false;
