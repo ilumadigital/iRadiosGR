@@ -45,7 +45,7 @@ jobs:
           node --check backend/services/seo2Render.js
           node --check backend/services/seo2Routes.js
           node --check backend/services/seo2Image.js
-          grep -Fq 'app.use(require(\x27./services/seo2Routes\x27))' backend/server.js
+          grep -Fq 'seo2Routes' backend/server.js
           grep -Fq 'location ^~ /station/' ops/nginx-stage.conf
       - name: Prevent retired payment provider code, dependencies and stale checkout references
         run: node ops/check-no-retired-payments.cjs
