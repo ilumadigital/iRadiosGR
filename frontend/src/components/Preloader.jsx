@@ -1,33 +1,51 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { preloaderTimeline } from '../utils/preloaderTimeline';
 import BrandLogo from './BrandLogo';
 import './preloader.css';
 
 // A fast, non-blocking brand reveal. Playback, routes and APIs start independently.
 const EQUALIZER_HEIGHTS = [7, 12, 18, 11, 26, 16, 22, 12, 8];
-const SPLASH_DURATION_MS = 1400;
-const SPLASH_FADE_MS = 250;
 
 export default function Preloader() {
+  // The SEO document already painted the COMPLETE branded splash. Keep that
+  // exact DOM node above React (outside #root) until it fades. Never mount a
+  // second logo, and never restart the 1.4s clock when React finally loads.
+  const [hasHtmlSplash] = useState(() => typeof window !== 'undefined' && (
+    Number.isFinite(window.__irSeoSplashStart) ||
+    Boolean(document.getElementById('ir-seo-bootstrap'))
+  ));
   const [phase, setPhase] = useState('enter');
 
-  // React's matching branded splash is committed before the temporary SEO
-  // bootstrap cover is removed. No raw HTML frame or doubled logos.
-  useLayoutEffect(() => {
-    document.getElementById('ir-seo-bootstrap')?.remove();
-  }, []);
-
   useEffect(() => {
-    // The 1.4s splash includes the last 250ms fade. Reduced-motion users
-    // see the same duration with static artwork (CSS removes animations).
-    const fade = window.setTimeout(() => setPhase('exit'), SPLASH_DURATION_MS - SPLASH_FADE_MS);
-    const remove = window.setTimeout(() => setPhase('removed'), SPLASH_DURATION_MS);
+    const htmlSplash = hasHtmlSplash ? document.getElementById('ir-seo-bootstrap') : null;
+    // The 10-second no-bundle failsafe may have already removed the HTML
+    // splash. In that case just show the mounted app; don't flash a new one.
+    if (hasHtmlSplash && !htmlSplash) return undefined;
+
+    const now = window.performance.now();
+    const startedAt = hasHtmlSplash ? window.__irSeoSplashStart : now;
+    const { fadeInMs, removeInMs } = preloaderTimeline(startedAt, now);
+    // On a normal SPA-only route, React owns the only splash.
+    // On SEO routes, it only schedules the existing HTML node's exit.
+    const fade = window.setTimeout(() => {
+      if (htmlSplash) htmlSplash.classList.add('ir-splash--exit');
+      else setPhase('exit');
+    }, fadeInMs);
+    const remove = window.setTimeout(() => {
+      if (htmlSplash) {
+        htmlSplash.remove();
+        document.documentElement.classList.remove('ir-seo-js');
+      } else setPhase('removed');
+    }, removeInMs);
     return () => {
       window.clearTimeout(fade);
       window.clearTimeout(remove);
     };
-  }, []);
+  }, [hasHtmlSplash]);
 
-  if (phase === 'removed') return null;
+  // On SSR pages there is already exactly one visual preloader; this component
+  // is its lifecycle controller, not a second preloader inside React.
+  if (hasHtmlSplash || phase === 'removed') return null;
 
   return (
     <div className={`ir-splash ir-splash--${phase}`} role="status" aria-label="Φόρτωση iRadios GR">

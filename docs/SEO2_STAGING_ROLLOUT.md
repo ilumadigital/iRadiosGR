@@ -177,3 +177,35 @@ in host Nginx, must be removed/replaced separately after backup.
 - Test changing a published description, schedule, category or station approval,
   allowing for HTTP cache expiry. Private playlists and pending/rejected
   records must never appear.
+
+
+### SEO 2.2 — One continuous first-paint preloader (no black intro + second splash)
+
+- The semantic SEO document renders the **same full iRadios splash** markup as
+  React (one official logo, the ambient effect, waves, glow, tagline, equalizer).
+  Critical CSS is inlined before Vite styles load to avoid a bare black first
+  screen; the artwork and layout are designed to match the React stylesheet.
+- The first painted HTML records `window.__irSeoSplashStart` using
+  `performance.now()`. When React mounts, it does **not** render another splash
+  on SEO routes: it adopts the existing `#ir-seo-bootstrap` element and
+  schedules its single fade/removal against the **elapsed** 1400ms timeline.
+- A late React mount fades the existing image over 250ms rather than restarting
+  a second 1.4s animation. A frontend-only route still gets its normal one
+  React preloader. No audio/navigation/requests are blocked by the splash.
+- Without JavaScript, the HTML splash is hidden by default and real styled SEO
+  station content remains visible. If React never loads, the 10-second
+  watchdog removes the HTML splash and exposes that content rather than
+  leaving the user stuck behind an overlay.
+- Staging QA: test cold/full reload (homepage, station, genre, map) on both
+  desktop and mobile, throttle JS network, verify one logo/visual splash with
+  no black interlude, no reset at React mount, original artwork proportions,
+  1.4-second target where loading is fast, and graceful late mount.
+  Check no-JS SSR page, JS bundle failure fallback, reduced-motion, and that
+  schema/FAQ/meta/sitemaps remain unchanged.
+- Regression checks:
+  `node --test frontend/src/utils/preloaderTimeline.test.mjs`,
+  `node ops/check-preloader-branding.test.cjs`, and
+  `node --test backend/tests/seo2Render.test.js`.
+
+Changes are **staging GitHub source only** until manual
+`cd /srv/iradios/staging/app && sudo ./ilumadev.sh`. Production remains untouched.
