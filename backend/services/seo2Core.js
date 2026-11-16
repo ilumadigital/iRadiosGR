@@ -83,20 +83,65 @@ function upcomingEvents(st, now = new Date()) {
   }
   return list;
 }
-function stationFaq(st) {
-  const name = pick(st.name, 100);
-  const faq = [{q:'Πού μπορώ να ακούσω τον ' + name + ';',
-    a:'Μπορείτε να ακούσετε τον ' + name + ' ζωντανά μέσα από τη σελίδα του στο iRadios.'}];
-  if (st.city) faq.push({q:'Από πού εκπέμπει ο ' + name + ';',
-    a:'Η δηλωμένη πόλη του σταθμού είναι ' + pick(st.city, 90) +
-      (st.region ? ', ' + pick(st.region, 90) : '') + '.'});
-  const shows = normalizedSchedule(st);
-  if (shows.length) faq.push({q:'Πού θα βρω το πρόγραμμα του ' + name + ';',
-    a:'Το καταχωρισμένο πρόγραμμα εκπομπών εμφανίζεται στο προφίλ του σταθμού. Οι ώρες είναι Ελλάδας.'});
-  const hosted = shows.find(show => show.host);
-  if (hosted) faq.push({q:'Ποιος παρουσιάζει την εκπομπή ' + hosted.title + ';',
-    a:'Στο δημοσιευμένο πρόγραμμα του σταθμού αναφέρεται ο/η ' + hosted.host + '.'});
-  return faq;
+// Five or fewer factual public FAQ entries. The 30-minute song history is
+// authenticated and must NEVER be queried or serialized for SEO.
+function stationFaq(st, now = new Date()) {
+  const name = pick(st.name, 100) || 'σταθμός';
+  const faq = [];
+  const schedule = normalizedSchedule(st);
+  const genres = [...new Set([st.genre, st.secondaryGenre,
+    ...(Array.isArray(st.secondaryGenres) ? st.secondaryGenres : [])]
+    .map(value => pick(value, 90)).filter(Boolean))];
+  if (genres.length) faq.push({
+    q: 'Τι μουσική παίζει ο ' + name + ';',
+    a: 'Οι δηλωμένες μουσικές κατηγορίες του σταθμού είναι: ' + genres.join(', ') + '.'
+  });
+  if (schedule.length) {
+    const localToday = athensDate(now);
+    const weekday = ((new Date(localToday + 'T12:00:00Z').getUTCDay() + 6) % 7) + 1;
+    const today = schedule.filter(show => show.day === weekday);
+    const next = [...schedule].sort((a,b) =>
+      (a.day - weekday + 7) % 7 - (b.day - weekday + 7) % 7 ||
+      a.startTime.localeCompare(b.startTime))[0];
+    const selected = today.length ? today.slice(0, 3) : [next];
+    const showText = selected.map(show =>
+      show.title + ' (' + DAYS[show.day - 1] + ' ' + show.startTime + '–' +
+      show.endTime + (show.host ? ', ' + show.host : '') + ')').join(' · ');
+    faq.push({
+      q: today.length ? 'Ποιες εκπομπές έχει σήμερα ο ' + name + ';' :
+        'Ποιες εκπομπές υπάρχουν στο πρόγραμμα του ' + name + ';',
+      a: 'Σύμφωνα με το δημοσιευμένο πρόγραμμα: ' + showText +
+        '. Οι ώρες είναι Ελλάδας (Europe/Athens).'
+    });
+    const hosts = [...new Map(schedule.filter(show => show.host).map(show =>
+      [show.host.toLocaleLowerCase('el-GR'), show])).values()].slice(0, 3);
+    if (hosts.length) faq.push({
+      q: 'Ποιοι παραγωγοί κάνουν εκπομπές στον ' + name + ';',
+      a: 'Στο δημοσιευμένο πρόγραμμα αναφέρονται: ' +
+        hosts.map(show => show.host + ' (' + show.title + ')').join(', ') + '.'
+    });
+  }
+  // A truthful public explanation of the existing protected playlist feature.
+  // Song titles, artists and Premium AI recognitions remain restricted to the UI.
+  faq.push({
+    q: 'Πώς βλέπω τα πρόσφατα τραγούδια στην playlist του ' + name + ';',
+    a: 'Η playlist εμφανίζει τα καταγεγραμμένα τραγούδια των τελευταίων 30 λεπτών ' +
+      'σε συνδεδεμένους χρήστες. Οι απλοί λογαριασμοί χρειάζονται επιβεβαιωμένο ' +
+      'email, ενώ ορισμένες αναγνωρίσεις AI απαιτούν Premium.'
+  });
+  const city = pick(st.city, 90), region = pick(st.region, 90);
+  const freq = st.transmissionType === 'Επίγειο' ? pick(st.frequency, 24) : '';
+  if (city || region || freq) faq.push({
+    q: 'Από πού εκπέμπει ο ' + name + (freq ? ' και σε ποια συχνότητα' : '') + ';',
+    a: [city || region ? 'Δηλωμένη περιοχή: ' +
+      [city, region].filter((x,i,a) => x && (i===0 || x!==a[0])).join(', ') + '.' : '',
+      freq ? 'Επίγεια συχνότητα: ' + freq + '.' : ''].filter(Boolean).join(' ')
+  });
+  if (faq.length < 5) faq.push({
+    q: 'Πού μπορώ να ακούσω ζωντανά τον ' + name + ';',
+    a: 'Ο σταθμός είναι διαθέσιμος για ζωντανή ακρόαση στη σελίδα του στο iRadios.'
+  });
+  return faq.slice(0, 5);
 }
 // A concise description assembled exclusively from public broadcaster profile facts.
 // Keep actual editorial copy first, adding relevant programme/category/location facts
