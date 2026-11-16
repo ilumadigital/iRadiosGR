@@ -87,6 +87,9 @@ export default function StationProfile({
     })),
     [station?.schedule,station?.scheduleDayBase]);
   const [publicFaqState,setPublicFaqState]=useState({stationId:null,items:[]});
+  // This is private UI state sourced solely from the authenticated playlist panel.
+  // No track is added to public HTML, the FAQ endpoint or JSON-LD.
+  const [faqHistory,setFaqHistory]=useState({stationId:null,tracks:[]});
   useEffect(()=>{
     if(!station?._id){setPublicFaqState({stationId:null,items:[]});return undefined;}
     const id=String(station._id);
@@ -110,6 +113,10 @@ export default function StationProfile({
     return()=>{controller.abort();window.clearInterval(refresh);};
   },[station?._id,station?.slug,station?.seoUpdatedAt]);
   const publicFaq=publicFaqState.stationId===String(station?._id)?publicFaqState.items:[];
+  const faqRecentTracks=currentUser &&
+    (currentUser.role!=='user'||currentUser.isVerified===true) &&
+    faqHistory.stationId===String(station?._id)?
+    faqHistory.tracks.filter(track=>!track.premiumOnly&&track.title&&track.artist).slice(0,3):[];
   const isFreeOrGuest = !currentUser || (!currentUser.isPremium && currentUser?.broadcasterProfile?.tier !== 'premium');
   const isThisPlaying = currentStation && (currentStation._id === station?._id);
 
@@ -703,7 +710,8 @@ export default function StationProfile({
         <aside className="ir-station-playlist-aside" aria-label="Playlist σταθμού">
           <StationPlaylistPanel station={station} currentUser={currentUser}
             currentStation={currentStation} isPlaying={isPlaying}
-            onPlayPause={onPlayPause} onPlayStation={setCurrentStation} sidebar mobileShowcase/>
+            onPlayPause={onPlayPause} onPlayStation={setCurrentStation} sidebar mobileShowcase
+            onTracksLoaded={tracks=>setFaqHistory({stationId:String(station?._id||''),tracks})}/>
         </aside>
         <div className="ir-station-info-stack">
         <section className="ir-station-about" aria-label="Πληροφορίες σταθμού">
@@ -753,6 +761,15 @@ export default function StationProfile({
             {publicFaq.map(item=><details key={item.q} className="rounded-xl border border-white/10 p-4">
               <summary className="cursor-pointer font-bold">{item.q}</summary>
               <p className="mt-3 text-zinc-400">{item.a}</p>
+              {item.q.toLocaleLowerCase('el-GR').includes('playlist') && faqRecentTracks.length>0&&
+                <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                  <p className="mb-2 text-xs font-bold text-[#ccff00]">Από την προσωπική σου προβολή playlist</p>
+                  <ul className="space-y-1 text-xs text-zinc-300">
+                    {faqRecentTracks.map((track,index)=><li key={index}>
+                      {track.artist} — {track.title}
+                    </li>)}
+                  </ul>
+                </div>}
             </details>)}
           </div>
         </section>}
