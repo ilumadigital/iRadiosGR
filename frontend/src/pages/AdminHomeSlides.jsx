@@ -1,3 +1,5 @@
+import GreekDateInput from '../components/GreekDateInput';
+import {toAthensLocalDateTime, athensWallTimeToIso} from '../utils/dateTime';
 import {subscribeLiveUpdates} from '../utils/liveUpdates';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React, { useEffect, useState } from 'react';
@@ -11,7 +13,7 @@ const emptySlide = () => ({
 });
 const fieldClass='w-full rounded-xl border border-white/10 bg-zinc-950 px-3 py-3 text-sm text-white outline-none focus:border-[#ccff00]/70';
 const labelClass='mb-1 block text-xs font-bold text-zinc-300';
-const toLocal = value => { if(!value)return ''; const d=new Date(value); return Number.isFinite(d.getTime()) ? new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16) : ''; };
+const toLocal=toAthensLocalDateTime;
 const credential = () => ({Authorization:`Bearer ${localStorage.getItem('iluma_token') || ''}`});
 // Uploads are saved in actual 1200×630 resolution; remote images retain their
 // original bytes but are displayed through the same fixed-ratio cover frame.
@@ -106,8 +108,11 @@ export default function AdminHomeSlides() {
       }
       const first=draft.placements[0];
       if(!first)throw new Error('Επίλεξε τουλάχιστον μία θέση προβολής.');
+      const startsAt=draft.startsAt?athensWallTimeToIso(draft.startsAt):null;
+      const endsAt=draft.endsAt?athensWallTimeToIso(draft.endsAt):null;
+      if((draft.startsAt&&!startsAt)||(draft.endsAt&&!endsAt))throw new Error('Μη έγκυρη ημερομηνία ή ώρα Αθήνας.');
       const payload={...draft,imageUrl,placement:first.placement,placementValue:first.placementValue||'',placements:draft.placements,priority:Number(draft.priority),
-        startsAt:draft.startsAt||null,endsAt:draft.endsAt||null};
+        startsAt,endsAt};
       const response=await fetch(`/api/admin/home-slides${editingId?'/'+editingId:''}`,{
         method:editingId?'PUT':'POST',
         headers:{...credential(),'Content-Type':'application/json'},
@@ -206,8 +211,8 @@ export default function AdminHomeSlides() {
             <label><span className={labelClass}>Προτεραιότητα (0–1000)</span><input type="number" min={0} max={1000} className={fieldClass} value={draft.priority} onChange={e=>change('priority',e.target.value)}/></label>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label><span className={labelClass}>Αρχή (προαιρετικά)</span><input type="datetime-local" className={fieldClass} value={draft.startsAt} onChange={e=>change('startsAt',e.target.value)}/></label>
-            <label><span className={labelClass}>Λήξη (προαιρετικά)</span><input type="datetime-local" className={fieldClass} value={draft.endsAt} onChange={e=>change('endsAt',e.target.value)}/></label>
+            <label><span className={labelClass}>Αρχή (προαιρετικά)</span><GreekDateInput type="datetime-local" className={fieldClass} value={draft.startsAt} onChange={e=>change('startsAt',e.target.value)}/></label>
+            <label><span className={labelClass}>Λήξη (προαιρετικά)</span><GreekDateInput type="datetime-local" className={fieldClass} value={draft.endsAt} onChange={e=>change('endsAt',e.target.value)}/></label>
           </div>
           <div className="flex flex-wrap gap-3">
             <button type="submit" disabled={busy} className="ir-action-primary px-6"><Save size={17}/>{busy?'Αποθήκευση…':'Αποθήκευση'}</button>

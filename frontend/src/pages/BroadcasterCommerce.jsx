@@ -1,3 +1,4 @@
+import {formatDate} from '../utils/dateTime';
 import React, {useEffect,useMemo,useRef,useState} from 'react';
 import {Link} from 'react-router-dom';
 import BroadcasterPlanComparison from '../components/BroadcasterPlanComparison';
@@ -285,7 +286,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
     {order&&<section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/15 bg-[#161c1c] p-5">
       <div><p className="text-xs font-black text-white">Τελευταία συναλλαγή · {order.sku}</p>
         <p className="mt-2 text-xs text-zinc-400">Κατάσταση: <strong className="text-[#ccff00]">{order.status}</strong>
-        {order.periodEndsAt?' · Λήξη: '+new Date(order.periodEndsAt).toLocaleDateString('el-GR'):''}</p></div>
+        {order.periodEndsAt?' · Λήξη: '+formatDate(order.periodEndsAt):''}</p></div>
       {activeStates.has(order.status)&&<button type="button" disabled={Boolean(busySku)}
         onClick={()=>void inspectOrder(order.id)}
         className="rounded-xl bg-[#ccff00] px-5 py-3 text-xs font-black text-black disabled:opacity-50">Έλεγχος πληρωμής</button>}

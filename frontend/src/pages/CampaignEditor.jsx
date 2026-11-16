@@ -1,3 +1,5 @@
+import GreekDateInput from '../components/GreekDateInput';
+import {toAthensLocalDateTime, athensWallTimeToIso} from '../utils/dateTime';
 import React, {useEffect, useState} from 'react';
 import {Link, useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import {ArrowLeft, Check, Image as ImageIcon, Music2, RefreshCw, ShieldAlert} from 'lucide-react';
@@ -49,7 +51,7 @@ function normalize(item) {
     targetLocations:Array.isArray(item?.targetLocations)&&item.targetLocations.length?item.targetLocations:['All'],
     placement:Array.isArray(item?.placement)?item.placement:(item?.placement?[item.placement]:['home']),
     brandColor:/^#[0-9a-f]{6}$/i.test(item?.brandColor||'')?item.brandColor:'#a855f7',
-    expiresAt:item?.expiresAt?new Date(item.expiresAt).toISOString().slice(0,16):'',
+    expiresAt:toAthensLocalDateTime(item?.expiresAt),
     duration:item?.duration||'month'
   };
 }
@@ -192,8 +194,11 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
       if(files.squareImageFile)patch.squareImageUrl=await upload(files.squareImageFile,'upload-banner','imageFile');
       if(files.logoFile)patch.logoUrl=await upload(files.logoFile,'upload-logo','logoFile');
       if(files.audioFile)patch.audioUrl=await upload(files.audioFile,'upload-ad','audioFile');
-      if(patch.expiresAt)patch.expiresAt=new Date(patch.expiresAt).toISOString();
-      else patch.expiresAt=null;
+      if(patch.expiresAt){
+        const utcExpiry=athensWallTimeToIso(patch.expiresAt);
+        if(!utcExpiry)throw new Error('Μη έγκυρη ημερομηνία ή ώρα λήξης Αθήνας.');
+        patch.expiresAt=utcExpiry;
+      }else patch.expiresAt=null;
       if(scope==='agency')patch.status='pending';
       const response=await fetch(route.save,{method:id?'PUT':'POST',
         headers:{...auth(),'Content-Type':'application/json'},body:JSON.stringify(patch)});
@@ -307,7 +312,7 @@ export default function CampaignEditor({scope='admin',kind='banners',currentUser
           {scope==='admin'&&<div className="grid gap-3 sm:grid-cols-2">
             <Field label="Κατάσταση"><select className={input} value={form.status} onChange={e=>change('status',e.target.value)}><option value="active">Ενεργή</option><option value="pending">Προς έγκριση</option><option value="expired">Ανενεργή / έληξε</option><option value="rejected">Απορρίφθηκε</option></select></Field>
             <Field label="Διάρκεια"><select className={input} value={form.duration} onChange={e=>change('duration',e.target.value)}><option value="day">24 ώρες</option><option value="month">Μήνας</option><option value="year">Έτος</option></select></Field>
-            <Field label="Λήξη (προαιρετικό)"><input type="datetime-local" className={input} value={form.expiresAt} onChange={e=>change('expiresAt',e.target.value)}/></Field>
+            <Field label="Λήξη (προαιρετικό)"><GreekDateInput type="datetime-local" className={input} value={form.expiresAt} onChange={e=>change('expiresAt',e.target.value)}/></Field>
           </div>}
           {scope==='agency'&&<p className="text-xs text-amber-200">Αποθήκευση ως draft προς έγκριση Admin · καμία δοκιμαστική χρέωση.</p>}
         </section>
