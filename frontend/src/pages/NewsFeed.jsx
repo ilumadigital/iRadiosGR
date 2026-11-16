@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import DynamicAdCreative from '../components/DynamicAdCreative';
 import {geoAllowsAd} from '../utils/adPlacements';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
@@ -15,7 +16,7 @@ export function newsAge(value,now=Date.now()){
   const [unit,ms]=units.find(([,duration])=>age>=duration)||units[units.length-1];
   const number=Math.max(1,Math.floor(age/ms));
   return {relative:new Intl.RelativeTimeFormat('el-GR',{numeric:'always'}).format(-number,unit),
-    absolute:new Intl.DateTimeFormat(undefined,{dateStyle:'long',timeStyle:'short'}).format(date),iso:date.toISOString()};
+    absolute:formatDateTime(date),iso:date.toISOString()};
 }
 export function Article({item,view,now,source,backTo}){
   const [broken,setBroken]=useState(false),time=newsAge(item.publishedAt,now);

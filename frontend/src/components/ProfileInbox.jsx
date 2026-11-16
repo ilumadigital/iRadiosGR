@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import React,{useCallback,useEffect,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {ArrowRight,BellRing,CheckCheck,Clock3,Loader2,Newspaper,Radio,RefreshCw,Trash2,Mic2,ShieldCheck} from 'lucide-react';
@@ -5,12 +6,7 @@ import {ArrowRight,BellRing,CheckCheck,Clock3,Loader2,Newspaper,Radio,RefreshCw,
 const ICONS={news:Newspaper,newStations:Radio,shows:Mic2,favoriteSchedule:Radio,promotions:BellRing,system:ShieldCheck};
 const auth=()=>({Authorization:'Bearer '+(localStorage.getItem('iluma_token')||''),
   'Content-Type':'application/json'});
-const time=value=>{
-  const date=new Date(value);
-  return Number.isFinite(date.getTime())?date.toLocaleString('el-GR',{
-    day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'
-  }):'';
-};
+const time=value=>formatDateTime(value,'');
 const messageFor=async response=>{
   const payload=await response.json().catch(()=>({}));
   if(!response.ok)throw Error(payload.error||'Η ενέργεια δεν ολοκληρώθηκε.');
