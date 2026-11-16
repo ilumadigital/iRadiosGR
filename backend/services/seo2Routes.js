@@ -45,7 +45,11 @@ router.get('/station/:slug',async(req,res)=>{
     const objectId=/^[0-9a-f]{24}$/i.test(slug);
     const station=await Station.findOne({...ONLY_APPROVED,
       $or:[{slug},...(objectId?[{_id:slug}]:[])]}).lean();
-    if(!station)return missing(res);
+    if(!station){
+      const moved=await Station.findOne({...ONLY_APPROVED,previousSlugs:slug})
+        .select('_id slug').lean();
+      return moved?res.redirect(301,stationUrl(moved)):missing(res);
+    }
     if(objectId && station.slug && station.slug!==slug)
       return res.redirect(301,stationUrl(station));
     if(station.slug && station.slug !== slug) return res.redirect(301,stationUrl(station));
@@ -157,7 +161,9 @@ router.get('/sitemap.xml',async(_req,res)=>{
     const files=[];
     for(let page=1;page<=Math.ceil(count/PAGES_PER_SITEMAP);page++)
       files.push('sitemap-stations-'+page+'.xml');
-    files.push('sitemap-categories.xml','sitemap-regions.xml','sitemap-pages.xml','sitemap-images.xml');
+    files.push('sitemap-categories.xml','sitemap-regions.xml','sitemap-pages.xml');
+    for(let page=1;page<=Math.ceil(count/PAGES_PER_SITEMAP);page++)
+      files.push('sitemap-images-'+page+'.xml');
     const body='<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+
       files.map(file=>'<sitemap><loc>'+escapeXml(urlFor('/'+file))+'</loc></sitemap>').join('')+
       '</sitemapindex>';
@@ -199,11 +205,14 @@ router.get('/sitemap-pages.xml',(_req,res)=>{
   return xmlResponse(res,'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+
     [urlFor('/'),urlFor('/map')].map(x=>xmlUrl(x)).join('')+'</urlset>');
 });
-router.get('/sitemap-images.xml',async(_req,res)=>{
+router.get('/sitemap-images-:page.xml',async(req,res)=>{
   try{
+    const page=Number(req.params.page);
+    if(!Number.isSafeInteger(page)||page<1||page>10000)return missing(res);
     const stations=await Station.find(ONLY_APPROVED)
       .select('_id slug name slogan description genre city cover logo frequency schedule')
-      .limit(PAGES_PER_SITEMAP).lean();
+      .sort({_id:1}).skip((page-1)*PAGES_PER_SITEMAP).limit(PAGES_PER_SITEMAP).lean();
+    if(!stations.length)return missing(res);
     const body='<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '+
       'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">'+
       stations.map(st=>{const seo=stationSeo(st);return xmlUrl(seo.url,null,seo.image);}).join('')+
@@ -211,4 +220,5 @@ router.get('/sitemap-images.xml',async(_req,res)=>{
     return xmlResponse(res,body);
   }catch(error){return fail(res,error);}
 });
+router.get('/sitemap-images.xml',(_req,res)=>res.redirect(301,urlFor('/sitemap-images-1.xml')));
 module.exports=router;
