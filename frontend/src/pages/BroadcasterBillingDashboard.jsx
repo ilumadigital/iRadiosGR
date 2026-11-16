@@ -22,6 +22,7 @@ const labels={active:'Ενεργή',expired:'Έληξε',scheduled:'Προγρα
  unknown:'Αναμονή διασταύρωσης',failed:'Απέτυχε',canceled:'Ακυρώθηκε'};
 export default function BroadcasterBillingDashboard({stations=[]}){
  const [orders,setOrders]=useState([]),[catalog,setCatalog]=useState({});
+ const [gatewayEnv,setGatewayEnv]=useState('staging');
  const [loading,setLoading]=useState(true),[error,setError]=useState('');
  const [notice,setNotice]=useState(''),[busy,setBusy]=useState('');
  const [mandates,setMandates]=useState({}),[confirm,setConfirm]=useState(null);
@@ -30,6 +31,7 @@ export default function BroadcasterBillingDashboard({stations=[]}){
    call('/billing/broadcaster/orders'),call('/billing/catalog')
   ]);
   setOrders(a.orders||[]);
+  setGatewayEnv(a.environment==='production'?'production':'staging');
   setCatalog(Object.fromEntries((b.products||[]).map(p=>[p.sku,p])));
  };
  useEffect(()=>{let alive=true;setLoading(true);
@@ -160,7 +162,7 @@ export default function BroadcasterBillingDashboard({stations=[]}){
       </div>
      </article>;
    })}</div>}
-   <p className="text-[11px] leading-5 text-zinc-500">Sandbox περιβάλλον · Το ιστορικό εμφανίζει έως 60 πρόσφατες συναλλαγές. Οι αποδείξεις/τα φορολογικά παραστατικά δεν εμφανίζονται ως εκδοθέντα αν δεν υπάρχει ξεχωριστή επιβεβαιωμένη διαδικασία έκδοσης.</p>
+   <p className="text-[11px] leading-5 text-zinc-500">{gatewayEnv==='production'?'Πραγματικές συναλλαγές':'Δοκιμαστικές συναλλαγές'} · Το ιστορικό εμφανίζει έως 60 πρόσφατες συναλλαγές. Οι αποδείξεις/τα φορολογικά παραστατικά δεν εμφανίζονται ως εκδοθέντα αν δεν υπάρχει ξεχωριστή επιβεβαιωμένη διαδικασία έκδοσης.</p>
   </>}
   {confirm&&<div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
    <div role="dialog" aria-modal="true" aria-label="Επιβεβαίωση ακύρωσης" className="w-full max-w-lg rounded-[26px] border border-white/20 bg-[#171c1d] p-8">

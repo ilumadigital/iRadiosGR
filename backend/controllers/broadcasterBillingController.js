@@ -213,7 +213,7 @@ async function listOrders(req,res){
  const orders=await BroadcasterBillingOrder.find({
   accountId:req.user._id,environment:'staging'
  }).sort({createdAt:-1}).limit(60).lean();
- return res.json({orders:orders.map(display),environment:'staging'});
+ return res.json({orders:orders.map(display),environment:require('../services/gatewayEnvironment').mode()});
 }
 async function readOrder(req,res){
  if(!ID.test(req.params.id))return res.status(400).json({error:'Invalid order ID'});

@@ -215,7 +215,7 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
      <input type="checkbox" checked={pricing.enabled===true}
       disabled={pricing.taxMode==='unconfigured'}
       onChange={e=>update('enabled',e.target.checked)} />
-     Ενεργός τιμοκατάλογος για νέα quotes (η πραγματική πληρωμή απαιτεί επιπλέον Gateway sandbox flag)
+     Ενεργός τιμοκατάλογος για νέα quotes (η πληρωμή απαιτεί ενεργά Gateway credentials στο επιλεγμένο περιβάλλον)
     </label>
     <button type="button" className={primary} disabled={busy} onClick={save}>Αποθήκευση νέας έκδοσης</button>
    </section>
