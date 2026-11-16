@@ -45,6 +45,8 @@ test('Approval hub is admin-only with funding guard and rejection reasons',()=>{
 });
 test('Signed browser-independent transition proof binds each paid switch placement',()=>{
  assert.match(routes,/listenerSessions\.verify\(/);
+ assert.match(routes,/const selected=official\.find\(/);
+ assert.match(routes,/No scheduled time break/);
  assert.match(routes,/transitionProof/);
  assert.match(read('backend/utils/stagePublicAccess.js'),/tickets\|transition\|heartbeat/);
  assert.match(player,/registerStationTransition/);
