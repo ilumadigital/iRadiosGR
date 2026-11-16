@@ -1,3 +1,4 @@
+import {formatDateTime} from '../utils/dateTime';
 import React, {useEffect,useState} from 'react';
 import {Check,ChevronDown,CloudDownload,FileCode2,
   Link2Off,RefreshCw,ShieldCheck,TriangleAlert} from 'lucide-react';
@@ -10,9 +11,7 @@ const REQUIRED=['day','start','end'];
 const DEFAULT={url:'',rowTag:'',mapping:{},dayFormat:'iso'};
 const INPUT='w-full min-w-0 rounded-xl border border-white/10 bg-[#090b0d] px-4 py-3 text-xs text-zinc-100 outline-none focus:border-[#caff00]/60';
 const BTN='inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50';
-const localeDate=value=>value?new Date(value).toLocaleString('el-GR',{
-  timeZone:'Europe/Athens',day:'2-digit',month:'2-digit',year:'numeric',
-  hour:'2-digit',minute:'2-digit'}):'—';
+const localeDate=value=>formatDateTime(value);
 export default function ScheduleXmlImport({station,api,notify,reload,canManage=true,onImported}){
   const [expanded,setExpanded]=useState(false);
   const [form,setForm]=useState(DEFAULT);
