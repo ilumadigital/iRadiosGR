@@ -154,7 +154,9 @@ test('no schedule does not generate fictional shows or presenter names',()=>{
   st.website='https://example.com';
   st.privatePlaylist=[{title:'PRIVATE SONG',artist:'PRIVATE ARTIST'}];
   const faq=core.stationFaq(st);
-  assert.equal(faq.length,2);
+  // The station still has a real secondary category: this is a valid third FAQ.
+  assert.equal(faq.length,3);
+  assert.match(faq[0].a,/Έντεχνα/);
   assert.ok(faq.every(item=>item.q&&item.a));
   assert.doesNotMatch(JSON.stringify(faq),/Ποιοι παραγωγοί|Ποιες εκπομπές|PRIVATE SONG|PRIVATE ARTIST/);
 });
