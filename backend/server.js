@@ -104,6 +104,9 @@ app.get('/api/live/revision', liveUpdates.version);
 app.use('/api', liveUpdates.captureSuccessfulMutation);
 
 // ==============================================================
+// SEO 2.0 renders matching public content for listeners and crawlers.
+app.use(require('./services/seo2Routes'));
+
 // 🎨 ΔΥΝΑΜΙΚΗ ΠΑΡΑΓΩΓΗ OG IMAGE ΓΙΑ ΤΑ SOCIAL MEDIA BOTS
 // ==============================================================
 app.get('/og-image/:slug.png', async (req, res) => {
@@ -548,12 +551,7 @@ const fixDatabasePasswords = async () => {
          await u.save();
       }
     }
-    const adminHash = await bcrypt.hash("iluma25", 10);
-    await User.updateOne(
-      { email: "admin@iluma.gr" }, 
-      { $set: { password: adminHash, isVerified: true, role: 'admin' } },
-      { upsert: false }
-    );
+    // Never reset a privileged account password during routine server startup.
   } catch (err) {}
 };
 
