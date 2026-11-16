@@ -21,6 +21,12 @@ function authorized(req,res){
  return true;
 }
 
+async function availability(req,res){
+ res.set('Cache-Control','no-store');
+ // No secrets or other account IDs are exposed in the response.
+ return res.json({eligible:qa.allowedUser(req.user),
+  ...(qa.allowedUser(req.user)?{amountCents:399,currency:'EUR',sku:'L-PREM',oneOff:true}:{})});
+}
 async function checkout(req,res){
  res.set('Cache-Control','no-store');
  if(!authorized(req,res))return;
@@ -149,4 +155,4 @@ async function webhook(req,res){
  });
  return res.json({received:true,activated:Boolean(update&&paid)});
 }
-module.exports={checkout:safe(checkout),status:safe(status),webhook:safe(webhook),WEBHOOK_PATH};
+module.exports={availability:safe(availability),checkout:safe(checkout),status:safe(status),webhook:safe(webhook),WEBHOOK_PATH};
