@@ -29,7 +29,8 @@ import '../styles/station-desktop-glass.css';
 import StationCatalogCard from '../components/StationCatalogCard';
 import FoundWithAI from '../components/FoundWithAI';
 import {parseMusicMetadata} from '../utils/musicMetadata';
-import {stationSeoPreview} from '../utils/seoPreview'; 
+import {stationSeoPreview} from '../utils/seoPreview';
+import {normalizePublicStationFaq,readInitialPublicStationFaq} from '../utils/publicStationFaq'; 
 import { useAlert } from '../context/AlertContext';
 
 export default function StationProfile({ 
@@ -85,8 +86,30 @@ export default function StationProfile({
       endTime:station?.schedule?.[index]?.endTime==='24:00'?'24:00':show.endTime
     })),
     [station?.schedule,station?.scheduleDayBase]);
-  const seoHostedShow = [...canonicalSchedule].filter(show => show.host?.trim())
-    .sort((a,b) => Number(a.day)-Number(b.day) || a.startTime.localeCompare(b.startTime))[0];
+  const [publicFaqState,setPublicFaqState]=useState({stationId:null,items:[]});
+  useEffect(()=>{
+    if(!station?._id){setPublicFaqState({stationId:null,items:[]});return undefined;}
+    const id=String(station._id);
+    const path=encodeURIComponent(String(station.slug||id));
+    const canonical=window.location.origin+'/station/'+path;
+    const initial=readInitialPublicStationFaq(canonical,document);
+    setPublicFaqState({stationId:id,items:initial});
+    const controller=new AbortController();
+    const sync=()=>{
+      fetch('/api/public/stations/'+path+'/faq',{signal:controller.signal})
+        .then(async response=>{
+          if(!response.ok)throw new Error('Public FAQ unavailable');
+          return response.json();
+        }).then(data=>{
+          if(String(data.stationId)===id&&!controller.signal.aborted)
+            setPublicFaqState({stationId:id,items:normalizePublicStationFaq(data.faq)});
+        }).catch(()=>{/* Retain server-rendered FAQ when public API is unavailable. */});
+    };
+    sync();
+    const refresh=window.setInterval(()=>{if(!document.hidden)sync();},5*60*1000);
+    return()=>{controller.abort();window.clearInterval(refresh);};
+  },[station?._id,station?.slug,station?.seoUpdatedAt]);
+  const publicFaq=publicFaqState.stationId===String(station?._id)?publicFaqState.items:[];
   const isFreeOrGuest = !currentUser || (!currentUser.isPremium && currentUser?.broadcasterProfile?.tier !== 'premium');
   const isThisPlaying = currentStation && (currentStation._id === station?._id);
 
@@ -682,6 +705,7 @@ export default function StationProfile({
             currentStation={currentStation} isPlaying={isPlaying}
             onPlayPause={onPlayPause} onPlayStation={setCurrentStation} sidebar mobileShowcase/>
         </aside>
+        <div className="ir-station-info-stack">
         <section className="ir-station-about" aria-label="Πληροφορίες σταθμού">
           <div className="ir-station-about-eyebrow">ΓΝΩΡΙΣΕ ΤΟΝ ΣΤΑΘΜΟ</div>
           <h2>Λίγα λόγια για τον {station.name}</h2>
@@ -721,29 +745,19 @@ export default function StationProfile({
             )}
 
         </section>
-        </div>
 
-        <section aria-label="Συχνές ερωτήσεις σταθμού" className="mx-auto mt-8 w-full max-w-6xl rounded-3xl border border-white/10 bg-white/[.025] p-5 md:p-8">
+        {publicFaq.length>0&&<section aria-label="Συχνές ερωτήσεις σταθμού"
+          className="ir-station-faq rounded-3xl border border-white/10 bg-white/[.025] p-5 md:p-8">
           <h2 className="mb-4 text-xl font-black text-white">Συχνές ερωτήσεις για τον {station.name}</h2>
           <div className="space-y-3 text-sm text-zinc-300">
-            <details className="rounded-xl border border-white/10 p-4">
-              <summary className="cursor-pointer font-bold">Πού μπορώ να ακούσω τον {station.name};</summary>
-              <p className="mt-3 text-zinc-400">Μπορείτε να ακούσετε τον {station.name} ζωντανά μέσα από τη σελίδα του στο iRadios.</p>
-            </details>
-            {station.city&&<details className="rounded-xl border border-white/10 p-4">
-              <summary className="cursor-pointer font-bold">Από πού εκπέμπει ο {station.name};</summary>
-              <p className="mt-3 text-zinc-400">Η δηλωμένη πόλη του σταθμού είναι {station.city}{station.region?', '+station.region:''}.</p>
-            </details>}
-            {canonicalSchedule.length>0&&<details className="rounded-xl border border-white/10 p-4">
-              <summary className="cursor-pointer font-bold">Πού θα βρω το πρόγραμμα του {station.name};</summary>
-              <p className="mt-3 text-zinc-400">Το καταχωρισμένο πρόγραμμα εκπομπών εμφανίζεται στο προφίλ του σταθμού. Οι ώρες είναι Ελλάδας.</p>
-            </details>}
-            {seoHostedShow&&<details className="rounded-xl border border-white/10 p-4">
-              <summary className="cursor-pointer font-bold">Ποιος παρουσιάζει την εκπομπή {seoHostedShow.title};</summary>
-              <p className="mt-3 text-zinc-400">Στο δημοσιευμένο πρόγραμμα του σταθμού αναφέρεται ο/η {seoHostedShow.host}.</p>
-            </details>}
+            {publicFaq.map(item=><details key={item.q} className="rounded-xl border border-white/10 p-4">
+              <summary className="cursor-pointer font-bold">{item.q}</summary>
+              <p className="mt-3 text-zinc-400">{item.a}</p>
+            </details>)}
           </div>
-        </section>
+        </section>}
+        </div>
+        </div>
 
         <div id="ir-station-program">
           <StationScheduleTimeline station={station} shows={canonicalSchedule}
