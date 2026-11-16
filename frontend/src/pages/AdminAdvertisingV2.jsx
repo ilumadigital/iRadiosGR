@@ -135,10 +135,15 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
   }catch(e){setNotice(e.message);}
  };
  const reviewCreative=async(kind,id,approval)=>{
+  const reason=approval==='rejected'?window.prompt('Υποχρεωτική αιτιολογία απόρριψης:',''):'';
+  if(approval==='rejected'&&(!reason?.trim()||reason.trim().length>1000)){
+   setNotice('Απαιτείται αιτιολογία έως 1000 χαρακτήρες.');
+   return;
+  }
   setBusy(true);setNotice('');
   try{
    const r=await fetch('/api/admin/advertising/wizard/campaigns/'+reviewId+'/creatives-review/'+kind+'/'+id,{
-    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({approval})});
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({approval,reason:reason?.trim()||''})});
    const result=await r.json();if(!r.ok)throw Error(result.error||'Η αξιολόγηση απέτυχε.');
    await loadReview(reviewId);await reload();
    setNotice('Η απόφαση για το δημιουργικό αποθηκεύτηκε.');
