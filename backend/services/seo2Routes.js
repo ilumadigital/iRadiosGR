@@ -52,7 +52,7 @@ router.get('/station/:slug',async(req,res)=>{
     const seo=stationSeo(station);
     const similar=await Station.find({...ONLY_APPROVED,genre:station.genre,_id:{$ne:station._id}})
       .select('_id slug name').limit(5).lean();
-    return sendSeoHtml(res,seo,stationBody(station,seo,similar));
+    return await sendSeoHtml(res,seo,stationBody(station,seo,similar));
   }catch(error){return fail(res,error);}
 });
 router.get('/genre/:name',async(req,res)=>{
@@ -64,7 +64,7 @@ router.get('/genre/:name',async(req,res)=>{
       .sort({position:1}).limit(300).lean();
     if(!stations.length)return missing(res);
     const seo=directorySeo({type:'genre',name,stations});
-    return sendSeoHtml(res,seo,directoryBody(seo,stations));
+    return await sendSeoHtml(res,seo,directoryBody(seo,stations));
   }catch(error){return fail(res,error);}
 });
 router.get('/region/:name',async(req,res)=>{
@@ -75,14 +75,14 @@ router.get('/region/:name',async(req,res)=>{
       .sort({position:1}).limit(300).lean();
     if(!stations.length)return missing(res);
     const seo=directorySeo({type:'region',name,stations});
-    return sendSeoHtml(res,seo,directoryBody(seo,stations));
+    return await sendSeoHtml(res,seo,directoryBody(seo,stations));
   }catch(error){return fail(res,error);}
 });
 router.get('/',async(_req,res)=>{
   try{
     const stations=await stationList(100);
     const seo=homeSeo(stations);
-    return sendSeoHtml(res,seo,homeBody(seo,stations));
+    return await sendSeoHtml(res,seo,homeBody(seo,stations));
   }catch(error){return fail(res,error);}
 });
 router.get('/map',async(_req,res)=>{
@@ -95,7 +95,7 @@ router.get('/map',async(_req,res)=>{
     seo.description='Εξερεύνησε ραδιοφωνικούς σταθμούς από πόλεις και περιοχές της Ελλάδας στον χάρτη του iRadios.';
     seo.ld={'@context':'https://schema.org','@type':'CollectionPage',
       url:seo.url,name:seo.title,description:seo.description};
-    return sendSeoHtml(res,seo,homeBody(seo,stations));
+    return await sendSeoHtml(res,seo,homeBody(seo,stations));
   }catch(error){return fail(res,error);}
 });
 router.get('/og-image/:slug.png',async(req,res)=>{
