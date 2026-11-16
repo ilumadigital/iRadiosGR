@@ -1,14 +1,10 @@
+const {formatAthensDateTime}=require('./athensDateTime');
 'use strict';
 const {getProduct}=require('../config/billingCatalog');
 const {renderBrandedEmail,escapeHtml,actionButton,infoPanel,siteOrigin}=
  require('./emailDesign');
 const euro=cents=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'}).format(Number(cents)/100);
-const formatDate=value=>{
- const when=new Date(value);
- return Number.isFinite(+when)?new Intl.DateTimeFormat('el-GR',{
-  dateStyle:'long',timeStyle:'short',timeZone:'Europe/Athens'
- }).format(when):'—';
-};
+const formatDate=value=>formatAthensDateTime(value);
 const BENEFITS=Object.freeze([
  ['Σταθμοί χωρίς περιορισμό','Διαχειρίσου τους εγκεκριμένους σταθμούς του λογαριασμού σου.'],
  ['WebDSP Audio Engine','Εργαλεία επεξεργασίας και βελτιστοποίησης ήχου ανά σταθμό.'],

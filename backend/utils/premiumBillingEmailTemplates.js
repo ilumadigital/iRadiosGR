@@ -1,3 +1,4 @@
+const {formatAthensDateTime}=require('./athensDateTime');
 'use strict';
 const {renderBrandedEmail,escapeHtml,actionButton,infoPanel,siteOrigin}=require('./emailDesign');
 
@@ -14,13 +15,7 @@ const PREMIUM_BENEFITS=Object.freeze([
  {title:'Audio DSP & ισοσταθμιστής',description:'Προσάρμοσε τον ήχο στη συσκευή σου, όπου υποστηρίζεται.'},
  {title:'Ενισχυμένες επιλογές ακρόασης',description:'Πρόσθετα εργαλεία και δυνατότητες Premium μέσα στην εφαρμογή.'}
 ]);
-const fmt=value=>{
- if(!value)return '—';
- const date=new Date(value);
- if(!Number.isFinite(+date))return '—';
- return new Intl.DateTimeFormat('el-GR',{dateStyle:'long',timeStyle:'short',
-  timeZone:'Europe/Athens'}).format(date);
-};
+const fmt=value=>formatAthensDateTime(value);
 const euros=cents=>new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR'}).format(cents/100);
 const paragraph=text=>'<p>'+escapeHtml(text)+'</p>';
 const stageNote='<p style="color:#96A3B4;font-size:12px;">Στο δοκιμαστικό περιβάλλον οι επόμενες αυτόματες χρεώσεις παραμένουν απενεργοποιημένες μέχρι την ολοκλήρωση των ελέγχων. Η παρούσα ενημέρωση δεν αποτελεί νέα χρέωση.</p>';
