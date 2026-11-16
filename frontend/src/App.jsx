@@ -2393,7 +2393,8 @@ function MainApp() {
 
       {!isCarModeActive && currentStation && (
         <CarModePrompt 
-          isPremium={currentUser?.isPremium} 
+          isPremium={currentUser?.isPremium}
+          audioRef={audioRef}
           onAccept={() => setIsCarModeActive(true)} 
         />
       )}
