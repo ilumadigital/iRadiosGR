@@ -114,7 +114,7 @@ function checkedStationLocation(edits, options) {
 }
 async function ensureSlugAvailable(slug,excludeStationId){
   if(!slug)return;
-  const query={$or:[{slug},{'pendingEdits.slug':slug}]};
+  const query={$or:[{slug},{'pendingEdits.slug':slug},{previousSlugs:slug}]};
   if(excludeStationId)query._id={$ne:excludeStationId};
   if(await Station.exists(query)){
     const error=new Error('Το συγκεκριμένο slug χρησιμοποιείται ήδη από άλλον σταθμό ή εκκρεμεί προς έγκριση.');
