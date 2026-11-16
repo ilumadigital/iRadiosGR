@@ -35,6 +35,14 @@ async function accountRights(user,now=new Date()){
    status:'paid',environment:'staging',periodStartsAt:{$lte:now},
    $or:[{periodEndsAt:{$gt:now}},{graceEndsAt:{$gt:now}}]});
   if(paid)rights.add('listener.premium');
+  // A production Nexi QA payment is never a normal staging sandbox order.
+  // Only its own HMAC-confirmed, already-paid, time-bounded staging record
+  // unlocks this ONE test listener; live production database is unaffected.
+  const qaPaid=await require('../models/ProductionQaOrder').exists({
+   accountId:user._id,status:'paid',sku:'L-PREM',amountCents:399,
+   periodStartsAt:{$lte:now},periodEndsAt:{$gt:now}
+  });
+  if(qaPaid)rights.add('listener.premium');
  }
  return [...rights].sort();
 }
