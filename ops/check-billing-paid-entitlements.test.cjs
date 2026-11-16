@@ -6,11 +6,14 @@ const assert=require('node:assert/strict');
 const Module=require('node:module');
 const original=Module._load;
 let paidFound=false,requestedFilter=null,grants=[];
+let qaFound=false,qaFilter=null;
+const qaRows={exists:async filter=>{qaFilter=filter;return qaFound?{_id:'qa-paid'}:null;}};
 const rows={exists:async filter=>{requestedFilter=filter;return paidFound?{_id:'some-payment'}:null;}};
 const gift={find:()=>({lean:async()=>grants})};
 Module._load=function(name,parent,isMain){
  if(String(parent?.filename||'').endsWith('/backend/services/billingEntitlements.js')){
   if(name==='../models/BillingOrder')return rows;
+  if(name==='../models/ProductionQaOrder')return qaRows;
   if(name==='../models/BillingGrant')return gift;
  }
  return original.call(this,name,parent,isMain);
@@ -50,6 +53,23 @@ test('Complimentary grants remain separate from payment records',async()=>{
   expiresAt:new Date('2026-12-01T00:00:00Z'),revokedAt:null}];
  assert.ok((await service.accountRights(listener,NOW)).includes('listener.premium'));
  grants=[];
+});
+
+test('One confirmed QA payment grants staging Premium only inside its paid period',async()=>{
+ paidFound=false;qaFound=true;grants=[];
+ try{
+  const rights=await service.accountRights(listener,NOW);
+  assert.ok(rights.includes('listener.premium'));
+  assert.equal(qaFilter.accountId,'l1');
+  assert.equal(qaFilter.status,'paid');
+  assert.equal(qaFilter.amountCents,399);
+  assert.deepEqual(qaFilter.periodStartsAt,{$lte:NOW});
+  assert.deepEqual(qaFilter.periodEndsAt,{$gt:NOW});
+ }finally{qaFound=false;}
+});
+test('Unconfirmed real-card QA checkout cannot unlock Listener Premium',async()=>{
+ paidFound=false;qaFound=false;grants=[];
+ assert.deepEqual(await service.accountRights(listener,NOW),[]);
 });
 
 test('Production never projects a paid staging order even if records were copied',async()=>{
