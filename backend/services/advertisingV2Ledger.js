@@ -112,7 +112,7 @@ async function transaction(fn){
   });
  }finally{await session.endSession();}
 }
-async function reserve({campaign,creative,kind,placement,clientKey:visitor,durationMs=0}){
+async function reserve({campaign,creative,kind,placement,clientKey:visitor,durationMs=0,breakId=null}){
  await requireTransactions();
  await indexes();
  const total=campaign.plannedBudgetCents,daily=campaign.dailyBudgetCents;
@@ -139,6 +139,24 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
    {id:'paid-v2:freq:'+String(campaign._id)+':'+visitor+':'+day+':'+placement,
     max:scopedLimit,expiresAt:new Date(now+48*3600000)}
   ];
+  if(kind==='audio'&&breakId){
+   if(typeof breakId!=='string'||breakId.length>128||!(/^(switch:[a-f0-9]{32}:[0-9]{1,10}|timed:[0-9]{7,12})$/.test(breakId)))
+    throw fail('Invalid audio break scope');
+   quotas.push(
+    {id:'paid-v2:break:'+visitor+':'+breakId,max:3,expiresAt:new Date(now+2*DAY_MS)},
+    {id:'paid-v2:break-campaign:'+visitor+':'+breakId+':'+String(campaign._id),
+     max:1,expiresAt:new Date(now+2*DAY_MS)}
+   );
+  }
+  if(kind==='audio'&&['twice_a_day','four_times_a_day','six_times_a_day'].includes(placement)){
+   const windowHours=placement==='twice_a_day'?12:placement==='four_times_a_day'?6:4;
+   const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Athens',hour:'2-digit',
+    hourCycle:'h23'}).formatToParts(new Date(now));
+   const hour=Number(parts.find(p=>p.type==='hour')?.value);
+   quotas.push({id:'paid-v2:daily-window:'+String(campaign._id)+':'+visitor+':'+
+      day+':'+placement+':'+Math.floor(hour/windowHours),
+     max:1,expiresAt:new Date(now+2*DAY_MS)});
+  }
   for(const quota of quotas){
    await Counter.findOneAndUpdate({_id:quota.id},
     {$setOnInsert:{count:0,expiresAt:quota.expiresAt}},
