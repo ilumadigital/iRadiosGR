@@ -5,7 +5,7 @@ import {adminFetch as fetch} from '../utils/adminFetch';
 import {LOCATION_DATA} from '../utils/stationLocations';
 import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
 import {assertAudioSpotDuration} from '../utils/audioSpotValidation';
-import {calendarCampaignDays,budgetSuggestion,BUDGET_LEVELS,minimumAudioReservationNanos} from '../utils/advertisingBudgetRecommendations';
+import {calendarCampaignDays,budgetSuggestion,BUDGET_LEVELS,audioReservationPlacements,maximumAudioReservationNanos} from '../utils/advertisingBudgetRecommendations';
 import VisualAdStudioControls from '../components/VisualAdStudioControls';
 import {adDesignFor} from '../utils/adVisualDesign';
 import AgencyCampaignTopUp from './AgencyCampaignTopUp';
@@ -238,7 +238,8 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const editingLocked=current?.approvalStatus!=='draft'||confirmed||Boolean(inProgress);
  const totalBudget=Number(current?.plannedBudgetCents||0)/100;
  const durationDays=current?calendarCampaignDays(current.startsAt,current.endsAt):0;
- const fullAudioReserve=minimumAudioReservationNanos(creatives?.audios||[]);
+ const audioReserveRows=audioReservationPlacements(creatives?.audios||[]);
+ const fullAudioReserve=maximumAudioReservationNanos(creatives?.audios||[]);
  const dailyDraftCents=Math.round(Number(dailyBudget)*100);
  const proposedBudget=durationDays?budgetSuggestion(durationDays,budgetLevel):null;
  useEffect(()=>{
@@ -570,10 +571,11 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
       onChange={e=>{setDailyBudget(e.target.value);setBudgetTouchedFor(current?._id||'');}}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
      <span className="mt-2 block text-xs font-normal text-zinc-400">Όριο ανά ημέρα (ώρα Ελλάδας). Χρεώνονται μόνο έγκυρα γεγονότα. Το αχρησιμοποίητο ημερήσιο όριο δεν μεταφέρεται.</span>
     </label>
-    {fullAudioReserve>0&&<p className={'rounded-xl border p-4 text-xs leading-6 '+(dailyDraftCents*10000000<fullAudioReserve?'border-amber-400/30 bg-amber-400/10 text-amber-100':'border-white/10 bg-black/20 text-zinc-300')}>
-     Ελάχιστη πλήρης κράτηση ανά επιλέξιμο Audio Ticket: <strong>{euro(fullAudioReserve/1e9)}</strong> (10″, πιθανό CTA και ολοκλήρωση).
-     {dailyDraftCents*10000000<fullAudioReserve?' Το ημερήσιο budget δεν καλύπτει νέο ticket. Αυξήστε το spending limit.':' Η πραγματική διαθεσιμότητα ελέγχεται εκ νέου από το backend.'}
-    </p>}
+    {fullAudioReserve>0&&<section className={'rounded-xl border p-4 text-xs leading-6 '+(dailyDraftCents*10000000<fullAudioReserve?'border-amber-400/30 bg-amber-400/10 text-amber-100':'border-white/10 bg-black/20 text-zinc-300')}>
+     <h4 className="font-black">Πλήρης κράτηση ανά Audio Placement (10″ + CTA + Completion)</h4>
+     <div className="mt-2 grid gap-1 sm:grid-cols-2">{audioReserveRows.map(row=><div key={row.placement} className="flex items-center justify-between gap-3 border-b border-white/10 py-1.5"><span>{row.placement.replaceAll('_',' ')}</span><strong className="tabular-nums">{euro(row.reserveNanos/1e9)}</strong></div>)}</div>
+     {dailyDraftCents*10000000<fullAudioReserve?' Το ημερήσιο budget δεν καλύπτει όλα τα επιλεγμένα placements. Αυξήστε το όριο ή περιορίστε τις συχνότητες.':' Η πραγματική διαθεσιμότητα ελέγχεται εκ νέου από το backend.'}
+    </section>}
     <div className="flex flex-wrap justify-between gap-3"><button className={secondary} onClick={()=>setStep(1)}><ArrowLeft size={17}/> Πίσω</button>
      <button className={primary} onClick={saveBudget} disabled={busy||editingLocked}>Αποθήκευση budget & Overview <ArrowRight size={17}/></button></div>
    </section>}
