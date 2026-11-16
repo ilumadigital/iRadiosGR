@@ -306,7 +306,7 @@ export default function Footer({
               {adWarning ? (
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00] animate-bounce">ΔΙΑΦΗΜΙΣΗ ΣΕ {adWarning}...</span>
               ) : isPlayingAd ? (
-                <span className="text-[10px] font-bold uppercase tracking-widest text-[#ccff00] animate-pulse">ADVERTISEMENT • {adTimeRemaining}s</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#ccff00]">ADVERTISEMENT <span className="ml-2 inline-block min-w-8 text-right tabular-nums">{Math.max(0,Math.ceil(adTimeRemaining||0))}s</span></span>
               ) : remotePlayback ? (
                 <button type="button" onClick={onOpenDevices}
                   className="max-w-full truncate rounded-full border border-[#ccff00]/30 bg-[#ccff00]/10 px-3 py-0.5 text-[10px] font-bold text-[#ccff00]"
