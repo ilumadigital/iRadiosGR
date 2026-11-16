@@ -710,8 +710,9 @@ export default function StationProfile({
         <aside className="ir-station-playlist-aside" aria-label="Playlist σταθμού">
           <StationPlaylistPanel station={station} currentUser={currentUser}
             currentStation={currentStation} isPlaying={isPlaying}
-            onPlayPause={onPlayPause} onPlayStation={setCurrentStation} sidebar mobileShowcase
-            onTracksLoaded={tracks=>setFaqHistory({stationId:String(station?._id||''),tracks})}/>
+            onPlayPause={onPlayPause} onPlayStation={setCurrentStation}
+            onTracksLoaded={tracks=>setFaqHistory({stationId:String(station?._id||''),tracks})}
+            sidebar mobileShowcase/>
         </aside>
         <div className="ir-station-info-stack">
         <section className="ir-station-about" aria-label="Πληροφορίες σταθμού">
