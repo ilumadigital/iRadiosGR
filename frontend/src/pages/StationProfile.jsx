@@ -85,6 +85,8 @@ export default function StationProfile({
       endTime:station?.schedule?.[index]?.endTime==='24:00'?'24:00':show.endTime
     })),
     [station?.schedule,station?.scheduleDayBase]);
+  const seoHostedShow = [...canonicalSchedule].filter(show => show.host?.trim())
+    .sort((a,b) => Number(a.day)-Number(b.day) || a.startTime.localeCompare(b.startTime))[0];
   const isFreeOrGuest = !currentUser || (!currentUser.isPremium && currentUser?.broadcasterProfile?.tier !== 'premium');
   const isThisPlaying = currentStation && (currentStation._id === station?._id);
 
@@ -735,6 +737,10 @@ export default function StationProfile({
             {canonicalSchedule.length>0&&<details className="rounded-xl border border-white/10 p-4">
               <summary className="cursor-pointer font-bold">Πού θα βρω το πρόγραμμα του {station.name};</summary>
               <p className="mt-3 text-zinc-400">Το καταχωρισμένο πρόγραμμα εκπομπών εμφανίζεται στο προφίλ του σταθμού. Οι ώρες είναι Ελλάδας.</p>
+            </details>}
+            {seoHostedShow&&<details className="rounded-xl border border-white/10 p-4">
+              <summary className="cursor-pointer font-bold">Ποιος παρουσιάζει την εκπομπή {seoHostedShow.title};</summary>
+              <p className="mt-3 text-zinc-400">Στο δημοσιευμένο πρόγραμμα του σταθμού αναφέρεται ο/η {seoHostedShow.host}.</p>
             </details>}
           </div>
         </section>

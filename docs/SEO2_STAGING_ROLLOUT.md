@@ -16,6 +16,9 @@ reviewing production routing, indexing policy, asset hosts and privacy boundarie
   drafts are not included in SEO or \`llms.txt\`.
 - Mongoose stamps \`seoUpdatedAt\` only for published content edits and stores up to
   20 previous slugs. Old slugs redirect with HTTP 301 to the current canonical.
+- Profile snippets now combine the broadcaster's own description with non-duplicated public show/category/location facts. The client preview uses the same rule.
+- Public radio schema includes declared secondary genres and terrestrial broadcast frequency. The first published presenter FAQ remains visible after React mounts.
+- OG artwork is deterministic for a given station revision: a stable programme highlight is shown, not an unverified live ON AIR claim. Remote logo/cover downloads have a four-second limit, a five-MiB cap, supported image MIME allowlist, and no redirects.
 - New profiles display genuine schedule and factual FAQ information. Do not
   treat schema markup or \`llms.txt\` as guaranteed Google rich results.
 

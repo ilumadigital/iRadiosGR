@@ -13,17 +13,43 @@ function approvedImage(value) {
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port) return null;
     const host = parsed.hostname.toLowerCase();
     const ownHost = new URL(origin()).hostname.toLowerCase();
-    const approved = [ownHost, 'play.iradios.gr', 'stage.iradios.gr',
+    const firstPartyHosts = [ownHost, 'play.iradios.gr', 'stage.iradios.gr'];
+    const approved = [...firstPartyHosts,
       ...(process.env.SEO_OG_IMAGE_HOSTS || '').split(',').map(x=>x.trim().toLowerCase()).filter(Boolean)];
-    return approved.includes(host) ? parsed.toString() : null;
+    if (!approved.includes(host)) return null;
+    // Do not allow a station logo URL to trigger arbitrary same-origin API routes.
+    if (firstPartyHosts.includes(host) &&
+        !/^\/(?:media\/(?:logo|visuals|radioassets)\/|uploads\/|iradios-|favicon)/.test(parsed.pathname))
+      return null;
+    return parsed.toString();
   } catch {return null;}
 }
 async function safeLoadImage(url) {
   const safe = approvedImage(url);
   if (!safe) return null;
+  const limit = 5 * 1024 * 1024;
   try {
-    // canvas remote loader sees only explicitly trusted hosts. No arbitrary user URLs.
-    return await loadImage(safe);
+    // No redirects, no unbounded image downloads and no fetching private URLs.
+    // Decode from vetted bytes, never let canvas independently follow a URL.
+    const response = await fetch(safe, {
+      redirect: 'error', signal: AbortSignal.timeout(4000),
+      headers: {Accept: 'image/png,image/jpeg,image/webp,image/gif'}
+    });
+    if (!response.ok || !/^image\/(?:png|jpeg|webp|gif)$/i.test(
+      (response.headers.get('content-type') || '').split(';')[0].trim())) return null;
+    const stated = Number(response.headers.get('content-length') || 0);
+    if (stated > limit || !response.body) return null;
+    const parts = [];
+    let size = 0;
+    for await (const chunk of response.body) {
+      size += chunk.byteLength;
+      if (size > limit) {
+        await response.body.cancel().catch(() => {});
+        return null;
+      }
+      parts.push(Buffer.from(chunk));
+    }
+    return await loadImage(Buffer.concat(parts, size));
   } catch {return null;}
 }
 function rounded(ctx,x,y,w,h,r,fill) {
@@ -94,10 +120,12 @@ async function generateStationOgImage(station) {
   c.font='28px sans-serif';c.fillStyle='#b7c4d1';
   const detail=[station?.genre,station?.city].map(x=>pick(x,55)).filter(Boolean).join('  ·  ');
   c.fillText(detail.slice(0,85),58,360,710);
-  const show=todayShow(station||{});
+  // OG URLs are versioned by public profile fields, not by wall-clock time.
+  // Show a stable programme highlight, never an unverifiable "ON AIR" claim.
+  const show=normalizedSchedule(station||{})[0] || null;
   rounded(c,55,440,690,82,22,'#26323e');
   c.fillStyle='#caff00';c.font='bold 19px sans-serif';
-  c.fillText(show?'ΣΤΟΝ ΑΕΡΑ':'ΑΚΟΥΣΕ ΖΩΝΤΑΝΑ',79,466);
+  c.fillText(show?'ΠΡΟΓΡΑΜΜΑ ΕΚΠΟΜΠΩΝ':'ΑΚΟΥΣΕ ΖΩΝΤΑΝΑ',79,466);
   c.fillStyle='#ffffff';c.font='26px sans-serif';
   c.fillText(pick(show?show.title:(station?.slogan||'Συντονίσου στο iRadios'),120),79,500,630);
   c.strokeStyle='rgba(202,255,0,.3)';c.lineWidth=2;

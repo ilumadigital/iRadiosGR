@@ -90,31 +90,60 @@ function stationFaq(st) {
   if (st.city) faq.push({q:'Από πού εκπέμπει ο ' + name + ';',
     a:'Η δηλωμένη πόλη του σταθμού είναι ' + pick(st.city, 90) +
       (st.region ? ', ' + pick(st.region, 90) : '') + '.'});
-  if (normalizedSchedule(st).length) faq.push({q:'Πού θα βρω το πρόγραμμα του ' + name + ';',
+  const shows = normalizedSchedule(st);
+  if (shows.length) faq.push({q:'Πού θα βρω το πρόγραμμα του ' + name + ';',
     a:'Το καταχωρισμένο πρόγραμμα εκπομπών εμφανίζεται στο προφίλ του σταθμού. Οι ώρες είναι Ελλάδας.'});
+  const hosted = shows.find(show => show.host);
+  if (hosted) faq.push({q:'Ποιος παρουσιάζει την εκπομπή ' + hosted.title + ';',
+    a:'Στο δημοσιευμένο πρόγραμμα του σταθμού αναφέρεται ο/η ' + hosted.host + '.'});
   return faq;
+}
+// A concise description assembled exclusively from public broadcaster profile facts.
+// Keep actual editorial copy first, adding relevant programme/category/location facts
+// only when they are not already present. Never consume protected playlist history.
+function stationSummary(st, schedule = normalizedSchedule(st)) {
+  const name = pick(st.name, 100) || 'Ραδιοφωνικός σταθμός';
+  const source = pick(st.description, 4000) || pick(st.slogan, 400) ||
+    'Άκου ζωντανά τον ' + name + ' στο iRadios.';
+  const existing = source.toLocaleLowerCase('el-GR');
+  const facts = [];
+  const show = schedule.find(entry => entry.title);
+  if (show && !existing.includes(show.title.toLocaleLowerCase('el-GR')))
+    facts.push('Εκπομπή: ' + show.title);
+  const genre = pick(st.genre, 90);
+  if (genre && !existing.includes(genre.toLocaleLowerCase('el-GR'))) facts.push(genre);
+  const place = pick(st.city || st.region, 90);
+  if (place && !existing.includes(place.toLocaleLowerCase('el-GR'))) facts.push('από ' + place);
+  const extra = short(facts.join(' · '), 78);
+  const lead = short(source, extra ? 155 - extra.length : 158);
+  return short(lead + (extra ? ' · ' + extra : ''), 158);
 }
 function stationSeo(st) {
   const name = pick(st.name, 100) || 'Ραδιοφωνικός σταθμός';
   const freq = st.transmissionType === 'Επίγειο' && pick(st.frequency, 24) ?
     ' ' + pick(st.frequency, 24) : '';
   const genre = pick(st.genre, 90);
+  const genres = [...new Set([st.genre, st.secondaryGenre,
+    ...(Array.isArray(st.secondaryGenres) ? st.secondaryGenres : [])]
+    .map(value => pick(value, 90)).filter(Boolean))];
   const location = pick(st.city || st.region || '', 90);
-  const title = short(name + freq + ' — Άκου ζωντανά | iRadios', 75);
-  const fallback = 'Άκου ζωντανά τον ' + name + (genre ? ' με ' + genre + ' μουσική' : '') +
-    (location ? ' από ' + location : '') + ' στο iRadios.';
-  const description = short(pick(st.description) || [pick(st.slogan), fallback].filter(Boolean).join('. '), 158);
-  const url = stationUrl(st);
-  const version = hash([st.name, st.slogan, st.description, st.genre, st.city, st.cover,
-    st.logo, st.frequency, st.schedule]);
-  const image = urlFor('/og-image/' + stationId(st) + '.png?v=' + version);
   const schedule = normalizedSchedule(st);
+  const title = short(name + freq + ' — Άκου ζωντανά | iRadios', 75);
+  const description = stationSummary(st, schedule);
+  const url = stationUrl(st);
+  const version = hash([st.name, st.slogan, st.description, st.genre, st.secondaryGenre,
+    st.secondaryGenres, st.city, st.region, st.cover, st.logo, st.frequency,
+    st.transmissionType, st.schedule, st.scheduleDayBase]);
+  const image = urlFor('/og-image/' + stationId(st) + '.png?v=' + version);
   const faq = stationFaq(st);
   const nodes = [
     {'@type':'WebPage','@id':url + '#webpage',url,name:title,description,
       inLanguage:'el-GR',isPartOf:{'@id':urlFor('/#website')},about:{'@id':url + '#station'}},
     {'@type':'RadioStation','@id':url + '#station',name,url,description,image,
-      ...(genre ? {genre} : {}), ...(links(st).length ? {sameAs:links(st)} : {}),
+      ...(genres.length ? {genre: genres.length === 1 ? genres[0] : genres} : {}),
+      ...(freq ? {broadcastFrequency:pick(st.frequency, 24)} : {}),
+      ...(pick(st.slogan, 140) ? {slogan:pick(st.slogan, 140)} : {}),
+      ...(links(st).length ? {sameAs:links(st)} : {}),
       ...(location ? {address:{'@type':'PostalAddress',addressLocality:location,
         ...(st.region ? {addressRegion:pick(st.region, 90)} : {}),
         addressCountry:pick(st.country, 70) || 'Ελλάδα'}} : {})},
@@ -165,5 +194,5 @@ function homeSeo(stations) {
           '@type':'ListItem',position:i+1,name:pick(st.name,100),url:stationUrl(st)}))}}
     ]}};
 }
-module.exports = {origin,urlFor,pick,short,escapeHtml,escapeXml,stationUrl,stationId,isApproved,
-  normalizedSchedule,upcomingEvents,stationFaq,stationSeo,directorySeo,homeSeo,athensDate,hash};
+module.exports = {origin,urlFor,pick,short,escapeHtml,escapeXml,stationUrl,stationId,isApproved,links,
+  normalizedSchedule,upcomingEvents,stationFaq,stationSummary,stationSeo,directorySeo,homeSeo,athensDate,hash};
