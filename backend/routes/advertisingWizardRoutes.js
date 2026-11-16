@@ -67,11 +67,8 @@ function campaignFields(body,pricing){
  const startsAt=new Date(body?.startsAt),endsAt=new Date(body?.endsAt);
  const now=Date.now();
  if(!Number.isFinite(startsAt.getTime())||!Number.isFinite(endsAt.getTime())||
-   startsAt.getTime()<now-86400000||endsAt<=startsAt||
-   endsAt.getTime()>now+366*86400000)
+   startsAt.getTime()<now-86400000||endsAt<=startsAt)
   throw issue('Η ημερομηνία έναρξης ή λήξης δεν είναι έγκυρη.');
- if(!pricing.durationDays.includes(Math.ceil((endsAt-startsAt)/86400000)))
-  throw issue('Η διάρκεια δεν είναι επιτρεπτή στον ισχύοντα τιμοκατάλογο.');
  const geo=validateAgencyGeo({targetCountry:body?.country||'Ελλάδα',
   targetRegion:body?.region||'All',
   targetLocations:[body?.prefecture||(body?.region&&body.region!=='All'?body.region:'Ελλάδα')]});
