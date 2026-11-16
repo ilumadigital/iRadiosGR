@@ -64,7 +64,7 @@ export function selectStationBreak(ads,count,station,location,geoMatch,maxSpots=
  return stationBreakCandidates(ads,count,station,location,geoMatch)
   .slice(0,Math.min(MAX_AD_BREAK_SPOTS,Math.max(1,maxSpots)));
 }
-export function selectTimedBreak(ads,station,location,geoMatch,lastPlayed,now=Date.now(),maxSpots=MAX_AD_BREAK_SPOTS){
+export function timedBreakCandidates(ads,station,location,geoMatch,lastPlayed,now=Date.now()){ 
  if(!Array.isArray(ads))return [];
  const candidates=ads.map(ad=>{
   if(!canServeAudioAd(ad,station,location,geoMatch,now))return null;
@@ -79,5 +79,9 @@ export function selectTimedBreak(ads,station,location,geoMatch,lastPlayed,now=Da
   const key=String(ad.campaignId||ad._id);
   if(used.has(key))return false;
   used.add(key);return true;
- }).slice(0,Math.min(MAX_AD_BREAK_SPOTS,Math.max(1,maxSpots)));
+ });
+}
+export function selectTimedBreak(ads,station,location,geoMatch,lastPlayed,now=Date.now(),maxSpots=MAX_AD_BREAK_SPOTS){
+ return timedBreakCandidates(ads,station,location,geoMatch,lastPlayed,now)
+  .slice(0,Math.min(MAX_AD_BREAK_SPOTS,Math.max(1,maxSpots)));
 }
