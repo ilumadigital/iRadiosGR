@@ -12,6 +12,7 @@ const tone={
 };
 export default function AdminSandboxPayments({API_URL='/api'}){
  const [rows,setRows]=useState([]),[busy,setBusy]=useState(true);
+ const [gatewayEnv,setGatewayEnv]=useState('staging');
  const [error,setError]=useState(''),[selected,setSelected]=useState(null);
  const [filter,setFilter]=useState('all');
  const load=useCallback(async()=>{
@@ -21,8 +22,9 @@ export default function AdminSandboxPayments({API_URL='/api'}){
     headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},
     cache:'no-store'});
    const data=await res.json().catch(()=>({}));
-   if(!res.ok)throw Error(data.error||'Τα sandbox payments δεν φορτώθηκαν.');
+   if(!res.ok)throw Error(data.error||'Οι πληρωμές Gateway δεν φορτώθηκαν.');
    setRows(data.orders||[]);
+   setGatewayEnv(data.environment==='production'?'production':'staging');
   }catch(e){setError(e.message);}
   finally{setBusy(false);}
  },[API_URL]);
@@ -32,7 +34,7 @@ export default function AdminSandboxPayments({API_URL='/api'}){
   <Link to="/backoffice/admin/billing" className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white">
    <ArrowLeft size={16}/> Πίσω στις πληρωμές</Link>
   <div className="mt-6 flex flex-col sm:flex-row justify-between gap-4 sm:items-center">
-   <div><h1 className="text-2xl sm:text-3xl font-black flex items-center gap-3"><ReceiptText className="text-[#ccff00]"/> Sandbox Payments</h1>
+   <div><h1 className="text-2xl sm:text-3xl font-black flex items-center gap-3"><ReceiptText className="text-[#ccff00]"/> Πληρωμές Gateway</h1>
     <p className="text-sm text-zinc-400 mt-2">Αρχικές χρεώσεις Listener Premium 3,99 €, webhook status και ιστορικό γεγονότων.</p>
    </div>
    <button onClick={load} disabled={busy}
@@ -41,7 +43,7 @@ export default function AdminSandboxPayments({API_URL='/api'}){
   </div>
   <div className="my-6 flex items-center gap-3 text-xs text-zinc-400 border border-[#ccff00]/20 bg-[#ccff00]/5 rounded-xl p-4">
    <ShieldCheck size={18} className="text-[#ccff00] shrink-0"/>
-   Sandbox μόνο · Οι συναλλαγές εμφανίζονται ως πληρωμένες αποκλειστικά μετά από υπογεγραμμένο Gateway webhook. Δεν εκτελείται αυτόματη ανανέωση.
+   {gatewayEnv==='production'?'Πραγματικές χρεώσεις':'Δοκιμαστικές συναλλαγές'} · Οι πληρωμές επιβεβαιώνονται αποκλειστικά από υπογεγραμμένο Gateway webhook. Οι αυτόματες ανανεώσεις εξαρτώνται από την ξεχωριστή ενεργοποίηση του μηχανισμού τους.
   </div>
   {error&&<p role="alert" className="text-red-300 p-4 rounded-xl border border-red-500/30">{error}</p>}
   <div className="flex gap-3 items-center mb-4">

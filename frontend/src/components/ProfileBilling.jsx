@@ -131,7 +131,7 @@ export default function ProfileBilling({API_URL='/api',user}){
        :'Δεν πραγματοποιούνται αυτόματες χρεώσεις χωρίς επαληθευμένη εξουσιοδότηση. Η αποθήκευση τρόπου πληρωμής από μόνη της δεν δημιουργεί συνδρομή.'}
      </p>
      {recurring.state==='active'&&!recurring.execution_enabled&&
-      <p className="text-xs font-semibold text-amber-200">Η αυτόματη εκτέλεση βρίσκεται ακόμη σε έλεγχο Sandbox.</p>}
+      <p className="text-xs font-semibold text-amber-200">Η αυτόματη εκτέλεση χρεώσεων δεν έχει ακόμη ενεργοποιηθεί για αυτό το περιβάλλον πληρωμών.</p>}
     </div>
     {['active','pending','verification_pending','past_due'].includes(recurring.state)&&
      <button type="button" disabled={busy} onClick={cancel}
@@ -158,7 +158,7 @@ export default function ProfileBilling({API_URL='/api',user}){
   {!loading&&view==='payments'&&<Surface>
    <div className="flex items-center justify-between gap-3">
     <div><h3 className="text-lg font-black text-white">Ιστορικό πληρωμών</h3>
-     <p className="mt-1 text-xs text-zinc-400">Εγγραφές από το σύστημα πληρωμών · Δοκιμαστικό περιβάλλον</p></div>
+     <p className="mt-1 text-xs text-zinc-400">{data?.environment==='production'?'Πραγματικές συναλλαγές μέσω ασφαλούς παρόχου':'Συναλλαγές δοκιμαστικού περιβάλλοντος'}</p></div>
     <History size={23} className="text-[#ccff00]"/>
    </div>
    {payments.length===0?<p className="mt-6 rounded-xl bg-white/[.03] p-5 text-sm text-zinc-400">Δεν υπάρχουν καταχωρημένες πληρωμές ακόμη.</p>:
@@ -180,6 +180,8 @@ export default function ProfileBilling({API_URL='/api',user}){
    <p className="mt-3 max-w-sm text-sm leading-6 text-zinc-400">Η ενότητα έχει προβλεφθεί για μελλοντική έκδοση παραστατικών. Δεν υπάρχουν ακόμη τιμολόγια ή διαθέσιμα αρχεία για λήψη.</p>
    <span className="mt-5 rounded-full border border-white/10 px-4 py-1.5 text-xs font-semibold text-zinc-400">Σύντομα διαθέσιμο</span>
   </Surface>}
-  <p className="flex items-start gap-2 px-1 text-xs leading-6 text-zinc-500"><CircleAlert size={15} className="mt-1 shrink-0"/> Οι λειτουργίες πληρωμών βρίσκονται στο staging. Το ιστορικό είναι πραγματικό ως προς τα sandbox γεγονότα, όχι πραγματικές τραπεζικές χρεώσεις.</p>
+  <p className="flex items-start gap-2 px-1 text-xs leading-6 text-zinc-500"><CircleAlert size={15} className="mt-1 shrink-0"/> {data?.environment==='production'
+    ?'Οι συναλλαγές πραγματοποιούνται στο κανονικό περιβάλλον πληρωμών. Η ενεργοποίηση απαιτεί υπογεγραμμένη επιβεβαίωση πληρωμής.'
+    :'Οι συναλλαγές πραγματοποιούνται σε δοκιμαστικό περιβάλλον και δεν αποτελούν πραγματικές τραπεζικές χρεώσεις.'}</p>
  </div>;
 }
