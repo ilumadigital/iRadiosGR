@@ -1,7 +1,7 @@
 'use strict';
 // Prerender the same real station facts for all user agents. React subsequently
 // mounts the interactive player into #root; no crawler-specific HTML or cloaking.
-const {escapeHtml: e,urlFor,stationUrl,normalizedSchedule} = require('./seo2Core');
+const {escapeHtml: e,urlFor,stationUrl,normalizedSchedule,links} = require('./seo2Core');
 let cache = {html:null,until:0};
 const TEMPLATE_URL = process.env.SEO_FRONTEND_TEMPLATE_URL || 'http://frontend/index.html';
 
@@ -48,14 +48,18 @@ function stationBody(st,seo,similar=[]) {
     (show.host?' — '+e(show.host):'')+
     (show.description?'<p>'+e(show.description)+'</p>':'')+'</li>').join('');
   const faq=seo.faq.map(x=>'<details><summary>'+e(x.q)+'</summary><p>'+e(x.a)+'</p></details>').join('');
-  const categories=[st.genre,...(st.secondaryGenres||[])].filter(Boolean);
+  const categories=[st.genre,st.secondaryGenre,...(st.secondaryGenres||[])].filter(Boolean);
   const categoryLinks=[...new Set(categories)].map(x=>'<a href="'+e(urlFor('/genre/'+encodeURIComponent(x)))+'">'+e(x)+'</a>').join(' · ');
   const location=st.region?'<a href="'+e(urlFor('/region/'+encodeURIComponent(st.region)))+'">'+e(st.region)+'</a>':'';
+  const official=links(st).map(url=>'<li><a rel="noopener noreferrer" href="'+e(url)+'">'+
+    e(new URL(url).hostname)+'</a></li>').join('');
   return '<main class="seo-prerender" lang="el">'+commonNav()+
     '<article><h1>'+e(seo.h1)+'</h1><p>'+e(seo.description)+'</p>'+
     (st.description?'<section><h2>Σχετικά με τον σταθμό</h2><p>'+e(st.description)+'</p></section>':'')+
+    (st.slogan?'<p>'+e(st.slogan)+'</p>':'')+
     (categoryLinks?'<section><h2>Μουσικό είδος</h2><p>'+categoryLinks+'</p></section>':'')+
     (location?'<section><h2>Περιοχή μετάδοσης</h2><p>'+location+'</p></section>':'')+
+    (official?'<section><h2>Επίσημοι σύνδεσμοι</h2><ul>'+official+'</ul></section>':'')+
     (list?'<section><h2>Πρόγραμμα εκπομπών (ώρα Ελλάδας)</h2><ul>'+list+'</ul></section>':'')+
     (faq?'<section><h2>Συχνές ερωτήσεις</h2>'+faq+'</section>':'')+
     '</article>'+
