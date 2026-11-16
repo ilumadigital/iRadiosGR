@@ -85,7 +85,8 @@ export default function StationProfile({
       endTime:station?.schedule?.[index]?.endTime==='24:00'?'24:00':show.endTime
     })),
     [station?.schedule,station?.scheduleDayBase]);
-  const seoHostedShow = canonicalSchedule.find(show => show.host?.trim());
+  const seoHostedShow = [...canonicalSchedule].filter(show => show.host?.trim())
+    .sort((a,b) => Number(a.day)-Number(b.day) || a.startTime.localeCompare(b.startTime))[0];
   const isFreeOrGuest = !currentUser || (!currentUser.isPremium && currentUser?.broadcasterProfile?.tier !== 'premium');
   const isThisPlaying = currentStation && (currentStation._id === station?._id);
 
