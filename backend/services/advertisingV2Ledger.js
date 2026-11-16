@@ -14,6 +14,7 @@ const {NANOS_PER_CENT,feeNanos,eventReserveNanos,athensDay,validDailyBudget,
  matchesRateCardSnapshot}=require('./advertisingV2Policy');
 const TICKET=/^[a-f0-9]{32}$/;
 const SECRET_MIN=32;
+const DAY_MS=86400000;
 let ready=null;
 function enabled(){
  return process.env.APP_ENV==='staging'&&
