@@ -1850,6 +1850,15 @@ function MainApp() {
         <meta name="twitter:image" content="__IRADIOS_SITE_ORIGIN__/og-image.png" />
       </Helmet>}
 
+      {location.pathname === '/map' && <Helmet>
+        <title>Χάρτης ελληνικών ραδιοφωνικών σταθμών | iRadios</title>
+        <meta name="description" content="Εξερεύνησε ραδιοφωνικούς σταθμούς από πόλεις και περιοχές της Ελλάδας στον χάρτη του iRadios."/>
+        <link rel="canonical" href="__IRADIOS_SITE_ORIGIN__/map"/>
+        <meta property="og:title" content="Χάρτης ελληνικών ραδιοφωνικών σταθμών | iRadios"/>
+        <meta property="og:image" content="__IRADIOS_SITE_ORIGIN__/og-image.png"/>
+        <meta name="twitter:card" content="summary_large_image"/>
+      </Helmet>}
+
       {contextMenu.show && (() => {
         const isFav = currentStation && currentUser?.favorites?.includes(currentStation._id);
 
