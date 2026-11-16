@@ -164,9 +164,13 @@ stationSchema.pre('findOneAndUpdate',async function(){
     if(previous?.slug&&previous.slug!==changedSlug)
       update.$addToSet={...(update.$addToSet||{}),previousSlugs:previous.slug};
   }
-  if(Object.keys(update).some(key=>key.charCodeAt(0)===36))
-    update.$set={...(update.$set||{}),seoUpdatedAt:new Date()};
-  else update.seoUpdatedAt=new Date();
+  // Keep MongoDB operator updates valid even when a legacy endpoint supplies
+  // direct fields and the SEO hook needs to add its own update operators.
+  const direct={};
+  for(const key of Object.keys(update)){
+    if(key.charCodeAt(0)!==36){direct[key]=update[key];delete update[key];}
+  }
+  update.$set={...direct,...(update.$set||{}),seoUpdatedAt:new Date()};
   this.setUpdate(update);
 });
 
