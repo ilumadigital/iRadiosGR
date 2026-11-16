@@ -89,3 +89,23 @@ export function toAthensDateKey(value) {
   const [dd, mm, yyyy] = formatted.split('/');
   return yyyy + '-' + mm + '-' + dd;
 }
+
+/**
+ * Convert Athens wall-clock time to an absolute UTC ISO instant.
+ * Greece uses UTC+2 (winter) / UTC+3 (summer). Rechecking the formatted
+ * instant rejects the missing spring-forward hour; ambiguous fall-back times
+ * resolve to the first occurrence (summer offset).
+ */
+export function athensWallTimeToIso(localValue) {
+  if (typeof localValue !== 'string' || !ISO_LOCAL_DATETIME.test(localValue) ||
+      !parseGreekDateTime(formatLocalDateTime(localValue))) return null;
+  const [ymd, hm] = localValue.split('T');
+  const [year, month, day] = ymd.split('-').map(Number);
+  const [hour, minute] = hm.split(':').map(Number);
+  const clock = Date.UTC(year, month - 1, day, hour, minute);
+  for (const offsetHours of [3, 2]) {
+    const candidate = new Date(clock - offsetHours * 3600000);
+    if (toAthensLocalDateTime(candidate) === localValue) return candidate.toISOString();
+  }
+  return null;
+}
