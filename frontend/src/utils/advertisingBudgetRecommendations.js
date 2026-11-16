@@ -44,6 +44,23 @@ export const AUDIO_FULL_RESERVE_NANOS=Object.freeze({
  twice_a_day:962000000,four_times_a_day:1138000000,
  six_times_a_day:1351000000
 });
+export function audioReservationPlacements(audios=[]){
+ const seen=new Set();
+ const list=[];
+ for(const ad of audios){
+  const places=Array.isArray(ad.frequencies)&&ad.frequencies.length?
+   ad.frequencies:[ad.frequency];
+  for(const place of places){
+   if(!Object.hasOwn(AUDIO_FULL_RESERVE_NANOS,place)||seen.has(place))continue;
+   seen.add(place);
+   list.push({placement:place,reserveNanos:AUDIO_FULL_RESERVE_NANOS[place]});
+  }
+ }
+ return list.sort((a,b)=>b.reserveNanos-a.reserveNanos);
+}
+export function maximumAudioReservationNanos(audios=[]){
+ return audioReservationPlacements(audios)[0]?.reserveNanos||0;
+}
 export function minimumAudioReservationNanos(audios=[]){
  const amounts=audios.flatMap(ad=>{
   const places=Array.isArray(ad.frequencies)&&ad.frequencies.length?
