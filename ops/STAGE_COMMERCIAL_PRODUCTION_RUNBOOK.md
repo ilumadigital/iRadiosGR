@@ -1,7 +1,7 @@
 # iRadios stage — commercial Gateway production mode
 Do not confuse the **application environment** with the **payment tenant**.
 The app remains `APP_ENV=staging`, hosted only at `stage.iradios.gr`. 
-The historic `play.iradios.gr` application and its Stripe integration are not managed here.
+The historic `play.iradios.gr` application and its separate legacy integration are not managed here.
 
 ## Operator release gates
 1. Merge and deploy **Gateway** production-to-stage routing before changing payment credentials.
