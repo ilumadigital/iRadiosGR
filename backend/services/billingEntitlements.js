@@ -4,6 +4,7 @@
 // legacy manual benefits until a separate audited migration.
 const BillingGrant=require('../models/BillingGrant');
 const BillingOrder=require('../models/BillingOrder');
+const ProductionQaOrder=require('../models/ProductionQaOrder');
 const {paidRights}=require('./broadcasterPurchaseRules');
 const {effectiveRights,projectUserEntitlements}=require('./billingEntitlementRules');
 
@@ -38,7 +39,7 @@ async function accountRights(user,now=new Date()){
   // A production Nexi QA payment is never a normal staging sandbox order.
   // Only its own HMAC-confirmed, already-paid, time-bounded staging record
   // unlocks this ONE test listener; live production database is unaffected.
-  const qaPaid=await require('../models/ProductionQaOrder').exists({
+  const qaPaid=await ProductionQaOrder.exists({
    accountId:user._id,status:'paid',sku:'L-PREM',amountCents:399,
    periodStartsAt:{$lte:now},periodEndsAt:{$gt:now}
   });
