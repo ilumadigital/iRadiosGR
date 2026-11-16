@@ -48,6 +48,9 @@ jobs:
       - name: Build the frontend before the static UI contract checks
         # Mirrors the Docker/Vite compilation and exposes the root error promptly.
         run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
+      - name: Check Advertising v2 official placements, fallback queue and budget guidance
+        run: |
+          node --test frontend/src/utils/audioAdRules.test.js frontend/src/utils/advertisingBudgetRecommendations.test.js
       - name: Verify fast single-logo preloader, vector proportions and reduced motion
         run: node ops/check-preloader-branding.test.cjs
       - name: Verify mini widget artwork tiles, color backgrounds and dark-only configurator
