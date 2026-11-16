@@ -11,6 +11,8 @@ const schema=new mongoose.Schema({
  day:{type:String,required:true},
  reservedNanos:{type:Number,required:true,min:1},
  spentNanos:{type:Number,default:0,min:0},
+ // The ticket records its exact shadow quota keys for transactional rollback.
+ quotaKeys:{type:[String],default:[]},
  durationMs:{type:Number,default:0,min:0,max:46000},
  issuedAt:{type:Date,required:true},
  expiresAt:{type:Date,required:true},
