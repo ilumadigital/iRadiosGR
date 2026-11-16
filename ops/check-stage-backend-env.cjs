@@ -63,6 +63,12 @@ try {
     'Live keys require explicit QA opt-in');
   verify(safe+qaConfig,false,'QA enable requires the real credential pair');
   verify(safe+qaConfig+qaCreds,true,'Explicit single-listener production QA credentials can pass preflight');
+  verify(safe+'IRADIOS_PROD_QA_CALLBACK_ONLY=1\n'+
+    'IRADIOS_PROD_QA_LISTENER_ID='+('f'.repeat(24))+'\n'+qaCreds,true,
+    'Callback-only accepts signed outbox events while preventing fresh real checkout');
+  verify(safe+qaConfig+'IRADIOS_PROD_QA_CALLBACK_ONLY=1\n'+qaCreds,false,
+    'Production checkout and callback-only must never coexist');
+
   verify(safe+qaConfig.replace('f'.repeat(24),'bad')+qaCreds,false,
     'QA requires an exact 24-hex listener id');
   verify(safe+qaConfig+qaCreds.replace('e'.repeat(64),'short'),false,
