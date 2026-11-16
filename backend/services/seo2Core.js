@@ -106,7 +106,8 @@ function stationFaq(st, now = new Date()) {
     const selected = today.length ? today.slice(0, 3) : [next];
     const showText = selected.map(show =>
       show.title + ' (' + DAYS[show.day - 1] + ' ' + show.startTime + '–' +
-      show.endTime + (show.host ? ', ' + show.host : '') + ')').join(' · ');
+      show.endTime + (show.host ? ', ' + show.host : '') + ')' +
+      (show.description ? ' — ' + short(show.description, 90) : '')).join(' · ');
     faq.push({
       q: today.length ? 'Ποιες εκπομπές έχει σήμερα ο ' + name + ';' :
         'Ποιες εκπομπές υπάρχουν στο πρόγραμμα του ' + name + ';',
