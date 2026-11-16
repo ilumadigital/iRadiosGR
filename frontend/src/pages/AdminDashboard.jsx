@@ -1,3 +1,4 @@
+import {formatTime} from '../utils/dateTime';
 import {adminFetch as fetch} from '../utils/adminFetch';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {useLiveRevision} from '../utils/liveUpdates';
@@ -133,7 +134,7 @@ export default function AdminDashboard({API_URL='/api',globalSocket}){
           <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[.16em] text-[#caff00]"><Activity size={15}/> Στατιστικά δικτύου</p>
           <h2 className="mt-3 text-2xl font-black tracking-[-.055em] text-white md:text-3xl">Όλο το iRadios σε μία εικόνα.</h2>
           <p className="mt-3 text-sm leading-6 text-zinc-300">Χρήστες, έσοδα, ακροάσεις και διαφημίσεις — χωρίς περιττά γραφήματα και σύνθετες ενέργειες.</p>
-          <p className="mt-3 flex items-center gap-2 text-[11px] text-zinc-400"><Clock3 size={14}/>{lastUpdated?'Ενημερώθηκε '+lastUpdated.toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit'}):'Δεν έχει γίνει ακόμη ενημέρωση'}</p>
+          <p className="mt-3 flex items-center gap-2 text-[11px] text-zinc-400"><Clock3 size={14}/>{lastUpdated?'Ενημερώθηκε '+formatTime(lastUpdated):'Δεν έχει γίνει ακόμη ενημέρωση'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3 rounded-2xl border border-[#caff00]/20 bg-black/25 px-5 py-3">

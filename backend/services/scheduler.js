@@ -35,9 +35,7 @@ const startScheduler = () => {
       // Βρίσκουμε ποια θα είναι η ώρα σε ακριβώς 5 λεπτά από τώρα
       const future = new Date(now.getTime() + 5 * 60000);
       
-      // Υπολογισμός Ημέρας 
-      // Η JS θεωρεί 0 την Κυριακή, 1 τη Δευτέρα.
-      // Στο frontend έχουμε 0: Δευτέρα ... 6: Κυριακή, άρα κάνουμε την προσαρμογή:
+      // Always resolve show reminders from the Athens calendar, not host UTC.
       const parts=Object.fromEntries(athensClock.formatToParts(future)
         .filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
       const targetDay=greekWeekdays[parts.weekday];
