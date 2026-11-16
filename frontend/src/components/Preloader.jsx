@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { SPLASH_DURATION_MS, SPLASH_FADE_MS, preloaderTimeline } from '../utils/preloaderTimeline';
+import { preloaderTimeline } from '../utils/preloaderTimeline';
 import BrandLogo from './BrandLogo';
 import './preloader.css';
 
