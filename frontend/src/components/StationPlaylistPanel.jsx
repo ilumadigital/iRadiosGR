@@ -34,7 +34,7 @@ function TrackCover({track,fallback}) {
 }
 
 export default function StationPlaylistPanel({
-  station, currentUser, currentStation, isPlaying, onPlayPause, onPlayStation, compact=false, sidebar=false, mobileShowcase=false
+  station, currentUser, currentStation, isPlaying, onPlayPause, onPlayStation, compact=false, sidebar=false, mobileShowcase=false, onTracksLoaded
 }) {
   const navigate=useNavigate();
   const [tracks,setTracks]=useState([]);
@@ -43,6 +43,8 @@ export default function StationPlaylistPanel({
   const [refresh,setRefresh]=useState(0);
   const [openTrackMenu,setOpenTrackMenu]=useState(null);
   const trackMenuRef=useRef(null);
+  const onTracksLoadedRef=useRef(onTracksLoaded);
+  useEffect(()=>{onTracksLoadedRef.current=onTracksLoaded;},[onTracksLoaded]);
   const previousStationRef=useRef(null);
   // The playlist always belongs to the station displayed in this panel.
   // No independent station selector can drift away from the home hero or current station.
@@ -61,9 +63,9 @@ export default function StationPlaylistPanel({
     return ()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',close);};
   },[openTrackMenu]);
   useEffect(()=>{
-    if(!currentUser||!chosen?._id||needsEmailVerification){setTracks([]);setError('');setLoading(false);previousStationRef.current=null;return;}
+    if(!currentUser||!chosen?._id||needsEmailVerification){setTracks([]);onTracksLoadedRef.current?.([]);setError('');setLoading(false);previousStationRef.current=null;return;}
     const controller=new AbortController();
-    if(previousStationRef.current!==chosen._id){setTracks([]);previousStationRef.current=chosen._id;}
+    if(previousStationRef.current!==chosen._id){setTracks([]);onTracksLoadedRef.current?.([]);previousStationRef.current=chosen._id;}
     setLoading(true);setError('');
     fetch('/api/stations/'+encodeURIComponent(chosen._id)+'/playlist',{
       headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},signal:controller.signal
@@ -71,8 +73,12 @@ export default function StationPlaylistPanel({
       const data=await r.json();
       if(!r.ok)throw new Error(data.error||'Δεν μπορέσαμε να φορτώσουμε τα τραγούδια.');
       return data;
-    }).then(data=>setTracks(Array.isArray(data.tracks)?data.tracks.slice(0,120):[]))
-      .catch(e=>{if(e.name!=='AbortError'){setError(e.message);setTracks([]);}})
+    }).then(data=>{
+      if(controller.signal.aborted)return;
+      const rows=Array.isArray(data.tracks)?data.tracks.slice(0,120):[];
+      setTracks(rows);
+      onTracksLoadedRef.current?.(rows);
+    }).catch(e=>{if(e.name!=='AbortError'){setError(e.message);setTracks([]);onTracksLoadedRef.current?.([]);}})
       .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return ()=>controller.abort();
   },[currentUser?._id,currentUser?.isVerified,currentUser?.role,chosen?._id,refresh]);
