@@ -210,6 +210,8 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const [step,setStep]=useState(0),[draft,setDraft]=useState(initialCampaign);
  const [creativeDraft,setCreativeDraft]=useState(null),[budget,setBudget]=useState('100');
  const [dailyBudget,setDailyBudget]=useState('20');
+ const [budgetLevel,setBudgetLevel]=useState('balanced');
+ const [budgetTouchedFor,setBudgetTouchedFor]=useState('');
  const [quote,setQuote]=useState(null),[busy,setBusy]=useState(false);
  const [uploading,setUploading]=useState(false),[loading,setLoading]=useState(true);
  const [error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -235,6 +237,23 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const paymentPending=Boolean(inProgress);
  const editingLocked=current?.approvalStatus!=='draft'||confirmed||Boolean(inProgress);
  const totalBudget=Number(current?.plannedBudgetCents||0)/100;
+ const durationDays=current?calendarCampaignDays(current.startsAt,current.endsAt):0;
+ const fullAudioReserve=minimumAudioReservationNanos(creatives?.audios||[]);
+ const dailyDraftCents=Math.round(Number(dailyBudget)*100);
+ const proposedBudget=durationDays?budgetSuggestion(durationDays,budgetLevel):null;
+ useEffect(()=>{
+  if(!current||current.plannedBudgetCents>0||budgetTouchedFor===current._id||!proposedBudget)return;
+  setBudget((Math.max(proposedBudget.budgetCents,pricing?.minBudgetCents||0)/100).toFixed(2));
+  setDailyBudget((proposedBudget.dailyCents/100).toFixed(2));
+ },[current?._id,current?.startsAt,current?.endsAt,current?.plannedBudgetCents,budgetTouchedFor,budgetLevel,pricing?.minBudgetCents]);
+ const applySuggestion=(level)=>{
+  if(!durationDays)return;
+  const proposal=budgetSuggestion(durationDays,level);
+  setBudgetLevel(level);
+  setBudget((Math.max(proposal.budgetCents,pricing?.minBudgetCents||0)/100).toFixed(2));
+  setDailyBudget((proposal.dailyCents/100).toFixed(2));
+  setBudgetTouchedFor(current?._id||'');
+ };
  const estimate=useMemo(()=>estimatedImpressions({
   amount:totalBudget,campaign:current,pricing,creatives}),[totalBudget,current,pricing,creatives]);
  const countries=Object.keys(LOCATION_DATA);
@@ -525,18 +544,36 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
      <p className="mt-2 text-sm leading-6 text-zinc-400">{admin?'Σχεδιαστικό budget Admin, χωρίς χρέωση.':'Το αρχικό ποσό που θα προπληρωθεί. Δεν δημιουργείται χρέωση με την αποθήκευση.'}</p></div>
     <div className="grid gap-4 sm:grid-cols-3">
      <Stat title="Ελάχιστο" value={euro((pricing?.minBudgetCents||2000)/100)} desc="Όριο τιμοκαταλόγου" icon={Wallet}/>
-     <Stat title="Διάρκεια" value={Math.ceil((new Date(current.endsAt)-new Date(current.startsAt))/86400000)+' ημέρες'} desc="Προγραμματισμένη περίοδος" icon={Clock3}/>
+     <Stat title="Διάρκεια" value={durationDays+' ημέρες'} desc="Ημερολογιακές ημέρες Ελλάδας" icon={Clock3}/>
      <Stat title="Δημιουργικά" value={num(creativeCount)} desc="Visual / Audio μαζί" icon={ImageIcon}/>
     </div>
+    {!admin&&proposedBudget&&<section className="rounded-2xl border border-purple-400/20 bg-purple-500/[.055] p-4 sm:p-5">
+     <div className="flex flex-wrap items-start justify-between gap-3">
+      <div><h4 className="text-sm font-black text-white">Έξυπνη πρόταση επένδυσης</h4>
+       <p className="mt-1 text-xs leading-5 text-zinc-400">Ενδεικτικά ποσά για {durationDays} ημέρες, όχι νέα τιμολόγηση ούτε εγγυημένες προβολές.</p></div>
+      <span className="text-sm font-black text-purple-200">{euro(proposedBudget.budgetCents/100)}</span>
+     </div>
+     <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      {BUDGET_LEVELS.map(level=><button type="button" key={level.id} disabled={editingLocked}
+       onClick={()=>applySuggestion(level.id)} className={'rounded-xl border px-3 py-3 text-left text-xs font-bold transition '+(budgetLevel===level.id?'border-purple-300/60 bg-purple-500/20 text-white':'border-white/10 bg-black/25 text-zinc-300 hover:border-purple-400/40')}>
+       <span className="block">{level.title}</span>
+       <span className="mt-1 block text-purple-200">{euro(budgetSuggestion(durationDays,level.id).budgetCents/100)}</span></button>)}
+     </div>
+     <p className="mt-3 text-xs text-zinc-400">Ενδεικτικό ημερήσιο όριο: {euro(proposedBudget.dailyCents/100)}. Μπορείτε να τροποποιήσετε ελεύθερα και τα δύο ποσά.</p>
+    </section>}
     <label className={label}>Αρχικό budget (€)
-     <div className="relative max-w-sm"><input type="number" required min="1" step="0.01" disabled={editingLocked} className={field+' pr-14 text-xl font-black'} value={budget} onChange={e=>setBudget(e.target.value)}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
+     <div className="relative max-w-sm"><input type="number" required min="1" step="0.01" disabled={editingLocked} className={field+' pr-14 text-xl font-black'} value={budget} onChange={e=>{setBudget(e.target.value);setBudgetTouchedFor(current?._id||'');}}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
     </label>
     <label className={label}>Ημερήσιο spending limit (€)
      <div className="relative max-w-sm"><input type="number" required min="0.01" step="0.01" disabled={editingLocked}
       className={field+' pr-14 text-xl font-black'} value={dailyBudget}
-      onChange={e=>setDailyBudget(e.target.value)}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
+      onChange={e=>{setDailyBudget(e.target.value);setBudgetTouchedFor(current?._id||'');}}/><span className="absolute right-5 top-6 text-sm text-zinc-400">EUR</span></div>
      <span className="mt-2 block text-xs font-normal text-zinc-400">Όριο ανά ημέρα (ώρα Ελλάδας). Χρεώνονται μόνο έγκυρα γεγονότα. Το αχρησιμοποίητο ημερήσιο όριο δεν μεταφέρεται.</span>
     </label>
+    {fullAudioReserve>0&&<p className={'rounded-xl border p-4 text-xs leading-6 '+(dailyDraftCents*10000000<fullAudioReserve?'border-amber-400/30 bg-amber-400/10 text-amber-100':'border-white/10 bg-black/20 text-zinc-300')}>
+     Ελάχιστη πλήρης κράτηση ανά επιλέξιμο Audio Ticket: <strong>{euro(fullAudioReserve/1e9)}</strong> (10″, πιθανό CTA και ολοκλήρωση).
+     {dailyDraftCents*10000000<fullAudioReserve?' Το ημερήσιο budget δεν καλύπτει νέο ticket. Αυξήστε το spending limit.':' Η πραγματική διαθεσιμότητα ελέγχεται εκ νέου από το backend.'}
+    </p>}
     <div className="flex flex-wrap justify-between gap-3"><button className={secondary} onClick={()=>setStep(1)}><ArrowLeft size={17}/> Πίσω</button>
      <button className={primary} onClick={saveBudget} disabled={busy||editingLocked}>Αποθήκευση budget & Overview <ArrowRight size={17}/></button></div>
    </section>}
