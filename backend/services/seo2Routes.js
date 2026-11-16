@@ -7,7 +7,6 @@ const {origin,urlFor,pick,escapeXml,escapeHtml,stationUrl,stationId,stationSeo,
   stationFaq,directorySeo,homeSeo} = require('./seo2Core');
 const {stationBody,directoryBody,homeBody,sendSeoHtml} = require('./seo2Render');
 const {generateStationOgImage} = require('./seo2Image');
-const {once} = require('node:events');
 const {LLMS_STATION_FIELDS,headline,indexes,stationEntry,stationDetails,
   applicationDocument,directoryIntro,schemaForApplication,schemaForStation} = require('./seo2Llms');
 const router = express.Router();
@@ -148,6 +147,7 @@ router.get('/robots.txt',(_req,res)=>{
 // shared schema and public-only fields. No bot-specific content or hard 25/40 cap.
 const DOC_CACHE='public, max-age=180, s-maxage=300';
 function publicDocument(res,format='text/plain; charset=utf-8'){
+  if(process.env.APP_ENV==='staging')res.set('X-Robots-Tag','noindex, nofollow, noarchive');
   return res.set('Content-Type',format).set('Cache-Control',DOC_CACHE)
     .set('X-Content-Type-Options','nosniff');
 }
@@ -159,6 +159,12 @@ function approvedBySlug(slug){
 function safeSegment(value){
   return typeof value==='string'&&value.length>0&&value.length<=180&&
     !/[/\\\u0000-\u001f]/.test(value);
+}
+// Category and city names can legitimately contain a slash (e.g. Rock/Pop).
+// They are never used as filesystem paths and are matched exactly in Mongo.
+function safeDirectoryName(value){
+  return typeof value==='string'&&value.length>0&&value.length<=120&&
+    !/[\\\u0000-\u001f]/.test(value);
 }
 async function approvedOrMoved(slug){
   const station=await approvedBySlug(slug);
@@ -274,7 +280,7 @@ function directoryDoc(kind){
   return async(req,res)=>{
     try{
       const name=pick(req.params.name,120);
-      if(!safeSegment(name))return missing(res);
+      if(!safeDirectoryName(name))return missing(res);
       const filter=scopeQuery(kind,name);
       if(!await Station.exists(filter))return missing(res);
       return await streamStations(res,filter,directoryIntro(kind,name),stationEntry);
