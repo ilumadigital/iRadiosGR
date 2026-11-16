@@ -222,6 +222,7 @@ function stagePublicAccess(req, res, next) {
   // stage-only flag, exact allowlisted verified listener and explicit €3.99 consent.
   if (req.method==='POST'&&path==='/api/billing/production-qa/checkout')return protect(req,res,next);
   if (req.method==='GET'&&path==='/api/billing/production-qa/status')return protect(req,res,next);
+  if (req.method==='GET'&&path==='/api/billing/production-qa/availability')return protect(req,res,next);
   if (req.method==='POST'&&path==='/api/billing/me/renewal-notice/snooze')return protect(req,res,next);
   if(req.method==='POST'&&path==='/api/billing/me/payment-method/revoke')return protect(req,res,next);
   if(req.method==='POST'&&path==='/api/billing/me/recurring/cancel')return protect(req,res,next);
