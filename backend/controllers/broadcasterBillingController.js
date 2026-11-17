@@ -17,7 +17,7 @@ const KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$
 const ID=/^[a-f0-9]{24}$/i;
 const statusSet=new Set(['creating','pending','redirect','unknown']);
 const ready=()=>process.env.APP_ENV==='staging'&&gateway.configured();
-const safe=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);
+const {gatewayRoute:safe}=require('../services/gatewayRoute');
 function requiresBroadcaster(req,res,next){
  res.set('Cache-Control','private, no-store');
  if(!ready())return res.status(503).json({code:'STAGING_ONLY',error:'Οι αγορές Broadcaster δεν είναι διαθέσιμες.'});

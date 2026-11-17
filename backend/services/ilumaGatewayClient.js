@@ -23,6 +23,14 @@ function signedRequest(method,path,data=null,idempotencyKey=null){
  if(idempotencyKey)headers['Idempotency-Key']=idempotencyKey;
  return new Promise((resolve,reject)=>{
   let settled=false;
+  const failure=error=>{
+   if(settled)return;
+   settled=true;
+   // Do not retain provider bodies, request headers or native error details.
+   const code=error?.code==='GATEWAY_TIMEOUT'?'GATEWAY_TIMEOUT':
+     error?.code==='GATEWAY_BAD_RESPONSE'?'GATEWAY_BAD_RESPONSE':'GATEWAY_NETWORK_ERROR';
+   reject(Object.assign(new Error(code),{code}));
+  };
   const req=https.request({
    hostname:GATEWAY_HOST,port:443,path,method,headers,
    timeout:12000,agent:false,rejectUnauthorized:true
@@ -30,9 +38,11 @@ function signedRequest(method,path,data=null,idempotencyKey=null){
    const chunks=[];let count=0;
    res.on('data',part=>{
     count+=part.length;
-    if(count>65536){req.destroy(new Error('gateway_response_too_large'));return;}
+    if(count>65536){req.destroy(Object.assign(new Error('gateway_response_too_large'),{code:'GATEWAY_BAD_RESPONSE'}));return;}
     chunks.push(part);
    });
+   res.on('aborted',()=>failure({code:'GATEWAY_BAD_RESPONSE'}));
+   res.on('error',failure);
    res.on('end',()=>{
     if(settled)return;settled=true;
     const code=res.statusCode||0;
@@ -41,11 +51,11 @@ function signedRequest(method,path,data=null,idempotencyKey=null){
         code:'GATEWAY_HTTP_'+code
       }));
     try {return resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));}
-    catch{return reject(new Error('gateway_bad_json'));}
+    catch{return reject(Object.assign(new Error('gateway_bad_json'),{code:'GATEWAY_BAD_RESPONSE'}));}
    });
   });
-  req.on('timeout',()=>req.destroy(new Error('gateway_timeout')));
-  req.on('error',err=>{if(!settled){settled=true;reject(err);}});
+  req.on('timeout',()=>req.destroy(Object.assign(new Error('gateway_timeout'),{code:'GATEWAY_TIMEOUT'})));
+  req.on('error',failure);
   req.end(raw);
  });
 }
