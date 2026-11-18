@@ -3,6 +3,7 @@ import {subscribeLiveUpdates} from '../utils/liveUpdates';
 
 export default function useAdEngine(API_URL) {
   const [ads, setAds] = useState([]);
+  const [adsReady,setAdsReady]=useState(false);
   const [isPlayingAd, setIsPlayingAd] = useState(false);
   const [currentAdInfo, setCurrentAdInfo] = useState(null); 
   const [adTimeRemaining, setAdTimeRemaining] = useState(0);
@@ -18,12 +19,14 @@ export default function useAdEngine(API_URL) {
       // !!! Η ΜΑΓΙΚΗ ΑΛΛΑΓΗ ΕΙΝΑΙ ΕΔΩ: Τραβάμε πλέον από το /ads/public !!!
       const res = await fetch(`${API_URL}/ads/public?t=${Date.now()}`);
       if (res.ok) {
-        const data = await res.json();
-        setAds(data);
+        const data=await res.json();
+        if(Array.isArray(data)){setAds(data);return data;}
       }
+      return null;
     } catch (err) { 
-      console.error("Σφάλμα φόρτωσης ads:", err); 
-    }
+      console.error('Σφάλμα φόρτωσης ads:',err);
+      return null;
+    }finally{setAdsReady(true);}
   };
 
   useEffect(() => {
@@ -39,7 +42,7 @@ export default function useAdEngine(API_URL) {
   }, [API_URL]);
 
   return {
-    ads,
+    ads,adsReady,
     isPlayingAd,
     setIsPlayingAd,
     currentAdInfo,

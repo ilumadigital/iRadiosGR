@@ -10,13 +10,19 @@ export const TIME_INTERVALS=Object.freeze({
  once_a_day:24,twice_a_day:12,four_times_a_day:6,
  six_times_a_day:4,once_a_week:168
 });
-const PRIORITY=Object.freeze(['entry','every_5_stations','every_10_stations',
+const PAID_PRIORITY=Object.freeze(['entry','every_5_stations','every_10_stations',
  'every_20_stations','every_30_stations','twice_a_day',
  'four_times_a_day','six_times_a_day']);
+const LEGACY_PRIORITY=Object.freeze(['entry','every_2_stations','every_4_stations',
+ 'every_5_stations','every_10_stations','every_15_stations',
+ 'every_20_stations','every_30_stations','every_1_hour','every_2_hours',
+ 'every_6_hours','once_a_day','twice_a_day','four_times_a_day',
+ 'six_times_a_day','once_a_week']);
 export function placementsForAd(ad){
  const all=Array.isArray(ad?.frequencies)&&ad.frequencies.length?
   ad.frequencies:[ad?.frequency];
- return [...new Set(all.filter(p=>PRIORITY.includes(p)))];
+ const allowed=ad?.paidDeliveryRequired===true?PAID_PRIORITY:LEGACY_PRIORITY;
+ return [...new Set(all.filter(p=>allowed.includes(p)))];
 }
 export function dueOnStationChange(frequency,count){
  if(!Number.isSafeInteger(count)||count<1)return false;
@@ -50,7 +56,7 @@ export function stationBreakCandidates(ads,count,station,location,geoMatch){
   if(!matching.length||!canServeAudioAd(ad,station,location,geoMatch))return null;
   // At count 10, an ad configured for 5 and 10 is billed for its most
   // frequent matching placement, not twice in the same break.
-  const selectedPlacement=matching.sort((a,b)=>PRIORITY.indexOf(a)-PRIORITY.indexOf(b))[0];
+  const selectedPlacement=matching.sort((a,b)=>LEGACY_PRIORITY.indexOf(a)-LEGACY_PRIORITY.indexOf(b))[0];
   return {...ad,selectedPlacement};
  }).filter(Boolean);
  const used=new Set();
@@ -72,7 +78,7 @@ export function timedBreakCandidates(ads,station,location,geoMatch,lastPlayed,no
    dueOnClock(p,lastPlayed[ad._id+':'+p]||0,now));
   if(!options.length)return null;
   return {...ad,selectedPlacement:options.sort((a,b)=>
-   PRIORITY.indexOf(a)-PRIORITY.indexOf(b))[0]};
+   LEGACY_PRIORITY.indexOf(a)-LEGACY_PRIORITY.indexOf(b))[0]};
  }).filter(Boolean);
  const used=new Set();
  return orderAudioCandidates(candidates).filter(ad=>{
