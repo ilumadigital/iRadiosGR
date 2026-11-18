@@ -44,7 +44,14 @@ export const AUDIO_FULL_RESERVE_NANOS=Object.freeze({
  twice_a_day:962000000,four_times_a_day:1138000000,
  six_times_a_day:1351000000
 });
-export function audioReservationPlacements(audios=[]){
+export function audioReservationPlacements(audios=[],rateCard=null){
+ const pricedReserve=place=>{
+  const e=rateCard?.audio?.[place];
+  if(!e)return AUDIO_FULL_RESERVE_NANOS[place];
+  const parts=['listen10','cta','complete'].map(key=>e[key]);
+  return parts.every(n=>Number.isSafeInteger(n)&&n>0)?
+   parts.reduce((sum,n)=>sum+n,0):undefined;
+ };
  const seen=new Set();
  const list=[];
  for(const ad of audios){
@@ -53,19 +60,21 @@ export function audioReservationPlacements(audios=[]){
   for(const place of places){
    if(!Object.hasOwn(AUDIO_FULL_RESERVE_NANOS,place)||seen.has(place))continue;
    seen.add(place);
-   list.push({placement:place,reserveNanos:AUDIO_FULL_RESERVE_NANOS[place]});
+   list.push({placement:place,reserveNanos:pricedReserve(place)});
   }
  }
  return list.sort((a,b)=>b.reserveNanos-a.reserveNanos);
 }
-export function maximumAudioReservationNanos(audios=[]){
- return audioReservationPlacements(audios)[0]?.reserveNanos||0;
+export function maximumAudioReservationNanos(audios=[],rateCard=null){
+ return audioReservationPlacements(audios,rateCard)[0]?.reserveNanos||0;
 }
-export function minimumAudioReservationNanos(audios=[]){
+export function minimumAudioReservationNanos(audios=[],rateCard=null){
  const amounts=audios.flatMap(ad=>{
   const places=Array.isArray(ad.frequencies)&&ad.frequencies.length?
    ad.frequencies:[ad.frequency];
-  return places.map(p=>AUDIO_FULL_RESERVE_NANOS[p]).filter(Number.isSafeInteger);
+  return places.map(p=>rateCard?.audio?.[p]?
+  ['listen10','cta','complete'].reduce((sum,event)=>sum+rateCard.audio[p][event],0):
+  AUDIO_FULL_RESERVE_NANOS[p]).filter(Number.isSafeInteger);
  });
  return amounts.length?Math.min(...amounts):0;
 }

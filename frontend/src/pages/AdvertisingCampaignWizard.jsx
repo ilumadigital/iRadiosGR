@@ -82,17 +82,18 @@ async function request(url,options={}){
  return data;
 }
 function estimatedImpressions({amount,campaign,pricing,creatives}){
- const tiers=new Set();
+ const placements=new Set();
  creatives?.banners?.forEach(c=>{
-  (c.placement||[]).forEach(p=>tiers.add(p==='hero'?'hero':'standard'));
+  (c.placement||[]).forEach(p=>placements.add(p));
  });
- // Audio v2 is billed per validated event and must not be estimated as CPM.
- const cpm=[...tiers].map(t=>Number(pricing?.cpmMicros?.[t]||0)/1000000)
+ // Visual v2 is per-impression; the active CPM is 1,000 times that rate.
+ // Audio is billed by qualified event and is never estimated as banner CPM.
+ const cpm=[...placements].map(p=>Number(pricing?.rateCard?.visual?.[p]||0)/1e6)
   .filter(x=>x>0);
  if(!cpm.length||!amount)return null;
  const low=Math.floor((amount/Math.max(...cpm))*1000);
  const high=Math.floor((amount/Math.min(...cpm))*1000);
- return {low,high,tiers:[...tiers]};
+ return {low,high,tiers:[...placements]};
 }
 function spotHelpMailto(campaign,agency){
  const subject='Δημιουργία Spot για το iRadios - '+(campaign?.title||'Νέα καμπάνια')+' - '+(campaign?.brand||'Πελάτης');
@@ -109,7 +110,7 @@ function spotHelpMailto(campaign,agency){
  ].join('\n');
  return 'mailto:sales@iluma.gr?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(message);
 }
-function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy,campaign,agency}){
+function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy,campaign,agency,pricing}){
  const banner=draft.kind==='banner';
  const [designPlacement,setDesignPlacement]=useState('home');
  const update=(key,value)=>setDraft(d=>({...d,[key]:value}));
@@ -176,7 +177,7 @@ function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy,ca
    {draft.audioUrl&&<p className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 text-xs text-emerald-200"><Check size={14} className="mr-2 inline"/>Audio spot έχει ανέβει. Η προεπισκόπηση είναι διαθέσιμη μετά την αποθήκευση.</p>}
    <div><span className={label}>Audio Placements (επιτρέπονται πολλαπλές θέσεις)</span>
     <div className="mt-3 grid gap-2 sm:grid-cols-2">
-     {audioOptions.map(([v,title,rate])=><label key={v}
+     {audioOptions.map(([v,title])=><label key={v}
        className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs text-white">
        <input type="checkbox" checked={(draft.frequencies?.length?draft.frequencies:[draft.frequency]).includes(v)}
         onChange={e=>{
@@ -184,7 +185,7 @@ function CreativeEditor({draft,setDraft,uploading,onUpload,submit,cancel,busy,ca
          const next=e.target.checked?[...new Set([...current,v])]:current.filter(x=>x!==v);
          setDraft(d=>({...d,frequencies:next,frequency:next[0]||d.frequency}));
         }}/>
-       <span><strong>{title}</strong><small className="block mt-1 text-zinc-400">{rate} + CTA + ολοκλήρωση</small></span>
+       <span><strong>{title}</strong><small className="block mt-1 text-zinc-400">€{(Number(pricing?.rateCard?.audio?.[v]?.listen10||0)/1e9).toFixed(3)} / 10″ + CTA + ολοκλήρωση</small></span>
       </label>)}
     </div></div>
    <label className={label}>URL του brand (προαιρετικό)
@@ -238,8 +239,8 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const editingLocked=current?.approvalStatus!=='draft'||confirmed||Boolean(inProgress);
  const totalBudget=Number(current?.plannedBudgetCents||0)/100;
  const durationDays=current?calendarCampaignDays(current.startsAt,current.endsAt):0;
- const audioReserveRows=audioReservationPlacements(creatives?.audios||[]);
- const fullAudioReserve=maximumAudioReservationNanos(creatives?.audios||[]);
+ const audioReserveRows=audioReservationPlacements(creatives?.audios||[],pricing?.rateCard);
+ const fullAudioReserve=maximumAudioReservationNanos(creatives?.audios||[],pricing?.rateCard);
  const dailyDraftCents=Math.round(Number(dailyBudget)*100);
  const proposedBudget=durationDays?budgetSuggestion(durationDays,budgetLevel):null;
  useEffect(()=>{
@@ -538,7 +539,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
      <div className="flex flex-wrap justify-between gap-3"><button className={secondary} onClick={()=>setStep(0)}><ArrowLeft size={17}/> Πίσω</button>
       <button className={primary} disabled={!creativeCount} onClick={()=>setStep(2)}>Συνέχεια στο Budget <ArrowRight size={17}/></button></div>
     </section>}
-    {creativeDraft&&<CreativeEditor draft={creativeDraft} setDraft={setCreativeDraft}
+    {creativeDraft&&<CreativeEditor pricing={pricing} draft={creativeDraft} setDraft={setCreativeDraft}
      uploading={uploading} onUpload={onUpload} submit={saveCreative} busy={busy}
      campaign={current} agency={currentUser} cancel={()=>setCreativeDraft(null)}/>}
    </div>}
@@ -585,7 +586,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
 
    {step===3&&<section className="space-y-5">
     <div className={panel+' space-y-6'}>
-     <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">04 · Overview & Estimation</p><h3 className="mt-2 text-2xl font-black">Έλεγξε πριν προχωρήσεις.</h3><p className="mt-2 text-sm text-zinc-400">Συγκεντρωμένη εικόνα των επιλογών σου και εκτίμηση βάσει του ενεργού CPM.</p></div>
+     <div><p className="text-xs font-black uppercase tracking-widest text-purple-300">04 · Overview & Estimation</p><h3 className="mt-2 text-2xl font-black">Έλεγξε πριν προχωρήσεις.</h3><p className="mt-2 text-sm text-zinc-400">Συγκεντρωμένη εικόνα των επιλογών σου και εκτίμηση βάσει των ενεργών χρεώσεων.</p></div>
      <div className="grid gap-3 sm:grid-cols-2">
       {[['Καμπάνια',current.title],['Brand',current.brand],['Στόχευση',[current.country,current.region==='All'?null:current.region,current.prefecture].filter(Boolean).join(' • ')],
        ['Περίοδος',formatDate(current.startsAt)+' – '+formatDate(current.endsAt)],
@@ -595,9 +596,9 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
      <div className="rounded-2xl border border-purple-300/20 bg-purple-500/[.07] p-5">
       <div className="flex items-center gap-3"><BarChart3 size={21} className="text-purple-300"/><h4 className="font-black">Ενδεικτικό εύρος προβολών</h4></div>
       <p className="mt-4 text-3xl font-black text-white">{estimate?estimate.low===estimate.high?num(estimate.low):num(estimate.low)+' – '+num(estimate.high):'—'}</p>
-      <p className="mt-3 text-xs leading-6 text-zinc-300">Θεωρητικό εύρος αν όλο το budget διατεθεί σε ένα από τα επιλεγμένα CPM tiers. Δεν είναι πρόβλεψη πραγματικών ακροάσεων, guaranteed impressions ή ακριβής κατανομή. Επηρεάζεται από διαθέσιμο inventory, pacing και γεωγραφική στόχευση.</p>
+      <p className="mt-3 text-xs leading-6 text-zinc-300">Θεωρητικό εύρος μόνο για τα επιλεγμένα Banner placements, αν όλο το budget διατεθεί σε ένα CPM. Δεν είναι πρόβλεψη πραγματικών ακροάσεων, guaranteed impressions ή ακριβής κατανομή. Επηρεάζεται από διαθέσιμο inventory, pacing και γεωγραφική στόχευση.</p>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
-       {[['standard','Standard'],['hero','Homepage Hero'],['audio','Audio']].map(([key,name])=><p key={key} className="rounded-xl border border-white/10 bg-black/25 p-3 text-xs"><span className="block text-zinc-500">{name} CPM</span><strong className="mt-1 block text-base text-purple-100">{euro(Number(pricing?.cpmMicros?.[key]||0)/1e6)}</strong></p>)}
+       {Object.entries(pricing?.rateCard?.visual||{}).map(([key,value])=><p key={key} className="rounded-xl border border-white/10 bg-black/25 p-3 text-xs"><span className="block text-zinc-500">{key.replaceAll('_',' ')} CPM</span><strong className="mt-1 block text-base text-purple-100">{euro(value/1e6)}</strong></p>)}
       </div>
      </div>
      {!admin&&<div className={card+' space-y-3'}>
@@ -605,7 +606,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
       <p className="flex justify-between text-sm text-zinc-300"><span>Καθαρό budget</span><strong>{euro(totalBudget)}</strong></p>
       <p className="flex justify-between text-sm text-zinc-300"><span>ΦΠΑ {pricing?.taxBps==null?'(δεν έχει οριστεί)':(Number(pricing.taxBps)/100)+'%'}</span><strong>{pricing?.taxBps==null?'—':euro(totalBudget*pricing.taxBps/10000)}</strong></p>
       <div className="flex justify-between border-t border-white/10 pt-4 text-lg"><span>Ενδεικτικό πληρωτέο</span><strong>{pricing?.taxMode==='budget_net_plus_vat'?euro(totalBudget*(1+pricing.taxBps/10000)):'—'}</strong></div>
-      <p className="text-xs leading-5 text-zinc-500">Το τελικό πληρωτέο και τα CPM snapshots επιβεβαιώνονται μόνο στο επίσημο, χρονικά περιορισμένο quote της πλατφόρμας.</p>
+      <p className="text-xs leading-5 text-zinc-500">Το τελικό πληρωτέο και τα snapshots χρεώσεων επιβεβαιώνονται μόνο στο επίσημο, χρονικά περιορισμένο quote της πλατφόρμας.</p>
      </div>}
      <div className="flex flex-wrap justify-between gap-3"><button className={secondary} onClick={()=>setStep(2)}><ArrowLeft size={17}/> Αλλαγή budget</button>
       {admin?<button className={primary} onClick={()=>setStep(4)}>Τελικός έλεγχος Admin <ArrowRight size={17}/></button>:

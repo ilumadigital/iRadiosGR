@@ -27,7 +27,7 @@ export default function AgencyCampaignTopUp({campaign,pricing,onRefresh}){
   if(!Number.isSafeInteger(cents)||cents<Number(pricing.minTopupCents))
    throw Error('Το top-up είναι κάτω από το ελάχιστο του τιμοκαταλόγου.');
   const result=await request('campaigns/'+campaign._id+'/quotes',{kind:'topup',budgetCents:cents});
-  setQuote(result);setNotice('Δημιουργήθηκε νέο quote. Το αρχικό budget και οι CPM τιμές του παραμένουν ανέπαφα.');
+  setQuote(result);setNotice('Δημιουργήθηκε νέο quote. Το αρχικό budget και οι τιμές των ιστορικών αγορών παραμένουν ανέπαφα.');
  });
  const checkout=()=>run(async()=>{
   if(!quote)throw Error('Δημιούργησε πρώτα quote.');
@@ -39,7 +39,7 @@ export default function AgencyCampaignTopUp({campaign,pricing,onRefresh}){
  return <section className="rounded-[24px] border border-purple-400/20 bg-[#171320] p-5 sm:p-7">
   <div className="flex items-center gap-3"><span className="rounded-xl bg-purple-500/15 p-3 text-purple-300"><Wallet size={21}/></span><div>
    <h4 className="text-lg font-black text-white">Προσθήκη budget στην ίδια καμπάνια</h4>
-   <p className="mt-1 text-xs text-zinc-400">Νέα πληρωμή, ίδια καμπάνια. Το ιστορικό και τα CPM snapshots διατηρούνται.</p></div></div>
+   <p className="mt-1 text-xs text-zinc-400">Νέα πληρωμή, ίδια καμπάνια. Το ιστορικό και τα snapshots χρεώσεων διατηρούνται.</p></div></div>
   <div className="mt-5 flex flex-wrap items-end gap-3">
    <label className="text-xs font-bold text-zinc-300">Ποσό top-up (€)
     <input type="number" min={Number(pricing?.minTopupCents||1000)/100} step=".01" value={amount} onChange={e=>{setAmount(e.target.value);setQuote(null);}}
