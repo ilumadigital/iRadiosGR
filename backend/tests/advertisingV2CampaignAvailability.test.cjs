@@ -5,7 +5,8 @@ const availability=require('../services/advertisingV2CampaignAvailability');
 const policy=require('../services/advertisingV2Policy');
 const liveAudio={status:'active',isStageCreative:true,mediaReady:true,
  frequencies:['entry']};
-const paidLot={remainingNanos:20_000_000_000,reservedNanos:0};
+const paidLot={remainingNanos:20_000_000_000,reservedNanos:0,
+ rateCardSnapshot:policy.defaultRateCard()};
 test('First Play stops showing as payable when daily EUR 2 cap has only EUR 1.64 left',()=>{
  const capacity=availability.analyzeAvailability({audios:[liveAudio],
   eligibleLots:[paidLot],dayAvailableNanos:1_640_000_000});
@@ -25,7 +26,8 @@ test('raising daily cap to EUR 5 makes a whole First Play ticket affordable',()=
 });
 test('readiness respects a single indivisible lot, media and visual placements',()=>{
  const noLot=availability.analyzeAvailability({audios:[liveAudio],
-  eligibleLots:[{remainingNanos:1_000_000_000},{remainingNanos:1_000_000_000}],
+  eligibleLots:[{...paidLot,remainingNanos:1_000_000_000},
+   {...paidLot,remainingNanos:1_000_000_000}],
   dayAvailableNanos:10_000_000_000});
  assert.equal(noLot.nextTicketAffordable,false);
  const missingMedia=availability.analyzeAvailability({audios:[{...liveAudio,mediaReady:false}],
@@ -33,7 +35,7 @@ test('readiness respects a single indivisible lot, media and visual placements',
  assert.equal(missingMedia.hasEligibleCreative,false);
  const visual=availability.analyzeAvailability({banners:[{status:'active',isStageCreative:true,
   isActive:true,imageUrl:'/media/visuals/example.webp',placement:['hero','home']}],
-  eligibleLots:[{remainingNanos:10_000_000,reservedNanos:0}],
+  eligibleLots:[{...paidLot,remainingNanos:10_000_000,reservedNanos:0}],
   dayAvailableNanos:40_000_000});
  assert.equal(visual.slots.length,2);
  assert.equal(visual.slots[0].requiredNanos,4_000_000);

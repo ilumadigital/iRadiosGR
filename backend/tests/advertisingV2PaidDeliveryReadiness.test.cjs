@@ -13,7 +13,13 @@ test('a historical CPM-funded balance cannot silently fund v2 event rates',()=>{
  assert.equal(p.matchesRateCardSnapshot(snapshot),true);
  assert.equal(p.matchesRateCardSnapshot(null),false);
  assert.equal(p.matchesRateCardSnapshot({audio:snapshot.audio}),false);
+ const oldRate=p.feeNanos('audio','entry','listen10',snapshot);
  snapshot.audio.entry.listen10++;
+ // A valid historical snapshot must retain its original contractual price,
+ // even after the Admin issues a new price version.
+ assert.equal(p.matchesRateCardSnapshot(snapshot),true);
+ assert.equal(p.feeNanos('audio','entry','listen10',snapshot),oldRate+1);
+ snapshot.audio.entry.listen10=-1;
  assert.equal(p.matchesRateCardSnapshot(snapshot),false);
  const eligibility=read('services/advertisingDeliveryEligibility.js');
  assert.match(eligibility,/matchesRateCardSnapshot\(lot\.rateCardSnapshot\)/);
