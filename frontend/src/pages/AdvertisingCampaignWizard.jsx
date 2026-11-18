@@ -38,14 +38,14 @@ const initialCreative=kind=>({kind,title:'',description:'',imageUrl:'',squareIma
  ctaLabel:'Μάθε περισσότερα',focalX:50,focalY:50,placement:['home'],
  frequency:'entry',frequencies:['entry'],designConfig:{}});
 const audioOptions=[
- ['entry','Πρώτο Play','0,360€ / 10″'],
- ['every_5_stations','Ανά 5 σταθμούς','0,190€ / 10″'],
- ['every_10_stations','Ανά 10 σταθμούς','0,122€ / 10″'],
- ['every_20_stations','Ανά 20 σταθμούς','0,092€ / 10″'],
- ['every_30_stations','Ανά 30 σταθμούς','0,068€ / 10″'],
- ['twice_a_day','2 φορές την ημέρα','0,042€ / 10″'],
- ['four_times_a_day','4 φορές την ημέρα','0,218€ / 10″'],
- ['six_times_a_day','6 φορές την ημέρα','0,431€ / 10″']
+ ['entry','Πρώτο Play'],
+ ['every_5_stations','Ανά 5 σταθμούς'],
+ ['every_10_stations','Ανά 10 σταθμούς'],
+ ['every_20_stations','Ανά 20 σταθμούς'],
+ ['every_30_stations','Ανά 30 σταθμούς'],
+ ['twice_a_day','2 φορές την ημέρα'],
+ ['four_times_a_day','4 φορές την ημέρα'],
+ ['six_times_a_day','6 φορές την ημέρα']
 ];
 const formats=[
  {id:'hero',title:'Homepage Hero'},

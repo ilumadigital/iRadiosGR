@@ -810,7 +810,9 @@ function MainApp() {
   const stationSelectionIntentRef=useRef(0);
   const canReceiveAudioAds=()=>!currentUser||
     (currentUser.role==='user'&&currentUser.isPremium!==true);
-  const paidAdHeaders=()=>{const token=localStorage.getItem('iluma_token');return token?
+  const paidAdHeaders=()=>{const token=currentUser?.role==='user'&&
+    currentUser.isPremium!==true?localStorage.getItem('iluma_token'):null;
+    return token?
     {'Content-Type':'application/json',Authorization:'Bearer '+token}:
     {'Content-Type':'application/json'};};
   const registerStationTransition=station=>{
