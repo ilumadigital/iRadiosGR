@@ -34,30 +34,31 @@ async function liveEligibleCreatives(creatives,now){
  const byLot=new Map(),byDay=new Map();
  for(const lot of lots){
   if(!matchesRateCardSnapshot(lot.rateCardSnapshot))continue;
-  const key=String(lot.campaignId);
-  byLot.set(key,(byLot.get(key)||0)+Math.max(0,lot.remainingNanos-(lot.reservedNanos||0)));
+  const id=String(lot.campaignId);
+  if(!byLot.has(id))byLot.set(id,[]);
+  byLot.get(id).push(lot);
  }
  for(const day of dailies)byDay.set(String(day.campaignId),
   Math.max(0,day.limitNanos-day.spentNanos-day.reservedNanos));
  return creatives.filter(creative=>{
   if(!creative.campaignId)return true;
-  const id=String(creative.campaignId),c=map.get(id);
-  if(!c||String(creative.agencyId)!==String(c.agencyId))return false;
-  if(c.createdByRole==='admin')return true;
-  if(!validDailyBudget(c.dailyBudgetCents,c.plannedBudgetCents))return false;
-  const available=Math.min(byLot.get(id)||0,byDay.has(id)?
-   byDay.get(id):c.dailyBudgetCents*NANOS_PER_CENT);
+  const id=String(creative.campaignId),campaign=map.get(id);
+  if(!campaign||String(creative.agencyId)!==String(campaign.agencyId))return false;
+  if(campaign.createdByRole==='admin')return true;
+  if(!validDailyBudget(campaign.dailyBudgetCents,campaign.plannedBudgetCents))return false;
+  const availableDay=byDay.has(id)?byDay.get(id):campaign.dailyBudgetCents*NANOS_PER_CENT;
   const places=Array.isArray(creative.placement)?creative.placement:
    Array.isArray(creative.frequencies)&&creative.frequencies.length?
-    creative.frequencies:[creative.frequency];
-  return places.some(p=>{
-   try{return available>=eventReserveNanos(
-    Array.isArray(creative.placement)?'visual':'audio',p);}
-   catch{return false;}
-  });
+   creative.frequencies:[creative.frequency];
+  return places.some(placement=>(byLot.get(id)||[]).some(lot=>{
+   try{
+    const price=eventReserveNanos(Array.isArray(creative.placement)?'visual':'audio',
+     placement,lot.rateCardSnapshot);
+    return availableDay>=price&&lot.remainingNanos-(lot.reservedNanos||0)>=price;
+   }catch{return false;}
+  }));
  });
 }
-
 // Return exact eligible creative ids; a banner with hero and standard
 // placements must afford BOTH, not just some other creative in its campaign.
 async function stageEligibleCreativeIds(creatives,now){
