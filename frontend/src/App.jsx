@@ -808,7 +808,8 @@ function MainApp() {
   const stationTransitionTokenRef=useRef(null);
   const stationTransitionRef=useRef(Promise.resolve(null));
   const stationSelectionIntentRef=useRef(0);
-  const canReceiveAudioAds=()=>!currentUser||
+  const canReceiveAudioAds=()=>currentUser?.isPremium!==true;
+  const canReceivePaidAds=()=>!currentUser||
     (currentUser.role==='user'&&currentUser.isPremium!==true);
   const paidAdHeaders=()=>{const token=currentUser?.role==='user'&&
     currentUser.isPremium!==true?localStorage.getItem('iluma_token'):null;
@@ -1346,7 +1347,7 @@ function MainApp() {
       if(stationSelectionIntentRef.current!==intent)return;
       stationSwitches.current=count;
       const pool=stationBreakCandidates(available,count,station,userLocation,checkGeoMatch)
-        .filter(ad=>verified||ad.paidDeliveryRequired!==true);
+        .filter(ad=>ad.paidDeliveryRequired!==true||(verified&&canReceivePaidAds()));
       const selected=pool.slice(0,MAX_AD_BREAK_SPOTS);
       adFallbackRef.current=pool.slice(MAX_AD_BREAK_SPOTS);
       if(selected.length){
@@ -1357,9 +1358,9 @@ function MainApp() {
         playNextAdOrStation();
       }else void handleActualStationPlay(station);
     };
-    const transition=registerStationTransition(station);
+    const transition=canReceivePaidAds()?registerStationTransition(station):Promise.resolve(null);
     // Existing nonbillable Admin spots retain synchronous click playback.
-    if(adsReady&&!ads.some(ad=>ad.paidDeliveryRequired===true)){
+    if(adsReady&&(!canReceivePaidAds()||!ads.some(ad=>ad.paidDeliveryRequired===true))){
       const next=stationSwitches.current+1;
       select(ads,next,false);
       void transition.then(result=>{
@@ -1432,7 +1433,17 @@ function MainApp() {
                 placement:selectedPlacement,stationId,transitionProof})
             });
             if(response.ok)result=await response.json();
-          }catch{/* Unfunded or unavailable spots must never trap playback. */}
+            else{
+              const body=await response.json().catch(()=>({}));
+              console.warn('[ADS] Ticket rejected',{
+                status:response.status,
+                reason:String(body.error||'unknown').slice(0,160)
+              });
+            }
+          }catch(error){
+            console.warn('[ADS] Ticket preparation failed',
+              {reason:String(error?.message||'network').slice(0,160)});
+          }
           if(!result?.capability){
             if(activeAdRef.current?.token===token){recoverUnplayedSlot();playNextAdOrStation();}
             return;
@@ -1504,7 +1515,9 @@ function MainApp() {
       const bucket=now.toISOString().slice(0,16);
       if(timedBreakBucketRef.current===bucket)return;
       const pool=timedBreakCandidates(ads,currentStation,userLocation,
-        checkGeoMatch,lastPlayedTimeAds.current,now.getTime()).map(ad=>({...ad,timed:true}));
+        checkGeoMatch,lastPlayedTimeAds.current,now.getTime())
+        .filter(ad=>ad.paidDeliveryRequired!==true||canReceivePaidAds())
+        .map(ad=>({...ad,timed:true}));
       const selectedAds=pool.slice(0,MAX_AD_BREAK_SPOTS);
       if(!selectedAds.length)return;
       timedBreakBucketRef.current=bucket;

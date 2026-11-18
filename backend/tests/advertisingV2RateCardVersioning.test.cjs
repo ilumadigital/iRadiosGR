@@ -53,7 +53,7 @@ test('quoted and settled events use the correct historical lot snapshot',()=>{
 test('billable audio must have verified server transition and release stalled reservations',()=>{
  const player=fs.readFileSync(path.join(__dirname,'../../frontend/src/App.jsx'),'utf8');
  assert.match(player,/const count=verified\?\.count\|\|stationSwitches\.current\+1/);
- assert.match(player,/\.filter\(ad=>verified\|\|ad\.paidDeliveryRequired!==true\)/);
+ assert.match(player,/\.filter\(ad=>ad\.paidDeliveryRequired!==true\|\|\(verified&&canReceivePaidAds\(\)\)\)/);
  assert.match(player,/releasePaidAudio\(activeAdRef\.current,'failed'\)/);
  assert.match(player,/if\(isDesktopDSPDevice\(\)\)resumeDSP\(\)/);
 });
