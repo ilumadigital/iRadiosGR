@@ -126,10 +126,8 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
  if(kind==='audio'&&(!Number.isInteger(durationMs)||durationMs<10000||durationMs>46000))
   throw fail('Audio creative must be 10–46 seconds');
  if(kind==='visual'&&durationMs!==0)throw fail('Invalid visual duration');
- const amount=eventReserveNanos(kind,placement);
  const dailyMax=daily*NANOS_PER_CENT;
- if(!Number.isSafeInteger(amount)||amount<1||amount>dailyMax)
-  throw fail('Daily budget cannot cover the complete possible spot cost');
+  if(!Number.isSafeInteger(dailyMax)||dailyMax<1)throw fail('Invalid daily budget');
  const now=Date.now(),day=athensDay(now);
  const id=crypto.randomBytes(16).toString('hex');
  let ticket=null;
@@ -178,16 +176,19 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
   }).session(session).lean();
   if(!fresh)throw fail('Campaign no longer eligible');
   const lots=await Lot.find({campaignId:campaign._id,source:'nexi_verified',
-   remainingNanos:{$gte:amount},budgetNanos:{$ne:null},rateModel:'v2_event',
-   settlementMode:'mongo_transaction_v2'})
-   .sort({paidAt:1,_id:1}).session(session).lean();
-  // A campaign bought under a different historical rate card must not
-  // silently inherit future, more expensive pricing.
-  const lot=lots.find(l=>matchesRateCardSnapshot(l.rateCardSnapshot)&&
-   Number.isSafeInteger(l.remainingNanos)&&
-   l.remainingNanos-(l.reservedNanos||0)>=amount);
-  if(!lot)throw fail('Insufficient verified prepaid balance');
-  await Daily.findOneAndUpdate({campaignId:campaign._id,day},
+    remainingNanos:{$gt:0},budgetNanos:{$ne:null},rateModel:'v2_event',
+    settlementMode:'mongo_transaction_v2'})
+    .sort({paidAt:1,_id:1}).session(session).lean();
+   // Reserve against one purchased lot, never the current Admin prices.
+   const lot=lots.find(l=>matchesRateCardSnapshot(l.rateCardSnapshot)&&
+    Number.isSafeInteger(l.remainingNanos)&&
+    l.remainingNanos-(l.reservedNanos||0)>=
+      eventReserveNanos(kind,placement,l.rateCardSnapshot));
+   if(!lot)throw fail('Insufficient verified prepaid balance');
+   const amount=eventReserveNanos(kind,placement,lot.rateCardSnapshot);
+   if(!Number.isSafeInteger(amount)||amount<1||amount>dailyMax)
+    throw fail('Daily budget cannot cover the complete spot cost');
+   await Daily.findOneAndUpdate({campaignId:campaign._id,day},
    {$setOnInsert:{limitNanos:dailyMax,spentNanos:0,reservedNanos:0}},
    {upsert:true,new:true,session,runValidators:true});
   const d=await Daily.updateOne({campaignId:campaign._id,day,
@@ -212,7 +213,10 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
 }
 async function debit(ticket,name,session){
  if(ticket.eventNames.includes(name))return false;
- const cost=feeNanos(ticket.kind,ticket.placement,name);
+ const lot=await Lot.findById(ticket.lotId).select('rateCardSnapshot').session(session).lean();
+  if(!matchesRateCardSnapshot(lot?.rateCardSnapshot))
+   throw fail('Missing original purchased rate snapshot');
+  const cost=feeNanos(ticket.kind,ticket.placement,name,lot.rateCardSnapshot);
  if(ticket.reservedNanos<cost)throw fail('Ticket funds exhausted');
  const wallet=await Lot.updateOne({_id:ticket.lotId,campaignId:ticket.campaignId,
   remainingNanos:{$gte:cost},reservedNanos:{$gte:cost}},

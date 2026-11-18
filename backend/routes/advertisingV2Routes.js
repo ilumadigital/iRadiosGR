@@ -18,6 +18,7 @@ const ledger=require('../services/advertisingV2Ledger');
 const listenerSessions=require('../services/advertisingListenerSessions');
 const {durationForAudio}=require('../services/advertisingQualificationEngine');
 const policy=require('../services/advertisingV2Policy');
+const {getAdvertisingPricing}=require('../services/advertisingPricingStore');
 const {analyzeAvailability}=require('../services/advertisingV2CampaignAvailability');
 const {localAudioFile}=require('../services/adAudioDelivery');
 const {aggregateBalances}=require('../services/advertisingBalances');
@@ -52,7 +53,8 @@ function requirePaid(_req,res,next){
 }
 router.get('/advertising/v2/status',noCache,async(req,res)=>{
  const readiness=await ledger.financialReadiness();
- return res.json({
+  const rateCard=policy.rateCardForPricing(await getAdvertisingPricing());
+  return res.json({
  enabled:readiness.acceptingTickets&&req.adGeoTrusted===true,
  configured:readiness.configured,
  mongoReplicaSetReady:readiness.mongoReplicaSetReady,
@@ -61,8 +63,9 @@ router.get('/advertising/v2/status',noCache,async(req,res)=>{
  geoPrecision:req.adGeoTrusted===true?
   (req.geo?.prefecture?'prefecture':req.geo?.region?'region':'country'):'untrusted',
  maxBreakSpots:policy.MAX_BREAK_SPOTS,
- audioRateCard:policy.AUDIO_RATE_CARD,
- visualCpmNanos:policy.VISUAL_CPM_NANOS,
+ audioRateCard:rateCard.audio,
+  visualCpmNanos:Object.fromEntries(Object.entries(rateCard.visual)
+   .map(([place,nanos])=>[place,nanos*1000])),
  visualMinimumMs:policy.MIN_VISUAL_VIEW_MS,
  audioMinSeconds:policy.MIN_AUDIO_BILLABLE_SECONDS,
  audioMaxSeconds:policy.MAX_AUDIO_DURATION_SECONDS,

@@ -55,6 +55,7 @@ router.get('/advertising/pricing',async(req,res)=>{
  try{
   const row=await pricing();
   return res.json({...row?.toObject?.()||row,
+    rateCard:V2_RATE_CARD.rateCardForPricing(row),
    sandboxCheckoutReady:row.enabled===true&&row.taxMode==='budget_net_plus_vat'&&
      gateway.configured()});
  }catch{return res.status(500).json({error:'Pricing unavailable'});}
@@ -67,7 +68,9 @@ router.put('/admin/advertising/pricing',async(req,res)=>{
   if(req.body?.expectedVersion!==previous.version)
    return res.status(409).json({error:'Pricing version changed; reload before editing.'});
   const next={...freshPricing(),...{
-   cpmMicros:req.body.cpmMicros,minBudgetCents:req.body.minBudgetCents,
+   cpmMicros:req.body.cpmMicros,
+    rateCard:req.body.rateCard??V2_RATE_CARD.rateCardForPricing(previous),
+    minBudgetCents:req.body.minBudgetCents,
    maxBudgetCents:req.body.maxBudgetCents,minTopupCents:req.body.minTopupCents,
    durationDays:req.body.durationDays,taxMode:req.body.taxMode,
    taxBps:req.body.taxBps,enabled:req.body.enabled
@@ -76,6 +79,7 @@ router.put('/admin/advertising/pricing',async(req,res)=>{
   const history={
    version:previous.version,at:new Date(),by:req.user._id,
    settings:{cpmMicros:previous.cpmMicros,
+      rateCard:V2_RATE_CARD.rateCardForPricing(previous),
     minBudgetCents:previous.minBudgetCents,maxBudgetCents:previous.maxBudgetCents,
     minTopupCents:previous.minTopupCents,durationDays:previous.durationDays,
     taxMode:previous.taxMode,taxBps:previous.taxBps,enabled:previous.enabled}
@@ -205,9 +209,8 @@ router.post('/advertising/campaigns/:id/quotes',async(req,res)=>{
    currency:'EUR',taxMode:current.taxMode,taxBps:current.taxBps,
    priceVersion:current.version,ratesMicros:current.cpmMicros,
    rateModel:campaign.workflowVersion===2?'v2_event':'legacy_cpm',
-   rateCardSnapshot:campaign.workflowVersion===2?{
-     audio:V2_RATE_CARD.AUDIO_RATE_CARD,
-     visual:V2_RATE_CARD.VISUAL_IMPRESSION_NANOS}:null,
+   rateCardSnapshot:campaign.workflowVersion===2?
+      V2_RATE_CARD.rateCardForPricing(current):null,
    kind,expiresAt:new Date(Date.now()+20*60000)
   });
   res.status(201).json(quote);
