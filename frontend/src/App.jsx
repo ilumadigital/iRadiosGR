@@ -791,7 +791,7 @@ function MainApp() {
   }, [stations]);
 
   const {
-    ads, isPlayingAd, setIsPlayingAd, currentAdInfo, setCurrentAdInfo,
+    ads, adsReady, isPlayingAd, setIsPlayingAd, currentAdInfo, setCurrentAdInfo,
     adTimeRemaining, setAdTimeRemaining, adWarning, setAdWarning,
     adQueue, adSchedules, stationSwitches, pendingStation, loadGlobalAds
   } = useAdEngine(API_URL);
@@ -807,23 +807,46 @@ function MainApp() {
   const timedBreakBucketRef=useRef('');
   const stationTransitionTokenRef=useRef(null);
   const stationTransitionRef=useRef(Promise.resolve(null));
+  const stationSelectionIntentRef=useRef(0);
+  const canReceiveAudioAds=()=>!currentUser||
+    (currentUser.role==='user'&&currentUser.isPremium!==true);
   const paidAdHeaders=()=>{const token=localStorage.getItem('iluma_token');return token?
     {'Content-Type':'application/json',Authorization:'Bearer '+token}:
     {'Content-Type':'application/json'};};
   const registerStationTransition=station=>{
-    // Serialize transitions: the server, never the React ref, owns the
-    // billable switch count and signs a short-lived proof for this station.
+    // Serialize verified transitions. A short 429 is retryable; never invent
+    // a station-switch proof or advance billable counters in the browser.
     const previous=stationTransitionRef.current;
     const request=previous.catch(()=>null).then(async()=>{
-      const response=await fetch('/api/advertising/v2/transition',{
-        method:'POST',headers:paidAdHeaders(),
-        body:JSON.stringify({stationId:station._id,
-          sessionToken:stationTransitionTokenRef.current})
-      });
-      if(!response.ok)throw Error('No verified station transition');
-      const result=await response.json();
-      stationTransitionTokenRef.current=result.sessionToken;
-      return result;
+      for(let retry=0;retry<3;retry++){
+        const response=await fetch('/api/advertising/v2/transition',{
+          method:'POST',headers:paidAdHeaders(),
+          body:JSON.stringify({stationId:station._id,
+            sessionToken:stationTransitionTokenRef.current})
+        });
+        if(response.ok){
+          const result=await response.json();
+          stationTransitionTokenRef.current=result.sessionToken;
+          return result;
+        }
+        const result=await response.json().catch(()=>({}));
+        if(response.status===429&&retry<2){
+          await new Promise(resolve=>setTimeout(resolve,450));
+          continue;
+        }
+        if((response.status===409&&result.error==='Listening session expired')||
+           (response.status===403&&result.error==='Invalid listening session')){
+          stationTransitionTokenRef.current=null;
+          if(retry<2)continue;
+        }
+        console.warn('[ADS] Transition rejected',
+          {status:response.status,reason:result.error||'unknown'});
+        return null;
+      }
+      return null;
+    }).catch(error=>{
+      console.warn('[ADS] Transition network failure',error?.name||'network');
+      return null;
     });
     stationTransitionRef.current=request;
     return request;
@@ -1144,7 +1167,7 @@ function MainApp() {
 
     // Also cover restored-station Play, Car Mode and any other direct call.
     // First Play must pass through the ad gate before starting the stream.
-    if (!firstPlayStartedRef.current && !currentUser?.isPremium) {
+    if (!firstPlayStartedRef.current && canReceiveAudioAds()) {
       handleStationSelectWithAds(station);
       return;
     }
@@ -1300,44 +1323,60 @@ function MainApp() {
   };
 
   const handleStationSelectWithAds = (station) => {
-    if(!station || station.isOffline === true || stationsRef.current.find(s=>String(s._id)===String(station._id))?.isOffline === true)return;
-    if (!audioRef.current) return;
-    // During a spot retain the latest listener selection for the end of break.
-    if (isPlayingAd || activeAdRef.current) { pendingStation.current = station; return; }
-    if (currentStation && currentStation._id === station._id && isPlaying) return;
-
-    // A remote controller changes the owner's station; it must not play locally.
+    if(!station||station.isOffline===true||
+       stationsRef.current.find(s=>String(s._id)===String(station._id))?.isOffline===true)return;
+    if(!audioRef.current)return;
+    if(isPlayingAd||activeAdRef.current){pendingStation.current=station;return;}
+    if(currentStation&&currentStation._id===station._id&&isPlaying)return;
     if(premiumSync&&activeRemoteDevice){
       void handlePlaybackControl('station',String(station._id));
       return;
     }
-    if (currentUser?.isPremium) {
+    if(!canReceiveAudioAds()){
       firstPlayStartedRef.current=true;
       return handleActualStationPlay(station);
     }
-
-    // One First Play opportunity per app launch, even without listening history.
-    // The original station-switch counter still triggers 'entry' on count 1.
     firstPlayStartedRef.current=true;
-    void registerStationTransition(station).catch(()=>{});
-    stationSwitches.current += 1;
-    const clicks = stationSwitches.current;
-    
-    const pool=stationBreakCandidates(ads,clicks,station,userLocation,checkGeoMatch);
-    const zappingAdsToPlay=pool.slice(0,MAX_AD_BREAK_SPOTS);
-    adFallbackRef.current=pool.slice(MAX_AD_BREAK_SPOTS);
-
-    if (zappingAdsToPlay.length > 0) {
-      resetAdSkipClock();
-      adBreakSpotCountRef.current=zappingAdsToPlay.length;
-      pendingStation.current = station; 
-      adQueue.current = zappingAdsToPlay; // Bounded by selectStationBreak
-      playNextAdOrStation();
-    } else {
-      handleActualStationPlay(station);
+    const intent=++stationSelectionIntentRef.current;
+    // Desktop WebAudio must be unlocked from the original user gesture.
+    if(isDesktopDSPDevice())resumeDSP();
+    const select=(available,count,verified)=>{
+      if(stationSelectionIntentRef.current!==intent)return;
+      stationSwitches.current=count;
+      const pool=stationBreakCandidates(available,count,station,userLocation,checkGeoMatch)
+        .filter(ad=>verified||ad.paidDeliveryRequired!==true);
+      const selected=pool.slice(0,MAX_AD_BREAK_SPOTS);
+      adFallbackRef.current=pool.slice(MAX_AD_BREAK_SPOTS);
+      if(selected.length){
+        resetAdSkipClock();
+        adBreakSpotCountRef.current=selected.length;
+        pendingStation.current=station;
+        adQueue.current=selected;
+        playNextAdOrStation();
+      }else void handleActualStationPlay(station);
+    };
+    const transition=registerStationTransition(station);
+    // Existing nonbillable Admin spots retain synchronous click playback.
+    if(adsReady&&!ads.some(ad=>ad.paidDeliveryRequired===true)){
+      const next=stationSwitches.current+1;
+      select(ads,next,false);
+      void transition.then(result=>{
+        if(result)stationSwitches.current=Math.max(stationSwitches.current,result.count);
+      });
+      return;
     }
+    // First Play waits for the first ad feed. Billable placements use only
+    // the server's authoritative count/proof; failed transitions cannot bill.
+    const feed=adsReady?Promise.resolve(ads):loadGlobalAds();
+    void Promise.all([transition,feed]).then(([verified,latestAds])=>{
+      if(stationSelectionIntentRef.current!==intent)return;
+      const count=verified?.count||stationSwitches.current+1;
+      select(Array.isArray(latestAds)?latestAds:ads,count,Boolean(verified));
+    }).catch(error=>{
+      console.warn('[ADS] Selection recovery',error?.name||'network');
+      if(stationSelectionIntentRef.current===intent)void handleActualStationPlay(station);
+    });
   };
-
   const skipCurrentAd=()=>{
     const ad=activeAdRef.current;
     const audio=audioRef.current;
@@ -1407,6 +1446,7 @@ function MainApp() {
           releasePaidAudio(record,'canceled');return;
         }
         const audio=audioRef.current;
+        if(isDesktopDSPDevice())resumeDSP();
         audio.src=mediaUrl;
         audio.volume=parseFloat(volume);
         audio.load();
@@ -1451,7 +1491,7 @@ function MainApp() {
   useEffect(() => {
     const checkClockAds = () => {
       // Αν δεν παίζει σταθμός, αν παίζει ήδη διαφήμιση, αν είναι premium, αγνόησε το
-      if (!isPlaying || isPlayingAd || currentUser?.isPremium || !currentStation) return;
+      if (!isPlaying || isPlayingAd || !canReceiveAudioAds() || !currentStation) return;
 
       const now = new Date();
       const minutes = now.getMinutes();
@@ -1548,7 +1588,7 @@ function MainApp() {
     } else {
       intendedPlayState.current = true;
       // A saved station must NOT bypass First Play when a new session begins.
-      if (!firstPlayStartedRef.current && !currentUser?.isPremium)
+      if (!firstPlayStartedRef.current && canReceiveAudioAds())
         handleStationSelectWithAds(currentStation);
       else
         void handleActualStationPlay(currentStation);
@@ -2057,7 +2097,11 @@ function MainApp() {
             clearAdWatchdog();
             const token = activeAdRef.current.token;
             adWatchdogRef.current = setTimeout(() => {
-              if (activeAdRef.current?.token === token) playNextAdOrStation();
+              if(activeAdRef.current?.token===token){
+                releasePaidAudio(activeAdRef.current,'failed');
+                recoverUnplayedSlot();
+                playNextAdOrStation();
+              }
             }, 12000);
           }
         }}
@@ -2148,7 +2192,7 @@ function MainApp() {
           if (ad) {
             console.warn('[ADS] Spot playback failed; resuming station', {
               adId:ad.id,code,networkState:media.networkState,
-              readyState:media.readyState,source:media.currentSrc
+              readyState:media.readyState,source:String(media.currentSrc||'').split('?')[0]
             });
             releasePaidAudio(ad,'failed');
             if(!ad.started)recoverUnplayedSlot();
