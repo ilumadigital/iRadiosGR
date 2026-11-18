@@ -13,6 +13,7 @@ import useStations from './hooks/useStations';
 import useListeningProfile from './hooks/useListeningProfile';
 import useAdEngine from './hooks/useAdEngine';
 import {geoAllowsAd} from './utils/adPlacements';
+import {createPaidTransitionScheduler} from './utils/paidAudioStationTransitions.mjs';
 import {stationBreakCandidates,timedBreakCandidates,MAX_AD_BREAK_SPOTS} from './utils/audioAdRules';
 import {newAdListenClock,resumeAdListenClock,suspendAdListenClock,sampleAdListenClock,canSkipAd,secondsUntilAdSkip} from './utils/adSkipPolicy';
 import useMediaSession from './hooks/useMediaSession';
@@ -805,9 +806,15 @@ function MainApp() {
   const lastPlayedTimeAds = useRef({});
   const adFallbackRef=useRef([]);
   const timedBreakBucketRef=useRef('');
-  const stationTransitionTokenRef=useRef(null);
   const stationTransitionRef=useRef(Promise.resolve(null));
   const stationSelectionIntentRef=useRef(0);
+  const paidTransitionSchedulerRef=useRef(null);
+  if(!paidTransitionSchedulerRef.current){
+    paidTransitionSchedulerRef.current=createPaidTransitionScheduler({
+      onFailure:({status,reason})=>console.warn('[ADS] Transition unavailable',
+        {status,reason})
+    });
+  }
   const canReceiveAudioAds=()=>currentUser?.isPremium!==true;
   const canReceivePaidAds=()=>!currentUser||
     (currentUser.role==='user'&&currentUser.isPremium!==true);
@@ -816,40 +823,20 @@ function MainApp() {
     return token?
     {'Content-Type':'application/json',Authorization:'Bearer '+token}:
     {'Content-Type':'application/json'};};
-  const registerStationTransition=station=>{
-    // Serialize verified transitions. A short 429 is retryable; never invent
-    // a station-switch proof or advance billable counters in the browser.
-    const previous=stationTransitionRef.current;
-    const request=previous.catch(()=>null).then(async()=>{
-      for(let retry=0;retry<3;retry++){
+  const registerStationTransition=(station,intent)=>{
+    const request=paidTransitionSchedulerRef.current.register({
+      stationId:String(station._id),
+      isCurrent:()=>stationSelectionIntentRef.current===intent,
+      request:async({stationId,sessionToken})=>{
         const response=await fetch('/api/advertising/v2/transition',{
           method:'POST',headers:paidAdHeaders(),
-          body:JSON.stringify({stationId:station._id,
-            sessionToken:stationTransitionTokenRef.current})
+          body:JSON.stringify({stationId,sessionToken})
         });
-        if(response.ok){
-          const result=await response.json();
-          stationTransitionTokenRef.current=result.sessionToken;
-          return result;
-        }
-        const result=await response.json().catch(()=>({}));
-        if(response.status===429&&retry<2){
-          await new Promise(resolve=>setTimeout(resolve,450));
-          continue;
-        }
-        if((response.status===409&&result.error==='Listening session expired')||
-           (response.status===403&&result.error==='Invalid listening session')){
-          stationTransitionTokenRef.current=null;
-          if(retry<2)continue;
-        }
-        console.warn('[ADS] Transition rejected',
-          {status:response.status,reason:result.error||'unknown'});
-        return null;
+        const retryAfter=response.headers.get('Retry-After');
+        return {ok:response.ok,status:response.status,
+          retryAfterMs:/^\d+$/.test(retryAfter||'')?Number(retryAfter)*1000:null,
+          data:await response.json().catch(()=>({}))};
       }
-      return null;
-    }).catch(error=>{
-      console.warn('[ADS] Transition network failure',error?.name||'network');
-      return null;
     });
     stationTransitionRef.current=request;
     return request;
@@ -1358,7 +1345,7 @@ function MainApp() {
         playNextAdOrStation();
       }else void handleActualStationPlay(station);
     };
-    const transition=canReceivePaidAds()?registerStationTransition(station):Promise.resolve(null);
+    const transition=canReceivePaidAds()?registerStationTransition(station,intent):Promise.resolve(null);
     // Existing nonbillable Admin spots retain synchronous click playback.
     if(adsReady&&(!canReceivePaidAds()||!ads.some(ad=>ad.paidDeliveryRequired===true))){
       const next=stationSwitches.current+1;

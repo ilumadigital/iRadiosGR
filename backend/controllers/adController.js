@@ -10,6 +10,7 @@ const Campaign=require('../models/AdvertisingCampaign');
 const Ticket=require('../models/AdvertisingV2Reservation');
 const paidLedger=require('../services/advertisingV2Ledger');
 const {sendAdAudio,localAudioFile}=require('../services/adAudioDelivery');
+const {validPaidAudioMedia}=require('../services/advertisingPaidAudioMedia');
 const {isStage,activeCampaignQuery,live,publicAd,fields,permitMetric} =
   require('../services/adDeliveryRules');
 const writable=['title','client','audioUrl','logoUrl','linkUrl','frequency',
@@ -88,19 +89,26 @@ exports.streamPublicAudio=async(req,res)=>{
   if(!isStage()||!mongoose.isValidObjectId(req.params.id))
     return res.status(404).json({error:'Not found'});
   try {
-    const ad=await Ad.findById(req.params.id).select('audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations campaignId agencyId');
-    if(!live(ad)||!matchesDeliveryGeo(ad,req)||!(await isFundedCreative(ad)))
+    const ad=await Ad.findById(req.params.id).select(
+      'audioUrl status expiresAt isStageCreative targetCountry targetRegion targetLocations campaignId agencyId frequency frequencies isGlobal stationId');
+    if(!live(ad)||!matchesDeliveryGeo(ad,req))
       return res.status(404).json({error:'Not found'});
-    if(paidLedger.enabled()&&ad.campaignId&&
-      (await Campaign.findById(ad.campaignId).select('createdByRole').lean())?.createdByRole==='agency'){
-      const raw=String(req.query?.ticket||'');
+    const campaign=ad.campaignId?
+      await Campaign.findById(ad.campaignId).select(
+        '_id agencyId createdByRole workflowVersion isStageCampaign approvalStatus agencyEnabled adminSuspended deletedAt startsAt endsAt').lean():null;
+    if(paidLedger.enabled()&&campaign?.createdByRole==='agency'){
+      // The ticket has already reserved the campaign's wallet balance.
+      // Never recheck free funds here: a fully reserved lot can be at zero.
+      const raw=typeof req.query?.ticket==='string'?req.query.ticket:'';
       const id=raw.split('.')[0];
       const ticket=/^[a-f0-9]{32}$/.test(id)?
-       await Ticket.findById(id).lean():null;
-      if(!paidLedger.verifyCapability(raw,ticket,paidLedger.clientKey(req))||
-        String(ticket.creativeId)!==String(ad._id)||ticket.kind!=='audio'||
-        ticket.status!=='active')
-       return res.status(403).json({error:'Valid paid delivery ticket required'});
+        await Ticket.findById(id).lean():null;
+      if(!validPaidAudioMedia({ad,campaign,ticket,capability:raw,
+         visitorKey:paidLedger.clientKey(req),
+         verifyCapability:paidLedger.verifyCapability}))
+        return res.status(403).json({error:'Valid paid delivery ticket required'});
+    }else if(!(await isFundedCreative(ad))){
+      return res.status(404).json({error:'Not found'});
     }
     await sendAdAudio(res,ad.audioUrl);
   }catch(error){
