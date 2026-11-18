@@ -1,7 +1,8 @@
 'use strict';
+const {defaultRateCard,validateRateCard}=require('./advertisingV2Policy');
 const DEFAULTS=Object.freeze({
  enabled:false,version:1,cpmMicros:{standard:4000000,hero:8000000,audio:12000000},
- minBudgetCents:2000,maxBudgetCents:100000000,minTopupCents:1000,
+ rateCard:defaultRateCard(),minBudgetCents:2000,maxBudgetCents:100000000,minTopupCents:1000,
  taxMode:'unconfigured',taxBps:null,durationDays:[7,10,14,30]
 });
 const integer=(v,min,max)=>Number.isSafeInteger(v)&&v>=min&&v<=max;
@@ -10,6 +11,7 @@ function validatePricing(input){
  const rates=input.cpmMicros;
  if(!rates||!['standard','hero','audio'].every(k=>integer(rates[k],1000,1000000000)))
   throw Error('CPM must use exact integer EUR micros');
+ validateRateCard(input.rateCard||defaultRateCard());
  const min=input.minBudgetCents,max=input.maxBudgetCents,top=input.minTopupCents;
  if(!integer(min,100,100000000)||!integer(max,min,100000000)||
     !integer(top,100,max))throw Error('Invalid budget boundaries');

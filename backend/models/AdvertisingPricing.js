@@ -7,6 +7,7 @@ const pricingSchema=new mongoose.Schema({
  // Microunits of EUR per thousand verified events: 4 EUR CPM = 4,000,000.
  cpmMicros:{standard:{type:Number,required:true},hero:{type:Number,required:true},
   audio:{type:Number,required:true}},
+ rateCard:{type:mongoose.Schema.Types.Mixed,default:null},
  minBudgetCents:{type:Number,default:2000},
  maxBudgetCents:{type:Number,default:100000000},
  minTopupCents:{type:Number,default:1000},

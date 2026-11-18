@@ -18,6 +18,9 @@ const VISUAL_CPM_NANOS=Object.freeze({
 });
 const VISUAL_IMPRESSION_NANOS=Object.freeze(Object.fromEntries(
  Object.entries(VISUAL_CPM_NANOS).map(([key,value])=>[key,value/1000])));
+const DEFAULT_RATE_CARD=Object.freeze({audio:AUDIO_RATE_CARD,visual:VISUAL_IMPRESSION_NANOS});
+const defaultRateCard=()=>JSON.parse(JSON.stringify(DEFAULT_RATE_CARD));
+const rateCardForPricing=pricing=>pricing?.rateCard||defaultRateCard();
 const MAX_BREAK_SPOTS=3;
 const MAX_AUDIO_DURATION_SECONDS=46;
 const MIN_AUDIO_BILLABLE_SECONDS=10;
@@ -30,26 +33,44 @@ const validDailyBudget=(daily,total)=>Number.isSafeInteger(daily)&&
  Number.isSafeInteger(total)&&total>0&&daily>0&&daily<=total;
 // A prepaid funding lot authorizes event billing ONLY at the exact immutable
 // rate card accepted on checkout. Never reprice historical legacy CPM funds.
-const matchesRateCardSnapshot=snapshot=>Boolean(snapshot&&
- Object.entries(AUDIO_RATE_CARD).every(([place,events])=>
-  Object.entries(events).every(([event,price])=>
-   snapshot.audio?.[place]?.[event]===price))&&
- Object.entries(VISUAL_IMPRESSION_NANOS).every(([place,price])=>
-  snapshot.visual?.[place]===price));
-const feeNanos=(kind,placement,event)=>{
- if(kind==='audio'){
-  const rates=AUDIO_RATE_CARD[placement];
-  if(!rates||!['listen10','cta','complete'].includes(event))
-   throw Error('Invalid audio placement or event');
-  return rates[event];
+function validateRateCard(card){
+ const same=(x,t)=>x&&typeof x==='object'&&!Array.isArray(x)&&
+  Object.keys(x).length===Object.keys(t).length&&Object.keys(t).every(k=>Object.hasOwn(x,k));
+ if(!card||!same(card.audio,AUDIO_RATE_CARD)||!same(card.visual,VISUAL_IMPRESSION_NANOS))
+  throw Error('Incomplete v2 rate card');
+ for(const place of Object.keys(AUDIO_RATE_CARD)){
+  if(!same(card.audio[place],AUDIO_RATE_CARD[place]))throw Error('Invalid audio events');
+  for(const event of Object.keys(AUDIO_RATE_CARD[place])){
+   const n=card.audio[place][event];
+   if(!Number.isSafeInteger(n)||n<1||n>100_000_000_000)
+    throw Error('Audio event price must be positive integer nano-EUR');
+  }
  }
- if(kind==='visual'&&event==='impression'&&VISUAL_IMPRESSION_NANOS[placement])
-  return VISUAL_IMPRESSION_NANOS[placement];
- throw Error('Invalid advertising billable event');
+ for(const place of Object.keys(VISUAL_IMPRESSION_NANOS)){
+  const n=card.visual[place];
+  if(!Number.isSafeInteger(n)||n<1||n>100_000_000_000)
+   throw Error('Visual impression price must be positive integer nano-EUR');
+ }
+ return true;
+}
+const matchesRateCardSnapshot=snapshot=>{
+ try{return validateRateCard(snapshot);}catch{return false;}
 };
-const eventReserveNanos=(kind,placement)=>kind==='audio'?
- Object.values(AUDIO_RATE_CARD[placement]||{}).reduce((a,b)=>a+b,0):
- feeNanos('visual',placement,'impression');
+const feeNanos=(kind,placement,event,card=DEFAULT_RATE_CARD)=>{
+ if(!matchesRateCardSnapshot(card))throw Error('Invalid rate card');
+ if(kind==='audio'){
+  const rate=card.audio[placement];
+  if(!rate||!['listen10','cta','complete'].includes(event))
+   throw Error('Invalid audio placement/event');
+  return rate[event];
+ }
+ if(kind==='visual'&&event==='impression'&&Object.hasOwn(card.visual,placement))
+  return card.visual[placement];
+ throw Error('Invalid billable event');
+};
+const eventReserveNanos=(kind,placement,card=DEFAULT_RATE_CARD)=>kind==='audio'?
+ ['listen10','cta','complete'].reduce((sum,event)=>sum+feeNanos(kind,placement,event,card),0):
+ feeNanos('visual',placement,'impression',card);
 function athensDay(at=Date.now()){
  const date=new Date(at);
  if(!Number.isFinite(date.getTime()))throw Error('Invalid time');
@@ -59,7 +80,8 @@ function athensDay(at=Date.now()){
  return get('year')+'-'+get('month')+'-'+get('day');
 }
 module.exports={NANOS_PER_CENT,AUDIO_RATE_CARD,VISUAL_CPM_NANOS,
- VISUAL_IMPRESSION_NANOS,MAX_BREAK_SPOTS,MAX_AUDIO_DURATION_SECONDS,
+ VISUAL_IMPRESSION_NANOS,DEFAULT_RATE_CARD,defaultRateCard,rateCardForPricing,
+ validateRateCard,MAX_BREAK_SPOTS,MAX_AUDIO_DURATION_SECONDS,
  MIN_AUDIO_BILLABLE_SECONDS,MIN_VISUAL_VIEW_MS,NON_SKIPPABLE_DAILY_CENTS,
  skipAtSeconds,isNonSkippable,validDailyBudget,matchesRateCardSnapshot,
  feeNanos,eventReserveNanos,athensDay};
