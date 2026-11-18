@@ -46,11 +46,17 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
  const update=(key,v)=>setPricing(p=>({...p,[key]:v}));
  const updateRate=(key,v)=>setPricing(p=>({...p,cpmMicros:{
   ...p.cpmMicros,[key]:Math.round(v*1000000)}}));
+ const updateAudioRate=(place,event,value)=>setPricing(p=>({...p,rateCard:{
+  ...p.rateCard,audio:{...p.rateCard.audio,[place]:{
+   ...p.rateCard.audio[place],[event]:Math.round(value*1e9)}}}}));
+ const updateVisualCpm=(place,value)=>setPricing(p=>({...p,rateCard:{
+  ...p.rateCard,visual:{...p.rateCard.visual,[place]:Math.round(value*1e6)}}}));
  const save=async()=>{
   setBusy(true);setNotice('');
   try{
    const data={expectedVersion:pricing.version,
-    cpmMicros:pricing.cpmMicros,minBudgetCents:pricing.minBudgetCents,
+    cpmMicros:pricing.cpmMicros,rateCard:pricing.rateCard,
+    minBudgetCents:pricing.minBudgetCents,
     maxBudgetCents:pricing.maxBudgetCents,minTopupCents:pricing.minTopupCents,
     durationDays:pricing.durationDays,taxMode:pricing.taxMode,
     taxBps:pricing.taxMode==='unconfigured'?null:pricing.taxBps,
@@ -168,25 +174,47 @@ export default function AdminAdvertisingV2({mode='pricing',currentUser}){
      <h2 className="text-xl font-black text-white">Τιμολόγηση διαφημίσεων</h2>
      <span className="rounded-full bg-purple-500/15 px-3 py-1 text-sm text-purple-100">Έκδοση {pricing.version}</span>
     </div>
-    <p className="text-sm text-zinc-400">Advertising v2: Audio χρέωση ανά έγκυρο γεγονός, όχι CPM. Visual CPM: Hero 8€, υπόλοιπες θέσεις 4€. Οι τιμές των παλαιών CPM καμπανιών παραμένουν ιστορικές· δεν μετατρέπονται αυτόματα.</p>
-    <div className="overflow-x-auto rounded-2xl border border-white/10 bg-black/20 p-4">
-     <h3 className="mb-3 text-sm font-black text-white">Audio v2 · ανά γεγονός (σταθερός τιμοκατάλογος)</h3>
-     <table className="w-full min-w-[560px] text-xs text-zinc-200">
-      <thead><tr className="text-left text-zinc-400"><th className="py-2">Placement</th><th>Ακρόαση 10″</th><th>CTA επιπλέον</th><th>Ολοκλήρωση επιπλέον</th></tr></thead>
-      <tbody>{[
-       ['First Play','0,360€','1,360€','0,090€'],
-       ['Ανά 5 σταθμούς','0,190€','0,850€','0,070€'],
-       ['Ανά 10 σταθμούς','0,122€','0,850€','0,070€'],
-       ['Ανά 20 σταθμούς','0,092€','0,850€','0,070€'],
-       ['Ανά 30 σταθμούς','0,068€','0,850€','0,070€'],
-       ['2 φορές ημερησίως','0,042€','0,850€','0,070€'],
-       ['4 φορές ημερησίως','0,218€','0,850€','0,070€'],
-       ['6 φορές ημερησίως','0,431€','0,850€','0,070€']
-      ].map(row=><tr key={row[0]} className="border-t border-white/10">
-       {row.map((v,i)=><td key={i} className="py-2 pr-3">{v}</td>)}</tr>)}</tbody>
-     </table>
-     <p className="mt-3 text-xs text-zinc-400">Ακριβές κόστος υπολογίζεται από το πραγματικό placement και τα ξεχωριστά server-qualified γεγονότα.</p>
-    </div>
+
+    <p className="text-sm text-zinc-400">Ρύθμισε τις πραγματικές χρεώσεις Advertising v2. Οι νέες τιμές ισχύουν μόνο για νέα quotes· κάθε ήδη χρηματοδοτημένο lot συνεχίζει με τον δικό του τιμοκατάλογο.</p>
+    <section className="space-y-3">
+     <h3 className="text-sm font-black text-white">Audio v2 · € ανά επιβεβαιωμένο γεγονός</h3>
+     <div className="overflow-x-auto rounded-2xl border border-white/10 bg-black/20 p-4">
+      <table className="w-full min-w-[720px] text-xs text-zinc-200">
+       <thead><tr className="text-left text-zinc-400"><th className="py-2">Placement</th><th>Ακρόαση 10″</th><th>CTA επιπλέον</th><th>Ολοκλήρωση επιπλέον</th></tr></thead>
+       <tbody>{Object.entries(pricing.rateCard?.audio||{}).map(([place,events])=>
+        <tr key={place} className="border-t border-white/10">
+         <th scope="row" className="py-3 pr-3 text-left font-semibold">{({
+          entry:'First Play',every_5_stations:'Κάθε 5 σταθμούς',
+          every_10_stations:'Κάθε 10 σταθμούς',
+          every_20_stations:'Κάθε 20 σταθμούς',
+          every_30_stations:'Κάθε 30 σταθμούς',
+          twice_a_day:'2 φορές / ημέρα',four_times_a_day:'4 φορές / ημέρα',
+          six_times_a_day:'6 φορές / ημέρα'})[place]||place}</th>
+         {['listen10','cta','complete'].map(event=><td key={event} className="py-2 pr-3">
+          <input aria-label={place+' '+event} type="number" min="0.001" step="0.001"
+           key={pricing.version+':'+place+':'+event}
+           defaultValue={(events[event]/1e9).toFixed(3)}
+           onChange={e=>updateAudioRate(place,event,Number(e.target.value))}
+           className={input+' mt-0 min-w-[115px] py-2 text-xs'}/>
+         </td>)}
+        </tr>)}</tbody>
+      </table>
+     </div>
+    </section>
+    <section className="space-y-3">
+     <h3 className="text-sm font-black text-white">Banner v2 · πραγματικό CPM (€ / 1.000 εμφανίσεις)</h3>
+     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {Object.entries(pricing.rateCard?.visual||{}).map(([place,nanos])=>
+       <label key={place} className="block text-xs font-bold text-zinc-300">
+        {({hero:'Hero',home:'Home Feed',radio_feed:'Radio Feed',
+         news_feed:'News Feed',station_profile:'Station Profile'})[place]||place}
+        <input aria-label={'CPM '+place} type="number" min="0.001" step="0.001"
+         key={pricing.version+':visual:'+place} defaultValue={(nanos/1e6).toFixed(3)}
+         onChange={e=>updateVisualCpm(place,Number(e.target.value))} className={input}/>
+       </label>)}
+     </div>
+    </section>
+    <p className="text-xs text-zinc-500">Οι παρακάτω ιστορικές τιμές CPM αφορούν μόνο παλιές καμπάνιες.</p>
     <div className="grid gap-4 sm:grid-cols-3">
      {['standard','hero','audio'].map(key=><TextField key={key} label={{standard:'Ιστορικό Standard CPM (€)',hero:'Ιστορικό Hero CPM (€)',audio:'Ιστορικό Audio CPM (€) · μόνο legacy'}[key]}
       value={rate(pricing.cpmMicros?.[key])} onChange={v=>updateRate(key,v)} step="0.001"/>)}
