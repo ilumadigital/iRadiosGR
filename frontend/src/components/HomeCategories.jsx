@@ -14,6 +14,24 @@ const gradients = [
   'from-[#784755] via-[#392531] to-[#11151d]'
 ];
 
+
+// Default artwork for the 13 primary home categories. An editorial slide remains a fallback.
+const CATEGORY_IMAGES = {
+  'Διεθνή Mainstream': '/iradios-categories/iradios-diethni-mainstream.jpg',
+  'Dance': '/iradios-categories/iradios-dance.jpg',
+  'Ηλεκτρονική': '/iradios-categories/iradios-ilektroniki-mousiki.jpg',
+  'Ροκ': '/iradios-categories/iradios-rock.png',
+  'Εναλλακτικά': '/iradios-categories/iradios-enallaktika.jpg',
+  'Ελληνικά Επιτυχίες': '/iradios-categories/iradios-ellinikes-epityxies.jpg',
+  'Ελληνικά Λαϊκά': '/iradios-categories/iradios-ellinika-laika.jpg',
+  'Έντεχνη': '/iradios-categories/iradios-entexno.jpg',
+  'Παραδοσιακά': '/iradios-categories/iradios-paradosiaka.jpg',
+  'Ειδησεογραφικά': '/iradios-categories/iradios-eidiseografika.jpg',
+  'Αθλητικά': '/iradios-categories/iradios-athlitika.jpg',
+  'Θρησκευτικά': '/iradios-categories/iradios-thriskeftika.jpg',
+  'Διάφορα': '/iradios-categories/iradios-diafora.jpg',
+};
+
 export default function HomeCategories({ stations = [], currentUser, allLink = true }) {
   const shell = useRef(null);
   const [columns, setColumns] = useState(2);
@@ -95,14 +113,15 @@ export default function HomeCategories({ stations = [], currentUser, allLink = t
             style={{ gridTemplateColumns: 'repeat(' + columns + ', minmax(0, 1fr))' }}>
             {group.items.map((category, index) => {
               const slide = allowedSlides.find(item => item.placementValue === category);
+              const imageUrl = CATEGORY_IMAGES[category] || slide?.imageUrl;
               const count = categoryCounts.get(category) || 0;
               return (
                 <Link key={category} to={'/genre/' + encodeURIComponent(category)}
                   aria-label={category + ' · ' + count + ' σταθμοί'}
                   className={`group relative isolate flex w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[#ccff00]/65 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ccff00] aspect-[1.85] min-h-[128px] ${gradients[(index + groupIndex * 5) % gradients.length]}`}>
-                  {slide?.imageUrl && <>
-                    <img src={slide.imageUrl} alt="" loading="lazy" aria-hidden="true"
-                      className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-60"/>
+                  {imageUrl && <>
+                    <img src={imageUrl} alt="" loading="lazy" decoding="async" aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105"/>
                     <span aria-hidden="true"
                       className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10"/>
                   </>}
