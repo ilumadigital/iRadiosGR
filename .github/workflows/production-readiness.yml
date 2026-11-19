@@ -20,7 +20,7 @@ jobs:
         run: node ops/check-production-split.test.cjs
       - name: Check production deployment scripts
         run: |
-          bash -n ilumaprod.sh ops/deploy-prod.sh ops/snapshot-stage-for-prod.sh ops/restore-empty-prod-snapshot.sh ops/prepare-prod-mongo-user.sh
+          bash -n ilumaprod.sh ops/deploy-prod.sh ops/snapshot-stage-for-prod.sh ops/restore-empty-prod-snapshot.sh ops/prepare-prod-mongo-user.sh ops/verify-prod-data-copy.sh
           python3 -m py_compile ops/check-prod-env.py
           test "$(git ls-files -s -- ilumaprod.sh | awk '{print $1}')" = 100755
           test "$(git ls-files -s -- ops/deploy-prod.sh | awk '{print $1}')" = 100755
