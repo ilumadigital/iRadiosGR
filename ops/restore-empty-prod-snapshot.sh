@@ -24,7 +24,7 @@ cd /srv/iradios/production/app
 env=/etc/iradios/production/compose.env
 compose=(docker compose --env-file "$env" -f compose.prod.yml)
 count=$("${compose[@]}" exec -T mongo sh -ec \
- 'mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "print(db.getSiblingDB(\x27iradios_prod\x27).getCollectionNames().length)"' | tail -n 1)
+ 'mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "print(db.getSiblingDB(\"iradios_prod\").getCollectionNames().length)"' | tail -n 1)
 [[ "$count" == 0 ]] || { echo "STOP: production DB already has collections; never overwrite"; exit 1; }
 mkdir -p -m 0750 /srv/iradios/production/uploads
 [[ -z "$(find /srv/iradios/production/uploads -mindepth 1 -print -quit)" ]] || {
