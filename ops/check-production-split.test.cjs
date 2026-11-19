@@ -56,6 +56,18 @@ assert.match(compose,/127\.0\.0\.1:5611:5011/);
 assert.match(compose,/127\.0\.0\.1:5610:80/);
 assert.doesNotMatch(compose,/mailpit/i);
 assert.match(read('compose.stage.yml'),/mailpit:/);
+const prodRs=read('compose.prod.replicaset.yml');
+assert.match(prodRs,/--replSet/);
+assert.match(prodRs,/replicaSet=rs0/);
+assert.match(prodRs,/\/etc\/iradios\/production\/mongo-replset.key/);
+assert.doesNotMatch(prodRs,/\/etc\/iradios\/staging\//);
+for(const script of ['ops/deploy-prod.sh','ops/restore-empty-prod-snapshot.sh']){
+ assert.match(read(script),/compose.prod.replicaset.yml/);
+}
+assert.match(read('ops/start-prod-mongo.sh'),/--no-deps --wait mongo/);
+assert.match(read('ops/start-prod-mongo.sh'),/rs.initiate/);
+assert.match(read('ops/init-prod-mongo-secrets.sh'),/IRADIOS_PRODUCTION_CUTOVER_APPROVED=0/);
+
 assert.match(read('ops/deploy-prod.sh'),/data-verified/);
 assert.match(read('ops/deploy-prod.sh'),/expected main/);
 assert.doesNotMatch(read('ops/deploy-prod.sh'),/down -v|volume prune|docker system prune/);

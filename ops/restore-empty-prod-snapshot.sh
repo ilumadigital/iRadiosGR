@@ -22,7 +22,7 @@ if docker ps --format '{{.Names}}' | grep -Eq '^iradios_prod-(backend|frontend)-
 fi
 cd /srv/iradios/production/app
 env=/etc/iradios/production/compose.env
-compose=(docker compose --env-file "$env" -f compose.prod.yml)
+compose=(docker compose --env-file "$env" -f compose.prod.yml -f compose.prod.replicaset.yml)
 count=$("${compose[@]}" exec -T mongo sh -ec \
  'mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "print(db.getSiblingDB(\"iradios_prod\").getCollectionNames().length)"' | tail -n 1)
 [[ "$count" == 0 ]] || { echo "STOP: production DB already has collections; never overwrite"; exit 1; }

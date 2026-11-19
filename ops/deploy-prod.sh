@@ -29,7 +29,7 @@ origin=$(git -c safe.directory="$APP" remote get-url origin)
 python3 ops/check-prod-env.py "$BACKEND_ENV" "$ENV"
 git -c safe.directory="$APP" pull --ff-only origin main
 python3 ops/check-prod-env.py "$BACKEND_ENV" "$ENV"
-compose=(docker compose --env-file "$ENV" -f compose.prod.yml)
+compose=(docker compose --env-file "$ENV" -f compose.prod.yml -f compose.prod.replicaset.yml)
 "${compose[@]}" config --quiet
 "${compose[@]}" build backend frontend
 "${compose[@]}" up -d --no-build --pull never mongo backend frontend

@@ -1,0 +1,11 @@
+# Production MongoDB is an authenticated single-node rs0, separate from staging.
+# Always include this override alongside compose.prod.yml. Never apply it to stage.
+services:
+  mongo:
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/etc/mongo-replset.key"]
+    volumes:
+      - mongo_data:/data/db
+      - /etc/iradios/production/mongo-replset.key:/etc/mongo-replset.key:ro
+  backend:
+    environment:
+      MONGO_URI: 'mongodb://iradios_prod_app:${PROD_MONGO_APP_PASSWORD:?configure production Mongo user}@mongo:27017/iradios_prod?authSource=iradios_prod&replicaSet=rs0'
