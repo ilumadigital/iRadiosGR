@@ -65,7 +65,10 @@ assert.match(read('backend/models/BroadcasterBillingOrder.js'),/enum:\['staging'
 assert.match(read('frontend/src/pages/Backoffice.jsx'),/VITE_APP_ENV==='production'/);
 assert.match(read('frontend/src/App.jsx'),/path="\/premium" element=\{<SandboxPremium/);
 assert.match(read('backend/utils/myMailer.js'),/Production SMTP missing: refusing test-mail fallback/);
-assert.match(read('backend/server.js'),/\['staging','production'\]\.includes\(process\.env\.APP_ENV\)/);
+assert.match(read('backend/server.js'),/\\['staging','production'\\]\\.includes\\(process\\.env\\.APP_ENV\\)/);
+assert.match(read('backend/server.js'),/PRODUCTION_CUTOVER_PENDING/);
+assert.match(read('backend/server.js'),/if\\(productionActivated\\(\\)\\)require\\('\\.\\/utils\\/listenerNotificationScheduler'\\)\\.start\\(\\)/);
+assert.match(read('backend/server.js'),/if\\(productionActivated\\(\\)\\)await cleanupExpiredItems\\(\\)/);
 
 // Validate private-env boundary without any real credentials.
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'iradios-prod-test-'));
