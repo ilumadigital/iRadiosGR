@@ -22,7 +22,7 @@ compose=(docker compose --env-file "$ENV" -f compose.prod.yml -f compose.prod.re
 # Do NOT start backend/frontend; production must stay inaccessible until reconciliation.
 "${compose[@]}" up -d --no-deps --wait mongo
 docker exec -i iradios_prod-mongo-1 sh -c \
- 'exec mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --directConnection' <<'JS'
+ 'exec mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin' <<'JS'
 let existing=null;
 try { existing=rs.conf(); } catch(e) {
  if(e.codeName!=='NotYetInitialized'&&e.code!==94)throw e;
@@ -40,7 +40,7 @@ JS
 primary=0
 for attempt in $(seq 1 35); do
  if docker exec iradios_prod-mongo-1 sh -ec \
-  'mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --directConnection --eval "const v=db.adminCommand({hello:1});print(v.setName===\"rs0\" && v.isWritablePrimary===true)"' \
+  'mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "const v=db.adminCommand({hello:1});print(v.setName===\"rs0\" && v.isWritablePrimary===true)"' \
   2>/dev/null | grep -qx true; then primary=1; break; fi
  sleep 2
 done
