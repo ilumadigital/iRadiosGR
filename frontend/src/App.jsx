@@ -952,9 +952,11 @@ function MainApp() {
     // The public stage runs radio playback without the legacy user-sync socket.
     // Those socket events lack resource authorization; skip the connection
     // instead of repeatedly retrying a 403 and flooding browser Network logs.
-    const isPublicStage = window.location.hostname === 'stage.iradios.gr';
+    // Legacy unauthenticated Socket.IO is disabled on both public environments.
+    // Device pairing uses its separately authenticated /api/connect.io channel.
+    const useLegacySocket = import.meta.env.VITE_LEGACY_SOCKET_ENABLED === 'true' && window.location.hostname === 'play.iradios.gr';
     const socketUrl = window.location.origin;
-    const s = isPublicStage ? null : io(socketUrl, { path: '/api/socket.io' });
+    const s = useLegacySocket ? io(socketUrl, { path: '/api/socket.io' }) : null;
     if (s) setGlobalSocket(s);
     
     fetch('https://ipapi.co/json/')
@@ -1084,7 +1086,7 @@ function MainApp() {
   // Refresh the listener-facing projection after checkout and periodically
   // so an expired paid/grace window is not left displayed as Premium.
   useEffect(() => {
-    if(window.location.hostname!=='stage.iradios.gr' || !authReady ||
+    if(!['stage.iradios.gr','play.iradios.gr'].includes(window.location.hostname) || !authReady ||
       !currentUser || currentUser.role!=='user')return;
     let stopped=false;
     const refresh=async()=>{
@@ -2270,9 +2272,7 @@ function MainApp() {
             <Route path="/login" element={<Login API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/register" element={<Register API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/favorites" element={<Favorites stations={stations} currentUser={currentUser} currentStation={currentStation} setCurrentStation={handleStationSelectWithAds} isPlaying={displayIsPlaying} onPlayPause={togglePlayPause} toggleFavorite={handleToggleFavorite} isFavorite={isFavorite} analyser={analyserRef.current} />} />
-            <Route path="/premium" element={window.location.hostname==='stage.iradios.gr'
-  ? <SandboxPremium API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />
-  : <GoPremium API_URL={API_URL} currentUser={currentUser} />} />
+            <Route path="/premium" element={<SandboxPremium API_URL={API_URL} currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
             <Route path="/reset-password/:token" element={<ResetPassword API_URL={API_URL} />} />
             <Route path="/verify-email" element={<VerifyEmail API_URL={API_URL} setCurrentUser={setCurrentUser} />} />
             <Route path="/broadcast" element={<GoBroadcast API_URL={API_URL} setCurrentUser={setCurrentUser} />} />

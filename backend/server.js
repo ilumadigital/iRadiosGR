@@ -37,7 +37,7 @@ const app = express();
 
 // Staging-only defense: unauthenticated access to admin APIs must not expose
 // imported production account and billing records.
-if (process.env.APP_ENV === 'staging') {
+if (['staging','production'].includes(process.env.APP_ENV)) {
   const { protect } = require('./utils/authMiddleware');
   const { authorizeRoles } = require('./utils/roleMiddleware');
   app.use('/api/admin', protect, authorizeRoles('admin'));
@@ -335,7 +335,8 @@ const io = new Server(server, {
   path: '/api/socket.io',
   // The socket handlers contain legacy unauthenticated broadcasts and user-room
   // operations; do not expose them on a public clone of live user accounts.
-  allowRequest: (req, callback) => callback(null, process.env.APP_ENV !== 'staging')
+  allowRequest: (_req, callback) => callback(null,
+    process.env.APP_ENV === 'production' && process.env.LEGACY_SOCKET_ENABLED === '1')
 });
 
 const activeListeners = {}; 

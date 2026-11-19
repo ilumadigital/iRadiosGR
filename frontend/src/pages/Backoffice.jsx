@@ -1795,7 +1795,7 @@ export default function Backoffice(){
             <p className="mt-1 truncate text-sm font-black text-white">{admin?'Network Control':agency?'Agency Ad Network':producer?'Producer Workspace':'Broadcaster Portal'}</p></div>
         </div>
         <div className="flex items-center gap-3">
-          <Badge tone="lime"><span className="size-1.5 rounded-full bg-[#caff00]"/> STAGING</Badge>
+          <Badge tone="lime"><span className="size-1.5 rounded-full bg-[#caff00]"/> {import.meta.env.VITE_APP_ENV==='production'?'PRODUCTION':'STAGING'}</Badge>
           <div className="hidden text-right sm:block"><p className="max-w-44 truncate text-xs font-bold text-white">{data.user.email}</p>
             <p className="mt-1 text-[10px] text-zinc-500">{roleLabels[data.user.role]}</p></div>
           <div className="flex size-9 items-center justify-center rounded-full border border-[#caff00]/20 bg-[#caff00]/10 font-black text-[#caff00]">{(data.user.fname||data.user.username||'I')[0]?.toUpperCase()}</div>
