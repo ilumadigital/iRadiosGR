@@ -9,7 +9,7 @@ const schema=new mongoose.Schema({
  resourceId:{type:mongoose.Schema.Types.ObjectId,default:null},
  sku:{type:String,enum:PURCHASE_SKUS,required:true},
  scopeType:{type:String,enum:['account','station'],required:true},
- environment:{type:String,enum:['staging'],default:'staging',immutable:true,required:true},
+ environment:{type:String,enum:['staging','production'],default:()=>process.env.APP_ENV,immutable:true,required:true},
  amountCents:{type:Number,required:true,immutable:true,validate:{validator:function(value){
   return getProduct(this.sku)?.priceCents===value;
  },message:'Catalog price mismatch'}},

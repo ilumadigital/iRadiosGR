@@ -16,9 +16,9 @@ async function activeGrantsFor(user,now=new Date()){
 }
 
 async function activeBroadcasterOrders(user,now=new Date()){
- if(process.env.APP_ENV!=='staging'||!user?._id||user.role!=='broadcaster')return [];
+ if(!['staging','production'].includes(process.env.APP_ENV)||!user?._id||user.role!=='broadcaster')return [];
  return require('../models/BroadcasterBillingOrder').find({accountId:user._id,
-  environment:'staging',status:'paid',
+  environment:process.env.APP_ENV,status:'paid',
   sku:{$in:['B-PREM','ADD-DSP','ADD-AN','ADD-ADS']},
   periodStartsAt:{$lte:now},periodEndsAt:{$gt:now}}).lean();
 }
@@ -28,11 +28,11 @@ async function accountRights(user,now=new Date()){
   const orders=await activeBroadcasterOrders(user,now);
   for(const right of paidRights(orders,null,now))rights.add(right);
  }
- // Sandbox paid orders must never unlock rights in production, even if staging
- // records are copied during a data migration.
- if(process.env.APP_ENV==='staging' && user?._id && user.role==='user'){
+ // Sandbox orders cannot unlock production rights, even in a copied database.
+ // Production rights require a separately reconciled production-scoped order.
+ if(['staging','production'].includes(process.env.APP_ENV) && user?._id && user.role==='user'){
   const paid=await BillingOrder.exists({accountId:user._id,sku:{$in:['L-PREM','L-WINBACK-199']},
-   status:'paid',environment:'staging',periodStartsAt:{$lte:now},
+   status:'paid',environment:process.env.APP_ENV,periodStartsAt:{$lte:now},
    $or:[{periodEndsAt:{$gt:now}},{graceEndsAt:{$gt:now}}]});
   if(paid)rights.add('listener.premium');
  }
