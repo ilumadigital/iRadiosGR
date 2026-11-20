@@ -28,7 +28,9 @@ test('dashboard uses worst-case ticket reservation rather than positive credit',
  assert.match(analytics,/analyzeAvailability\(/);
  assert.match(analytics,/campaignRunning&&capacity\.nextTicketAffordable/);
  assert.match(helper,/eventReserveNanos/);
- assert.match(helper,/eligibleLots\.some/);
+ assert.match(helper,/const options=eligibleLots\.filter/);
+ assert.match(helper,/options\.some\(\(\{lot,cost\}\)=>/);
+ assert.match(helper,/lot\.remainingNanos-\(lot\.reservedNanos\|\|0\)>=cost/);
  assert.match(ui,/delivery\.payable/);
 });
 test('paid campaign goes to full Campaign Manager, not locked purchase wizard',()=>{
