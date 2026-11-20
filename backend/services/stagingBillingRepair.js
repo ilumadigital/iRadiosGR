@@ -139,20 +139,30 @@ async function inspectOne(family, row, {models, gateway, environment, apply = fa
   return result(family, row, 'REPAIRED', 'GATEWAY_TERMINAL_' + provider.status.toUpperCase(), true);
 }
 async function runRepair({models, gateway, environment, apply = false, limit = 100,
-  minAgeMs = MIN_AGE_MS, now = new Date(), onRow = null} = {}) {
+  minAgeMs = MIN_AGE_MS, now = new Date(), onRow = null, after = {}} = {}) {
   stagingOnly(environment, gateway); // Fail before opening a Mongo cursor.
   if (!Number.isInteger(limit) || limit < 1 || limit > 500 ||
       !Number.isInteger(minAgeMs) || minAgeMs < MIN_AGE_MS || minAgeMs > 86400000)
     throw Error('INVALID_BILLING_REPAIR_OPTIONS');
   const summary = {environment: 'staging', mode: apply ? 'APPLY' : 'DRY_RUN',
-    inspected: 0, ready: 0, repaired: 0, review: 0, deferred: 0, clean: 0, errors: 0};
+    inspected: 0, ready: 0, repaired: 0, review: 0, deferred: 0, clean: 0, errors: 0, cursors: {};}
   for (const family of ['listener', 'broadcaster', 'advertising']) {
     const field = lockField(family);
     const query = family === 'advertising'
       ? {requestKey: /^iradios-stage-/, $or: [{status: {$in: OPEN}}, {[field]: {$exists: true}}]}
       : {environment: 'staging', $or: [{status: {$in: OPEN}}, {[field]: {$exists: true}}]};
+    // Cursor rotation prevents old REVIEW cases from starving later records.
+    const cursor = after[family];
+    if (cursor && Number.isFinite(Date.parse(cursor.createdAt)) && /^[a-f0-9]{24}$/i.test(cursor.id || '')) {
+      const date = new Date(cursor.createdAt);
+      query.$and = [{$or: [{createdAt: {$gt: date}},
+        {createdAt: date, _id: {$gt: cursor.id}}]}];
+    }
     // Bounded batch; do not log account, email, payment tokens or request keys.
-    const rows = await models[family].find(query).sort({createdAt: 1}).limit(limit).lean();
+    const rows = await models[family].find(query).sort({createdAt: 1, _id: 1}).limit(limit).lean();
+    const last = rows[rows.length - 1];
+    summary.cursors[family] = last && Number.isFinite(+new Date(last.createdAt)) ?
+      {createdAt: new Date(last.createdAt).toISOString(), id: String(last._id)} : null;
     for (const row of rows) {
       let outcome;
       try {outcome = await inspectOne(family, row, {models, gateway, environment, apply, now, minAgeMs});}
