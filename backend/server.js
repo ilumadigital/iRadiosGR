@@ -24,6 +24,13 @@ if(productionActivated())require('./utils/broadcasterCheckoutRecoveryScheduler')
 // Gateway and Nexi production are never contacted by this worker.
 if(process.env.APP_ENV==='staging'&&process.env.IRADIOS_GATEWAY_ENV==='staging')
  require('./utils/stagingBillingRepairScheduler').start();
+// Production automatic repair is OFF by default. Deployment alone cannot
+// activate it: live cutover plus two explicit production flags are mandatory.
+if(productionActivated()&&process.env.APP_ENV==='production'&&
+   process.env.IRADIOS_GATEWAY_ENV==='production'&&
+   process.env.IRADIOS_PRODUCTION_BILLING_REPAIR_ENABLED==='1'&&
+   process.env.IRADIOS_PRODUCTION_BILLING_REPAIR_AUTO_ENABLED==='1')
+ require('./utils/productionBillingRepairScheduler').start();
 // Signed paid Premium upgrades retire future addon MIT renewals asynchronously.
 if(productionActivated())require('./utils/broadcasterPremiumUpgradeScheduler').start();
 // Isolated broadcaster transactional outbox, staging -> Mailpit only.
