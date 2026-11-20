@@ -23,7 +23,7 @@ const order=(sku,resourceId=station._id,extra={})=>({
  periodStartsAt:new Date('2026-11-01T00:00:00Z'),
  periodEndsAt:new Date('2026-12-01T00:00:00Z'),...extra
 });
-const overview=(s=station,grants=[],orders=[],who=user)=>describeStationAddons(who,s,grants,orders,now);
+const overview=(s=station,grants=[],orders=[],who=user)=>describeStationAddons(who,s,grants,orders,now,'staging');
 test('Admin addon overview uses the exact 3 scoped subscription SKUs',()=>{
  assert.deepEqual(ADDONS.map(x=>x.sku),['ADD-DSP','ADD-AN','ADD-ADS']);
  assert.deepEqual(ADDONS.map(x=>x.right),[
