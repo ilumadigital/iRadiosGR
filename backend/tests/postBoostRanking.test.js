@@ -16,7 +16,7 @@ const paid=(sku,extra={})=>({
   periodEndsAt:new Date('2026-11-10T12:00:00Z'),...extra
 });
 const project=(orders=[],grants=[],radio=station,user=owner)=>
-  maskStationPaidControls(radio,user,grants,now,orders);
+  maskStationPaidControls(radio,user,grants,now,orders,'staging');
 test('Expired purchased targeted/global Boost leaves only a deterministic organic 1-4 slot reward',()=>{
   const targeted=project([paid('BOOST-T-WEEK')]);
   const repeated=project([paid('BOOST-T-WEEK')]);
