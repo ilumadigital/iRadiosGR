@@ -1,5 +1,5 @@
 'use strict';
-// Staging-only. Signed Gateway GETs never initiate a charge, cancel a contract,
+// Staging by default; production is explicitly gated. Signed Gateway GETs never initiate a charge, cancel a contract,
 // grant an entitlement, or prove absence from Nexi when a Gateway ID exists.
 const OPEN = Object.freeze(['creating', 'pending', 'redirect', 'unknown']);
 const TERMINAL = Object.freeze(['paid', 'failed', 'canceled']);
@@ -9,11 +9,21 @@ const ORDER = /^IL[A-F0-9]{24}$/;
 const BKEY = /^iradios-bstage-[a-f0-9]{24}-[a-f0-9-]{36}$/i;
 const LKEY = /^iradios-stage-[a-f0-9]{24}-[a-f0-9-]{36}$/i;
 
+// The default remains staging. Production requires an explicit scope AND its own
+// independently approved write gate; a shared Gateway global APP_ENV is never used.
+function guardScope(environment, gateway, target = 'staging', apply = false) {
+  const name = target === 'production' ? 'PRODUCTION_BILLING_REPAIR_GUARD' : 'STAGING_BILLING_REPAIR_GUARD';
+  if (!['staging', 'production'].includes(target) ||
+      process.env.APP_ENV !== target || process.env.IRADIOS_GATEWAY_ENV !== target ||
+      environment.mode() !== target || !environment.configured() ||
+      !gateway.configured()) throw Error(name);
+  if (target === 'production' && apply &&
+      (process.env.IRADIOS_PRODUCTION_BILLING_REPAIR_ENABLED !== '1' ||
+       process.env.IRADIOS_PRODUCTION_CUTOVER_APPROVED !== '1'))
+    throw Error('PRODUCTION_BILLING_REPAIR_DISABLED');
+}
 function stagingOnly(environment, gateway) {
-  if (process.env.APP_ENV !== 'staging' ||
-      process.env.IRADIOS_GATEWAY_ENV !== 'staging' ||
-      environment.mode() !== 'staging' || !environment.configured() ||
-      !gateway.configured()) throw Error('STAGING_BILLING_REPAIR_GUARD');
+  return guardScope(environment, gateway, 'staging', false);
 }
 function hasEvents(row) { return (row.eventIds || []).length > 0 || (row.eventLog || []).length > 0; }
 function financialEvidence(row) {
@@ -22,18 +32,18 @@ function financialEvidence(row) {
 }
 function lockField(family) { return family === 'advertising' ? 'activeLockKey' : 'lockKey'; }
 function safeRef(row) { return String(row._id); }
-function filterFor(row, family) {
+function filterFor(row, family, target = 'staging') {
   const field = lockField(family);
   const filter = { _id: row._id, status: row.status, requestKey: row.requestKey };
-  if (family !== 'advertising') filter.environment = 'staging';
+  if (family !== 'advertising') filter.environment = target;
   if (row.updatedAt) filter.updatedAt = row.updatedAt;
   filter[field] = row[field] == null ? null : row[field];
   return filter;
 }
-function validScope(row, family) {
+function validScope(row, family, target = 'staging') {
   const key = family === 'broadcaster' ? BKEY : LKEY;
   if (!key.test(row.requestKey || '') || !OPEN.includes(row.status) && !TERMINAL.includes(row.status)) return false;
-  if (family !== 'advertising' && row.environment !== 'staging') return false;
+  if (family !== 'advertising' && row.environment !== target) return false;
   if (row.gatewayPaymentId != null && !ID.test(row.gatewayPaymentId)) return false;
   if (row.gatewayOrderId != null && !ORDER.test(row.gatewayOrderId)) return false;
   if (family === 'advertising') return row.amountCents >= 100 && Number.isSafeInteger(row.amountCents) &&
@@ -66,10 +76,15 @@ async function maybeCancelQuote(row, Quote) {
 }
 /** Repair exactly one row; all mutations are conditional compare-and-set. */
 async function inspectOne(family, row, {models, gateway, environment, apply = false,
-  now = new Date(), minAgeMs = MIN_AGE_MS} = {}) {
-  stagingOnly(environment, gateway);
+  now = new Date(), minAgeMs = MIN_AGE_MS, target = 'staging'} = {}) {
+  guardScope(environment, gateway, target, apply);
   if (!['listener', 'broadcaster', 'advertising'].includes(family)) throw Error('UNKNOWN_BILLING_FAMILY');
-  if (!validScope(row, family)) return result(family, row, 'REVIEW', 'INVALID_SCOPE_OR_REFERENCES');
+  // AdvertisingPaymentIntent has no immutable environment marker. A signed
+  // provider result alone cannot prove live funding provenance. Fail closed
+  // until a separate, approved Advertising production financial audit.
+  if (target === 'production' && family === 'advertising')
+    return result(family, row, 'REVIEW', 'PRODUCTION_ADVERTISING_SCOPE_NOT_VERIFIED');
+  if (!validScope(row, family, target)) return result(family, row, 'REVIEW', 'INVALID_SCOPE_OR_REFERENCES');
   const Model = models[family], lock = lockField(family), locked = typeof row[lock] === 'string';
   const isOpen = OPEN.includes(row.status);
   if (!isOpen) {
@@ -81,7 +96,7 @@ async function inspectOne(family, row, {models, gateway, environment, apply = fa
     if (family === 'advertising' && await existingFundingLot(row, models.FundingLot))
       return result(family, row, 'REVIEW', 'FUNDING_LOT_EXISTS');
     if (!apply) return result(family, row, 'READY', 'TERMINAL_LOCK_LEFTOVER');
-    const changed = await Model.updateOne(filterFor(row, family), {$unset: {[lock]: ''}});
+    const changed = await Model.updateOne(filterFor(row, family, target), {$unset: {[lock]: ''}});
     if (changed.modifiedCount !== 1) return result(family, row, 'DEFERRED', 'CONCURRENT_CHANGE');
     if (family === 'advertising') await maybeCancelQuote(row, models.Quote);
     return result(family, row, 'REPAIRED', 'TERMINAL_LOCK_LEFTOVER', true);
@@ -104,7 +119,7 @@ async function inspectOne(family, row, {models, gateway, environment, apply = fa
     if (row.gatewayPaymentId || row.gatewayOrderId)
       return result(family, row, 'REVIEW', 'GATEWAY_MISSING_WITH_STORED_PROVIDER_REFERENCE');
     if (!apply) return result(family, row, 'READY', 'UNCREATED_GATEWAY_PAYMENT_CONFIRMED');
-    const filter = {...filterFor(row, family), paidAt: null,
+    const filter = {...filterFor(row, family, target), paidAt: null,
       gatewayPaymentId: null, gatewayOrderId: null, 'eventIds.0': {$exists: false}};
     if (family !== 'advertising') filter['eventLog.0'] = {$exists: false};
     const change = {$set: {status: 'failed', ...(family === 'advertising'
@@ -126,7 +141,7 @@ async function inspectOne(family, row, {models, gateway, environment, apply = fa
   if (!['failed', 'canceled'].includes(provider.status))
     return result(family, row, 'DEFERRED', 'GATEWAY_PAYMENT_NOT_TERMINAL');
   if (!apply) return result(family, row, 'READY', 'GATEWAY_TERMINAL_' + provider.status.toUpperCase());
-  const filter = {...filterFor(row, family), paidAt: null, 'eventIds.0': {$exists: false}};
+  const filter = {...filterFor(row, family, target), paidAt: null, 'eventIds.0': {$exists: false}};
   if (family !== 'advertising') filter['eventLog.0'] = {$exists: false};
   const change = {$set: {status: provider.status,
     gatewayPaymentId: provider.payment_id, gatewayOrderId: provider.order_id,
@@ -139,18 +154,19 @@ async function inspectOne(family, row, {models, gateway, environment, apply = fa
   return result(family, row, 'REPAIRED', 'GATEWAY_TERMINAL_' + provider.status.toUpperCase(), true);
 }
 async function runRepair({models, gateway, environment, apply = false, limit = 100,
-  minAgeMs = MIN_AGE_MS, now = new Date(), onRow = null, after = {}} = {}) {
-  stagingOnly(environment, gateway); // Fail before opening a Mongo cursor.
+  minAgeMs = MIN_AGE_MS, now = new Date(), onRow = null, after = {},
+  target = 'staging'} = {}) {
+  guardScope(environment, gateway, target, apply); // Fail before any Mongo cursor.
   if (!Number.isInteger(limit) || limit < 1 || limit > 500 ||
       !Number.isInteger(minAgeMs) || minAgeMs < MIN_AGE_MS || minAgeMs > 86400000)
     throw Error('INVALID_BILLING_REPAIR_OPTIONS');
-  const summary = {environment: 'staging', mode: apply ? 'APPLY' : 'DRY_RUN',
+  const summary = {environment: target, mode: apply ? 'APPLY' : 'DRY_RUN',
     inspected: 0, ready: 0, repaired: 0, review: 0, deferred: 0, clean: 0, errors: 0, cursors: {}};
   for (const family of ['listener', 'broadcaster', 'advertising']) {
     const field = lockField(family);
     const query = family === 'advertising'
       ? {requestKey: /^iradios-stage-/, $or: [{status: {$in: OPEN}}, {[field]: {$exists: true}}]}
-      : {environment: 'staging', $or: [{status: {$in: OPEN}}, {[field]: {$exists: true}}]};
+      : {environment: target, $or: [{status: {$in: OPEN}}, {[field]: {$exists: true}}]};
     // Cursor rotation prevents old REVIEW cases from starving later records.
     const cursor = after[family];
     if (cursor && Number.isFinite(Date.parse(cursor.createdAt)) && /^[a-f0-9]{24}$/i.test(cursor.id || '')) {
@@ -165,7 +181,7 @@ async function runRepair({models, gateway, environment, apply = false, limit = 1
       {createdAt: new Date(last.createdAt).toISOString(), id: String(last._id)} : null;
     for (const row of rows) {
       let outcome;
-      try {outcome = await inspectOne(family, row, {models, gateway, environment, apply, now, minAgeMs});}
+      try {outcome = await inspectOne(family, row, {models, gateway, environment, apply, now, minAgeMs, target});}
       catch {outcome = result(family, row, 'ERROR', 'SAFE_REPAIR_DEFERRED');}
       summary.inspected++;
       const counter = {READY: 'ready', REPAIRED: 'repaired', REVIEW: 'review',
@@ -176,4 +192,4 @@ async function runRepair({models, gateway, environment, apply = false, limit = 1
   }
   return summary;
 }
-module.exports = {OPEN, MIN_AGE_MS, inspectOne, runRepair, stagingOnly};
+module.exports = {OPEN, MIN_AGE_MS, inspectOne, runRepair, stagingOnly, guardScope};
