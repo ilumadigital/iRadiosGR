@@ -1,0 +1,43 @@
+name: Production billing repair safety
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/services/billingRepair.js'
+      - 'backend/services/productionBillingInventory.js'
+      - 'backend/scripts/billingRepairProduction.js'
+      - 'backend/scripts/billingInventoryProduction.js'
+      - 'backend/utils/productionBillingRepairScheduler.js'
+      - 'backend/utils/broadcasterCheckoutRecoveryScheduler.js'
+      - 'backend/server.js'
+      - 'backend/tests/productionBillingRepair*.test.cjs'
+      - 'backend/tests/productionBillingInventory.test.cjs'
+      - '.github/workflows/production-billing-repair-validation.yml'
+permissions:
+  contents: read
+jobs:
+  billing_repair:
+    name: Production read-only/automatic repair safety
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax of the production billing change set
+        run: |
+          node --check backend/services/billingRepair.js
+          node --check backend/services/productionBillingInventory.js
+          node --check backend/scripts/billingRepairProduction.js
+          node --check backend/scripts/billingInventoryProduction.js
+          node --check backend/utils/productionBillingRepairScheduler.js
+          node --check backend/utils/broadcasterCheckoutRecoveryScheduler.js
+          node --check backend/server.js
+      - name: Financially safe production repair and inventory regressions
+        run: |
+          node --test backend/tests/productionBillingRepair.test.cjs
+          node --test backend/tests/productionBillingInventory.test.cjs
+      - name: Assert no unapproved automatic activation by default
+        run: |
+          node -e "const s=require('fs').readFileSync('backend/server.js','utf8');if(!s.includes('IRADIOS_PRODUCTION_BILLING_REPAIR_AUTO_ENABLED'))process.exit(1)"
+          node -e "const x=require('./backend/utils/productionBillingRepairScheduler');if(x.enabled())process.exit(1)"
