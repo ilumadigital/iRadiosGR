@@ -6,6 +6,10 @@ const User=require('../models/User');
 const {DAY_MS,paidRenewalState,paidRenewalPeriod}=require('../services/billingRenewalRules');
 const gateway=require('../services/ilumaGatewayClient');
 const {ensureBillingIndexes}=require('../services/billingIndexReadiness');
+const {listenerLockScope,lockedQuery:listenerLockedQuery,
+ findLocked:findListenerLocked,findIdempotent:findListenerIdempotent,
+ releaseTerminalLock:releaseListenerTerminalLock}=
+ require('../services/listenerCheckoutLockScope');
 const {hasAccountRight}=require('../services/billingEntitlements');
 const {evaluate:winbackPolicy,PROMO_SKU}=require('../services/winbackEligibility');
 const premiumEmails=require('../utils/premiumBillingEmailScheduler');
@@ -30,9 +34,9 @@ async function winbackForUser(user,now=new Date()){
  const hasPremium=await hasAccountRight(user,'listener.premium');
  const local=winbackPolicy({lastPaid:latest,hasPremium,now});
  if(!local.eligible)return local;
- const pending=await BillingOrder.exists({
-  accountId:user._id,lockKey:String(user._id)+':L-PREM'
- });
+ const pending=await BillingOrder.exists(listenerLockedQuery(
+   listenerLockScope({environment:billingEnv(),accountId:user._id})
+  ));
  if(pending)return {eligible:false,reason:'payment_pending'};
  try{
   const ledger=await gateway.winbackStatus(user);
@@ -62,9 +66,9 @@ async function currentRenewal(user,now=new Date()){
  }).sort({paidAt:-1,createdAt:-1}).lean();
  const notice=paidRenewalState(prior,now);
  if(!notice)return null;
- const inFlight=await BillingOrder.exists({
-  accountId:user._id,lockKey:String(user._id)+':L-PREM'
- });
+ const inFlight=await BillingOrder.exists(listenerLockedQuery(
+   listenerLockScope({environment:billingEnv(),accountId:user._id})
+  ));
  if(inFlight)return null;
  // Don't request a renewal after expiry if complimentary/manual rights or a
  // separate paid period are still active for this same listener.
@@ -145,14 +149,19 @@ async function checkout(req,res){
   return res.status(409).json({code:'WINBACK_CANCEL_MIT_FIRST',
    error:'Ακύρωσε πρώτα την παλιά αυτόματη ανανέωση στο Billing.'});
  const requestKey='iradios-stage-'+accountId(req)+'-'+clientKey;
- let order=await BillingOrder.findOne({requestKey}).lean();
+  const scope=listenerLockScope({environment:billingEnv(),accountId:accountId(req)});
+  let order=await findListenerIdempotent(BillingOrder,scope,requestKey);
  if(order){
   if(String(order.accountId)!==accountId(req))return res.status(409).json({error:'Idempotency conflict'});
   return res.status(200).json({order:display(order),alreadyProcessed:true});
  }
- const lockKey=accountId(req)+':L-PREM';
- order=await BillingOrder.findOne({lockKey}).lean();
- if(order)return res.status(200).json({order:display(order),alreadyProcessed:true});
+ const lockKey=scope.scoped;
+  order=await findListenerLocked(BillingOrder,scope);
+  if(order&&['failed','canceled'].includes(order.status)){
+   if(await releaseListenerTerminalLock(BillingOrder,order,scope))
+    order=await findListenerLocked(BillingOrder,scope);
+  }
+  if(order)return res.status(200).json({order:display(order),alreadyProcessed:true});
  // Active premium cannot buy arbitrary overlapping periods. Exception: the
  // last 24 hours of the verified paid cycle (or its explicit grace period).
  const renewal=await currentRenewal(req.user);
@@ -174,14 +183,17 @@ async function checkout(req,res){
  try{
   order=await BillingOrder.create({accountId:req.user._id,
     sku:winbackRequested?PROMO_SKU:'L-PREM',
-    requestKey,lockKey,amountCents:winbackRequested?199:399,currency:'EUR',status:'creating',
+    environment:scope.environment,
+     requestKey,lockKey,amountCents:winbackRequested?199:399,currency:'EUR',status:'creating',
     renewalOfOrderId:previousPaid?._id,
     autoRenewRequested:cardChoice.autoRenew});
  }catch(error){
   if(error.code!==11000)throw error;
-  const found=await BillingOrder.findOne({$or:[{requestKey},{lockKey}]}).lean();
-  if(!found)return res.status(503).json({error:'Η συναλλαγή δεν είναι διαθέσιμη.'});
-  return res.status(200).json({order:display(found),alreadyProcessed:true});
+  const found=await findListenerIdempotent(BillingOrder,scope,requestKey)||
+    await findListenerLocked(BillingOrder,scope);
+   if(!found)return res.status(409).json({code:'CHECKOUT_SCOPE_CONFLICT',
+    error:'Η συναλλαγή δεν είναι διαθέσιμη. Δοκίμασε ξανά με νέο αίτημα.'});
+   return res.status(200).json({order:display(found),alreadyProcessed:true});
  }
 
  // Exactly ONE outgoing checkout for this local intent. A timeout is UNKNOWN.
@@ -275,7 +287,8 @@ async function cancelAutomaticRenewal(req,res){
 }
 
 async function listOwnOrders(req,res){
- const rows=await BillingOrder.find({accountId:req.user._id,sku:{$in:PREMIUM_SKUS}})
+ const rows=await BillingOrder.find({accountId:req.user._id,
+  environment:billingEnv(),sku:{$in:PREMIUM_SKUS}})
   .sort({createdAt:-1}).limit(20).lean();
  return res.json({orders:rows.map(display),renewalEnabled:false});
 }
@@ -283,7 +296,8 @@ async function listOwnOrders(req,res){
 async function readOrder(req,res){
  if(!/^[a-f0-9]{24}$/i.test(req.params.id))
   return res.status(400).json({error:'Μη έγκυρο ID συναλλαγής.'});
- let row=await BillingOrder.findOne({_id:req.params.id,accountId:req.user._id}).lean();
+ let row=await BillingOrder.findOne({_id:req.params.id,accountId:req.user._id,
+   environment:billingEnv()}).lean();
  if(!row)return res.status(404).json({error:'Η συναλλαγή δεν βρέθηκε.'});
  // A server-signed, read-only Gateway lookup can recover a lost checkout
  // response using the ORIGINAL idempotency key. It never creates new charges.
@@ -305,8 +319,8 @@ async function readOrder(req,res){
    }};
    if(['failed','canceled'].includes(localStatus))change.$unset={lockKey:''};
    const updated=await BillingOrder.findOneAndUpdate({
-    _id:row._id,accountId:req.user._id,
-    status:{$in:['creating','pending','redirect','unknown']}
+    _id:row._id,accountId:req.user._id,environment:billingEnv(),
+     status:{$in:['creating','pending','redirect','unknown']}
    },change,{new:true});
    if(updated)row=updated;
   }catch(error){
@@ -328,7 +342,7 @@ async function readOrder(req,res){
     if(failed)row=failed;
    }else if(row.status==='creating'&&ageMs>60000){
     const unknown=await BillingOrder.findOneAndUpdate({
-     _id:row._id,accountId:req.user._id,status:'creating'
+     _id:row._id,accountId:req.user._id,environment:billingEnv(),status:'creating'
     },{$set:{status:'unknown',lastErrorCode:'CHECKOUT_UNCONFIRMED'}},{new:true});
     if(unknown)row=unknown;
    }

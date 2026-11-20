@@ -4,6 +4,14 @@ const assert=require('node:assert/strict');
 const Module=require('node:module');
 const originalLoad=Module._load;
 const {DAY_MS}=require('../backend/services/billingRenewalRules');
+// Set the test's financial tenant explicitly; production isolation fails closed
+// when APP_ENV/IRADIOS_GATEWAY_ENV are missing or mismatched.
+const envBefore={APP_ENV:process.env.APP_ENV,
+ IRADIOS_GATEWAY_ENV:process.env.IRADIOS_GATEWAY_ENV};
+process.env.APP_ENV='staging';
+process.env.IRADIOS_GATEWAY_ENV='staging';
+test.after(()=>Object.entries(envBefore).forEach(([k,v])=>
+ v==null?delete process.env[k]:process.env[k]=v));
 
 const user={_id:'a'.repeat(24),role:'user',isVerified:true};
 const prevId='b'.repeat(24);
@@ -22,8 +30,11 @@ const BillingOrder={
  find:()=>({sort:()=>({limit:()=>({lean:async()=>previous?[previous]:[]})})}),
  findOne(q){
   const result=()=>{
-   if(q.requestKey)return created?.requestKey===q.requestKey?created:null;
-   if(q.lockKey)return created?.lockKey===q.lockKey?created:null;
+   if(q.requestKey)return created?.requestKey===q.requestKey&&
+    created?.environment===q.environment?created:null;
+   if(q.lockKey)return created?.environment===q.environment&&
+    (Array.isArray(q.lockKey.$in)?q.lockKey.$in.includes(created?.lockKey):
+     q.lockKey===created?.lockKey)?created:null;
    if(q.gatewayPaymentId)return null;
    if(q._id&&q.accountId)return created&&String(created._id)===String(q._id)?created:null;
    if(q.status==='paid')return previous;
@@ -33,7 +44,9 @@ const BillingOrder={
   return fetch;
  },
  exists:async q=>{
-  if(q.lockKey)return created?.lockKey===q.lockKey?{_id:created._id}:null;
+  if(q.lockKey)return created?.environment===q.environment&&
+   (Array.isArray(q.lockKey.$in)?q.lockKey.$in.includes(created?.lockKey):
+    q.lockKey===created?.lockKey)?{_id:created._id}:null;
   return null;
  },
  create:async doc=>{created={...doc,_id:'d'.repeat(24),createdAt:new Date()};return created;},
