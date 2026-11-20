@@ -1,6 +1,7 @@
 'use strict';
 const User=require('../models/User');
 const BillingGrant=require('../models/BillingGrant');
+const {grantReadScope}=require('./billingGrantEnvironment');
 const BroadcasterBillingOrder=require('../models/BroadcasterBillingOrder');
 const {maskStationPaidControls}=require('./stationBillingProjectionRules');
 
@@ -13,10 +14,10 @@ async function projectPublicStations(stations,now=new Date()){
  if(!ids.length)return stations.map(s=>maskStationPaidControls(s,null,[],now,[]));
  const [owners,history,paidOrders]=await Promise.all([
   User.find({_id:{$in:ids}}).select('_id role isPremium broadcasterProfile').lean(),
-  BillingGrant.find({accountId:{$in:ids},
+  BillingGrant.find({accountId:{$in:ids},...grantReadScope(),
     sku:{$in:['B-PREM','ADD-DSP','ADD-AN','ADD-ADS']}}).lean(),
-  process.env.APP_ENV==='staging'
-   ?BroadcasterBillingOrder.find({accountId:{$in:ids},environment:'staging',
+  ['staging','production'].includes(process.env.APP_ENV)
+   ?BroadcasterBillingOrder.find({accountId:{$in:ids},environment:process.env.APP_ENV,
       status:'paid'}).select('accountId resourceId sku scopeType status environment periodStartsAt periodEndsAt')
       .sort({paidAt:-1}).limit(5000).lean()
    :Promise.resolve([])
