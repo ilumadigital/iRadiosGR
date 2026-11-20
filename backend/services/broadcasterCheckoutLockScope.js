@@ -14,14 +14,15 @@ function lockScope({environment,accountId,sku,scopeId}) {
     throw Error('INVALID_BROADCASTER_LOCK_SCOPE');
   const legacy=account+':'+sku+':'+resource;
   const scoped=environment+':'+legacy;
-  return Object.freeze({environment,legacy,scoped,
+  return Object.freeze({environment,accountId:account,sku,scopeId:resource,legacy,scoped,
     candidates:Object.freeze([scoped,legacy])});
 }
 function scopedLockQuery(scope){
   if(!scope||!ENV.has(scope.environment)||
     !Array.isArray(scope.candidates)||scope.candidates.length!==2)
     throw Error('INVALID_BROADCASTER_LOCK_SCOPE');
-  return {environment:scope.environment,lockKey:{$in:[...scope.candidates]}};
+  return {environment:scope.environment,accountId:scope.accountId,
+    sku:scope.sku,lockKey:{$in:[...scope.candidates]}};
 }
 async function findExistingLocked(Model,scope){
   // Require an environment match even if the legacy lock string is identical.
@@ -30,7 +31,8 @@ async function findExistingLocked(Model,scope){
 async function findIdempotent(Model,scope,requestKey){
   if(typeof requestKey!=='string'||!requestKey.startsWith('iradios-bstage-'))
     throw Error('INVALID_BROADCASTER_REQUEST_KEY');
-  return Model.findOne({environment:scope.environment,requestKey}).lean();
+  return Model.findOne({environment:scope.environment,
+    accountId:scope.accountId,requestKey}).lean();
 }
 function safeToReleaseTerminal(order,scope){
   return Boolean(order&&order.environment===scope.environment&&
@@ -44,7 +46,8 @@ function safeToReleaseTerminal(order,scope){
 async function releaseOrphanTerminalLock(Model,order,scope){
   if(!safeToReleaseTerminal(order,scope))return false;
   const result=await Model.updateOne({
-    _id:order._id,environment:scope.environment,lockKey:order.lockKey,
+    _id:order._id,environment:scope.environment,accountId:scope.accountId,
+    sku:scope.sku,lockKey:order.lockKey,
     status:{$in:['failed','canceled']},paidAt:null,periodStartsAt:null,
     periodEndsAt:null,graceEndsAt:null,providerStatus:{$ne:'paid'},
     'eventIds.0':{$exists:false},'eventLog.0':{$exists:false}
