@@ -32,7 +32,7 @@ async function findIdempotent(Model,scope,requestKey){
   if(typeof requestKey!=='string'||!requestKey.startsWith('iradios-bstage-'))
     throw Error('INVALID_BROADCASTER_REQUEST_KEY');
   return Model.findOne({environment:scope.environment,
-    accountId:scope.accountId,requestKey}).lean();
+    accountId:scope.accountId,sku:scope.sku,requestKey}).lean();
 }
 function safeToReleaseTerminal(order,scope){
   return Boolean(order&&order.environment===scope.environment&&
