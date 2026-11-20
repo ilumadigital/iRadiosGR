@@ -31,3 +31,22 @@ Reports aggregate counts (no user or payment identifiers). Exits nonzero if any 
 8. Enable Advertising V2 financial delivery only after actual production funding provenance, replica-set transactions, signed geo ingress, reserve/settle/release tests and explicit financial approval. Then enable billing email delivery after the queue audit.
 
 **No automatic activation:** passing these offline preflights does not prove the external Nexi merchant can execute MIT, or that Gateway webhook delivery and financial ad settlement have passed live acceptance.
+
+## Pending email quarantine (reviewed, production candidate only)
+
+Before turning on `PRODUCTION_BILLING_EMAILS_ENABLED`, run
+`sudo bash ops/quarantine-prod-imported-emails.sh --audit`.
+Any imported `pending`/`sending` billing/broadcaster/advertising campaign email needs
+review: this queue came from the staging snapshot and must not resend old
+testing notifications. After reviewing the counts and verifying a current
+root-only, checksum-valid production Mongo/Uploads backup, execute:
+```bash
+sudo bash ops/quarantine-prod-imported-emails.sh --apply \
+  /srv/iradios/production/backups/prod-before-verification-<actual-existing-timestamp>
+sudo bash ops/check-clean-prod-commercial.sh
+```
+Do **not** type a fictional backup path. This operation changes only imported
+pending email statuses to `skipped` in the independent `iradios_prod` DB;
+sent history is retained. It requires no live production frontend/backend
+and refuses an already-approved production dataset. Re-run the read-only
+preflight before issuing any `data-verified` marker.

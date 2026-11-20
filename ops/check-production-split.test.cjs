@@ -136,3 +136,11 @@ assert.match(cleanLaunch,/pending_broadcaster_emails/);
 assert.match(cleanLaunch,/pending_campaign_emails/);
 assert.match(cleanLaunch,/environment:"production"/);
 assert.doesNotMatch(cleanLaunch,/dropDatabase|deleteMany|db\.drop|down -v/);
+
+const quarantine=read('ops/quarantine-prod-imported-emails.sh');
+assert.match(quarantine,/QUARANTINE_MODE/);
+assert.match(quarantine,/status:"skipped"/);
+assert.match(quarantine,/prod-before-verification-/);
+assert.match(quarantine,/iradios_prod-mongo-1/);
+assert.doesNotMatch(quarantine,/deleteMany|dropDatabase|db\.drop|docker compose down -v/);
+assert.match(read('backend/models/AdvertisingCampaignMailEvent.js'),/pending','sending','sent','skipped/);
