@@ -73,6 +73,38 @@ if grep -q '^IRADIOS_BILLING_ENABLED=' "$ENV_FILE" &&
    ! grep -Eq '^IRADIOS_BILLING_ENABLED=[01]$' "$ENV_FILE"; then
  echo 'STOP: IRADIOS_BILLING_ENABLED must be 0 or 1.' >&2; exit 1
 fi
+# A dedicated real-card QA credential is NEVER accepted by ordinary staging.
+# Callback-only mode retains HMAC verification after new checkouts are stopped.
+for key in IRADIOS_PROD_QA_ENABLED IRADIOS_PROD_QA_CALLBACK_ONLY; do
+  if grep -q "^${key}=" "$ENV_FILE"; then
+    if [[ "$(count_key "$key")" != "1" ]] ||
+       ! grep -Eq "^${key}=[01]$" "$ENV_FILE"; then
+      echo "STOP: $key must be defined once as 0 or 1." >&2
+      exit 1
+    fi
+  fi
+done
+if grep -qx 'IRADIOS_PROD_QA_ENABLED=1' "$ENV_FILE" &&
+   grep -qx 'IRADIOS_PROD_QA_CALLBACK_ONLY=1' "$ENV_FILE"; then
+  echo 'STOP: production QA checkout and callback-only modes are exclusive.' >&2
+  exit 1
+fi
+if grep -qx 'IRADIOS_PROD_QA_ENABLED=1' "$ENV_FILE" ||
+   grep -qx 'IRADIOS_PROD_QA_CALLBACK_ONLY=1' "$ENV_FILE"; then
+  if [[ "$(count_key ILUMA_GATEWAY_PROD_KEY)" != "1" ]] ||
+     [[ "$(count_key ILUMA_GATEWAY_PROD_SECRET)" != "1" ]] ||
+     [[ "$(count_key IRADIOS_PROD_QA_LISTENER_ID)" != "1" ]] ||
+     ! grep -Eq '^ILUMA_GATEWAY_PROD_KEY=ilg_[a-f0-9]{48}$' "$ENV_FILE" ||
+     ! grep -Eq '^ILUMA_GATEWAY_PROD_SECRET=[a-f0-9]{64}$' "$ENV_FILE" ||
+     ! grep -Eq '^IRADIOS_PROD_QA_LISTENER_ID=[a-f0-9]{24}$' "$ENV_FILE"; then
+    echo 'STOP: live-card QA needs one dedicated production key and one allowlisted listener ID.' >&2
+    exit 1
+  fi
+elif grep -Eq '^ILUMA_GATEWAY_PROD_(KEY|SECRET)=' "$ENV_FILE"; then
+  echo 'STOP: production Gateway keys are forbidden without an explicit QA mode.' >&2
+  exit 1
+fi
+
 if grep -q '^IRADIOS_BILLING_SANDBOX_ENABLED=' "$ENV_FILE"; then
  if [[ "$(count_key IRADIOS_BILLING_SANDBOX_ENABLED)" != 1 ]] ||
     ! grep -Eq '^IRADIOS_BILLING_SANDBOX_ENABLED=[01]$' "$ENV_FILE"; then

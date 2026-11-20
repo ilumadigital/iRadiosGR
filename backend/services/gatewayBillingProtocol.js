@@ -26,7 +26,7 @@ function headersForRequest({secret,key,method,path,rawBody,nonce,now=new Date()}
  return {'X-Iluma-Key':key,'X-Iluma-Timestamp':timestamp,'X-Iluma-Nonce':n,
    'X-Iluma-Signature':canonicalSignature(secret,method,path,timestamp,n,rawBody)};
 }
-function verifyWebhookHeaders({secret,headers,rawBody,now=new Date()}){
+function verifyWebhookHeaders({secret,headers,rawBody,now=new Date(),path=WEBHOOK_PATH}){
  if(!/^[a-f0-9]{64}$/.test(secret||''))return {valid:false,reason:'unconfigured'};
  if(!Buffer.isBuffer(rawBody)||rawBody.length<2||rawBody.length>65536)
    return {valid:false,reason:'body'};
@@ -42,7 +42,7 @@ function verifyWebhookHeaders({secret,headers,rawBody,now=new Date()}){
  const receivedAt=Number(timestamp)*1000;
  if(Math.abs(receivedAt-now.getTime())>300000)
    return {valid:false,reason:'timestamp'};
- const expected=canonicalSignature(secret,'POST',WEBHOOK_PATH,timestamp,nonce,rawBody);
+ const expected=canonicalSignature(secret,'POST',path,timestamp,nonce,rawBody);
  if(!crypto.timingSafeEqual(Buffer.from(expected,'hex'),Buffer.from(sig,'hex')))
    return {valid:false,reason:'signature'};
  return {valid:true,nonce,eventId};

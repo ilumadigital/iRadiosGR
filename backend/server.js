@@ -72,6 +72,10 @@ app.get('/api/health', (_req, res) => {
 // deny-by-default. Authentication is HMAC over EXACT raw bytes, not a user JWT.
 app.post('/api/gateway/webhook',express.raw({type:'application/json',limit:'64kb'}),
   require('./controllers/gatewayBillingController').webhook);
+// Dedicated REAL-card QA callback. No JWT, but strict raw-body HMAC verified
+// with the QA production credential; never shares the normal live webhook.
+app.post('/api/gateway/production-qa/webhook',express.raw({type:'application/json',limit:'64kb'}),
+  require('./controllers/productionQaController').webhook);
 
 app.use(cors());
 app.use(express.json());
@@ -168,6 +172,7 @@ const statsRoutes = require('./routes/stats');
 app.use('/api', require('./routes/billingPhase1Routes'));
 // Phase 3: staging-only signed Gateway checkout/status. All other environments fail closed.
 app.use('/api',require('./routes/billingCheckoutRoutes'));
+app.use('/api',require('./routes/productionQaRoutes'));
 // Phase 4: independently scoped broadcaster subscription / one-off Boost staging checkout.
 app.use('/api',require('./routes/broadcasterBillingRoutes'));
 

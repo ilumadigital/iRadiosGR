@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useState} from 'react';
 import {Link,useLocation,useNavigate} from 'react-router-dom';
 import PremiumCompare from '../components/PremiumCompare';
+import ProductionQaCheckout from '../components/ProductionQaCheckout';
 import {Crown,ShieldCheck,ExternalLink,RefreshCw,AlertTriangle,
  CreditCard,CheckCircle2,Clock3,LockKeyhole,Gift,ArrowRight,CalendarClock,
  Sparkles,Headphones,Volume2,ScanSearch,Info,Check,ChevronRight} from 'lucide-react';
@@ -443,6 +444,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
     {['active','grace','scheduled'].includes(order.status)&&
      <button type="button" onClick={()=>window.location.reload()} className="inline-flex items-center gap-2 rounded-xl border border-[#ccff00]/20 bg-[#ccff00]/10 px-4 py-3 text-sm font-bold text-[#ccff00] transition hover:bg-[#ccff00]/15"><RefreshCw size={17}/> Ανανέωση στοιχείων</button>}
    </div>}
+   {!previewOnly&&<ProductionQaCheckout API_URL={API_URL} currentUser={currentUser}/>}
    <PremiumCompare/>
    <section className="grid gap-4 rounded-[28px] border border-white/10 bg-[#11140e]/85 p-6 sm:grid-cols-3 sm:p-8">
     <div className="flex items-start gap-3"><CalendarClock size={21} className="mt-1 shrink-0 text-[#ccff00]"/><div><h2 className="font-black">Κάθε μήνα</h2><p className="mt-1 text-sm leading-6 text-zinc-400">3,99 € με ΦΠΑ, μετά τον πρώτο μήνα.</p></div></div>

@@ -64,6 +64,27 @@ try {
     'ILUMA_GATEWAY_STAGING_SECRET=invalid'),false,'bad Gateway HMAC key rejected');
   verify(sandbox+'ILUMA_GATEWAY_PRODUCTION_KEY=ilg_'+('c'.repeat(48))+'\n',
     false,'production Gateway credentials forbidden on staging');
+  const qaCreds='ILUMA_GATEWAY_PROD_KEY=ilg_'+('d'.repeat(48))+'\n'+
+    'ILUMA_GATEWAY_PROD_SECRET='+('e'.repeat(64))+'\n';
+  const qaConfig='IRADIOS_PROD_QA_ENABLED=1\n'+
+    'IRADIOS_PROD_QA_LISTENER_ID='+('f'.repeat(24))+'\n';
+  verify(safe+qaCreds,false,'Live keys never silently activate real payments in staging');
+  verify(safe+'IRADIOS_PROD_QA_ENABLED=0\n'+qaCreds,false,
+    'Live keys require explicit QA opt-in');
+  verify(safe+qaConfig,false,'QA enable requires the real credential pair');
+  verify(safe+qaConfig+qaCreds,true,'Explicit single-listener production QA credentials can pass preflight');
+  verify(safe+'IRADIOS_PROD_QA_CALLBACK_ONLY=1\n'+
+    'IRADIOS_PROD_QA_LISTENER_ID='+('f'.repeat(24))+'\n'+qaCreds,true,
+    'Callback-only accepts signed outbox events while preventing fresh real checkout');
+  verify(safe+qaConfig+'IRADIOS_PROD_QA_CALLBACK_ONLY=1\n'+qaCreds,false,
+    'Production checkout and callback-only must never coexist');
+
+  verify(safe+qaConfig.replace('f'.repeat(24),'bad')+qaCreds,false,
+    'QA requires an exact 24-hex listener id');
+  verify(safe+qaConfig+qaCreds.replace('e'.repeat(64),'short'),false,
+    'QA requires full raw HMAC secret');
+  verify(safe+qaConfig+qaCreds+'ILUMA_GATEWAY_PROD_KEY=ilg_'+('a'.repeat(48))+'\n',false,
+    'Duplicate QA live keys are forbidden');
   verify(safe+'IRADIOS_BILLING_SANDBOX_ENABLED=maybe\n',false,'invalid Sandbox flag rejected');
   verify(sandbox+'IRADIOS_BILLING_SANDBOX_ENABLED=0\n',false,'duplicate Sandbox mode rejected');
   const privateV2 = sandbox +
