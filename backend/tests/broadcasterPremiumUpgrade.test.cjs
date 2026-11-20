@@ -60,6 +60,7 @@ test('webhook retry persists a single job linked to the first paid Premium',asyn
   find:()=>({select(){return this;},limit(){return this;},lean:async()=>originals})
  };
  const Job={
+  init:async()=>{},
   findOneAndUpdate:(_q,update)=>({
    lean:async()=>{
     if(!job){creates++;job={...update.$setOnInsert,items:update.$setOnInsert.items.map(x=>({...x}))};}
