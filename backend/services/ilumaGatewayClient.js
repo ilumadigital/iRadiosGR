@@ -160,7 +160,7 @@ async function paymentHistory(user){
 
 // Broadcaster checkout is separate from Listener Premium; amounts are validated
 // from the immutable server catalog after a signed Gateway response.
-const {gatewayPurchase}=require('./broadcasterPaymentProtocol');
+const {gatewayPurchase,validExistingMitPrice}=require('./broadcasterPaymentProtocol');
 const {getProduct}=require('../config/billingCatalog');
 async function broadcasterCheckout({user,requestKey,sku,stationId=null,autoRenew=false}){
  const product=getProduct(sku);
@@ -193,7 +193,7 @@ async function broadcasterRecurringStatus(user,sku,stationId=null){
   customer_id:'iradios-stage-'+String(user._id),product_sku:sku,
   ...(p.scopeType==='station'?{resource_id:String(stationId)}:{})
  });
- if(data.sku!==sku||data.amount_cents!==p.priceCents||data.currency!=='EUR'||
+ if(data.sku!==sku||!validExistingMitPrice(sku,data.amount_cents)||data.currency!=='EUR'||
   !['none','unavailable','pending','verification_pending','active','cancelled','past_due'].includes(data.state))
   throw Error('Invalid broadcaster recurring status response');
  return data;
@@ -205,7 +205,7 @@ async function cancelBroadcasterRecurring(user,sku,stationId=null){
   customer_id:'iradios-stage-'+String(user._id),product_sku:sku,
   ...(p.scopeType==='station'?{resource_id:String(stationId)}:{})
  });
- if(data.sku!==sku||data.amount_cents!==p.priceCents||data.currency!=='EUR'||
+ if(data.sku!==sku||!validExistingMitPrice(sku,data.amount_cents)||data.currency!=='EUR'||
    !['none','cancelled','unavailable'].includes(data.state))
   throw Error('Invalid broadcaster cancellation response');
  return data;
