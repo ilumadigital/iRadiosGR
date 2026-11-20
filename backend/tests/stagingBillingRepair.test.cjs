@@ -142,3 +142,16 @@ test('batch default dry run inspects all three families without writes', async()
  assert.equal(report.inspected,3); assert.equal(report.mode,'DRY_RUN');
  assert.equal(f.counters.update,0);
 });
+
+test('three-minute minimum age blocks early 404 release', async() => {
+ const f = fixture(listener({createdAt: new Date(+NOW - 170000)}), {error: 'GATEWAY_HTTP_404'});
+ assert.equal((await f.inspect('listener')).reason, 'CHECKOUT_STILL_RECENT');
+ assert.equal(f.counters.providerGet, 0);
+});
+test('cursor batch reports a resumable per-ledger scan position', async() => {
+ const f = fixture(listener(), {error: 'GATEWAY_HTTP_404'});
+ const scan = await runRepair({models: f.models, gateway: f.gateway, environment,
+  now: NOW, after: {listener: {createdAt:'2026-11-19T00:00:00.000Z',id:account}}});
+ assert.equal(scan.cursors.listener.id, f.row._id);
+ assert.equal(scan.cursors.advertising.id, f.row._id);
+});
