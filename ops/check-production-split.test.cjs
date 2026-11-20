@@ -144,3 +144,13 @@ assert.match(quarantine,/prod-before-verification-/);
 assert.match(quarantine,/iradios_prod-mongo-1/);
 assert.doesNotMatch(quarantine,/deleteMany|dropDatabase|db\.drop|docker compose down -v/);
 assert.match(read('backend/models/AdvertisingCampaignMailEvent.js'),/pending','sending','sent','skipped/);
+
+const {execFileSync}=require('node:child_process');
+for(const script of ['ops/check-clean-prod-commercial.sh','ops/quarantine-prod-imported-emails.sh']){
+ const audited=read(script);
+ assert.match(audited,/script=\$\(cat\)/,'Mongo audit must collect entire heredoc as one script');
+ assert.match(audited,/--eval "\$script"/,'Mongo audit must run noninteractively with error exit');
+ assert.doesNotMatch(audited,/--authenticationDatabase admin\s*\n' <<'JS'/,
+  'Mongo cannot run in interactive streaming mode');
+ execFileSync('bash',['-n',path.join(root,script)],{stdio:'pipe'});
+}

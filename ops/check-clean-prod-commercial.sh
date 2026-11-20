@@ -16,8 +16,9 @@ python3 "$APP/ops/check-prod-env.py" /etc/iradios/production/backend.env /etc/ir
 echo "=== IRADIOS PRODUCTION CLEAN-LAUNCH ENTITLEMENTS ==="
 # Do not inspect personal details or print document IDs/provider references.
 docker exec -i iradios_prod-mongo-1 sh -ec '
+ script=$(cat)
  exec mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" \
-   --authenticationDatabase admin
+   --authenticationDatabase admin --eval "$script"
 ' <<'JS'
 const d=db.getSiblingDB("iradios_prod");
 const now=new Date();
