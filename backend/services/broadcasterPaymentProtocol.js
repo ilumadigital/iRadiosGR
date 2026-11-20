@@ -7,6 +7,11 @@ const {PAYMENT_ID,ORDER_ID,EVENT_ID}=require('./gatewayBillingProtocol');
 const HEX24=/^[a-f0-9]{24}$/;
 // Old signed MIT contracts may renew at their original price, never as new checkouts.
 const LEGACY_MIT_PRICES=Object.freeze({'B-PREM':11900,'ADD-DSP':4990,'ADD-AN':790,'ADD-ADS':2990});
+function validExistingMitPrice(sku,price){
+ const current=getProduct(sku);
+ return Boolean(current&&current.kind==='subscription'&&
+  (price===current.priceCents||price===LEGACY_MIT_PRICES[sku]));
+}
 function gatewayPurchase(payment,{sku,paymentId=null,orderId=null}){
  const expected=getProduct(sku);
  if(!BILLING_SKUS.includes(sku)||!expected)throw Error('invalid_product');
@@ -64,4 +69,4 @@ function safeBroadcasterOrder(order,now=new Date()){
   periodEndsAt:order.periodEndsAt||null,billingOrigin:order.billingOrigin||'checkout',
   lastErrorCode:order.lastErrorCode||null};
 }
-module.exports={gatewayPurchase,broadcasterEventValid,safeBroadcasterOrder};
+module.exports={gatewayPurchase,broadcasterEventValid,safeBroadcasterOrder,validExistingMitPrice};
