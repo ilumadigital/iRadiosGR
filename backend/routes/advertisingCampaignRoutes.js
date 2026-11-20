@@ -28,8 +28,9 @@ const {fromLot,aggregateBalances}=require('../services/advertisingBalances');
 const {activeCreativeTiers,evaluateBudgetAffordability}=
  require('../services/advertisingBudgetAffordability');
 const {allowUnfundedReview}=require('../services/advertisingStageQa');
-const stage=(req,res,next)=>process.env.APP_ENV==='staging'?next():
- res.status(503).json({error:'Advertising v2 is staging only'});
+const {wizardEnabled}=require('../services/advertisingWizardAccess');
+const stage=(req,res,next)=>wizardEnabled()?next():
+ res.status(503).json({error:'Advertising checkout is not ready in this environment'});
 // Protect ONLY this router's private campaign/pricing/payment paths. The
 // listener v2 status/ticket/heartbeat/CTA/release handlers are mounted later
 // at /api and must remain available to guests under their own capability,
@@ -54,10 +55,12 @@ router.get('/advertising/pricing',async(req,res)=>{
  if(!isAgency(req)&&!isAdmin(req))return res.status(403).json({error:'Forbidden'});
  try{
   const row=await pricing();
+  const checkoutReady=row.enabled===true&&row.taxMode==='budget_net_plus_vat'&&
+   gateway.configured();
   return res.json({...row?.toObject?.()||row,
-    rateCard:V2_RATE_CARD.rateCardForPricing(row),
-   sandboxCheckoutReady:row.enabled===true&&row.taxMode==='budget_net_plus_vat'&&
-     gateway.configured()});
+   rateCard:V2_RATE_CARD.rateCardForPricing(row),
+   checkoutReady,
+   sandboxCheckoutReady:checkoutReady});
  }catch{return res.status(500).json({error:'Pricing unavailable'});}
 });
 router.put('/admin/advertising/pricing',async(req,res)=>{
