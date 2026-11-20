@@ -26,7 +26,7 @@ const paidOrder=(sku,id=stationId,extra={})=>({
  periodEndsAt:new Date('2026-12-10T00:00:00Z'),...extra
 });
 const render=(grants=[],orders=[],user=owner,radio=station)=>
- maskStationPaidControls(radio,user,grants,now,orders);
+ maskStationPaidControls(radio,user,grants,now,orders,'staging');
 test('Admin-authored DSP stays in DB but never applies publicly without new rights',()=>{
  const original=JSON.stringify(station);
  const output=render();
@@ -134,4 +134,15 @@ test('A station Analytics addon unlocks song search but not WebDSP',()=>{
   const result=render([grant('ADD-AN')]);
   assert.equal(result.widgetMusicLinksEnabled,true);
   assert.equal(result.dspPreset,'OFF');
+});
+
+test('production paid station DSP and Boost cannot be sourced from copied staging orders',()=>{
+ const stage=paidOrder('B-PREM',null);
+ const production={...stage,environment:'production'};
+ const blocked=maskStationPaidControls(station,owner,[],now,[stage],'production');
+ assert.equal(blocked.dspPreset,'OFF');
+ assert.equal(blocked.disableNetworkAds,false);
+ const entitled=maskStationPaidControls(station,owner,[],now,[production],'production');
+ assert.equal(entitled.dspPreset,'OMNIA');
+ assert.equal(entitled.disableNetworkAds,true);
 });
