@@ -60,14 +60,23 @@
    Nexi Live keys, and its signed requests target the expected production tenant
    and DB. Confirm iRadios production MongoDB URI points to production data.
    Do not print credentials, Mongo URIs or user/payment tokens.
-7. After an approved deployment, the FIRST run is read-only:
+7. After an approved deployment and separate approval to access production
+   MongoDB, the FIRST run is a LOCAL-ONLY read-only inventory. It works even
+   with `IRADIOS_BILLING_ENABLED=0` and cutover still disabled:
+   ```bash
+   sudo docker exec -i iradios_prod-backend-1 node scripts/billingInventoryProduction.js --limit 500 --confirm-readonly-audit
+   ```
+   Container name must first be verified on the host. This script does not
+   import the Gateway client, contact Nexi, create Mongo indexes or mutate DB.
+   It lists only local candidate/review states, not proof of provider charge.
+8. Once the *separately approved* production Gateway tenant and billing are
+   active, the signed read-only reconciliation audit may run:
    ```bash
    sudo docker exec -i iradios_prod-backend-1 node scripts/billingRepairProduction.js --limit 500
    ```
-   Container name must be verified on the actual host. Inspect every REVIEW,
-   DEFERRED and READY finding with the financial operator. The audit itself
-   does NOT release locks and cannot prove a Nexi Live charge was absent.
-8. If write activation is later approved, turn on ONLY
+   Inspect every REVIEW, DEFERRED and READY finding with the financial
+   operator. This audit never releases locks.
+9. If write activation is later approved, turn on ONLY
    `IRADIOS_PRODUCTION_BILLING_REPAIR_ENABLED=1`, retain
    `IRADIOS_PRODUCTION_BILLING_REPAIR_AUTO_ENABLED=0`, deploy new env manually,
    and perform a SECOND audited dry-run. A *separately* approved operator may
