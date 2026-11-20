@@ -20,6 +20,10 @@ if(productionActivated())require('./utils/premiumBillingEmailScheduler').start()
 // Recover lost Broadcaster checkout responses using signed GET only.
 // This worker cannot create provider orders, MIT payments or grant entitlements.
 if(productionActivated())require('./utils/broadcasterCheckoutRecoveryScheduler').start();
+// Safe-only staging repair across Listener/Broadcaster/Advertising checkout intents.
+// Gateway and Nexi production are never contacted by this worker.
+if(process.env.APP_ENV==='staging'&&process.env.IRADIOS_GATEWAY_ENV==='staging')
+ require('./utils/stagingBillingRepairScheduler').start();
 // Signed paid Premium upgrades retire future addon MIT renewals asynchronously.
 if(productionActivated())require('./utils/broadcasterPremiumUpgradeScheduler').start();
 // Isolated broadcaster transactional outbox, staging -> Mailpit only.

@@ -136,6 +136,8 @@ jobs:
         run: node --test backend/tests/broadcasterCheckoutRecovery.test.js
       - name: Guard manual staging-only orphan Premium recovery and atomic release
         run: node --test backend/tests/stagingBroadcasterOrphanRecovery.test.cjs
+      - name: Guard automatic staging billing repair across Listener Broadcaster and Advertising
+        run: node --test backend/tests/stagingBillingRepair.test.cjs
       - name: Verify branded Broadcaster billing emails and one-off Boost messaging
         run: node --test backend/tests/broadcasterBillingEmailTemplates.test.js backend/tests/broadcasterBillingEmailScheduler.test.js
       - name: Verify Advertising v2 prefecture targeting and safe geo fallback
