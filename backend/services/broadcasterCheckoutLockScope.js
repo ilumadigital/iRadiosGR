@@ -36,6 +36,9 @@ async function findIdempotent(Model,scope,requestKey){
 }
 function safeToReleaseTerminal(order,scope){
   return Boolean(order&&order.environment===scope.environment&&
+    String(order.accountId)===scope.accountId&&order.sku===scope.sku&&
+    (scope.scopeId==='account'?order.resourceId==null:
+     String(order.resourceId)===scope.scopeId)&&
     scope.candidates.includes(order.lockKey)&&
     ['failed','canceled'].includes(order.status)&&
     order.paidAt==null&&order.periodStartsAt==null&&
