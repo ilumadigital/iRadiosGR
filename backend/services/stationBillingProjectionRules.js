@@ -7,7 +7,8 @@ const {DSP_COMPRESSOR_DEFAULTS,DSP_CLIPPER_DEFAULTS}=require('./dspConfig');
 // Admin DSP configurations are always stored, but public output is processed
 // ONLY while a matching, active *new* WebDSP entitlement exists. Neither a
 // legacy broadcaster flag nor an unassigned station can unlock processing.
-function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidHistory=[]){
+function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidHistory=[],
+ environment=process.env.APP_ENV){
  const data=typeof station.toObject==='function'?station.toObject():{...station};
  const zeroPaidFx=()=>{
    data.commercialBoost=effectiveStationBoost(null,station,now);
@@ -27,11 +28,11 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
  // Manual editorial ordering stays untouched and is not overwritten by billing.
  const paid=paidHistory||[];
  const rights=new Set(effectiveRights(owner,grantHistory,{stationId:station._id,now}));
- for(const right of paidRights(paid,station._id,now))rights.add(right);
+ for(const right of paidRights(paid,station._id,now,environment))rights.add(right);
  const selected=(owner.broadcasterProfile?.premiumBoostStationIds||[])
    .some(id=>String(id)===String(station._id));
  data.commercialBoost=effectiveStationBoost(boostForStation(paid,station._id,now,
-   rights.has('broadcaster.premium_boost')&&selected),station,now);
+   rights.has('broadcaster.premium_boost')&&selected,environment),station,now);
  // Retain a small, deterministic ORGANIC position lift after a verified
  // purchased or Premium Boost ends. This never extends a paid entitlement,
  // changes editorial positions, or grants a Promoted placement.
@@ -45,7 +46,7 @@ function maskStationPaidControls(station,owner,grantHistory,now=new Date(),paidH
  const postPlacements=new Set();
  for(const order of paid){
    if(String(order.accountId)!==String(owner._id)||
-      order.status!=='paid'||order.environment!=='staging'||
+      order.status!=='paid'||order.environment!==environment||
       !finishedPeriod(order))continue;
    if(isBoost(order.sku)&&order.scopeType==='station'&&
       String(order.resourceId)===String(station._id)){

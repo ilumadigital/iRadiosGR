@@ -20,6 +20,8 @@ if(productionActivated())require('./utils/premiumBillingEmailScheduler').start()
 // Recover lost Broadcaster checkout responses using signed GET only.
 // This worker cannot create provider orders, MIT payments or grant entitlements.
 if(productionActivated())require('./utils/broadcasterCheckoutRecoveryScheduler').start();
+// Signed paid Premium upgrades retire future addon MIT renewals asynchronously.
+if(productionActivated())require('./utils/broadcasterPremiumUpgradeScheduler').start();
 // Isolated broadcaster transactional outbox, staging -> Mailpit only.
 if(productionActivated())require('./utils/broadcasterBillingEmailScheduler').start();
 

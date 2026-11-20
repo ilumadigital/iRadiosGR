@@ -128,6 +128,8 @@ jobs:
         run: node --test backend/tests/billingPhase2.test.js
       - name: Verify Broadcaster catalog scope, Boost durations and paid priority
         run: node --test backend/tests/broadcasterPurchaseRules.test.js backend/tests/broadcasterPaymentProtocol.test.js backend/tests/broadcasterCheckoutLease.test.js
+      - name: Verify atomic Premium upgrade and cancellation compensation
+        run: node --test backend/tests/broadcasterPremiumUpgrade.test.cjs backend/tests/broadcasterPremiumUpgradeContract.test.cjs
       - name: Verify Gateway outages and ambiguous checkout requests never retry
         run: node --test backend/tests/gatewayOutage.test.js
       - name: Verify read-only recovery cannot re-charge or grant paid access
