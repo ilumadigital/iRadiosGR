@@ -14,6 +14,7 @@ const stageBillingOnly=(req,res,next)=>{
 };
 router.use('/billing',stageBillingOnly);
 router.use('/admin/billing/sandbox-orders',stageBillingOnly);
+router.use('/admin/billing/orders',stageBillingOnly);
 router.post('/billing/checkout',protect,controller.checkout);
 router.get('/billing/me/orders',protect,controller.listOwnOrders);
 router.get('/billing/me/renewal-notice',protect,controller.renewalNotice);
@@ -25,5 +26,6 @@ router.get('/billing/me/payment-method',protect,controller.savedCardStatus);
 router.post('/billing/me/payment-method/revoke',protect,controller.revokeSavedCard);
 router.post('/billing/me/renewal-notice/snooze',protect,controller.snoozeRenewalNotice);
 router.get('/admin/billing/sandbox-orders',protect,authorizeRoles('admin'),controller.listAdminOrders);
+router.get('/admin/billing/orders',protect,authorizeRoles('admin'),controller.listAdminOrders);
 router.get('/billing/orders/:id',protect,controller.readOrder);
 module.exports=router;
