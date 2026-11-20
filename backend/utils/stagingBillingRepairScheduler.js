@@ -2,7 +2,7 @@
 const cron = require('node-cron');
 const mongoose = require('mongoose');
 const {runRepair, stagingOnly} = require('../services/stagingBillingRepair');
-let started = false, running = false;
+let started = false, running = false, cursors = {};
 async function runOnce() {
   if (running || mongoose.connection.readyState !== 1) return null;
   const gateway = require('../services/ilumaGatewayClient');
@@ -17,11 +17,13 @@ async function runOnce() {
       FundingLot: require('../models/AdvertisingFundingLot'),
       Quote: require('../models/AdvertisingQuote')
     };
-    return await runRepair({models, gateway, environment, apply: true, limit: 25,
+    const summary = await runRepair({models, gateway, environment, apply: true, limit: 25, after: cursors,
       onRow: result => {
         if (['REPAIRED', 'REVIEW', 'ERROR'].includes(result.state))
           console.log('[STAGING BILLING REPAIR]', JSON.stringify(result));
       }});
+    cursors = summary.cursors;
+    return summary;
   } finally { running = false; }
 }
 function start() {
