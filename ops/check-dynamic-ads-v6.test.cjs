@@ -65,7 +65,7 @@ test('audio player honors latest selection and only logs actually playing spots'
   const app=read('frontend/src/App.jsx');
   assert.match(app,/stationBreakCandidates\(available,count,station/);
   assert.match(app,/recoverUnplayedSlot\(\)/);
-  assert.match(app,/pendingStation\.current = station; return;/);
+  assert.match(app,/pendingStation\.current\s*=\s*station;\s*return;/);
   assert.match(app,/onPlaying=\{\(\) => \{/);
   assert.match(app,/ad\.started\s*=\s*true/);
   assert.match(app,/playNextAdOrStation\(\)/);
