@@ -381,7 +381,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
             {order?.periodEndsAt?'Η τρέχουσα πληρωμένη περίοδος ολοκληρώνεται '+dateText(order.periodEndsAt)+'.':'Τα Premium προνόμιά σου είναι ενεργά.'}
            </p>
            <p className="mt-1 text-xs text-lime-100/70">
-            {recurring.state==='active'?(recurring.execution_enabled?'Η αυτόματη ανανέωση είναι ενεργή.':'Η αυτόματη ανανέωση είναι σε δοκιμαστική αναμονή.'):
+            {recurring.state==='active'?(recurring.execution_enabled?'Η αυτόματη ανανέωση είναι ενεργή.':'Η αυτόματη ανανέωση δεν εκτελείται ακόμη. Η πληρωμένη περίοδος παραμένει ενεργή.'):
               'Δεν υπάρχει ενεργή αυτόματη ανανέωση. Τα προνόμια ισχύουν για την πληρωμένη περίοδο.'}
            </p>
           </div>
@@ -427,7 +427,7 @@ export default function SandboxPremium({API_URL='/api',currentUser,setCurrentUse
           </button>}
          <p className="text-center text-xs leading-5 text-zinc-500">Η έναρξη γίνεται μόνο με δικό σου πάτημα. Η επόμενη μηνιαία χρέωση σταματά μόλις ακυρώσεις.</p>
         </div>}
-        {!recurring.execution_enabled&&<p className="mt-4 text-xs leading-5 text-amber-200/85">Δοκιμαστικό περιβάλλον: οι επόμενες αυτόματες χρεώσεις δεν εκτελούνται ακόμη.</p>}
+        {recurring.state==='active'&&!recurring.execution_enabled&&<p className="mt-4 text-xs leading-5 text-amber-200/85">Η αυτόματη ανανέωση δεν έχει ενεργοποιηθεί ακόμη για αυτή τη συνδρομή. Η πληρωμένη περίοδος παραμένει ενεργή.</p>}
         {catalogError&&<p role="alert" className="mt-4 text-sm text-red-200">{catalogError}</p>}
        </div>
       </div>

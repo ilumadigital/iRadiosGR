@@ -1,10 +1,12 @@
 'use strict';
-// Ordered staging advertising workflow. Never routes listener traffic through a
+// Ordered advertising workflow; production requires paid-delivery readiness.
+// Never routes listener traffic through a
 // broad /api authentication guard and never treats a browser return as payment.
 const express=require('express');
 const mongoose=require('mongoose');
 const router=express.Router();
 const {protect}=require('../utils/authMiddleware');
+const {wizardEnabled}=require('../services/advertisingWizardAccess');
 const Campaign=require('../models/AdvertisingCampaign');
 const Banner=require('../models/BannerAd');
 const Audio=require('../models/Ad');
@@ -144,7 +146,7 @@ async function countCreatives(campaign){
 for(const {prefix,role} of routes){
  // Prefix-scoped JWT only: never intercept /api/proxy-stream or public login.
  router.use(prefix,protect,(req,res,next)=>{
-  if(process.env.APP_ENV!=='staging')return res.status(503).json({error:'Staging only'});
+  if(!wizardEnabled())return res.status(503).json({error:'Advertising wizard is not ready in this environment'});
   if(req.user?.role!==role)return res.status(403).json({error:'Role mismatch'});
   next();
  },noCache);
@@ -268,8 +270,8 @@ for(const {prefix,role} of routes){
 }
 router.get('/admin/advertising/wizard/campaigns/:id/creatives-review',
  protect,async(req,res)=>{
- if(process.env.APP_ENV!=='staging'||req.user.role!=='admin')
-  return res.status(403).json({error:'Admin only'});
+ if(req.user.role!=='admin')return res.status(403).json({error:'Admin only'});
+ if(!wizardEnabled())return res.status(503).json({error:'Advertising wizard is not ready in this environment'});
  try{
   const campaign=await Campaign.findOne({_id:req.params.id,isStageCampaign:true,deletedAt:null});
   if(!campaign)return res.status(404).json({error:'Not found'});
@@ -278,8 +280,8 @@ router.get('/admin/advertising/wizard/campaigns/:id/creatives-review',
 });
 router.put('/admin/advertising/wizard/campaigns/:id/creatives-review/:kind/:creativeId',
  protect,async(req,res)=>{
- if(process.env.APP_ENV!=='staging'||req.user.role!=='admin')
-  return res.status(403).json({error:'Admin only'});
+ if(req.user.role!=='admin')return res.status(403).json({error:'Admin only'});
+ if(!wizardEnabled())return res.status(503).json({error:'Advertising wizard is not ready in this environment'});
  try{
   const campaign=await Campaign.findOne({_id:req.params.id,isStageCampaign:true,
    deletedAt:null,approvalStatus:'pending'});

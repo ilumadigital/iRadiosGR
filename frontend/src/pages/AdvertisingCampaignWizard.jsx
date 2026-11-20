@@ -221,6 +221,7 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
  const [campaignFilter,setCampaignFilter]=useState('all');
  const allSteps=admin?[...stages.slice(0,4),{title:'Δημοσίευση',desc:'Χωρίς πληρωμή',icon:CheckCircle2}]:stages;
  const current=detail?.campaign,creatives=detail?.creatives;
+ const checkoutReady=pricing?.checkoutReady??pricing?.sandboxCheckoutReady??false;
  const managingPaidCampaign=!admin&&Boolean(current)&&current.approvalStatus!=='draft';
  const filteredCampaigns=useMemo(()=>campaigns.filter(c=>{
   const search=searchCampaigns.trim().toLocaleLowerCase('el-GR');
@@ -627,12 +628,12 @@ export default function AdvertisingCampaignWizard({role='agency',currentUser}){
     </div>
     {confirmed?<div className="flex items-start gap-3 rounded-xl border border-emerald-400/25 bg-emerald-400/[.07] p-5 text-sm text-emerald-200"><CheckCircle2 className="shrink-0" size={20}/> {current?.approvalStatus==='approved'?'Η πληρωμή επιβεβαιώθηκε και η καμπάνια εγκρίθηκε. Είναι επιλέξιμη για προβολή.':current?.approvalStatus==='pending'?'Η πληρωμή επιβεβαιώθηκε. Η καμπάνια βρίσκεται στον Admin προς έγκριση.':current?.approvalStatus==='rejected'?'Η καμπάνια απορρίφθηκε από τον Admin.':'Η πληρωμή επιβεβαιώθηκε. Η αυτόματη υποβολή ολοκληρώνεται.'}</div>:
      <div className="space-y-4">
-      {!pricing?.sandboxCheckoutReady&&<p role="alert" className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-100">Το Advertising checkout δεν είναι ακόμη διαθέσιμο. Έλεγξε τον τιμοκατάλογο και τα υπάρχοντα credentials του ILUMA Gateway staging. Δεν υπάρχει εικονική πληρωμή.</p>}
+      {!checkoutReady&&<p role="alert" className="rounded-xl border border-amber-400/25 bg-amber-400/10 p-4 text-sm text-amber-100">Το Advertising checkout δεν είναι ακόμη διαθέσιμο. Έλεγξε τον τιμοκατάλογο και τη σύνδεση του ILUMA Gateway για αυτό το περιβάλλον. Δεν πραγματοποιήθηκε χρέωση.</p>}
       {quote&&<div className={card+' space-y-2 text-sm'}><p className="font-bold">Επίσημο quote · έκδοση {quote.priceVersion}</p><p className="text-zinc-400">Budget: {euro(quote.budgetCents/100)} · ΦΠΑ: {euro(quote.taxCents/100)}</p>
        <p className="text-xs text-zinc-500">Λήξη: {formatDateTime(quote.expiresAt)}</p></div>}
       {inProgress&&<p className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-xs text-purple-100">Αναμονή επιβεβαίωσης από ILUMA Gateway. Η κατάσταση ελέγχεται αυτόματα κάθε 6 δευτερόλεπτα. Μην ξεκινήσεις δεύτερη πληρωμή· μόνο το υπογεγραμμένο webhook πιστώνει το budget.</p>}
       <div className="flex flex-wrap gap-3">{!quote?<button className={primary} disabled={busy||!pricing?.enabled||paymentPending} onClick={makeQuote}>Δημιουργία quote</button>:
-       <button className={primary} onClick={checkout} disabled={busy||!pricing?.sandboxCheckoutReady||Boolean(inProgress)||new Date(quote.expiresAt)<=new Date()}>
+       <button className={primary} onClick={checkout} disabled={busy||!checkoutReady||Boolean(inProgress)||new Date(quote.expiresAt)<=new Date()}>
         <CreditCard size={17}/> Πληρωμή Τώρα</button>}
        {quote&&new Date(quote.expiresAt)<=new Date()&&!inProgress&&
         <button className={secondary} disabled={busy} onClick={makeQuote}>Ανανέωση ληγμένου quote</button>}

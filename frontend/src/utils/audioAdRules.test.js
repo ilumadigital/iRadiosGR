@@ -6,6 +6,8 @@ const ad=(freq,overrides={})=>({
   _id:freq,frequency:freq,audioUrl:'/media/audio/demo.mp3',
   status:'active',isGlobal:true,targetLocations:['All'],...overrides
 });
+// Paid v2 placements intentionally exclude legacy frequencies; old free spots do not.
+const billable=(freq,overrides={})=>ad(freq,{paidDeliveryRequired:true,...overrides});
 test('only the first station selection runs entry pre-roll',()=>{
   assert.equal(dueOnStationChange('entry',1),true);
   assert.equal(dueOnStationChange('entry',2),false);
@@ -39,10 +41,10 @@ test('a burst of matching campaigns results in at most three spots ordered by da
 });
 
 test('only the eight priced placements are eligible for a billable audio break',()=>{
- assert.deepEqual(placementsForAd(ad('every_2_stations')),[]);
- assert.deepEqual(placementsForAd(ad('every_1_hour')),[]);
- assert.deepEqual(placementsForAd(ad('entry',{frequencies:['every_4_stations','entry','every_5_stations','once_a_day']})),['entry','every_5_stations']);
- assert.deepEqual(stationBreakCandidates([ad('every_2_stations')],10,station,null,null),[]);
+ assert.deepEqual(placementsForAd(billable('every_2_stations')),[]);
+ assert.deepEqual(placementsForAd(billable('every_1_hour')),[]);
+ assert.deepEqual(placementsForAd(billable('entry',{frequencies:['every_4_stations','entry','every_5_stations','once_a_day']})),['entry','every_5_stations']);
+ assert.deepEqual(stationBreakCandidates([billable('every_2_stations')],10,station,null,null),[]);
 });
 test('ten campaigns yield the top three by daily budget, with distinct fallback candidates',()=>{
  const ads=Array.from({length:10},(_,i)=>ad('entry',{
@@ -64,10 +66,10 @@ test('station 10 with placements 5/10 authorizes only the deterministic 5-freque
 });
 test('clock queue excludes legacy intervals and respects per-placement last-served time',()=>{
  const now=Date.UTC(2026,10,16,18,15);
- const candidate=ad('twice_a_day',{_id:'timed-1',
+ const candidate=billable('twice_a_day',{_id:'timed-1',
   frequencies:['twice_a_day','every_1_hour'],dailyBudgetCents:1000});
  assert.equal(timedBreakCandidates([candidate],station,null,null,{},now).length,1);
  assert.equal(timedBreakCandidates([candidate],station,null,null,
   {'timed-1:twice_a_day':now-1000},now).length,0);
- assert.equal(timedBreakCandidates([ad('every_1_hour')],station,null,null,{},now).length,0);
+ assert.equal(timedBreakCandidates([billable('every_1_hour')],station,null,null,{},now).length,0);
 });

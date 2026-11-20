@@ -62,10 +62,11 @@ test('production policy never auto-enables advertising checkout',async()=>{
  assert.equal(policy.enabled,false);
  assert.equal(policy.taxMode,'unconfigured');
 });
-test('checkout and read-only recovery reuse existing signed Gateway staging credentials',()=>{
+test('checkout and read-only recovery require configured Gateway credentials',()=>{
  const route=read('routes/advertisingCampaignRoutes.js');
  const client=read('services/ilumaGatewayClient.js');
- assert.match(route,/sandboxCheckoutReady:[^;]*gateway\.configured\(\)/s);
+ assert.match(route,/const checkoutReady=[^;]*gateway\.configured\(\)/s);
+ assert.match(route,/checkoutReady,\s*sandboxCheckoutReady:checkoutReady/);
  assert.doesNotMatch(route,/process\.env\.AD_PAYMENTS_SANDBOX_ENABLED/);
  assert.doesNotMatch(client,/process\.env\.AD_PAYMENTS_SANDBOX_ENABLED/);
  assert.match(route,/await gateway\.advertisingCheckout\(/);
