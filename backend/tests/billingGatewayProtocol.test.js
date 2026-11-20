@@ -1,6 +1,18 @@
 'use strict';
-const test=require('node:test');
+const {test,before,after}=require('node:test');
 const assert=require('node:assert/strict');
+const saved={APP_ENV:process.env.APP_ENV,IRADIOS_GATEWAY_ENV:process.env.IRADIOS_GATEWAY_ENV};
+// Signed webhook fixtures in this file carry environment=staging.
+before(()=>{
+ process.env.APP_ENV='staging';
+ process.env.IRADIOS_GATEWAY_ENV='staging';
+});
+after(()=>{
+ for(const [key,value] of Object.entries(saved)){
+  if(value===undefined)delete process.env[key];
+  else process.env[key]=value;
+ }
+});
 const crypto=require('node:crypto');
 const {
  canonicalSignature,headersForRequest,verifyWebhookHeaders,
