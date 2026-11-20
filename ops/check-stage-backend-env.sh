@@ -66,8 +66,13 @@ gateway_mode=staging
 if [[ "$(count_key IRADIOS_GATEWAY_ENV)" == 1 ]]; then
  gateway_mode=$(sed -n 's/^IRADIOS_GATEWAY_ENV=//p' "$ENV_FILE")
 fi
-if [[ "$gateway_mode" != staging && "$gateway_mode" != production ]]; then
- echo 'STOP: IRADIOS_GATEWAY_ENV must be staging or production.' >&2; exit 1
+if [[ "$gateway_mode" != staging ]]; then
+ echo 'STOP: staging must use IRADIOS_GATEWAY_ENV=staging; direct production Gateway/Nexi routing is forbidden.' >&2
+ exit 1
+fi
+if grep -Eq '^ILUMA_GATEWAY_PROD_(KEY|SECRET)=' "$ENV_FILE"; then
+ echo 'STOP: live Gateway credentials are forbidden in the staging backend ENV.' >&2
+ exit 1
 fi
 if grep -q '^IRADIOS_BILLING_ENABLED=' "$ENV_FILE" &&
    ! grep -Eq '^IRADIOS_BILLING_ENABLED=[01]$' "$ENV_FILE"; then
