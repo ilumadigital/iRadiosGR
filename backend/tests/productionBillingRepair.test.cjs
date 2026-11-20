@@ -163,8 +163,11 @@ test('production paid evidence, webhook and funding lot prevent release', async 
     assert.equal(f.calls.writes,0);
   }
   const funded=fixture(advertising(),{funded:true});
-  assert.equal((await funded.inspect('advertising',true)).reason,'FUNDING_LOT_EXISTS');
+  assert.equal((await funded.inspect('advertising',true)).reason,
+    'PRODUCTION_ADVERTISING_SCOPE_NOT_VERIFIED');
   assert.equal(funded.calls.writes,0);
+  assert.equal(funded.calls.reads,0);
+  assert.equal(funded.calls.fundingChecks,0);
   configure(false);
 });
 test('production Gateway unavailability never unlocks and cannot issue checkout POST', async () => {
