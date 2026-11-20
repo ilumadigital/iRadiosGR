@@ -64,12 +64,13 @@ function validatedAnchoredCycle(event,now=new Date()){
   throw Error('Invalid signed MIT cycle end');
  return {start,end};
 }
-function isPaidInPeriod(row,now=new Date()){
- return row?.status==='paid'&&row.environment==='staging'&&
+function isPaidInPeriod(row,now=new Date(),environment=process.env.APP_ENV){
+ return ['staging','production'].includes(environment)&&row?.status==='paid'&&
+  row.environment===environment&&
   new Date(row.periodStartsAt)<=now&&new Date(row.periodEndsAt)>now;
 }
-function orderRights(order,stationId,now=new Date()){
- if(!isPaidInPeriod(order,now)||!isSubscription(order.sku))return [];
+function orderRights(order,stationId,now=new Date(),environment=process.env.APP_ENV){
+ if(!isPaidInPeriod(order,now,environment)||!isSubscription(order.sku))return [];
  // Account Premium is the ONLY SKU allowed to grant account-wide rights.
  if(order.sku==='B-PREM')
   return order.scopeType==='account'&&order.resourceId==null?
@@ -82,17 +83,17 @@ function orderRights(order,stationId,now=new Date()){
     String(order.resourceId)!==String(stationId))return [];
  return ENTITLEMENTS[order.sku]||[];
 }
-function paidRights(orders,stationId,now=new Date()){
+function paidRights(orders,stationId,now=new Date(),environment=process.env.APP_ENV){
  const result=new Set();
  for(const order of orders||[]){
-  for(const entitlement of orderRights(order,stationId,now))result.add(entitlement);
+  for(const entitlement of orderRights(order,stationId,now,environment))result.add(entitlement);
  }
  return [...result].sort();
 }
-function boostForStation(orders,stationId,now=new Date(),premium=false){
+function boostForStation(orders,stationId,now=new Date(),premium=false,environment=process.env.APP_ENV){
  const eligible=(orders||[]).filter(order=>isBoost(order.sku)&&
   order.scopeType==='station'&&/^[a-f0-9]{24}$/i.test(String(stationId||''))&&
-  String(order.resourceId)===String(stationId)&&isPaidInPeriod(order,now));
+  String(order.resourceId)===String(stationId)&&isPaidInPeriod(order,now,environment));
  if(eligible.length){
   eligible.sort((a,b)=>(a.sku.startsWith('BOOST-G-')?0:1)-(b.sku.startsWith('BOOST-G-')?0:1)
    ||new Date(b.periodEndsAt)-new Date(a.periodEndsAt));
