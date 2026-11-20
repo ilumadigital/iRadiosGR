@@ -130,6 +130,8 @@ jobs:
         run: node --test backend/tests/broadcasterPurchaseRules.test.js backend/tests/broadcasterPaymentProtocol.test.js backend/tests/broadcasterCheckoutLease.test.js
       - name: Reject cross-environment Broadcaster locks, idempotency leaks and legacy lease collisions
         run: node --test backend/tests/broadcasterCheckoutLockScope.test.cjs backend/tests/broadcasterLockAudit.test.cjs
+      - name: Prevent imported listener premium locks, renewals and history from leaking across tenants
+        run: node --test backend/tests/listenerCheckoutLockScope.test.cjs
       - name: Validate imported broadcaster financial read-only audit script
         run: node --check backend/scripts/auditBroadcasterLockIsolation.js
       - name: Verify atomic Premium upgrade and cancellation compensation
