@@ -28,7 +28,7 @@ async function accountRights(user,now=new Date()){
  const rights=new Set(effectiveRights(user,await activeGrantsFor(user,now),{now}));
  if(user?.role==='broadcaster'){
   const orders=await activeBroadcasterOrders(user,now);
-  for(const right of paidRights(orders,null,now))rights.add(right);
+  for(const right of paidRights(orders,null,now,process.env.APP_ENV))rights.add(right);
  }
  // Sandbox orders cannot unlock production rights, even in a copied database.
  // Production rights require a separately reconciled production-scoped order.
@@ -57,7 +57,7 @@ async function hasStationRight(user,station,entitlement){
   activeGrantsFor(user,now),activeBroadcasterOrders(user,now)
  ]);
  const rights=new Set(effectiveRights(user,grants,{stationId:station._id,now}));
- for(const right of paidRights(orders,station._id,now))rights.add(right);
+ for(const right of paidRights(orders,station._id,now,process.env.APP_ENV))rights.add(right);
  return rights.has(entitlement);
 }
 

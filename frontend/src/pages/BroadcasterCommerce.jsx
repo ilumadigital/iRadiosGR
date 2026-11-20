@@ -146,8 +146,12 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
      setPaymentNotice('Η συναλλαγή δεν ολοκληρώθηκε. Δεν ενεργοποιήθηκαν προνόμια.');
      sessionStorage.removeItem('iradios-broadcaster-order-'+accountId);
      sessionStorage.removeItem(purchaseKey(accountId,data.order.sku,data.order.stationId));
+    }else if(data.order?.status==='unknown'&&data.order?.gatewayOrderId){
+     setPaymentNotice(data.reconciliation==='gateway_record_missing_provider_review_required'?
+       'Το Gateway δεν βρίσκει την παλιά συναλλαγή. Απαιτείται επιβεβαίωση και στη Nexi Sandbox από τον διαχειριστή πριν αποδεσμευτεί η αγορά. Δεν θα γίνει δεύτερη χρέωση.':
+       'Η παλιά συναλλαγή παραμένει σε άγνωστη κατάσταση. Έγινε έλεγχος, αλλά χρειάζεται διασταύρωση από τον διαχειριστή πριν από νέα αγορά.');
     }else{
-     setPaymentNotice('Αναμονή signed επιβεβαίωσης πληρωμής. Δεν θα γίνει δεύτερη χρέωση.');
+     setPaymentNotice('Ο έλεγχος ολοκληρώθηκε. Αναμονή υπογεγραμμένης επιβεβαίωσης πληρωμής· δεν θα γίνει δεύτερη χρέωση.');
     }
    }catch(e){setPaymentNotice(e.message);}
    finally{setBusySku('');}
@@ -167,7 +171,14 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
      sessionStorage.setItem('iradios-broadcaster-order-'+accountId,result.order.id);
      const url=result.order.status==='redirect'?hostedUrl(result.order.checkoutUrl):null;
      if(url){window.location.assign(url);return;}
-     setPaymentNotice('Η πληρωμή εκκρεμεί. Έλεγξε πρώτα την υπάρχουσα συναλλαγή, χωρίς νέα χρέωση.');
+     if(['failed','canceled'].includes(result.order.status)){
+      sessionStorage.removeItem(keyName);
+      setPaymentNotice('Η προηγούμενη συναλλαγή έκλεισε χωρίς χρέωση. Μπορείς να πατήσεις ξανά «Πληρωμή Τώρα».');
+     }else if(result.order.status==='redirect'){
+      setPaymentNotice('Υπάρχει ήδη διαθέσιμο checkout, αλλά ο σύνδεσμος δεν πέρασε τον έλεγχο ασφαλείας. Δες τις «Συνδρομές μου».');
+     }else{
+      setPaymentNotice('Υπάρχει ήδη εκκρεμής συναλλαγή. Έλεγξε την κατάστασή της στις «Συνδρομές μου» πριν από νέα χρέωση.');
+     }
     }
    }catch(e){
     if(e.code==='GATEWAY_BROADCASTER_NOT_READY'){
@@ -289,7 +300,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
         {order.periodEndsAt?' · Λήξη: '+formatDate(order.periodEndsAt):''}</p></div>
       {activeStates.has(order.status)&&<button type="button" disabled={Boolean(busySku)}
         onClick={()=>void inspectOrder(order.id)}
-        className="rounded-xl bg-[#ccff00] px-5 py-3 text-xs font-black text-black disabled:opacity-50">Έλεγχος πληρωμής</button>}
+        className="rounded-xl bg-[#ccff00] px-5 py-3 text-xs font-black text-black disabled:opacity-50">{busySku==='reconcile'?'Γίνεται έλεγχος…':'Έλεγχος πληρωμής'}</button>}
     </section>}
     {loading?<Loading/>:error?<div role="alert" className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-5 text-sm text-rose-200">
       {error} <button className="ml-3 font-black underline" onClick={()=>window.location.reload()}>Ανανέωση</button></div>:<>
@@ -321,7 +332,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
               <p className="mt-2 text-[11px] text-zinc-400">Τελική τιμή με ΦΠΑ 24% · Μηνιαία συνδρομή μέχρι ακύρωσης</p>
               <p className="mt-2 text-xs leading-6 text-zinc-300">Με την επιλογή «Πληρωμή Τώρα» συμφωνείς σε επαναλαμβανόμενη χρέωση <strong>{price('B-PREM')}/μήνα</strong> μέσω ασφαλούς online πληρωμής, μέχρι να την ακυρώσεις από το Backoffice. Η ακύρωση σταματά τις μελλοντικές χρεώσεις.</p>
               {!fullPremium&&<p className="mt-3 rounded-xl border border-sky-400/20 bg-sky-400/10 p-3 text-xs leading-6 text-sky-100">
-                Έχεις ήδη συνδρομητικά add-ons; Για να αποφύγεις διπλές μηνιαίες χρεώσεις μετά την αναβάθμιση, ακύρωσε πρώτα τις <strong>μελλοντικές ανανεώσεις</strong> τους από τις <Link to="/backoffice/billing" className="font-black underline">Συνδρομές μου</Link>. Η πληρωμένη πρόσβαση των add-ons διατηρείται μέχρι τη λήξη της.
+                Έχεις ενεργά add-ons; Μπορείς να αναβαθμιστείς αμέσως σε Premium. <strong>Μόνο μετά την επιβεβαίωση της πληρωμής</strong> θα διακοπούν αυτόματα οι μελλοντικές ανανεώσεις τους. Οι ήδη πληρωμένες περίοδοι διατηρούνται. Η κατάσταση της ακύρωσης εμφανίζεται στις <Link to="/backoffice/billing" className="font-black underline">Συνδρομές μου</Link>.
               </p>}
               {fullPremium&&recurring[recurringKey('B-PREM')]?.state==='active'&&<button
                 className="mt-3 text-xs font-bold text-rose-300 underline" type="button"

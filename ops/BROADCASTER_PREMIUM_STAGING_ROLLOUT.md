@@ -2,6 +2,44 @@
 
 **Status:** Staging-release candidate; offline CI is not a substitute for live Nexi UAT or remote hosting verification.
 
+**2026-11-20 topology correction (supersedes historical Gateway branch instructions below):** ONE shared Gateway VPS /srv/iluma-gateway/app ALWAYS runs Git main. APP_ENV=production is global, NOT tenant selection. Signed iRadios staging credentials use Gateway staging MySQL and Nexi Sandbox; production credentials use isolated production MySQL and Nexi Live. Gateway rebuilds both tenants' shared PHP/Web runtime and requires explicit approval. This fix is iRadios staging-only.
+
+### One-order manual staging Broadcaster HPP orphan recovery
+
+Known staging order: 6afca3ccf4de99d0a882472e; Gateway order: IL585389CBC55D3C23887B0FE8.
+- Operator has observed Gateway staging MySQL ORDER_NOT_FOUND and separate Nexi Sandbox GET /orders/IL585389CBC55D3C23887B0FE8 returning HTTP 404. These observations are NOT stored in iRadios.
+- Operator must independently confirm that the ORIGINAL order was signed with the iRadios staging credential. If not confirmed: STOP. No query or change of production DB/secrets is done by this tool.
+- CLI requires operator's exact Sandbox 404 confirmation, fresh signed Gateway staging GET by request key 404, GET by payment ID 404 when present, and signed Premium mandate status either NONE (without any paid/future term) or CANCELLED with auto_renew=false, paid_through_at=null, next_charge_at=null. Network errors, any existing Gateway payment, pending/active/unavailable mandate, cancelled mandates with paid/future term, any signed event, paid period or concurrent mutation STOP. This accepts prior independently cancelled agreements without mistaking them for current paid access.
+- CLI NEVER calls Nexi, creates checkout, starts MIT, grants paid access, changes active addons or Gateway rows. It keeps the iRadios original order as FAILED with an audit code and removes ONLY its lock. Default is DRY RUN. --apply is an explicitly operator-triggered staging Mongo update.
+- Do NOT automatically unlock Gateway IDs using only a Gateway 404: it does not prove the provider never captured the payment.
+
+After staging CI, manually deploy only iRadios staging:
+~~~bash
+cd /srv/iradios/staging/app && sudo ./ilumadev.sh
+~~~
+
+DRY-RUN on the stage backend only, after confirming original staging routing and Nexi Sandbox 404:
+~~~bash
+sudo docker exec -i iradios_stage-backend-1 node scripts/recoverStagingBroadcasterOrphan.js \
+  --order-id 6afca3ccf4de99d0a882472e \
+  --gateway-order-id IL585389CBC55D3C23887B0FE8 \
+  --sandbox-404-for IL585389CBC55D3C23887B0FE8 \
+  --confirm-staging-origin
+~~~
+
+Only if DRY-RUN says READY_FOR_OPERATOR_RELEASE, run exactly once with --apply:
+~~~bash
+sudo docker exec -i iradios_stage-backend-1 node scripts/recoverStagingBroadcasterOrphan.js \
+  --order-id 6afca3ccf4de99d0a882472e \
+  --gateway-order-id IL585389CBC55D3C23887B0FE8 \
+  --sandbox-404-for IL585389CBC55D3C23887B0FE8 \
+  --confirm-staging-origin --apply
+~~~
+
+Success is exactly RELEASED. Refresh the authenticated stage.iradios.gr Pro Features page and verify the original order is FAILED with STAGING_SANDBOX_ORDER_ABSENT_CONFIRMED. Retry Premium with a NEW idempotency key, confirm actual Sandbox hosted checkout, signed payment.paid receipt and cancellation of future add-on MIT only AFTER verified paid Premium. A redirect or unknown/failed attempt is never a paid entitlement.
+
+
+
 - iRadios PR: https://github.com/ilumadigital/iRadiosGR/pull/86 (branch `feat/staging-broadcaster-premium-backoffice`, base `staging`)
 - ILUMA Gateway PR: https://github.com/ilumadigital/iluma-gateway/pull/12 (branch `feat/staging-broadcaster-mit-scoped`, base `staging` — production `main` remains untouched)
 
@@ -9,10 +47,10 @@
 
 | SKU | Amount cents | Scope | Charging |
 | --- | ---: | --- | --- |
-| B-PREM | 11900 | broadcaster account | monthly recurring |
-| ADD-DSP | 4990 | approved owned station | monthly recurring |
-| ADD-AN | 790 | approved owned station | monthly recurring |
-| ADD-ADS | 2990 | approved owned station | monthly recurring |
+| B-PREM | 9900 | broadcaster account | monthly recurring |
+| ADD-DSP | 2790 | approved owned station | monthly recurring |
+| ADD-AN | 690 | approved owned station | monthly recurring |
+| ADD-ADS | 890 | approved owned station | monthly recurring |
 | BOOST-T-DAY / WEEK / 2W / MONTH / YEAR | 490 / 2990 / 5490 / 9900 / 89000 | approved owned station | **one-off**, respectively 1/7/14 days, calendar month/year |
 | BOOST-G-DAY / WEEK / 2W / MONTH / YEAR | 2900 / 17900 / 34900 / 79900 / 848900 | approved owned station | **one-off**, respectively 1/7/14 days, calendar month/year |
 
@@ -25,7 +63,7 @@ The B-PREM account plan includes unlimited stations, all three station add-on ri
 - The existing analytics backend checks entitlements per owned station; Audience Radar renders live listeners, historic and live locations, average listen time and recorded Ad impressions, without claiming unsupported device analytics or a server-side dB meter.
 - User may start a subscription only with explicit monthly consent. Client never chooses a price or provider merchant reference. The product is sourced from the immutable server catalog.
 - Broadcaster checkout generates a per-intent UUID Idempotency-Key. Local unique lock serializes pending checkouts; ambiguous provider results stay locked. Signed lookup of original payment/order only; never replay unknown payment.
-- Every minute in STAGING only, a bounded read-only reconciliation worker checks old pending/unknown checkout intents by original request key / Gateway payment ID. It can correlate the missing provider IDs even after the browser closes. **Gateway GET=paid maps only to local pending; only the HMAC webhook can grant access.** Provider outage/timeout never releases the purchase lock.
+- Every minute in the configured staging (or approved production) tenant, a bounded read-only reconciliation worker checks old pending/unknown checkout intents by original request key / Gateway payment ID. It can correlate the missing provider IDs even after the browser closes. **Gateway GET=paid maps only to local pending; only the HMAC webhook can grant access.** Provider outage/timeout never releases the purchase lock.
 - Provider-confirmed failed/cancelled first checkout releases only the corresponding pending Broadcaster MIT mandate for a safe new consent/payment attempt. Unknown HPP results remain locked.
 - MIT renewal events sign the original anchor day, reserved cycle due timestamp and exact next period-end. iRadios validates these boundaries and correlates each renewal to its *own previous cycle*, so late/out-of-order webhooks cannot add an extra month or change Jan-31 -> Feb-28 -> Mar-31 arithmetic.
 - Separate `BroadcasterBillingOrder` paid-cycle ledger prevents Listener Premium regressions. Signed webhook must validate SKU, exact amount, resource ID, environment, HMAC, event nonce and order correlation.
@@ -33,7 +71,7 @@ The B-PREM account plan includes unlimited stations, all three station add-on ri
 - Paid entitlements are scoped by account or owned station. Public station read-time projection removes expired paid DSP/Ad Control without deleting the persisted user preset. A purchase for station A or a one-off Boost never masks legacy station B.
 - Premium Boost selection is gated to entitled broadcasters and owned approved stations; ranking is read-time and respects paid Boost over Premium.
 - Subscription dashboard shows status and cancellation per SKU/station, without claiming invoices were issued. Cancellation preserves already paid access through original expiry. Removed/transferred station subscriptions remain cancellable by original payer.
-- **Overlap protection:** B-PREM and monthly ADD-* cannot hold parallel auto-renewing agreements for the same benefits. Before creating an HPP session, the backend checks Gateway MIT statuses (including pending/verification_pending/past_due) and any local in-flight orders; it fails closed when unavailable. Owners must stop the *future* ADD-* renewals in “Οι συνδρομές μου” before upgrading to B-PREM; the paid period remains valid. Boost is independent and can be purchased even alongside Premium.
+- **Overlap protection:** B-PREM and monthly ADD-* cannot hold parallel auto-renewing agreements for the same benefits. Before creating an HPP session, the backend checks Gateway MIT statuses (including pending/verification_pending/past_due) and any local in-flight orders; it fails closed when unavailable. The broadcaster may purchase B-PREM while ADD-* agreements exist. **Only after a signed payment.paid for B-PREM**, a durable idempotent job cancels future ADD-* renewals through the same-tenant Gateway, retrying failures without creating another payment. Failed/unknown Premium checkouts never cancel addons. Existing paid addon terms remain valid. Boost is independent and can be purchased even alongside Premium.
 - An account-scoped, five-minute Mongo checkout lease serializes concurrent subscription preflights, preventing cross-tab Premium/ADD-* races while creating Nexi sessions. The owner-key-scoped release cannot unlock a newer request, and unknown Gateway outcomes retain their own durable per-SKU order locks. The lease alone is **not** the source of payment/rights truth.
 - Isolated Broadcaster transactional Mailpit outbox uses the same branded email v2 as Listener Premium but its own schema and idempotency keys. After **signed `payment.paid` only**, sends first purchase onboarding (full B-PREM benefits or scoped add-on/one-off Boost) and monthly renewal confirmations. After **provider-acknowledged cancellation**, sends cancellation confirmation. Scanner sends upcoming expiration and expired paid-period notices only for the latest scope period and suppresses redundant alerts when auto-MIT is active and enabled.
 - A **signed `payment.failed` automatic MIT event** may queue one support notice per provider payment ID; before actual delivery it reconfirms that the contract remains `past_due` and a newer paid period does not supersede it. Neither a failed renewal nor a reminder ever invokes checkout, retries MIT or grants access.
@@ -63,7 +101,7 @@ BROADCASTER_MIT_SANDBOX_UAT_APPROVED=0
 2. **Gateway staging deployment requires Hostinger shell (not GitHub Actions).** Verify a separate staging checkout for `ilumadigital/iluma-gateway` on its `staging` branch and verify the real Hostinger webroot points to that checkout, not the production `main`. Ensure `APP_ENV=staging` and `PRODUCTION_ENABLED=0`, retain both Broadcaster MIT flags at `0`, then execute `php bin/manage.php migrate-staging-broadcaster` and `php bin/manage.php audit-staging-broadcaster`. Check the staging worker `php bin/work.php staging` using the correct PHP 8.3+/FPM runtime and private secrets — no manual attempt to charge. If Hostinger serves a single checkout deployed from `main`, do **not** switch that checkout automatically; provision an isolated staging deployment first.
 3. **iRadios staging deployment requires SSH on the iRadios server.** On the existing staged checkout run `cd /srv/iradios/staging/app && sudo ./ilumadev.sh` only after the Gateway schema/API/readiness check is green. The script enforces `staging` and fast-forward pulls, rebuilds stage containers and checks localhost health. Never deploy the iRadios purchase UI alone or change production URLs/keys.
 4. Verify that the public `https://stage.iradios.gr` displays the correct Backoffice and a read-only manual billing check loads; do not run a live Nexi checkout until an authorized human reviews the staging Gateway checkout configuration.
-3. Test each checkout: B-PREM, ADD-DSP/AN/ADS for two distinct owned stations, including an upgrade from active add-on that is blocked until future MIT is cancelled, a safe cancelled-addon upgrade with old paid access preserved, simultaneous cross-tab B-PREM + ADD-* checkout serialization, 10 Boost durations/types, explicit monthly consent, invalid owner/station/price/currency, HPP cancel/failed first attempt followed by a new attempt, valid capture, expired benefits, duplicate/out-of-order webhooks, replays, uncertain timeout, and *automated* read-only order recovery after the user closes the browser. Specifically confirm Jan-31 -> Feb-28 -> Mar-31 MIT expiry, no second charge, and no automatic activation from GET=paid.
+3. Test each checkout: B-PREM, ADD-DSP/AN/ADS for two distinct owned stations, including an upgrade from active ADD-* contracts that opens Premium HPP without pre-cancellation, verifies signed Premium payment, then cancels future ADD-* renewals with retry and paid access preserved, simultaneous cross-tab B-PREM + ADD-* checkout serialization, 10 Boost durations/types, explicit monthly consent, invalid owner/station/price/currency, HPP cancel/failed first attempt followed by a new attempt, valid capture, expired benefits, duplicate/out-of-order webhooks, replays, uncertain timeout, and *automated* read-only order recovery after the user closes the browser. Specifically confirm Jan-31 -> Feb-28 -> Mar-31 MIT expiry, no second charge, and no automatic activation from GET=paid.
 4. Verify one-off Boost has exact paid station ID and correctly calculated expiry; duplicate active same-SKU boost cannot double-charge. Test paid Global vs Premium boost ranking on matching and non-matching catalog views. Test old hand-configured station presets are not erased on unpaid expiry.
 5. Check multiple simultaneous broadcaster contracts and per-contract cancellation; verify Gateway cancellation stops future charges and existing entitlements expire naturally. Confirm failed MIT and provider 404/unknown do not trigger another outbound POST automatically.
 6. Execute MIT renewal UAT with real sandbox provider contract lifecycle; only after a verified merchant/provider contract and controlled test should the two flags change to `1`. The first-cycle checkout may be tested while flags are off, but recurring worker execution remains disabled.
@@ -72,3 +110,10 @@ BROADCASTER_MIT_SANDBOX_UAT_APPROVED=0
 **Release separation:** Gateway `main` may be the source of Hostinger auto-deployment. **Do not merge Gateway Broadcaster to `main` when the goal is staging only.** Use a separate Gateway `staging` branch, verify it is not wired to the production deploy, and perform an explicit reviewed Hostinger staging release. iRadios merges only to `staging`. Staging code merges do not by themselves prove remote deployment or Nexi availability.
 
 **Do not enable real MIT/production payments merely because lint/CI is green.** Nexi and Hostinger UAT are independent release gates. Keep the two Broadcaster MIT flags `0` until the provider recurring agreement is verified.
+
+## 2026-11-20 upgrade gate
+- iRadios staging PR #161: post-paid automatic cancellation jobs and environment-scoped paid rights. Production promotion stays subject to separate approval.
+- Gateway staging PR #38: stage product catalog 99.00/27.90/6.90/8.90 EUR, existing 119.00/49.90/7.90/29.90 EUR MIT contracts keep their originally approved amount. No silent repricing.
+- **Do not test checkout until the isolated Gateway staging runtime has been manually deployed and its staging `products` catalog has been backed up, explicitly synchronized and audited.** Branch updates alone do not update the remote Gateway database or runtime.
+- If an old HPP order is pending/unknown/redirect, resume or reconcile it via signed provider GET; never auto-create a second Nexi order until the previous provider status is terminal. Once confirmed failed/canceled, the local lock and browser idempotency key may be retired.
+- The recurring cancellation job status is visible in Broadcaster Billing. Gateway cancellation is a separate signed action from initial Premium HPP; any failed cancellation remains pending for retry, not marked complete.

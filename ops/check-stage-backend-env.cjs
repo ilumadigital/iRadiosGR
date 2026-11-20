@@ -53,13 +53,14 @@ try {
   const production=safe+'IRADIOS_BILLING_ENABLED=1\nIRADIOS_GATEWAY_ENV=production\n'+
     'ILUMA_GATEWAY_PROD_KEY=ilg_'+('d'.repeat(48))+'\n'+
     'ILUMA_GATEWAY_PROD_SECRET='+('e'.repeat(64))+'\n';
-  verify(production,true,'explicit normal live gateway for staging app');
+  verify(production,false,'staging cannot use live Gateway or Nexi');
   verify(production.replace('ILUMA_GATEWAY_PROD_SECRET='+('e'.repeat(64)),'ILUMA_GATEWAY_PROD_SECRET='),false,'live key pair required');
   verify(production.replace('IRADIOS_GATEWAY_ENV=production','IRADIOS_GATEWAY_ENV=sandbox'),false,'unknown Gateway tenant blocked');
+  verify(sandbox+'ILUMA_GATEWAY_PROD_KEY=ilg_'+('d'.repeat(48))+'\n',false,'staging cannot retain live credentials');
   verify(production+'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1\n'+
    'ADVERTISING_V2_DELIVERY_SECRET='+('c'.repeat(64))+'\n'+
-   'IRADIOS_TRUSTED_GEO_SECRET='+('d'.repeat(64))+'\n',true,
-   'production gateway may fund transactional advertising');
+   'IRADIOS_TRUSTED_GEO_SECRET='+('d'.repeat(64))+'\n',false,
+   'staging cannot enable paid delivery through production Gateway');
   verify(sandbox.replace('ILUMA_GATEWAY_STAGING_SECRET='+('b'.repeat(64)),
     'ILUMA_GATEWAY_STAGING_SECRET=invalid'),false,'bad Gateway HMAC key rejected');
   verify(sandbox+'ILUMA_GATEWAY_PRODUCTION_KEY=ilg_'+('c'.repeat(48))+'\n',

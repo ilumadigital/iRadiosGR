@@ -42,28 +42,10 @@ function display(row){return safeBroadcasterOrder(row);}
  */
 async function existingOverlappingMandate(user,sku){
  if(sku==='B-PREM'){
-  const old=await BroadcasterBillingOrder.find({
-   accountId:user._id,environment:billingEnv(),sku:{$in:ADDONS},
-   autoRenewRequested:true
-  }).select('sku resourceId status').sort({createdAt:-1}).limit(61).lean();
-  if(old.length>60)return {code:'OVERLAP_REQUIRES_REVIEW',
-   error:'Υπάρχουν πολλές προηγούμενες συνδρομές add-ons. Απαιτείται έλεγχος πριν από αναβάθμιση Premium.'};
-  // An in-flight add-on checkout is also a financial conflict, even if
-  // the Gateway contract has not been created yet.
-  for(const row of old){
-   if(['creating','pending','redirect','unknown'].includes(row.status))
-    return {code:'ACTIVE_ADDON_RENEWALS',
-     error:'Υπάρχει εκκρεμής αγορά add-on. Ολοκλήρωσε ή ακύρωσε πρώτα την υπάρχουσα συναλλαγή από τις «Συνδρομές μου».',
-     sku:row.sku,stationId:String(row.resourceId||'')};
-  }
-  for(const item of candidateAddons(old)){
-   const current=await gateway.broadcasterRecurringStatus(user,item.sku,item.stationId);
-   if(current.state==='unavailable')return {code:'GATEWAY_RECURRING_UNAVAILABLE',
-    error:'Δεν ήταν δυνατή η ασφαλής επιβεβαίωση προηγούμενων συνδρομών.'};
-   if(isConflict(sku,item.sku,current.state))return {code:'ACTIVE_ADDON_RENEWALS',
-    error:'Ακύρωσε πρώτα τις μελλοντικές ανανεώσεις των ενεργών add-ons από τις «Συνδρομές μου», ώστε να μην έχεις διπλές μηνιαίες χρεώσεις με το Premium.',
-    sku:item.sku,stationId:item.stationId};
-  }
+  // Paid add-ons are superseded after verified Premium capture. Do not force
+  // a pre-payment cancellation that could leave the broadcaster without access.
+  // Durable cancellation begins at the signed payment.paid webhook.
+  return null;
  }else if(ADDONS.includes(sku)){
   if(await BroadcasterBillingOrder.exists({
    accountId:user._id,sku:'B-PREM',environment:billingEnv(),
@@ -120,6 +102,14 @@ async function checkout(req,res){
   return res.json({order:display(existing),alreadyProcessed:true});
  }
  existing=await BroadcasterBillingOrder.findOne({lockKey}).lean();
+ if(existing&&['failed','canceled'].includes(existing.status)){
+  // A confirmed terminal checkout must not reserve a subscription forever.
+  // Never unlock pending/redirect/unknown without authenticated resolution.
+  await BroadcasterBillingOrder.updateOne({
+   _id:existing._id,lockKey,status:{$in:['failed','canceled']}
+  },{$unset:{lockKey:''}});
+  existing=await BroadcasterBillingOrder.findOne({lockKey}).lean();
+ }
  if(existing)return res.json({order:display(existing),alreadyProcessed:true});
  // Never sell overlapping identical fixed-duration Boosts.
  // Unknown/pending attempts are already locked by lockKey.
@@ -214,10 +204,21 @@ async function listOrders(req,res){
  const orders=await BroadcasterBillingOrder.find({
   accountId:req.user._id,environment:billingEnv()
  }).sort({createdAt:-1}).limit(60).lean();
- return res.json({orders:orders.map(display),environment:require('../services/gatewayEnvironment').mode()});
+ const latest=await require('../models/BroadcasterPremiumUpgrade').findOne({
+  accountId:req.user._id,environment:billingEnv()
+ }).sort({createdAt:-1}).select('status items completedAt premiumOrderId').lean();
+ const upgrade=latest?{
+  status:latest.status,
+  pending:(latest.items||[]).filter(item=>item.state!=='complete').length,
+  total:(latest.items||[]).length,
+  premiumOrderId:String(latest.premiumOrderId)
+ }:null;
+ return res.json({orders:orders.map(display),upgrade,
+  environment:require('../services/gatewayEnvironment').mode()});
 }
 async function readOrder(req,res){
  if(!ID.test(req.params.id))return res.status(400).json({error:'Invalid order ID'});
+ let reconciliation=null;
  let order=await BroadcasterBillingOrder.findOne({
   _id:req.params.id,accountId:req.user._id,environment:billingEnv()
  }).lean();
@@ -239,6 +240,11 @@ async function readOrder(req,res){
    },patch,{new:true});if(updated)order=updated;
   }catch(error){
    const age=Date.now()-new Date(order.createdAt).getTime();
+   // A Gateway 404 with a stored order reference does NOT prove that Nexi
+   // never captured the payment. Expose a non-sensitive operator-review state,
+   // but keep the lock until the staging-only orphan recovery checks succeed.
+   if(error.code==='GATEWAY_HTTP_404'&&order.gatewayOrderId)
+    reconciliation='gateway_record_missing_provider_review_required';
    // Only a known signed 404 for an intent with NO Gateway IDs can
    // conclude that HPP was never created. All other outcomes stay locked.
    if(error.code==='GATEWAY_HTTP_404'&&age>120000&&
@@ -256,7 +262,7 @@ async function readOrder(req,res){
    }
   }
  }
- return res.json({order:display(order)});
+ return res.json({order:display(order),...(reconciliation?{reconciliation}:{})});
 }
 async function canManageSubscription(user,sku,stationId){
  if(!ID.test(String(stationId||'')))return false;
@@ -328,6 +334,11 @@ async function savePremiumBoostSelection(req,res){
   {$set:{'broadcasterProfile.premiumBoostStationIds':selected}});
  return res.json({selected,active:true});
 }
+async function schedulePremiumAddonCancellation(order){
+ if(order.sku!=='B-PREM')return;
+ const job=await require('../services/broadcasterPremiumUpgrade').ensurePaidUpgrade(order);
+ if(job.status==='pending')require('../utils/broadcasterPremiumUpgradeScheduler').kick();
+}
 async function handleVerifiedEvent(event,res){
  const sku=event.product_sku,product=getProduct(sku);
  const onRenewal=event.billing_origin==='automatic_renewal';
@@ -391,8 +402,13 @@ async function handleVerifiedEvent(event,res){
  // No client-selected station can be substituted after payment confirmation.
  const order=await BroadcasterBillingOrder.findOne(query).lean();
  if(!order)return res.status(503).json({error:'Broadcaster checkout correlation pending'});
- if((order.eventIds||[]).includes(event.event_id))
+ if((order.eventIds||[]).includes(event.event_id)){
+  // If a previous callback saved 'paid' but crashed before queuing addon
+  // cancellation, the Gateway retry must repair the durable upgrade job.
+  if(sku==='B-PREM'&&order.status==='paid'&&event.event_type==='payment.paid')
+   await schedulePremiumAddonCancellation(order);
   return res.json({received:true,duplicate:true});
+ }
  const isPaid=event.event_type==='payment.paid';
  const confirmedAt=new Date(Math.min(Date.parse(event.occurred_at),now.getTime()));
  let periodStart=confirmedAt;
@@ -415,6 +431,9 @@ async function handleVerifiedEvent(event,res){
      $unset:{lockKey:''},$addToSet:{eventIds:event.event_id},
      $push:{eventLog:marker}},{new:true});
   if(updated){
+   // A paid Premium grants access before retiring old ADD-* contracts.
+   // A job write failure returns 503 so the signed Gateway outbox retries.
+   await schedulePremiumAddonCancellation(updated);
    try{
     if(await billingMail.enqueuePaid(updated))billingMail.kick();
    }catch(e){console.warn('[BROADCASTER MAIL] Purchase receipt deferred',e.code||e.message);}
@@ -427,6 +446,10 @@ async function handleVerifiedEvent(event,res){
   },{$set:{status:next,providerStatus:next},$unset:{lockKey:''},
     $addToSet:{eventIds:event.event_id},$push:{eventLog:marker}},{new:true});
   if(updated)return res.json({received:true,activated:false});
+ }
+ if(isPaid&&sku==='B-PREM'){
+  const paid=await BroadcasterBillingOrder.findOne({...query,status:'paid'}).lean();
+  if(paid)await schedulePremiumAddonCancellation(paid);
  }
  await BroadcasterBillingOrder.findOneAndUpdate(filter,{
   $addToSet:{eventIds:event.event_id},$push:{eventLog:marker}

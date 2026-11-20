@@ -6,6 +6,8 @@ const {validatePurchase,purchasePeriod,paidRights,boostForStation,anchoredMonthl
 const SID='507f1f77bcf86cd799439011';
 const OTHER='507f191e810c19729de860ea';
 const now=new Date('2026-11-11T12:00:00Z');
+const stageRights=(orders,id,at=now)=>paidRights(orders,id,at,'staging');
+const stageBoost=(orders,id,at=now,premium=false)=>boostForStation(orders,id,at,premium,'staging');
 const paid=(sku,resourceId=SID,opts={})=>({
  sku,resourceId,scopeType:sku==='B-PREM'?'account':'station',environment:'staging',
  status:'paid',periodStartsAt:new Date('2026-11-01T00:00:00Z'),
@@ -38,11 +40,11 @@ test('duration arithmetic is UTC-safe, not recurring for Boost',()=>{
  assert.equal(purchasePeriod('B-PREM',leap).end.toISOString(),'2028-03-29T10:00:00.000Z');
 });
 test('station addon cannot unlock a different station',()=>{
- assert.deepEqual(paidRights([paid('ADD-DSP')],OTHER,now),[]);
- assert.deepEqual(paidRights([paid('ADD-DSP')],SID,now),['broadcaster.webdsp']);
+ assert.deepEqual(stageRights([paid('ADD-DSP')],OTHER,now),[]);
+ assert.deepEqual(stageRights([paid('ADD-DSP')],SID,now),['broadcaster.webdsp']);
 });
 test('full broadcaster Premium grants all included rights across stations',()=>{
- const rights=paidRights([paid('B-PREM',null)],OTHER,now);
+ const rights=stageRights([paid('B-PREM',null)],OTHER,now);
  for(const right of ['broadcaster.unlimited_stations','broadcaster.webdsp',
   'broadcaster.analytics','broadcaster.ad_control','broadcaster.premium_boost'])
   assert.ok(rights.includes(right));
@@ -53,15 +55,15 @@ test('expired, failed, production or future orders have no rights',()=>{
   paid('ADD-ADS',SID,{environment:'production'}),
   paid('ADD-ADS',SID,{periodEndsAt:new Date('2026-11-10T10:00:00Z')}),
   paid('ADD-ADS',SID,{periodStartsAt:new Date('2026-11-12T10:00:00Z')})
- ])assert.deepEqual(paidRights([row],SID,now),[]);
+ ])assert.deepEqual(stageRights([row],SID,now),[]);
 });
 test('purchased Boost wins over Premium; expired Boost falls back',()=>{
  const row=paid('BOOST-G-DAY',SID);
- assert.equal(boostForStation([row],SID,now,true).tier,'purchased');
- assert.equal(boostForStation([row],SID,now,true).priority,200);
- assert.equal(boostForStation([row],OTHER,now,true).priority,100);
- assert.equal(boostForStation([paid('BOOST-G-DAY',SID,{periodEndsAt:new Date('2026-11-10')})],SID,now,true).priority,100);
- assert.equal(boostForStation([],SID,now,false).priority,0);
+ assert.equal(stageBoost([row],SID,now,true).tier,'purchased');
+ assert.equal(stageBoost([row],SID,now,true).priority,200);
+ assert.equal(stageBoost([row],OTHER,now,true).priority,100);
+ assert.equal(stageBoost([paid('BOOST-G-DAY',SID,{periodEndsAt:new Date('2026-11-10')})],SID,now,true).priority,100);
+ assert.equal(stageBoost([],SID,now,false).priority,0);
 });
 
 test('MIT follows the ORIGINAL day of month across February and leap years',()=>{
@@ -86,12 +88,12 @@ test('signed MIT calendar due and end are deterministic, not arrival-order depen
 });
 
 test('a malformed/null station-scoped add-on never grants account-wide access',()=>{
- assert.deepEqual(paidRights([paid('ADD-DSP',null)],null,now),[]);
- assert.deepEqual(paidRights([paid('ADD-ADS',null)],null,now),[]);
- assert.deepEqual(paidRights([paid('ADD-AN',SID,{scopeType:'account'})],SID,now),[]);
- assert.deepEqual(paidRights([paid('B-PREM',SID)],SID,now),[]);
- assert.deepEqual(paidRights([paid('B-PREM',null,{scopeType:'station'})],SID,now),[]);
- assert.equal(boostForStation([paid('BOOST-G-DAY',SID,{scopeType:'account'})],SID,now,false).priority,0);
+ assert.deepEqual(stageRights([paid('ADD-DSP',null)],null,now),[]);
+ assert.deepEqual(stageRights([paid('ADD-ADS',null)],null,now),[]);
+ assert.deepEqual(stageRights([paid('ADD-AN',SID,{scopeType:'account'})],SID,now),[]);
+ assert.deepEqual(stageRights([paid('B-PREM',SID)],SID,now),[]);
+ assert.deepEqual(stageRights([paid('B-PREM',null,{scopeType:'station'})],SID,now),[]);
+ assert.equal(stageBoost([paid('BOOST-G-DAY',SID,{scopeType:'account'})],SID,now,false).priority,0);
 });
 
 const {ADDONS,isConflict,candidateAddons}=require('../services/broadcasterSubscriptionOverlap');
@@ -114,4 +116,15 @@ test('dedupe addon mandate lookup per owned station and SKU',()=>{
  assert.deepEqual(candidateAddons(rows),[
   {sku:'ADD-DSP',stationId:SID},{sku:'ADD-AN',stationId:SID}
  ]);
+});
+
+test('production paid Premium and Boost unlock rights only in production',()=>{
+ const production=paid('B-PREM',null,{environment:'production'});
+ assert.deepEqual(paidRights([production],SID,now,'staging'),[]);
+ assert.ok(paidRights([production],SID,now,'production').includes('broadcaster.unlimited_stations'));
+ assert.deepEqual(paidRights([paid('ADD-DSP')],SID,now,'production'),[]);
+ assert.deepEqual(paidRights([production],SID,now,undefined),[]);
+ const boost=paid('BOOST-G-DAY',SID,{environment:'production'});
+ assert.equal(boostForStation([boost],SID,now,false,'production').tier,'purchased');
+ assert.equal(boostForStation([boost],SID,now,false,'staging').tier,'organic');
 });

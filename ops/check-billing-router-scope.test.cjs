@@ -45,9 +45,10 @@ test('Broadcaster billing guard applies only to broadcaster billing URLs',()=>{
 test('Listener billing staging environment guard cannot block unrelated API paths',()=>{
   const got=readRouter('billingCheckoutRoutes','../controllers/gatewayBillingController');
   assert.deepEqual(got.use.map(args=>args[0]),
-    ['/billing','/admin/billing/sandbox-orders']);
+    ['/billing','/admin/billing/sandbox-orders','/admin/billing/orders']);
   assert.ok(got.routes.some(([method,route])=>method==='POST' && route==='/billing/checkout'));
   assert.ok(got.routes.some(([method,route])=>method==='GET' && route==='/admin/billing/sandbox-orders'));
+  assert.ok(got.routes.some(([method,route])=>method==='GET' && route==='/admin/billing/orders'));
   for(const url of ['/auth/login','/auth/register','/stations','/auth/me']){
     assert.equal(got.use.some(([prefix])=>url===prefix||url.startsWith(prefix+'/')),false,
       'Billing guard must not run before '+url);
