@@ -96,6 +96,8 @@ jobs:
           done
       - name: Exercise stage backend .env guard without live secrets
         run: node ops/check-stage-backend-env.cjs
+      - name: Verify Admin second-factor cannot escape Mailpit on staging
+        run: node --test backend/tests/adminOtpMailStage.test.cjs
       - name: Validate backend JavaScript syntax
         run: find backend -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check
       - name: Verify safe real-time backoffice invalidation and SSE events
