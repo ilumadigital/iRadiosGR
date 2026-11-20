@@ -56,8 +56,8 @@ for key in TURNSTILE_SITE_KEY TURNSTILE_SECRET_KEY; do
     exit 1
   fi
 done
-# Payment environment is independent from APP_ENV. Keys never reach frontend.
-# Legacy Sandbox installs without IRADIOS_GATEWAY_ENV remain accepted.
+# Public staging must never select production Gateway or retain live credentials.
+# Keys remain backend-only; legacy staging Sandbox installs are supported.
 if [[ "$(count_key IRADIOS_GATEWAY_ENV)" -gt 1 ||
       "$(count_key IRADIOS_BILLING_ENABLED)" -gt 1 ]]; then
  echo 'STOP: duplicate payment configuration.' >&2; exit 1
@@ -93,13 +93,8 @@ if grep -qx 'IRADIOS_BILLING_ENABLED=1' "$ENV_FILE" ||
      grep -qx 'IRADIOS_BILLING_SANDBOX_ENABLED=1' "$ENV_FILE"; }; then
  gateway_enabled=1
 fi
-if [[ "$gateway_mode" == production ]] &&
-   ! grep -qx 'IRADIOS_BILLING_ENABLED=1' "$ENV_FILE"; then
- echo 'STOP: live Gateway needs explicit billing enablement.' >&2; exit 1
-fi
 if [[ "$gateway_enabled" == 1 ]]; then
- if [[ "$gateway_mode" == production ]]; then prefix=ILUMA_GATEWAY_PROD
- else prefix=ILUMA_GATEWAY_STAGING; fi
+ prefix=ILUMA_GATEWAY_STAGING
  for suffix in KEY SECRET; do
   key="${prefix}_${suffix}"
   if [[ "$(count_key "$key")" != 1 ]]; then
@@ -112,7 +107,7 @@ if [[ "$gateway_enabled" == 1 ]]; then
  fi
 fi
 # Paid event delivery is an explicit choice: it must never coexist with
-# unticketed QA/legacy previews, production Gateway keys or missing secrets.
+# unticketed QA/legacy previews or missing secrets.
 if grep -q '^ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=' "$ENV_FILE"; then
   if [[ "$(count_key ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED)" != "1" ]] ||
      ! grep -Eq '^ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=[01]$' "$ENV_FILE"; then
