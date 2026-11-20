@@ -1,6 +1,15 @@
 'use strict';
-const test=require('node:test');
+const {test,before,after}=require('node:test');
 const assert=require('node:assert/strict');
+// The signed winback fixture is explicitly a staging payment event.
+const previous={APP_ENV:process.env.APP_ENV,IRADIOS_GATEWAY_ENV:process.env.IRADIOS_GATEWAY_ENV};
+before(()=>{process.env.APP_ENV='staging';process.env.IRADIOS_GATEWAY_ENV='staging';});
+after(()=>{
+ for(const [key,value] of Object.entries(previous)){
+  if(value===undefined)delete process.env[key];
+  else process.env[key]=value;
+ }
+});
 const {evaluate,WINDOW_MS,PROMO_SKU}=require('../services/winbackEligibility');
 const {validateGatewayPayment,validatePaymentEvent}=require('../services/gatewayBillingProtocol');
 const end=new Date('2026-11-10T18:20:07.000Z');
