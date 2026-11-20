@@ -20,6 +20,14 @@ if(productionActivated())require('./utils/premiumBillingEmailScheduler').start()
 // Recover lost Broadcaster checkout responses using signed GET only.
 // This worker cannot create provider orders, MIT payments or grant entitlements.
 if(productionActivated())require('./utils/broadcasterCheckoutRecoveryScheduler').start();
+// Production Billing Repair runs automatically on a 3-minute cadence AFTER
+// separate, explicit live financial opt-in. No Gateway/Nexi writes or
+// retried charges. Strictly confirmed terminal intent unlocks only.
+if(productionActivated()&&process.env.APP_ENV==='production'&&
+   process.env.IRADIOS_GATEWAY_ENV==='production'&&
+   process.env.IRADIOS_PRODUCTION_BILLING_REPAIR_ENABLED==='1'&&
+   process.env.IRADIOS_PRODUCTION_BILLING_REPAIR_AUTO_ENABLED==='1')
+ require('./utils/productionBillingRepairScheduler').start();
 // Isolated broadcaster transactional outbox, staging -> Mailpit only.
 if(productionActivated())require('./utils/broadcasterBillingEmailScheduler').start();
 
