@@ -5,6 +5,7 @@ const router=require('express').Router();
 const mongoose=require('mongoose');
 const jwt=require('jsonwebtoken');
 const User=require('../models/User');
+const {hasAccountRight}=require('../services/billingEntitlements');
 const Station=require('../models/Station');
 const Campaign=require('../models/AdvertisingCampaign');
 const Audio=require('../models/Ad');
@@ -40,7 +41,7 @@ async function optionalListener(req,res,next){
   const user=await User.findById(payload.id||payload._id).select('_id role isPremium');
   if(!user)return res.status(401).json({error:'Invalid session'});
   // Token used for live paid events must not be a stale Premium grant.
-  if(user.role!=='user'||user.isPremium===true)return res.status(403)
+  if(user.role!=='user'||await hasAccountRight(user,'listener.premium'))return res.status(403)
    .json({error:'No advertisements for this account'});
   req.adListenerUserId=String(user._id);
   return next();

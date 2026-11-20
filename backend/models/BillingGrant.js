@@ -7,6 +7,8 @@ const schema=new mongoose.Schema({
   scopeType:{type:String,enum:['account','station','campaign'],required:true},
   resourceId:{type:mongoose.Schema.Types.ObjectId,default:null},
   source:{type:String,enum:['admin_complimentary'],default:'admin_complimentary',immutable:true},
+  environment:{type:String,enum:['staging','production'],required:true,
+   default:()=>process.env.APP_ENV,immutable:true},
   reason:{type:String,required:true,maxlength:500},
   grantedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true,immutable:true},
   startsAt:{type:Date,required:true,default:Date.now},

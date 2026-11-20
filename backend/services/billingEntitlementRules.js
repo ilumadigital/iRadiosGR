@@ -5,10 +5,10 @@
 const {resolveComplimentaryEntitlements}=require('./billingPolicy');
 const {withBroadcasterTermsStatus}=require('../utils/broadcasterTerms');
 
-// Listener migration is deliberately separate: existing manually granted
-// Listener Premium accounts retain their old rights until the Listener billing
-// migration. This compatibility NEVER applies to a Broadcaster.
-const listenerCompatibilityRights=user=>user?.role==='user'&&user.isPremium===true?
+// Historical isPremium is compatibility-only for staging; cloned user flags
+// cannot confer a production Premium entitlement without verified provenance.
+const listenerCompatibilityRights=(user,environment=process.env.APP_ENV)=>
+ environment!=='production'&&user?.role==='user'&&user.isPremium===true?
  ['listener.premium']:[];
 
 function effectiveRights(user,grants,{stationId=null,campaignId=null,now=new Date()}={}){

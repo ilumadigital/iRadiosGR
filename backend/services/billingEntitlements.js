@@ -3,6 +3,7 @@
 // Phase 3 will integrate verified PAID subscription rows without touching
 // legacy manual benefits until a separate audited migration.
 const BillingGrant=require('../models/BillingGrant');
+const {grantReadScope}=require('./billingGrantEnvironment');
 const BillingOrder=require('../models/BillingOrder');
 const {paidRights}=require('./broadcasterPurchaseRules');
 const {effectiveRights,projectUserEntitlements}=require('./billingEntitlementRules');
@@ -11,6 +12,7 @@ async function activeGrantsFor(user,now=new Date()){
  if(!user?._id)return [];
  return BillingGrant.find({
    accountId:user._id,source:'admin_complimentary',revokedAt:null,
+   ...grantReadScope(),
    startsAt:{$lte:now},$or:[{expiresAt:null},{expiresAt:{$gt:now}}]
  }).lean();
 }

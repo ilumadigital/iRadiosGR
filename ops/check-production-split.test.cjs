@@ -72,6 +72,8 @@ assert.match(read('ops/deploy-prod.sh'),/data-verified/);
 assert.match(read('ops/deploy-prod.sh'),/expected main/);
 assert.doesNotMatch(read('ops/deploy-prod.sh'),/down -v|volume prune|docker system prune/);
 assert.match(read('backend/services/billingEntitlements.js'),/environment:process\.env\.APP_ENV/);
+assert.match(read('backend/services/billingEntitlements.js'),/\.\.\.grantReadScope\(\)/);
+assert.match(read('backend/services/billingEntitlementRules.js'),/environment!=='production'/);
 assert.match(read('backend/models/BillingOrder.js'),/enum:\['staging','production'\]/);
 assert.match(read('backend/models/BroadcasterBillingOrder.js'),/enum:\['staging','production'\]/);
 assert.match(read('frontend/src/pages/Backoffice.jsx'),/VITE_APP_ENV==='production'/);
