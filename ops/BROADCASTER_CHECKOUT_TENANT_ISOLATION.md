@@ -16,7 +16,7 @@ to the staging tenant. The short-lived checkout lease was also keyed by
 account ObjectId only.
 
 ## Fix
-- New checkout locks: `staging:account:sku:resource` or
+- New **Broadcaster** checkout locks: `staging:account:sku:resource` or
   `production:account:sku:resource`. These are **local iRadios Mongo**
   lock identities only: Gateway's signed requestKey, HPP, SKU, merchant
   tenant routing and Nexi connections are unchanged.
@@ -39,6 +39,14 @@ account ObjectId only.
   scope cannot both acquire that lock. No index drop or migration.
 - Do not rewrite the `environment` field on imported rows (it is
   immutable for a reason). Do not delete rows or reference tokens.
+- Listener Premium and Winback had the same problem: globally unique
+  unscoped `account:L-PREM` locks, unscoped idempotency and renewal
+  checks, plus an unscoped per-user order/history endpoint. New listener
+  lock values are `environment:account:L-PREM`, both subscription and
+  winback share one per-tenant lock, and all affected reads/CAS writes
+  check the owning environment and account. Old production listener
+  locks remain blockers; imported staging listener locks cannot block
+  live checkout. The original global unique index remains unchanged.
 - The Production Billing Repair scheduler still scans ONLY
   `environment:production`, and its flags remain off unless separately
   approved. It never cleans the imported staging financial history.
@@ -62,6 +70,8 @@ no order IDs, account IDs or payment references are emitted.
 2. After approval, merge the staging PR and perform a **manual staging
    deployment** using the actual VPS scripts, then test canceled/failed
    retry and unknown-provider lock preservation against Nexi Sandbox.
+   Also verify Listener Premium/Winback history and retry are limited
+   to their own environment.
 3. Seek **separate approval** for a selective PR to iRadios `main`
    (do not bulk merge all staging features).
 4. Before an approved production rollout, back up production data, verify
