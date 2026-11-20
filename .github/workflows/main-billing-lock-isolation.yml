@@ -1,0 +1,37 @@
+name: Main billing checkout lock isolation
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  isolate:
+    name: Prevent cross-tenant financial checkout locks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate patched billing modules
+        run: |
+          node --check backend/controllers/broadcasterBillingController.js
+          node --check backend/controllers/gatewayBillingController.js
+          node --check backend/models/BroadcasterCheckoutLease.js
+          node --check backend/services/broadcasterCheckoutLease.js
+          node --check backend/services/broadcasterCheckoutLockScope.js
+          node --check backend/services/listenerCheckoutLockScope.js
+          node --check backend/scripts/auditBroadcasterLockIsolation.js
+      - name: Verify tenant-local legacy locks and checkout leases
+        run: |
+          node --test backend/tests/broadcasterCheckoutLockScope.test.cjs \
+            backend/tests/listenerCheckoutLockScope.test.cjs \
+            backend/tests/broadcasterCheckoutLease.test.js \
+            backend/tests/broadcasterLockAudit.test.cjs
+      - name: Verify renewal and provider reconciliation fail-closed
+        run: |
+          node --test ops/check-billing-renewal-endpoints.test.cjs \
+            backend/tests/broadcasterCheckoutRecovery.test.js \
+            backend/tests/productionBillingRepair.test.cjs
