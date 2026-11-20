@@ -35,6 +35,22 @@ def check(config, compose):
     require(config.get("IRADIOS_BILLING_ENABLED", "0") in ("0", "1"), "Invalid billing flag")
     require(config.get("IRADIOS_PRODUCTION_CUTOVER_APPROVED", "0") in ("0", "1"), "Invalid cutover flag")
     require(config.get("PRODUCTION_BILLING_EMAILS_ENABLED", "0") in ("0", "1"), "Invalid billing emails flag")
+    require(config.get("ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED", "0") in ("0", "1"), "Invalid advertising financial flag")
+    require(config.get("ADVERTISING_V2_PRODUCTION_APPROVED", "0") in ("0", "1"), "Invalid advertising production approval")
+    if config.get("ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED") == "1":
+        require(config.get("ADVERTISING_V2_PRODUCTION_APPROVED") == "1",
+                "Paid advertising requires independent production approval")
+        require(config.get("IRADIOS_BILLING_ENABLED") == "1",
+                "Paid advertising requires production billing enabled")
+        require(config.get("IRADIOS_PRODUCTION_CUTOVER_APPROVED") == "1",
+                "Paid advertising requires completed production cutover")
+        for name in ("ADVERTISING_V2_DELIVERY_SECRET", "IRADIOS_TRUSTED_GEO_SECRET"):
+            require(len(config.get(name, "").encode("utf-8")) >= 32,
+                    f"Paid advertising missing valid {name}")
+        for name in ("AD_STAGE_QA_APPROVAL_ENABLED",
+                     "AD_STAGE_PAID_PLACEMENT_PREVIEW", "AD_DELIVERY_BILLING_ENABLED"):
+            require(config.get(name, "0") != "1",
+                    f"Paid advertising conflicts with {name}")
     for name in ("ILUMA_GATEWAY_STAGING_KEY", "ILUMA_GATEWAY_STAGING_SECRET", "NEXI_ALIAS", "NEXI_MAC_KEY"):
         require(not config.get(name), f"{name} must not be present in production app config")
     if config.get("IRADIOS_BILLING_ENABLED") == "1":

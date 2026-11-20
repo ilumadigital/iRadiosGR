@@ -107,5 +107,17 @@ try{
   +'ILUMA_GATEWAY_PROD_SECRET='+('e'.repeat(64))+'\n';
  assert.equal(run(approved).status,0,'explicit production Gateway credentials should pass');
  assert.notEqual(run(approved+'ILUMA_GATEWAY_STAGING_SECRET='+('a'.repeat(64))+'\n').status,0);
+ const paidAdvertising=approved+'ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED=1\n';
+ assert.notEqual(run(paidAdvertising).status,0,
+  'Production advertising refuses missing independent approval');
+ assert.notEqual(run(paidAdvertising+'ADVERTISING_V2_PRODUCTION_APPROVED=1\n').status,0,
+  'Production advertising refuses missing signed delivery and trusted geo secrets');
+ const fullPaid=paidAdvertising+'ADVERTISING_V2_PRODUCTION_APPROVED=1\n'
+  +'ADVERTISING_V2_DELIVERY_SECRET='+('g'.repeat(40))+'\n'
+  +'IRADIOS_TRUSTED_GEO_SECRET='+('h'.repeat(40))+'\n';
+ assert.equal(run(fullPaid).status,0,
+  'Approved prod advertising config passes validation (no real charge or DB)');
+ assert.notEqual(run(fullPaid+'AD_STAGE_PAID_PLACEMENT_PREVIEW=1\n').status,0);
+ assert.notEqual(run(fullPaid+'AD_DELIVERY_BILLING_ENABLED=1\n').status,0);
 }finally{fs.rmSync(dir,{force:true,recursive:true});}
 console.log('Production branch/environment, Mailpit, payments, data gate and UI boundaries: PASS');

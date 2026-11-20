@@ -33,3 +33,21 @@ test('signed financial credits pin immutable tenant and reject replay from anoth
  assert.match(events,/!matchesFundingEnvironment\(lot\)/);
  assert.equal((events.match(/if\(lot&&matchesFundingEnvironment\(lot\)/g)||[]).length,2);
 });
+
+test('live financial delivery cannot be enabled by one flag or staging balances',()=>{
+ const ledger=read('services/advertisingV2Ledger.js');
+ const eligibility=read('services/advertisingDeliveryEligibility.js');
+ const api=read('routes/advertisingV2Routes.js');
+ const controller=read('controllers/adController.js');
+ const agency=read('routes/advertisingCampaignRoutes.js');
+ assert.match(ledger,/ADVERTISING_V2_PRODUCTION_APPROVED==='1'/);
+ assert.match(ledger,/IRADIOS_PRODUCTION_CUTOVER_APPROVED==='1'/);
+ assert.match(ledger,/IRADIOS_TRUSTED_GEO_SECRET/);
+ assert.match(ledger,/\.\.\.fundingReadScope\(\)/);
+ assert.match(eligibility,/\.\.\.fundingReadScope\(\)/);
+ assert.match(api,/\.\.\.fundingReadScope\(\)/);
+ assert.match(controller,/if\(!isStage\(\)&&!paidLedger\.enabled\(\)\)return res\.json\(\[\]\)/);
+ assert.match(controller,/if\(\(!isStage\(\)&&!paidLedger\.enabled\(\)\)/);
+ assert.match(agency,/process\.env\.APP_ENV==='production'&&ledger\.enabled\(\)/);
+ assert.match(agency,/financialReadiness\(\)\)\.acceptingTickets/);
+});
