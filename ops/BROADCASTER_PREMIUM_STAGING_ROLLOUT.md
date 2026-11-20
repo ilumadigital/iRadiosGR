@@ -2,6 +2,44 @@
 
 **Status:** Staging-release candidate; offline CI is not a substitute for live Nexi UAT or remote hosting verification.
 
+**2026-11-20 topology correction (supersedes historical Gateway branch instructions below):** ONE shared Gateway VPS /srv/iluma-gateway/app ALWAYS runs Git main. APP_ENV=production is global, NOT tenant selection. Signed iRadios staging credentials use Gateway staging MySQL and Nexi Sandbox; production credentials use isolated production MySQL and Nexi Live. Gateway rebuilds both tenants' shared PHP/Web runtime and requires explicit approval. This fix is iRadios staging-only.
+
+### One-order manual staging Broadcaster HPP orphan recovery
+
+Known staging order: 6afca3ccf4de99d0a882472e; Gateway order: IL585389CBC55D3C23887B0FE8.
+- Operator has observed Gateway staging MySQL ORDER_NOT_FOUND and separate Nexi Sandbox GET /orders/IL585389CBC55D3C23887B0FE8 returning HTTP 404. These observations are NOT stored in iRadios.
+- Operator must independently confirm that the ORIGINAL order was signed with the iRadios staging credential. If not confirmed: STOP. No query or change of production DB/secrets is done by this tool.
+- CLI requires operator's exact Sandbox 404 confirmation, fresh signed Gateway staging GET by request key 404, GET by payment ID 404 when present, and signed Premium mandate status NONE. Network errors, any existing Gateway payment, pending/active/cancelled/unavailable mandate, any signed event, paid period or concurrent mutation STOP.
+- CLI NEVER calls Nexi, creates checkout, starts MIT, grants paid access, changes active addons or Gateway rows. It keeps the iRadios original order as FAILED with an audit code and removes ONLY its lock. Default is DRY RUN. --apply is an explicitly operator-triggered staging Mongo update.
+- Do NOT automatically unlock Gateway IDs using only a Gateway 404: it does not prove the provider never captured the payment.
+
+After staging CI, manually deploy only iRadios staging:
+~~~bash
+cd /srv/iradios/staging/app && sudo ./ilumadev.sh
+~~~
+
+DRY-RUN on the stage backend only, after confirming original staging routing and Nexi Sandbox 404:
+~~~bash
+sudo docker exec -i iradios_stage-backend-1 node scripts/recoverStagingBroadcasterOrphan.js \
+  --order-id 6afca3ccf4de99d0a882472e \
+  --gateway-order-id IL585389CBC55D3C23887B0FE8 \
+  --sandbox-404-for IL585389CBC55D3C23887B0FE8 \
+  --confirm-staging-origin
+~~~
+
+Only if DRY-RUN says READY_FOR_OPERATOR_RELEASE, run exactly once with --apply:
+~~~bash
+sudo docker exec -i iradios_stage-backend-1 node scripts/recoverStagingBroadcasterOrphan.js \
+  --order-id 6afca3ccf4de99d0a882472e \
+  --gateway-order-id IL585389CBC55D3C23887B0FE8 \
+  --sandbox-404-for IL585389CBC55D3C23887B0FE8 \
+  --confirm-staging-origin --apply
+~~~
+
+Success is exactly RELEASED. Refresh the authenticated stage.iradios.gr Pro Features page and verify the original order is FAILED with STAGING_SANDBOX_ORDER_ABSENT_CONFIRMED. Retry Premium with a NEW idempotency key, confirm actual Sandbox hosted checkout, signed payment.paid receipt and cancellation of future add-on MIT only AFTER verified paid Premium. A redirect or unknown/failed attempt is never a paid entitlement.
+
+
+
 - iRadios PR: https://github.com/ilumadigital/iRadiosGR/pull/86 (branch `feat/staging-broadcaster-premium-backoffice`, base `staging`)
 - ILUMA Gateway PR: https://github.com/ilumadigital/iluma-gateway/pull/12 (branch `feat/staging-broadcaster-mit-scoped`, base `staging` — production `main` remains untouched)
 

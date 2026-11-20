@@ -218,6 +218,7 @@ async function listOrders(req,res){
 }
 async function readOrder(req,res){
  if(!ID.test(req.params.id))return res.status(400).json({error:'Invalid order ID'});
+ let reconciliation=null;
  let order=await BroadcasterBillingOrder.findOne({
   _id:req.params.id,accountId:req.user._id,environment:billingEnv()
  }).lean();
@@ -239,6 +240,11 @@ async function readOrder(req,res){
    },patch,{new:true});if(updated)order=updated;
   }catch(error){
    const age=Date.now()-new Date(order.createdAt).getTime();
+   // A Gateway 404 with a stored order reference does NOT prove that Nexi
+   // never captured the payment. Expose a non-sensitive operator-review state,
+   // but keep the lock until the staging-only orphan recovery checks succeed.
+   if(error.code==='GATEWAY_HTTP_404'&&order.gatewayOrderId)
+    reconciliation='gateway_record_missing_provider_review_required';
    // Only a known signed 404 for an intent with NO Gateway IDs can
    // conclude that HPP was never created. All other outcomes stay locked.
    if(error.code==='GATEWAY_HTTP_404'&&age>120000&&
@@ -256,7 +262,7 @@ async function readOrder(req,res){
    }
   }
  }
- return res.json({order:display(order)});
+ return res.json({order:display(order),...(reconciliation?{reconciliation}:{})});
 }
 async function canManageSubscription(user,sku,stationId){
  if(!ID.test(String(stationId||'')))return false;

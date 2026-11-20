@@ -146,8 +146,12 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
      setPaymentNotice('Η συναλλαγή δεν ολοκληρώθηκε. Δεν ενεργοποιήθηκαν προνόμια.');
      sessionStorage.removeItem('iradios-broadcaster-order-'+accountId);
      sessionStorage.removeItem(purchaseKey(accountId,data.order.sku,data.order.stationId));
+    }else if(data.order?.status==='unknown'&&data.order?.gatewayOrderId){
+     setPaymentNotice(data.reconciliation==='gateway_record_missing_provider_review_required'?
+       'Το Gateway δεν βρίσκει την παλιά συναλλαγή. Απαιτείται επιβεβαίωση και στη Nexi Sandbox από τον διαχειριστή πριν αποδεσμευτεί η αγορά. Δεν θα γίνει δεύτερη χρέωση.':
+       'Η παλιά συναλλαγή παραμένει σε άγνωστη κατάσταση. Έγινε έλεγχος, αλλά χρειάζεται διασταύρωση από τον διαχειριστή πριν από νέα αγορά.');
     }else{
-     setPaymentNotice('Αναμονή signed επιβεβαίωσης πληρωμής. Δεν θα γίνει δεύτερη χρέωση.');
+     setPaymentNotice('Ο έλεγχος ολοκληρώθηκε. Αναμονή υπογεγραμμένης επιβεβαίωσης πληρωμής· δεν θα γίνει δεύτερη χρέωση.');
     }
    }catch(e){setPaymentNotice(e.message);}
    finally{setBusySku('');}
@@ -296,7 +300,7 @@ export default function BroadcasterCommerce({stations=[],view='features',role='b
         {order.periodEndsAt?' · Λήξη: '+formatDate(order.periodEndsAt):''}</p></div>
       {activeStates.has(order.status)&&<button type="button" disabled={Boolean(busySku)}
         onClick={()=>void inspectOrder(order.id)}
-        className="rounded-xl bg-[#ccff00] px-5 py-3 text-xs font-black text-black disabled:opacity-50">Έλεγχος πληρωμής</button>}
+        className="rounded-xl bg-[#ccff00] px-5 py-3 text-xs font-black text-black disabled:opacity-50">{busySku==='reconcile'?'Γίνεται έλεγχος…':'Έλεγχος πληρωμής'}</button>}
     </section>}
     {loading?<Loading/>:error?<div role="alert" className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-5 text-sm text-rose-200">
       {error} <button className="ml-3 font-black underline" onClick={()=>window.location.reload()}>Ανανέωση</button></div>:<>
