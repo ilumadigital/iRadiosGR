@@ -19,6 +19,7 @@ function fixture(rows) {
    return {async lean(){
     return rows.find(row=>
       row.environment===query.environment&&
+      String(row.accountId)===query.accountId&&row.sku===query.sku&&
       (query.requestKey ? row.requestKey===query.requestKey :
        query.lockKey.$in.includes(row.lockKey)))||null;
    }};
@@ -26,7 +27,8 @@ function fixture(rows) {
   async updateOne(query,patch){
    writes.push({query,patch});
    const match=rows.find(x=>String(x._id)===String(query._id)&&
-     x.environment===query.environment&&x.lockKey===query.lockKey&&
+     x.environment===query.environment&&String(x.accountId)===query.accountId&&
+     x.sku===query.sku&&x.lockKey===query.lockKey&&
      ['failed','canceled'].includes(x.status)&&
      x.paidAt==null&&x.periodStartsAt==null&&x.periodEndsAt==null&&
      x.graceEndsAt==null&&x.providerStatus!=='paid'&&
@@ -58,7 +60,11 @@ test('a production checkout ignores imported staging unknown, paid and canceled 
   assert.equal(await findExistingLocked(f.Model,prod),null);
   assert.equal(await findIdempotent(f.Model,prod,reqKey),null);
   assert.equal(f.writes.length,0);
-  for(const q of f.reads)assert.equal(q.environment,'production');
+  for(const q of f.reads){
+   assert.equal(q.environment,'production');
+   assert.equal(q.accountId,account);
+   assert.equal(q.sku,'B-PREM');
+  }
  }
 });
 test('new production checkout can coexist with an imported staging legacy lock',async()=>{
@@ -93,6 +99,8 @@ test('unpaid terminal lock can be cleaned with a strict environment CAS',async()
  assert.equal(await releaseOrphanTerminalLock(f.Model,older,prod),true);
  assert.equal(f.writes.length,1);
  assert.equal(f.writes[0].query.environment,'production');
+ assert.equal(f.writes[0].query.accountId,account);
+ assert.equal(f.writes[0].query.sku,'B-PREM');
  assert.equal(f.writes[0].query.lockKey,prod.legacy);
  assert.deepEqual(f.writes[0].query['eventIds.0'],{$exists:false});
  assert.equal(older.lockKey,undefined);
