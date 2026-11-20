@@ -4,7 +4,7 @@ const mongoose=require('mongoose');
 const gateway=require('../services/ilumaGatewayClient');
 const {localStatusFromGatewayLookup}=require('../services/gatewayBillingProtocol');
 const OPEN=Object.freeze(['creating','pending','redirect','unknown']);
-const STAGE=()=>process.env.APP_ENV==='staging'&&gateway.configured();
+const READY=()=>['staging','production'].includes(process.env.APP_ENV)&&gateway.configured();
 let started=false,running=false;
 
 /**
@@ -16,7 +16,7 @@ async function reconcileOne(row,now=new Date()){
  const Model=require('../models/BroadcasterBillingOrder');
  const cutoff=new Date(+now-60000);
  const claim=await Model.findOneAndUpdate({
-  _id:row._id,environment:'staging',status:{$in:OPEN},
+  _id:row._id,environment:process.env.APP_ENV,status:{$in:OPEN},
   $or:[{gatewayLastCheckedAt:null},{gatewayLastCheckedAt:{$lte:cutoff}}]
  },{$set:{gatewayLastCheckedAt:now}},{new:true}).lean();
  if(!claim)return 'busy';
@@ -32,7 +32,7 @@ async function reconcileOne(row,now=new Date()){
    lastErrorCode:null
   }};
   if(next==='failed'||next==='canceled')change.$unset={lockKey:''};
-  await Model.updateOne({_id:claim._id,environment:'staging',
+  await Model.updateOne({_id:claim._id,environment:process.env.APP_ENV,
     status:{$in:OPEN},gatewayLastCheckedAt:now},change);
   return next;
  }catch(error){
@@ -42,7 +42,7 @@ async function reconcileOne(row,now=new Date()){
   if(confirmedAbsent){
    // An authenticated read-only Gateway 404 may release a stale intent.
    // Unknown/timeout/5xx outcomes NEVER release the lock.
-   await Model.updateOne({_id:claim._id,environment:'staging',
+   await Model.updateOne({_id:claim._id,environment:process.env.APP_ENV,
     status:{$in:['creating','pending','unknown']},
     gatewayPaymentId:{$exists:false},gatewayOrderId:{$exists:false},
     gatewayLastCheckedAt:now},{
@@ -57,13 +57,13 @@ async function reconcileOne(row,now=new Date()){
  }
 }
 async function runOnce(now=new Date()){
- if(!STAGE()||mongoose.connection.readyState!==1||running)return 0;
+ if(!READY()||mongoose.connection.readyState!==1||running)return 0;
  running=true;
  try{
   const Model=require('../models/BroadcasterBillingOrder');
   const rows=await Model.find({
-   environment:'staging',status:{$in:OPEN},
-   createdAt:{$gte:new Date(+now-14*86400000),$lte:new Date(+now-30000)},
+   environment:process.env.APP_ENV,status:{$in:OPEN},
+   createdAt:{$lte:new Date(+now-30000)},
    $or:[{gatewayLastCheckedAt:null},
     {gatewayLastCheckedAt:{$lte:new Date(+now-60000)}}]
   }).sort({gatewayLastCheckedAt:1,createdAt:1}).limit(8).lean();
@@ -76,7 +76,7 @@ async function runOnce(now=new Date()){
  }finally{running=false;}
 }
 function start(){
- if(started||!STAGE())return;
+ if(started||!['staging','production'].includes(process.env.APP_ENV))return;
  started=true;
  cron.schedule('* * * * *',()=>{
   runOnce().catch(error=>console.warn('[BROADCASTER BILLING] Recovery scan deferred',
