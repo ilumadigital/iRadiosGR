@@ -220,3 +220,22 @@ test('production audit uses production-only environment filter for ledgers', asy
   assert.equal(f.calls.queries[1].environment,'production');
   assert.equal(f.calls.queries[2].environment,undefined);
 });
+
+test('production terminal paid checkout with leftover lock is never auto-released', async () => {
+  configure(true);
+  const paid=fixture(listener({status:'paid',paidAt:NOW}));
+  const out=await paid.inspect('listener',true);
+  assert.equal(out.state,'REVIEW');
+  assert.equal(out.reason,'TERMINAL_FINANCIAL_RECONCILIATION_REQUIRED');
+  assert.equal(paid.calls.writes,0);
+  assert.ok(paid.row.lockKey);
+  configure(false);
+});
+test('production contradictory signed event on a failed terminal lock requires review', async () => {
+  configure(true);
+  const item=fixture(broadcaster({status:'failed',eventIds:['signed-event']}));
+  const out=await item.inspect('broadcaster',true);
+  assert.equal(out.reason,'TERMINAL_FINANCIAL_RECONCILIATION_REQUIRED');
+  assert.equal(item.calls.writes,0);
+  configure(false);
+});
