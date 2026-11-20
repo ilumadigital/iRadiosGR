@@ -12,19 +12,19 @@ const tone={
 };
 export default function AdminSandboxPayments({API_URL='/api'}){
  const [rows,setRows]=useState([]),[busy,setBusy]=useState(true);
- const [gatewayEnv,setGatewayEnv]=useState('staging');
+ const [gatewayEnv,setGatewayEnv]=useState(null);
  const [error,setError]=useState(''),[selected,setSelected]=useState(null);
  const [filter,setFilter]=useState('all');
  const load=useCallback(async()=>{
   setBusy(true);setError('');
   try{
-   const res=await fetch(API_URL+'/admin/billing/sandbox-orders?limit=100',{
+   const res=await fetch(API_URL+'/admin/billing/orders?limit=100',{
     headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},
     cache:'no-store'});
    const data=await res.json().catch(()=>({}));
    if(!res.ok)throw Error(data.error||'Οι πληρωμές Gateway δεν φορτώθηκαν.');
    setRows(data.orders||[]);
-   setGatewayEnv(data.environment==='production'?'production':'staging');
+   setGatewayEnv(data.environment==='production'?'production':data.environment==='staging'?'staging':null);
   }catch(e){setError(e.message);}
   finally{setBusy(false);}
  },[API_URL]);
@@ -43,7 +43,7 @@ export default function AdminSandboxPayments({API_URL='/api'}){
   </div>
   <div className="my-6 flex items-center gap-3 text-xs text-zinc-400 border border-[#ccff00]/20 bg-[#ccff00]/5 rounded-xl p-4">
    <ShieldCheck size={18} className="text-[#ccff00] shrink-0"/>
-   {gatewayEnv==='production'?'Πραγματικές χρεώσεις':'Δοκιμαστικές συναλλαγές'} · Οι πληρωμές επιβεβαιώνονται αποκλειστικά από υπογεγραμμένο Gateway webhook. Οι αυτόματες ανανεώσεις εξαρτώνται από την ξεχωριστή ενεργοποίηση του μηχανισμού τους.
+   {gatewayEnv==='production'?'Πραγματικές χρεώσεις':gatewayEnv==='staging'?'Δοκιμαστικές συναλλαγές':'Η κατάσταση περιβάλλοντος δεν έχει επιβεβαιωθεί'} · Οι πληρωμές επιβεβαιώνονται αποκλειστικά από υπογεγραμμένο Gateway webhook. Οι αυτόματες ανανεώσεις εξαρτώνται από την ξεχωριστή ενεργοποίηση του μηχανισμού τους.
   </div>
   {error&&<p role="alert" className="text-red-300 p-4 rounded-xl border border-red-500/30">{error}</p>}
   <div className="flex gap-3 items-center mb-4">
@@ -91,7 +91,7 @@ export default function AdminSandboxPayments({API_URL='/api'}){
         </div>)}</div>}
       </td></tr>}
      </React.Fragment>)}
-    {items.length===0&&<tr><td colSpan={6} className="p-10 text-center text-zinc-500">Δεν υπάρχουν δοκιμαστικές συναλλαγές με αυτά τα φίλτρα.</td></tr>}
+    {items.length===0&&<tr><td colSpan={6} className="p-10 text-center text-zinc-500">Δεν υπάρχουν συναλλαγές με αυτά τα φίλτρα.</td></tr>}
     </tbody>
    </table>
   </div>}
