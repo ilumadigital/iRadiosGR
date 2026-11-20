@@ -5,7 +5,7 @@ const mongoose=require('mongoose');
 const schema=new mongoose.Schema({
  accountId:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true,index:true},
  sku:{type:String,enum:['L-PREM','L-WINBACK-199'],required:true},
- environment:{type:String,enum:['staging'],required:true,default:'staging',immutable:true},
+ environment:{type:String,enum:['staging','production'],required:true,default:()=>process.env.APP_ENV,immutable:true},
  amountCents:{type:Number,required:true,enum:[199,399],immutable:true},
  currency:{type:String,enum:['EUR'],default:'EUR',immutable:true},
  requestKey:{type:String,required:true,unique:true,immutable:true},

@@ -28,9 +28,10 @@ test('application errors continue to Express and successful uncertain orders rem
 });
 test('Gateway transport has one request per operation and never retries uncertain POST',async()=>{
  const previous=https.request,old={};
- for(const name of ['APP_ENV','IRADIOS_GATEWAY_ENV','IRADIOS_BILLING_ENABLED','ILUMA_GATEWAY_PROD_KEY','ILUMA_GATEWAY_PROD_SECRET'])old[name]=process.env[name];
- Object.assign(process.env,{APP_ENV:'staging',IRADIOS_GATEWAY_ENV:'production',
-  IRADIOS_BILLING_ENABLED:'1',ILUMA_GATEWAY_PROD_KEY:'ilg_'+'a'.repeat(48),
+ for(const name of ['APP_ENV','IRADIOS_GATEWAY_ENV','IRADIOS_BILLING_ENABLED','IRADIOS_PRODUCTION_CUTOVER_APPROVED','ILUMA_GATEWAY_PROD_KEY','ILUMA_GATEWAY_PROD_SECRET'])old[name]=process.env[name];
+ Object.assign(process.env,{APP_ENV:'production',IRADIOS_GATEWAY_ENV:'production',
+  IRADIOS_BILLING_ENABLED:'1',IRADIOS_PRODUCTION_CUTOVER_APPROVED:'1',
+  ILUMA_GATEWAY_PROD_KEY:'ilg_'+'a'.repeat(48),
   ILUMA_GATEWAY_PROD_SECRET:'b'.repeat(64)});
  try{
   for(const scenario of ['http','timeout','aborted','json']){

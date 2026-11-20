@@ -30,6 +30,9 @@ const schema=new mongoose.Schema({
  rateModel:{type:String,enum:['legacy_cpm','v2_event'],default:'legacy_cpm'},
  rateCardSnapshot:{type:mongoose.Schema.Types.Mixed,default:null},
  currency:{type:String,enum:['EUR'],default:'EUR'},
+ // Original signed Gateway tenant, immutable; copied stage lots stay non-spendable on play.
+ environment:{type:String,enum:['staging','production'],required:true,
+  default:()=>process.env.APP_ENV,immutable:true},
  source:{type:String,enum:['nexi_verified','admin_complimentary'],default:'nexi_verified'},
  paidAt:{type:Date,required:true}
 },{timestamps:true});

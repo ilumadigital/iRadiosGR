@@ -1,0 +1,49 @@
+name: Production readiness — static and tenant isolation
+on:
+  push:
+    branches:
+      - main
+      - 'feature/production-parallel-stack-*'
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  tenant-isolation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate production and staging isolation
+        run: node ops/check-production-split.test.cjs
+      - name: Check production deployment scripts
+        run: |
+          bash -n ilumaprod.sh ops/deploy-prod.sh ops/snapshot-stage-for-prod.sh ops/restore-empty-prod-snapshot.sh ops/prepare-prod-mongo-user.sh ops/verify-prod-data-copy.sh ops/init-prod-mongo-secrets.sh ops/start-prod-mongo.sh
+          python3 -m py_compile ops/check-prod-env.py
+          test "$(git ls-files -s -- ilumaprod.sh | awk '{print $1}')" = 100755
+          test "$(git ls-files -s -- ops/deploy-prod.sh | awk '{print $1}')" = 100755
+      - name: Check critical backend JavaScript
+        run: |
+          for src in backend/config/db.js backend/server.js \
+            backend/services/gatewayEnvironment.js backend/services/billingEntitlements.js \
+            backend/controllers/gatewayBillingController.js backend/controllers/broadcasterBillingController.js \
+            backend/models/BillingOrder.js backend/models/BroadcasterBillingOrder.js \
+            backend/routes/billingCheckoutRoutes.js backend/utils/myMailer.js \
+            backend/utils/premiumBillingEmailScheduler.js \
+            backend/utils/broadcasterBillingEmailScheduler.js \
+            backend/services/advertisingCampaignMailScheduler.js; do
+              node --check "$src"
+          done
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build production frontend
+        run: |
+          npm --prefix frontend ci --legacy-peer-deps
+          VITE_APP_ENV=production npm --prefix frontend run build

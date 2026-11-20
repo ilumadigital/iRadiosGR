@@ -58,10 +58,15 @@ exports.getActiveBanners=async(req,res)=>{
       .select('_id createdByRole').lean():[];
     const paidIds=new Set(campaigns.filter(c=>c.createdByRole==='agency')
       .map(c=>String(c._id)));
-    res.json(eligible.map(b=>({
+    // A paid banner cannot be displayed for free when the visitor has no
+    // verified server-side geo or cannot obtain a qualified financial ticket.
+    const paidReady=enabled()?req.adGeoTrusted===true:false;
+    const deliverable=enabled()&&!paidReady?
+      eligible.filter(b=>!paidIds.has(String(b.campaignId))):eligible;
+    res.json(deliverable.map(b=>({
       ...b,
       serverGeoEligible:Boolean(b.campaignId)&&
-        (paidPlacementPreviewEnabled()||enabled()&&paidIds.has(String(b.campaignId))),
+        (paidPlacementPreviewEnabled()||paidReady&&paidIds.has(String(b.campaignId))),
       paidDeliveryRequired:enabled()&&paidIds.has(String(b.campaignId))
     })));
   }catch(error){

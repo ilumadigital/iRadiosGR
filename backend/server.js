@@ -9,16 +9,19 @@ const bcrypt = require('bcryptjs');
 // --- 1. CONFIG & DB ---
 const connectDB = require('./config/db');
 connectDB(); // Σύνδεση στη MongoDB
-// Real listener alerts are event-driven and never run in isolated staging.
-require('./utils/listenerNotificationScheduler').start();
+// Before cutover the candidate production database is read-only and no jobs
+// may mutate it or contact external email/push services.
+const productionActivated=()=>process.env.APP_ENV!=='production'||
+ process.env.IRADIOS_PRODUCTION_CUTOVER_APPROVED==='1';
+if(productionActivated())require('./utils/listenerNotificationScheduler').start();
 // Staging Premium billing emails use Mailpit; never enable the production
 // general notification dispatcher from this isolated financial scheduler.
-require('./utils/premiumBillingEmailScheduler').start();
+if(productionActivated())require('./utils/premiumBillingEmailScheduler').start();
 // Recover lost Broadcaster checkout responses using signed GET only.
 // This worker cannot create provider orders, MIT payments or grant entitlements.
-require('./utils/broadcasterCheckoutRecoveryScheduler').start();
+if(productionActivated())require('./utils/broadcasterCheckoutRecoveryScheduler').start();
 // Isolated broadcaster transactional outbox, staging -> Mailpit only.
-require('./utils/broadcasterBillingEmailScheduler').start();
+if(productionActivated())require('./utils/broadcasterBillingEmailScheduler').start();
 
 // --- 2. IMPORT MODELS & CONTROLLERS ---
 const User = require('./models/User');
@@ -34,10 +37,20 @@ const { injectStationSeo, injectGenreSeo, injectRegionSeo, injectMapSeo, injectH
 
 // --- 3. INIT APP ---
 const app = express();
+// A candidate production stack is safe to boot before DNS and final data sync.
+// No POST/PUT/PATCH/DELETE may mutate the imported snapshot until approved.
+// No payments, webhooks, logins, admin writes or user actions during dry-run.
+if(process.env.APP_ENV==='production'&&!productionActivated()){
+ app.use((req,res,next)=>{
+  if(['GET','HEAD','OPTIONS'].includes(req.method))return next();
+  res.setHeader('Cache-Control','no-store');
+  return res.status(503).json({code:'PRODUCTION_CUTOVER_PENDING'});
+ });
+}
 
 // Staging-only defense: unauthenticated access to admin APIs must not expose
 // imported production account and billing records.
-if (process.env.APP_ENV === 'staging') {
+if (['staging','production'].includes(process.env.APP_ENV)) {
   const { protect } = require('./utils/authMiddleware');
   const { authorizeRoles } = require('./utils/roleMiddleware');
   app.use('/api/admin', protect, authorizeRoles('admin'));
@@ -195,7 +208,7 @@ app.use('/api', require('./routes/advertisingWizardRoutes'));
 // Admin-only opted-in shadow QA stays independent of the v2 paid ledger.
 app.use('/api', require('./routes/advertisingQualificationRoutes'));
 app.use('/api', require('./routes/advertisingV2Routes'));
-require('./services/advertisingV2Ledger').startSweeper();
+if(productionActivated())require('./services/advertisingV2Ledger').startSweeper();
 app.use('/api/agency', agencyRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/stats', statsRoutes);
@@ -310,7 +323,7 @@ const cleanupExpiredItems = async () => {
   }
 };
 
-if (process.env.APP_ENV !== 'staging') {
+if (process.env.APP_ENV !== 'staging' && productionActivated()) {
   cron.schedule('0 * * * *', cleanupExpiredItems);
 } else {
   console.log('[STAGING] Expired-item cleanup is disabled to preserve imported snapshot data.');
@@ -335,7 +348,8 @@ const io = new Server(server, {
   path: '/api/socket.io',
   // The socket handlers contain legacy unauthenticated broadcasts and user-room
   // operations; do not expose them on a public clone of live user accounts.
-  allowRequest: (req, callback) => callback(null, process.env.APP_ENV !== 'staging')
+  allowRequest: (_req, callback) => callback(null,
+    process.env.APP_ENV === 'production' && process.env.LEGACY_SOCKET_ENABLED === '1')
 });
 
 const activeListeners = {}; 
@@ -556,7 +570,9 @@ const fixDatabasePasswords = async () => {
 };
 
 server.listen(PORT, '0.0.0.0', async () => {
-  await fixDatabasePasswords();
-  await cleanupExpiredItems(); 
+  // Do not perform implicit password/verification migrations on live users.
+  // A production data migration must be audited and run explicitly.
+  if(process.env.APP_ENV!=='production')await fixDatabasePasswords();
+  if(productionActivated())await cleanupExpiredItems(); 
   console.log(`🚀 iRadios Server up: http://0.0.0.0:${PORT}`);
 });

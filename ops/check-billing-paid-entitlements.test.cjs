@@ -6,7 +6,10 @@ const assert=require('node:assert/strict');
 const Module=require('node:module');
 const original=Module._load;
 let paidFound=false,requestedFilter=null,grants=[];
-const rows={exists:async filter=>{requestedFilter=filter;return paidFound?{_id:'some-payment'}:null;}};
+const rows={exists:async filter=>{requestedFilter=filter;
+ // The synthetic paid document belongs to staging; production queries cannot see it.
+ return paidFound&&filter.environment==='staging'?{_id:'some-staging-payment'}:null;
+}};
 const gift={find:()=>({lean:async()=>grants})};
 Module._load=function(name,parent,isMain){
  if(String(parent?.filename||'').endsWith('/backend/services/billingEntitlements.js')){
@@ -57,7 +60,8 @@ test('Production never projects a paid staging order even if records were copied
  process.env.APP_ENV='production';paidFound=true;grants=[];requestedFilter=null;
  try{
   assert.deepEqual(await service.accountRights(listener,NOW),[]);
-  assert.equal(requestedFilter,null,'No staging payment lookup is permitted outside staging');
+  assert.equal(requestedFilter.environment,'production',
+   'Production checks production-scoped paid orders and never reads staging entitlements');
  }finally{
   process.env.APP_ENV=priorEnv;paidFound=false;
  }

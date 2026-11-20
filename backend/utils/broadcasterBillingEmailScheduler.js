@@ -9,11 +9,12 @@ const gateway=require('../services/ilumaGatewayClient');
 const {broadcasterBillingEmail}=require('./broadcasterBillingEmailTemplates');
 const {sendEmail}=require('./myMailer');
 const {isSubscription,isBoost}=require('../services/broadcasterPurchaseRules');
-const staging=()=>process.env.APP_ENV==='staging';
+const mailEnabled=()=>process.env.APP_ENV==='staging'||
+ (process.env.APP_ENV==='production'&&process.env.PRODUCTION_BILLING_EMAILS_ENABLED==='1');
 const DAY=86400000;
 let started=false,running=false,readyIndexes=null;
 function ready(){
- if(!staging())return Promise.resolve(false);
+ if(!mailEnabled())return Promise.resolve(false);
  if(!readyIndexes)readyIndexes=Outbox.createIndexes().then(()=>true)
    .catch(e=>{readyIndexes=null;throw e;});
  return readyIndexes;
@@ -26,7 +27,7 @@ function dispatchKey(kind,orderId,suffix=''){
  return 'broadcaster-mail:'+kind+':'+String(orderId)+(suffix?':'+suffix.replace(/[:.]/g,'-'):'');
 }
 async function enqueue(kind,order,suffix=''){
- if(!staging()||!order||order.environment!=='staging'||
+ if(!mailEnabled()||!order||order.environment!==process.env.APP_ENV||
    order.status!=='paid'||!order.accountId)return false;
  if(kind==='renewed'&&order.billingOrigin!=='automatic_renewal')return false;
  if(kind==='welcome'&&order.billingOrigin==='automatic_renewal')return false;
@@ -40,11 +41,11 @@ async function enqueue(kind,order,suffix=''){
  }catch(e){if(e.code===11000)return false;throw e;}
 }
 async function enqueuePaid(order){
- if(!staging()||!order||order.status!=='paid')return false;
+ if(!mailEnabled()||!order||order.status!=='paid')return false;
  return enqueue(order.billingOrigin==='automatic_renewal'?'renewed':'welcome',order);
 }
 async function enqueueFailedRenewal(order,paymentId){
- if(!staging()||!order||order.status!=='paid'||
+ if(!mailEnabled()||!order||order.status!=='paid'||
    !isSubscription(order.sku)||
    !/^[a-f0-9]{32}$/.test(paymentId||''))return false;
  // One service notification per actual provider-declined MIT payment.
@@ -52,24 +53,24 @@ async function enqueueFailedRenewal(order,paymentId){
  return enqueue('failed',order,paymentId);
 }
 async function enqueueCancellation(user,{sku,stationId=null,recurring}){
- if(!staging()||!user||recurring?.state!=='cancelled'||!recurring.cancelled_at)return false;
+ if(!mailEnabled()||!user||recurring?.state!=='cancelled'||!recurring.cancelled_at)return false;
  const cancelled=new Date(recurring.cancelled_at);
  if(!Number.isFinite(+cancelled))return false;
  const latest=await Order.findOne({
   accountId:user._id,sku,resourceId:stationId||null,
-  environment:'staging',status:'paid'
+  environment:process.env.APP_ENV,status:'paid'
  }).sort({periodEndsAt:-1}).lean();
  if(!latest)return false;
  return enqueue('cancelled',latest,cancelled.toISOString());
 }
 async function latestCycle(order){
  return Order.findOne({accountId:order.accountId,sku:order.sku,
-  resourceId:order.resourceId||null,environment:'staging',status:'paid'
+  resourceId:order.resourceId||null,environment:process.env.APP_ENV,status:'paid'
  }).sort({periodEndsAt:-1,paidAt:-1}).lean();
 }
 async function scan(now=new Date()){
- if(!staging()||mongoose.connection.readyState!==1)return 0;
- const rows=await Order.find({environment:'staging',status:'paid',
+ if(!mailEnabled()||mongoose.connection.readyState!==1)return 0;
+ const rows=await Order.find({environment:process.env.APP_ENV,status:'paid',
   periodEndsAt:{$gte:new Date(+now-2*DAY),$lte:new Date(+now+DAY)}})
   .sort({periodEndsAt:-1}).limit(350).lean();
  let count=0;
@@ -99,7 +100,7 @@ async function scan(now=new Date()){
 }
 async function template(row,user,now){
  const order=row.orderId?await Order.findById(row.orderId).lean():null;
- if(!order||order.status!=='paid'||order.environment!=='staging'||
+ if(!order||order.status!=='paid'||order.environment!==process.env.APP_ENV||
    String(order.accountId)!==String(user._id)||order.sku!==row.sku||
    String(order.resourceId||'')!==String(row.resourceId||''))return null;
  if(row.kind==='renewed'&&order.billingOrigin!=='automatic_renewal')return null;
@@ -138,7 +139,7 @@ async function template(row,user,now){
   amountCents:order.amountCents,periodEndsAt:order.periodEndsAt,cancelledAt});
 }
 async function deliver(now=new Date(),max=20){
- if(!staging()||mongoose.connection.readyState!==1)return 0;
+ if(!mailEnabled()||mongoose.connection.readyState!==1)return 0;
  await ready();let sent=0;
  const rows=await Outbox.find({status:'pending',dueAt:{$lte:now},attempts:{$lt:5}})
   .sort({createdAt:1}).limit(Math.max(1,Math.min(40,max))).lean();
@@ -179,12 +180,12 @@ async function deliver(now=new Date(),max=20){
  return sent;
 }
 async function run(now=new Date()){
- if(running||!staging()||mongoose.connection.readyState!==1)return;
+ if(running||!mailEnabled()||mongoose.connection.readyState!==1)return;
  running=true;
  try{
   await ready();
   // Recover paid hooks if the server died after the MongoDB paid update.
-  const recent=await Order.find({environment:'staging',status:'paid',
+  const recent=await Order.find({environment:process.env.APP_ENV,status:'paid',
    paidAt:{$gte:new Date(+now-3*DAY),$lte:now}})
    .sort({paidAt:-1}).limit(200).lean();
   for(const order of recent)await enqueuePaid(order);
@@ -193,14 +194,14 @@ async function run(now=new Date()){
  finally{running=false;}
 }
 function start(){
- if(started||!staging())return;
+ if(started||!mailEnabled())return;
  started=true;
  cron.schedule('*/5 * * * *',()=>void run());
  mongoose.connection.once('connected',()=>void run());
  if(mongoose.connection.readyState===1)void run();
 }
 function kick(){
- if(!staging())return;
+ if(!mailEnabled())return;
  void deliver().catch(e=>console.warn('[BROADCASTER MAIL] Kick deferred',e.code||e.message));
 }
 module.exports={start,run,enqueue,enqueuePaid,enqueueFailedRenewal,enqueueCancellation,scan,deliver,kick,template,

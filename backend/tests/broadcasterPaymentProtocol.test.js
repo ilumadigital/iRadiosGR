@@ -1,6 +1,19 @@
 'use strict';
-const test=require('node:test');
+const {test,before,after}=require('node:test');
 const assert=require('node:assert/strict');
+// These signed-event fixtures are staging events. Never weaken the application
+// tenant boundary to make a test implicitly default to production or staging.
+const saved={APP_ENV:process.env.APP_ENV,IRADIOS_GATEWAY_ENV:process.env.IRADIOS_GATEWAY_ENV};
+before(()=>{
+ process.env.APP_ENV='staging';
+ process.env.IRADIOS_GATEWAY_ENV='staging';
+});
+after(()=>{
+ for(const [key,value] of Object.entries(saved)){
+  if(value===undefined)delete process.env[key];
+  else process.env[key]=value;
+ }
+});
 const {gatewayPurchase,broadcasterEventValid,safeBroadcasterOrder}=
  require('../services/broadcasterPaymentProtocol');
 const base={

@@ -46,7 +46,7 @@ exports.getPublicAds=async(req,res)=>{
     res.set('Cache-Control','no-store, private');
     const ads=(await Ad.find(activeCampaignQuery()).sort({createdAt:1}).lean())
       .filter(ad=>matchesDeliveryGeo(ad,req));
-    if(!isStage())return res.json((await filterFundedCreatives(ads)).map(publicAd));
+    if(!isStage()&&!paidLedger.enabled())return res.json([]);
     // Never offer listeners an unplayable spot (e.g. imported missing files).
     const approvedAds=await filterFundedCreatives(ads);
     const media=await Promise.all(approvedAds.map(ad=>localAudioFile(ad.audioUrl)));
@@ -86,7 +86,7 @@ exports.getPublicAds=async(req,res)=>{
 // Public streaming serves ONLY an active, local, stage-tagged spot. The same
 // endpoint supports browser Range requests and Safari media preloading.
 exports.streamPublicAudio=async(req,res)=>{
-  if(!isStage()||!mongoose.isValidObjectId(req.params.id))
+  if((!isStage()&&!paidLedger.enabled())||!mongoose.isValidObjectId(req.params.id))
     return res.status(404).json({error:'Not found'});
   try {
     const ad=await Ad.findById(req.params.id).select(

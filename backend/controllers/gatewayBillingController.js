@@ -16,15 +16,16 @@ const {verifyWebhookHeaders,validateGatewayPayment,nextMonthlyPeriod,safeOrderSt
 
 const {gatewayRoute:safe}=require('../services/gatewayRoute');
 const CLIENT_KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
-const permitted=()=>process.env.APP_ENV==='staging'&&gateway.configured();
+const billingEnv=()=>require('../services/gatewayEnvironment').mode();
+const permitted=()=>gateway.configured();
 const accountId=req=>String(req.user?._id||'');
 const display=row=>safeOrderStatus(row);
 const PREMIUM_SKUS=['L-PREM',PROMO_SKU];
 async function winbackForUser(user,now=new Date()){
  if(!permitted()||!user||user.role!=='user'||user.isVerified!==true)
-  return {eligible:false,reason:'staging_verified_listener_only'};
+  return {eligible:false,reason:'verified_listener_only'};
  const latest=await BillingOrder.findOne({
-  accountId:user._id,sku:{$in:PREMIUM_SKUS},environment:'staging',status:'paid'
+  accountId:user._id,sku:{$in:PREMIUM_SKUS},environment:billingEnv(),status:'paid'
  }).sort({periodEndsAt:-1,paidAt:-1}).lean();
  const hasPremium=await hasAccountRight(user,'listener.premium');
  const local=winbackPolicy({lastPaid:latest,hasPremium,now});
@@ -57,7 +58,7 @@ async function winbackStatus(req,res){
 async function currentRenewal(user,now=new Date()){
  if(!user||user.role!=='user')return null;
  const prior=await BillingOrder.findOne({
-  accountId:user._id,sku:{$in:PREMIUM_SKUS},environment:'staging',status:'paid'
+  accountId:user._id,sku:{$in:PREMIUM_SKUS},environment:billingEnv(),status:'paid'
  }).sort({paidAt:-1,createdAt:-1}).lean();
  const notice=paidRenewalState(prior,now);
  if(!notice)return null;
@@ -72,7 +73,7 @@ async function currentRenewal(user,now=new Date()){
  return notice;
 }
 async function recurringStatus(req,res){
- if(!permitted())return res.status(503).json({error:'Staging billing unavailable'});
+ if(!permitted())return res.status(503).json({error:'Billing unavailable'});
  if(req.user?.role!=='user')return res.status(403).json({error:'Listener account required'});
  const recurring=await gateway.recurringStatus(req.user);
  // No provider contract ID, card number or gateway secrets in this response.
@@ -160,7 +161,7 @@ async function checkout(req,res){
   return res.status(409).json({code:'ALREADY_PREMIUM',
    error:'Το Premium είναι ενεργό. Μπορείς να ανανεώσεις μέσα στις τελευταίες 24 ώρες πριν τη λήξη.'});
  const previousPaid=await BillingOrder.findOne({
-  accountId:req.user._id,sku:{$in:PREMIUM_SKUS},environment:'staging',status:'paid'
+  accountId:req.user._id,sku:{$in:PREMIUM_SKUS},environment:billingEnv(),status:'paid'
  }).sort({paidAt:-1,createdAt:-1}).select('_id').lean();
  // An already-enrolled recurring mandate may create the next paid period
  // without browser checkout. Never charge manually in parallel with it.
@@ -224,14 +225,14 @@ async function checkout(req,res){
 }
 
 async function savedCardStatus(req,res){
- if(!permitted())return res.status(503).json({error:'Nexi Sandbox unavailable'});
+ if(!permitted())return res.status(503).json({error:'Gateway unavailable'});
  if(req.user?.role!=='user')return res.status(403).json({error:'Listener required'});
  const result=await gateway.savedCardStatus(req.user);
  return res.json({paymentMethod:result});
 }
 
 async function revokeSavedCard(req,res){
- if(!permitted())return res.status(503).json({error:'Nexi Sandbox unavailable'});
+ if(!permitted())return res.status(503).json({error:'Gateway unavailable'});
  if(req.user?.role!=='user')return res.status(403).json({error:'Listener required'});
  if(req.body&&Object.keys(req.body).length>0)
   return res.status(400).json({error:'Δεν απαιτούνται στοιχεία κάρτας.'});
@@ -240,10 +241,10 @@ async function revokeSavedCard(req,res){
 }
 
 async function billingOverview(req,res){
- if(!permitted())return res.status(503).json({error:'Staging billing unavailable'});
+ if(!permitted())return res.status(503).json({error:'Billing unavailable'});
  if(req.user?.role!=='user')return res.status(403).json({error:'Listener account required'});
  const [orders,recurring,payments,paymentMethod]=await Promise.all([
-  BillingOrder.find({accountId:req.user._id,sku:{$in:PREMIUM_SKUS},environment:'staging'})
+  BillingOrder.find({accountId:req.user._id,sku:{$in:PREMIUM_SKUS},environment:billingEnv()})
     .sort({createdAt:-1}).limit(50).lean(),
   gateway.recurringStatus(req.user),
   gateway.paymentHistory(req.user),
@@ -256,7 +257,7 @@ async function billingOverview(req,res){
  });
 }
 async function cancelAutomaticRenewal(req,res){
- if(!permitted())return res.status(503).json({error:'Staging billing unavailable'});
+ if(!permitted())return res.status(503).json({error:'Billing unavailable'});
  if(req.user?.role!=='user')return res.status(403).json({error:'Listener account required'});
  if(req.body&&Object.keys(req.body).length>0)
   return res.status(400).json({error:'No payment or contract ID accepted'});
@@ -319,7 +320,7 @@ async function readOrder(req,res){
    if(error.code==='GATEWAY_HTTP_404' && ageMs>120000 &&
       !row.gatewayPaymentId && !row.gatewayOrderId){
     const failed=await BillingOrder.findOneAndUpdate({
-     _id:row._id,accountId:req.user._id,environment:'staging',
+     _id:row._id,accountId:req.user._id,environment:billingEnv(),
      status:{$in:['creating','pending','unknown']},
      gatewayPaymentId:{$exists:false},gatewayOrderId:{$exists:false}
     },{$set:{status:'failed',lastErrorCode:'GATEWAY_PAYMENT_NOT_CREATED'},
@@ -338,7 +339,7 @@ async function readOrder(req,res){
 
 async function listAdminOrders(req,res){
  const limit=Math.max(1,Math.min(100,Number.parseInt(req.query.limit,10)||50));
- const rows=await BillingOrder.find({environment:'staging'}).sort({createdAt:-1})
+ const rows=await BillingOrder.find({environment:billingEnv()}).sort({createdAt:-1})
   .limit(limit).populate('accountId','email username').lean();
  return res.json({orders:rows.map(row=>({
   ...display(row),
@@ -352,8 +353,8 @@ async function listAdminOrders(req,res){
 }
 
 async function webhook(req,res){
- if(process.env.APP_ENV!=='staging')
-  return res.status(503).json({error:'Staging webhook only'});
+ if(!permitted())
+  return res.status(503).json({error:'Gateway webhook environment unavailable'});
  const raw=req.body;
  const verified=verifyWebhookHeaders({
   // A legacy Sandbox webhook still needs HMAC verification during offline
@@ -394,7 +395,7 @@ async function webhook(req,res){
   if(!user||user.role!=='user'||user.isVerified!==true)
    return res.status(422).json({error:'MIT account does not exist'});
   const old=await BillingOrder.findOne({
-   accountId:user._id,sku:{$in:PREMIUM_SKUS},environment:'staging',status:'paid',
+   accountId:user._id,sku:{$in:PREMIUM_SKUS},environment:billingEnv(),status:'paid',
    $or:[{autoRenewRequested:true},{billingOrigin:'automatic_renewal'}]
   }).sort({periodEndsAt:-1}).select('_id periodEndsAt').lean();
   if(!old)return res.status(503).json({error:'MIT enrollment confirmation pending'});
@@ -407,7 +408,7 @@ async function webhook(req,res){
   const result=await BillingOrder.findOneAndUpdate({
    gatewayPaymentId:event.payment_id
   },{$setOnInsert:{
-   accountId:user._id,sku:'L-PREM',environment:'staging',
+   accountId:user._id,sku:'L-PREM',environment:billingEnv(),
    amountCents:399,currency:'EUR',billingOrigin:'automatic_renewal',
    autoRenewRequested:true,renewalOfOrderId:old._id,
    requestKey:'iradios-stage-'+id+'-mit-'+event.payment_id,
@@ -425,7 +426,7 @@ async function webhook(req,res){
  }
  const lookup={gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
   amountCents:event.amount_cents,currency:'EUR',
-  sku:event.amount_cents===199?PROMO_SKU:'L-PREM',environment:'staging'};
+  sku:event.amount_cents===199?PROMO_SKU:'L-PREM',environment:billingEnv()};
  const order=await BillingOrder.findOne(lookup).select('_id accountId renewalOfOrderId status eventIds').lean();
  if(!order){
   // A webhook can race the initial gateway response. Retry with a NEW signed
@@ -442,7 +443,7 @@ async function webhook(req,res){
  if(event.event_type==='payment.paid'&&order.renewalOfOrderId){
   const previous=await BillingOrder.findOne({
    _id:order.renewalOfOrderId,accountId:order.accountId,
-   environment:'staging',sku:{$in:PREMIUM_SKUS},status:'paid'
+   environment:billingEnv(),sku:{$in:PREMIUM_SKUS},status:'paid'
   }).select('periodEndsAt').lean();
   periodStart=paidRenewalPeriod(confirmedAt,previous?.periodEndsAt);
  }

@@ -6,9 +6,10 @@ const {sendEmail}=require('../utils/myMailer');
 const {escapeHtml,actionButton}=require('../utils/emailDesign');
 let timer=null,working=false;
 const safe=value=>escapeHtml(String(value||''));
-const origin=()=>process.env.APP_PUBLIC_URL||'https://stage.iradios.gr';
+const origin=()=>process.env.FRONTEND_URL||process.env.APP_PUBLIC_URL||'https://stage.iradios.gr';
 async function enqueue({eventKey,kind,campaign,amountCents=0}){
- if(process.env.APP_ENV!=='staging')return false;
+ if(!(process.env.APP_ENV==='staging'||
+   (process.env.APP_ENV==='production'&&process.env.PRODUCTION_BILLING_EMAILS_ENABLED==='1')))return false;
  try{
   await MailEvent.updateOne({eventKey},{$setOnInsert:{
    eventKey,kind,campaignId:campaign._id,agencyId:campaign.agencyId,
@@ -82,11 +83,12 @@ async function deliver(event){
  for(const recipient of recipients){
   const outcome=await sendEmail({to:recipient,
    subject:'iRadios GR · '+template.subject+': '+campaign.title,html});
-  if(!outcome.success)throw Error('Mailpit delivery unavailable');
+  if(!outcome.success)throw Error('Mail transport unavailable');
  }
 }
 async function run(){
- if(working||process.env.APP_ENV!=='staging')return;
+ if(working||!(process.env.APP_ENV==='staging'||
+   (process.env.APP_ENV==='production'&&process.env.PRODUCTION_BILLING_EMAILS_ENABLED==='1')))return;
  working=true;
  try{
   for(let i=0;i<15;i++){
@@ -114,7 +116,8 @@ async function run(){
 }
 function kick(){run().catch(error=>console.error('[AD MAIL] Outbox retry',error.message));}
 function start(){
- if(timer||process.env.APP_ENV!=='staging')return;
+ if(timer||!(process.env.APP_ENV==='staging'||
+   (process.env.APP_ENV==='production'&&process.env.PRODUCTION_BILLING_EMAILS_ENABLED==='1')))return;
  timer=setInterval(kick,60000);timer.unref?.();kick();
 }
 module.exports={enqueue,kick,start};
