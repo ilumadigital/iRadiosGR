@@ -23,13 +23,16 @@ const dailyBudgetManager=require('../services/advertisingDailyBudgetManager');
 const {getAdvertisingPricing}=require('../services/advertisingPricingStore');
 const {validateAgencyGeo}=require('../services/agencyAdGeo');
 const gateway=require('../services/ilumaGatewayClient');
+const ledger=require('../services/advertisingV2Ledger');
+const {fundingReadScope}=require('../services/advertisingFundingEnvironment');
 const {ensureAdvertisingFinancialIndexes}=require('../services/advertisingFinancialIndexes');
 const {fromLot,aggregateBalances}=require('../services/advertisingBalances');
 const {activeCreativeTiers,evaluateBudgetAffordability}=
  require('../services/advertisingBudgetAffordability');
 const {allowUnfundedReview}=require('../services/advertisingStageQa');
-const stage=(req,res,next)=>process.env.APP_ENV==='staging'?next():
- res.status(503).json({error:'Advertising v2 is staging only'});
+const stage=(req,res,next)=>(process.env.APP_ENV==='staging'||
+ (process.env.APP_ENV==='production'&&ledger.enabled()))?next():
+ res.status(503).json({error:'Advertising v2 production readiness is disabled'});
 // Protect ONLY this router's private campaign/pricing/payment paths. The
 // listener v2 status/ticket/heartbeat/CTA/release handlers are mounted later
 // at /api and must remain available to guests under their own capability,
@@ -185,7 +188,8 @@ router.post('/advertising/campaigns/:id/quotes',async(req,res)=>{
   if(!campaign)return res.status(404).json({error:'Campaign not found'});
   const kind=req.body?.kind==='topup'?'topup':req.body?.kind==='initial'?'initial':null;
   if(!kind)throw Error('Invalid purchase kind');
-  const funded=await FundingLot.exists({campaignId:campaign._id});
+  const funded=await FundingLot.exists({campaignId:campaign._id,
+   ...fundingReadScope()});
   if((kind==='topup'&&!funded)||(kind==='initial'&&funded))
    throw Error('Invalid initial purchase/top-up sequence');
   const current=await pricing();
@@ -221,6 +225,9 @@ router.post('/advertising/quotes/:id/checkout',async(req,res)=>{
   return res.status(403).json({error:'Forbidden'});
  if(!gateway.configured())
   return res.status(503).json({error:'Τα Gateway credentials για το επιλεγμένο περιβάλλον δεν είναι διαθέσιμα.'});
+ if(process.env.APP_ENV==='production'&&
+    !(await ledger.financialReadiness()).acceptingTickets)
+  return res.status(503).json({error:'Production financial ledger not ready for prepaid advertising'});
  try{
   // Disabling the current tax/checkout policy also blocks old unconsumed quotes.
   // Their immutable price snapshots remain readable, but cannot charge Nexi.
@@ -401,7 +408,7 @@ router.get('/admin/advertising/campaigns/:id/delivery-check',async(req,res)=>{
   if(!campaign)return res.status(404).json({error:'Campaign not found'});
   const [owner,lots,banners,audios]=await Promise.all([
    User.findById(campaign.agencyId).select('role').lean(),
-   FundingLot.find({campaignId:campaign._id,source:'nexi_verified'})
+   FundingLot.find({campaignId:campaign._id,source:'nexi_verified',...fundingReadScope()})
     .select('campaignId source budgetNanos remainingNanos ratesMicros settlementMode settledEvents').lean(),
    BannerAd.find({campaignId:campaign._id}).lean(),
    Ad.find({campaignId:campaign._id}).lean()

@@ -10,6 +10,7 @@ const Campaign=require('../models/AdvertisingCampaign');
 const Audio=require('../models/Ad');
 const Banner=require('../models/BannerAd');
 const Lot=require('../models/AdvertisingFundingLot');
+const {fundingReadScope}=require('../services/advertisingFundingEnvironment');
 const Daily=require('../models/AdvertisingDailyBudget');
 const Event=require('../models/AdvertisingV2Event');
 const Ticket=require('../models/AdvertisingV2Reservation');
@@ -188,7 +189,8 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
   if(!campaign||!['admin','agency'].includes(req.user.role))
    return res.status(404).json({error:'Not found'});
   const [lots,daily,events,reservations,skips]=await Promise.all([
-   Lot.find({campaignId:campaign._id,source:'nexi_verified'}).lean(),
+   Lot.find({campaignId:campaign._id,source:'nexi_verified',
+    ...fundingReadScope()}).lean(),
    Daily.find({campaignId:campaign._id}).sort({day:-1}).limit(31).lean(),
    Event.aggregate([{$match:{campaignId:campaign._id}},
     {$group:{_id:{kind:'$kind',placement:'$placement',name:'$name'},

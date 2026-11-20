@@ -4,6 +4,7 @@
 // creatives in listener placements without debiting funds or changing receipts.
 const Campaign=require('../models/AdvertisingCampaign');
 const FundingLot=require('../models/AdvertisingFundingLot');
+const {fundingReadScope}=require('./advertisingFundingEnvironment');
 const User=require('../models/User');
 const {paidPlacementPreviewEnabled,affordablePaidPreview}=
  require('./advertisingStagePaidPreview');
@@ -25,6 +26,7 @@ async function liveEligibleCreatives(creatives,now){
   validDailyBudget(c.dailyBudgetCents,c.plannedBudgetCents)).map(c=>c._id);
  const [lots,dailies]=await Promise.all([
   FundingLot.find({campaignId:{$in:idsOk},source:'nexi_verified',
+   ...fundingReadScope(),
    budgetNanos:{$ne:null},remainingNanos:{$gt:0},rateModel:'v2_event',
    settlementMode:'mongo_transaction_v2'})
    .select('campaignId remainingNanos reservedNanos rateCardSnapshot').lean(),
@@ -138,6 +140,8 @@ async function filterFundedCreatives(creatives,now=new Date()){
   const permitted=await stageEligibleCreativeIds(creatives,now);
   return creatives.filter(ad=>!ad.campaignId||permitted.has(String(ad._id)));
  }
+ // No free legacy-ad fallback from an imported staging dataset on play.
+ if(process.env.APP_ENV==='production')return [];
  const permitted=await eligibleCampaignIds(creatives,now);
  return creatives.filter(ad=>!ad.campaignId||permitted.has(String(ad.campaignId)));
 }
