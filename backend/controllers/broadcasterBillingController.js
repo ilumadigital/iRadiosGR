@@ -13,6 +13,8 @@ const {hasAccountRight,hasStationRight}=require('../services/billingEntitlements
 const billingMail=require('../utils/broadcasterBillingEmailScheduler');
 const {ADDONS,isConflict,candidateAddons}=require('../services/broadcasterSubscriptionOverlap');
 const checkoutLease=require('../services/broadcasterCheckoutLease');
+const {lockScope,findExistingLocked,findIdempotent,releaseOrphanTerminalLock}=
+ require('../services/broadcasterCheckoutLockScope');
 const KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const ID=/^[a-f0-9]{24}$/i;
 const statusSet=new Set(['creating','pending','redirect','unknown']);
@@ -103,15 +105,17 @@ async function checkout(req,res){
  const account=String(req.user._id);
  const scopeId=product.scopeType==='station'?String(stationId):'account';
  const requestKey='iradios-bstage-'+account+'-'+key;
- const lockKey=account+':'+sku+':'+scopeId;
+ // Local lock is tenant-scoped. Gateway requestKey stays unchanged.
+ const scope=lockScope({environment:billingEnv(),accountId:account,sku,scopeId});
+ const lockKey=scope.scoped;
  const mustLease=isSubscription(sku);
  if(mustLease){
-  const acquired=await checkoutLease.acquire(req.user._id,requestKey);
+  const acquired=await checkoutLease.acquire(req.user._id,requestKey,{environment:scope.environment});
   if(!acquired)return res.status(409).json({code:'SUBSCRIPTION_CHECKOUT_BUSY',
    error:'Γίνεται ήδη προετοιμασία μηνιαίας αγοράς στον λογαριασμό. Έλεγξε πρώτα τη συναλλαγή σου στις «Συνδρομές μου».'});
  }
  try{
- let existing=await BroadcasterBillingOrder.findOne({requestKey}).lean();
+ let existing=await findIdempotent(BroadcasterBillingOrder,scope,requestKey);
  if(existing){
   if(String(existing.accountId)!==account||existing.sku!==sku||
     String(existing.resourceId||'account')!==scopeId||
@@ -119,7 +123,13 @@ async function checkout(req,res){
    return res.status(409).json({error:'Idempotency conflict'});
   return res.json({order:display(existing),alreadyProcessed:true});
  }
- existing=await BroadcasterBillingOrder.findOne({lockKey}).lean();
+ existing=await findExistingLocked(BroadcasterBillingOrder,scope);
+ if(existing&&['failed','canceled'].includes(existing.status)){
+  // Fail closed unless unpaid terminal status has zero financial evidence.
+  // Imported staging orders cannot be altered by production checkout.
+  if(await releaseOrphanTerminalLock(BroadcasterBillingOrder,existing,scope))
+   existing=await findExistingLocked(BroadcasterBillingOrder,scope);
+ }
  if(existing)return res.json({order:display(existing),alreadyProcessed:true});
  // Never sell overlapping identical fixed-duration Boosts.
  // Unknown/pending attempts are already locked by lockKey.
@@ -163,13 +173,20 @@ async function checkout(req,res){
   existing=await BroadcasterBillingOrder.create({
    accountId:req.user._id,resourceId:product.scopeType==='station'?stationId:null,
    scopeType:product.scopeType,sku,amountCents:product.priceCents,
+   environment:scope.environment,
    requestKey,lockKey,status:'creating',autoRenewRequested:isSubscription(sku)
   });
  }catch(error){
   if(error.code!==11000)throw error;
-  const found=await BroadcasterBillingOrder.findOne({$or:[{requestKey},{lockKey}]}).lean();
-  return found?res.json({order:display(found),alreadyProcessed:true}):
-   res.status(503).json({error:'Το αίτημα αγοράς δεν είναι διαθέσιμο.'});
+  const found=await findIdempotent(BroadcasterBillingOrder,scope,requestKey)||
+   await findExistingLocked(BroadcasterBillingOrder,scope);
+  // An index collision must never expose a different account's / tenant's
+  // staging order. Return a generic conflict if ownership does not match.
+  if(found&&String(found.accountId)===account&&found.sku===sku&&
+     String(found.resourceId||'account')===scopeId)
+   return res.json({order:display(found),alreadyProcessed:true});
+  return res.status(409).json({code:'CHECKOUT_SCOPE_CONFLICT',
+   error:'Η αγορά δεν ολοκληρώθηκε. Δοκίμασε ξανά με νέο αίτημα.'});
  }
  try{
   const provider=await gateway.broadcasterCheckout({
@@ -206,7 +223,7 @@ async function checkout(req,res){
    note:'Άγνωστη κατάσταση. Δεν έγινε δεύτερη προσπάθεια χρέωσης.'});
  }
  }finally{
-  if(mustLease)try{await checkoutLease.release(req.user._id,requestKey);}
+  if(mustLease)try{await checkoutLease.release(req.user._id,requestKey,{environment:scope.environment});}
    catch(e){console.warn('[BROADCASTER BILLING] Lease cleanup deferred',e.code||'db');}
  }
 }
