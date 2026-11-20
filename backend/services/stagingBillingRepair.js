@@ -145,7 +145,7 @@ async function runRepair({models, gateway, environment, apply = false, limit = 1
       !Number.isInteger(minAgeMs) || minAgeMs < MIN_AGE_MS || minAgeMs > 86400000)
     throw Error('INVALID_BILLING_REPAIR_OPTIONS');
   const summary = {environment: 'staging', mode: apply ? 'APPLY' : 'DRY_RUN',
-    inspected: 0, ready: 0, repaired: 0, review: 0, deferred: 0, clean: 0, errors: 0, cursors: {};}
+    inspected: 0, ready: 0, repaired: 0, review: 0, deferred: 0, clean: 0, errors: 0, cursors: {}};
   for (const family of ['listener', 'broadcaster', 'advertising']) {
     const field = lockField(family);
     const query = family === 'advertising'
