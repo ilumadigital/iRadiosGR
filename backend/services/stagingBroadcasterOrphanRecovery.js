@@ -79,15 +79,23 @@ async function reviewOrphan({
    'GATEWAY_PAYMENT_ID');
  }
  const recurring=await gateway.broadcasterRecurringStatus({_id:row.accountId},'B-PREM');
- // Any registered/pending contract is grounds to STOP, not a reason to
- // mark a payment failed or to alter its mandate.
- if(recurring?.state!=='none')reject('GATEWAY_PREMIUM_MANDATE_NOT_ABSENT');
+ // A previously cancelled, non-renewing mandate with NO paid-through period
+ // and NO next scheduled charge is harmless to this one-order reconciliation.
+ // Fail closed on any ongoing/pending/paid term, even with state=cancelled.
+ const noFutureCharge=recurring?.auto_renew===false&&
+   recurring?.paid_through_at==null&&recurring?.next_charge_at==null;
+ const inactive=recurring?.state==='none'&&
+   recurring?.auto_renew!==true&&
+   recurring?.paid_through_at==null&&recurring?.next_charge_at==null;
+ const inertCancelled=recurring?.state==='cancelled'&&noFutureCharge;
+ if(!inactive&&!inertCancelled)
+  reject('GATEWAY_PREMIUM_MANDATE_NOT_ABSENT');
 
  const result={
   orderId, gatewayOrderId:expectedGatewayOrderId,
   environment:'staging',sku:'B-PREM',amountCents:9900,
   gatewayRequestKey:'404', gatewayPaymentId:row.gatewayPaymentId?'404':'not_recorded',
-  gatewayPremiumMandate:'none',sandboxOrder:'operator_confirmed_404',
+  gatewayPremiumMandate:recurring.state,sandboxOrder:'operator_confirmed_404',
   state:apply?'RELEASED':'READY_FOR_OPERATOR_RELEASE'
  };
  if(!apply)return result;
