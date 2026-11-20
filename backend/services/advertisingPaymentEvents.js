@@ -5,6 +5,7 @@ const Campaign=require('../models/AdvertisingCampaign');
 const Quote=require('../models/AdvertisingQuote');
 const Intent=require('../models/AdvertisingPaymentIntent');
 const FundingLot=require('../models/AdvertisingFundingLot');
+const {matchesFundingEnvironment}=require('./advertisingFundingEnvironment');
 const {budgetMicros}=require('./advertisingPricingRules');
 const {budgetCentsToNanos}=require('./advertisingCpmMath');
 const {ensureAdvertisingFinancialIndexes}=require('./advertisingFinancialIndexes');
@@ -51,8 +52,8 @@ async function handleVerifiedAdvertisingEvent(event,res){
  // do not reconstruct the campaign or mutate any funding.
  if(!campaign){
   if(event.event_type==='payment.paid'&&intent.status==='paid'){
-   const lot=await FundingLot.findOne({gatewayPaymentId:event.payment_id});
-   if(lot&&String(lot.agencyId)===String(accountId)&&
+   const lot=await FundingLot.findOne({gatewayPaymentId:event.payment_id}).lean();
+   if(lot&&matchesFundingEnvironment(lot)&&String(lot.agencyId)===String(accountId)&&
       String(lot.campaignId)===String(intent.campaignId)&&
       String(lot.quoteId)===String(quote._id)&&
       lot.gatewayOrderId===event.order_id&&
@@ -67,8 +68,8 @@ async function handleVerifiedAdvertisingEvent(event,res){
   // event may be replayed by the durable Gateway outbox after archival;
   // acknowledge only an existing, fully matching immutable funding lot.
   if(event.event_type==='payment.paid'&&intent.status==='paid'){
-   const lot=await FundingLot.findOne({gatewayPaymentId:event.payment_id});
-   if(lot&&String(lot.agencyId)===String(accountId)&&
+   const lot=await FundingLot.findOne({gatewayPaymentId:event.payment_id}).lean();
+   if(lot&&matchesFundingEnvironment(lot)&&String(lot.agencyId)===String(accountId)&&
       String(lot.campaignId)===String(campaign._id)&&
       String(lot.quoteId)===String(quote._id)&&
       lot.gatewayOrderId===event.order_id&&
@@ -99,7 +100,7 @@ async function handleVerifiedAdvertisingEvent(event,res){
   budgetMicros:budgetMicros(quote.budgetCents),priceVersion:quote.priceVersion
  };
  const paidAt=new Date(Math.min(Date.parse(event.occurred_at),Date.now()));
- let lot=await FundingLot.findOne({gatewayPaymentId:event.payment_id});
+ let lot=await FundingLot.findOne({gatewayPaymentId:event.payment_id}).lean();
  let newlyCredited=false;
  if(!lot){
   try{
@@ -115,17 +116,17 @@ async function handleVerifiedAdvertisingEvent(event,res){
     priceVersion:quote.priceVersion,ratesMicros:quote.ratesMicros,
     rateModel:quote.rateModel||'legacy_cpm',
     rateCardSnapshot:quote.rateCardSnapshot||null,
-    currency:'EUR',source:'nexi_verified',paidAt
+    currency:'EUR',environment:gatewayEnvironment.mode(),source:'nexi_verified',paidAt
    });
    newlyCredited=true;
   }catch(error){
    if(error.code!==11000)throw error;
    lot=await FundingLot.findOne({$or:[
     {gatewayPaymentId:event.payment_id},{quoteId:quote._id}
-   ]});
+   ]}).lean();
   }
  }
- if(!lot||String(lot.agencyId)!==expected.agencyId||
+ if(!lot||!matchesFundingEnvironment(lot)||String(lot.agencyId)!==expected.agencyId||
     String(lot.campaignId)!==expected.campaignId||
     String(lot.quoteId)!==expected.quoteId||
     lot.gatewayPaymentId!==expected.gatewayPaymentId||
