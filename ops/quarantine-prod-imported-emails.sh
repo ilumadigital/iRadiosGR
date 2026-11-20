@@ -36,8 +36,9 @@ if [[ "$MODE" == --apply ]]; then
 fi
 echo "=== PRODUCTION-ONLY IMPORTED MAIL AUDIT ==="
 docker exec -i -e "QUARANTINE_MODE=$MODE" iradios_prod-mongo-1 sh -ec '
+ script=$(cat)
  exec mongosh --quiet --username root --password "$MONGO_INITDB_ROOT_PASSWORD" \
-   --authenticationDatabase admin
+   --authenticationDatabase admin --eval "$script"
 ' <<'JS'
 const d=db.getSiblingDB("iradios_prod");
 const statuses=["pending","sending"];
