@@ -4,7 +4,9 @@ const mongoose=require('mongoose');
 // Different subscription products still receive independent Nexi mandates;
 // this lease prevents a simultaneous upgrade and station add-on checkout.
 const schema=new mongoose.Schema({
- _id:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true},
+ // String key carries the tenant + account; older ObjectId leases are left
+ // untouched to expire naturally through the existing TTL index.
+ _id:{type:String,required:true},
  ownerKey:{type:String,required:true},
  expiresAt:{type:Date,required:true}
 },{timestamps:true,versionKey:false});
