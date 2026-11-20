@@ -81,7 +81,7 @@
    `IRADIOS_PRODUCTION_BILLING_REPAIR_AUTO_ENABLED=0`, deploy new env manually,
    and perform a SECOND audited dry-run. A *separately* approved operator may
    then run `--apply --confirm-live` on a bounded batch.
-9. Only after observing safe read-backs, new checkout UX and webhooks, seek
+10. Only after observing safe read-backs, new checkout UX and webhooks, seek
    another approval for automatic scheduler enablement. To stop new automatic
    passes, set `IRADIOS_PRODUCTION_BILLING_REPAIR_AUTO_ENABLED=0` and manually
    redeploy. To block manual live repair writes, also set
