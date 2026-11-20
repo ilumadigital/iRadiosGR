@@ -3,7 +3,6 @@
 // READ-ONLY. Reports aggregated legacy staging/production lock collisions.
 // Does not import Gateway clients, make provider calls, create indexes,
 // update orders, alter entitlements, delete imported rows, or expose tokens.
-const mongoose=require('mongoose');
 const {lockScope}=require('../services/broadcasterCheckoutLockScope');
 const LIMIT=10000;
 function summarize(rows){
@@ -55,6 +54,7 @@ async function main(){
     process.env.IRADIOS_GATEWAY_ENV!==process.env.APP_ENV)
   throw Error('AUDIT_ENVIRONMENT_GUARD');
  if(!process.env.MONGO_URI)throw Error('MONGO_URI_MISSING');
+ const mongoose=require('mongoose');
  mongoose.set('autoIndex',false);
  mongoose.set('autoCreate',false);
  try{
