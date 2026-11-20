@@ -56,6 +56,8 @@ async function ensurePaidUpgrade(order){
   throw Error('Only verified paid account Premium can schedule addon cancellation');
  const Order=require('../models/BroadcasterBillingOrder');
  const Job=require('../models/BroadcasterPremiumUpgrade');
+ // The unique premiumOrderId index must exist before a concurrent webhook retry.
+ await Job.init();
  // Include in-flight add-on intents: an existing HPP may settle after Premium.
  const rows=await Order.find({
   accountId:order.accountId,environment,
@@ -100,10 +102,12 @@ async function processJob(job,now=new Date()){
  if(!premium)throw Error('Premium payment provenance unavailable');
  const user=await User.findOne({_id:job.accountId,role:'broadcaster'}).select('_id role').lean();
  if(!user)throw Error('Paid broadcaster account unavailable');
- let complete=0;
- for(let i=0;i<job.items.length;i++){
+ let complete=0,attempted=0;
+ // Bound each lease to at most six provider cancellation attempts.
+ for(let i=0;i<job.items.length&&attempted<6;i++){
   const item=job.items[i];
   if(item.state!=='pending')continue;
+  attempted++;
   let done=false,lastErrorCode=null;
   try{
    done=await cancelTarget(item,user,environment,{gateway,Order});
