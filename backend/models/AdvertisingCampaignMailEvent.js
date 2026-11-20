@@ -6,11 +6,12 @@ const schema=new mongoose.Schema({
  campaignId:{type:mongoose.Schema.Types.ObjectId,ref:'AdvertisingCampaign',required:true},
  agencyId:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true},
  amountCents:{type:Number,default:0},
- status:{type:String,enum:['pending','sending','sent'],default:'pending'},
+ status:{type:String,enum:['pending','sending','sent','skipped'],default:'pending'},
  attempts:{type:Number,default:0},
  nextAttemptAt:{type:Date,default:Date.now},
  sentAt:{type:Date,default:null},
- lastError:{type:String,default:''}
+ lastError:{type:String,default:''},
+ skipReason:{type:String,default:''}
 },{timestamps:true});
 schema.index({status:1,nextAttemptAt:1});
 module.exports=mongoose.model('AdvertisingCampaignMailEvent',schema);

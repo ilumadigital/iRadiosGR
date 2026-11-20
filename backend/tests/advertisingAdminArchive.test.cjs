@@ -60,6 +60,7 @@ function testEnvironment(){
   '../services/advertisingBudgetAffordability':{},
   '../services/advertisingStageQa':{},
   '../services/advertisingWizardAccess':{wizardEnabled:()=>true},
+  '../services/advertisingFundingEnvironment':{fundingReadScope:()=>({})},
   '../services/advertisingDailyBudgetManager':{},
   '../services/advertisingCampaignMailScheduler':{start(){}}
  };

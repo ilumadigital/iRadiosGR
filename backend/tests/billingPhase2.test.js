@@ -66,3 +66,10 @@ test('Agency gifts are scoped to one campaign only',()=>{
   assert.ok(effectiveRights(agency,[g],{campaignId:'campaign-1',now:NOW}).includes('agency.campaign.news_grid'));
   assert.ok(!effectiveRights(agency,[g],{campaignId:'campaign-2',now:NOW}).includes('agency.campaign.news_grid'));
 });
+
+test('production ignores inherited listener.isPremium legacy flag',()=>{
+ const {listenerCompatibilityRights}=require('../services/billingEntitlementRules');
+ const user={_id:'legacy',role:'user',isPremium:true};
+ assert.deepEqual(listenerCompatibilityRights(user,'production'),[]);
+ assert.deepEqual(listenerCompatibilityRights(user,'staging'),['listener.premium']);
+});

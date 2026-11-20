@@ -14,7 +14,10 @@ async function getTransporter() {
   }
 
 
-  // 1. Production / Staging SMTP
+  // 1. Real SMTP, only outside the isolated staging Mailpit
+  if (process.env.APP_ENV === 'production' &&
+      ['mailpit','localhost','127.0.0.1','::1'].includes(String(process.env.SMTP_HOST||'').toLowerCase()))
+    throw new Error('Production SMTP cannot use Mailpit or localhost');
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     const port = Number(process.env.SMTP_PORT || 587);
     
@@ -38,7 +41,9 @@ async function getTransporter() {
     return transporterInstance;
   }
 
-  // 2. Fallback σε Ethereal (Test account) αν λείπουν τα credentials
+  if (process.env.APP_ENV === 'production')
+    throw new Error('Production SMTP missing: refusing test-mail fallback');
+  // 2. Non-production local test fallback only
   console.log("⚠️ Δεν βρέθηκαν SMTP credentials στο .env. Δημιουργία Ethereal (test) account...");
   const testAcc = await nodemailer.createTestAccount();
 

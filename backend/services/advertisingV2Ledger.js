@@ -6,6 +6,7 @@ const crypto=require('node:crypto');
 const mongoose=require('mongoose');
 const Campaign=require('../models/AdvertisingCampaign');
 const Lot=require('../models/AdvertisingFundingLot');
+const {fundingReadScope}=require('./advertisingFundingEnvironment');
 const Daily=require('../models/AdvertisingDailyBudget');
 const Ticket=require('../models/AdvertisingV2Reservation');
 const Event=require('../models/AdvertisingV2Event');
@@ -17,15 +18,21 @@ const SECRET_MIN=32;
 const DAY_MS=86400000;
 let ready=null;
 function enabled(){
- return process.env.APP_ENV==='staging'&&
+ const environment=process.env.APP_ENV;
+ const gateway=require('./gatewayEnvironment');
+ const stageReady=environment==='staging'&&(
+  gateway.configured()||
+  (gateway.mode()==='staging'&&process.env.IRADIOS_BILLING_SANDBOX_ENABLED==='1'));
+ // Play requires explicit production approval, real Gateway credentials,
+ // and a completed cutover. Stage-only flags cannot authorize a live debit.
+ const playReady=environment==='production'&&
+  process.env.IRADIOS_PRODUCTION_CUTOVER_APPROVED==='1'&&
+  process.env.ADVERTISING_V2_PRODUCTION_APPROVED==='1'&&
+  gateway.configured()&&
+  typeof process.env.IRADIOS_TRUSTED_GEO_SECRET==='string'&&
+  Buffer.byteLength(process.env.IRADIOS_TRUSTED_GEO_SECRET)>=SECRET_MIN;
+ return (stageReady||playReady)&&
   process.env.ADVERTISING_V2_FINANCIAL_DELIVERY_ENABLED==='1'&&
-  // Financial tickets are staging-only and require the signed Sandbox
-  // checkout; no legacy QA preview or parallel CPM engine can coexist.
-  // Keep the legacy offline Mongo settlement fixture valid. Production
-  // cannot enable paid delivery without configured, selected Gateway keys.
-  (require('./gatewayEnvironment').configured() ||
-   (require('./gatewayEnvironment').mode()==='staging' &&
-    process.env.IRADIOS_BILLING_SANDBOX_ENABLED==='1'))&&
   process.env.AD_STAGE_QA_APPROVAL_ENABLED!=='1'&&
   process.env.AD_STAGE_PAID_PLACEMENT_PREVIEW!=='1'&&
   process.env.AD_DELIVERY_BILLING_ENABLED!=='1'&&
@@ -176,6 +183,7 @@ async function reserve({campaign,creative,kind,placement,clientKey:visitor,durat
   }).session(session).lean();
   if(!fresh)throw fail('Campaign no longer eligible');
   const lots=await Lot.find({campaignId:campaign._id,source:'nexi_verified',
+   ...fundingReadScope(),
     remainingNanos:{$gt:0},budgetNanos:{$ne:null},rateModel:'v2_event',
     settlementMode:'mongo_transaction_v2'})
     .sort({paidAt:1,_id:1}).session(session).lean();

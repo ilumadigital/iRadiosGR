@@ -5,11 +5,13 @@ const router=require('express').Router();
 const mongoose=require('mongoose');
 const jwt=require('jsonwebtoken');
 const User=require('../models/User');
+const {hasAccountRight}=require('../services/billingEntitlements');
 const Station=require('../models/Station');
 const Campaign=require('../models/AdvertisingCampaign');
 const Audio=require('../models/Ad');
 const Banner=require('../models/BannerAd');
 const Lot=require('../models/AdvertisingFundingLot');
+const {fundingReadScope}=require('../services/advertisingFundingEnvironment');
 const Daily=require('../models/AdvertisingDailyBudget');
 const Event=require('../models/AdvertisingV2Event');
 const Ticket=require('../models/AdvertisingV2Reservation');
@@ -39,7 +41,7 @@ async function optionalListener(req,res,next){
   const user=await User.findById(payload.id||payload._id).select('_id role isPremium');
   if(!user)return res.status(401).json({error:'Invalid session'});
   // Token used for live paid events must not be a stale Premium grant.
-  if(user.role!=='user'||user.isPremium===true)return res.status(403)
+  if(user.role!=='user'||await hasAccountRight(user,'listener.premium'))return res.status(403)
    .json({error:'No advertisements for this account'});
   req.adListenerUserId=String(user._id);
   return next();
@@ -188,7 +190,8 @@ router.get('/advertising/v2/campaigns/:id/analytics',protect,noCache,async(req,r
   if(!campaign||!['admin','agency'].includes(req.user.role))
    return res.status(404).json({error:'Not found'});
   const [lots,daily,events,reservations,skips]=await Promise.all([
-   Lot.find({campaignId:campaign._id,source:'nexi_verified'}).lean(),
+   Lot.find({campaignId:campaign._id,source:'nexi_verified',
+    ...fundingReadScope()}).lean(),
    Daily.find({campaignId:campaign._id}).sort({day:-1}).limit(31).lean(),
    Event.aggregate([{$match:{campaignId:campaign._id}},
     {$group:{_id:{kind:'$kind',placement:'$placement',name:'$name'},

@@ -16,18 +16,19 @@ const {sendEmail}=require('./myMailer');
 
 const PREMIUM_SKUS=['L-PREM','L-WINBACK-199'];
 const KINDS=['welcome','soon','grace','cancelled','expired','winback'];
-const staging=()=>process.env.APP_ENV==='staging';
+const mailEnabled=()=>process.env.APP_ENV==='staging'||
+ (process.env.APP_ENV==='production'&&process.env.PRODUCTION_BILLING_EMAILS_ENABLED==='1');
 const safeId=v=>String(v||'');
 const validKey=s=>/^[a-zA-Z0-9:._-]{1,190}$/.test(s);
 let running=false,started=false,indexPromise=null;
 function ready(){
- if(!staging())return Promise.resolve(false);
+ if(!mailEnabled())return Promise.resolve(false);
  if(!indexPromise)indexPromise=BillingEmailDispatch.createIndexes()
   .then(()=>true).catch(e=>{indexPromise=null;throw e;});
  return indexPromise;
 }
 async function enqueue(kind,userId,orderId,event=null){
- if(!staging()||!KINDS.includes(kind)||!userId)return false;
+ if(!mailEnabled()||!KINDS.includes(kind)||!userId)return false;
  const key=['premium-email',kind,safeId(userId),event?String(event):safeId(orderId)].join(':');
  if(!validKey(key))throw Error('Invalid billing email idempotency key');
  await ready();
@@ -40,21 +41,21 @@ async function enqueue(kind,userId,orderId,event=null){
  }
 }
 async function enqueuePaidWelcome(order){
- if(!staging()||!order||order.status!=='paid'||order.billingOrigin==='automatic_renewal')return false;
+ if(!mailEnabled()||!order||order.status!=='paid'||order.billingOrigin==='automatic_renewal')return false;
  return enqueue('welcome',order.accountId,order._id);
 }
 async function enqueueCancellation(user,recurring){
- if(!staging()||!user||recurring?.state!=='cancelled'||!recurring.cancelled_at)return false;
+ if(!mailEnabled()||!user||recurring?.state!=='cancelled'||!recurring.cancelled_at)return false;
  // One message per provider cancellation event, not per button click.
  const event=new Date(recurring.cancelled_at);
  if(!Number.isFinite(+event))return false;
- const latest=await BillingOrder.findOne({accountId:user._id,status:'paid',environment:'staging',
+ const latest=await BillingOrder.findOne({accountId:user._id,status:'paid',environment:process.env.APP_ENV,
   sku:{$in:PREMIUM_SKUS}}).sort({periodEndsAt:-1,paidAt:-1}).lean();
  if(!latest)return false;
  return enqueue('cancelled',user._id,latest._id,event.toISOString().replace(/[:.]/g,'-'));
 }
 async function latestPaid(userId){
- return BillingOrder.findOne({accountId:userId,status:'paid',environment:'staging',
+ return BillingOrder.findOne({accountId:userId,status:'paid',environment:process.env.APP_ENV,
   sku:{$in:PREMIUM_SKUS}}).sort({periodEndsAt:-1,paidAt:-1}).lean();
 }
 async function winbackAllowed(user,paid,now){
@@ -70,10 +71,10 @@ async function winbackAllowed(user,paid,now){
  return evaluated;
 }
 async function scanBillingWindows(now=new Date()){
- if(!staging()||mongoose.connection.readyState!==1)return 0;
+ if(!mailEnabled()||mongoose.connection.readyState!==1)return 0;
  // Only genuine, signed, staging Premium paid orders. Never bulk-email
  // imported Free users, admin grants, unverified accounts or legacy orders.
- const rows=await BillingOrder.find({environment:'staging',status:'paid',
+ const rows=await BillingOrder.find({environment:process.env.APP_ENV,status:'paid',
   sku:{$in:PREMIUM_SKUS},
   periodEndsAt:{$gte:new Date(+now-42*DAY_MS),$lte:new Date(+now+DAY_MS)}
  }).sort({periodEndsAt:-1,paidAt:-1}).limit(500).lean();
@@ -121,7 +122,7 @@ async function scanBillingWindows(now=new Date()){
 async function resolveTemplate(row,user,now){
  const order=row.orderId?await BillingOrder.findById(row.orderId).lean():null;
  const kind=row.kind;
- if(!order||order.environment!=='staging'||safeId(order.accountId)!==safeId(user._id)||
+ if(!order||order.environment!==process.env.APP_ENV||safeId(order.accountId)!==safeId(user._id)||
     order.status!=='paid'||!PREMIUM_SKUS.includes(order.sku))return null;
  const options={kind,name:user.fname||user.username||'φίλε ακροατή',
   amountCents:order.amountCents,periodEndsAt:order.periodEndsAt,graceEndsAt:order.graceEndsAt};
@@ -163,7 +164,7 @@ async function resolveTemplate(row,user,now){
  return null;
 }
 async function deliverPending(now=new Date(),max=25){
- if(!staging()||mongoose.connection.readyState!==1)return 0;
+ if(!mailEnabled()||mongoose.connection.readyState!==1)return 0;
  await ready();
  const rows=await BillingEmailDispatch.find({status:'pending',dueAt:{$lte:now},
   attempts:{$lt:5}}).sort({createdAt:1}).limit(Math.max(1,Math.min(50,max))).lean();
@@ -217,7 +218,7 @@ async function deliverPending(now=new Date(),max=25){
  return sent;
 }
 async function run(now=new Date()){
- if(running||!staging()||mongoose.connection.readyState!==1)return;
+ if(running||!mailEnabled()||mongoose.connection.readyState!==1)return;
  running=true;
  try{
   await ready();
@@ -226,7 +227,7 @@ async function run(now=new Date()){
   // If the process was killed just after a payment webhook was persisted,
   // recover welcome events on the following scheduler tick.
   const since=new Date(+now-2*DAY_MS);
-  const fresh=await BillingOrder.find({environment:'staging',status:'paid',
+  const fresh=await BillingOrder.find({environment:process.env.APP_ENV,status:'paid',
    billingOrigin:'checkout',paidAt:{$gte:since,$lte:now},
    sku:{$in:PREMIUM_SKUS}}).sort({paidAt:-1}).limit(100).lean();
   for(const row of fresh)await enqueuePaidWelcome(row);
@@ -235,14 +236,14 @@ async function run(now=new Date()){
  finally{running=false;}
 }
 function start(){
- if(started||!staging())return;
+ if(started||!mailEnabled())return;
  started=true;
  cron.schedule('*/5 * * * *',()=>void run());
  mongoose.connection.once('connected',()=>void run());
  if(mongoose.connection.readyState===1)void run();
 }
 function kick(){
- if(!staging())return;
+ if(!mailEnabled())return;
  // Never block a signed Gateway webhook on SMTP/Mailpit.
  void deliverPending().catch(e=>console.warn('[PREMIUM MAIL] Kick deferred',e.code||e.message));
 }

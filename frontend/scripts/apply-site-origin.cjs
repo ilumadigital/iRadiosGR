@@ -25,4 +25,9 @@ for (const file of ['server.js','seo.js','index.html']) {
     fs.writeFileSync(file,s.replaceAll('__IRADIOS_SITE_ORIGIN__',origin));
   }
 }
+// Stage remains noindex. Production must not inherit staging's Disallow: /.
+if (origin === 'https://play.iradios.gr' && fs.existsSync('public/robots.txt')) {
+  fs.writeFileSync('public/robots.txt',
+    'User-agent: *\nAllow: /\nSitemap: https://play.iradios.gr/sitemap.xml\n');
+}
 console.log('Applied IRADIOS_SITE_ORIGIN='+origin+' to application copy');

@@ -4,6 +4,8 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps --no-audit --no-fund
 COPY . .
 ARG IRADIOS_SITE_ORIGIN
+ARG VITE_APP_ENV=staging
+ENV VITE_APP_ENV=$VITE_APP_ENV
 RUN IRADIOS_SITE_ORIGIN="$IRADIOS_SITE_ORIGIN" node scripts/apply-site-origin.cjs
 RUN npm run build
 

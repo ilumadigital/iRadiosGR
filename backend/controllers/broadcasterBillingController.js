@@ -16,7 +16,8 @@ const checkoutLease=require('../services/broadcasterCheckoutLease');
 const KEY=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const ID=/^[a-f0-9]{24}$/i;
 const statusSet=new Set(['creating','pending','redirect','unknown']);
-const ready=()=>process.env.APP_ENV==='staging'&&gateway.configured();
+const billingEnv=()=>require('../services/gatewayEnvironment').mode();
+const ready=()=>gateway.configured();
 const {gatewayRoute:safe}=require('../services/gatewayRoute');
 function requiresBroadcaster(req,res,next){
  res.set('Cache-Control','private, no-store');
@@ -42,7 +43,7 @@ function display(row){return safeBroadcasterOrder(row);}
 async function existingOverlappingMandate(user,sku){
  if(sku==='B-PREM'){
   const old=await BroadcasterBillingOrder.find({
-   accountId:user._id,environment:'staging',sku:{$in:ADDONS},
+   accountId:user._id,environment:billingEnv(),sku:{$in:ADDONS},
    autoRenewRequested:true
   }).select('sku resourceId status').sort({createdAt:-1}).limit(61).lean();
   if(old.length>60)return {code:'OVERLAP_REQUIRES_REVIEW',
@@ -65,7 +66,7 @@ async function existingOverlappingMandate(user,sku){
   }
  }else if(ADDONS.includes(sku)){
   if(await BroadcasterBillingOrder.exists({
-   accountId:user._id,sku:'B-PREM',environment:'staging',
+   accountId:user._id,sku:'B-PREM',environment:billingEnv(),
    status:{$in:['creating','pending','redirect','unknown']}
   }))return {code:'PREMIUM_RECURRING_ALREADY_ENROLLED',
    error:'Υπάρχει εκκρεμής αγορά Broadcaster Premium. Έλεγξε την υπάρχουσα συναλλαγή πριν από νέα μηνιαία χρέωση.'};
@@ -124,7 +125,7 @@ async function checkout(req,res){
  // Unknown/pending attempts are already locked by lockKey.
  if(isBoost(sku) && await BroadcasterBillingOrder.exists({
    accountId:req.user._id,resourceId:stationId,sku,
-   environment:'staging',status:'paid',periodEndsAt:{$gt:new Date()}
+   environment:billingEnv(),status:'paid',periodEndsAt:{$gt:new Date()}
  })){
   return res.status(409).json({code:'BOOST_ALREADY_ACTIVE',
    error:'Έχεις ήδη ενεργό Boost αυτού του τύπου στον σταθμό. Η επόμενη αγορά επιτρέπεται μετά τη λήξη του.'});
@@ -211,14 +212,14 @@ async function checkout(req,res){
 }
 async function listOrders(req,res){
  const orders=await BroadcasterBillingOrder.find({
-  accountId:req.user._id,environment:'staging'
+  accountId:req.user._id,environment:billingEnv()
  }).sort({createdAt:-1}).limit(60).lean();
  return res.json({orders:orders.map(display),environment:require('../services/gatewayEnvironment').mode()});
 }
 async function readOrder(req,res){
  if(!ID.test(req.params.id))return res.status(400).json({error:'Invalid order ID'});
  let order=await BroadcasterBillingOrder.findOne({
-  _id:req.params.id,accountId:req.user._id,environment:'staging'
+  _id:req.params.id,accountId:req.user._id,environment:billingEnv()
  }).lean();
  if(!order)return res.status(404).json({error:'Η συναλλαγή δεν βρέθηκε.'});
  if(req.query.refresh==='1'&&statusSet.has(order.status)&&
@@ -264,7 +265,7 @@ async function canManageSubscription(user,sku,stationId){
  // The existing verified checkout is enough to authorize cancellation.
  return Boolean(await BroadcasterBillingOrder.exists({
   accountId:user._id,resourceId:stationId,sku,autoRenewRequested:true,
-  environment:'staging'
+  environment:billingEnv()
  }));
 }
 async function recurringStatus(req,res){
@@ -343,7 +344,7 @@ async function handleVerifiedEvent(event,res){
   const {start:periodStart,end}=validatedAnchoredCycle(event,now);
   const prior=await BroadcasterBillingOrder.findOne({
    accountId:user._id,sku,resourceId,scopeType:product.scopeType,
-   status:'paid',environment:'staging',
+   status:'paid',environment:billingEnv(),
    periodEndsAt:{$gte:new Date(+periodStart-2000),$lte:new Date(+periodStart+2000)},
    $or:[{autoRenewRequested:true},{billingOrigin:'automatic_renewal'}]
   }).sort({periodEndsAt:-1}).lean();
@@ -365,7 +366,7 @@ async function handleVerifiedEvent(event,res){
    gatewayPaymentId:event.payment_id
   },{$setOnInsert:{
    accountId:user._id,resourceId,scopeType:product.scopeType,sku,
-   environment:'staging',amountCents:event.amount_cents,currency:'EUR',
+   environment:billingEnv(),amountCents:event.amount_cents,currency:'EUR',
    requestKey:'iradios-bstage-'+userId+'-mit-'+event.payment_id,
    billingOrigin:'automatic_renewal',autoRenewRequested:true,
    renewalOfOrderId:prior._id,gatewayPaymentId:event.payment_id,
@@ -384,7 +385,7 @@ async function handleVerifiedEvent(event,res){
   return res.json({received:true,activated:true});
  }
  const query={gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
-  environment:'staging',sku,amountCents:event.amount_cents,
+  environment:billingEnv(),sku,amountCents:event.amount_cents,
   resourceId:product.scopeType==='account'?null:event.resource_id};
  // Signed Gateway scope is immutable and MUST match the original purchase.
  // No client-selected station can be substituted after payment confirmation.
@@ -398,7 +399,7 @@ async function handleVerifiedEvent(event,res){
  if(isPaid&&order.renewalOfOrderId){
   const previous=await BroadcasterBillingOrder.findOne({
    _id:order.renewalOfOrderId,accountId:order.accountId,
-   sku,status:'paid',environment:'staging'
+   sku,status:'paid',environment:billingEnv()
   }).select('periodEndsAt').lean();
   periodStart=paidRenewalPeriod(confirmedAt,previous?.periodEndsAt);
  }
