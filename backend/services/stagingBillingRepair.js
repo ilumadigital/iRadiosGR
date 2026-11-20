@@ -1,5 +1,5 @@
 'use strict';
-// Staging-only. Signed Gateway GETs never initiate a charge, cancel a contract,
+// Staging by default; production is explicitly gated. Signed Gateway GETs never initiate a charge, cancel a contract,
 // grant an entitlement, or prove absence from Nexi when a Gateway ID exists.
 const OPEN = Object.freeze(['creating', 'pending', 'redirect', 'unknown']);
 const TERMINAL = Object.freeze(['paid', 'failed', 'canceled']);
@@ -79,6 +79,11 @@ async function inspectOne(family, row, {models, gateway, environment, apply = fa
   now = new Date(), minAgeMs = MIN_AGE_MS, target = 'staging'} = {}) {
   guardScope(environment, gateway, target, apply);
   if (!['listener', 'broadcaster', 'advertising'].includes(family)) throw Error('UNKNOWN_BILLING_FAMILY');
+  // AdvertisingPaymentIntent has no immutable environment marker. A signed
+  // provider result alone cannot prove live funding provenance. Fail closed
+  // until a separate, approved Advertising production financial audit.
+  if (target === 'production' && family === 'advertising')
+    return result(family, row, 'REVIEW', 'PRODUCTION_ADVERTISING_SCOPE_NOT_VERIFIED');
   if (!validScope(row, family, target)) return result(family, row, 'REVIEW', 'INVALID_SCOPE_OR_REFERENCES');
   const Model = models[family], lock = lockField(family), locked = typeof row[lock] === 'string';
   const isOpen = OPEN.includes(row.status);
