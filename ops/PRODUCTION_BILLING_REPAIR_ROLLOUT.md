@@ -35,9 +35,11 @@
   payment. Those are flagged for independent provider review.
 - A verified terminal `failed` or `canceled` may release the *local*
   checkout lock, conditionally. Original payment/order history is retained.
-- Advertising funded lots and paid quotes are protected; a released unpaid quote
-  becomes unusable. A separate Advertising production financial UAT is still
-  REQUIRED before enabling automatic repair.
+- Production AdvertisingPaymentIntent lacks an immutable environment marker.
+  Production advertising repair is **unconditionally REVIEW-only** until a
+  separate audited code change adds verifiable tenant provenance and is approved.
+  It cannot mutate any advertising intent, quote or funding lot even if the
+  production write flags are enabled. Staging Advertising repair is unchanged.
 
 ## Production promotion requires separate approval
 1. Complete staging code tests, PR review and stage deploy via `iluma dev`
