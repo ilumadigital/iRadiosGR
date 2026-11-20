@@ -46,7 +46,12 @@ function fixture(patch={},gatewayPatch={}){
   },
   async broadcasterRecurringStatus(user,sku){
    lookups.push(['status',String(user._id),sku]);
-   return {state:gatewayPatch.mandate||'none'};
+   return {
+    state:gatewayPatch.mandate||'none',
+    auto_renew:gatewayPatch.autoRenew??false,
+    paid_through_at:gatewayPatch.paidThrough??null,
+    next_charge_at:gatewayPatch.nextCharge??null
+   };
   },
   async broadcasterCheckout(){postCalls++;throw Error('checkout POST must never happen');}
  };
@@ -124,10 +129,39 @@ test('Global environment must be staging with matching configured Gateway tenant
  process.env.IRADIOS_GATEWAY_ENV='staging';
  assert.equal(x.updates,0);
 });
+test('Inert cancelled Premium is safe only after signed absence and Sandbox 404',async()=>{
+ const x=fixture({},{mandate:'cancelled'});
+ const check=await x.review();
+ assert.equal(check.gatewayPremiumMandate,'cancelled');
+ assert.equal(check.state,'READY_FOR_OPERATOR_RELEASE');
+ assert.equal(x.updates,0);
+ assert.equal(x.postCalls,0);
+ assert.deepEqual(x.lookups.map(v=>v[0]),['key','status']);
+ const release=await x.review({apply:true});
+ assert.equal(release.gatewayPremiumMandate,'cancelled');
+ assert.equal(release.state,'RELEASED');
+ assert.equal(x.row.status,'failed');
+ assert.equal(x.row.lastErrorCode,'STAGING_SANDBOX_ORDER_ABSENT_CONFIRMED');
+ assert.equal(x.row.lockKey,undefined);
+ assert.equal(x.row.paidAt,null);
+ assert.equal(x.updates,1);
+ assert.equal(x.postCalls,0);
+});
+test('Cancelled Premium still fails closed if original Gateway payment exists',async()=>{
+ const x=fixture({},{mandate:'cancelled',key:'found'});
+ await assert.rejects(x.review({apply:true}),
+   e=>e.code==='GATEWAY_REQUEST_KEY_STILL_EXISTS');
+ assert.equal(x.updates,0);
+});
 test('Gateway 200, 503, or any current/pending Premium mandate fails closed',async()=>{
  for(const config of [{key:'found'},{key:'503'},{mandate:'active'},
   {mandate:'pending'},{mandate:'verification_pending'},
-  {mandate:'cancelled'},{mandate:'unavailable'}]){
+  {mandate:'unavailable'},
+  {mandate:'cancelled',autoRenew:true},
+  {mandate:'cancelled',paidThrough:'2026-11-21T00:00:00Z'},
+  {mandate:'cancelled',nextCharge:'2026-12-20T00:00:00Z'},
+  {mandate:'none',autoRenew:true},
+  {mandate:'none',paidThrough:'2026-11-21T00:00:00Z'}]){
   const x=fixture({},config);
   await assert.rejects(x.review({apply:true}));
   assert.equal(x.row.status,'unknown');
