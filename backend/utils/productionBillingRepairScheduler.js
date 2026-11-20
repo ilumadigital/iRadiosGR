@@ -1,8 +1,6 @@
 'use strict';
 // This scheduler NEVER starts merely because APP_ENV=production.
 // Two distinct, explicit environment gates are required.
-const cron = require('node-cron');
-const mongoose = require('mongoose');
 const {runRepair, guardScope} = require('../services/stagingBillingRepair');
 let started = false, running = false, cursors = {};
 function enabled() {
@@ -13,7 +11,9 @@ function enabled() {
     process.env.IRADIOS_PRODUCTION_BILLING_REPAIR_AUTO_ENABLED === '1';
 }
 async function runOnce() {
-  if (!enabled() || running || mongoose.connection.readyState !== 1) return null;
+  if (!enabled() || running) return null;
+  const mongoose = require('mongoose');
+  if (mongoose.connection.readyState !== 1) return null;
   const gateway = require('../services/ilumaGatewayClient');
   const environment = require('../services/gatewayEnvironment');
   guardScope(environment, gateway, 'production', true);
@@ -44,7 +44,7 @@ function start() {
   const environment = require('../services/gatewayEnvironment');
   guardScope(environment, gateway, 'production', true);
   started = true;
-  cron.schedule('*/3 * * * *', () => runOnce().catch(err =>
+  require('node-cron').schedule('*/3 * * * *', () => runOnce().catch(err =>
     console.warn('[PRODUCTION BILLING REPAIR] scan deferred',
       /^[A-Z0-9_]{1,80}$/.test(err.message || '') ? err.message : 'UNAVAILABLE')));
   return true;
