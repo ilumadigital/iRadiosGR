@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 // Operator-only command; dry-run by default. Never call Nexi or any checkout POST.
-require('dotenv').config();
-const mongoose=require('mongoose');
 const {reviewOrphan}=require('../services/stagingBroadcasterOrphanRecovery');
 
 function options(argv){
@@ -22,6 +20,7 @@ function options(argv){
  return out;
 }
 async function main(){
+ require('dotenv').config();
  // Fail closed before opening any connection or importing the billing model.
  if(process.env.APP_ENV!=='staging'||process.env.IRADIOS_GATEWAY_ENV!=='staging')
   throw Error('STAGING_ENVIRONMENT_NOT_VERIFIED');
@@ -30,6 +29,7 @@ async function main(){
  const environment=require('../services/gatewayEnvironment');
  if(environment.mode()!=='staging'||!environment.configured())
   throw Error('STAGING_GATEWAY_CREDENTIALS_NOT_VERIFIED');
+ const mongoose=require('mongoose');
  const input={
   orderId:parsed['--order-id'],
   expectedGatewayOrderId:parsed['--gateway-order-id'],
