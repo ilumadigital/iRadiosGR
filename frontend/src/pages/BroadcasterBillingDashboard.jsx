@@ -22,6 +22,7 @@ const labels={active:'Ενεργή',expired:'Έληξε',scheduled:'Προγρα
  unknown:'Αναμονή διασταύρωσης',failed:'Απέτυχε',canceled:'Ακυρώθηκε'};
 export default function BroadcasterBillingDashboard({stations=[]}){
  const [orders,setOrders]=useState([]),[catalog,setCatalog]=useState({});
+ const [upgrade,setUpgrade]=useState(null);
  const [gatewayEnv,setGatewayEnv]=useState('staging');
  const [loading,setLoading]=useState(true),[error,setError]=useState('');
  const [notice,setNotice]=useState(''),[busy,setBusy]=useState('');
@@ -31,6 +32,7 @@ export default function BroadcasterBillingDashboard({stations=[]}){
    call('/billing/broadcaster/orders'),call('/billing/catalog')
   ]);
   setOrders(a.orders||[]);
+  setUpgrade(a.upgrade||null);
   setGatewayEnv(a.environment==='production'?'production':'staging');
   setCatalog(Object.fromEntries((b.products||[]).map(p=>[p.sku,p])));
  };
@@ -83,6 +85,11 @@ export default function BroadcasterBillingDashboard({stations=[]}){
   <header className="rounded-[30px] border border-[#ccff00]/20 bg-gradient-to-br from-[#1e281a] to-[#111619] p-7 md:p-11">
    <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.2em] text-[#ccff00]"><Wallet size={15}/> IRADIOS / BROADCASTER BILLING</span>
    <h1 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">Οι συνδρομές μου</h1>
+   {upgrade&&upgrade.total>0&&<p role="status" className="mt-4 rounded-xl border border-sky-400/30 bg-sky-400/10 p-4 text-sm text-sky-100">
+    {upgrade.status==='complete'
+     ?'Η αναβάθμιση Premium ολοκληρώθηκε και οι μελλοντικές ανανεώσεις των παλιών add-ons έχουν διακοπεί.'
+     :'Το Premium έχει ενεργοποιηθεί. Η αυτόματη ακύρωση των προηγούμενων ανανεώσεων add-ons συνεχίζεται ('+upgrade.pending+' σε εκκρεμότητα). Δεν απαιτείται νέα πληρωμή.'}
+   </p>}
    <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-300">Όλες οι αγορές Broadcaster σε ένα μέρος. Παρακολούθησε την κατάσταση χρέωσης, ανανέωσης και τις ημερομηνίες λήξης. Η διακοπή ανανέωσης δεν διαγράφει την ήδη πληρωμένη περίοδο.</p>
    <div className="mt-7 flex flex-wrap gap-3">
     <Link to="/backoffice/pro-features" className="inline-flex items-center gap-2 rounded-xl bg-[#ccff00] px-5 py-3 text-xs font-black text-black">Δες τα Pro Features <ArrowRight size={15}/></Link>
