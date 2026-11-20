@@ -51,3 +51,11 @@ test('live financial delivery cannot be enabled by one flag or staging balances'
  assert.match(agency,/process\.env\.APP_ENV==='production'&&ledger\.enabled\(\)/);
  assert.match(agency,/financialReadiness\(\)\)\.acceptingTickets/);
 });
+
+test('paid banner placements refuse untrusted server geo and campaign budget never inherits staging',()=>{
+ const banner=read('controllers/bannerController.js');
+ const campaign=read('routes/advertisingCampaignRoutes.js');
+ assert.match(banner,/const paidReady=enabled\(\)\?req\.adGeoTrusted===true:false/);
+ assert.match(banner,/eligible\.filter\(b=>!paidIds\.has/);
+ assert.match(campaign,/campaignId:\{\$in:campaigns\.map\(c=>c\._id\)\},\s*\.\.\.fundingReadScope\(\)/);
+});

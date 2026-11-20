@@ -131,7 +131,8 @@ router.get('/advertising/campaigns',async(req,res)=>{
    (req.query.includeDeleted==='1'?{deletedAt:{$ne:null}}:{deletedAt:null}):
    {agencyId:req.user._id,deletedAt:null};
   const campaigns=await Campaign.find(filter).sort({createdAt:-1}).limit(150).lean();
-  const lots=await FundingLot.find({campaignId:{$in:campaigns.map(c=>c._id)}})
+  const lots=await FundingLot.find({campaignId:{$in:campaigns.map(c=>c._id)},
+   ...fundingReadScope()})
    .select('campaignId budgetNanos remainingNanos budgetMicros remainingMicros').lean();
   const byCampaign=new Map();
   for(const lot of lots){
