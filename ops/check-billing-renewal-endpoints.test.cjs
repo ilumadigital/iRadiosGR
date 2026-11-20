@@ -1,0 +1,312 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const Module=require('node:module');
+const originalLoad=Module._load;
+const {DAY_MS}=require('../backend/services/billingRenewalRules');
+
+const user={_id:'a'.repeat(24),role:'user',isVerified:true};
+const prevId='b'.repeat(24);
+const uuid='c8b0b7b9-7777-4777-8777-777777777777';
+let previous,created,hasRight,snoozed,providerCalls;
+function reset(){
+ previous={_id:prevId,accountId:user._id,sku:'L-PREM',
+  environment:'staging',status:'paid',paidAt:new Date(Date.now()-DAY_MS*10),
+  periodStartsAt:new Date(Date.now()-DAY_MS*30),
+  periodEndsAt:new Date(Date.now()+3600000),
+  graceEndsAt:new Date(Date.now()+3600000)};
+ created=null;hasRight=true;snoozed=null;providerCalls=0;
+}
+reset();
+const BillingOrder={
+ find:()=>({sort:()=>({limit:()=>({lean:async()=>previous?[previous]:[]})})}),
+ findOne(q){
+  const result=()=>{
+   if(q.requestKey)return created?.requestKey===q.requestKey?created:null;
+   if(q.lockKey)return created?.lockKey===q.lockKey?created:null;
+   if(q.gatewayPaymentId)return null;
+   if(q._id&&q.accountId)return created&&String(created._id)===String(q._id)?created:null;
+   if(q.status==='paid')return previous;
+   return null;
+  };
+  const fetch={lean:async()=>result(),select:()=>fetch,sort:()=>fetch};
+  return fetch;
+ },
+ exists:async q=>{
+  if(q.lockKey)return created?.lockKey===q.lockKey?{_id:created._id}:null;
+  return null;
+ },
+ create:async doc=>{created={...doc,_id:'d'.repeat(24),createdAt:new Date()};return created;},
+ findOneAndUpdate:async(q,update)=>{
+  if(created&&String(q._id)===String(created._id)){
+   Object.assign(created,update.$set||{});
+   for(const key of Object.keys(update.$unset||{}))delete created[key];
+   return created;
+  }
+  return null;
+ }
+};
+const Snooze={
+ init:async()=>{},
+ findOne:()=>({lean:async()=>snoozed&&snoozed.snoozedUntil>new Date()?snoozed:null}),
+ findOneAndUpdate:async(q,update)=>{
+  snoozed={accountId:q.accountId,orderId:q.orderId,...update.$set};return snoozed;
+ }
+};
+let lastCardChoice=null;
+let cardState='none';
+const gateway={
+ configured:()=>true,
+ paymentByRequestKey:async()=>{throw Object.assign(new Error('not found'),{code:'GATEWAY_HTTP_404'});},
+ paymentStatus:async()=>{throw Object.assign(new Error('lookup unavailable'),{code:'GATEWAY_HTTP_404'});},
+ recurringStatus:async()=>({state:'none',execution_enabled:false}),
+ paymentHistory:async()=>[],
+ cancelRecurring:async()=>({state:'cancelled',auto_renew:false}),
+ savedCardStatus:async()=>({state:cardState,automaticRenewal:false}),
+ revokeSavedCard:async()=>({state:cardState='revocation_pending',automaticRenewal:false}),
+ checkout:async({cardChoice}={})=>{lastCardChoice=cardChoice;providerCalls++;
+  return {payment_id:'0'.repeat(32),order_id:'IL'+'E'.repeat(24),
+    status:'redirect',checkout_url:'https://pay.nexigroup.com/demo'};
+ }
+};
+Module._load=function(name,parent,isMain){
+ if(String(parent?.filename||'').endsWith('/backend/controllers/gatewayBillingController.js')){
+  if(name==='../models/BillingOrder')return BillingOrder;
+  if(name==='../models/User')return {findById:async()=>null};
+  if(name==='../models/BillingRenewalSnooze')return Snooze;
+  if(name==='../models/GatewayWebhookNonce')return {create:async()=>{}};
+  if(name==='../utils/premiumBillingEmailScheduler')return {
+   enqueuePaidWelcome:async()=>true,enqueueCancellation:async()=>true,kick:()=>{}
+  };
+  if(name==='../services/ilumaGatewayClient')return gateway;
+  if(name==='../services/billingEntitlements')return {hasAccountRight:async()=>hasRight};
+  if(name==='../services/billingIndexReadiness')return {ensureBillingIndexes:async()=>{}};
+ }
+ return originalLoad.call(this,name,parent,isMain);
+};
+let controller;
+try{controller=require('../backend/controllers/gatewayBillingController');}
+finally{Module._load=originalLoad;}
+function response(){
+ return {statusCode:200,body:null,status(code){this.statusCode=code;return this;},
+  json(data){this.body=data;return this;}};
+}
+async function call(handler,req){
+ const res=response();await handler({user,...req},res,e=>{throw e;});return res;
+}
+const checkoutReq=(key=uuid)=>({body:{autoRenew:true},get:header=>header==='Idempotency-Key'?key:''});
+
+test('Account-specific warning can be snoozed 24h without changing entitlement',async()=>{
+ reset();
+ const before={...previous};
+ let status=await call(controller.renewalNotice,{});
+ assert.equal(status.statusCode,200);
+ assert.equal(status.body.notice.kind,'soon');
+ assert.equal(status.body.renewal.cycleId,prevId);
+ const skipped=await call(controller.snoozeRenewalNotice,{body:{}});
+ assert.equal(skipped.statusCode,200);
+ assert.equal(skipped.body.cycleId,prevId);
+ assert.ok(Date.parse(skipped.body.snoozedUntil)>Date.now()+DAY_MS-3000);
+ status=await call(controller.renewalNotice,{});
+ assert.equal(status.body.notice,null,'Snoozed popup is hidden');
+ assert.equal(status.body.renewal.kind,'soon','Manual checkout remains eligible');
+ assert.deepEqual(previous,before,'Snooze never mutates the paid cycle');
+ assert.equal(providerCalls,0,'Popup never charges Nexi');
+});
+test('Paid subscriber may renew in last 24h, with one new locked Gateway order',async()=>{
+ reset();hasRight=true;
+ process.env.APP_ENV='staging';
+ const first=await call(controller.checkout,checkoutReq());
+ assert.equal(first.statusCode,201);
+ assert.equal(first.body.order.status,'redirect');
+ assert.equal(String(created.renewalOfOrderId),prevId);
+ assert.equal(providerCalls,1);
+ const repeat=await call(controller.checkout,checkoutReq());
+ assert.equal(repeat.body.alreadyProcessed,true);
+ const differentKey=await call(controller.checkout,checkoutReq('f8b0b7b9-7777-4777-8777-777777777777'));
+ assert.equal(differentKey.body.alreadyProcessed,true);
+ assert.equal(providerCalls,1,'Open-lock prevents duplicate Nexi checkout');
+});
+test('Active subscriber outside the final 24h cannot prepay repeatedly',async()=>{
+ reset();hasRight=true;
+ previous.periodEndsAt=new Date(Date.now()+DAY_MS*5);
+ previous.graceEndsAt=previous.periodEndsAt;
+ const denied=await call(controller.checkout,checkoutReq());
+ assert.equal(denied.statusCode,409);
+ assert.equal(denied.body.code,'ALREADY_PREMIUM');
+ assert.equal(created,null);
+ assert.equal(providerCalls,0);
+});
+test('Explicit grace supports manual renewal; no entitlement extension on snooze',async()=>{
+ reset();hasRight=true;
+ previous.periodEndsAt=new Date(Date.now()-3600000);
+ previous.graceEndsAt=new Date(Date.now()+3600000);
+ const notice=await call(controller.renewalNotice,{});
+ assert.equal(notice.body.notice.kind,'grace');
+ const renewed=await call(controller.checkout,checkoutReq());
+ assert.equal(renewed.statusCode,201);
+ assert.equal(providerCalls,1);
+});
+test('Expired paid period creates a new manual cycle only when no other Premium right exists',async()=>{
+ reset();hasRight=false;
+ previous.periodEndsAt=new Date(Date.now()-3600000);
+ previous.graceEndsAt=previous.periodEndsAt;
+ assert.equal((await call(controller.renewalNotice,{})).body.notice.kind,'expired');
+ assert.equal((await call(controller.checkout,checkoutReq())).statusCode,201);
+ assert.equal(providerCalls,1);
+ reset();hasRight=true;
+ previous.periodEndsAt=new Date(Date.now()-3600000);
+ previous.graceEndsAt=previous.periodEndsAt;
+ assert.equal((await call(controller.renewalNotice,{})).body.notice,null,
+  'Complimentary/manual premium suppresses expired paid-cycle popup');
+ assert.equal((await call(controller.checkout,checkoutReq())).statusCode,409);
+});
+
+
+test('Premium is subscription-only: the explicit checkout button supplies recurring consent',async()=>{
+ reset();hasRight=true;
+ process.env.APP_ENV='staging';
+ const oneOff=await call(controller.checkout,{...checkoutReq(),body:{}});
+ assert.equal(oneOff.statusCode,400);
+ assert.equal(oneOff.body.code,'SUBSCRIPTION_CONSENT_REQUIRED');
+ assert.equal(providerCalls,0,'Missing affirmative consent cannot create a payment');
+ const hiddenOneOff=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:false}});
+ assert.equal(hiddenOneOff.statusCode,400);
+ assert.equal(providerCalls,0);
+ const opted=await call(controller.checkout,checkoutReq());
+ assert.equal(opted.statusCode,201);
+ assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false,autoRenew:true});
+ assert.equal(created.autoRenewRequested,true);
+ reset();hasRight=true;
+ const savedCard=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:true,saveCard:true}});
+ assert.equal(savedCard.statusCode,400);
+ assert.equal(providerCalls,0,'CIT OneClick is never available in subscription checkout');
+});
+test('Only own authenticated listener can inspect/revoke payment method, without contract ID input',async()=>{
+ reset();
+ cardState='active';
+ const status=await call(controller.savedCardStatus,{});
+ assert.equal(status.statusCode,200);
+ assert.equal(status.body.paymentMethod.state,'active');
+ assert.equal(status.body.paymentMethod.automaticRenewal,false);
+ const wrong=await call(controller.revokeSavedCard,{body:{contractId:'FORGED'}});
+ assert.equal(wrong.statusCode,400);assert.equal(cardState,'active');
+ const removed=await call(controller.revokeSavedCard,{body:{}});
+ assert.equal(removed.statusCode,200);
+ assert.equal(removed.body.paymentMethod.state,'revocation_pending');
+ cardState='none';
+});
+
+
+test('Deterministic recurring-consent preflight 422 releases checkout lock safely',async()=>{
+ reset();hasRight=true;process.env.APP_ENV='staging';
+ const originalCheckout=gateway.checkout;
+ gateway.checkout=async()=>{throw Object.assign(new Error('preflight rejected'),{
+  code:'GATEWAY_HTTP_422'
+ });};
+ try{
+  const res=await call(controller.checkout,checkoutReq());
+  assert.equal(res.statusCode,503);
+  assert.equal(res.body.code,'GATEWAY_RECURRING_NOT_READY');
+  assert.equal(created.status,'failed');
+  assert.equal(created.lastErrorCode,'GATEWAY_RECURRING_NOT_READY');
+  assert.equal(created.lockKey,undefined);
+  assert.equal(created.gatewayPaymentId,undefined);
+ }finally{gateway.checkout=originalCheckout;}
+});
+test('Signed Gateway 404 after 2 minutes safely closes local intent without a provider payment reference',async()=>{
+ reset();hasRight=false;process.env.APP_ENV='staging';
+ created={_id:'d'.repeat(24),accountId:user._id,sku:'L-PREM',
+  status:'unknown',environment:'staging',amountCents:399,currency:'EUR',
+  requestKey:'iradios-stage-'+user._id+'-'+uuid,
+  lockKey:user._id+':L-PREM',
+  createdAt:new Date(Date.now()-3*60000)};
+ const response=await call(controller.readOrder,{params:{id:created._id},query:{refresh:'1'}});
+ assert.equal(response.statusCode,200);
+ assert.equal(response.body.order.status,'failed');
+ assert.equal(response.body.order.recoveryReason,'not_created');
+ assert.equal(created.lockKey,undefined);
+ assert.equal(created.gatewayPaymentId,undefined);
+});
+test('Gateway 404 never releases a lock when a provider payment/order ID is known',async()=>{
+ reset();hasRight=false;process.env.APP_ENV='staging';
+ created={_id:'d'.repeat(24),accountId:user._id,sku:'L-PREM',
+  status:'unknown',environment:'staging',amountCents:399,currency:'EUR',
+  requestKey:'iradios-stage-'+user._id+'-'+uuid,
+  lockKey:user._id+':L-PREM',
+  gatewayPaymentId:'0'.repeat(32),gatewayOrderId:'IL'+'E'.repeat(24),
+  createdAt:new Date(Date.now()-3*60000)};
+ const response=await call(controller.readOrder,{params:{id:created._id},query:{refresh:'1'}});
+ assert.equal(response.statusCode,200);
+ assert.equal(response.body.order.status,'unknown');
+ assert.equal(response.body.order.recoveryReason,null);
+ assert.equal(created.lockKey,user._id+':L-PREM',
+  'Any known provider payment reference demands financial reconciliation');
+});
+
+
+test('MIT enrollment requires independent boolean consent and never combines with CIT',async()=>{
+ reset();hasRight=true;
+ const request=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:true}});
+ assert.equal(request.statusCode,201);
+ assert.deepEqual(lastCardChoice,{saveCard:false,useSavedCard:false,autoRenew:true});
+ assert.equal(created.autoRenewRequested,true);
+ reset();hasRight=true;
+ const mixed=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:true,saveCard:true}});
+ assert.equal(mixed.statusCode,400);
+ assert.equal(providerCalls,0);
+ reset();hasRight=true;
+ const noBoolean=await call(controller.checkout,{...checkoutReq(),body:{autoRenew:'yes'}});
+ assert.equal(noBoolean.statusCode,400);
+ assert.equal(providerCalls,0);
+});
+
+
+test('Authenticated listener may cancel only their own recurring mandate, without client contract',async()=>{
+ reset();
+ const overview=await call(controller.billingOverview,{});
+ assert.equal(overview.statusCode,200);
+ assert.deepEqual(overview.body.invoices,[]);
+ assert.equal(overview.body.recurring.state,'none');
+ const invalid=await call(controller.cancelAutomaticRenewal,{body:{contractId:'FAKE'}});
+ assert.equal(invalid.statusCode,400);
+ const canceled=await call(controller.cancelAutomaticRenewal,{body:{}});
+ assert.equal(canceled.statusCode,200);
+ assert.equal(canceled.body.recurring.state,'cancelled');
+});
+
+test('Gateway-confirmed failed Nexi HPP unlocks account without any additional provider POST',async()=>{
+ reset();hasRight=false;process.env.APP_ENV='staging';
+ created={_id:'d'.repeat(24),accountId:user._id,sku:'L-PREM',
+  status:'unknown',environment:'staging',amountCents:399,currency:'EUR',
+  requestKey:'iradios-stage-'+user._id+'-'+uuid,
+  lockKey:user._id+':L-PREM',
+  gatewayPaymentId:'0'.repeat(32),gatewayOrderId:'IL'+'E'.repeat(24),
+  createdAt:new Date(Date.now()-5*60000)};
+ const original=gateway.paymentStatus;
+ gateway.paymentStatus=async()=>({
+  payment_id:'0'.repeat(32),order_id:'IL'+'E'.repeat(24),
+  status:'failed',amount_cents:399,currency:'EUR',checkout_url:null
+ });
+ try {
+  const refreshed=await call(controller.readOrder,{
+   params:{id:created._id},query:{refresh:'1'}
+  });
+  assert.equal(refreshed.statusCode,200);
+  assert.equal(refreshed.body.order.status,'failed');
+  assert.equal(refreshed.body.order.providerStatus,'failed');
+  assert.equal(created.lockKey,undefined,'Gateway-confirmed failed payment releases account lock');
+  assert.equal(providerCalls,0,'Status checks must never initiate another checkout');
+ }finally{gateway.paymentStatus=original;}
+});
+
+
+test('Listener can read only safe MIT status for a correct renewal destination',async()=>{
+ reset();
+ const result=await call(controller.recurringStatus,{});
+ assert.equal(result.statusCode,200);
+ assert.deepEqual(result.body.recurring,{
+  state:'none',execution_enabled:false,next_charge_at:null
+ });
+ assert.equal(providerCalls,0,'Status lookup does not initiate checkout or a charge');
+});

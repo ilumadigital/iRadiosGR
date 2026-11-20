@@ -1,0 +1,134 @@
+import {useEffect,useRef} from 'react';
+import {parseMusicMetadata} from '../utils/musicMetadata';
+
+const FIVE_MINUTES=5*60*1000;
+const LOADING=/^(?:Βρίσκουμε το τραγούδι|Ακούμε τον σταθμό|Ψάχνουμε το τραγούδι|Λίγο ακόμη|Σχεδόν έτοιμο|ΠΑΙΖΕΙ ΤΩΡΑ)/i;
+function artworkType(url){
+  if(/\.png(?:[?#]|$)/i.test(url))return 'image/png';
+  if(/\.webp(?:[?#]|$)/i.test(url))return 'image/webp';
+  if(/\.jpe?g(?:[?#]|$)/i.test(url))return 'image/jpeg';
+  return undefined;
+}
+export function mediaFields({currentStation,nowPlaying,nowPlayingInfo,currentUser,
+  isPlayingAd,currentAdInfo,globalCoverArt,liveBroadcast,rdsShowProducer}){
+  const name=currentStation?.name||'iRadios';
+  if(!currentUser)return {
+    title:'Login στο iRadios για NowPlaying',
+    artist:name,album:'iRadios',image:currentStation?.logo
+  };
+  if(isPlayingAd)return {
+    title:currentAdInfo?.title||'Διαφήμιση',
+    artist:currentAdInfo?.client||'iRadios',
+    album:'iRadios',
+    image:currentAdInfo?.logoUrl||currentStation?.logo
+  };
+  // Only verified Artist - Title is a song; invalid radio text keeps the station fallback.
+  const parts=typeof nowPlaying==='string'&&!LOADING.test(nowPlaying)
+    ?parseMusicMetadata(nowPlaying,name):null;
+  const ai=Boolean(parts&&nowPlayingInfo?.source==='acrcloud'&&nowPlayingInfo?.foundWithAI);
+  // DJ-only metadata shows the producer. When a real track also exists,
+  // use the shared 20-second RDS slot instead of always preferring music.
+  if(liveBroadcast?.recognizedShow&&liveBroadcast.imageUrl&&(!parts||rdsShowProducer))return {
+    title:liveBroadcast.title||'Τώρα Ακούς',
+    artist:liveBroadcast.artist||name,
+    album:`${name} - iRadios`,image:liveBroadcast.imageUrl,
+    trackKey:'show:'+String(liveBroadcast.show?.day||'')+':'+
+      String(liveBroadcast.show?.startTime||'')+':'+String(liveBroadcast.show?.title||'')
+  };
+  if(parts)return {
+    title:parts.title,artist:parts.artist,
+    album:ai?`${name} - iRadios AI`:`${name} - iRadios`,
+    image:globalCoverArt||currentStation?.logo,
+    trackKey:parts.raw,
+    foundWithAI:ai
+  };
+  return {title:'Τώρα Ακούς',artist:name,album:'iRadios',image:currentStation?.logo};
+}
+// Browser/iOS Media Session controls are one shared audio session; the source
+// audio element is owned by App.jsx. Verified track changes, source changes and
+// cover arrivals update immediately. The 5-minute timer only refreshes unchanged
+// metadata (iOS background scheduling remains best effort).
+export default function useMediaSession({
+  currentStation,nowPlaying,nowPlayingInfo,isPlaying,isPlayingAd,currentAdInfo,
+  togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser,liveBroadcast,rdsShowProducer
+}){
+  const latest=useRef({});
+  latest.current={currentStation,nowPlaying,nowPlayingInfo,isPlaying,isPlayingAd,currentAdInfo,
+    togglePlayPause,handleNextStation,handlePrevStation,globalCoverArt,currentUser,liveBroadcast,rdsShowProducer};
+  const last=useRef({key:null,at:0,ai:false,image:null,imageSrc:null,trackKey:null});
+  const write=()=>{
+    if(typeof navigator==='undefined'||!('mediaSession' in navigator)||
+       typeof window.MediaMetadata!=='function')return;
+    const data=latest.current;
+    if(!data.currentStation)return;
+    const fields=mediaFields(data);
+    // Radio logos may be /uploads/... paths; Media Session artwork needs an absolute URL.
+    // Prefer album art, then fall back to the station logo when media cannot be loaded.
+    let image=null;
+    for(const src of [fields.image,data.currentStation.logo]){
+      if(typeof src!=='string'||!src.trim())continue;
+      try{
+        const url=new URL(src,window.location.origin);
+        if(!['https:','http:'].includes(url.protocol))continue;
+        if(window.location.protocol==='https:'&&url.protocol!=='https:')continue;
+        image=url.href;break;
+      }catch{ /* malformed artwork URL; try the station logo */ }
+    }
+    const metadata={
+      title:fields.title,artist:fields.artist,album:fields.album,
+      artwork:image?[96,128,256,512].map(size=>({
+        src:image,sizes:`${size}x${size}`,...(artworkType(image)?{type:artworkType(image)}:{})
+      })):[]
+    };
+    try{
+      navigator.mediaSession.metadata=new window.MediaMetadata(metadata);
+      navigator.mediaSession.playbackState=data.isPlaying?'playing':'paused';
+      last.current={key:[data.currentStation?._id,Boolean(data.currentUser),
+        Boolean(data.isPlayingAd),data.currentAdInfo?._id].join(':'),
+        at:Date.now(),ai:Boolean(fields.foundWithAI),image,
+        imageSrc:fields.image||null,trackKey:fields.trackKey||null};
+    }catch{ /* mediaSession may be unavailable on some WebViews; radio still plays */ }
+  };
+  useEffect(()=>{
+    if(!currentStation || (!isPlaying && last.current.key===null))return;
+    const key=[currentStation._id,Boolean(currentUser),Boolean(isPlayingAd),currentAdInfo?._id].join(':');
+    const fields=mediaFields(latest.current);
+    // The first real song must replace "Τώρα Ακούς" as soon as metadata arrives.
+    // Never keep an old song/cover after a confirmed track change or song expiry.
+    const trackChanged=(fields.trackKey||null)!==last.current.trackKey;
+    const sourceChanged=Boolean(fields.foundWithAI)!==last.current.ai;
+    const artworkChanged=(fields.image||null)!==last.current.imageSrc;
+    if(last.current.key!==key||trackChanged||sourceChanged||artworkChanged||
+       Date.now()-last.current.at>=FIVE_MINUTES){
+      write();
+    }else if('mediaSession' in navigator){
+      navigator.mediaSession.playbackState=isPlaying?'playing':'paused';
+    }
+  },[currentStation?._id,currentUser?._id,isPlaying,isPlayingAd,currentAdInfo?._id,
+    nowPlaying,nowPlayingInfo?.foundWithAI,nowPlayingInfo?.source,nowPlayingInfo?.broadcastHint,
+    globalCoverArt,liveBroadcast?.imageUrl,liveBroadcast?.title,liveBroadcast?.artist,rdsShowProducer]);
+  useEffect(()=>{
+    const timer=setInterval(()=>{
+      if(latest.current.currentStation&&latest.current.isPlaying)write();
+    },FIVE_MINUTES);
+    return ()=>clearInterval(timer);
+  },[]);
+  useEffect(()=>{
+    if(typeof navigator==='undefined'||!('mediaSession' in navigator))return;
+    const handlers={
+      play:()=>{if(!latest.current.isPlaying)latest.current.togglePlayPause?.();},
+      pause:()=>{if(latest.current.isPlaying)latest.current.togglePlayPause?.();},
+      nexttrack:()=>latest.current.handleNextStation?.(),
+      previoustrack:()=>latest.current.handlePrevStation?.(),
+      stop:()=>{if(latest.current.isPlaying)latest.current.togglePlayPause?.();}
+    };
+    for(const [action,handler] of Object.entries(handlers)){
+      try{navigator.mediaSession.setActionHandler(action,handler);}catch{}
+    }
+    return ()=>{
+      for(const action of Object.keys(handlers)){
+        try{navigator.mediaSession.setActionHandler(action,null);}catch{}
+      }
+    };
+  },[]);
+}

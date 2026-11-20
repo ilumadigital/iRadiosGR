@@ -1,0 +1,813 @@
+import DynamicAdCreative from '../components/DynamicAdCreative';
+import {geoAllowsAd} from '../utils/adPlacements';
+import PremiumSoundModes from '../components/PremiumSoundModes';
+import {normalizeListenerMode} from '../utils/dspEngine';
+import {isDesktopDSPDevice} from '../utils/dspDevice';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { formatFMFrequency } from '../utils/stationFrequency';
+import {scheduleDayBase,toCanonical,minutes,getAthensClock} from '../utils/schedule';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { 
+  Play, Pause, Heart, ArrowLeft, Disc3, Globe, Zap, Facebook, Instagram, Twitter, 
+  Phone, Mail, Music, AlertTriangle, SlidersHorizontal, MonitorSpeaker, 
+  Headphones, PowerOff, Radio, SignalHigh, Share2, Check, ShieldCheck, ExternalLink,
+  MessageCircle, Loader2, ScanSearch, ArrowRight
+} from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
+import StationPlaylistPanel from '../components/StationPlaylistPanel';
+import MusicServiceLinks from '../components/MusicServiceLinks';
+import MobileStationShowcase from '../components/MobileStationShowcase';
+import ShareStory from '../components/ShareStory';
+import StationContactModal from '../components/StationContactModal';
+import { useStationAmbient } from '../hooks/useStationAmbient';
+import StationScheduleTimeline from '../components/StationScheduleTimeline';
+import {resolveLiveShowArtwork} from '../utils/liveBroadcast';
+import {showProducerNow} from '../utils/rdsPresentation';
+import RdsCrossfade from '../components/RdsCrossfade';
+import '../styles/station-profile.css';
+import '../styles/station-desktop-glass.css';
+import StationCatalogCard from '../components/StationCatalogCard';
+import FoundWithAI from '../components/FoundWithAI';
+import {parseMusicMetadata} from '../utils/musicMetadata';
+import {stationSeoPreview} from '../utils/seoPreview';
+import {normalizePublicStationFaq,readInitialPublicStationFaq} from '../utils/publicStationFaq'; 
+import { useAlert } from '../context/AlertContext';
+
+export default function StationProfile({ 
+  stations, currentStation, isPlaying, onPlayPause, setCurrentStation, 
+  toggleFavorite, isFavorite, nowPlaying: globalNowPlaying, nowPlayingInfo: globalNowPlayingInfo, analyser,
+  currentUser, listenerDspMode, onUserDSPChange, API_URL,
+  isRecognizing, handleRecognizeTrack, globalCoverArt, liveBroadcast, rdsShowProducer, userLocation, checkGeoMatch,
+  remoteDevice, onTransferHere
+}) {
+  const { showAlert } = useAlert();
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [contactOpen, setContactOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(()=>getAthensClock().day);
+   const [athensClock,setAthensClock]=useState(()=>getAthensClock());
+   useEffect(()=>{
+     const timer=setInterval(()=>setAthensClock(getAthensClock()),60000);
+     return()=>clearInterval(timer);
+   },[]);
+  const [copied, setCopied] = useState(false);
+  const [showEQMenu, setShowEQMenu] = useState(false);
+  const [activeBanners, setActiveBanners] = useState([]);
+  const eqMenuRef = useRef(null);
+
+  const [localNowPlaying, setLocalNowPlaying] = useState(null);
+  const [localNowPlayingInfo,setLocalNowPlayingInfo]=useState({source:'none',foundWithAI:false});
+  const [isSearchingMetadata, setIsSearchingMetadata] = useState(false);
+  
+  // Station metadata must never update the page after the station changes.
+
+  const station = stations.find(s => s.slug === id || s._id === id);
+  const seo = stationSeoPreview(station || {});
+  useEffect(() => setContactOpen(false), [station?._id]);
+  useEffect(() => {
+    if (!station?._id || !currentUser || searchParams.get('contact') !== '1') return;
+    if (station.hasContactEmail || station.email) setContactOpen(true);
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      next.delete('contact');
+      return next;
+    }, { replace: true });
+  }, [station?._id, station?.hasContactEmail, station?.email, currentUser?._id, searchParams, setSearchParams]);
+  const stationAmbient = useStationAmbient(station?.logo);
+  // Legacy schedules use 0=Monday; new backoffice saves 1=Monday.
+  // The station is never rewritten by public reads.
+  const canonicalSchedule = useMemo(()=>toCanonical(station?.schedule||[],
+    scheduleDayBase(station?.schedule,station?.scheduleDayBase))
+    .map((show,index)=>({
+      ...show,
+      // Preserve the exclusive midnight boundary for LIVE/next detection;
+      // editor time inputs may use 00:00 but public playback must use 24:00.
+      endTime:station?.schedule?.[index]?.endTime==='24:00'?'24:00':show.endTime
+    })),
+    [station?.schedule,station?.scheduleDayBase]);
+  const [publicFaqState,setPublicFaqState]=useState({stationId:null,items:[]});
+  // This is private UI state sourced solely from the authenticated playlist panel.
+  // No track is added to public HTML, the FAQ endpoint or JSON-LD.
+  const [faqHistory,setFaqHistory]=useState({stationId:null,tracks:[]});
+  useEffect(()=>{
+    if(!station?._id){setPublicFaqState({stationId:null,items:[]});return undefined;}
+    const id=String(station._id);
+    const path=encodeURIComponent(String(station.slug||id));
+    const canonical=window.location.origin+'/station/'+path;
+    const initial=readInitialPublicStationFaq(canonical,document);
+    setPublicFaqState({stationId:id,items:initial});
+    const controller=new AbortController();
+    const sync=()=>{
+      fetch('/api/public/stations/'+path+'/faq',{signal:controller.signal})
+        .then(async response=>{
+          if(!response.ok)throw new Error('Public FAQ unavailable');
+          return response.json();
+        }).then(data=>{
+          if(String(data.stationId)===id&&!controller.signal.aborted)
+            setPublicFaqState({stationId:id,items:normalizePublicStationFaq(data.faq)});
+        }).catch(()=>{/* Retain server-rendered FAQ when public API is unavailable. */});
+    };
+    sync();
+    const refresh=window.setInterval(()=>{if(!document.hidden)sync();},5*60*1000);
+    return()=>{controller.abort();window.clearInterval(refresh);};
+  },[station?._id,station?.slug,station?.seoUpdatedAt]);
+  const publicFaq=publicFaqState.stationId===String(station?._id)?publicFaqState.items:[];
+  const faqRecentTracks=currentUser &&
+    (currentUser.role!=='user'||currentUser.isVerified===true) &&
+    faqHistory.stationId===String(station?._id)?
+    faqHistory.tracks.filter(track=>!track.premiumOnly&&track.title&&track.artist).slice(0,3):[];
+  const isFreeOrGuest = !currentUser || (!currentUser.isPremium && currentUser?.broadcasterProfile?.tier !== 'premium');
+  const isThisPlaying = currentStation && (currentStation._id === station?._id);
+
+  const LOADING_MESSAGES = [
+    "Ακούμε τον σταθμό…",
+    "Ψάχνουμε το τραγούδι…",
+    "Λίγο ακόμη…",
+    "Σχεδόν έτοιμο…",
+    "Βρίσκουμε το τραγούδι…",
+    "ΠΑΙΖΕΙ ΤΩΡΑ"
+  ];
+
+  const useGlobal=Boolean(currentUser&&isThisPlaying&&isPlaying&&
+    (globalNowPlaying||globalNowPlayingInfo?.premiumOnly||globalNowPlayingInfo?.broadcastHint)&&
+    !LOADING_MESSAGES.includes(globalNowPlaying));
+  const effectiveNowPlaying=currentUser?(useGlobal?globalNowPlaying:localNowPlaying):null;
+  const currentMetadataInfo=useGlobal?globalNowPlayingInfo:localNowPlayingInfo;
+  const aiPremiumTeaser=Boolean(currentUser&&currentMetadataInfo?.premiumOnly===true);
+  const localBroadcast=resolveLiveShowArtwork({
+    station,nowPlaying:effectiveNowPlaying,nowPlayingInfo:currentMetadataInfo,clock:athensClock
+  });
+  const broadcast=isThisPlaying&&isPlaying&&liveBroadcast?.recognizedShow?
+    liveBroadcast:localBroadcast;
+  const validatedMusic=parseMusicMetadata(effectiveNowPlaying,station?.name);
+  const foundWithAI=Boolean(validatedMusic&&
+    (useGlobal?globalNowPlayingInfo?.foundWithAI:localNowPlayingInfo.foundWithAI));
+
+  const isCurrentlyLoadingMeta = LOADING_MESSAGES.includes(effectiveNowPlaying) || isRecognizing;
+
+  // --- FETCH BANNERS ---
+  useEffect(() => {
+    if (isFreeOrGuest) {
+      fetch(`/api/banners/active`)
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setActiveBanners(data || []))
+        .catch(err => console.error("Error fetching banners:", err));
+    }
+  }, [isFreeOrGuest]);
+
+  const homeBanners = activeBanners.filter(b =>
+    b.status==='active'&&b.placement?.includes('station_profile')&&
+    (!b.expiresAt||new Date(b.expiresAt)>new Date())&&
+    geoAllowsAd(b.targetLocations,userLocation,checkGeoMatch,b.serverGeoEligible===true));
+
+  // Fetch live song information only for the authenticated listener's active station.
+  useEffect(() => {
+    const controller=new AbortController();
+    let intervalId;
+    let inFlight=false;
+    setLocalNowPlaying(null);
+    setLocalNowPlayingInfo({source:'none',foundWithAI:false});
+    setIsSearchingMetadata(false);
+    if (!station?._id || !currentUser) {
+      return () => controller.abort();
+    }
+    const read=async()=>{
+      if(inFlight || controller.signal.aborted)return;
+      inFlight=true;
+      setIsSearchingMetadata(true);
+      try{
+        const response=await fetch(`${API_URL}/metadata?stationId=${encodeURIComponent(station._id)}`,{
+          headers:{Authorization:`Bearer ${localStorage.getItem('iluma_token')||''}`},
+          signal:controller.signal
+        });
+        if(!response.ok)throw new Error('Song information unavailable');
+        const data=await response.json();
+        if(!controller.signal.aborted){
+          const title=typeof data?.title==='string'&&data.title.trim()?data.title.trim():null;
+          setLocalNowPlaying(title);
+          setLocalNowPlayingInfo({source:data?.source||'none',
+            foundWithAI:Boolean(title&&data?.foundWithAI),
+            premiumOnly:data?.premiumOnly===true,
+            broadcastHint:typeof data?.broadcastHint==='string'?data.broadcastHint:''});
+        }
+      }catch{
+        if(!controller.signal.aborted){setLocalNowPlaying(null);setLocalNowPlayingInfo({source:'none',foundWithAI:false});}
+      }finally{
+        inFlight=false;
+        if(!controller.signal.aborted)setIsSearchingMetadata(false);
+      }
+    };
+    read();
+    intervalId=setInterval(read,15000); // Fast shared DB snapshot, no upstream fetch
+    return ()=>{controller.abort();clearInterval(intervalId);};
+  }, [station?._id, currentUser?._id, API_URL]);
+
+  // 🟢 ΚΛΙΚ ΣΤΟ AI RADAR
+  const onRadarClick = (e) => {
+    e.stopPropagation();
+    if (!isThisPlaying || !isPlaying) {
+      showAlert("Πρέπει πρώτα να πατήσεις Play στον σταθμό για να αναγνωρίσεις τη μουσική!");
+      return;
+    }
+    if (!currentUser) {
+      showAlert("Συνδέσου στο iRadios για να βρεις ποιο τραγούδι παίζει.");
+      return;
+    }
+    if (!(currentUser.role==='admin'||currentUser.isPremium===true||currentUser?.broadcasterProfile?.tier==='premium')) {
+      navigate('/premium');return;
+    }
+    if (handleRecognizeTrack) handleRecognizeTrack();
+  };
+
+
+  const relatedStations = useMemo(() => {
+    if(!station?._id)return [];
+    const available=stations.filter(s=>
+      s?._id && String(s._id)!==String(station._id) && (s.status==='approved'||!s.status));
+    const sameGenre=available.filter(s=>s.genre && s.genre===station.genre);
+    const sameRegion=available.filter(s=>
+      s.region && s.region===station.region && !sameGenre.includes(s));
+    const others=available.filter(s=>!sameGenre.includes(s)&&!sameRegion.includes(s));
+    return [...sameGenre,...sameRegion,...others].slice(0,6);
+  }, [station?._id,station?.genre,station?.region,stations]);
+
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const mainScroller = document.getElementById('main-scroller');
+    if (mainScroller) mainScroller.scrollTop = 0;
+  }, [id, station]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (eqMenuRef.current && !eqMenuRef.current.contains(event.target)) {
+        setShowEQMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const { currentShow, nextShow } = useMemo(() => {
+    if (!canonicalSchedule.length) {
+      return { currentShow: null, nextShow: null };
+    }
+    const currentDayIdx = athensClock.day;
+    const currentMinutes = athensClock.minute;
+    const parseTime = (timeStr) => minutes(timeStr,true);
+    const sortedSchedule = [...canonicalSchedule].sort((a, b) => {
+      if (a.day !== b.day) return a.day - b.day;
+      return parseTime(a.startTime) - parseTime(b.startTime);
+    });
+    const curr = sortedSchedule.find(s => 
+      s.day === currentDayIdx && 
+      parseTime(s.startTime) <= currentMinutes && 
+      parseTime(s.endTime) > currentMinutes
+    );
+    let next = null;
+    const todayShows = sortedSchedule.filter(s => s.day === currentDayIdx && parseTime(s.startTime) > currentMinutes);
+    if (todayShows.length > 0) {
+      next = todayShows[0];
+    } else {
+      for (let i = 1; i <= 7; i++) {
+        const nextDayIdx = ((currentDayIdx-1+i)%7)+1;
+        const nextDayShows = sortedSchedule.filter(s => s.day === nextDayIdx);
+        if (nextDayShows.length > 0) {
+          next = nextDayShows[0];
+          break;
+        }
+      }
+    }
+    return { currentShow: curr, nextShow: next };
+  }, [canonicalSchedule,athensClock.day,athensClock.minute]);
+
+  if (!station) return <div className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center gap-4 px-6 text-center">
+    <Radio size={38} className="text-[#ccff00]"/>
+    <h1 className="text-2xl font-black text-white">Δεν βρήκαμε αυτόν τον σταθμό</h1>
+    <p className="text-sm text-zinc-400">Μπορείς να ανακαλύψεις άλλους σταθμούς στην αρχική.</p>
+    <button type="button" onClick={()=>navigate('/')} className="ir-action-primary px-6">Στην αρχική</button>
+  </div>;
+
+  const isFav = isFavorite ? isFavorite(station._id) : false;
+  const canUseCustomEQ = currentUser?.isPremium === true && isDesktopDSPDevice();
+  const currentPreset = normalizeListenerMode(listenerDspMode);
+
+  const handlePlayClick = () => {
+    if(station?.isOffline === true)return;
+    if (isThisPlaying) {
+      onPlayPause(); 
+    } else {
+      setCurrentStation(station); 
+    }
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: `Άκου τον ${station.name} στο iRadios`,
+      text: station.slogan || `Ακούστε ζωντανά τον σταθμό ${station.name} στο iRadios!`,
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch (err) {}
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); 
+    }
+  };
+
+  const StationAdBanner = ({banner}) => banner ?
+    <DynamicAdCreative banner={banner} placement="station_profile" variant="profile" className="w-full my-8"/> : null;
+
+  const SocialLink = ({ href, icon, label, type }) => {
+    if (!href) return null;
+    let link = href;
+    let target = "_blank";
+    
+    if (type === 'phone') {
+      link = `tel:${href}`; target = "_self";
+    } else if (type === 'viber') { 
+      const cleanPhone = href.replace(/[^\d+]/g, ''); 
+      const encodedText = encodeURIComponent('Γειά σας! Σας ακούω από το iRadios!');
+      link = `viber://chat?number=${cleanPhone}&draft=${encodedText}`; target = "_self";
+    } else {
+      if (!href.startsWith('http')) link = `https://${href}`;
+      if (label === 'Website') {
+        try {
+          const urlObj = new URL(link);
+          urlObj.searchParams.set('utm_source', 'iradios.gr');
+          urlObj.searchParams.set('utm_medium', 'referral');
+          urlObj.searchParams.set('utm_campaign', 'station_profile');
+          link = urlObj.toString();
+        } catch (e) {
+          const separator = link.includes('?') ? '&' : '?';
+          link = `${link}${separator}utm_source=iradios.gr&utm_medium=referral`;
+        }
+      }
+    }
+
+    return (
+      <a 
+        href={link} target={target} rel="noopener noreferrer" 
+        className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-zinc-900/50 hover:bg-zinc-800 border border-white/10 hover:border-white/20 transition-all text-sm font-medium group backdrop-blur-sm ${type === 'viber' ? 'text-[#7360f2] hover:text-white' : 'text-zinc-300 hover:text-white'}`}
+      >
+        <span className={`${type === 'viber' ? 'text-[#7360f2]' : 'text-zinc-400'} group-hover:text-[#ccff00] transition-colors`}>{icon}</span>
+        <span className="truncate max-w-[150px]">{label}</span>
+      </a>
+    );
+  };
+
+  // 🟢 Απλή λογική: Αν παίζει ο σταθμός ΚΑΙ υπάρχει CoverArt από το App.jsx, το δείχνουμε. Αλλιώς, το Logo.
+  // The App owns the shared RDS slot for the active station. Other station
+  // profiles use the same wall-clock slot for consistent artwork.
+  const showProducer=Boolean(isThisPlaying&&isPlaying?rdsShowProducer:
+    showProducerNow({currentUser,stationName:station.name,
+      nowPlaying:effectiveNowPlaying,liveBroadcast:broadcast}));
+  const liveProducerImage=currentUser&&showProducer&&broadcast.imageUrl?
+    broadcast.imageUrl:null;
+  const stationSongCover=Boolean(currentUser&&isThisPlaying&&isPlaying&&validatedMusic&&
+    globalCoverArt&&!isCurrentlyLoadingMeta);
+  const showCoverArt=Boolean(stationSongCover&&!liveProducerImage);
+  const showArtwork=Boolean(stationSongCover||liveProducerImage);
+  const baseImage=stationSongCover?globalCoverArt:station.logo;
+  const currentImage=liveProducerImage||baseImage;
+
+  return (
+    <div className="ir-station-page relative flex flex-col pb-40 w-full min-h-screen" style={{ '--ir-station-ambient': stationAmbient }}>
+      
+      <StationContactModal open={contactOpen} onClose={() => setContactOpen(false)}
+        station={station} currentUser={currentUser} apiUrl={API_URL} />
+      <Helmet>
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description}/>
+        <link rel="canonical" href={seo.url}/>
+        <meta property="og:title" content={seo.title}/>
+        <meta property="og:description" content={seo.description}/>
+        <meta property="og:url" content={seo.url}/>
+        <meta property="og:image" content={seo.image}/>
+        <meta name="twitter:card" content="summary_large_image"/>
+        <meta name="twitter:title" content={seo.title}/>
+        <meta name="twitter:description" content={seo.description}/>
+        <meta name="twitter:image" content={seo.image}/>
+      </Helmet>
+
+      {/* BACKGROUND BLUR */}
+      <div className="ir-station-background absolute inset-0 z-0 overflow-hidden pointer-events-none h-[80vh]">
+        <div 
+          className="absolute inset-0 opacity-20 blur-[100px] scale-110 transition-all duration-1000"
+          style={{ backgroundImage: `url(${currentImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/80 to-black"></div>
+      </div>
+
+      <div className="ir-station-responsive-shell relative z-10 flex-1 mx-auto w-full">
+        <MobileStationShowcase
+          remoteDevice={remoteDevice} onTransferHere={onTransferHere}
+          station={station} ambient={stationAmbient}
+          playing={Boolean(isThisPlaying && isPlaying)} onPlay={handlePlayClick}
+          favorite={isFav} onFavorite={() => toggleFavorite?.(station._id)}
+          onShare={handleShare} copied={copied}
+          currentUser={currentUser} song={validatedMusic}
+          songText={effectiveNowPlaying}
+          foundWithAI={foundWithAI} loadingMetadata={isCurrentlyLoadingMeta}
+          artwork={stationSongCover ? globalCoverArt : (liveProducerImage || station.logo)}
+          show={currentShow} recognizing={isRecognizing}
+          onRecognize={onRadarClick}
+        />
+
+        {/* BACK BUTTON */}
+        <button 
+          onClick={() => navigate(-1)} 
+          className="ir-station-profile-nav group"
+        >
+          <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" /> 
+          </div>
+          <span className="ir-station-back-label">Πίσω στους σταθμούς</span>
+        </button>
+
+        <div className="ir-station-top-grid">
+        <section className="ir-station-hero ir-station-profile-hero" aria-label={`Ζωντανή ακρόαση ${station.name}`}>
+          
+          {/* 🟢 DYNAMIC LOGO / COVER ART AREA */}
+          <div className="ir-station-hero-visual">
+            <div className="ir-station-hero-art group relative z-10">
+              
+              <img 
+                src={baseImage}
+                alt={stationSongCover ? effectiveNowPlaying : station.name}
+                onError={e=>{
+                  if(e.currentTarget.src!==new URL(station.logo,window.location.href).href){
+                    e.currentTarget.src=station.logo;
+                    e.currentTarget.style.objectFit='contain';
+                    e.currentTarget.style.background='#fff';
+                  }
+                }} 
+                className={`w-full h-full transition-all duration-700 z-10 
+                  ${stationSongCover ? 'ir-station-art-is-song object-cover group-hover:scale-105' : 'ir-station-art-is-logo object-contain'}
+                  
+                `}
+              />
+              {currentUser&&broadcast.imageUrl&&<img
+                src={broadcast.imageUrl}
+                alt=""
+                aria-hidden="true"
+                onError={e=>{
+                  if(e.currentTarget.src!==new URL(station.logo,window.location.href).href){
+                    e.currentTarget.src=station.logo;
+                    e.currentTarget.style.objectFit='contain';
+                    e.currentTarget.style.background='#fff';
+                  }
+                }}
+                className={`ir-rds-image-overlay z-[11] ${liveProducerImage?'is-active':''}`}
+              />}
+
+              {/* 🟢 AI RADAR BUTTON (Top Right) */}
+              <div className="absolute top-4 right-4 z-20 flex justify-end">
+                <button 
+                  onClick={onRadarClick}
+                  disabled={isRecognizing}
+                  className={`group/radar bg-black/60 backdrop-blur-md h-8 rounded-full border border-white/10 flex items-center overflow-hidden transition-all duration-300 w-8 hover:w-[180px] text-white hover:text-[#ccff00] shadow-lg disabled:opacity-50`}
+                >
+                  <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                    {isRecognizing ? <Loader2 size={14} className="animate-spin text-[#ccff00]" /> : <ScanSearch size={14} />}
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] whitespace-nowrap opacity-0 group-hover/radar:opacity-100 transition-opacity duration-300">
+                    ΒΡΕΣ ΤΟ ΤΡΑΓΟΥΔΙ
+                  </span>
+                </button>
+              </div>
+
+              {showArtwork && (
+                <>
+                  <div className="ir-station-art-scrim"></div>
+                  
+                  {/* Miniature Station Logo */}
+                  <div className="ir-station-art-brand-wrap">
+                    <div className="ir-station-art-brand">
+                      <img src={station.logo} alt={station.name} className="ir-station-art-brand-image" />
+                    </div>
+                  </div>
+
+                   <div className="ir-station-art-badge">
+                     <div className="w-2 h-2 rounded-full bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]"></div>
+                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white">{liveProducerImage?'ON AIR · ΠΑΡΑΓΩΓΟΣ':'ΤΩΡΑ ΠΑΙΖΕΙ'}</span>
+                   </div>
+                </>
+              )}
+
+              {/* Searching Indicator Overlay */}
+              {isSearchingMetadata && !localNowPlaying && !isCurrentlyLoadingMeta && (
+                 <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 text-white bg-black/60 px-4 py-2 rounded-full text-xs font-bold">
+                       <Loader2 size={14} className="animate-spin text-[#ccff00]" /> Αναζήτηση...
+                    </div>
+                 </div>
+              )}
+
+              {/* Desktop-only artwork action stack. The shared music component
+                  still controls login, validated RDS metadata and Premium gating. */}
+              {!isCurrentlyLoadingMeta && (
+                <MusicServiceLinks song={effectiveNowPlaying} stationName={station.name}
+                  currentUser={currentUser} className="ir-music-links--station-desktop" />
+              )}
+            </div>
+          </div>
+
+          {/* STATION INFO */}
+          <div className="ir-station-hero-copy">
+            
+            <div className="ir-station-identity">
+              <div className={`ir-station-live-kicker ${station.isOffline===true?'is-offline':''}`}>
+                <Radio size={16}/> {station.isOffline===true?'ΕΚΤΟΣ ΣΥΝΔΕΣΗΣ':'ΖΩΝΤΑΝΑ ΣΤΟΝ ΑΕΡΑ'}
+              </div>
+              <h1 className="ir-station-name">
+                {station.name}{station.boostStatus && new Date(station.boostExpiresAt) > new Date() && (<Zap size={14} className="inline ml-2 text-black bg-[#ccff00] rounded-full p-0.5 mb-0.5" />)}
+              </h1>
+              
+              {/* TRANSMISSION BADGE */}
+              <div className="ir-station-tags">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border ${
+                  station.transmissionType === 'Επίγειο' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 
+                  station.transmissionType === 'DAB' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 
+                  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                }`}>
+                  <SignalHigh size={12} />
+                  {station.transmissionType || 'Web Radio'} {station.frequency && `• ${formatFMFrequency(station.frequency)}`}
+                </span>
+
+                {station.explicit && (
+                  <span className="inline-flex items-center justify-center gap-1 bg-red-500/20 text-red-500 border border-red-500/20 text-[10px] font-black tracking-widest uppercase px-2 py-1 rounded-lg h-fit w-fit">
+                    <AlertTriangle size={12} /> Explicit
+                  </span>
+                )}
+              </div>
+              {station.slogan&&<p className="ir-station-tagline">{station.slogan}</p>}
+            </div>
+
+            {/* Real authenticated station metadata (no fabricated song history). */}
+            <div className="ir-station-now w-full min-w-0">
+              <RdsCrossfade showSecondary={Boolean(liveProducerImage)}
+                secondary={currentUser&&broadcast.imageUrl?(
+                  <div className="flex min-w-0 flex-col items-start text-left">
+                    <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[.13em] text-[#ccff00]">
+                      <Disc3 size={14}/> ΖΩΝΤΑΝΑ ΣΤΟΝ ΑΕΡΑ
+                    </div>
+                    <h2 className="break-words text-xl font-black leading-tight tracking-tight text-white sm:text-2xl">
+                      {broadcast.title}
+                    </h2>
+                    {broadcast.artist&&<p className="mt-2 text-sm font-semibold text-zinc-300">{broadcast.artist}</p>}
+                  </div>
+                ):null}>
+              {effectiveNowPlaying ? (
+                <div className="flex min-w-0 flex-col items-start text-left">
+                  <div className="inline-flex items-center gap-2 mb-2">
+                    {!isCurrentlyLoadingMeta ? (
+                       <Disc3 size={14} className="text-[#ccff00] animate-spin-slow" />
+                    ) : (
+                       <Loader2 size={14} className="text-[#ccff00] animate-spin" />
+                    )}
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ccff00]">
+                      {isCurrentlyLoadingMeta ? 'ΑΝΑΓΝΩΡΙΣΗ' : 'ΤΩΡΑ ΠΑΙΖΕΙ'}
+                    </span>
+                     {foundWithAI&&<FoundWithAI compact/>}
+                  </div>
+                  <h2 className="ir-station-track-title">{validatedMusic?.title||effectiveNowPlaying}</h2>
+                  {validatedMusic?.artist&&<p className="ir-station-track-artist">{validatedMusic.artist}</p>}
+                </div>
+              ) : aiPremiumTeaser ? (
+                <div className="flex flex-col items-start gap-2 text-left" role="status">
+                  <span className="text-xs font-black text-[#ccff00]">✦ Premium μέλος ανακάλυψε τραγούδι με AI</span>
+                  <p className="text-sm text-zinc-300">Ξεκλείδωσε τίτλο και καλλιτέχνη με το iRadios Premium.</p>
+                  <button type="button" onClick={()=>navigate('/premium')} className="rounded-xl bg-[#ccff00] px-4 py-2 text-xs font-black text-black">Αναβάθμιση σε Premium</button>
+                </div>
+              ) : !currentUser ? (
+                <button type="button" onClick={()=>navigate('/login')} className="min-h-11 text-left text-sm font-bold text-[#ccff00] hover:underline">
+                  Συνδέσου στο iRadios για NowPlaying
+                </button>
+              ) : (
+                <p className="ir-station-empty-meta">
+                  {station.isOffline===true?'Ο σταθμός είναι προσωρινά εκτός σύνδεσης':'Συντονίσου ζωντανά στο '+station.name}
+                </p>
+              )}
+              </RdsCrossfade>
+              
+              {/* Show/DJ details are always visible; the existing 20s song/show RDS
+                  crossfade above stays untouched and keeps using the App's state. */}
+              <div className="ir-station-now-shows mt-4 flex flex-wrap justify-start gap-3">
+                {(currentShow || broadcast?.show) && (
+                  <div className="ir-station-broadcast-card" aria-label="Εκπομπή και παραγωγός στον αέρα">
+                    <span className="ir-station-broadcast-eyebrow">
+                      <Radio size={13} aria-hidden="true" /> ΣΤΟΝ ΑΕΡΑ ΤΩΡΑ
+                    </span>
+                    {(currentShow?.host || broadcast?.show?.host) && (
+                      <strong>{currentShow?.host || broadcast.show.host}</strong>
+                    )}
+                    <small>{currentShow?.title || broadcast?.show?.title || broadcast?.title || 'Ζωντανή εκπομπή'}</small>
+                  </div>
+                )}
+                {nextShow && (
+                  <div className="ir-station-next-card" aria-label="Επόμενη εκπομπή">
+                    <span className="ir-station-next-eyebrow">
+                      <Disc3 size={13} aria-hidden="true" /> ΑΚΟΛΟΥΘΕΙ
+                    </span>
+                    <strong>{nextShow.title}</strong>
+                    {nextShow.host && <small>{nextShow.host}</small>}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* CONTROLS ROW */}
+            <div className="ir-station-actions">
+              <div className="ir-station-action-buttons">
+                
+                {/* Plain Play/Pause: intentionally no VU meter, ring or audio canvas. */}
+                <button
+                  type="button"
+                  onClick={handlePlayClick}
+                  disabled={station?.isOffline === true}
+                  aria-label={station?.isOffline === true ? 'Σταθμός εκτός σύνδεσης' : isThisPlaying && isPlaying ? 'Παύση σταθμού' : 'Αναπαραγωγή σταθμού'}
+                  className={`ir-player-transport ir-station-play-button relative z-10 shrink-0 rounded-full flex items-center justify-center transition-transform ${station?.isOffline === true ? "cursor-not-allowed bg-red-600 text-white" : "hover:scale-105 active:scale-95"}`}
+                >
+                  {station?.isOffline === true ? <span className="text-[10px] font-black">OFFLINE</span> : isThisPlaying && isPlaying ? <Pause size={30} fill="currentColor" /> : <Play size={30} fill="currentColor" className="ml-1" />}
+                </button>
+                
+                {/* FAVORITE BUTTON */}
+                <button 
+                  onClick={() => toggleFavorite && toggleFavorite(station._id)}
+                  className={`w-12 h-12 lg:w-14 lg:h-14 border rounded-full flex items-center justify-center transition-all shrink-0 ${isFav ? 'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]' : 'border-white/20 text-white hover:bg-white/10'}`}
+                >
+                  <Heart size={24} fill={isFav ? '#ccff00' : 'none'} />
+                </button>
+
+                {/* SHARE BUTTON */}
+                <button 
+                  onClick={handleShare}
+                  className={`w-12 h-12 lg:w-14 lg:h-14 border rounded-full flex items-center justify-center transition-all shrink-0 ${copied ? 'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]' : 'border-white/20 text-white hover:bg-white/10'}`}
+                  title="Κοινοποίηση"
+                >
+                  {copied ? <Check size={24} /> : <Share2 size={24} />}
+                </button>
+
+                {/* Instagram Story — same 9:16 generator as both mobile players. */}
+                <ShareStory currentStation={station} nowPlaying={validatedMusic ? effectiveNowPlaying : null}
+                  artworkUrl={stationSongCover ? globalCoverArt : null}
+                  show={broadcast?.show || currentShow}
+                  showImageUrl={broadcast?.imageUrl || currentShow?.imageUrl}
+                  className="w-12 h-12 lg:w-14 lg:h-14 rounded-full border border-white/20 text-[#f7c4d7] hover:bg-white/10 shrink-0"
+                  iconSize={24}/>
+                
+                {/* PREMIUM EQ BUTTON */}
+                {canUseCustomEQ && (
+                  <div className="relative" ref={eqMenuRef}>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowEQMenu(!showEQMenu); }}
+                      className={`w-12 h-12 lg:w-14 lg:h-14 border rounded-full flex items-center justify-center transition-all shrink-0 ${showEQMenu || currentPreset !== 'DEFAULT' ? 'border-[#ccff00] bg-[#ccff00]/10 text-[#ccff00]' : 'border-white/20 text-white hover:bg-white/10'}`}
+                      title="Προσαρμογή Ήχου (Premium)"
+                    >
+                      <SlidersHorizontal size={24} />
+                    </button>
+
+                    {showEQMenu && (
+                      <div className="absolute bottom-full left-0 mb-3 z-[100] w-72">
+                        <PremiumSoundModes value={currentPreset}
+                          onChange={mode=>{onUserDSPChange(station._id,mode);setShowEQMenu(false);}}/>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="ir-station-stats">
+                <div className="h-10 w-px bg-white/10 hidden sm:block"></div>
+                <div>
+                  <span className="text-[10px] text-zinc-500 font-black mb-1 block uppercase tracking-widest">Τοποθεσια</span>
+                  <span className="text-[14px] sm:text-[15px] font-bold text-white">
+                    {station.city ? `${station.city}, ${station.region}` : (station.region || 'Web')}
+                  </span>
+                </div>
+                <div className="h-10 w-px bg-white/10"></div>
+                <div>
+                  <span className="text-[10px] text-zinc-500 font-black mb-1 block uppercase tracking-widest">Ειδος</span>
+                  <span className="text-[14px] sm:text-[15px] font-bold text-[#ccff00] tracking-wider">{station.genre}</span>
+                  {station.secondaryGenre&&<Link to={`/genre/${encodeURIComponent(station.secondaryGenre)}`} className="mt-1 block text-[11px] text-zinc-400 hover:text-[#ccff00]">{station.secondaryGenre}</Link>}
+                </div>
+              </div>
+            </div>
+
+
+          </div>
+        </section>
+        </div>
+
+        <div className="ir-station-lower-grid">
+        <aside className="ir-station-playlist-aside" aria-label="Playlist σταθμού">
+          <StationPlaylistPanel station={station} currentUser={currentUser}
+            currentStation={currentStation} isPlaying={isPlaying}
+            onPlayPause={onPlayPause} onPlayStation={setCurrentStation}
+            onTracksLoaded={tracks=>setFaqHistory({stationId:String(station?._id||''),tracks})}
+            sidebar mobileShowcase/>
+        </aside>
+        <div className="ir-station-info-stack">
+        <section className="ir-station-about" aria-label="Πληροφορίες σταθμού">
+          <div className="ir-station-about-eyebrow">ΓΝΩΡΙΣΕ ΤΟΝ ΣΤΑΘΜΟ</div>
+          <h2>Λίγα λόγια για τον {station.name}</h2>
+            {/* DESCRIPTION */}
+            <p className="ir-station-description break-words text-zinc-400 text-sm leading-relaxed mb-6 font-medium max-w-2xl text-left">
+              {station.description || 'Δεν υπάρχει διαθέσιμη περιγραφή για αυτόν τον σταθμό. Πατήστε το Play για να συντονιστείτε ζωντανά.'}
+            </p>
+
+            {/* SOCIAL & CONTACT LINKS */}
+            {(station.website || station.facebook || station.instagram || station.twitter || station.tiktok || station.phone || station.viber || station.hasContactEmail || station.email) && (
+              <div className="mt-4 border-t border-white/5 pt-8 w-full">
+                <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4 text-center lg:text-left">
+                  Επικοινωνια & Social
+                </h3>
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3">
+                  <SocialLink href={station.website} icon={<Globe size={16} />} label="Website" type="web" />
+                  <SocialLink href={station.facebook} icon={<Facebook size={16} />} label="Facebook" type="web" />
+                  <SocialLink href={station.instagram} icon={<Instagram size={16} />} label="Instagram" type="web" />
+                  <SocialLink href={station.tiktok} icon={<Music size={16} />} label="TikTok" type="web" />
+                  <SocialLink href={station.twitter} icon={<Twitter size={16} />} label="Twitter" type="web" />
+                  <SocialLink href={station.phone} icon={<Phone size={16} />} label={station.phone} type="phone" />
+                  <SocialLink href={station.viber} icon={<MessageCircle size={16} />} label="Viber" type="viber" />
+                  </div>
+                  {(station.hasContactEmail || Boolean(station.email)) && (
+                    <button type="button" onClick={() => setContactOpen(true)}
+                      className="ir-station-contact-cta group"
+                      aria-label={'Στείλε μήνυμα στο ' + station.name}>
+                      <span className="ir-station-contact-cta-icon"><Mail size={22} strokeWidth={2.2} /></span>
+                      <span className="ir-station-contact-cta-copy">
+                        <strong>Στείλε μήνυμα στο {station.name}</strong>
+                        <small>Επικοινώνησε απευθείας μέσω iRadiosGR</small>
+                      </span>
+                      <ArrowRight size={19} className="ir-station-contact-cta-arrow" aria-hidden="true" />
+                    </button>
+                  )}
+              </div>
+            )}
+
+        </section>
+
+        {publicFaq.length>0&&<section aria-label="Συχνές ερωτήσεις σταθμού"
+          className="ir-station-faq rounded-3xl border border-white/10 bg-white/[.025] p-5 md:p-8">
+          <h2 className="mb-4 text-xl font-black text-white">Συχνές ερωτήσεις για τον {station.name}</h2>
+          <div className="space-y-3 text-sm text-zinc-300">
+            {publicFaq.map(item=><details key={item.q} className="rounded-xl border border-white/10 p-4">
+              <summary className="cursor-pointer font-bold">{item.q}</summary>
+              <p className="mt-3 text-zinc-400">{item.a}</p>
+              {item.q.toLocaleLowerCase('el-GR').includes('playlist') && faqRecentTracks.length>0&&
+                <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                  <p className="mb-2 text-xs font-bold text-[#ccff00]">Από την προσωπική σου προβολή playlist</p>
+                  <ul className="space-y-1 text-xs text-zinc-300">
+                    {faqRecentTracks.map((track,index)=><li key={index}>
+                      {track.artist} — {track.title}
+                    </li>)}
+                  </ul>
+                </div>}
+            </details>)}
+          </div>
+        </section>}
+        </div>
+        </div>
+
+        <div id="ir-station-program">
+          <StationScheduleTimeline station={station} shows={canonicalSchedule}
+            selectedDay={selectedDay} onSelectDay={setSelectedDay}
+            currentShow={currentShow} today={athensClock} currentUser={currentUser}/>
+        </div>
+
+        {/* 🟢 AD BANNER */}
+        {isFreeOrGuest && homeBanners.length > 0 && (
+          <div className="mt-8">
+            <StationAdBanner banner={homeBanners[0]} />
+          </div>
+        )}
+
+        {/* 4. YOU MIGHT ALSO LIKE (ΣΧΕΤΙΚΟΙ ΣΤΑΘΜΟΙ) */}
+        {relatedStations.length > 0 && (
+          <div className="mt-16 border-t border-white/5 pt-12 animate-fade-in">
+            <h3 className="text-[12px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-6 text-center lg:text-left">
+              Μπορεί να σου αρέσουν
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 sm:gap-5">
+              {relatedStations.map(relStation=>(
+                <StationCatalogCard key={relStation._id} station={relStation}
+                  currentStation={currentStation} isPlaying={isPlaying} onPlayPause={onPlayPause}
+                  onPlayStation={setCurrentStation}/>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}

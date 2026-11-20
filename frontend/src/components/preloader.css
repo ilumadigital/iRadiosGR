@@ -1,0 +1,201 @@
+/* One official PNG logo, at its native aspect ratio; motion is decoration only. */
+.ir-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  background: #050707;
+  color: #f6f8f4;
+  opacity: 1;
+  transition: opacity .25s ease-out, visibility .25s ease-out;
+}
+
+.ir-splash--exit {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.ir-splash__ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 36% 31% at 50% 49%, rgba(125, 184, 0, .15), transparent 76%),
+    radial-gradient(ellipse 54% 40% at 51% 53%, rgba(73, 114, 12, .065), transparent 79%);
+}
+
+.ir-splash__waves {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(110vw, 850px);
+  height: clamp(195px, 38vh, 330px);
+  transform: translate(-50%, -48%);
+  overflow: visible;
+  pointer-events: none;
+  opacity: .65;
+  animation: ir-splash-waves-in .5s ease-out both;
+}
+
+.ir-splash__wave {
+  fill: none;
+  stroke: #caff00;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ir-splash__wave--primary {
+  opacity: .58;
+  filter: drop-shadow(0 0 6px rgba(204, 255, 0, .48));
+}
+
+.ir-splash__wave--secondary {
+  opacity: .21;
+}
+
+.ir-splash__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(90vw, 440px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.ir-splash__logo-wrap {
+  position: relative;
+  width: min(78vw, 340px);
+  max-width: 100%;
+  line-height: 0;
+  overflow: hidden;
+}
+
+.ir-splash__logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: none;
+  object-fit: contain;
+  filter: drop-shadow(0 0 9px rgba(204, 255, 0, .075));
+  animation: ir-splash-logo-in .34s ease-out both;
+}
+
+/* A brief light glint above the mark, never a loading/progress bar. */
+.ir-splash__beam {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  z-index: 2;
+  width: 76%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(204,255,0,.12) 20%, #eaff9c 51%, rgba(204,255,0,.12) 80%, transparent);
+  box-shadow: 0 0 13px rgba(204, 255, 0, .32);
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: ir-splash-beam .66s ease-out .08s both;
+}
+
+.ir-splash__glint {
+  position: absolute;
+  top: 17%;
+  bottom: 17%;
+  left: -25%;
+  width: 18%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(244,255,222,.24), transparent);
+  transform: skewX(-20deg);
+  opacity: 0;
+  animation: ir-splash-glint .65s ease-out .06s both;
+}
+
+.ir-splash__tagline {
+  display: block;
+  margin-top: 8px;
+  color: rgba(238, 247, 229, .65);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .27em;
+  line-height: 1.6;
+  white-space: nowrap;
+  animation: ir-splash-text-in .36s ease-out .12s both;
+}
+
+.ir-splash__equalizer {
+  display: flex;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 24px;
+  opacity: .86;
+}
+
+.ir-splash__equalizer span {
+  display: block;
+  flex: 0 0 3px;
+  width: 3px;
+  height: var(--bar-height);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ddff3f, #9dcc00);
+  box-shadow: 0 0 8px rgba(204, 255, 0, .25);
+  transform-origin: 50% 50%;
+  animation: ir-splash-equalize .42s ease-in-out var(--bar-delay) infinite alternate;
+}
+
+@keyframes ir-splash-logo-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ir-splash-waves-in {
+  from { opacity: 0; }
+  to { opacity: .65; }
+}
+
+@keyframes ir-splash-text-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ir-splash-beam {
+  0% { opacity: 0; }
+  35% { opacity: .75; }
+  62% { opacity: 1; }
+  100% { opacity: .12; }
+}
+
+@keyframes ir-splash-glint {
+  0% { left: -25%; opacity: 0; }
+  25% { opacity: .55; }
+  65% { opacity: .35; }
+  100% { left: 110%; opacity: 0; }
+}
+
+@keyframes ir-splash-equalize {
+  from { transform: scaleY(.48); opacity: .65; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@media (max-width: 480px) {
+  .ir-splash__logo-wrap { width: min(76vw, 270px); }
+  .ir-splash__tagline { font-size: 8px; letter-spacing: .2em; margin-top: 7px; }
+  .ir-splash__equalizer { gap: 3px; margin-top: 20px; }
+  .ir-splash__waves { opacity: .42; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ir-splash, .ir-splash__waves, .ir-splash__logo,
+  .ir-splash__tagline, .ir-splash__beam, .ir-splash__glint,
+  .ir-splash__equalizer span { animation: none !important; }
+  .ir-splash { transition-duration: .01ms; }
+  .ir-splash__beam, .ir-splash__glint { display: none; }
+  .ir-splash__equalizer span { transform: none; }
+}

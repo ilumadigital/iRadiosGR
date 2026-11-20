@@ -1,0 +1,106 @@
+const mongoose = require('mongoose');
+
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  email: { type: String, required: true },
+  password: { type: String, required: true },
+  fname: { type: String, required: true, default: 'iR' }, 
+  lname: { type: String, required: true, default: 'User' },
+  birthdate: { type: Date, required: true, default: new Date('2000-01-01') }, 
+  phone: { type: String, default: "" },
+  
+  role: { type: String, enum: ['admin', 'broadcaster', 'user', 'producer', 'agency'], default: 'user' },
+  
+  assignedStation: { type: mongoose.Schema.Types.ObjectId, ref: 'Station', default: null },
+  invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+
+  agencyProfile: {
+    businessType: { type: String, enum: ['individual', 'company'], default: 'company' },
+    vatNumber: { type: String, default: '' },
+    companyName: { type: String, default: '' },
+    countryCode: { type: String, default: 'EL' }
+  },
+
+  favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Station' }],
+  // Bounded anonymous-style counts, scoped to this account and each device.
+  // Not selected during login/auth/me and removed with the User document.
+  listeningPreferences: { type: mongoose.Schema.Types.Mixed, default: {}, select: false },
+  // Shows are scoped to a station; DJs are followed across stations by normalized host name.
+  followedPrograms: [{
+    kind: { type: String, enum: ['show','dj'], required: true },
+    key: { type: String, required: true, maxlength: 230 },
+    label: { type: String, required: true, maxlength: 150 },
+    stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Station', required: true },
+    stationName: { type: String, default: '' },
+    stationSlug: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  isPremium: { type: Boolean, default: false },
+
+  // Legacy status kept for imported accounts; new paid periods live in BillingOrder.
+  subscriptionStatus: { type: String, default: null },
+  currentPeriodEnd: { type: Date, default: null },
+
+  // Read-only legacy subscription history; no new provider writes.
+  activeSubscriptions: [{
+    planId: { type: String },
+    status: { type: String, default: 'active' }, // 'active', 'canceled'
+    currentPeriodEnd: { type: Date }
+  }],
+  
+  broadcasterProfile: {
+    tier: { type: String, enum: ['free', 'premium'], default: 'free' },
+    maxStations: { type: Number, default: 3 },
+    // Station selection is a preference only, never a paid entitlement.
+    premiumBoostStationIds: [{ type: require('mongoose').Schema.Types.ObjectId, ref: 'Station' }],
+    features: {
+      adControl: { type: Boolean, default: false },
+      dspEngine: { type: Boolean, default: false },
+      betaAccess: { type: Boolean, default: false },
+      analytics: { type: Boolean, default: false }
+    }
+  },
+
+  pushNotifications: { type: Boolean, default: true }, // Legacy compatibility.
+  // Saved per-user preferences; absent fields on legacy users inherit defaults.
+  notificationPreferences: {
+    push: { type: Boolean, default: true },
+    email: { type: Boolean, default: true },
+    topics: {
+      newStations: { type: Boolean, default: true },
+      favoriteSchedule: { type: Boolean, default: true },
+      shows: { type: Boolean, default: true },
+      news: { type: Boolean, default: true },
+      promotions: { type: Boolean, default: false } // Explicit marketing opt-in only.
+    },
+    newsCategories: { type: [String], default: [] },
+    marketingConsentAt: { type: Date, default: null }
+  },
+  businessType: { type: String, enum: ['individual', 'company'], default: 'individual' },
+  vatNumber: { type: String, default: '' },
+  companyName: { type: String, default: '' },
+
+  isVerified: { type: Boolean, default: false },
+  verificationOtp: { type: String, default: null },
+  otpExpires: { type: Date, default: null },
+  verificationTokenHash: { type: String, default: null },
+  verificationTokenExpires: { type: Date, default: null },
+  verificationEmailLastSentAt: { type: Date, default: null },
+  // Dedicated, hashed and short-lived Admin login verification. Never serialized.
+  adminOtpChallengeHash: { type: String, default: undefined, select: false },
+  adminOtpCodeHash: { type: String, default: undefined, select: false },
+  adminOtpExpiresAt: { type: Date, default: undefined, select: false },
+  adminOtpAttempts: { type: Number, default: undefined, select: false },
+  adminOtpLastSentAt: { type: Date, default: undefined, select: false },
+
+  hasAcceptedTerms: { type: Boolean, default: false },
+  termsAcceptedAt: { type: Date, default: null },
+  // Only broadcaster B2B consent is versioned. Null means a legacy acceptance.
+  termsAcceptedVersion: { type: String, default: null },
+
+  resetPasswordToken: { type: String, default: null },
+  resetPasswordExpires: { type: Date, default: null }
+
+}, { timestamps: true });
+
+module.exports = mongoose.model('User', userSchema);

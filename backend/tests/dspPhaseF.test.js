@@ -1,0 +1,100 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {DSP_DEFAULTS,DSP_PRESETS,DSP_COMPRESSOR_DEFAULTS,DSP_CLIPPER_DEFAULTS,validateDSPUpdate}=
+ require('../services/dspConfig');
+const full={bass:3,mid:.5,treble:-2,output:-1,stereoWidth:125};
+const comp={mode:'manual',threshold:-21,ratio:2.6,attack:.04,release:.35,makeup:1.5};
+
+test('Broadcaster saves OFF, Enhancer, FM Mode and Auto Mode without retired presets',()=>{
+ assert.deepEqual(DSP_PRESETS,['OFF','ENHANCER','FM_MODE','AUTO_MODE']);
+ for(const mode of DSP_PRESETS)
+  assert.deepEqual(validateDSPUpdate({dspPreset:mode}),{value:{dspPreset:mode}});
+ for(const old of ['SOFT','NORMALIZE','ULTRABAND','ULTRA','OMNIA','0DB_LEVELER'])
+  assert.match(validateDSPUpdate({dspPreset:old}).error,/preset/);
+});
+test('EQ and stereo persist alongside preset and independently adjustable Compressor',()=>{
+ const parsed=validateDSPUpdate({dspPreset:'FM_MODE',dspSettings:full,dspCompressor:comp});
+ assert.equal(parsed.error,undefined);
+ assert.deepEqual(parsed.value,{dspPreset:'FM_MODE',dspSettings:full,dspCompressor:comp});
+});
+test('Legacy preset-only and old saved tone settings remain backward compatible',()=>{
+ assert.deepEqual(validateDSPUpdate({dspPreset:'ENHANCER'}),{value:{dspPreset:'ENHANCER'}});
+ assert.deepEqual(validateDSPUpdate({dspPreset:'ENHANCER',dspSettings:full}),
+  {value:{dspPreset:'ENHANCER',dspSettings:full}});
+});
+test('Partial advanced settings cannot silently erase other faders',()=>{
+ assert.match(validateDSPUpdate({dspSettings:{bass:2}}).error,/ρυθμίσεις/);
+ assert.match(validateDSPUpdate({dspCompressor:{threshold:-20}}).error,/Compressor/);
+});
+test('Unknown fields, NaN, infinity and numeric strings cannot bypass validation',()=>{
+ for(const invalid of [
+  {dspPreset:'ENHANCER',isFeatured:true},
+  {dspPreset:'FAKE'}, {dspSettings:{...full,bass:'8'}},
+  {dspSettings:{...full,mid:NaN}}, {dspSettings:{...full,output:Infinity}},
+  {dspSettings:{...full,stereoWidth:151}}, {dspSettings:{...full,output:7.01}},
+  {dspSettings:{...full,extra:1}}, {dspSettings:null}, {},
+  {dspCompressor:{...comp,mode:'unknown'}},
+  {dspCompressor:{...comp,threshold:1}},
+  {dspCompressor:{...comp,ratio:20}},
+  {dspCompressor:{...comp,attack:0}},
+  {dspCompressor:{...comp,release:-1}},
+  {dspCompressor:{...comp,makeup:8}},
+  {dspCompressor:{...comp,makeup:'2'}},
+  {dspCompressor:{...comp,ratio:NaN}},
+  {dspCompressor:{...comp,extra:true}},
+  {dspCompressor:null},
+  {dspSettings:{...full,output:-7.01}},
+  {dspAutoBalance:-101},{dspAutoBalance:101},{dspAutoBalance:1.5},
+  {dspAutoBalance:'10'},{dspAutoBalance:null},
+  {dspClipper:{ENHANCER:{headroomEnabled:true,level:0}}},
+  {dspClipper:null},
+  {dspClipper:{ENHANCER:{headroomEnabled:'yes',level:0},FM_MODE:{headroomEnabled:true,level:0}}},
+  {dspClipper:{ENHANCER:{headroomEnabled:true,level:8.5},FM_MODE:{headroomEnabled:true,level:0}}},
+  {dspClipper:{ENHANCER:{headroomEnabled:true,level:9},FM_MODE:{headroomEnabled:true,level:0}}},
+  {dspClipper:{ENHANCER:{headroomEnabled:true,level:0,extra:true},FM_MODE:{headroomEnabled:true,level:0}}}
+ ])assert.ok(validateDSPUpdate(invalid).error,JSON.stringify(invalid));
+});
+test('Safe defaults contain NO forced master limiter or user-adjustable clip ceiling',()=>{
+ assert.deepEqual(DSP_DEFAULTS,{bass:0,mid:0,treble:0,output:0,stereoWidth:100});
+ assert.equal(DSP_COMPRESSOR_DEFAULTS.mode,'preset');
+ assert.ok(validateDSPUpdate({dspPreset:'ENHANCER',masterCeiling:1}).error);
+ assert.ok(validateDSPUpdate({dspPreset:'ENHANCER',limiter:true}).error);
+});
+test('Compressor has preset, manual and off modes without affecting stereo / EQ',()=>{
+ for(const mode of ['preset','manual','off']){
+  const parsed=validateDSPUpdate({dspCompressor:{...comp,mode}});
+  assert.equal(parsed.error,undefined);
+  assert.equal(parsed.value.dspCompressor.mode,mode);
+ }
+ for(const stereoWidth of [0,100,150]){
+  assert.equal(validateDSPUpdate({dspSettings:{...full,stereoWidth}}).value.dspSettings.stereoWidth,stereoWidth);
+ }
+});
+
+test('Headroom is permanently ON while Booster 0–8 saves per mode',()=>{
+ const configured={ENHANCER:{headroomEnabled:false,level:5},
+   FM_MODE:{headroomEnabled:true,level:8}};
+ const saved=validateDSPUpdate({dspClipper:configured});
+ assert.deepEqual(saved,{value:{dspClipper:{
+   ENHANCER:{headroomEnabled:true,level:5},
+   FM_MODE:{headroomEnabled:true,level:8}
+ }}});
+ // Prior saved Headroom OFF clients cannot disable peak protection.
+ assert.equal(saved.value.dspClipper.ENHANCER.headroomEnabled,true);
+ assert.deepEqual(DSP_CLIPPER_DEFAULTS,{
+   ENHANCER:{headroomEnabled:true,level:0},
+   FM_MODE:{headroomEnabled:true,level:0}
+ });
+ for(const output of [-7,0,7]){
+   assert.equal(validateDSPUpdate({dspSettings:{...full,output}}).value.dspSettings.output,output);
+ }
+});
+
+test('Auto Mode has one persisted -100..100 volume/stereo preference',()=>{
+ for(const balance of [-100,-67,0,73,100]){
+  assert.deepEqual(validateDSPUpdate({dspPreset:'AUTO_MODE',dspAutoBalance:balance}),
+   {value:{dspPreset:'AUTO_MODE',dspAutoBalance:balance}});
+ }
+ assert.equal(validateDSPUpdate({dspAutoBalance:-100}).value.dspAutoBalance,-100);
+});

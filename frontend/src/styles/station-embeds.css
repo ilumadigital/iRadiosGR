@@ -1,0 +1,250 @@
+/* Premium public station embeds — intentionally scoped to the iframe surface. */
+.ir-embed{position:relative;isolation:isolate;min-width:0;width:100%;height:100dvh;overflow:hidden;background:#101318;color:#fff;font-family:inherit;container-type:inline-size}
+.ir-embed__art{position:absolute;inset:0;overflow:hidden;background:radial-gradient(circle at 50% 28%,#292d29,#101318 72%);z-index:-3}
+.ir-embed__art img{width:100%;height:100%;object-fit:cover;object-position:center;transition:opacity .4s ease,transform .8s ease}
+.ir-embed__art img.is-logo{object-fit:contain;padding:14%;background:#fff;filter:drop-shadow(0 12px 40px #0009)}
+.ir-embed__shade{position:absolute;inset:0;z-index:-2;pointer-events:none;background:linear-gradient(180deg,rgba(7,10,13,.62) 0%,rgba(7,10,13,.19) 28%,rgba(7,10,13,.46) 49%,rgba(7,10,13,.92) 81%,#0a0d12 100%)}
+.ir-embed__shade--program{background:linear-gradient(180deg,rgba(7,9,12,.67),rgba(7,9,12,.27) 35%,rgba(8,10,13,.85) 66%,#090c10 98%)}
+.ir-embed__glass{background:rgba(10,12,15,.48);border:1px solid rgba(255,255,255,.17);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.ir-embed__eyebrow{font-size:10px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#caff00;text-shadow:0 1px 10px #0009}
+.ir-embed__song-title{font-size:clamp(27px,8.2cqw,44px);line-height:1.04;letter-spacing:-.045em;font-weight:950;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-shadow:0 2px 24px #000b}
+.ir-embed__artist{font-size:clamp(15px,4cqw,22px);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 12px #000c}
+.ir-embed__station-img{height:34px;width:34px;flex:0 0 34px;border-radius:10px;background:#fff;padding:3px;object-fit:contain;border:1px solid #ffffff28}
+.ir-embed__controls{background:linear-gradient(180deg,#0d1013a6,#0b0d11ec);border-top:1px solid #ffffff25;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.ir-embed__program-card{background:rgba(22,25,26,.76);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.ir-embed__program-card.is-live{border-color:#caff0080;background:rgba(20,29,15,.86);box-shadow:inset 0 0 0 1px #caff0012}
+.ir-embed__program-title{font-weight:900;line-height:1.15;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.ir-embed[data-theme="light"]{background:#e9eaf0;color:#fff}
+.ir-embed[data-theme="light"] .ir-embed__shade{background:linear-gradient(180deg,rgba(10,12,15,.4),rgba(10,12,15,.12) 30%,rgba(10,12,15,.58) 60%,#17191fec 95%)}
+.ir-embed__footer-link{font-size:10px;color:#cbd0d4;text-decoration:none;white-space:nowrap}
+.ir-embed__footer-link:hover{color:#caff00}
+.ir-embed__chip{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:26px;padding:5px 10px;border-radius:99px;background:#0007;border:1px solid #ffffff50;color:#fff;font-size:10px;font-weight:800;backdrop-filter:blur(8px)}
+.ir-embed__chip:hover{border-color:#caff00;color:#caff00}
+.ir-embed__song-actions{display:flex;flex-wrap:wrap;gap:7px}
+.ir-embed__song-actions a{display:inline-flex;gap:5px;align-items:center;justify-content:center;border:1px solid #ffffff65;border-radius:99px;background:#05060991;color:#fff;font-size:10px;font-weight:800;padding:7px 11px;text-decoration:none}
+.ir-embed__song-actions a:hover{color:#caff00;border-color:#caff00}
+@container (max-width:360px){
+ .ir-embed__song-title{font-size:27px}
+ .ir-embed__artist{font-size:15px}
+ .ir-embed__song-actions a{font-size:9px;padding:6px 8px}
+ .ir-embed__station-img{height:29px;width:29px;flex-basis:29px}
+}
+@media(max-width:767px){
+}
+
+/* The song cover and active DJ/producer photo crossfade in the same RDS slot. */
+.ir-embed img.ir-embed__overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;pointer-events:none;transition:opacity .8s ease-in-out}
+.ir-embed img.ir-embed__overlay.is-active{opacity:1}
+.ir-embed__hero-stage .ir-embed__artwork-panel img.is-logo{object-fit:contain;padding:12%;background:#fff}
+.ir-embed img.ir-embed__overlay.is-logo{object-fit:contain;padding:12%}
+@media(prefers-reduced-motion:reduce){.ir-embed img.ir-embed__overlay{transition:none}}
+
+
+/* Search destinations are visible whenever a valid song and a current
+   broadcaster subscription entitlement are both present. */
+.ir-embed__service-link.is-spotify{color:#1ed760;border-color:#1ed76070}
+.ir-embed__service-link.is-apple{color:#fff;border-color:#fa496e80;background:#c72244b8}
+.ir-embed__service-link svg{width:15px;height:15px}
+.ir-embed__service-link:hover{filter:brightness(1.16)}
+.ir-embed__panel-buttons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ir-embed__panel-buttons.is-compact .ir-embed__chip{min-height:27px;font-size:10px;padding:6px 9px}
+.ir-embed__panel-buttons .ir-embed__chip{font-size:11px;min-height:32px;border-color:#caff0080;background:#090c10c9;box-shadow:0 4px 20px #0007}
+.ir-widget-drawer{position:fixed;inset:0;z-index:150;display:flex;flex-direction:column;overflow:hidden;color:#fff;background:linear-gradient(130deg,#191d20ed,#0a0d12f9);border:1px solid #ffffff32;backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px)}
+.ir-widget-drawer__header{display:flex;flex:none;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid #ffffff22}
+.ir-widget-drawer__close{display:inline-flex;align-items:center;justify-content:center;border-radius:99px;background:#ffffff14;border:1px solid #ffffff30;color:#fff;min-width:34px;min-height:34px;cursor:pointer}
+.ir-widget-drawer__close:hover,.ir-widget-drawer__close:focus-visible{color:#caff00;border-color:#caff00}
+.ir-widget-drawer__days{flex:none;padding:12px 18px;border-bottom:1px solid #ffffff16}
+.ir-widget-drawer__days select{width:100%;max-width:360px;background:#0c1116;border:1px solid #caff0080;border-radius:12px;color:#fff;padding:10px 14px;font-weight:800;font-size:13px}
+.ir-widget-drawer__days select option{color:#fff;background:#0c1116}
+.ir-widget-drawer__list{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:12px 18px 22px}
+.ir-widget-drawer__row{display:flex;align-items:center;gap:12px;padding:13px 12px;margin-bottom:8px;border-radius:16px;border:1px solid #ffffff1f;background:#ffffff0a}
+.ir-widget-drawer__row.is-live{border-color:#caff00aa;background:#caff0019}
+.ir-widget-drawer__list::-webkit-scrollbar{width:6px}
+.ir-widget-drawer__list::-webkit-scrollbar-thumb{background:#caff0070;border-radius:20px}
+@container (max-width:360px){
+  .ir-widget-drawer__header{padding:12px}
+  .ir-widget-drawer__list{padding:8px}
+  .ir-widget-drawer__row{padding:9px}
+  .ir-embed__panel-buttons .ir-embed__chip{font-size:10px}
+}
+
+
+
+/* HERO: source of truth is the station's actual logo palette. No fixed red
+   waves, no song-art palette leakage and no stretch/squeeze of the cover. */
+.ir-embed.ir-embed__hero-stage{
+  --ir-hero-rgb:134 165 56;
+  --ir-hero-padding:clamp(15px,2.1vw,38px);
+  position:relative;
+  min-height:100dvh;
+  height:100dvh;
+  padding:var(--ir-hero-padding) clamp(16px,4.2vw,76px);
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  background:
+    radial-gradient(ellipse at 35% 49%,rgb(var(--ir-hero-rgb) / .32) 0%,transparent 66%),
+    radial-gradient(ellipse at 82% 78%,rgb(var(--ir-hero-rgb) / .13) 0%,transparent 63%),
+    linear-gradient(112deg,#0b0d10 0%,#141418 53%,#090c11 100%);
+  scrollbar-width:thin;
+}
+.ir-embed__hero-wave{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  opacity:.96;overflow:hidden;
+  mask-image:linear-gradient(90deg,#000 0%,#000 85%,transparent 100%);
+}
+.ir-embed__hero-wave-canvas{display:block;width:100%;height:100%}
+.ir-embed__hero-layout{
+  position:relative;z-index:1;display:grid;
+  grid-template-columns:minmax(0,1.14fr) minmax(0,.96fr);
+  align-items:center;
+  gap:clamp(22px,4vw,76px);
+  width:100%;
+  max-width:1560px;
+  min-height:100%;
+  margin-inline:auto;
+}
+.ir-embed__hero-copy{
+  display:flex;flex-direction:column;justify-content:center;
+  min-width:0;
+  gap:clamp(10px,1.5dvh,22px);
+}
+.ir-embed__hero-title{
+  font-size:clamp(37px,min(6.25vw,10.4dvh),106px);
+  font-weight:950;line-height:1.04;
+  letter-spacing:-.065em;
+  text-transform:uppercase;
+  overflow-wrap:anywhere;
+  word-break:normal;
+  text-shadow:0 5px 35px #0009;
+}
+.ir-embed__hero-title.is-long{font-size:clamp(31px,min(4.8vw,8.1dvh),76px)}
+.ir-embed__hero-title.is-very-long{font-size:clamp(26px,min(3.6vw,6.5dvh),61px)}
+.ir-embed__hero-artist{
+  margin-top:clamp(7px,1.5dvh,18px);
+  font-size:clamp(17px,min(2.1vw,4.8dvh),29px);
+  font-weight:650;line-height:1.22;
+  color:#e3e3e7;
+  overflow-wrap:anywhere;
+  text-shadow:0 2px 18px #0008;
+}
+.ir-embed__hero-copy .ir-embed__eyebrow{margin-bottom:clamp(8px,1.4dvh,19px)}
+.ir-embed__hero-identity{display:flex;align-items:center;flex-wrap:wrap;gap:12px;min-width:0}
+.ir-embed__hero-program{
+  display:flex;align-items:center;gap:10px;
+  min-width:0;color:#e6e6e8;
+  font-size:12px;
+}
+.ir-embed__hero-program > div{min-width:0}
+.ir-embed__hero-program-text{white-space:normal;overflow-wrap:anywhere;line-height:1.3}
+.ir-embed__hero-services{min-height:0}
+.ir-embed__hero-playback{
+  display:flex;flex-wrap:wrap;align-items:center;gap:clamp(10px,1.2vw,24px);
+  border-top:1px solid #ffffff35;
+  padding-top:clamp(11px,2dvh,24px);
+  min-width:0;
+}
+.ir-embed__hero-onair{font-size:11px;font-weight:900;letter-spacing:.12em;color:#efeff3;white-space:nowrap}
+.ir-embed__hero-actions{
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:clamp(8px,1.1vw,16px);
+}
+.ir-embed__hero-art{
+  position:relative;isolation:isolate;
+  justify-self:center;
+  width:min(100%,calc(100dvh - 2 * var(--ir-hero-padding)));
+  max-width:640px;
+  aspect-ratio:1/1;
+  border:1px solid #ffffff30;
+  border-radius:clamp(18px,2.2vw,28px);
+  overflow:hidden;
+  background:radial-gradient(circle at center,#282b33,#0b0e14);
+  box-shadow:0 25px 80px #0009;
+}
+.ir-embed__hero-art .ir-embed__artwork-panel{position:relative;isolation:isolate}
+.ir-embed__hero-art .ir-embed__artwork-panel img{
+  border-radius:inherit;
+  width:100%;height:100%;
+  object-fit:cover;
+}
+.ir-embed__hero-art .ir-embed__artwork-panel img.is-logo{
+  object-fit:contain;padding:12%;
+  background:#fff;
+}
+.ir-embed__hero-art-badge{
+  position:absolute;z-index:2;right:12px;top:12px;
+  max-width:calc(100% - 24px);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:7px 12px;border-radius:999px;
+  font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.12em;
+}
+@media(max-width:767px){
+  .ir-embed.ir-embed__hero-stage{padding:clamp(12px,2dvh,18px) clamp(14px,4vw,24px)}
+  .ir-embed__hero-layout{
+    display:flex;flex-direction:column;justify-content:flex-start;
+    gap:clamp(10px,2.3dvh,22px);
+    width:100%;min-height:100%;
+  }
+  .ir-embed__hero-art{
+    order:-1;
+    flex:none;
+    width:min(68vw,34dvh,360px);
+    max-width:100%;
+    border-radius:20px;
+  }
+  .ir-embed__hero-copy{width:100%;gap:clamp(8px,1.3dvh,15px)}
+  .ir-embed__hero-title{font-size:clamp(28px,min(9.5vw,6.4dvh),58px);line-height:1.05}
+  .ir-embed__hero-title.is-long{font-size:clamp(25px,min(7.3vw,5.2dvh),46px)}
+  .ir-embed__hero-title.is-very-long{font-size:clamp(22px,min(6.2vw,4.5dvh),37px)}
+  .ir-embed__hero-artist{font-size:clamp(15px,4.3vw,20px);margin-top:6px}
+  .ir-embed__hero-wave{opacity:.77;mask-image:none}
+  .ir-embed__hero-playback{padding-top:12px}
+  .ir-embed__hero-playback > button{width:56px;height:56px}
+  .ir-embed__hero-art-badge{font-size:8px;padding:6px 9px}
+}
+@media(max-width:420px) and (max-height:720px){
+  .ir-embed__hero-art{width:min(58vw,27dvh,270px)}
+  .ir-embed__hero-copy{gap:7px}
+  .ir-embed__hero-identity .ir-embed__station-img{width:29px;height:29px;flex-basis:29px}
+  .ir-embed__hero-program > img{width:32px;height:32px}
+}
+@media(min-width:768px) and (max-height:720px){
+  .ir-embed__hero-layout{gap:clamp(15px,2.6vw,40px)}
+  .ir-embed__hero-copy{gap:clamp(7px,1dvh,14px)}
+  .ir-embed__hero-title{font-size:clamp(32px,min(5.5vw,9dvh),76px)}
+  .ir-embed__hero-title.is-long{font-size:clamp(29px,min(4.2vw,7.5dvh),62px)}
+  .ir-embed__hero-title.is-very-long{font-size:clamp(25px,min(3.4vw,6dvh),50px)}
+}
+@media(min-width:600px) and (max-height:470px) and (orientation:landscape){
+  .ir-embed__hero-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.8fr);gap:18px}
+  .ir-embed__hero-art{order:2;width:min(100%,calc(100dvh - 30px))}
+  .ir-embed__hero-copy{order:1;gap:7px}
+  .ir-embed__hero-title{font-size:clamp(25px,min(5.2vw,8dvh),45px)}
+  .ir-embed__hero-title.is-long{font-size:clamp(23px,min(4vw,7dvh),39px)}
+  .ir-embed__hero-title.is-very-long{font-size:clamp(20px,min(3vw,6dvh),33px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .ir-embed__hero-wave-canvas{transition:none}
+}
+
+
+/* Mini Player / Mini Program: artwork is a compact identity tile only.
+   Their background is a clean station-logo-derived color field; never a photo.
+   The overlay is pointer-events:none so all music and DSP controls stay live. */
+.ir-embed.ir-embed--mini{
+  background:#101418;
+}
+.ir-embed__mini-background{
+  --ir-mini-rgb:134 165 56;
+  position:absolute;
+  inset:0;
+  z-index:-2;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at 17% 5%,rgb(var(--ir-mini-rgb) / .30),transparent 57%),
+    radial-gradient(ellipse at 85% 94%,rgb(var(--ir-mini-rgb) / .12),transparent 63%),
+    linear-gradient(140deg,#191e21 0%,#13171a 52%,#0d1014 100%);
+}
+.ir-embed--mini .ir-embed__controls{
+  background:linear-gradient(180deg,#11161bc9,#0b0e12f2);
+}

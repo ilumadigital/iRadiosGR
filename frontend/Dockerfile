@@ -1,0 +1,20 @@
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --legacy-peer-deps --no-audit --no-fund
+COPY . .
+ARG IRADIOS_SITE_ORIGIN
+ARG VITE_APP_ENV=staging
+ENV VITE_APP_ENV=$VITE_APP_ENV
+RUN IRADIOS_SITE_ORIGIN="$IRADIOS_SITE_ORIGIN" node scripts/apply-site-origin.cjs
+RUN npm run build
+
+FROM nginx:stable-alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+# Source checkout runs with umask 027. Vite may preserve restrictive modes
+# on copied public assets, which makes nginx workers return HTTP 403.
+# Only the public, already-built static tree is made world-readable.
+RUN chmod -R a+rX /usr/share/nginx/html
+COPY nginx-docker.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

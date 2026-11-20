@@ -1,0 +1,409 @@
+import {formatDateTime} from '../utils/dateTime';
+import React,{useCallback,useEffect,useState} from 'react';
+import {useLiveRevision} from '../utils/liveUpdates';
+import {adminFetch as fetch} from '../utils/adminFetch';
+import AdvertisingCampaignWizard from './AdvertisingCampaignWizard';
+import ProtectedAudioPreview from '../components/ProtectedAudioPreview';
+
+const panel='rounded-2xl border border-white/10 bg-[#14131f] p-5';
+const input='mt-1 w-full rounded-xl border border-white/10 bg-[#08090d] p-3 text-white focus:border-purple-400 outline-none';
+const primary='rounded-xl bg-purple-600 px-4 py-2.5 font-black text-white disabled:opacity-40';
+const euros=cents=>(Number(cents||0)/100).toFixed(2);
+const rate=micros=>(Number(micros||0)/1000000).toFixed(3);
+function TextField({label,value,onChange,type='number',step='1'}){
+ return <label className="block text-xs font-bold text-zinc-300">{label}
+  <input className={input} value={value??''} onChange={e=>onChange(
+   type==='number'?Number(e.target.value):e.target.value)} type={type} step={step}/>
+ </label>;
+}
+export default function AdminAdvertisingV2({mode='pricing',currentUser}){
+ const [pricing,setPricing]=useState(null),[campaigns,setCampaigns]=useState([]);
+ const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
+ const [notice,setNotice]=useState('');
+ const [auditByCampaign,setAuditByCampaign]=useState({});
+ const [auditBusyId,setAuditBusyId]=useState(null);
+ const [deliveryByCampaign,setDeliveryByCampaign]=useState({});
+ const [deliveryBusyId,setDeliveryBusyId]=useState(null);
+ const [mailRows,setMailRows]=useState(null),[mailLoading,setMailLoading]=useState(false);
+ const [reviewId,setReviewId]=useState(null),[reviewCreatives,setReviewCreatives]=useState(null);
+ const [showDeleted,setShowDeleted]=useState(false);
+ const [deleteTarget,setDeleteTarget]=useState(null);
+ const [deleteTitle,setDeleteTitle]=useState(''),[deleteReason,setDeleteReason]=useState('');
+ const [deleteError,setDeleteError]=useState('');
+ const liveAdsRevision=useLiveRevision('ads');
+ const reload=useCallback(async()=>{
+  setLoading(true);setNotice('');
+  try{
+   const endpoint=mode==='pricing'?'/api/advertising/pricing':
+    '/api/advertising/campaigns'+(showDeleted?'?includeDeleted=1':'');
+   const r=await fetch(endpoint);
+   const data=await r.json();
+   if(!r.ok)throw Error(data.error||'Αποτυχία φόρτωσης.');
+   if(mode==='pricing')setPricing(data);else setCampaigns(data);
+  }catch(e){setNotice(e.message);}finally{setLoading(false);}
+ },[mode,showDeleted]);
+ useEffect(()=>{reload();},[reload,liveAdsRevision]);
+ const update=(key,v)=>setPricing(p=>({...p,[key]:v}));
+ const updateRate=(key,v)=>setPricing(p=>({...p,cpmMicros:{
+  ...p.cpmMicros,[key]:Math.round(v*1000000)}}));
+ const updateAudioRate=(place,event,value)=>setPricing(p=>({...p,rateCard:{
+  ...p.rateCard,audio:{...p.rateCard.audio,[place]:{
+   ...p.rateCard.audio[place],[event]:Math.round(value*1e9)}}}}));
+ const updateVisualCpm=(place,value)=>setPricing(p=>({...p,rateCard:{
+  ...p.rateCard,visual:{...p.rateCard.visual,[place]:Math.round(value*1e6)}}}));
+ const save=async()=>{
+  setBusy(true);setNotice('');
+  try{
+   const data={expectedVersion:pricing.version,
+    cpmMicros:pricing.cpmMicros,rateCard:pricing.rateCard,
+    minBudgetCents:pricing.minBudgetCents,
+    maxBudgetCents:pricing.maxBudgetCents,minTopupCents:pricing.minTopupCents,
+    durationDays:pricing.durationDays,taxMode:pricing.taxMode,
+    taxBps:pricing.taxMode==='unconfigured'?null:pricing.taxBps,
+    enabled:pricing.enabled};
+   const r=await fetch('/api/admin/advertising/pricing',{method:'PUT',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+   const answer=await r.json();
+   if(!r.ok)throw Error(answer.error||'Αποτυχία αποθήκευσης.');
+   setPricing(answer);setNotice('Ο νέος τιμοκατάλογος αποθηκεύτηκε ως έκδοση '+answer.version);
+  }catch(e){setNotice(e.message);}finally{setBusy(false);}
+ };
+ const decide=async(id,action)=>{
+  const reason=action==='rejected'?window.prompt('Αιτιολογία απόρριψης:',''):'';
+  if(action==='rejected'&&!reason?.trim())return;
+  setBusy(true);setNotice('');
+  try{
+   const r=await fetch('/api/admin/advertising/campaigns/'+id+'/approval',{
+    method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({approval:action,reason})});
+   const answer=await r.json();
+   if(!r.ok)throw Error(answer.error||'Η αλλαγή δεν ολοκληρώθηκε.');
+   setCampaigns(list=>list.map(c=>c._id===id?{...c,...answer}:c));
+  }catch(e){setNotice(e.message);}finally{setBusy(false);}
+ };
+ const auditCampaign=async(id)=>{
+  setAuditBusyId(id);setNotice('');
+  try{
+   const r=await fetch('/api/admin/advertising/campaigns/'+id+'/reconciliation');
+   const data=await r.json();
+   if(!r.ok)throw Error(data.error||'Αδυναμία οικονομικού ελέγχου.');
+   setAuditByCampaign(current=>({...current,[id]:data}));
+  }catch(e){setNotice(e.message);}finally{setAuditBusyId(null);}
+ };
+ const checkDelivery=async id=>{
+  setDeliveryBusyId(id);setNotice('');
+  try{
+   const response=await fetch('/api/admin/advertising/campaigns/'+id+'/delivery-check');
+   const data=await response.json();
+   if(!response.ok)throw Error(data.error||'Αδυναμία ελέγχου προβολής.');
+   setDeliveryByCampaign(current=>({...current,[id]:data}));
+  }catch(e){setNotice(e.message);}finally{setDeliveryBusyId(null);}
+ };
+ const archiveCampaign=async()=>{
+  if(!deleteTarget||deleteTitle!==deleteTarget.title||deleteReason.trim().length<5)return;
+  setBusy(true);setNotice('');setDeleteError('');
+  try{
+   const response=await fetch('/api/admin/advertising/campaigns/'+deleteTarget._id,{
+    method:'DELETE',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({confirmTitle:deleteTitle,reason:deleteReason.trim()})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok)throw Error(result.error||'Η διαγραφή της καμπάνιας απέτυχε.');
+   setCampaigns(current=>current.filter(row=>row._id!==deleteTarget._id));
+   setAuditByCampaign(current=>{
+    const next={...current};delete next[deleteTarget._id];return next;
+   });
+   setDeliveryByCampaign(current=>{
+    const next={...current};delete next[deleteTarget._id];return next;
+   });
+   if(reviewId===deleteTarget._id){setReviewId(null);setReviewCreatives(null);}
+   setDeleteTarget(null);setDeleteTitle('');setDeleteReason('');
+   setNotice('Η καμπάνια αφαιρέθηκε από τις ενεργές λίστες. Τα οικονομικά παραστατικά και το audit διατηρήθηκαν. Δεν εκδόθηκε επιστροφή χρημάτων.');
+  }catch(e){setDeleteError(e.message);}
+  finally{setBusy(false);}
+ };
+ const suspend=async(c)=>{
+  setBusy(true);setNotice('');
+  try{
+   const r=await fetch('/api/admin/advertising/campaigns/'+c._id+'/suspend',{
+    method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({suspended:!c.adminSuspended})});
+   const answer=await r.json();
+   if(!r.ok)throw Error(answer.error||'Δεν άλλαξε η αναστολή.');
+   setCampaigns(list=>list.map(row=>row._id===c._id?{...row,...answer}:row));
+  }catch(e){setNotice(e.message);}finally{setBusy(false);}
+ };
+ const loadReview=async id=>{
+  setNotice('');setReviewId(id);setReviewCreatives(null);
+  try{
+   const r=await fetch('/api/admin/advertising/wizard/campaigns/'+id+'/creatives-review');
+   const data=await r.json();if(!r.ok)throw Error(data.error||'Δεν φορτώθηκαν τα δημιουργικά.');
+   setReviewCreatives(data);
+  }catch(e){setNotice(e.message);}
+ };
+ const reviewCreative=async(kind,id,approval)=>{
+  const reason=approval==='rejected'?window.prompt('Υποχρεωτική αιτιολογία απόρριψης:',''):'';
+  if(approval==='rejected'&&(!reason?.trim()||reason.trim().length>1000)){
+   setNotice('Απαιτείται αιτιολογία έως 1000 χαρακτήρες.');
+   return;
+  }
+  setBusy(true);setNotice('');
+  try{
+   const r=await fetch('/api/admin/advertising/wizard/campaigns/'+reviewId+'/creatives-review/'+kind+'/'+id,{
+    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({approval,reason:reason?.trim()||''})});
+   const result=await r.json();if(!r.ok)throw Error(result.error||'Η αξιολόγηση απέτυχε.');
+   await loadReview(reviewId);await reload();
+   setNotice('Η απόφαση για το δημιουργικό αποθηκεύτηκε.');
+  }catch(e){setNotice(e.message);}finally{setBusy(false);}
+ };
+ const loadAgencyMail=async()=>{
+  setMailLoading(true);setNotice('');
+  try{
+   const response=await fetch('/api/admin/agency-ad-notices');
+   const data=await response.json();
+   if(!response.ok)throw Error(data.error||'Αδυναμία ανάκτησης Mailpit outbox.');
+   setMailRows(Array.isArray(data)?data:[]);
+  }catch(e){setNotice(e.message);}finally{setMailLoading(false);}
+ };
+ if(loading)return <div className={panel+' text-zinc-300'}>Φόρτωση Advertising v2…</div>;
+ return <div className="space-y-5">
+  {notice&&<div role="status" className="rounded-xl border border-purple-400/30 bg-purple-400/10 p-4 text-sm text-purple-100">{notice}</div>}
+  {mode==='pricing'&&pricing&&<>
+   <section className={panel+' space-y-5'}>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+     <h2 className="text-xl font-black text-white">Τιμολόγηση διαφημίσεων</h2>
+     <span className="rounded-full bg-purple-500/15 px-3 py-1 text-sm text-purple-100">Έκδοση {pricing.version}</span>
+    </div>
+
+    <p className="text-sm text-zinc-400">Ρύθμισε τις πραγματικές χρεώσεις Advertising v2. Οι νέες τιμές ισχύουν μόνο για νέα quotes· κάθε ήδη χρηματοδοτημένο lot συνεχίζει με τον δικό του τιμοκατάλογο.</p>
+    <section className="space-y-3">
+     <h3 className="text-sm font-black text-white">Audio v2 · € ανά επιβεβαιωμένο γεγονός</h3>
+     <div className="overflow-x-auto rounded-2xl border border-white/10 bg-black/20 p-4">
+      <table className="w-full min-w-[720px] text-xs text-zinc-200">
+       <thead><tr className="text-left text-zinc-400"><th className="py-2">Placement</th><th>Ακρόαση 10″</th><th>CTA επιπλέον</th><th>Ολοκλήρωση επιπλέον</th></tr></thead>
+       <tbody>{Object.entries(pricing.rateCard?.audio||{}).map(([place,events])=>
+        <tr key={place} className="border-t border-white/10">
+         <th scope="row" className="py-3 pr-3 text-left font-semibold">{({
+          entry:'First Play',every_5_stations:'Κάθε 5 σταθμούς',
+          every_10_stations:'Κάθε 10 σταθμούς',
+          every_20_stations:'Κάθε 20 σταθμούς',
+          every_30_stations:'Κάθε 30 σταθμούς',
+          twice_a_day:'2 φορές / ημέρα',four_times_a_day:'4 φορές / ημέρα',
+          six_times_a_day:'6 φορές / ημέρα'})[place]||place}</th>
+         {['listen10','cta','complete'].map(event=><td key={event} className="py-2 pr-3">
+          <input aria-label={place+' '+event} type="number" min="0.001" step="0.001"
+           key={pricing.version+':'+place+':'+event}
+           defaultValue={(events[event]/1e9).toFixed(3)}
+           onChange={e=>updateAudioRate(place,event,Number(e.target.value))}
+           className={input+' mt-0 min-w-[115px] py-2 text-xs'}/>
+         </td>)}
+        </tr>)}</tbody>
+      </table>
+     </div>
+    </section>
+    <section className="space-y-3">
+     <h3 className="text-sm font-black text-white">Banner v2 · πραγματικό CPM (€ / 1.000 εμφανίσεις)</h3>
+     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {Object.entries(pricing.rateCard?.visual||{}).map(([place,nanos])=>
+       <label key={place} className="block text-xs font-bold text-zinc-300">
+        {({hero:'Hero',home:'Home Feed',radio_feed:'Radio Feed',
+         news_feed:'News Feed',station_profile:'Station Profile'})[place]||place}
+        <input aria-label={'CPM '+place} type="number" min="0.001" step="0.001"
+         key={pricing.version+':visual:'+place} defaultValue={(nanos/1e6).toFixed(3)}
+         onChange={e=>updateVisualCpm(place,Number(e.target.value))} className={input}/>
+       </label>)}
+     </div>
+    </section>
+    <p className="text-xs text-zinc-500">Οι παρακάτω ιστορικές τιμές CPM αφορούν μόνο παλιές καμπάνιες.</p>
+    <div className="grid gap-4 sm:grid-cols-3">
+     {['standard','hero','audio'].map(key=><TextField key={key} label={{standard:'Ιστορικό Standard CPM (€)',hero:'Ιστορικό Hero CPM (€)',audio:'Ιστορικό Audio CPM (€) · μόνο legacy'}[key]}
+      value={rate(pricing.cpmMicros?.[key])} onChange={v=>updateRate(key,v)} step="0.001"/>)}
+    </div>
+    <div className="grid gap-4 sm:grid-cols-3">
+     {['minBudgetCents','maxBudgetCents','minTopupCents'].map(key=><TextField key={key}
+      label={{minBudgetCents:'Ελάχιστο budget (€)',maxBudgetCents:'Μέγιστο budget (€)',minTopupCents:'Ελάχιστο top-up (€)'}[key]}
+      value={euros(pricing[key])} onChange={v=>update(key,Math.round(v*100))} step="0.01"/>)}
+    </div>
+    <label className="block text-xs font-bold text-zinc-300">Προτεινόμενες διάρκειες παλαιών καμπανιών (όχι υποχρεωτικές)
+     <input className={input} value={(pricing.durationDays||[]).join(',')}
+      onChange={e=>update('durationDays',e.target.value.split(',').map(v=>Number(v.trim())))}/>
+    </label>
+    <div className="grid gap-4 sm:grid-cols-2">
+     <label className="block text-xs font-bold text-zinc-300">Φορολογική πολιτική (απαιτεί ρητή επιλογή)
+      <select className={input} value={pricing.taxMode}
+       onChange={e=>{update('taxMode',e.target.value);update('enabled',false);}}>
+       <option value="unconfigured">Δεν έχει καθοριστεί — checkout κλειστό</option>
+       <option value="budget_net_plus_vat">Καθαρό budget + ΦΠΑ στο πληρωτέο</option>
+      </select>
+     </label>
+     <TextField label="ΦΠΑ %" value={pricing.taxBps==null?'':pricing.taxBps/100}
+      onChange={v=>update('taxBps',Math.round(v*100))} step="0.01"/>
+    </div>
+    <label className="flex items-center gap-3 text-sm text-purple-100">
+     <input type="checkbox" checked={pricing.enabled===true}
+      disabled={pricing.taxMode==='unconfigured'}
+      onChange={e=>update('enabled',e.target.checked)} />
+     Ενεργός τιμοκατάλογος για νέα quotes (η πληρωμή απαιτεί ενεργά Gateway credentials στο επιλεγμένο περιβάλλον)
+    </label>
+    <button type="button" className={primary} disabled={busy} onClick={save}>Αποθήκευση νέας έκδοσης</button>
+   </section>
+   <section className={panel}>
+    <h3 className="mb-3 font-black text-white">Audit τιμολόγησης</h3>
+    <div className="max-h-64 space-y-2 overflow-auto text-sm text-zinc-300">
+     {(pricing.history||[]).slice().reverse().map((entry,i)=><p key={i}>Έκδοση {entry.version} · {formatDateTime(entry.at)}</p>)}
+     {!pricing.history?.length&&<p>Δεν υπάρχουν προηγούμενες εκδόσεις.</p>}
+    </div>
+   </section>
+  </>}
+  {mode==='campaigns'&&<>
+   <AdvertisingCampaignWizard role="admin" currentUser={currentUser}/>
+   <div className="mt-10 flex flex-wrap items-end justify-between gap-4 border-t border-white/10 pt-8">
+    <div><h2 className="text-2xl font-black text-white">Διαχείριση όλων των καμπανιών</h2>
+     <p className="mt-2 text-sm text-zinc-400">Drafts, καμπάνιες προς έγκριση και εγκεκριμένες. Η διαγραφή γίνεται μόνο από Admin και διατηρεί το οικονομικό ιστορικό.</p></div>
+    <button type="button" aria-pressed={showDeleted} onClick={()=>setShowDeleted(v=>!v)}
+     className={'rounded-xl border px-4 py-2.5 text-sm font-bold transition '+(showDeleted?'border-purple-400 bg-purple-500/15 text-purple-100':'border-white/15 text-zinc-300 hover:border-purple-400/40')}>
+     {showDeleted?'Επιστροφή στις καμπάνιες':'Αρχείο διαγραμμένων'}
+    </button>
+   </div>
+   <section className={panel+' space-y-3'}>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+     <div>
+      <h3 className="font-black text-white">Ειδοποιήσεις Agency · Mailpit Outbox</h3>
+      <p className="mt-1 text-xs text-zinc-400">Μόνιμη ουρά ανά παραλήπτη · read-only έλεγχος. Η καταχώριση δεν αποδεικνύει παράδοση στο inbox.</p>
+     </div>
+     <button type="button" disabled={mailLoading}
+      className="rounded-xl border border-purple-400/40 px-4 py-2 text-sm font-bold text-purple-200 disabled:opacity-50"
+      onClick={loadAgencyMail}>{mailLoading?'Φόρτωση…':'Ανανέωση ουράς'}</button>
+    </div>
+    {mailRows!==null&&<>
+     <div className="flex flex-wrap gap-2 text-xs font-bold">
+      {['pending','sending','sent','superseded'].map(status=>
+       <span key={status} className="rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-zinc-200">
+        {({pending:'Εκκρεμούν',sending:'Σε αποστολή',sent:'SMTP accepted',superseded:'Δεν χρειάζονται'})[status]}: {mailRows.filter(row=>row.status===status).length}
+       </span>)}
+     </div>
+     <div className="max-h-72 space-y-2 overflow-y-auto">
+      {mailRows.slice(0,20).map(row=><div key={row._id} className="rounded-xl border border-white/10 bg-black/20 p-3 text-xs">
+       <div className="flex flex-wrap justify-between gap-2">
+        <span className="font-bold text-purple-100 break-all">{row.subject}</span>
+        <span className="text-zinc-300">{row.status}</span>
+       </div>
+       <p className="mt-1 text-zinc-400 break-all">{row.recipientEmail} · Προσπάθειες: {row.attempts} · {formatDateTime(row.createdAt)}</p>
+       {row.lastError&&<p className="mt-1 text-rose-300">{row.lastError}</p>}
+      </div>)}
+      {!mailRows.length&&<p className="text-sm text-zinc-500">Δεν υπάρχουν καταχωρημένες ειδοποιήσεις Agency.</p>}
+     </div>
+    </>}
+   </section>
+
+   {!campaigns.length&&<div className={panel+' text-zinc-300'}>{showDeleted?'Δεν υπάρχουν διαγραμμένες καμπάνιες.':'Δεν υπάρχουν καμπάνιες.'}</div>}
+   {campaigns.map(c=><section className={panel+' space-y-3'} key={c._id}>
+    <div className="flex flex-wrap justify-between gap-2">
+     <div><h3 className="font-black text-white">{c.title}</h3>
+      <p className="text-xs text-zinc-400">{c.brand} · {c.region} / {c.prefecture}</p></div>
+     <span className="text-sm text-purple-200">{c.deletedAt?'Διαγραμμένη':c.approvalStatus}</span>
+    </div>
+    <div className="grid gap-3 sm:grid-cols-3 text-sm text-zinc-300">
+     <span>Πληρωμένο budget: €{(c.budget.fundedMicros/1000000).toFixed(2)}</span>
+     <span>Υπόλοιπο: €{(c.budget.remainingMicros/1000000).toFixed(2)}</span>
+     <span>{c.adminSuspended?'Αναστολή Admin':'Χωρίς αναστολή'}</span>
+    </div>
+    {c.deletedAt&&<p className="rounded-xl border border-rose-400/20 bg-rose-400/[.05] p-3 text-xs leading-6 text-zinc-300">
+     Διαγράφηκε στις {formatDateTime(c.deletedAt)} · Αιτία: {c.deletionReason||'Δεν έχει οριστεί'}.
+     Το οικονομικό audit παραμένει διαθέσιμο και δεν έγινε αυτόματη επιστροφή χρημάτων.
+    </p>}
+    <div className="flex flex-wrap gap-2">
+     {!c.deletedAt&&c.approvalStatus==='pending'&&<>
+      <button type="button" disabled={busy} className="rounded-xl border border-purple-400/40 bg-purple-500/10 px-4 py-2.5 text-sm font-bold text-purple-200" onClick={()=>loadReview(c._id)}>Έλεγχος δημιουργικών</button>
+      <button disabled={busy} className={primary} onClick={()=>decide(c._id,'approved')}>Έγκριση</button>
+      <button disabled={busy} className="rounded-xl border border-rose-400/40 px-4 py-2 text-sm text-rose-200" onClick={()=>decide(c._id,'rejected')}>Απόρριψη</button>
+     </>}
+     {!c.deletedAt&&<button disabled={busy} className="rounded-xl border border-white/20 px-4 py-2 text-sm text-zinc-300" onClick={()=>suspend(c)}>
+      {c.adminSuspended?'Άρση αναστολής':'Αναστολή καμπάνιας'}</button>}
+     <button type="button" disabled={auditBusyId===c._id}
+      className="rounded-xl border border-purple-400/40 px-4 py-2 text-sm text-purple-200 disabled:opacity-50"
+      onClick={()=>auditCampaign(c._id)}>
+      {auditBusyId===c._id?'Έλεγχος…':'Οικονομικό audit'}</button>
+     <button type="button" disabled={deliveryBusyId===c._id}
+      className="rounded-xl border border-emerald-400/40 px-4 py-2 text-sm text-emerald-200 disabled:opacity-50"
+      onClick={()=>checkDelivery(c._id)}>
+      {deliveryBusyId===c._id?'Έλεγχος…':'Έλεγχος προβολής'}</button>
+     {!c.deletedAt&&<button type="button" disabled={busy} onClick={()=>{
+      setDeleteTarget(c);setDeleteTitle('');setDeleteReason('');setDeleteError('');
+     }} className="rounded-xl border border-rose-400/40 bg-rose-400/[.07] px-4 py-2 text-sm font-black text-rose-200 hover:bg-rose-400/15 disabled:opacity-40">
+      Διαγραφή καμπάνιας
+     </button>}
+    </div>
+    {reviewId===c._id&&<section className="space-y-3 rounded-2xl border border-purple-400/25 bg-purple-500/[.04] p-4">
+     <h4 className="font-black text-white">Δημιουργικά προς έγκριση</h4>
+     {reviewCreatives===null?<p className="text-xs text-zinc-400">Φόρτωση δημιουργικών…</p>:<div className="grid gap-3 md:grid-cols-2">{[
+      ...(reviewCreatives.banners||[]).map(a=>({...a,kind:'banner'})),
+      ...(reviewCreatives.audios||[]).map(a=>({...a,kind:'audio'}))
+     ].map(ad=><div key={ad._id} className="rounded-xl border border-white/10 bg-black/20 p-4">
+      <div className="flex items-center justify-between gap-3"><p className="font-black text-white">{ad.title}</p><span className="text-xs text-purple-200">{ad.status}</span></div>
+      <p className="mt-2 text-xs text-zinc-400">{ad.kind==='banner'?ad.placement?.join(', '):ad.frequency}</p>
+      {ad.kind==='banner'&&ad.imageUrl&&<img src={ad.imageUrl} alt={ad.title} className="mt-3 h-32 w-full rounded-xl object-contain"/>}
+      {ad.kind==='audio'&&<div className="mt-3"><ProtectedAudioPreview scope="admin" adId={ad._id} sourceUrl={ad.audioUrl}/></div>}
+      {ad.status==='pending'&&<div className="mt-4 flex flex-wrap gap-2">
+       <button type="button" className={primary} disabled={busy} onClick={()=>reviewCreative(ad.kind,ad._id,'approved')}>Έγκριση</button>
+       <button type="button" className="rounded-xl border border-rose-400/40 px-4 py-2 text-sm font-bold text-rose-200" disabled={busy} onClick={()=>reviewCreative(ad.kind,ad._id,'rejected')}>Απόρριψη</button>
+      </div>}
+     </div>)}</div>}
+    </section>}
+    {deliveryByCampaign[c._id]&&<div role="status" className="rounded-xl border border-white/10 bg-black/25 p-4 text-sm text-zinc-200">
+     <p className="font-bold text-emerald-200">Έτοιμα για προβολή: {deliveryByCampaign[c._id].deliverableCreatives} / {deliveryByCampaign[c._id].creatives.length}</p>
+     <p className="mt-1 text-xs text-zinc-400">
+      {deliveryByCampaign[c._id].isNonBillablePreview?'Μη χρεώσιμη δοκιμή staging':'Staging preview ανενεργό'}
+      {' · '}Geo: {deliveryByCampaign[c._id].geoMode==='signed_proxy'?'Έμπιστη τοποθεσία':'Fixture QA χωρίς έμπιστη γεωεντόπιση'}
+      {' · '}Επαληθευμένες πιστώσεις: {deliveryByCampaign[c._id].fundedLots}
+     </p>
+     {deliveryByCampaign[c._id].campaignIssues.map((reason,i)=>
+      <p key={i} className="mt-2 text-xs text-amber-200">{reason}</p>)}
+     <div className="mt-3 space-y-2">
+      {deliveryByCampaign[c._id].creatives.map(creative=>
+       <div key={creative.id} className="rounded-lg border border-white/10 bg-black/20 p-3">
+        <p className={creative.ready?'font-bold text-emerald-200':'font-bold text-amber-200'}>
+         {creative.title} · {creative.kind} · {creative.ready?'Έτοιμο για προβολή':'Μπλοκαρισμένο'}
+        </p>
+        <p className="mt-1 text-xs text-zinc-400">{creative.placements.join(', ')}</p>
+        {creative.reasons.map((reason,i)=><p key={i} className="mt-1 text-xs text-amber-200">{reason}</p>)}
+       </div>)}
+      {!deliveryByCampaign[c._id].creatives.length&&<p className="text-xs text-zinc-400">Δεν υπάρχουν δημιουργικά.</p>}
+     </div>
+     <p className="mt-3 text-xs text-zinc-500">Ο έλεγχος είναι μόνο για ανάγνωση. Μετά την έγκριση από Admin, η πληρωμένη Agency καμπάνια γίνεται αυτόματα επιλέξιμη για προβολή, χωρίς δεύτερη ενεργοποίηση ή πληρωμή.</p>
+    </div>}
+    {auditByCampaign[c._id]&&<div role="status" className="rounded-xl border border-white/10 bg-black/25 p-4 text-sm text-zinc-200">
+     <p className="font-bold text-purple-100">
+      {auditByCampaign[c._id].safe?'Οι χρεώσεις συμφωνούν':'Απαιτείται οικονομικός έλεγχος'}
+     </p>
+     <p className="mt-1 text-zinc-400">Funding lots: {auditByCampaign[c._id].fundedLots}
+      {' · '}Χρεωμένα events: {auditByCampaign[c._id].charged}
+      {' · '}Εκκρεμή: {auditByCampaign[c._id].pending}</p>
+     {auditByCampaign[c._id].issues?.length>0&&
+      <div className="mt-2 max-h-32 overflow-auto text-xs text-rose-300">
+       {auditByCampaign[c._id].issues.slice(0,20).map((issue,i)=><p key={i}>{issue}</p>)}
+      </div>}
+     <p className="mt-2 text-xs text-zinc-500">Έλεγχος μόνο για ανάγνωση. Δεν αλλάζει budget ή πληρωμές.</p>
+    </div>}
+   </section>)}
+  </>}
+  {mode==='campaigns'&&deleteTarget&&<div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 px-4 py-8 backdrop-blur-sm" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)setDeleteTarget(null);}}>
+   <div role="dialog" aria-modal="true" aria-labelledby="delete-campaign-title" className="w-full max-w-xl space-y-5 rounded-[26px] border border-rose-400/30 bg-[#18141e] p-6 shadow-2xl sm:p-8">
+    <div><h3 id="delete-campaign-title" className="text-xl font-black text-white">Διαγραφή καμπάνιας</h3>
+     <p className="mt-3 text-sm leading-6 text-zinc-300">Η καμπάνια <strong className="text-white">{deleteTarget.title}</strong> και τα δημιουργικά της σταματούν να προβάλλονται και αφαιρούνται από τις ενεργές λίστες.</p>
+     <p className="mt-3 text-xs leading-6 text-amber-200">Οι πληρωμές, τα διαθέσιμα ποσά, οι χρεώσεις και το ιστορικό διατηρούνται για έλεγχο. Η διαγραφή ΔΕΝ κάνει αυτόματα refund. Αν εκκρεμεί πληρωμή, η ενέργεια θα απορριφθεί.</p>
+    </div>
+    <label className="block text-xs font-bold text-zinc-300">Γράψε τον τίτλο ακριβώς για επιβεβαίωση
+     <input autoFocus autoComplete="off" className={input+' w-full'} value={deleteTitle} onChange={e=>setDeleteTitle(e.target.value)} placeholder={deleteTarget.title}/></label>
+    <label className="block text-xs font-bold text-zinc-300">Αιτιολογία διαγραφής (τουλάχιστον 5 χαρακτήρες)
+     <textarea rows={3} maxLength={1000} className={input+' w-full'} value={deleteReason} onChange={e=>setDeleteReason(e.target.value)} placeholder="Γιατί διαγράφεται η καμπάνια;"/></label>
+    {deleteError&&<p role="alert" className="rounded-xl border border-rose-400/35 bg-rose-400/10 p-3 text-sm text-rose-200">{deleteError}</p>}
+    <div className="flex flex-wrap justify-end gap-3">
+     <button type="button" disabled={busy} onClick={()=>setDeleteTarget(null)} className="rounded-xl border border-white/15 px-5 py-3 text-sm font-bold text-zinc-300">Ακύρωση</button>
+     <button type="button" disabled={busy||deleteTitle!==deleteTarget.title||deleteReason.trim().length<5} onClick={archiveCampaign}
+      className="rounded-xl bg-rose-600 px-5 py-3 text-sm font-black text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-40">{busy?'Διαγραφή…':'Επιβεβαίωση διαγραφής'}</button>
+    </div>
+   </div>
+  </div>}
+ </div>;
+}

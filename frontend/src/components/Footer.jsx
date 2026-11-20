@@ -1,0 +1,365 @@
+import PremiumSoundModes from './PremiumSoundModes';
+import {normalizeListenerMode} from '../utils/dspEngine';
+import {isDesktopDSPDevice} from '../utils/dspDevice';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { 
+  Play, Pause, Heart, Volume2, SkipBack, SkipForward, SlidersHorizontal, 
+  MonitorSpeaker, Headphones, PowerOff, Radio, ScanSearch, 
+  Loader2, Waves, Maximize2, Minimize2, Laptop, Smartphone, X 
+} from 'lucide-react';
+import ShareStory from './ShareStory';
+import DesktopFullPlayer from './DesktopFullPlayer';
+import AdSkipControl from './AdSkipControl';
+import {AdOnlyDesktopIdentity,AdOnlyFullscreen} from './AdOnlyPlayback';
+import FoundWithAI from './FoundWithAI';
+import RdsCrossfade from './RdsCrossfade';
+import {remoteLocationLabel} from '../utils/playbackPresentation.mjs';
+import { SiApplemusic } from 'react-icons/si';
+import {parseMusicMetadata,spotifySongLink,appleMusicSongLink} from '../utils/musicMetadata'; 
+import { useAlert } from '../context/AlertContext';
+
+export default function Footer({ 
+  currentStation, isPlayingAd, currentAdInfo, adTimeRemaining, adWarning,
+  adSkipCountdown, onSkipAd, 
+  isPlaying, isBuffering, nowPlaying, nowPlayingInfo, volume, setVolume, togglePlayPause, 
+  toggleFavorite, isFavorite, handleNextStation, handlePrevStation,
+  currentUser, listenerDspMode, onUserDSPChange,
+  isRecognizing, handleRecognizeTrack, spotifyUrl,  
+  availableDevices = [],
+  localDeviceId,
+  onTransferPlayback,
+  onRequestDevices, onOpenDevices, remotePlayback,
+  globalCoverArt, liveBroadcast, rdsShowProducer
+}) {
+  
+  const { showAlert } = useAlert();
+  const navigate = useNavigate();
+  const [showEQMenu, setShowEQMenu] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const eqMenuRef = useRef(null);
+
+  const formatGenre = (text) => {
+    if (!text || typeof text !== 'string') return "";
+    return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+  };
+
+  const utmParams = "ref=iradiosapp&utm_campaign=ft_player_ir&utm_content=ft_player_ir&utm_medium=ilumadigitalagencyiradios&utm_source=iradios";
+  
+  const realTrack=parseMusicMetadata(nowPlaying,currentStation?.name);
+  const isRealSong=Boolean(currentUser&&isPlaying&&!isPlayingAd&&!adWarning&&
+    !isRecognizing&&realTrack);
+  const finalSpotifyUrl=isRealSong&&!rdsShowProducer
+    ?(spotifyUrl||spotifySongLink(realTrack.raw,currentStation?.name)):null;
+  const finalAppleMusicUrl=isRealSong&&!rdsShowProducer
+    ?appleMusicSongLink(realTrack.raw,currentStation?.name):null;
+
+  // Shared station schedule uses 1–7 ISO weekdays and Greece-local time.
+  // Avoid independently interpreting the legacy 0–6 format in the player.
+  const currentShow=liveBroadcast?.show||null;
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (eqMenuRef.current && !eqMenuRef.current.contains(event.target)) setShowEQMenu(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Audio plays are tracked only when the shared HTML audio element actually starts.
+
+  const isCurrentlyFavorite = useMemo(() => {
+    return currentStation ? isFavorite(currentStation._id) : false;
+  }, [currentUser?.favorites, currentStation?._id]);
+
+  const isPremium = currentUser?.isPremium || currentUser?.broadcasterProfile?.tier === 'premium';
+  
+  // 🟢 ΛΟΓΙΚΗ ΕΙΚΟΝΑΣ
+  // 1. Minified Player (Κάτω Μπάρα): ΠΑΝΤΑ Λογότυπο Σταθμού (ή Διαφήμισης)
+  const minifiedImage = isPlayingAd && currentAdInfo?.logoUrl ? currentAdInfo.logoUrl : (currentStation?.logo || '');
+
+  // 2. Maximized Player (Full Screen): Δείχνει Cover Art ΑΝ υπάρχει ΚΑΙ είναι πραγματικό τραγούδι.
+  const canShowDj=Boolean(!isPlayingAd&&currentUser&&!isRecognizing&&liveBroadcast?.imageUrl);
+  const showProducerArt=Boolean(canShowDj&&rdsShowProducer);
+  const showCoverArt = isRealSong && !showProducerArt && globalCoverArt && !isPlayingAd;
+  const maximizedImage = isPlayingAd && currentAdInfo?.logoUrl 
+    ? currentAdInfo.logoUrl 
+    : (showCoverArt ? globalCoverArt : (showProducerArt?liveBroadcast.imageUrl:(currentStation?.logo || '')));
+
+
+  const handleLogoTitleClick = () => {
+    if (isPlayingAd && currentAdInfo?.linkUrl) {
+      fetch(currentAdInfo.ticketCapability?'/api/advertising/v2/click':`/api/ads/${currentAdInfo._id}/click`, {
+        method:'POST',headers:currentAdInfo.ticketCapability?{'Content-Type':'application/json',
+         ...(localStorage.getItem('iluma_token')?{Authorization:'Bearer '+localStorage.getItem('iluma_token')}:{})}:undefined,
+        body:currentAdInfo.ticketCapability?JSON.stringify({capability:currentAdInfo.ticketCapability}):undefined
+      }).catch(()=>{});
+      const separator = currentAdInfo.linkUrl.includes('?') ? '&' : '?';
+      window.open(`${currentAdInfo.linkUrl}${separator}${utmParams}`, '_blank', 'noopener,noreferrer');
+    } else if (!isPlayingAd && currentStation) {
+      navigate(`/station/${currentStation.slug || currentStation._id}`);
+      setIsMaximized(false);
+    }
+  };
+
+  const handleRadarClick = (e) => {
+    e.stopPropagation();
+    if (!currentUser) {
+      showAlert("Συνδέσου στο iRadios για να βρεις ποιο τραγούδι παίζει.");
+      return;
+    }
+    handleRecognizeTrack();
+  };
+
+  const handleSpotifyClick = (e) => {
+    e.stopPropagation();
+    if(!finalSpotifyUrl)return;
+    if (isPremium) {
+      window.open(finalSpotifyUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      showAlert("Αναβαθμίστε σε Premium για 1-Click Spotify Save.");
+      navigate('/premium'); 
+    }
+  };
+
+  const handleAppleMusicClick = (e) => {
+    e.stopPropagation();
+    if (!finalAppleMusicUrl) return;
+    if (isPremium) {
+      window.open(finalAppleMusicUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      showAlert("Αναβαθμίστε σε Premium για αναζήτηση στο Apple Music.");
+      navigate('/premium');
+    }
+  };
+
+  const canUseCustomEQ = Boolean(currentStation && currentUser?.isPremium === true && isDesktopDSPDevice());
+  const currentPreset = normalizeListenerMode(listenerDspMode);
+
+  return (
+    <>
+    <style>
+        {`
+          @keyframes eq-bar {
+            0% { height: 4px; }
+            50% { height: 18px; }
+            100% { height: 4px; }
+          }
+          .eq-bar-1 { animation: eq-bar 0.6s infinite ease-in-out alternate; }
+          .eq-bar-2 { animation: eq-bar 0.9s infinite ease-in-out alternate 0.2s; }
+          .eq-bar-3 { animation: eq-bar 0.7s infinite ease-in-out alternate 0.4s; }
+          .eq-bar-4 { animation: eq-bar 0.5s infinite ease-in-out alternate 0.1s; }
+          .eq-bar-5 { animation: eq-bar 0.8s infinite ease-in-out alternate 0.3s; }
+
+          @keyframes bounce-dot {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(-4px); opacity: 1; }
+          }
+          .dot-1 { animation: bounce-dot 0.6s infinite ease-in-out; }
+          .dot-2 { animation: bounce-dot 0.6s infinite ease-in-out 0.2s; }
+          .dot-3 { animation: bounce-dot 0.6s infinite ease-in-out 0.4s; }
+        `}
+      </style>
+      
+      {/* Cinematic desktop visual shell. The actual audio element remains in App.jsx. */}
+      {isMaximized && currentStation && (
+        <DesktopFullPlayer
+          station={currentStation}
+          currentUser={currentUser}
+          isPlaying={isPlaying}
+          isBuffering={isBuffering}
+          isPlayingAd={isPlayingAd}
+          adWarning={adWarning}
+          currentAdInfo={currentAdInfo}
+          adTimeRemaining={adTimeRemaining}
+          adSkipCountdown={adSkipCountdown} onSkipAd={onSkipAd}
+          nowPlaying={nowPlaying}
+          nowPlayingInfo={nowPlayingInfo}
+          globalCoverArt={globalCoverArt}
+          currentShow={currentShow}
+          liveBroadcast={liveBroadcast}
+          rdsShowProducer={rdsShowProducer}
+          volume={volume}
+          setVolume={setVolume}
+          togglePlayPause={togglePlayPause}
+          handlePrevStation={handlePrevStation}
+          handleNextStation={handleNextStation}
+          isFavorite={isCurrentlyFavorite}
+          onFavorite={() => currentUser ? toggleFavorite(currentStation._id) : navigate('/login')}
+          onRecognize={handleRadarClick}
+          isRecognizing={isRecognizing}
+          onOpenStation={() => { setIsMaximized(false); navigate('/station/'+(currentStation.slug||currentStation._id)); }}
+          onClose={() => setIsMaximized(false)}
+          onOpenDevices={onOpenDevices}
+          remotePlayback={remotePlayback}
+        />
+      )}
+
+      {isMaximized && !currentStation && isPlayingAd && currentAdInfo && (
+        <AdOnlyFullscreen ad={currentAdInfo} onClose={()=>setIsMaximized(false)}
+          onAdClick={handleLogoTitleClick} adTimeRemaining={adTimeRemaining}
+          adSkipCountdown={adSkipCountdown} onSkipAd={onSkipAd}
+          volume={volume} setVolume={setVolume}/>
+      )}
+
+      {/* 🟢 FOOTER BAR (MINIFIED) - ΠΑΝΤΑ STATION LOGO */}
+      <footer className="hidden lg:flex z-[100] fixed bottom-0 left-0 right-0 h-24 bg-black/80 backdrop-blur-3xl border-t border-white/5 px-8 items-center justify-between">
+        
+        <div className="flex items-center gap-4 w-1/3 min-w-[300px]">
+          {currentStation ? (
+            <>
+              <div onClick={handleLogoTitleClick} className="w-14 h-14 shrink-0 rounded-xl overflow-hidden border border-white/10 bg-zinc-900 shadow-md flex items-center justify-center relative cursor-pointer transition-transform hover:scale-105 active:scale-95">
+                <img 
+                  src={minifiedImage} 
+                  className={`w-full h-full transition-all object-contain bg-white p-1`} 
+                  alt="" 
+                />
+              </div>
+              <div className="flex flex-col justify-center min-w-0">
+                <Link to={isPlayingAd ? '#' : `/station/${currentStation.slug || currentStation._id}`} className="text-sm font-bold text-white truncate hover:text-[#ccff00] transition-colors">
+                  {isPlayingAd ? (currentAdInfo?.client || 'Διαφήμιση') : currentStation.name}
+                </Link>
+                {isPlayingAd ? (
+                  <span className="text-[10px] text-[#ccff00] truncate font-black tracking-widest mt-0.5 uppercase">Sponsored</span>
+                ) : (
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[10px] text-zinc-400 truncate font-black tracking-widest">{formatGenre(currentStation.genre)}</span>
+                    <span className="w-1 h-1 bg-zinc-700 rounded-full"></span>
+                    <span className="text-[10px] text-zinc-500 truncate font-bold tracking-tighter">{currentStation.region || 'Web Radio'}</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2 ml-4">
+                {!isPlayingAd && (
+                  <div className="flex items-center">
+                    
+                    {!isRealSong ? (
+                      <button onClick={handleRadarClick} disabled={isRecognizing || !isPlaying} className={`p-2 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isRecognizing ? 'text-[#ccff00] animate-pulse bg-[#ccff00]/10' : 'text-zinc-400 hover:text-[#ccff00]'}`}>
+                        {isRecognizing ? <Loader2 size={18} className="animate-spin" /> : <ScanSearch size={18} />}
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1.5" role="group" aria-label="Βρες το τραγούδι">
+                        <button type="button" onClick={handleSpotifyClick}
+                          className={`flex items-center justify-center w-8 h-8 shrink-0 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 ${isPremium ? 'bg-[#1DB954] text-black shadow-[0_0_15px_rgba(29,185,84,0.4)]' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-white'}`}
+                          title="Άνοιγμα στο Spotify" aria-label="Άνοιγμα στο Spotify">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.84.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.84.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.6.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.48-1.02.659-1.56.3z"/></svg>
+                        </button>
+                        <button type="button" onClick={handleAppleMusicClick}
+                          className={`flex items-center justify-center w-8 h-8 shrink-0 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 ${isPremium ? 'bg-gradient-to-br from-[#ff5a92] to-[#fa243c] text-white shadow-[0_0_15px_rgba(250,36,60,0.4)]' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-white'}`}
+                          title="Άνοιγμα στο Apple Music" aria-label="Άνοιγμα στο Apple Music">
+                          <SiApplemusic size={17} aria-hidden="true" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button onClick={() => toggleFavorite(currentStation._id)} className={`p-2 transition-all hover:scale-125 active:scale-90 ${isCurrentlyFavorite ? 'text-[#ccff00]' : 'text-zinc-500 hover:text-white'}`}><Heart size={20} fill={isCurrentlyFavorite ? "currentColor" : "none"} strokeWidth={isCurrentlyFavorite ? 2.5 : 2} /></button>
+                {canUseCustomEQ && !isPlayingAd && (
+                  <div className="relative" ref={eqMenuRef}>
+                    <button onClick={() => setShowEQMenu(!showEQMenu)} className={`p-2 transition-all duration-300 hover:scale-110 rounded-full ${showEQMenu || currentPreset !== 'DEFAULT' ? 'bg-[#ccff00]/20 text-[#ccff00]' : 'text-zinc-500 hover:text-white'}`}>
+                      <SlidersHorizontal size={18} />
+                    </button>
+                    {showEQMenu && (
+                      <div className="absolute bottom-full left-0 mb-3 z-[100] w-72">
+                        <PremiumSoundModes value={currentPreset}
+                          onChange={mode=>{onUserDSPChange(currentStation._id,mode);setShowEQMenu(false);}}/>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <ShareStory currentStation={currentStation} nowPlaying={nowPlaying} />
+              </div>
+            </>
+          ) : isPlayingAd && currentAdInfo ? (
+            <AdOnlyDesktopIdentity ad={currentAdInfo} onAdClick={handleLogoTitleClick}/>
+          ) : (
+            <div className="text-xs font-bold text-zinc-600 uppercase tracking-widest italic flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-zinc-900 border border-white/5 animate-pulse"></div> Επιλέξτε Σταθμό
+            </div> 
+          )}
+        </div>
+
+        <div className="flex flex-col items-center gap-2 w-1/3">
+          <div className="flex items-center gap-6">
+            <button onClick={handlePrevStation} disabled={isPlayingAd || adWarning} className="text-zinc-400 hover:text-white transition-all active:scale-95 disabled:opacity-20"><SkipBack size={22} fill="currentColor" /></button>
+            
+            <button onClick={togglePlayPause} disabled={!currentStation || isPlayingAd} className="w-12 h-12 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 shadow-xl disabled:bg-zinc-800">
+              {isBuffering ? (
+                  <div className="flex items-center justify-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-black rounded-full dot-1"></div>
+                    <div className="w-1.5 h-1.5 bg-black rounded-full dot-2"></div>
+                    <div className="w-1.5 h-1.5 bg-black rounded-full dot-3"></div>
+                  </div>
+              ) : isPlaying && !isPlayingAd ? (
+                <Pause size={20} fill="currentColor" />
+              ) : (
+                <Play size={20} fill="currentColor" className="ml-1" />
+              )}
+            </button>
+
+            <button onClick={handleNextStation} disabled={isPlayingAd || adWarning} className="text-zinc-400 hover:text-white transition-all active:scale-95 disabled:opacity-20"><SkipForward size={22} fill="currentColor" /></button>
+            <AdSkipControl isPlayingAd={isPlayingAd} secondsUntilSkip={adSkipCountdown} onSkip={onSkipAd} compact/>
+          </div>
+
+          {(currentStation || isPlayingAd) && (
+            <div className="h-5 w-full min-w-0 flex items-center justify-center">
+              {adWarning ? (
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#ccff00] animate-bounce">ΔΙΑΦΗΜΙΣΗ ΣΕ {adWarning}...</span>
+              ) : isPlayingAd ? (
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#ccff00]">ADVERTISEMENT <span className="ml-2 inline-block min-w-8 text-right tabular-nums">{Math.max(0,Math.ceil(adTimeRemaining||0))}s</span></span>
+              ) : remotePlayback ? (
+                <button type="button" onClick={onOpenDevices}
+                  className="max-w-full truncate rounded-full border border-[#ccff00]/30 bg-[#ccff00]/10 px-3 py-0.5 text-[10px] font-bold text-[#ccff00]"
+                  title="Διαχείριση απομακρυσμένης αναπαραγωγής">
+                  <MonitorSpeaker size={12} className="mr-1 inline"/>
+                  {remoteLocationLabel(remotePlayback.state)} {remotePlayback.deviceName}
+                </button>
+              ) : (
+                <div className="flex w-full min-w-0 items-center justify-center">
+                  <div className="flex max-w-full min-w-0 items-center justify-center gap-2">
+                    <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${isRecognizing ? 'bg-blue-400 animate-ping' : isPlaying ? 'bg-[#ccff00] shadow-[0_0_8px_#ccff00]' : 'bg-red-500'}`}></div>
+                    <div className={`min-w-0 max-w-full text-center text-[9px] sm:text-[10px] font-bold uppercase tracking-widest ${isRecognizing?'text-blue-400':'text-[#ccff00]'}`}>
+                      {!currentUser ? 'Συνδέσου στο iRadios για NowPlaying' : isRecognizing ? nowPlaying :
+                        !isPlaying?'STOPPED':(
+                          <RdsCrossfade showSecondary={showProducerArt} className="min-w-0 text-center"
+                            secondary={canShowDj?(
+                              <span className="block truncate text-center" title={liveBroadcast.title || ''}>
+                                <span className="font-black">Now ON AIR:</span> {liveBroadcast.title}
+                              </span>
+                            ):null}>
+                            <span className="block truncate text-center" title={isRealSong ? nowPlaying : 'ΠΑΙΖΕΙ ΤΩΡΑ'}>
+                              {isRealSong?nowPlaying:'ΠΑΙΖΕΙ ΤΩΡΑ'}
+                            </span>
+                          </RdsCrossfade>
+                        )}
+                    </div>
+                    {currentUser&&nowPlayingInfo?.foundWithAI&&isRealSong&&!showProducerArt&&!isPlayingAd&&<FoundWithAI compact/>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end items-center gap-6 w-1/3 pr-4 group">
+          <div className="flex items-center gap-3 w-32">
+            <Volume2 size={16} className="text-zinc-500 group-hover:text-[#ccff00] transition-colors shrink-0" />
+            <div className="w-full h-1.5 bg-zinc-800 rounded-full relative overflow-hidden shadow-inner">
+              <div className="absolute top-0 left-0 h-full bg-[#ccff00] transition-all" style={{ width: `${parseFloat(volume) * 100}%` }}></div>
+              <input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} className="absolute inset-0 w-full opacity-0 cursor-pointer" />
+            </div>
+          </div>
+          <div className="w-px h-6 bg-white/10 mx-2"></div>
+          {currentUser&&<button type="button" onClick={onOpenDevices}
+            className={'p-2 transition-all hover:scale-110 rounded-full '+(isPlaying?'text-[#ccff00]':'text-zinc-400 hover:text-white')}
+            title="iRadios Connect · Συσκευές" aria-label="Συσκευές αναπαραγωγής">
+            <MonitorSpeaker size={20}/>
+          </button>}
+          <button onClick={() => setIsMaximized(true)} className="p-2 text-zinc-500 hover:text-[#ccff00] transition-colors active:scale-90" title="Πλήρης Οθόνη"><Maximize2 size={20} /></button>
+        </div>
+      </footer>
+
+    </>
+  );
+}

@@ -1,0 +1,683 @@
+/*
+ * iRadiosGR v6.1 / Phase 2
+ * Shared dark + lime interface tokens. No runtime JS or third-party assets.
+ * The listener/player layouts can adopt these utilities incrementally.
+ */
+
+:root {
+  color-scheme: dark;
+  --ir-color-bg: #05070a;
+  --ir-color-panel: #10151b;
+  --ir-color-panel-raised: #171d25;
+  --ir-color-text: #f5f7f9;
+  --ir-color-muted: #a3adb8;
+  --ir-color-accent: #ccff00;
+  --ir-color-accent-soft: #e4ff83;
+  --ir-color-divider: rgba(209, 222, 238, 0.10);
+  --ir-color-glass: rgba(16, 21, 28, 0.82);
+  --ir-glass-border: rgba(225, 239, 255, 0.12);
+  --ir-elevation: 0 22px 60px rgba(0, 0, 0, 0.32);
+  --ir-radius-card: 1.5rem;
+  --ir-radius-control: 0.875rem;
+  --ir-focus-ring: 0 0 0 3px rgba(204, 255, 0, 0.38);
+}
+
+@layer components {
+  .ir-glass {
+    background: var(--ir-color-glass);
+    border: 1px solid var(--ir-glass-border);
+    border-radius: var(--ir-radius-card);
+    box-shadow: var(--ir-elevation);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+  }
+
+  .ir-app-topbar {
+    background: rgba(7, 10, 14, 0.90);
+    border-bottom: 1px solid var(--ir-color-divider);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  .ir-app-sidebar {
+    background: linear-gradient(170deg, #0c1116 0%, #070a0e 65%, #080b10 100%);
+    border-right: 1px solid var(--ir-color-divider);
+  }
+
+  .ir-app-mobile-nav {
+    background: rgba(7, 10, 14, 0.96);
+    border-top: 1px solid var(--ir-color-divider);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 4px));
+  }
+
+  .ir-app-mobile-nav :is(a, button) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .ir-search-field {
+    min-height: 44px;
+    background: rgba(30, 36, 46, 0.68);
+    border: 1px solid var(--ir-glass-border);
+    border-radius: var(--ir-radius-control);
+    color: var(--ir-color-text);
+  }
+
+  .ir-search-field::placeholder {
+    color: var(--ir-color-muted);
+  }
+
+  .ir-search-field:focus-visible {
+    border-color: var(--ir-color-accent);
+    box-shadow: var(--ir-focus-ring);
+  }
+
+  .ir-nav-item {
+    border: 1px solid transparent;
+  }
+
+  .ir-nav-item--active {
+    border-color: rgba(204, 255, 0, 0.20);
+    background: rgba(204, 255, 0, 0.07);
+    color: var(--ir-color-text);
+  }
+
+  .ir-nav-item--active::before {
+    content: "";
+    position: absolute;
+    top: 24%;
+    bottom: 24%;
+    left: 0;
+    width: 3px;
+    border-radius: 999px;
+    background: var(--ir-color-accent);
+  }
+
+  .ir-now-playing-card {
+    border: 1px solid rgba(204, 255, 0, 0.24);
+    background: var(--ir-color-panel);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.025);
+  }
+
+  .ir-station-image {
+    border: 1px solid var(--ir-glass-border);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+  }
+
+  .ir-action-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    border: 1px solid var(--ir-color-accent);
+    border-radius: var(--ir-radius-control);
+    background: var(--ir-color-accent);
+    color: #111600;
+    font-weight: 800;
+    box-shadow: 0 7px 24px rgba(204, 255, 0, 0.15);
+  }
+
+  .ir-action-primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  @media (hover: hover) {
+    .ir-action-primary:not(:disabled):hover {
+      background: var(--ir-color-accent-soft);
+      box-shadow: 0 9px 27px rgba(204, 255, 0, 0.25);
+    }
+
+    .ir-now-playing-card:hover {
+      border-color: rgba(204, 255, 0, 0.7);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35), 0 0 22px rgba(204, 255, 0, 0.10);
+    }
+
+    .ir-station-image:hover {
+      border-color: rgba(204, 255, 0, 0.7);
+    }
+  }
+
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .ir-glass, .ir-app-topbar, .ir-app-mobile-nav {
+      background: #10151b;
+    }
+  }
+}
+
+:where(button, a, input, textarea, select, [role="button"]):focus-visible {
+  outline: 2px solid var(--ir-color-accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --ir-color-divider: rgba(255, 255, 255, 0.35);
+    --ir-glass-border: rgba(255, 255, 255, 0.46);
+    --ir-color-muted: #d6dbe2;
+  }
+}
+
+
+/* Phase 2 · station profile and persistent live radio player */
+@layer components {
+  .ir-station-page {
+    background: radial-gradient(ellipse at 48% 2%, rgba(77, 113, 43, 0.14), transparent 44%), var(--ir-color-bg);
+  }
+
+  .ir-station-hero {
+    background: linear-gradient(145deg, rgba(24, 32, 40, 0.88), rgba(10, 13, 18, 0.96));
+    border: 1px solid var(--ir-glass-border);
+    border-radius: clamp(1.5rem, 4vw, 2.75rem);
+    box-shadow: var(--ir-elevation);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+  }
+
+  .ir-station-hero-art {
+    background: #151a21;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 1.75rem;
+    box-shadow: 0 26px 65px rgba(0, 0, 0, 0.52);
+  }
+
+  .ir-station-now {
+    background: rgba(204, 255, 0, 0.055);
+    border: 1px solid rgba(204, 255, 0, 0.19);
+    border-radius: 1.25rem;
+    padding: 1rem 1.25rem;
+  }
+
+  .ir-live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    background: var(--ir-color-accent);
+    color: #121700;
+    font-size: 0.65rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    padding: 0.55rem 0.8rem;
+  }
+
+  .ir-live-indicator::before {
+    content: "";
+    display: block;
+    height: 0.42rem;
+    width: 0.42rem;
+    border-radius: 50%;
+    background: #263200;
+  }
+
+  .ir-full-player {
+    background: radial-gradient(ellipse 70% 46% at 50% 18%, rgba(204, 255, 0, 0.09), transparent 100%),
+      linear-gradient(180deg, #121920 0%, #090d12 52%, #06090e 100%);
+    color: var(--ir-color-text);
+  }
+
+  .ir-full-player-art {
+    border: 1px solid rgba(218, 236, 247, 0.16);
+    border-radius: 2rem;
+    box-shadow: 0 24px 65px rgba(0, 0, 0, 0.6), 0 0 34px rgba(204, 255, 0, 0.08);
+  }
+
+  .ir-player-transport {
+    border: 1px solid var(--ir-color-accent);
+    background: var(--ir-color-accent);
+    color: #111600;
+    box-shadow: 0 12px 32px rgba(204, 255, 0, 0.22);
+  }
+
+  .ir-player-transport:disabled {
+    background: #2a3239;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #929da7;
+    box-shadow: none;
+  }
+
+  .ir-recognize-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    min-height: 44px;
+    border: 1px solid rgba(204, 255, 0, 0.58);
+    border-radius: 999px;
+    padding: 0.6rem 1.5rem;
+    background: rgba(204, 255, 0, 0.07);
+    color: var(--ir-color-accent);
+    font-size: 0.85rem;
+    font-weight: 750;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .ir-recognize-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .ir-recognize-button:not(:disabled):hover {
+    background: rgba(204, 255, 0, 0.16);
+  }
+
+  .ir-live-visualizer {
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .ir-live-visualizer span {
+    width: 4px;
+    height: 19px;
+    border-radius: 999px;
+    background: var(--ir-color-accent);
+    box-shadow: 0 0 9px rgba(204, 255, 0, 0.3);
+    animation: ir-live-bar 920ms ease-in-out infinite alternate;
+    animation-delay: calc(var(--i) * -110ms);
+    transform-origin: center;
+  }
+
+  .ir-live-visualizer--paused span {
+    animation-play-state: paused;
+    opacity: 0.35;
+    transform: scaleY(0.55);
+  }
+
+  .ir-mini-player {
+    background: rgba(20, 28, 34, 0.97);
+    border: 1px solid rgba(204, 255, 0, 0.21);
+    border-radius: 1.15rem;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.46);
+    -webkit-backdrop-filter: blur(22px);
+    backdrop-filter: blur(22px);
+  }
+
+  .ir-mini-player-logo {
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .ir-mobile-bottom-dock {
+    border-top: 1px solid rgba(204, 255, 0, 0.15);
+    background: rgba(10, 14, 19, 0.97);
+    -webkit-backdrop-filter: blur(22px);
+    backdrop-filter: blur(22px);
+  }
+
+  .ir-mobile-bottom-dock [aria-current="page"] {
+    color: var(--ir-color-accent);
+  }
+
+  @keyframes ir-live-bar {
+    from { transform: scaleY(0.45); }
+    to { transform: scaleY(1.7); }
+  }
+
+  @media (max-height: 730px) {
+    .ir-full-player .ir-full-player-art {
+      max-width: min(50vh, 260px);
+      max-height: min(50vh, 260px);
+    }
+    .ir-full-player .ir-full-player-actions {
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ir-live-visualizer span { animation: none; }
+  }
+
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .ir-station-hero { background: #10151b; }
+    .ir-mini-player, .ir-mobile-bottom-dock { background: #131a20; }
+  }
+}
+
+
+/*
+ * Desktop radio fullscreen: viewport is the only vertical constraint.
+ * The playlist drawer can scroll independently, never the underlying player.
+ */
+@layer components {
+  .ir-desktop-player {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .ir-desktop-player-layout,
+  .ir-desktop-player-main,
+  .ir-desktop-player-copy,
+  .ir-desktop-player-artframe {
+    min-height: 0;
+  }
+
+  .ir-desktop-player-title {
+    font-size: clamp(1.5rem, min(4.4vw, 7.8dvh), 5.4rem);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+
+  .ir-desktop-player-art {
+    /* Scale BOTH axes; setting max-height only would distort a square artwork. */
+    width: min(100%, calc(100dvh - 170px), 610px);
+    aspect-ratio: 1 / 1;
+  }
+
+  @media (min-width: 1024px) and (max-height: 720px) {
+    .ir-desktop-player-layout {
+      row-gap: 0.4rem;
+      padding-top: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .ir-desktop-player-title {
+      font-size: clamp(1.5rem, min(4vw, 7.6dvh), 4.5rem);
+    }
+
+    .ir-desktop-player-art {
+      width: min(100%, calc(100dvh - 150px), 520px);
+    }
+
+    .ir-desktop-player-footer {
+      padding-block: 0.35rem;
+    }
+
+    .ir-desktop-player-copy .ir-recognize-button {
+      min-height: 38px;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.72rem;
+    }
+  }
+
+  @media (min-width: 1024px) and (max-height: 580px) {
+    .ir-desktop-player-title {
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      font-size: clamp(1.4rem, min(3.7vw, 7.1dvh), 3.6rem);
+    }
+
+    .ir-desktop-player-art {
+      width: min(100%, calc(100dvh - 126px), 450px);
+    }
+
+    .ir-desktop-player-show {
+      display: none;
+    }
+
+    .ir-desktop-player-footer {
+      min-height: 48px;
+    }
+  }
+}
+
+
+/* iRadiosGR — listener home editorial redesign (desktop and mobile). */
+@layer components {
+  .ir-home-page {
+    isolation: isolate;
+    background:
+      radial-gradient(ellipse at 60% 2%, rgba(204, 255, 0, .058), transparent 42%),
+      transparent;
+  }
+
+  .ir-home-heading {
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 18px 42px rgba(0, 0, 0, .20);
+  }
+
+  .ir-home-hero {
+    box-shadow: 0 28px 64px rgba(0, 0, 0, .38);
+  }
+
+  .ir-home-feature-grid > * {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .ir-playlist-panel--compact {
+    max-height: none;
+    min-height: 0;
+  }
+
+  .ir-playlist-panel--compact .ir-playlist-panel__tracks {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .ir-home-shortlist,
+  .ir-home-now-playing {
+    min-width: 0;
+  }
+
+  .ir-home-shortlist {
+    border-radius: 20px;
+  }
+
+  .ir-now-playing-scroll {
+    scroll-snap-type: x mandatory;
+    scrollbar-color: rgba(204, 255, 0, .2) transparent;
+    scrollbar-width: thin;
+    overscroll-behavior-x: contain;
+  }
+
+  .ir-genre-tile {
+    box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 8px 23px rgba(0,0,0,.20);
+  }
+
+  .ir-genre-tile:focus-visible {
+    outline: 2px solid var(--ir-color-accent);
+    outline-offset: 2px;
+  }
+
+  .ir-discovery-shell {
+    box-shadow: inset 0 1px rgba(255, 255, 255, .04), 0 15px 45px rgba(0, 0, 0, .25);
+  }
+
+  .ir-app-sidebar {
+    background:
+      radial-gradient(ellipse at 0 0, rgba(204,255,0,.055), transparent 42%),
+      linear-gradient(180deg, #161b1c, #0c1014 72%, #090d10);
+    border-right: 1px solid rgba(255,255,255,.08);
+  }
+
+  .ir-app-sidebar .ir-nav-item {
+    min-height: 43px;
+  }
+
+  .ir-app-sidebar .ir-nav-item--active {
+    border-color: rgba(204,255,0,.42);
+    background: linear-gradient(90deg, rgba(204,255,0,.21), rgba(204,255,0,.045));
+    color: var(--ir-color-text);
+    box-shadow: inset 0 1px rgba(204,255,0,.08), 0 4px 14px rgba(204,255,0,.07);
+  }
+
+  .ir-app-sidebar .ir-nav-item--active::before {
+    top: 18%;
+    bottom: 18%;
+    width: 3px;
+    box-shadow: 0 0 11px rgba(204,255,0,.4);
+  }
+
+  .ir-sidebar-heading {
+    color: #9da5a5;
+    letter-spacing: .13em;
+  }
+
+  @media (min-width: 1280px) {
+    /* Keep the Home carousel and its playlist on one compact 355px row.
+       The playlist's own flex-1/min-h-0 track list scrolls inside, rather
+       than inflating the grid row and leaving blank space under the hero. */
+    .ir-home-feature-grid {
+      height: 355px;
+      min-height: 0;
+      align-items: stretch;
+    }
+    .ir-home-feature-grid > #home-playlist {
+      height: 100%;
+      min-height: 0;
+    }
+    .ir-home-feature-grid .ir-playlist-panel--compact {
+      height: 100%;
+      max-height: 100%;
+      min-height: 0;
+    }
+  }
+
+  @media (max-width: 1279px) {
+    .ir-playlist-panel--compact {
+      max-height: 450px;
+      min-height: 300px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ir-genre-tile:hover {
+      transform: none;
+    }
+  }
+}
+
+
+/* v6.1 Phase 3.1: brand-reactive hero and editorial radio discovery. */
+@layer components {
+  .ir-ambient-hero-gradient {
+    background:
+      radial-gradient(ellipse 68% 90% at 82% 48%, rgb(var(--ir-ambient-rgb, 134 165 56) / .62) 0%, transparent 78%),
+      linear-gradient(115deg, rgba(9, 13, 17, .88) 10%, rgb(var(--ir-ambient-rgb, 134 165 56) / .17) 65%, #080b0f 115%);
+    filter: saturate(1.25);
+  }
+  .ir-home-hero--station {
+    /* A station hero is its actual logo-derived brand color, never a cover or producer photo. */
+    background-color: rgb(var(--ir-ambient-rgb, 134 165 56));
+  }
+  .ir-home-hero--station .ir-ambient-hero-gradient {
+    background:
+      radial-gradient(ellipse 85% 115% at 89% 42%, rgb(var(--ir-ambient-rgb, 134 165 56) / .98), rgb(var(--ir-ambient-rgb, 134 165 56) / .72) 58%, transparent 100%),
+      linear-gradient(120deg, rgb(var(--ir-ambient-rgb, 134 165 56) / .73), rgb(var(--ir-ambient-rgb, 134 165 56)));
+    filter: saturate(1.3);
+  }
+  .ir-ambient-hero {
+    box-shadow: inset 0 1px rgba(255,255,255,.13), 0 26px 55px rgba(0,0,0,.32);
+  }
+  .ir-hero-station-logo {
+    transform: perspective(700px) rotateY(-4deg);
+    box-shadow: 0 22px 60px rgba(0,0,0,.48), 0 0 35px rgb(var(--ir-ambient-rgb, 134 165 56) / .2);
+  }
+  .ir-catalog-page {
+    background: radial-gradient(ellipse 55% 25% at 80% 0%, rgba(204,255,0,.045), transparent 85%);
+  }
+  .ir-catalog-heading {
+    border: 1px solid rgba(255,255,255,.075);
+    background:
+      radial-gradient(ellipse 60% 95% at 85% 15%, rgba(204,255,0,.08), transparent),
+      linear-gradient(125deg, #192124, #0e1318 80%);
+    border-radius: 1.75rem;
+    padding: clamp(1.15rem, 2.5vw, 2rem);
+  }
+  .ir-catalog-card {
+    box-shadow: inset 0 1px rgba(255,255,255,.04), 0 10px 24px rgba(0,0,0,.18);
+  }
+  .ir-catalog-card:focus-within, .ir-catalog-row:focus-within {
+    border-color: rgba(204,255,0,.65);
+  }
+  .ir-catalog-filter:focus-visible, .ir-station-listen:focus-visible {
+    outline: 2px solid #ccff00;
+    outline-offset: 3px;
+  }
+  .ir-catalog-popover {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .ir-editorial-placement {
+    box-shadow: 0 24px 50px rgba(0,0,0,.3);
+  }
+  @media (max-width: 640px) {
+    .ir-hero-station-logo {
+      width: 5.25rem;
+      height: 5.25rem;
+      padding: .6rem;
+      border-radius: 1.15rem;
+      transform: none;
+    }
+    .ir-ambient-hero-gradient {
+      background: radial-gradient(ellipse at 93% 40%, rgb(var(--ir-ambient-rgb, 134 165 56) / .49), transparent 80%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ir-catalog-card, .ir-hero-station-logo { transition: none; transform: none; }
+  }
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .ir-catalog-popover { background: #11181e; }
+  }
+}
+
+
+/* Phase 3.2 — responsive navigation, favorites, station profile and mobile player. */
+@layer components {
+  .ir-favorites-page {
+    background: radial-gradient(ellipse 65% 28% at 90% 0%, rgba(204, 255, 0, .05), transparent 75%);
+  }
+  .ir-favorites-page input[type="search"]::-webkit-search-cancel-button {
+    appearance: none;
+  }
+  .ir-favorites-page button:focus-visible,
+  .ir-station-page button:focus-visible,
+  .ir-app-topbar button:focus-visible {
+    outline: 2px solid #ccff00;
+    outline-offset: 2px;
+  }
+  .ir-mobile-player-content {
+    scrollbar-color: rgba(204,255,0,.2) transparent;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  @media (max-width: 767px) {
+    .ir-station-page .ir-station-hero {
+      gap: 1.25rem;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .ir-station-page .ir-station-hero-art {
+      width: min(61vw, 220px);
+      height: min(61vw, 220px);
+      border-radius: 1.3rem;
+    }
+  }
+  @media (max-height: 680px) and (max-width: 1023px) {
+    .ir-mobile-player-content .ir-full-player-art {
+      max-height: 36dvh;
+      max-width: 36dvh;
+    }
+    .ir-mobile-player-content .ir-live-visualizer {
+      margin-bottom: .25rem;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ir-mini-player, .ir-full-player {
+      transition: none;
+    }
+  }
+}

@@ -1,0 +1,332 @@
+name: Staging source validation
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [staging]
+permissions:
+  contents: read
+jobs:
+  password_recovery:
+    name: Password recovery regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test backend/tests/passwordRecovery.test.js ops/check-password-recovery-access.test.cjs
+  play_devices:
+    name: iRadios Connect playback synchronization
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check backend syntax and synchronized transport behavior
+        run: |
+          node --check backend/services/playDevices.js
+          node --test frontend/src/utils/playbackPresentation.test.mjs backend/tests/playbackControlPolicy.test.js ops/check-play-devices-sync.test.cjs
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check known live references and .env files
+        run: bash ops/check-stage-source.sh
+      - name: Test SEO 2.0 truthful metadata, schema, date and privacy contracts
+        run: node --test backend/tests/seo2Core.test.js backend/tests/seo2Render.test.js backend/tests/seo2Llms.test.js frontend/src/utils/seoPreview.test.js frontend/src/utils/publicStationFaq.test.js
+      - name: Validate SEO server modules and Nginx source routing
+        run: |
+          node --check backend/services/seo2Core.js
+          node --check backend/services/seo2Render.js
+          node --check backend/services/seo2Routes.js
+          node --check backend/services/seo2Image.js
+          node --check backend/services/seo2Llms.js
+          grep -Fq 'location ^~ /llms/' ops/nginx-stage.conf
+          grep -Fq 'location = /llms-full.txt' ops/nginx-stage.conf
+          grep -Fq '/api/public/stations/:slug/faq' backend/services/seo2Routes.js
+          grep -Fq 'id="ir-seo-bootstrap"' backend/services/seo2Render.js
+          grep -Fq 'seo2Routes' backend/server.js
+          grep -Fq 'location ^~ /station/' ops/nginx-stage.conf
+      - name: Prevent retired payment provider code, dependencies and stale checkout references
+        run: node ops/check-no-retired-payments.cjs
+      - name: Check First Play, Skip and 46-second audio upload validation
+        run: |
+          node --check backend/routes/uploadRoutes.js
+          node --test frontend/src/utils/adSkipPolicy.test.mjs backend/tests/adAudioDurationRules.test.cjs
+      - name: Verify ad-only First Play CTA and fullscreen without a station
+        run: node --test ops/check-first-play-ad-player.cjs
+      - name: Validate Car Mode confirmed mobile car audio and safe prompt
+        run: node --test frontend/src/utils/carAudioDetection.test.js ops/check-car-mode-confirmed-detection.test.cjs
+      - name: Build the frontend before the static UI contract checks
+        # Mirrors the Docker/Vite compilation and exposes the root error promptly.
+        run: npm --prefix frontend ci --legacy-peer-deps && npm --prefix frontend run build
+      - name: Enforce Athens dates, DST conversion and Greek date input contracts
+        run: node --test frontend/src/utils/dateTime.test.js backend/tests/athensDateTime.test.js ops/check-athens-date-format.test.cjs
+      - name: Check Advertising v2 official placements, fallback queue and budget guidance
+        run: |
+          node --test frontend/src/utils/audioAdRules.test.js frontend/src/utils/advertisingBudgetRecommendations.test.js ops/check-advertising-v2-upgrade.test.cjs
+      - name: Verify 1.4-second single-logo preloader, proportions and reduced motion
+        run: node ops/check-preloader-branding.test.cjs && node --test frontend/src/utils/preloaderTimeline.test.mjs
+      - name: Verify desktop-only Premium DSP across every station switch
+        run: node ops/check-premium-desktop-dsp.test.cjs
+      - name: Verify mini widget artwork tiles, color backgrounds and dark-only configurator
+        run: node ops/check-widget-mini-background.cjs
+      - name: Verify station producer photos in external embeds, approved-only image proxy and payload safety
+        run: node ops/check-widget-producer-artwork.cjs && node --test backend/tests/widgetShowImage.test.js
+      - name: Verify configurable iframe dimensions, autoplay and secure 3-minute previews
+        run: node ops/check-widget-preview-configurator.cjs && node --test backend/tests/widgetPreviewTokens.test.js
+      - name: Ensure deprecated Live Chat is completely retired
+        run: node ops/check-no-legacy-chat.cjs
+      - name: Ensure executable scripts retain Git executable permissions
+        run: |
+          for script in ilumadev.sh ops/deploy-stage.sh ops/check-stage-source.sh ops/init-stage-secrets.sh; do
+            test -x "$script" || { echo "Missing executable bit: $script" >&2; exit 1; }
+            mode=$(git ls-files -s -- "$script" | awk '{print $1}')
+            test "$mode" = 100755 || { echo "Wrong Git file mode ($mode): $script" >&2; exit 1; }
+          done
+      - name: Validate deployment shell scripts
+        run: |
+          for script in ilumadev.sh ops/*.sh; do
+            bash -n "$script"
+          done
+      - name: Exercise stage backend .env guard without live secrets
+        run: node ops/check-stage-backend-env.cjs
+      - name: Validate backend JavaScript syntax
+        run: find backend -name '*.js' -not -path '*/node_modules/*' -print0 | xargs -0 -n1 node --check
+      - name: Verify safe real-time backoffice invalidation and SSE events
+        run: node --test backend/tests/liveUpdates.test.js
+      - name: Verify For You listener personalization, safe sync and offline fallback
+        run: node --test frontend/src/utils/forYouRecommendations.test.js backend/tests/listeningProfile.test.js
+      - name: Verify Phase D listener heartbeat idempotency and real Analytics projections
+        run: node --test backend/tests/stageListeningMetrics.test.js backend/tests/analyticsMetrics.test.js
+      - name: Verify public widget native RDS never leaks Premium AI recognitions
+        run: node --test backend/tests/widgetNativeNow.test.js frontend/src/utils/widgetRdsPresentation.test.js frontend/src/utils/heroAudioWaves.test.js
+      - name: Verify Phase C guest and Premium AI response projections
+        run: node --test backend/tests/nowPlayingVisibility.test.js
+      - name: Verify Phase B single-use Admin email 2FA and safe stream diagnostics
+        run: node --test backend/tests/adminEmail2fa.test.js backend/tests/streamDiagnostics.test.js
+      - name: Verify Phase A station deletion cancels only the right Gateway mandates
+        run: node --test backend/tests/stationDeletionBilling.test.js
+      - name: Verify secure Free listener email-link token generation
+        run: node --test backend/tests/emailVerification.test.js
+      - name: Verify phase-1 subscription catalog, complimentary grants and paid Boost priority
+        run: node --test backend/tests/billingPhase1.test.js backend/tests/billingGrantRequest.test.js
+      - name: Verify expired purchased and Premium Boost retains only organic ranking reward
+        run: node --test backend/tests/postBoostRanking.test.js
+      - name: Verify paid Sponsored placements, genre/region affinity, and Premium homepage Hero
+        run: node --test backend/tests/stationBoostRules.test.js && node ops/check-sponsored-catalog-premium-hero.cjs
+      - name: Verify exact 1-4 slot post-Boost ranking across public catalog screens
+        run: node ops/check-post-boost-ranking.cjs
+      - name: Verify scoped effective entitlements and compatibility with manual Premium
+        run: node --test backend/tests/billingPhase2.test.js
+      - name: Verify Broadcaster catalog scope, Boost durations and paid priority
+        run: node --test backend/tests/broadcasterPurchaseRules.test.js backend/tests/broadcasterPaymentProtocol.test.js backend/tests/broadcasterCheckoutLease.test.js
+      - name: Verify Gateway outages and ambiguous checkout requests never retry
+        run: node --test backend/tests/gatewayOutage.test.js
+      - name: Verify read-only recovery cannot re-charge or grant paid access
+        run: node --test backend/tests/broadcasterCheckoutRecovery.test.js
+      - name: Verify branded Broadcaster billing emails and one-off Boost messaging
+        run: node --test backend/tests/broadcasterBillingEmailTemplates.test.js backend/tests/broadcasterBillingEmailScheduler.test.js
+      - name: Verify Advertising v2 prefecture targeting and safe geo fallback
+        run: node --test backend/tests/agencyAdGeo.test.cjs backend/tests/agencyAdGeoMatch.test.cjs backend/tests/trustedAdGeo.test.cjs backend/tests/advertisingPricingRules.test.cjs backend/tests/advertisingSandboxCheckout.test.cjs
+      - name: Verify Hostinger GeoIP2 trust-map generation and safe upstream header replacement
+        run: node --test backend/tests/stagingGeoip2Ingress.test.cjs
+      - name: Verify staging paid placements render without debit or production bypass
+        run: node --test backend/tests/advertisingPaidPlacementPreview.test.cjs
+      - name: Guard guest Advertising v2 tickets, transactional Mongo readiness and honest Agency balances
+        run: node --test backend/tests/advertisingV2PaidDeliveryReadiness.test.cjs
+      - name: Guard editable Agency daily caps, trustworthy availability and Campaign Manager
+        run: node --test backend/tests/advertisingV2CampaignAvailability.test.cjs backend/tests/agencyDailyBudgetContracts.test.cjs
+      - name: Verify exact CPM nanos and fail-closed advertising financial/legacy metrics guards
+        run: node --test backend/tests/advertisingV2FinancialGuards.test.cjs
+      - name: Simulate concurrent atomic CPM claims, funded balance depletion and recovery
+        run: node --test backend/tests/advertisingCpmSettlement.test.cjs
+      - name: Validate scalable transactional CPM wallet and ledger under simulated races
+        run: node --test backend/tests/advertisingCpmTransactional.test.cjs
+      - name: Verify foreground viewability and atomic shadow quota compensation
+        run: node --test frontend/src/utils/adViewability.test.js backend/tests/advertisingTicketReservation.test.cjs
+      - name: Test durable Agency per-recipient email outbox, retries, leases and restart safety
+        run: node --test backend/tests/agencyAdNoticeOutbox.test.cjs
+      - name: Guard Agency revision approval under concurrent Admin decisions and crash recovery
+        run: node --test backend/tests/agencyRevisionApproval.test.cjs
+      - name: Test non-billable qualified visual/audio tickets, anti-fraud and pacing
+        run: node --test backend/tests/advertisingQualifiedDelivery.test.cjs
+      - name: Prevent incorrect budget-exhaustion mail or 6k receipt-cap mislabeling
+        run: node --test backend/tests/advertisingBudgetExhaustion.test.cjs
+      - name: Verify staging Ad Network, placement contracts and safe legacy campaign handling
+        run: node --test ops/check-ad-network-staging.test.cjs
+      - name: Verify 30s audible Skip Ad and bounded per-placement Visual Ad Studio
+        run: node --test frontend/src/utils/adSkipPolicy.test.js backend/tests/adDesignRules.test.cjs ops/check-ad-visual-skip.test.cjs
+      - name: Verify staged audio streaming, private previews and randomized sparse ad slots
+        run: node --test frontend/src/utils/sparseAdSlots.test.js ops/check-stage-ad-audio-delivery.test.cjs
+      - name: Verify Dynamic Ad Studio and playable pre-roll/mid-roll frequency rules
+        run: node --test frontend/src/utils/audioAdRules.test.js ops/check-dynamic-ads-v6.test.cjs
+      - name: Verify expiry gating of station DSP and network ads without deleting presets
+        run: node --test backend/tests/billingStationPlayback.test.js
+      - name: Validate admin station Addon sources and paid / complimentary isolation
+        run: node --test backend/tests/adminAddonOverview.test.js
+      - name: Validate Admin Addon routes, grant write protection and navigation
+        run: node --test ops/check-admin-addons.test.cjs
+      - name: Require Billing Engine only for Broadcaster Premium and Addons
+        run: node --test backend/tests/broadcasterBillingOnly.test.js
+      - name: Verify authenticated Broadcaster WebDSP routes in staging
+        run: node --test backend/tests/dspStageAccess.test.js
+      - name: Validate approved station WebDSP Preview and Auto defaults
+        run: node --test backend/tests/dspPreviewAccess.test.js
+      - name: Verify independent Admin Audio tab and legacy permission retirement
+        run: node --test ops/check-admin-audio-new-rights.test.cjs
+      - name: Verify Phase F DSP preset EQ and stereo saving validation
+        run: node --test backend/tests/dspPhaseF.test.js
+      - name: Verify Phase F realtime graph, master ceiling and full-page controls
+        run: node --test ops/check-phase-f-dsp.test.cjs
+      - name: Verify Nexi Sandbox HMAC, signed webhook boundaries and monthly period rules
+        run: node --test backend/tests/billingGatewayProtocol.test.js
+      - name: Verify manual Premium renewal alerts, grace, and non-overlapping paid cycles
+        run: node --test backend/tests/billingRenewalRules.test.js
+      - name: Verify subscription-only checkout consent, responsive full-width Premium UI and no one-off choices
+        run: node --test ops/check-premium-subscription-only.cjs
+      - name: Verify one-time 1.99 winback eligibility, 30-day window, signed payment and preview safety
+        run: node --test backend/tests/winbackEligibility.test.js
+      - name: Verify renewal checkout safety, 24h server snooze and cross-cycle uniqueness
+        run: node --test ops/check-billing-renewal-endpoints.test.cjs
+      - name: Verify signed MIT renewal idempotency and account correlation
+        run: node --test ops/check-billing-mit-webhook.test.cjs
+      - name: Verify atomic signed payment activation, duplicate events and replay protection
+        run: node --test ops/check-billing-gateway-webhook.test.cjs
+      - name: Verify only confirmed paid or complimentary entitlements unlock Listener Premium
+        run: node --test ops/check-billing-paid-entitlements.test.cjs
+      - name: Check staging radio proxy URL safety
+        run: node ops/check-stage-stream-proxy.cjs
+      - name: Prevent advertising API authentication from intercepting anonymous radio playback
+        run: node --test backend/tests/advertisingRouterIsolation.test.cjs
+      - name: Verify Agency marketing remains public and all Agency operations use a role-scoped Backoffice
+        run: node --test ops/check-agency-backoffice.test.cjs
+      - name: Verify five-step Agency Wizard and automatic verified-payment Admin review
+        run: node --test ops/check-advertising-wizard.test.cjs
+      - name: Regression test verified Agency auto-submission and webhook replay safety
+        run: node --test backend/tests/advertisingAutoSubmission.test.cjs
+      - name: Test Admin campaign deletion, payment safety and archived audit
+        run: node --test backend/tests/advertisingAdminArchive.test.cjs
+      - name: Verify public staging API access boundaries
+        run: node ops/check-stage-public-access.cjs
+      - name: Verify versioned broadcaster consent behavior
+        run: node ops/check-phase1-broadcaster-consent.cjs
+      - name: Verify admin broadcaster invitation and claim contracts
+        run: node ops/check-broadcaster-invitations.cjs
+      - name: Validate universal branded transactional emails and admin previews
+        run: node ops/check-branded-email-design.cjs
+      - name: Validate verified-email welcome, strong 3.99 Premium CTA, full feature parity and marketing consent
+        run: node ops/check-verified-premium-upsell-email.cjs
+      - name: Validate Premium listener lifecycle emails, Spotify and Apple benefits, durable dedupe and marketing consent
+        run: node ops/check-premium-billing-emails.cjs
+      - name: Simulate signed Premium welcome, expiry, marketing consent and cancel email delivery once per event
+        run: node --test backend/tests/premiumBillingEmailScheduler.test.js
+      - name: Verify authenticated station contact and branded Reply-To
+        run: node --test ops/check-station-contact.test.cjs
+      - name: Test authenticated staging metadata and SonoVault safety
+        run: node ops/check-stage-metadata-sonovault.cjs
+      - name: Validate Phase 2 design-system tokens and accessibility
+        run: node ops/check-phase2-design-system.cjs
+      - name: Verify mobile fullscreen glass navigation and preserved RDS/player controls
+        run: node ops/check-mobile-fullscreen-glass.cjs
+      - name: Verify Cloudflare Turnstile server-side login/signup protection
+        run: node --test ops/check-turnstile-auth.test.cjs
+      - name: Validate scoped billing routers never intercept public authentication
+        run: node --test ops/check-billing-router-scope.test.cjs
+      - name: Validate responsive auth screens and retry after wrong credentials
+        run: node ops/check-auth-glass-retry.cjs
+      - name: Validate Phase 2 listener player and station UI contracts
+        run: node ops/check-phase2-player-station.cjs
+      - name: Validate editorial slides, station playlist and desktop player
+        run: node ops/check-phase3-home.cjs
+      - name: Validate desktop full-screen viewport-fit behavior
+        run: node ops/check-desktop-fullscreen-viewport.cjs
+      - name: Validate metadata-only home and visual no-dropdown browsing
+        run: node ops/check-home-mockup-navigation.cjs
+      - name: Validate Phase 3.1 editorial CMS, branded hero, playback and catalog
+        run: node ops/check-phase31-editorial.cjs
+      - name: Regression Phase E promoted privacy, exclusive campaigns and scoped presentation
+        run: node ops/check-phase-e-editorial.cjs
+      - name: Validate newsfeed RSS, dates, image and access contracts
+        run: node ops/check-newsfeed.cjs
+      - name: Verify in-app news article RSS preview and safe share links
+        run: node ops/check-news-article.cjs
+      - name: Validate smart search relevance, voice routes and header breakpoints
+        run: node ops/check-smart-search.mjs
+      - name: Verify Profile notification preferences, delivery and billing safety
+        run: node ops/check-profile-notifications.cjs
+      - name: Verify truthful Profile, program follows, inbox and staging security
+        run: node ops/check-profile-center.cjs
+      - name: Prevent cross-selection of unrelated shows and DJs
+        run: node ops/check-follow-isolation.cjs
+      - name: Validate rssnews.io selected publishers and article image attribution
+        run: node ops/check-rssnews-selected-publishers.cjs
+      - name: Verify 1200x630 catalog slides and scoped promoted station
+        run: node ops/check-catalog-promoted-station.cjs
+      - name: Validate full-width catalog live information and promoted all-mode cards
+        run: node ops/check-catalog-live.cjs
+      - name: Verify four-tier station completeness ordering in every catalog mode
+        run: node ops/check-catalog-quality-priority.cjs
+      - name: Validate simple Greek listener copy and expanded station recommendations
+        run: node ops/check-listener-copy-home-counts.cjs
+      - name: Validate Phase 3.2 listener polish and single FM frequency
+        run: node ops/check-phase32-listener-polish.cjs
+      - name: Validate precise radio map marker positions and geographic anchors
+        run: node ops/check-radio-map-geography.cjs
+      - name: Verify Greek prefectures and dependent station location forms
+        run: node ops/check-station-location-selects.cjs
+      - name: Validate staging SonoVault recognition diagnostics without remote requests
+        run: node ops/check-stage-sonovault-diagnostics.cjs
+      - name: Validate longer compressed SonoVault manual audio sample
+        run: node ops/check-sonovault-audio.cjs
+      - name: Validate shared ACR song provenance and five-minute device metadata
+        run: node ops/check-phase33-smart-nowplaying.cjs
+      - name: Validate zero automatic paid recognitions
+        run: node ops/check-manual-only-recognition.cjs
+      - name: Verify shared network recognition and rolling playlist history
+        run: node ops/check-phase34-network-nowplaying.cjs
+      - name: Test Phase 4 player-free backoffice, station ownership and approval workflow
+        run: node ops/check-phase4-backoffice.cjs
+      - name: Verify locked Broadcaster add-ons and billing entitlement aware sidebar
+        run: node ops/check-broadcaster-locked-addons.cjs
+      - name: Verify broadcaster dashboard premium cards and safe stream startup checks
+        run: node --test backend/tests/broadcasterDashboardProjection.test.js backend/tests/broadcasterStreamHealth.test.js
+      - name: Validate official Station Console v6 branding and WebDSP-first compact navigation
+        run: node --test ops/check-station-console-sidebar.test.cjs
+      - name: Check Phase 4.1 Backoffice simplicity, schedules and admin authorization
+        run: node ops/check-phase41-backoffice-ux.cjs
+      - name: Validate canonical weekdays, midnight schedule splits and station display
+        run: node ops/check-phase42-schedules.cjs
+      - name: Validate XML feed mapping, overnight image retention and SSRF guard
+        run: node ops/check-phase44-station-xml.cjs
+      - name: Validate station responsive layout, DJ schedule artwork and lock screen
+        run: node ops/check-phase45-station-responsive-dj.cjs
+      - name: Validate iOS-style mobile station layout, live controls and 12-song history
+        run: node ops/check-mobile-station-glass.cjs
+      - name: Verify fluid laptop station hero, rounded RDS logo and VU-free Play
+        run: node ops/check-station-hero-fluid.cjs
+      - name: Verify branded Spotify and Apple Music searches and Premium gate
+        run: node ops/check-music-service-links.cjs
+      - name: Verify all Phase 4.3 Admin screens and responsive design integration
+        run: node ops/check-phase43-admin-ux.cjs
+      - name: Validate independently scoped station ranking and Boost editor
+        run: node ops/check-boost-scoped-ranking.cjs
+      - name: Validate one-minute native song cache, instant Home and safe Spotify links
+        run: node ops/check-phase36-native-cache.cjs
+      - name: Validate one-minute staging background metadata scanner and round-robin
+        run: node ops/check-phase36-native-scan.cjs
+      - name: Validate stage Compose YAML
+        run: |
+          python3 -m pip install --quiet PyYAML
+          python3 - <<'PYCODE'
+          import yaml
+          with open('compose.stage.yml', encoding='utf-8') as f:
+              obj = yaml.safe_load(f)
+          assert set(obj['services']) == {'mongo','mailpit','backend','frontend'}
+          print('Stage services validated')
+          PYCODE

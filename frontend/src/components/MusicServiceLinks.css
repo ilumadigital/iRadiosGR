@@ -1,0 +1,51 @@
+/* Branded outbound music discovery links on all three listener surfaces. */
+.ir-music-service-links{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;
+  gap:10px;max-width:100%;min-width:0;
+}
+.ir-music-service-link{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:44px;padding:9px 15px;max-width:100%;border-radius:999px;
+  border:1px solid transparent;font-size:12px;font-weight:850;
+  line-height:1.15;white-space:nowrap;cursor:pointer;
+  -webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px);
+  transition:transform .18s ease,background .18s ease,box-shadow .18s ease;
+}
+.ir-music-service-link svg{width:19px;height:19px;flex:none}
+.ir-music-service-link--spotify{
+  color:#1ed760;background:rgba(29,185,84,.14);
+  border-color:rgba(29,185,84,.35);
+  box-shadow:inset 0 1px rgba(255,255,255,.07);
+}
+.ir-music-service-link--spotify:hover{
+  background:rgba(29,185,84,.23);box-shadow:0 0 22px rgba(29,185,84,.12);
+}
+.ir-music-service-link--apple{
+  color:#fff;background:linear-gradient(125deg,rgba(255,74,110,.82),rgba(250,36,60,.74));
+  border-color:rgba(255,100,134,.5);
+  box-shadow:inset 0 1px rgba(255,255,255,.17);
+}
+.ir-music-service-link--apple:hover{
+  background:linear-gradient(125deg,#ff527d,#fa243c);
+  box-shadow:0 0 22px rgba(250,36,60,.19);
+}
+.ir-music-service-link:active{transform:scale(.96)}
+.ir-music-service-link:focus-visible{
+  outline:2px solid #caff00;outline-offset:3px;
+}
+.ir-music-service-links--compact{justify-content:center;gap:8px}
+.ir-music-service-links--compact .ir-music-service-link{
+  min-height:40px;padding:8px 12px;font-size:11px;
+}
+.ir-music-service-links--compact .ir-music-service-link svg{width:17px;height:17px}
+.ir-music-links--station-mobile{justify-content:center;margin:11px auto 0}
+.ir-music-links--station-desktop{justify-content:center;width:100%}
+.ir-music-links--desktop-player{margin-top:clamp(.4rem,1.2dvh,.85rem)}
+.ir-music-links--mobile-player{margin:0 auto clamp(.25rem,1.15dvh,.65rem);flex:none}
+@media (max-width:360px){
+  .ir-music-service-links--compact{gap:6px}
+  .ir-music-service-links--compact .ir-music-service-link{padding:7px 10px}
+}
+@media (prefers-reduced-motion:reduce){
+  .ir-music-service-link{transition:none}
+}
