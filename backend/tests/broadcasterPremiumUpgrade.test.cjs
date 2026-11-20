@@ -170,3 +170,14 @@ test('production cancellation never uses staging contract identity',async()=>{
    /verified paid account Premium/);
  });
 });
+
+test('existing legacy addon mandates can be inspected and cancelled without repricing a new checkout',()=>{
+ const {validExistingMitPrice}=require('../services/broadcasterPaymentProtocol');
+ assert.equal(validExistingMitPrice('ADD-DSP',4990),true);
+ assert.equal(validExistingMitPrice('ADD-DSP',2790),true);
+ assert.equal(validExistingMitPrice('B-PREM',11900),true);
+ assert.equal(validExistingMitPrice('ADD-ADS',2990),true);
+ assert.equal(validExistingMitPrice('ADD-AN',790),true);
+ assert.equal(validExistingMitPrice('ADD-DSP',100),false);
+ assert.equal(validExistingMitPrice('BOOST-T-DAY',490),false);
+});
