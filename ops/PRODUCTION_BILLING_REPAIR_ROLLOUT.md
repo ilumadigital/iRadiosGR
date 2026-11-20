@@ -14,8 +14,12 @@
 
 ## What is prepared
 - The tested staging Billing Repair keeps its existing staging-only default.
-- A production-scoped read-only audit uses only the matching production Gateway
-  key/secret and production iRadios MongoDB connection.
+- A **local-only** production inventory works BEFORE billing/cutover activation.
+  It requires operator confirmation but needs no Gateway credentials or Nexi
+  calls. It only issues Mongo collection FIND reads; no indexes or writes.
+- A separate signed-Gateway read-only reconciliation audit requires the matching
+  production Gateway key/secret, active production billing/cutover approval and
+  the explicitly correct iRadios production MongoDB connection.
 - A production-scoped `--apply` is impossible unless BOTH:
   `IRADIOS_PRODUCTION_CUTOVER_APPROVED=1` **and**
   `IRADIOS_PRODUCTION_BILLING_REPAIR_ENABLED=1` are set, and a human adds
