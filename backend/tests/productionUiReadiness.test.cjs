@@ -18,6 +18,9 @@ test('Admin billing uses common history endpoint and environment-aware labels',(
  assert.doesNotMatch(src,/\/admin\/billing\/sandbox-orders\?/);
  assert.doesNotMatch(src,/Δεν υπάρχουν δοκιμαστικές συναλλαγές με αυτά τα φίλτρα/);
  assert.match(src,/gatewayEnv==='production'/);
+ const route=fs.readFileSync(path.join(__dirname,'../routes/billingCheckoutRoutes.js'),'utf8');
+ assert.match(route,/router\.use\('\/admin\/billing\/orders',stageBillingOnly\)/);
+ assert.match(route,/router\.get\('\/admin\/billing\/orders',protect,authorizeRoles\('admin'\),controller\.listAdminOrders\)/);
 });
 
 test('Advertising Wizard uses checkoutReady with legacy alias only for compatibility',()=>{
