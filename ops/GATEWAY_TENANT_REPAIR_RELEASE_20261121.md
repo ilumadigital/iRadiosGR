@@ -49,6 +49,11 @@ sudo bash ops/check-gateway-webhook-alignment.sh staging
 sudo docker exec iluma_gateway-php-1 php bin/check-webhook-signing.php staging
 sudo docker exec iradios_stage-backend-1 node scripts/checkGatewayWebhookKey.cjs
 
+# Unlike the ENV syntax preflights, these report if payment checkout is active.
+sudo docker exec iradios_stage-backend-1 node scripts/checkGatewayBillingReady.cjs
+# Run only after approved production deploy:
+sudo docker exec iradios_prod-backend-1 node scripts/checkGatewayBillingReady.cjs
+
 # Source parity. These scripts STOP on missing/stale runtime artifacts.
 cd /srv/iluma-gateway/app
 sudo bash deploy/vps/check-source-match.sh
