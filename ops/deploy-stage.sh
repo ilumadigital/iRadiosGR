@@ -40,6 +40,8 @@ fi
 docker compose --env-file "$ENV" "${compose_files[@]}" build "${build_args[@]}"
 docker compose --env-file "$ENV" "${compose_files[@]}" up -d --remove-orphans
 docker compose --env-file "$ENV" "${compose_files[@]}" ps
+# Verify billing code in the actual running stage image, not only Git or build cache.
+bash ops/check-backend-source-image.sh staging
 for i in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:5511/api/health >/dev/null && curl -fsS http://127.0.0.1:5510/ >/dev/null; then
     # A green build is not enough if public sign-in has no Turnstile site key.
