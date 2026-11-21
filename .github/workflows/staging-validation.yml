@@ -38,7 +38,7 @@ jobs:
       - name: Verify signed webhook user references cannot select another tenant
         run: |
           node --check backend/scripts/checkGatewayWebhookKey.cjs
-          node --test backend/tests/gatewayCustomerIdentity.test.cjs
+          node --test backend/tests/gatewayCustomerIdentity.test.cjs backend/tests/gatewayEnvironment.test.js
       - name: Check known live references and .env files
         run: bash ops/check-stage-source.sh
       - name: Test SEO 2.0 truthful metadata, schema, date and privacy contracts
