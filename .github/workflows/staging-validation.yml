@@ -39,7 +39,7 @@ jobs:
         run: |
           node --check backend/scripts/checkGatewayWebhookKey.cjs
           node --check backend/scripts/checkGatewayBillingReady.cjs
-          node --test backend/tests/gatewayCustomerIdentity.test.cjs backend/tests/gatewayEnvironment.test.js
+          node --test backend/tests/gatewayCustomerIdentity.test.cjs backend/tests/gatewayEnvironment.test.js backend/tests/gatewayBillingReady.test.cjs
       - name: Check known live references and .env files
         run: bash ops/check-stage-source.sh
       - name: Test SEO 2.0 truthful metadata, schema, date and privacy contracts
