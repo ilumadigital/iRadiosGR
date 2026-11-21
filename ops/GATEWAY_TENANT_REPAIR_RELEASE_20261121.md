@@ -65,6 +65,15 @@ sudo docker exec iluma_gateway-php-1 php bin/vps-ledger-audit.php
 
 If the Sandbox HMAC proofs differ, fix **only** the staging credential mapping/rotation using the approved administration workflow. If they match but HTTP 401 persists, audit the actual backend raw-body/HMAC middleware path and clock skew before changing any key.
 
+### After HMAC alignment — retry ONLY staging webhooks
+```bash
+# First inspect; no database writes or outgoing HTTP.
+sudo docker exec iluma_gateway-php-1 php bin/retry-staging-webhooks.php --dry-run
+# Only after the staging HMAC check passes and staging UAT is authorized:
+sudo docker exec iluma_gateway-php-1 php bin/retry-staging-webhooks.php --apply-after-stage-hmac-pass
+```
+The second command only re-arms **existing staging pending events** and sends their existing signed webhooks. It cannot address production events, call Nexi, issue refunds or invoke MIT charges. A webhook may still fail if the receiver returns non-2xx: inspect the outbox report and fix correlation without inventing a paid entitlement.
+
 The three historical production events are deliberately **not** auto-forwarded to play. First inspect event types, provider capture/refund evidence and paid rights correlation; then apply an explicitly approved reconciliation plan. Do not turn on `IRADIOS_LEGACY_STAGE_TO_PLAY_ENABLED=1` as an unverified shortcut.
 
 ## The three deploy commands (execute only at their approval stages)
