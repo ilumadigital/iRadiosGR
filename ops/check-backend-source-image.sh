@@ -27,6 +27,7 @@ files=(
   controllers/gatewayBillingController.js
   controllers/broadcasterBillingController.js
   scripts/checkGatewayWebhookKey.cjs
+  scripts/checkGatewayBillingReady.cjs
 )
 for file in "${files[@]}"; do
   git -c safe.directory="$PWD" cat-file -e "HEAD:backend/$file" || {
