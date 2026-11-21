@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const gatewayEnvironment=require('./gatewayEnvironment');
+const gatewayCustomerIdentity=require('./gatewayCustomerIdentity');
 const PAYMENT_ID=/^[a-f0-9]{32}$/;
 const ORDER_ID=/^IL[A-F0-9]{24}$/;
 const EVENT_ID=/^[a-f0-9]{32}$/;
@@ -88,7 +89,7 @@ function validatePaymentEvent(body,eventId,now=new Date()){
  if(body.billing_origin!==undefined){
   if(body.amount_cents!==399||
      body.billing_origin!=='automatic_renewal'||
-     !/^iradios-stage-[a-f0-9]{24}$/.test(body.external_user_id||'')||
+     !gatewayCustomerIdentity.isAllowedExternal(body.external_user_id)||
      !Number.isFinite(Date.parse(body.cycle_due_at)))return false;
  }
  // Internal Gateway customer ID is not the iRadios account ID.
