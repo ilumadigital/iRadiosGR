@@ -404,7 +404,7 @@ async function webhook(req,res){
  // local BillingOrder. It may ONLY be created from a verified, signed
  // Gateway MIT payment event with an account-scoped external reference.
  if(event.billing_origin==='automatic_renewal'){
-  const id=event.external_user_id.slice('iradios-stage-'.length);
+  const id=require('../services/gatewayCustomerIdentity').accountIdFromExternal(event.external_user_id);
   const user=await User.findById(id).select('_id role isVerified').lean();
   if(!user||user.role!=='user'||user.isVerified!==true)
    return res.status(422).json({error:'MIT account does not exist'});
