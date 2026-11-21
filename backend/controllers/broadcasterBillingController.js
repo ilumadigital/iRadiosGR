@@ -350,7 +350,7 @@ async function handleVerifiedEvent(event,res){
  const onRenewal=event.billing_origin==='automatic_renewal';
  const now=new Date();
  if(onRenewal){
-  const userId=event.external_user_id.slice('iradios-stage-'.length);
+  const userId=require('../services/gatewayCustomerIdentity').accountIdFromExternal(event.external_user_id);
   const user=await User.findById(userId).select('_id role isVerified').lean();
   if(!user||user.role!=='broadcaster')
    return res.status(422).json({error:'Broadcaster account missing'});
