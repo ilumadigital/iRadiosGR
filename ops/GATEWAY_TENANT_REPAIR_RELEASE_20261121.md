@@ -41,7 +41,11 @@ Keep `APP_ENV=production`, `PRODUCTION_ENABLED=1`, the 3 separate MySQL DSN/user
 
 ## Read-only diagnostics (run after reviewed containers rebuilt)
 ```bash
-# Compare these outputs: exact same 24-hex proof means same signing secret.
+# One-command comparison, without printing secrets or fingerprints.
+cd /srv/iradios/staging/app
+sudo bash ops/check-gateway-webhook-alignment.sh staging
+
+# Or inspect the two 24-hex proofs independently, if troubleshooting:
 sudo docker exec iluma_gateway-php-1 php bin/check-webhook-signing.php staging
 sudo docker exec iradios_stage-backend-1 node scripts/checkGatewayWebhookKey.cjs
 
