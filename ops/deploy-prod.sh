@@ -33,6 +33,8 @@ compose=(docker compose --env-file "$ENV" -f compose.prod.yml -f compose.prod.re
 "${compose[@]}" config --quiet
 "${compose[@]}" build backend frontend
 "${compose[@]}" up -d --no-build --pull never mongo backend frontend
+# Production release must contain the exact billing source promoted from staging.
+bash ops/check-backend-source-image.sh production
 curl --fail --silent --show-error --max-time 10 http://127.0.0.1:5611/api/health
 curl --fail --silent --show-error --max-time 10 http://127.0.0.1:5610/ >/dev/null
 echo

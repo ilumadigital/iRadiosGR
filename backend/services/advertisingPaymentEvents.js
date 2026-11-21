@@ -11,12 +11,12 @@ const {budgetCentsToNanos}=require('./advertisingCpmMath');
 const {ensureAdvertisingFinancialIndexes}=require('./advertisingFinancialIndexes');
 const PAYMENT=/^[a-f0-9]{32}$/;
 const ORDER=/^IL[A-F0-9]{24}$/;
-const USER=/^iradios-stage-[a-f0-9]{24}$/;
+const {accountIdFromExternal}=require('./gatewayCustomerIdentity');
 function validAdvertisingEvent(e,headerEventId,now=new Date()){
  if(!e||typeof e!=='object'||Array.isArray(e))return false;
  if(e.event_id!==headerEventId||!PAYMENT.test(e.event_id||'')||
     !PAYMENT.test(e.payment_id||'')||!ORDER.test(e.order_id||'')||
-    !USER.test(e.external_user_id||''))return false;
+    !accountIdFromExternal(e.external_user_id))return false;
  if(e.product_sku!=='ADV-BUDGET'||e.environment!==gatewayEnvironment.mode()||
     !['payment.paid','payment.failed','payment.canceled'].includes(e.event_type)||
     !Number.isSafeInteger(e.amount_cents)||e.amount_cents<100||
@@ -30,7 +30,7 @@ function validAdvertisingEvent(e,headerEventId,now=new Date()){
 }
 async function handleVerifiedAdvertisingEvent(event,res){
  await ensureAdvertisingFinancialIndexes();
- const accountId=event.external_user_id.slice('iradios-stage-'.length);
+ const accountId=accountIdFromExternal(event.external_user_id);
  const intent=await Intent.findOne({
    agencyId:accountId,campaignId:event.campaign_id,quoteId:event.quote_id,
    gatewayPaymentId:event.payment_id,gatewayOrderId:event.order_id,
