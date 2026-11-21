@@ -1,5 +1,6 @@
 'use strict';
 const gatewayEnvironment=require('./gatewayEnvironment');
+const gatewayCustomerIdentity=require('./gatewayCustomerIdentity');
 const {getProduct}=require('../config/billingCatalog');
 const {BILLING_SKUS,isSubscription,validatedAnchoredCycle}=require('./broadcasterPurchaseRules');
 const {hostedCheckoutUrl}=require('./gatewayBillingProtocol');
@@ -43,7 +44,7 @@ function broadcasterEventValid(event,eventId,now=new Date()){
  }else if(typeof event.resource_id!=='string'||!HEX24.test(event.resource_id))return false;
  if(event.billing_origin!==undefined){
   if(event.billing_origin!=='automatic_renewal'||!isSubscription(event.product_sku)||
-   !/^iradios-stage-[a-f0-9]{24}$/.test(event.external_user_id||''))
+   !gatewayCustomerIdentity.isAllowedExternal(event.external_user_id))
     return false;
   try{validatedAnchoredCycle(event,now);}catch{return false;}
  }
